@@ -1,0 +1,373 @@
+.export-data-container {
+    max-width: 800px;
+}
+
+.export-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+
+    h2 {
+        margin: 0 0 8px 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+}
+
+.export-header-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.export-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Preset Bar
+// ---------------------------------------------------------------------------
+
+.preset-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.preset-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.preset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+    background: #fff;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover {
+        border-color: #0d6efd;
+        color: #0d6efd;
+        background: #f0f6ff;
+    }
+
+    i {
+        font-size: 0.8rem;
+    }
+}
+
+.selection-summary {
+    font-size: 0.85rem;
+    color: #6c757d;
+    white-space: nowrap;
+}
+
+// ---------------------------------------------------------------------------
+// Collection Groups
+// ---------------------------------------------------------------------------
+
+.group-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.collection-group {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s;
+
+    &:hover {
+        background: #e9ecef;
+    }
+}
+
+.group-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.chevron-icon {
+    font-size: 0.75rem;
+    color: #6c757d;
+    width: 12px;
+    text-align: center;
+}
+
+.group-icon {
+    font-size: 1rem;
+    color: #495057;
+}
+
+.group-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #212529;
+}
+
+.group-body {
+    border-top: 1px solid #dee2e6;
+}
+
+// ---------------------------------------------------------------------------
+// Static Collections
+// ---------------------------------------------------------------------------
+
+.collection-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    padding-left: 48px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.15s;
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    &:hover {
+        background-color: #f8f9fa;
+    }
+
+    &.selected {
+        background-color: #e7f3ff;
+    }
+
+    &.subcollection {
+        padding-left: 72px;
+        background-color: #fafafa;
+
+        &.selected {
+            background-color: #dceeff;
+        }
+    }
+}
+
+.collection-info {
+    display: flex;
+    flex-direction: column;
+    margin-left: 4px;
+}
+
+.collection-name {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.collection-path {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-family: monospace;
+}
+
+.collection-count {
+    font-size: 0.85rem;
+    color: #6c757d;
+    white-space: nowrap;
+}
+
+.auto-tag {
+    font-size: 0.7rem;
+    background: #e9ecef;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sub-indent {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sub-icon {
+    color: #adb5bd;
+    font-size: 0.75rem;
+}
+
+.loading-dots {
+    color: #adb5bd;
+}
+
+// ---------------------------------------------------------------------------
+// Content Type Bundles
+// ---------------------------------------------------------------------------
+
+.bundle-row {
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.15s;
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    &.selected {
+        background-color: #e7f3ff;
+    }
+}
+
+.bundle-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    padding-left: 48px;
+}
+
+.bundle-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 4px;
+}
+
+.bundle-icon {
+    font-size: 1rem;
+    color: #495057;
+}
+
+.bundle-name {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.bundle-badge {
+    font-size: 0.7rem;
+    background: #e0e7ff;
+    color: #3b5998;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.bundle-refs {
+    font-size: 0.7rem;
+    color: #6c757d;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    i { font-size: 0.65rem; }
+}
+
+.bundle-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.expand-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #6c757d;
+    cursor: pointer;
+    font-size: 0.75rem;
+
+    &:hover {
+        background: #e9ecef;
+        color: #212529;
+    }
+}
+
+.bundle-details {
+    background: #fafafa;
+    border-top: 1px solid #f0f0f0;
+}
+
+.bundle-sub-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    padding-left: 72px;
+    border-bottom: 1px solid #f0f0f0;
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Progress, Complete, Error
+// ---------------------------------------------------------------------------
+
+.export-progress {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.progress-text {
+    margin: 8px 0 0 0;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.export-complete {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #d4edda;
+    color: #155724;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+
+    i {
+        font-size: 1.1rem;
+    }
+}
+
+.export-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #f8d7da;
+    color: #721c24;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+
+    i {
+        font-size: 1.1rem;
+    }
+}
+

@@ -1,0 +1,49 @@
+<div class="d-flex justify-content-between align-items-center top-bar">
+    <h5 class="mb-0">Waitlists</h5>
+</div>
+<!-- Waitlists Admin Page Template -->
+<div class="page-container">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1>Waitlists</h1>
+            <p class="subtitle">Manage your waitlists, users, and email templates</p>
+        </div>
+        <button class="btn btn-primary" (click)="openAddDrawer()">
+            <i class="fas fa-plus"></i> Add Waitlist
+        </button>
+    </div>
+
+    <!-- Email Not Configured Warning Banner -->
+    @if (emailConfigService.shouldShowBanner()) {
+    <div class="alert alert-warning d-flex align-items-center justify-content-between mb-4" role="alert">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span><strong>Email not configured.</strong> Waitlist OTP verification and emails are currently
+                disabled.</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a routerLink="/admin/settings/email" class="btn btn-warning btn-sm">
+                <i class="bi bi-gear me-1"></i> Configure Email
+            </a>
+            <button type="button" class="btn-close" aria-label="Dismiss"
+                (click)="emailConfigService.dismissBanner()"></button>
+        </div>
+    </div>
+    }
+
+    <app-global-table [data]="waitlists()" [columns]="tableColumns" [loading]="loading()" emptyTitle="No Waitlists Yet"
+        emptyDescription="Create your first waitlist to start collecting signups." emptyActionLabel="Create Waitlist"
+        (emptyActionClick)="openAddDrawer()">
+    </app-global-table>
+
+</div>
+
+<!-- Shared Add/Edit Drawer -->
+<arc-waitlist-edit-drawer
+    [isOpen]="isDrawerOpen()"
+    [action]="currentAction()"
+    [waitlist]="currentWaitlist()"
+    (saved)="onDrawerSaved($event)"
+    (closed)="closeDrawer()">
+</arc-waitlist-edit-drawer>

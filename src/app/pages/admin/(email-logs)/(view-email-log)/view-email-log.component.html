@@ -1,0 +1,207 @@
+@if(log(); as emailLog) {
+<div class="view-email-log">
+    <!-- Header -->
+    <div class="header d-flex justify-content-between align-items-start">
+        <div>
+            <h5 class="mb-1">Email Detail</h5>
+            <p class="text-muted mb-0 small">{{ emailLog.toName }} &lt;{{ emailLog.toEmail }}&gt;</p>
+        </div>
+        <button mat-icon-button (click)="closeDrawer()">
+            <mat-icon>close</mat-icon>
+        </button>
+    </div>
+
+    <!-- Status Badge -->
+    <div class="status-row mb-3">
+        <span class="status-badge" [ngClass]="getStatusClass(emailLog.status)">
+            {{ getStatusLabel(emailLog.status) }}
+        </span>
+        <span class="type-label ms-2">{{ formatType(emailLog.type) }}</span>
+    </div>
+
+    <!-- Delivery Timeline -->
+    <div class="section">
+        <h6 class="section-title">Delivery Timeline</h6>
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-dot dot-created"></div>
+                <div class="timeline-content">
+                    <strong>Created</strong>
+                    <span class="text-muted ms-2">{{ formatDate(emailLog.createdAt) }}</span>
+                </div>
+            </div>
+
+            @if(emailLog.sendingTime) {
+            <div class="timeline-item">
+                <div class="timeline-dot dot-sent"></div>
+                <div class="timeline-content">
+                    <strong>Sent</strong>
+                    <span class="text-muted ms-2">{{ formatDate(emailLog.sendingTime) }}</span>
+                    @if(emailLog.activeProvider) {
+                    <span class="provider-chip ms-2">{{ emailLog.activeProvider | uppercase }}</span>
+                    }
+                </div>
+            </div>
+            }
+
+            @if(emailLog.status === 'delivered') {
+            <div class="timeline-item">
+                <div class="timeline-dot dot-delivered"></div>
+                <div class="timeline-content">
+                    <strong>Delivered</strong>
+                    <span class="text-muted ms-2">{{ formatDate(emailLog.lastWebhookAt) }}</span>
+                </div>
+            </div>
+            }
+
+            @if(emailLog.status === 'bounced') {
+            <div class="timeline-item">
+                <div class="timeline-dot dot-failed"></div>
+                <div class="timeline-content">
+                    <strong>Bounced</strong>
+                    <span class="text-muted ms-2">{{ formatDate(emailLog.lastWebhookAt) }}</span>
+                    @if(emailLog.isHardBounce) {
+                    <span class="badge bg-danger ms-2">Hard Bounce</span>
+                    }
+                </div>
+            </div>
+            }
+
+            @if(emailLog.status === 'failed') {
+            <div class="timeline-item">
+                <div class="timeline-dot dot-failed"></div>
+                <div class="timeline-content">
+                    <strong>Failed</strong>
+                    <span class="text-muted ms-2">{{ formatDate(emailLog.sendingTime) }}</span>
+                </div>
+            </div>
+            }
+
+            @if(emailLog.isOpened) {
+            <div class="timeline-item">
+                <div class="timeline-dot dot-opened"></div>
+                <div class="timeline-content">
+                    <strong>Opened</strong>
+                    <span class="text-muted ms-2">{{ formatDate(emailLog.openedAt) }}</span>
+                    @if(emailLog.ipAddress) {
+                    <span class="text-muted small ms-2">IP: {{ emailLog.ipAddress }}</span>
+                    }
+                </div>
+            </div>
+            }
+        </div>
+    </div>
+
+    <!-- Email Content Preview -->
+    <div class="section">
+        <h6 class="section-title">Email Content</h6>
+        <div class="subject-line mb-2">
+            <strong>Subject:</strong>
+            {{ emailLog.processedSubject || emailLog.subject || '(no subject)' }}
+        </div>
+        @if(!emailLog.processedTemplate && emailLog.template) {
+        <div class="alert alert-info small mb-2">
+            Showing raw template (processed version not available for older logs)
+        </div>
+        }
+        <div class="email-preview" [innerHTML]="processedHtml()"></div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="section">
+        <h6 class="section-title">Metadata</h6>
+        <div class="metadata-grid">
+            <div class="meta-item">
+                <span class="meta-label">Provider</span>
+                <span class="meta-value">{{ (emailLog.activeProvider || '-') | uppercase }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Message ID</span>
+                <span class="meta-value text-break">{{ emailLog.messageId || '-' }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Sender</span>
+                <span class="meta-value">{{ emailLog.senderName }} &lt;{{ emailLog.senderEmail }}&gt;</span>
+            </div>
+            @if(emailLog.bcc) {
+            <div class="meta-item">
+                <span class="meta-label">BCC</span>
+                <span class="meta-value">{{ emailLog.bcc }}</span>
+            </div>
+            }
+            @if(emailLog.broadcastId) {
+            <div class="meta-item">
+                <span class="meta-label">Broadcast ID</span>
+                <span class="meta-value text-break">{{ emailLog.broadcastId }}</span>
+            </div>
+            }
+        </div>
+    </div>
+
+    <!-- Error Details -->
+    @if(emailLog.errorMessage) {
+    <div class="section">
+        <h6 class="section-title text-danger">Error Details</h6>
+        <div class="error-box">
+            {{ emailLog.errorMessage }}
+        </div>
+    </div>
+    }
+
+    <!-- Bounce/Complaint Details -->
+    @if(emailLog.bounceDetails) {
+    <div class="section">
+        <h6 class="section-title">Bounce Details</h6>
+        <pre class="details-pre">{{ emailLog.bounceDetails | json }}</pre>
+    </div>
+    }
+
+    @if(emailLog.complaintDetails) {
+    <div class="section">
+        <h6 class="section-title">Complaint Details</h6>
+        <pre class="details-pre">{{ emailLog.complaintDetails | json }}</pre>
+    </div>
+    }
+
+    <!-- Template Tags (collapsible) -->
+    <div class="section">
+        <h6 class="section-title clickable" (click)="toggleTags()">
+            Template Tags
+            <mat-icon class="toggle-icon">{{ showTags() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </h6>
+        @if(showTags()) {
+        <div class="tags-section">
+            @if(emailLog.usedTags?.length) {
+            <div class="mb-2">
+                <strong class="small">Used Tags:</strong>
+                <div class="tag-chips">
+                    @for(tag of emailLog.usedTags; track tag) {
+                    <span class="tag-chip">##{{ tag }}##</span>
+                    }
+                </div>
+            </div>
+            }
+            @if(emailLog.unmappedTags?.length) {
+            <div>
+                <strong class="small text-warning">Unmapped Tags:</strong>
+                <div class="tag-chips">
+                    @for(tag of emailLog.unmappedTags; track tag) {
+                    <span class="tag-chip unmapped">##{{ tag }}##</span>
+                    }
+                </div>
+            </div>
+            }
+            @if(!emailLog.usedTags?.length && !emailLog.unmappedTags?.length) {
+            <p class="text-muted small mb-0">No tag data available</p>
+            }
+        </div>
+        }
+    </div>
+</div>
+} @else {
+<div class="d-flex justify-content-center align-items-center" style="height: 200px;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+}

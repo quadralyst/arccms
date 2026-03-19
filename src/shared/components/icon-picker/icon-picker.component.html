@@ -1,0 +1,20 @@
+<div class="icon-picker">
+    <div class="icon-input-wrapper">
+        <i [class]="selectedIconClass()" class="selected-icon-preview"></i>
+        <input type="text" [placeholder]="placeholder" class="form-control" (input)="onIconInputChange($event)"
+            (focus)="onInputFocus()" (blur)="onInputBlur()" [value]="iconSearchTerm()" />
+    </div>
+    @if(showIconDropdown()) {
+    <div class="icon-dropdown">
+        @for(icon of filteredIcons(); track icon.class) {
+        <div class="icon-option" (click)="selectIcon(icon.class)">
+            <i [class]="icon.class"></i>
+            <span class="icon-name">{{ icon.name }}</span>
+        </div>
+        }
+        @if(!filteredIcons().length) {
+        <div class="no-results">No icons found</div>
+        }
+    </div>
+    }
+</div>

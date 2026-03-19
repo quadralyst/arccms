@@ -1,0 +1,429 @@
+/**
+ * Broadcast Email Editor Styles
+ */
+
+.broadcast-editor-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 600px;
+    background: #fff;
+    border-radius: 8px;
+    overflow: visible; // Allow content like dropdowns/menus to potentially overflow
+}
+
+// Header
+.editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #3c76f5 0%, #1d47a3 100%);
+    color: #fff;
+
+    h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+
+        i {
+            margin-right: 10px;
+        }
+    }
+
+    .btn-close-editor {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: #fff;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: background 0.2s;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    }
+}
+
+// Content
+.editor-content {
+    display: flex;
+    flex: 1;
+    overflow: visible; // Prevent clipping of columns or footer
+}
+
+// Form Column
+.form-column {
+    width: 400px;
+    min-width: 400px;
+    border-right: 1px solid #e0e0e0;
+    overflow-y: auto;
+
+    .tab-content {
+        padding: 16px;
+    }
+}
+
+.form-group {
+    margin-bottom: 16px;
+
+    label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: #333;
+        font-size: 0.875rem;
+
+        .required {
+            color: #dc3545;
+        }
+    }
+
+    .form-control,
+    .form-select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
+
+        &:focus {
+            outline: none;
+            border-color: #3c76f5;
+            box-shadow: 0 0 0 3px rgba(60, 118, 245, 0.15);
+        }
+
+        &.is-invalid {
+            border-color: #dc3545;
+        }
+
+        &.is-valid {
+            border-color: #28a745;
+        }
+    }
+
+    textarea.form-control {
+        resize: vertical;
+    }
+
+    .invalid-feedback {
+        display: none;
+        color: #dc3545;
+        font-size: 0.75rem;
+        margin-top: 4px;
+    }
+
+    .is-invalid~.invalid-feedback,
+    .is-invalid+.invalid-feedback {
+        display: block;
+    }
+
+    .helper-text {
+        display: block;
+        color: #666;
+        font-size: 0.75rem;
+        margin-top: 4px;
+    }
+
+    .error-text {
+        color: #dc3545;
+        font-size: 0.75rem;
+        margin-top: 4px;
+    }
+
+    .selected-count {
+        text-align: right;
+        color: #3c76f5;
+        font-size: 0.875rem;
+        margin-top: 8px;
+
+        .error {
+            color: #dc3545;
+        }
+    }
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+
+    .btn {
+        flex: 1;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+
+        i {
+            margin-right: 6px;
+        }
+
+        &.btn-primary {
+            background: linear-gradient(135deg, #3c76f5 0%, #1d47a3 100%);
+            border: none;
+            color: #fff;
+
+            &:hover:not(:disabled) {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(60, 118, 245, 0.35);
+            }
+
+            &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+        }
+
+        &.btn-secondary {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            color: #333;
+
+            &:hover {
+                background: #eee;
+            }
+        }
+    }
+}
+
+// Recipients Tab
+.recipients-tab {
+    .users-list {
+        max-height: 350px;
+        overflow-y: auto;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+    }
+
+    .user-option {
+        display: flex;
+        flex-direction: column;
+
+        .user-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .user-email {
+            font-size: 0.75rem;
+            color: #666;
+        }
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #666;
+
+        i {
+            font-size: 48px;
+            opacity: 0.3;
+            margin-bottom: 16px;
+        }
+
+        p {
+            margin: 0;
+        }
+    }
+}
+
+// Editor Column
+.editor-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    overflow: hidden;
+
+    h3 {
+        margin: 0 0 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #333;
+    }
+}
+
+// Nav Tabs
+.nav-tabs {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px;
+    border-bottom: 1px solid #e0e0e0;
+
+    .nav-item {
+        margin-right: 4px;
+    }
+
+    .nav-link {
+        display: block;
+        padding: 8px 16px;
+        color: #666;
+        text-decoration: none;
+        border: 1px solid transparent;
+        border-bottom: none;
+        border-radius: 6px 6px 0 0;
+        cursor: pointer;
+        transition: all 0.2s;
+
+        i {
+            margin-right: 6px;
+        }
+
+        &:hover {
+            background: #f5f5f5;
+        }
+
+        &.active {
+            background: #fff;
+            color: #3c76f5;
+            border-color: #e0e0e0;
+            margin-bottom: -1px;
+        }
+    }
+}
+
+// Placeholders
+.placeholders {
+    margin-bottom: 12px;
+
+    label {
+        display: block;
+        font-size: 0.75rem;
+        color: #666;
+        margin-bottom: 6px;
+    }
+
+    mat-chip-set {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    mat-chip {
+        cursor: pointer;
+        font-size: 0.75rem;
+        background: #f0f0f0;
+        transition: all 0.2s;
+
+        &:hover {
+            background: #3c76f5;
+            color: #fff;
+        }
+    }
+}
+
+// Tab Content (Editor)
+.tab-content {
+    flex: 1;
+    overflow: hidden;
+}
+
+.visual-editor {
+    height: 100%;
+    min-height: 300px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.html-editor {
+    h5 {
+        margin: 0 0 8px;
+        font-size: 0.875rem;
+        color: #333;
+    }
+
+    mat-form-field {
+        width: 100%;
+    }
+
+    .html-textarea {
+        font-family: 'Monaco', 'Consolas', monospace;
+        font-size: 0.8rem;
+        line-height: 1.5;
+    }
+}
+
+// Footer
+.editor-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 24px;
+    border-top: 1px solid #e0e0e0;
+    background: #f9f9f9;
+
+    .btn {
+        padding: 8px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+
+        &.btn-light {
+            background: #fff;
+            border: 1px solid #ddd;
+            color: #333;
+
+            &:hover {
+                background: #f5f5f5;
+            }
+        }
+    }
+}
+
+// Alert
+.alert {
+    padding: 12px;
+    border-radius: 6px;
+    margin-top: 12px;
+
+    &.alert-danger {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+
+        li {
+            list-style: none;
+            font-size: 0.875rem;
+        }
+    }
+}
+
+// Responsive
+@media (max-width: 900px) {
+    .editor-content {
+        flex-direction: column;
+    }
+
+    .form-column {
+        width: 100%;
+        min-width: auto;
+        max-height: 50%;
+        border-right: none;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .editor-column {
+        max-height: 50%;
+    }
+}
+
+// Z-Index fixes for TipTap editor popups are now handled globally in styles.css
+// to ensure they appear above all overlays and modals.
+
+// Ensure editor column has proper stacking context
+.editor-column {
+    position: relative;
+    z-index: 1;
+}
+
+// Visual editor needs to establish stacking context
+.visual-editor {
+    position: relative;
+    z-index: auto;
+}

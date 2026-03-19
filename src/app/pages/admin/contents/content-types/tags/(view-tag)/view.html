@@ -1,0 +1,64 @@
+<div class="drawer-content">
+    <div class="drawer-header">
+        <h5>View Tag</h5>
+        <button mat-icon-button (click)="onClose()">
+            <mat-icon>close</mat-icon>
+        </button>
+    </div>
+
+    @if(isLoading()) {
+    <div class="drawer-body text-center py-5">
+        <span class="spinner-border"></span>
+        <p class="mt-2">Loading tag...</p>
+    </div>
+    } @else if(errorMessage()) {
+    <div class="drawer-body">
+        <div class="alert alert-danger">{{ errorMessage() }}</div>
+    </div>
+    } @else if(currentTag()) {
+    <div class="drawer-body">
+        <!-- Tag Preview -->
+        <div class="tag-preview-large mb-4">
+            <span class="tag-badge-large" [style.background-color]="currentTag()?.color">
+                {{ currentTag()?.label }}
+            </span>
+        </div>
+
+        <!-- Details -->
+        <div class="detail-section">
+            <div class="detail-row">
+                <div class="detail-label">Label</div>
+                <div class="detail-value">{{ currentTag()?.label }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Color</div>
+                <div class="detail-value d-flex align-items-center gap-2">
+                    <span class="color-swatch" [style.background-color]="currentTag()?.color">
+                    </span>
+                    {{ currentTag()?.color }}
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Usage Count</div>
+                <div class="detail-value">
+                    <span class="badge bg-secondary">{{ currentTag()?.usageCount || 0 }} content(s)</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Created</div>
+                <div class="detail-value">{{ formatDate(currentTag()?.createdAt) }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Last Modified</div>
+                <div class="detail-value">{{ formatDate(currentTag()?.modifiedAt) }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="drawer-footer">
+        <button class="btn btn-outline-secondary" (click)="onClose()">
+            Close
+        </button>
+    </div>
+    }
+</div>

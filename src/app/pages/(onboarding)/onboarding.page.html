@@ -1,0 +1,901 @@
+<div class="arc-onboarding">
+  <div class="container-fluid p-0">
+    <div class="row g-0">
+      <!-- Left Panel — Informative gradient panel -->
+      <div class="col-md-6 d-none d-md-block m-0 p-0">
+        <div class="auth-container">
+          <div class="auth-left">
+            <div class="auth-left-content">
+              @if (currentStep() <= 2) {
+              <h1 class="auth-left-title">Welcome to Arc CMS</h1>
+              <p class="auth-left-description">
+                Let's get your platform set up. You're creating the first admin
+                account — the person who will have full control of the CMS.
+              </p>
+              <ul class="auth-left-features">
+                <li>Manage content types and entries</li>
+                <li>Configure site settings and email</li>
+                <li>Manage waitlist users</li>
+                <li>Monitor analytics and waitlists</li>
+              </ul>
+              } @else if (currentStep() === 3) {
+              <h1 class="auth-left-title">About Your Site</h1>
+              <p class="auth-left-description">
+                Tell us a bit about your site. This information is used in
+                emails, SEO metadata, and page headers.
+              </p>
+              <ul class="auth-left-features">
+                <li>Used in email footers and headers</li>
+                <li>Final URL used in emails and SEO</li>
+                <li>Configurable anytime from Settings</li>
+              </ul>
+              } @else if (currentStep() === 4) {
+              <h1 class="auth-left-title">Email Configuration</h1>
+              <p class="auth-left-description">
+                Configure email sending so your waitlist and notifications work
+                out of the box.
+              </p>
+              <ul class="auth-left-features">
+                <li>Send OTP and welcome emails</li>
+                <li>Broadcast to waitlist subscribers</li>
+                <li>Multiple providers supported</li>
+              </ul>
+              } @else if (currentStep() === 5) {
+              <h1 class="auth-left-title">You're All Set!</h1>
+              <p class="auth-left-description">
+                Congratulations! Your CMS is configured and ready to go. Head
+                to the dashboard to start managing your content.
+              </p>
+              <ul class="auth-left-features">
+                <li>Explore the admin dashboard</li>
+                <li>Create and publish content</li>
+                <li>Customize settings anytime</li>
+              </ul>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel — Wizard forms -->
+      <div class="col-md-6 wizard-right-panel">
+        <!-- Progress bar -->
+        <div class="onboarding-progress">
+          <div
+            class="onboarding-progress-bar"
+            [style.width.%]="progressPercent"
+          ></div>
+        </div>
+
+        @if (currentStep() <= 2) {
+        <form class="wizard-form-wrapper" [formGroup]="onboardingForm" (ngSubmit)="register()">
+          <div class="request-container">
+            <div class="card request-card border-0">
+              <div class="card-body customPadding">
+                <!-- ─── STEP 1: Name & Email ─── -->
+                @if (currentStep() === 1) {
+                <div class="wizard-step-indicator">
+                  Step 1 of {{ totalSteps }}
+                </div>
+                <h2 class="auth-title">Create Admin Account</h2>
+                <p class="auth-subtitle">Tell us who you are</p>
+
+                <!-- Name -->
+                <div class="mb-3 mt-4">
+                  <label for="name" class="form-label">Full Name</label>
+                  <div class="input-group">
+                    <span class="input-group-text"
+                      ><i class="fas fa-user"></i
+                    ></span>
+                    <input
+                      type="text"
+                      formControlName="name"
+                      class="form-control"
+                      id="name"
+                      placeholder="Your full name"
+                      [class.is-invalid]="isFieldInvalid('name')"
+                      [readOnly]="isLoading()"
+                    />
+                  </div>
+                  @if (isFieldInvalid('name')) {
+                  <div class="text-danger mt-1 small">
+                    Name must be at least 2 characters
+                  </div>
+                  }
+                </div>
+
+                <!-- Email -->
+                <div class="mb-3">
+                  <label for="email" class="form-label">Email</label>
+                  <div class="input-group">
+                    <span class="input-group-text"
+                      ><i class="fas fa-envelope"></i
+                    ></span>
+                    <input
+                      type="email"
+                      formControlName="email"
+                      class="form-control"
+                      id="email"
+                      placeholder="admin@yourcompany.com"
+                      [class.is-invalid]="isFieldInvalid('email')"
+                      [readOnly]="isLoading()"
+                    />
+                  </div>
+                  @if (isFieldInvalid('email')) {
+                  <div class="text-danger mt-1 small">
+                    Please enter a valid email address
+                  </div>
+                  }
+                </div>
+
+                <!-- Confirm Email -->
+                <div class="mb-3">
+                  <label for="confirmEmail" class="form-label"
+                    >Confirm Email</label
+                  >
+                  <div class="input-group">
+                    <span class="input-group-text"
+                      ><i class="fas fa-envelope"></i
+                    ></span>
+                    <input
+                      type="email"
+                      formControlName="confirmEmail"
+                      class="form-control"
+                      id="confirmEmail"
+                      placeholder="Repeat your email"
+                      [class.is-invalid]="isFieldInvalid('confirmEmail') || hasEmailMismatch()"
+                      [readOnly]="isLoading()"
+                    />
+                  </div>
+                  @if (hasEmailMismatch()) {
+                  <div class="text-danger mt-1 small">
+                    Email addresses do not match
+                  </div>
+                  }
+                  <div class="form-text">
+                    This email will be used to log in to the admin area and recover forgotten passwords. Please use an active email.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  class="btn btn-primary w-100 mt-4"
+                  (click)="goToStep2()"
+                >
+                  Continue <i class="fas fa-arrow-right ms-1"></i>
+                </button>
+                }
+
+                <!-- ─── STEP 2: Password ─── -->
+                @if (currentStep() === 2) {
+                <div class="wizard-step-indicator">
+                  Step 2 of {{ totalSteps }}
+                </div>
+                <h2 class="auth-title">Set Your Password</h2>
+                <p class="auth-subtitle">
+                  Choose a secure password for your account
+                </p>
+
+                <!-- Name & Email summary (read-only) -->
+                <div class="mb-4 mt-4 p-3 bg-light rounded border">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <div class="text-muted small mb-1">Name</div>
+                      <div class="fw-semibold">
+                        {{ onboardingForm.get('name')?.value }}
+                      </div>
+                      <div class="text-muted small mt-2 mb-1">Email</div>
+                      <div class="fw-semibold">
+                        {{ onboardingForm.get('email')?.value }}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-link btn-sm p-0 text-primary"
+                      (click)="goBack()"
+                      title="Edit name and email"
+                    >
+                      <i class="fas fa-pen me-1"></i> Edit
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Password -->
+                <div class="mb-3">
+                  <label for="password" class="form-label">Password</label>
+                  <div class="input-group">
+                    <span class="input-group-text"
+                      ><i class="fas fa-lock"></i
+                    ></span>
+                    <input
+                      [type]="showPassword() ? 'text' : 'password'"
+                      formControlName="password"
+                      class="form-control"
+                      id="password"
+                      placeholder="Min. 8 characters"
+                      [class.is-invalid]="isFieldInvalid('password')"
+                      [readOnly]="isLoading()"
+                    />
+                    <span
+                      class="input-group-text password-toggle eye_btn"
+                      (click)="showPassword.set(!showPassword())"
+                      style="cursor: pointer"
+                    >
+                      <i
+                        class="fas"
+                        [ngClass]="showPassword() ? 'fa-eye' : 'fa-eye-slash'"
+                      ></i>
+                    </span>
+                  </div>
+                  @if (isFieldInvalid('password')) {
+                  <div class="text-danger mt-1 small">
+                    Password must be at least 8 characters
+                  </div>
+                  }
+                </div>
+
+                <!-- Confirm Password -->
+                <div class="mb-3">
+                  <label for="confirmPassword" class="form-label"
+                    >Confirm Password</label
+                  >
+                  <div class="input-group">
+                    <span class="input-group-text"
+                      ><i class="fas fa-lock"></i
+                    ></span>
+                    <input
+                      [type]="showConfirmPassword() ? 'text' : 'password'"
+                      formControlName="confirmPassword"
+                      class="form-control"
+                      id="confirmPassword"
+                      placeholder="Repeat your password"
+                      [class.is-invalid]="isFieldInvalid('confirmPassword') || hasPasswordMismatch()"
+                      [readOnly]="isLoading()"
+                    />
+                    <span
+                      class="input-group-text password-toggle eye_btn"
+                      (click)="showConfirmPassword.set(!showConfirmPassword())"
+                      style="cursor: pointer"
+                    >
+                      <i
+                        class="fas"
+                        [ngClass]="showConfirmPassword() ? 'fa-eye' : 'fa-eye-slash'"
+                      ></i>
+                    </span>
+                  </div>
+                  @if (hasPasswordMismatch()) {
+                  <div class="text-danger mt-1 small">
+                    Passwords do not match
+                  </div>
+                  }
+                </div>
+
+                @if (authStore.errorCode() === 'auth/operation-not-allowed') {
+                <div class="alert alert-danger mt-3 small">
+                  <strong>Authentication Disabled</strong><br />
+                  <span class="mt-1 d-block"
+                    >Please enable
+                    <strong>Email/Password</strong> authentication for your
+                    project to create an admin account.</span
+                  >
+                  <a
+                    [href]="'https://console.firebase.google.com/u/0/project/' + projectId + '/authentication/providers'"
+                    target="_blank"
+                    rel="noopener"
+                    class="d-inline-block mt-2"
+                    >Open Firebase Console
+                    <i class="fas fa-external-link-alt ms-1"></i
+                  ></a>
+                </div>
+                } @else if (errorMessage()) {
+                <div class="alert alert-danger mt-3">{{ errorMessage() }}</div>
+                }
+
+                <button
+                  type="submit"
+                  class="btn btn-primary w-100 mt-4"
+                  [disabled]="isLoading() || isSubmitted()"
+                >
+                  @if (isSubmitted() && !errorMessage()) { Creating your
+                  account… } @else { Create Admin Account }
+                  <span
+                    [hidden]="!(isLoading() || isSubmitted())"
+                    class="spinner-border spinner-border-sm ms-2"
+                    role="status"
+                  ></span>
+                </button>
+                }
+              </div>
+            </div>
+          </div>
+        </form>
+        }
+
+        <!-- ─── STEP 3: Site Info ─── -->
+        @if (currentStep() === 3) {
+        <div class="request-container">
+          <div class="card request-card border-0">
+            <div class="card-body customPadding">
+              <div class="wizard-step-indicator">
+                Step 3 of {{ totalSteps }}
+              </div>
+              <h2 class="auth-title">About Your Site</h2>
+              <p class="auth-subtitle">
+                This information is used in emails, SEO, and page headers
+              </p>
+
+              <form [formGroup]="siteInfoForm" (ngSubmit)="saveSiteInfo()">
+                <!-- Site Name -->
+                <div class="mb-3 mt-4">
+                  <label for="siteName" class="form-label">Site Name</label>
+                  <div class="input-group">
+                    <span class="input-group-text"
+                      ><i class="fas fa-globe"></i
+                    ></span>
+                    <input
+                      type="text"
+                      formControlName="siteName"
+                      class="form-control"
+                      id="siteName"
+                      placeholder="My Awesome Site"
+                      [class.is-invalid]="isFieldInvalid('siteName', siteInfoForm)"
+                    />
+                  </div>
+                  @if (isFieldInvalid('siteName', siteInfoForm)) {
+                  <div class="text-danger mt-1 small">
+                    Site name must be at least 2 characters
+                  </div>
+                  }
+                </div>
+
+                <!-- Site URL -->
+                <div class="mb-3">
+                  <label for="siteUrl" class="form-label">Final Site URL</label>
+                  <div class="input-group">
+                    <span class="input-group-text"
+                      ><i class="fas fa-link"></i
+                    ></span>
+                    <input
+                      type="url"
+                      formControlName="siteUrl"
+                      class="form-control"
+                      id="siteUrl"
+                      placeholder="https://yourcompany.com"
+                      [class.is-invalid]="isFieldInvalid('siteUrl', siteInfoForm)"
+                    />
+                  </div>
+                  @if (isFieldInvalid('siteUrl', siteInfoForm)) {
+                  <div class="text-danger mt-1 small">
+                    Please enter a valid URL
+                  </div>
+                  }
+                  <div class="form-text">
+                    Used in email footers, SEO canonical links, and page
+                    headers. You can update this later from Settings.
+                  </div>
+                </div>
+
+                @if (errorMessage()) {
+                <div class="alert alert-danger mt-3">{{ errorMessage() }}</div>
+                }
+
+                <button
+                  type="submit"
+                  class="btn btn-primary w-100 mt-4"
+                  [disabled]="isSavingSiteInfo()"
+                >
+                  @if (isSavingSiteInfo()) { Saving…
+                  <span
+                    class="spinner-border spinner-border-sm ms-2"
+                    role="status"
+                  ></span>
+                  } @else { Continue <i class="fas fa-arrow-right ms-1"></i>
+                  }
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        }
+
+        <!-- ─── STEP 4: Email Setup ─── -->
+        @if (currentStep() === 4) {
+        <div class="request-container request-container-review">
+          <div class="card request-card border-0">
+            <div class="card-body customPadding">
+              <div class="wizard-step-indicator">
+                Step 4 of {{ totalSteps }}
+              </div>
+              <h2 class="auth-title">Set Up Email</h2>
+              <p class="auth-subtitle">
+                Choose how your site sends emails for waitlist confirmations, notifications, and more.
+                Don't worry — you can change this later in Settings.
+              </p>
+
+              <div class="skip-banner">
+                <span class="skip-banner-text">Not ready to set up email?</span>
+                <a
+                  class="skip-link"
+                  (click)="skipEmail()"
+                  [class.disabled]="isSavingEmail()"
+                >
+                  Skip for now <i class="fas fa-arrow-right ms-1"></i>
+                </a>
+              </div>
+
+              <form [formGroup]="emailForm">
+                <!-- Provider Selection -->
+                <div class="mb-4 mt-4">
+                  <label class="form-label fw-semibold">Choose an Email Provider</label>
+                  <select
+                    class="form-select provider-select"
+                    [value]="selectedProvider()"
+                    (change)="selectProvider($event)"
+                  >
+                    @for (provider of providers; track provider.id) {
+                    <option [value]="provider.id">
+                      {{ provider.name }} — {{ provider.description }}
+                    </option>
+                    }
+                  </select>
+                  <!-- Provider info badge -->
+                  @for (provider of providers; track provider.id) {
+                    @if (provider.id === selectedProvider()) {
+                    <div class="alert alert-light border mt-2 mb-0 small">
+                      <i class="fas fa-lightbulb text-warning me-1"></i>
+                      <strong>Best for:</strong> {{ provider.bestFor }}<br />
+                      <i class="fas fa-gift text-success me-1"></i>
+                      <strong>Free tier:</strong> {{ provider.freeLimit }}
+                    </div>
+                    }
+                  }
+                </div>
+
+                <!-- Provider-specific config -->
+
+                <!-- ── SMTP ── -->
+                @if (selectedProvider() === 'smtp') {
+                <div formGroupName="smtp">
+                  <div class="alert alert-info small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <strong>Where do I get these details?</strong>
+                    Check your email provider's help docs for "SMTP settings." Here are some common ones:
+                    <ul class="mb-0 mt-1">
+                      <li>
+                        <a href="https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-8361e398-8af4-4e97-b147-6c6c4ac95353" target="_blank" rel="noopener">
+                          Outlook / Microsoft 365
+                        </a>
+                        — Host: <code>smtp.office365.com</code>, Port: <code>587</code>
+                      </li>
+                      <li>
+                        <a href="https://help.yahoo.com/kb/SLN4724.html" target="_blank" rel="noopener">
+                          Yahoo Mail
+                        </a>
+                        — Host: <code>smtp.mail.yahoo.com</code>, Port: <code>465</code> (SSL)
+                      </li>
+                      <li>
+                        <a href="https://www.zoho.com/mail/help/zoho-smtp.html" target="_blank" rel="noopener">
+                          Zoho Mail
+                        </a>
+                        — Host: <code>smtp.zoho.com</code>, Port: <code>465</code> (SSL)
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">SMTP Host</label>
+                    <input
+                      type="text"
+                      formControlName="host"
+                      class="form-control"
+                      placeholder="e.g. smtp.office365.com"
+                    />
+                    <div class="form-text">The server address provided by your email host</div>
+                  </div>
+                  <div class="row mb-3">
+                    <div class="col-8">
+                      <label class="form-label">Port</label>
+                      <input
+                        type="number"
+                        formControlName="port"
+                        class="form-control"
+                        placeholder="587"
+                      />
+                      <div class="form-text">Usually <strong>587</strong> (TLS) or <strong>465</strong> (SSL)</div>
+                    </div>
+                    <div class="col-4 d-flex align-items-end">
+                      <div class="form-check">
+                        <input
+                          type="checkbox"
+                          formControlName="secure"
+                          class="form-check-input"
+                          id="smtpSecure"
+                        />
+                        <label class="form-check-label" for="smtpSecure"
+                          >SSL/TLS</label
+                        >
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input
+                      type="text"
+                      formControlName="user"
+                      class="form-control"
+                      placeholder="your-email@example.com"
+                    />
+                    <div class="form-text">Usually your full email address</div>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <div class="input-group">
+                      <input
+                        [type]="showSmtpPassword() ? 'text' : 'password'"
+                        formControlName="password"
+                        class="form-control"
+                        placeholder="Your email account password"
+                      />
+                      <span
+                        class="input-group-text eye_btn"
+                        (click)="showSmtpPassword.set(!showSmtpPassword())"
+                        style="cursor: pointer"
+                      >
+                        <i
+                          class="fas"
+                          [ngClass]="showSmtpPassword() ? 'fa-eye' : 'fa-eye-slash'"
+                        ></i>
+                      </span>
+                    </div>
+                    <div class="form-text">Your email password or app-specific password</div>
+                  </div>
+                </div>
+                }
+
+                <!-- ── Gmail ── -->
+                @if (selectedProvider() === 'gmail') {
+                <div formGroupName="gmail">
+                  <div class="alert alert-info small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <strong>How to get a Gmail App Password:</strong>
+                    <ol class="mb-0 mt-1">
+                      <li>
+                        Go to your
+                        <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">Google Account Security</a>
+                        page
+                      </li>
+                      <li>
+                        Make sure <strong>2-Step Verification</strong> is turned on
+                        (<a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noopener">enable it here</a>
+                        if not)
+                      </li>
+                      <li>
+                        Then visit
+                        <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener"><strong>App Passwords</strong></a>,
+                        name it "Arc CMS", and click <strong>Create</strong>
+                      </li>
+                      <li>Copy the 16-character password and paste it below</li>
+                    </ol>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Gmail Address</label>
+                    <div class="input-group">
+                      <span class="input-group-text"
+                        ><i class="fas fa-envelope"></i
+                      ></span>
+                      <input
+                        type="email"
+                        formControlName="user"
+                        class="form-control"
+                        placeholder="you@gmail.com"
+                      />
+                    </div>
+                    <div class="form-text">The Gmail address you want to send emails from</div>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">App Password</label>
+                    <div class="input-group">
+                      <span class="input-group-text"
+                        ><i class="fas fa-key"></i
+                      ></span>
+                      <input
+                        [type]="showGmailPassword() ? 'text' : 'password'"
+                        formControlName="password"
+                        class="form-control"
+                        placeholder="xxxx xxxx xxxx xxxx"
+                      />
+                      <span
+                        class="input-group-text eye_btn"
+                        (click)="showGmailPassword.set(!showGmailPassword())"
+                        style="cursor: pointer"
+                      >
+                        <i
+                          class="fas"
+                          [ngClass]="showGmailPassword() ? 'fa-eye' : 'fa-eye-slash'"
+                        ></i>
+                      </span>
+                    </div>
+                    <div class="form-text">
+                      The 16-character password from
+                      <a
+                        href="https://myaccount.google.com/apppasswords"
+                        target="_blank"
+                        rel="noopener"
+                      >Google App Passwords</a>
+                      (not your regular Gmail password)
+                    </div>
+                  </div>
+                </div>
+                }
+
+                <!-- ── Resend ── -->
+                @if (selectedProvider() === 'resend') {
+                <div formGroupName="resend">
+                  <div class="alert alert-info small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <strong>How to get your Resend API Key:</strong>
+                    <ol class="mb-0 mt-1">
+                      <li>
+                        <a href="https://resend.com/signup" target="_blank" rel="noopener">Create a free Resend account</a>
+                        (if you don't have one)
+                      </li>
+                      <li>
+                        Go to
+                        <a href="https://resend.com/api-keys" target="_blank" rel="noopener"><strong>API Keys</strong></a>
+                        in your Resend dashboard
+                      </li>
+                      <li>Click <strong>Create API Key</strong>, give it a name, and copy the key</li>
+                    </ol>
+                    <span class="text-muted">
+                      Tip: Resend works right away with their <code>onboarding&#64;resend.dev</code> sender.
+                      To send from your own domain,
+                      <a href="https://resend.com/domains" target="_blank" rel="noopener">add &amp; verify your domain</a>.
+                    </span>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">API Key</label>
+                    <div class="input-group">
+                      <span class="input-group-text"
+                        ><i class="fas fa-key"></i
+                      ></span>
+                      <input
+                        [type]="showApiKey() ? 'text' : 'password'"
+                        formControlName="apiKey"
+                        class="form-control"
+                        placeholder="re_xxxxxxxx..."
+                      />
+                      <span
+                        class="input-group-text eye_btn"
+                        (click)="showApiKey.set(!showApiKey())"
+                        style="cursor: pointer"
+                      >
+                        <i
+                          class="fas"
+                          [ngClass]="showApiKey() ? 'fa-eye' : 'fa-eye-slash'"
+                        ></i>
+                      </span>
+                    </div>
+                    <div class="form-text">
+                      Starts with <code>re_</code> — get it from
+                      <a href="https://resend.com/api-keys" target="_blank" rel="noopener">resend.com/api-keys</a>
+                    </div>
+                  </div>
+                </div>
+                }
+
+
+                <!-- Sender fields -->
+                <hr class="my-3" />
+                <p class="form-label fw-semibold mb-1">Sender Information</p>
+                <p class="form-text mt-0 mb-3">This is how your emails will appear to recipients.</p>
+
+                <div class="mb-3">
+                  <label class="form-label">Sender Email</label>
+                  <div class="input-group">
+                    <span class="input-group-text"
+                      ><i class="fas fa-at"></i
+                    ></span>
+                    <input
+                      type="email"
+                      formControlName="senderEmail"
+                      class="form-control"
+                      placeholder="noreply@yoursite.com"
+                      [class.is-invalid]="isFieldInvalid('senderEmail', emailForm)"
+                      [readonly]="gmailSenderLocked()"
+                    />
+                  </div>
+                  @if (isFieldInvalid('senderEmail', emailForm)) {
+                  <div class="text-danger mt-1 small">
+                    Please enter a valid sender email
+                  </div>
+                  }
+                  @if (gmailSenderLocked()) {
+                  <div class="form-text">
+                    <i class="fas fa-lock me-1"></i>
+                    Locked to your Gmail address (Gmail requires this)
+                  </div>
+                  } @else {
+                  <div class="form-text">The "from" address recipients will see</div>
+                  }
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label">Sender Display Name</label>
+                  <div class="input-group">
+                    <span class="input-group-text"
+                      ><i class="fas fa-user-tag"></i
+                    ></span>
+                    <input
+                      type="text"
+                      formControlName="senderName"
+                      class="form-control"
+                      [placeholder]="siteInfoForm.get('siteName')?.value || 'Your Site Name'"
+                    />
+                  </div>
+                  <div class="form-text">The name shown next to your email address (e.g. "My Awesome Site")</div>
+                </div>
+
+                <!-- Test Connection -->
+                <div class="d-flex gap-2 mt-4">
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary flex-fill"
+                    (click)="testConnection()"
+                    [disabled]="isTesting() || !isProviderConfigValid()"
+                  >
+                    @if (isTesting()) { Testing…
+                    <span
+                      class="spinner-border spinner-border-sm ms-2"
+                      role="status"
+                    ></span>
+                    } @else if (testPassed()) {
+                    <i class="fas fa-check-circle text-success me-1"></i> Test
+                    Passed } @else {
+                    <i class="fas fa-paper-plane me-1"></i> Send a Test Email }
+                  </button>
+                </div>
+
+                @if (errorMessage()) {
+                <div class="alert alert-danger mt-3">{{ errorMessage() }}</div>
+                }
+
+                <button
+                  type="button"
+                  class="btn btn-primary w-100 mt-3"
+                  (click)="saveEmailAndContinue()"
+                  [disabled]="!testPassed() || isSavingEmail()"
+                >
+                  @if (isSavingEmail()) { Saving…
+                  <span
+                    class="spinner-border spinner-border-sm ms-2"
+                    role="status"
+                  ></span>
+                  } @else { Continue <i class="fas fa-arrow-right ms-1"></i>
+                  }
+                </button>
+
+              </form>
+            </div>
+          </div>
+        </div>
+        }
+
+        <!-- ─── STEP 5: Complete ─── -->
+        @if (currentStep() === 5) {
+        <div class="request-container request-container-review">
+          <div class="card request-card border-0">
+            <div class="card-body customPadding">
+              <div class="wizard-step-indicator">
+                Step 5 of {{ totalSteps }}
+              </div>
+
+              <div class="completion-icon">
+                <i class="fas fa-check"></i>
+              </div>
+              <h2 class="auth-title">Setup Complete!</h2>
+              <p class="auth-subtitle">
+                Congratulations — your CMS is configured and ready to go.
+              </p>
+
+              <!-- What we configured -->
+              <div class="review-section mt-4">
+                <h6 class="review-section-title">
+                  <i class="fas fa-clipboard-check me-2"></i>What we configured
+                </h6>
+                <ul class="configured-list">
+                  <li>
+                    <i class="fas fa-user-shield"></i>
+                    <span>Admin account created for <strong>{{ onboardingForm.get('email')?.value }}</strong></span>
+                  </li>
+                  <li>
+                    <i class="fas fa-globe"></i>
+                    <span>Site information set up for <strong>{{ siteInfoForm.get('siteName')?.value }}</strong></span>
+                  </li>
+                  <li>
+                    <i class="fas fa-envelope"></i>
+                    @if (testPassed()) {
+                    <span>Email delivery configured via <strong>{{ selectedProvider() | titlecase }}</strong></span>
+                    } @else {
+                    <span>Email delivery <strong>skipped</strong> — set up later from Settings</span>
+                    }
+                  </li>
+                  <li>
+                    <i class="fas fa-folder-open"></i>
+                    <span>Default content types: <strong>Articles</strong>, <strong>User Manuals</strong>, <strong>Release Notes</strong></span>
+                  </li>
+                  <li>
+                    <i class="fas fa-list"></i>
+                    <span>Default waitlist ready for signups</span>
+                  </li>
+                  <li>
+                    <i class="fas fa-location-dot"></i>
+                    <span>Geolocation enabled via <strong>ipapi.co</strong> — captures country, region &amp; city for leads. Disable anytime from <strong>Settings &rarr; Integrations</strong></span>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Next steps -->
+              <div class="review-section mt-4">
+                <h6 class="review-section-title">
+                  <i class="fas fa-arrow-right me-2"></i>Next steps
+                </h6>
+                <ul class="next-steps-list">
+                  <li>Explore the admin dashboard to see everything in action</li>
+                  <li>Create your first content entry</li>
+                  <li>Customize settings to suit your requirements</li>
+                </ul>
+              </div>
+
+              @if (errorMessage()) {
+              <div class="alert alert-danger mt-3">{{ errorMessage() }}</div>
+              } @if (setupFailed()) {
+              <div class="d-flex gap-2 mt-4">
+                <button
+                  type="button"
+                  class="btn btn-primary flex-fill"
+                  (click)="completeSetup()"
+                  [disabled]="isCompleting()"
+                >
+                  @if (isCompleting()) { Retrying…
+                  <span
+                    class="spinner-border spinner-border-sm ms-2"
+                    role="status"
+                  ></span>
+                  } @else {
+                  <i class="fas fa-redo me-1"></i> Retry }
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary flex-fill"
+                  (click)="skipSetupAndGo()"
+                >
+                  Skip &amp; Go to Dashboard
+                </button>
+              </div>
+              } @else {
+              <button
+                type="button"
+                class="btn btn-primary w-100 mt-4"
+                (click)="completeSetup()"
+                [disabled]="isCompleting()"
+              >
+                @if (isCompleting()) { Setting up your dashboard…
+                <span
+                  class="spinner-border spinner-border-sm ms-2"
+                  role="status"
+                ></span>
+                } @else { Go to Dashboard <i class="fas fa-arrow-right ms-1"></i>
+                }
+              </button>
+              }
+            </div>
+          </div>
+        </div>
+        }
+
+        <div class="copyright">
+          &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

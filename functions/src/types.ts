@@ -1,0 +1,250 @@
+import { Timestamp } from 'firebase-admin/firestore';
+
+export interface EmailTemplateData {
+  senderEmail: string;
+  senderName: string;
+  subject: string;
+  template: string;
+  previewText?: string;
+  waitlistId?: string;
+  type: string;
+  [key: string]: any;
+}
+
+export interface WaitlistUserData {
+  id?: string;
+  waitlistId: string;
+  waitlistIds?: string[];
+  email: string;
+  name?: string;
+  firstName?: string; // Sometimes used instead of name
+  verificationCode?: string;
+  emailVerified?: boolean;
+  isConfirmed?: boolean;
+  referralLink?: string;
+  leaderboardLink?: string;
+  [key: string]: any;
+}
+
+export interface EmailLogData {
+  id?: string;
+  senderEmail: string;
+  senderName: string;
+  toName: string;
+  toEmail: string;
+  subject: string;
+  template: string;
+  text: string;
+  bcc?: string;
+  type: string;
+  createdAt: Timestamp;
+  otp?: string;
+  currency?: string;
+  price?: string;
+  waitlistName?: string;
+  referralLink?: string;
+  leaderboardLink?: string;
+  // Post-send processed data
+  processedSubject?: string;
+  processedTemplate?: string;
+  usedTags?: string[];
+  unmappedTags?: string[];
+  activeProvider?: string;
+  status?: string;
+  sendingTime?: Timestamp;
+  messageId?: string;
+  errorMessage?: string;
+  broadcastId?: string;
+  // Webhook/tracking fields (written by handlers, typed here for safety)
+  lastWebhookEvent?: string;
+  lastWebhookAt?: Timestamp;
+  isOpened?: boolean;
+  openedAt?: Timestamp;
+  ipAddress?: string;
+  [key: string]: any;
+}
+
+// ── Email provider configuration interfaces ──
+
+export interface SmtpConfig {
+  host: string;
+  port?: number;
+  user: string;
+  password: string;
+  secure?: boolean;
+}
+
+export interface GmailConfig {
+  user: string;
+  password: string;
+}
+
+export interface ResendConfig {
+  apiKey: string;
+}
+
+/** Rate limit configuration for broadcast emails (legacy) */
+export interface RateLimitConfig {
+  /** Maximum number of emails allowed within the interval */
+  maxEmails: number;
+  /** Time interval */
+  interval: 'second' | 'minute' | 'hour' | 'day';
+}
+
+/** Three-tier rate limit for a specific email provider */
+export interface ProviderRateLimits {
+  /** Max emails per second (burst control). Default: 1 */
+  perSecond: number;
+  /** Max emails per hour (optional rolling limit) */
+  perHour?: number;
+  /** Max emails per day (daily quota) */
+  perDay?: number;
+}
+
+/** Auto-purge configuration for email logs */
+export interface AutoPurgeConfig {
+  /** Whether auto-purge is enabled */
+  enabled: boolean;
+  /** Number of days to retain email logs */
+  retentionDays: number;
+}
+
+/** Shape of the Firestore Settings/email document */
+export interface EmailSettings {
+  isEnabled?: boolean;
+  activeProvider?: 'smtp' | 'resend' | 'gmail';
+  replyToEmail?: string;
+  companyName?: string;
+  senderName?: string;
+  senderEmail?: string;
+  smtp?: SmtpConfig;
+  resend?: ResendConfig;
+  gmail?: GmailConfig;
+  /** Legacy flat SMTP credentials (before nested smtp object) */
+  smtpUser?: string;
+  smtpPassword?: string;
+  /** Rate limit for broadcast sending (legacy) */
+  rateLimit?: RateLimitConfig;
+  /** Per-provider rate limits (new). Overrides legacy rateLimit when present. */
+  providerRateLimits?: Record<string, ProviderRateLimits>;
+  /** Auto-purge old email logs */
+  autoPurge?: AutoPurgeConfig;
+}
+
+/** Schema for BroadcastEmails document processed server-side */
+export interface BroadcastEmailDoc {
+  waitlistId: string;
+  subject: string;
+  senderName: string;
+  senderEmail: string;
+  previewText?: string;
+  template: string;
+  /** Recipient list stored inline (~10K max within 1MB doc limit) */
+  recipients: BroadcastRecipient[];
+  /** Total number of recipients */
+  totalCount: number;
+  /** How many have been sent successfully */
+  sentCount: number;
+  /** How many failed after all retry attempts */
+  failedCount: number;
+  /** Index of the next recipient to process (cursor) */
+  processedIndex: number;
+  /** Current processing status */
+  status: 'queued' | 'processing' | 'paused' | 'completed' | 'failed';
+  /** Snapshot of rate limit config at creation time (legacy) */
+  rateLimitSnapshot?: RateLimitConfig;
+  /** Snapshot of per-provider rate limits at creation time */
+  providerRateLimitsSnapshot?: ProviderRateLimits;
+  /** Number of chunk invocations completed */
+  chunkNumber: number;
+  /** Error message if the entire broadcast failed */
+  errorMessage?: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface BroadcastRecipient {
+  toName: string;
+  toEmail: string;
+}
+
+/** Return type of processEmailTemplate */
+export interface ProcessedTemplate {
+  template: string;
+  subject: string;
+  usedTags: string[];
+  unmappedTags: string[];
+}
+
+/** Return type of getAnalyticsPropertyInfo */
+export interface AnalyticsPropertyInfo {
+  propertyId: string;
+  propertyName?: string | null;
+  parentAccount?: string | null;
+  timeZone?: string | null;
+  currencyCode?: string | null;
+  industryCategory?: string | null;
+}
+
+// ── Analytics OAuth interfaces ──
+
+export interface AnalyticsOAuthTokens {
+  clientId: string;
+  clientSecret: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiry?: number; // Unix timestamp ms
+  scope?: string;
+  connectedAt?: Timestamp;
+  connectedBy?: string; // uid of admin who connected
+}
+
+export interface AnalyticsSelectedProperty {
+  propertyId: string;
+  displayName?: string;
+  measurementId?: string;
+}
+
+/** Shape of the Firestore Settings/analytics document */
+export interface AnalyticsSettings {
+  authMethod?: 'service_account' | 'oauth';
+  oauth?: AnalyticsOAuthTokens;
+  selectedProperty?: AnalyticsSelectedProperty;
+  isConnected?: boolean;
+  lastError?: string | null;
+  // Legacy service account fields
+  serviceAccountJson?: string;
+  propertyId?: string;
+}
+
+/** Shape of the Firestore Settings/analytics_status document (public, no tokens) */
+export interface AnalyticsStatusDoc {
+  isConnected: boolean;
+  propertyName?: string | null;
+  propertyId?: string | null;
+  connectedAt?: Timestamp | null;
+  lastSyncDate?: Timestamp | null;
+}
+
+/** Metric card format used by the dashboard */
+export interface MetricCard {
+  title: string;
+  value: string;
+  icon: string;
+  change: string;
+  changeType: 'positive' | 'negative';
+}
+
+/** Single row inside an acquisition list panel */
+export interface ListItem {
+  name: string;
+  value: number;
+  percentage: number;
+}
+
+/** Acquisition insight panel (Top Pages, Traffic Sources, etc.) */
+export interface ListCard {
+  title: string;
+  icon: string;
+  items: ListItem[];
+}

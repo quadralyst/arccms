@@ -1,0 +1,18 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    match /{allPaths=**} {
+      // Public read — images are served on public pages and SSR
+      allow read: if true;
+      // Authenticated write — any logged-in user can upload
+      allow write: if isAuthenticated();
+    }
+  }
+}

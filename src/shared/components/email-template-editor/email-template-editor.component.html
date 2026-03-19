@@ -1,0 +1,48 @@
+<!-- Email Template Editor -->
+<div class="email-template-editor">
+    <!-- Placeholders Section -->
+    @if (placeholders.length > 0) {
+    <div class="placeholders-section">
+        <label>Insert Placeholder:</label>
+        <mat-chip-set class="placeholder-chips">
+            @for (placeholder of placeholders; track placeholder) {
+            <mat-chip (click)="insertPlaceholder(placeholder)" class="placeholder-chip">
+                {{ placeholder }}
+            </mat-chip>
+            }
+        </mat-chip-set>
+    </div>
+    }
+
+    <!-- Editor Tabs -->
+    @if (showHtmlToggle) {
+    <ul class="nav nav-tabs editor-tabs">
+        <li class="nav-item">
+            <a class="nav-link" [class.active]="activeTab() === 'editor'" (click)="setActiveTab('editor')">
+                <i class="fas fa-edit"></i> Visual Editor
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" [class.active]="activeTab() === 'html'" (click)="setActiveTab('html')">
+                <i class="fas fa-code"></i> HTML
+            </a>
+        </li>
+    </ul>
+    }
+
+    <!-- Editor Content -->
+    <div class="editor-content">
+        @if (activeTab() === 'html') {
+        <div class="html-editor-wrapper">
+            <arc-html-code-editor [content]="htmlContent" (contentChange)="onHtmlChanges($event)" [height]="'400px'"
+                [showLineNumbers]="true" placeholder="<html>...</html>">
+            </arc-html-code-editor>
+        </div>
+        } @else {
+        <div class="visual-editor">
+            <app-tiptap-editor [productValue]="htmlContent" (textEditorContent)="onEditorChanges($event)">
+            </app-tiptap-editor>
+        </div>
+        }
+    </div>
+</div>

@@ -1,0 +1,304 @@
+// Onboarding Wizard — reuses signup screen CSS classes from global styles.
+// Only onboarding-specific overrides and additions are defined here.
+
+.arc-onboarding {
+  min-height: 100vh;
+}
+
+// ─── Progress bar at top ───
+.onboarding-progress {
+  height: 4px;
+  background-color: #e5e7eb;
+  width: 100%;
+}
+
+.onboarding-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3c76f5, #24c6dc);
+  transition: width 0.4s ease;
+  border-radius: 0 2px 2px 0;
+}
+
+// Step indicator above the form card title
+.wizard-step-indicator {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #3c76f5;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+// Left panel feature list
+.auth-left-features {
+  list-style: none;
+  padding: 0;
+  margin-top: 2rem;
+  text-align: left;
+
+  li {
+    padding: 0.5rem 0;
+    font-size: 1rem;
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+
+    &::before {
+      content: "✓";
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.8);
+      flex-shrink: 0;
+    }
+  }
+}
+
+// Reuse the signup left panel gradient
+.auth-container {
+  display: flex;
+  min-height: 100vh;
+  height: 100%;
+}
+
+.auth-left {
+  flex: 1;
+  display: none;
+}
+
+// Right panel — flex column so cards can be vertically centered
+.wizard-right-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+// Wrapper for the step 1-2 form so it participates in the flex column
+.wizard-form-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.request-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+}
+
+.request-container-review {
+  align-items: flex-start;
+  padding-top: 1rem;
+}
+
+.request-card {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 20px;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+}
+
+@media (min-width: 992px) {
+  .auth-left {
+    display: block;
+    background:
+      radial-gradient(circle at 10% 10%, #2654bd 0%, transparent 50%),
+      radial-gradient(circle at 90% 20%, #24c6dc 0%, transparent 60%),
+      radial-gradient(circle at 50% 50%, #3c76f5 0%, transparent 70%),
+      radial-gradient(circle at 80% 80%, #1d47a3 0%, transparent 50%),
+      radial-gradient(circle at 20% 90%, #1b429a 0%, transparent 60%),
+      linear-gradient(135deg, #1d47a3 0%, #24c6dc 100%);
+    position: relative;
+  }
+
+  .auth-left-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    text-align: center;
+    width: 80%;
+    max-width: 500px;
+  }
+
+  .auth-left-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+  }
+
+  .auth-left-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    opacity: 0.9;
+  }
+
+  .customPadding {
+    padding: 40px !important;
+  }
+}
+
+.eye_btn {
+  border-top-right-radius: 4px !important;
+  border-bottom-right-radius: 4px !important;
+}
+
+
+.auth-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.auth-subtitle {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.copyright {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.8rem;
+  padding: 20px 0;
+  margin-top: auto;
+}
+
+// ─── Step 4: Provider selection dropdown ───
+.provider-select {
+  max-width: 100%;
+}
+
+// ─── Skip banner (top of email step) ───
+.skip-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #f0f4ff;
+  border: 1px solid #dbe4ff;
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.skip-banner-text {
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+// ─── Skip link ───
+.skip-link {
+  color: #3c76f5;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s;
+  white-space: nowrap;
+
+  &:hover {
+    color: #2654bd;
+    text-decoration: underline;
+  }
+
+  &.disabled {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+}
+
+// ─── Step 5: Review section ───
+.review-section {
+  .review-section-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #111827;
+    margin-bottom: 0.5rem;
+  }
+}
+
+.review-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  background-color: #fafafa;
+}
+
+.content-type-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.content-type-card {
+  .badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+  }
+}
+
+// ─── Step 5: Completion screen ───
+.completion-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: #dcfce7;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin: 0 auto 1rem;
+}
+
+.configured-list,
+.next-steps-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    color: #374151;
+    border-bottom: 1px solid #f3f4f6;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    i {
+      color: #3c76f5;
+      margin-top: 0.15rem;
+      flex-shrink: 0;
+      width: 1rem;
+      text-align: center;
+    }
+  }
+}
+
+.next-steps-list li {
+  padding-left: 1.75rem;
+  position: relative;
+
+  &::before {
+    content: "\f00c"; // fa-check
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    left: 0;
+    color: #16a34a;
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+  }
+}

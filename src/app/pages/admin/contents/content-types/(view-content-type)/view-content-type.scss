@@ -1,0 +1,271 @@
+.side-panel {
+  padding: 20px;
+}
+
+.panel-header {
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  color: #dc3545;
+}
+
+.view-content {
+  padding: 10px 0;
+}
+
+.detail-row {
+  display: flex;
+  margin-bottom: 15px;
+  align-items: flex-start;
+}
+
+.detail-row label {
+  min-width: 120px;
+  font-weight: 600;
+  color: #4b5563;
+  font-size: 0.85rem;
+}
+
+.detail-row span {
+  flex: 1;
+  color: #1f2937;
+  font-size: 0.85rem;
+}
+
+.template-path {
+  font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+  background-color: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #059669;
+}
+
+.form-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 20px 0 15px;
+  color: #1f2937;
+}
+
+.fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field-item {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.field-info {
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+.field-key {
+  color: #6c757d;
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+
+.field-meta {
+  display: flex;
+  gap: 6px;
+}
+
+.badge {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-type {
+  background-color: #e7f3ff;
+  color: #0066cc;
+}
+
+.badge-required {
+  background-color: #fee;
+  color: #c00;
+}
+
+.metadata {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef;
+}
+
+hr {
+  border: 0;
+  height: 1px;
+  background: #e9ecef;
+  margin: 20px 0;
+}
+
+.copyright {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #8898aa;
+  margin-top: 20px;
+}
+
+/* Collection Reference Info Styles */
+.ref-info {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background-color: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.ref-header {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  color: #374151;
+  font-weight: 500;
+}
+
+.ref-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ref-detail-item {
+  color: #6b7280;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ref-detail-item code {
+  background: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: #111827;
+}
+
+/* ── Template Reference Section ─────────────────────────────── */
+
+.template-ref {
+  margin-top: 10px;
+}
+
+.attr-subsection {
+  margin-bottom: 18px;
+}
+
+.attr-subsection-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.attr-subsection-hint {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin-bottom: 8px;
+  font-style: italic;
+
+  code {
+    font-size: 0.7rem;
+    background: #f3f4f6;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+}
+
+.attr-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 5px 8px;
+  margin-bottom: 2px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+
+  &:hover {
+    background: #f9fafb;
+  }
+}
+
+.attr-label {
+  width: 140px;
+  flex-shrink: 0;
+  color: #4b5563;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.attr-code {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-size: 0.72rem;
+  background: #f0fdf4;
+  color: #166534;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #bbf7d0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #dcfce7;
+    border-color: #86efac;
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &.copied {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: #93c5fd;
+  }
+}
+
+.attr-note {
+  font-size: 0.68rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.attr-custom-divider {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #3c76f5;
+  margin: 10px 0 4px;
+  padding: 4px 0;
+  border-top: 1px dashed #bfdbfe;
+}

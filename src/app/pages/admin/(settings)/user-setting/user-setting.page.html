@@ -1,0 +1,98 @@
+<div class="user-settings-page">
+
+    @if (!isUserSettingEnabled()) {
+    <div class="disabled-state">
+        <div class="disabled-content">
+            <div class="disabled-icon">
+                <i class="fa-solid fa-bullhorn"></i>
+            </div>
+            <h3>User Settings</h3>
+            <p class="text-muted">
+                Configure user signup and role settings
+                <br>
+                Enable it to configure your user settings.
+            </p>
+            <button mat-flat-button color="primary" (click)="enableUserSetting()">
+                <i class="fa-solid fa-power-off me-2"></i>
+                Enable User Settings
+            </button>
+        </div>
+    </div>
+    } @else {
+    <div class="page-header">
+        <h3>User Settings</h3>
+        <p class="text-muted">Configure user signup and role settings</p>
+    </div>
+
+    @if (isLoading()) {
+    <div class="loading-container">
+        <mat-spinner diameter="40"></mat-spinner>
+    </div>
+    } @else {
+    <mat-card class="settings-card">
+        <mat-card-content>
+            <!-- Enable Signups Toggle -->
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">
+                        <i class="fa-solid fa-user-plus me-2"></i>
+                        Enable User Signups
+                    </div>
+                    <div class="setting-description">
+                        Allow new users to create accounts from the /signup page
+                    </div>
+                </div>
+                <div class="setting-control">
+                    <mat-slide-toggle [checked]="userSettings?.isSignupEnabled" (change)="toggleSignup($event.checked)"
+                        [disabled]="isSaving()" color="primary">
+                    </mat-slide-toggle>
+                </div>
+            </div>
+
+            <!-- Default Role Selection (only visible when signups enabled) -->
+            @if (isUserSettingEnabled()) {
+            <div class="setting-row role-setting">
+                <div class="setting-info">
+                    <div class="setting-label">
+                        <i class="fa-solid fa-user-tag me-2"></i>
+                        Default Role for New Users
+                    </div>
+                    <div class="setting-description">
+                        Role assigned to users who sign up
+                    </div>
+                </div>
+                <div class="setting-control">
+                    <mat-form-field appearance="outline" class="role-select">
+                        <mat-select [value]="userSettings?.defaultRole"
+                            (selectionChange)="changeDefaultRole($event.value)" [disabled]="isSaving()">
+                            @for (role of availableRoles; track role.id) {
+                            <mat-option [value]="role.id">
+                                {{ role.label }}
+                            </mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </div>
+            }
+
+            <!-- Info Banner -->
+            <div class="info-banner" [class.disabled-banner]="!userSettings?.isSignupEnabled">
+                @if (userSettings?.isSignupEnabled) {
+                <i class="fa-solid fa-circle-info me-2"></i>
+                <span>
+                    New users signing up will be assigned the <strong>{{ getRoleLabel(userSettings?.defaultRole)
+                        }}</strong> role.
+                </span>
+                } @else {
+                <i class="fa-solid fa-lock me-2"></i>
+                <span>
+                    User signups are currently disabled. Only existing users can log in.
+                </span>
+                }
+            </div>
+        </mat-card-content>
+    </mat-card>
+    }
+    }
+</div>

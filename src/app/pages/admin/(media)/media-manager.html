@@ -1,0 +1,287 @@
+<div class="container-fluid content-height p-0">
+    <div class="top-container">
+        <div class="modal-container justify-content-center">
+            <div class="modal-body">
+                <div class="main-content">
+                    <div class="tabs-and-actions-container">
+                        <div class="media-tabs">
+                            @for(item of constantVariables.mediaManagerMenu; track item){
+                            <div (click)="selectedMenu(item)" [ngClass]="{'active': selectedItem?.value === item.value}"
+                                class="media-tab">
+                                <i class="fas fa-{{item.icon}} fs-6"></i> {{item.name}}
+                            </div>
+                            }
+                        </div>
+                        <div class="action-elements">
+                            @if(selectedItem?.value === 'search' && searchResults && searchResults.length){
+                            <div class="header-search-container">
+                                <div class="search-box">
+                                    <i class="fas fa-search me-2 text-muted"></i>
+                                    <input type="text" [(ngModel)]="searchValue" placeholder="Search for free images..."
+                                        (keyup.enter)="searchImage(searchValue)" [disabled]="isSearching">
+                                    <button (click)="searchImage(searchValue)" type="button"
+                                        [disabled]="isSearching" [class.searching]="isSearching">
+                                        @if(isSearching) {
+                                        <i class="fas fa-spinner fa-spin me-1"></i> Searching...
+                                        } @else {
+                                        Search
+                                        }
+                                    </button>
+                                </div>
+                            </div>
+                            }
+                            @if(selectedItem?.value === 'upload'){
+                            <button (click)="openFilePicker()" class=" btn btn-primary btn-sm" id="uploadNewBtnMain">
+                                <i class="fas fa-plus me-1 fs-6"></i>
+                                Upload New
+                            </button>
+                            }
+                            @if(_DIALOG_DATA.isDialogOpen){
+                            <button mat-dialog-close class="btn btn-secondary" id="cancelModalBtn">
+                                Cancel
+                            </button>
+                            }
+                        </div>
+                    </div>
+
+                    <input type="file" #fileInput (change)="onFileChange($event)" multiple accept="image/jpeg,image/png,image/webp,image/gif" style="display: none;">
+
+                    <div class="media-content-area">
+                        <div class="main_second_div">
+                            <div class="row mt-2">
+                                <div class="col-12 col-md-4">
+                                    <label class="fs-5">{{ selectedItem?.name}}</label>
+                                </div>
+
+                                @if(searchResults && searchResults.length){
+                                <div class="col-12 col-md-8">
+                                </div>
+                                }
+
+                            </div>
+
+
+
+                            @if(searchResults && !searchResults.length){
+                            <div class="row">
+                                <div class="col-12 mt-2 empty_col" [ngClass]="{'asModal': _DIALOG_DATA.isDialogOpen}">
+                                    @if(selectedItem?.value === 'upload'){
+                                    @if(!uploadImage){
+                                    <label class="empty_upload_label">You do not have any photo in your gallery. Please
+                                        upload a
+                                        photo to get started</label><br>
+                                    }
+                                    <div class="dropzone"
+                                         [class.dragover]="isDragOver"
+                                         [class.has-file]="uploadImage"
+                                         (dragover)="onDragOver($event)"
+                                         (dragleave)="onDragLeave($event)"
+                                         (drop)="onDrop($event)"
+                                         (click)="openFilePicker()"
+                                         style="position: relative;">
+                                        @if(uploadImage){
+                                        <img [src]="uploadImage" alt="Selected Image" class="selected-image"
+                                            height="140px">
+                                        @if(showUploadingSpinner) {
+                                        <mat-progress-spinner class="example-margin" [mode]="mode"
+                                            [value]="progressValue"
+                                            style="position: absolute;top: 50%;left: 50%;transform: translate(-50%, -50%);z-index: 1;">
+                                        </mat-progress-spinner>
+                                        @if(uploadTotal > 1) {
+                                        <div class="upload-counter">{{ uploadCurrent }} of {{ uploadTotal }}</div>
+                                        }
+                                        }
+                                        }
+                                        @else {
+                                        <div class="dropzone-icon">
+                                            <span class="material-icons">cloud_upload</span>
+                                        </div>
+                                        <div class="dropzone-text">Drop an image here or click to browse</div>
+                                        <div class="dropzone-subtext">Supports JPEG, PNG, WebP, GIF</div>
+                                        }
+                                    </div>
+                                    }
+
+
+                                    @if(selectedItem?.value === 'search'){
+                                        @if(unsplashConfigured === null) {
+                                        <!-- Checking configuration -->
+                                        <div class="d-flex justify-content-center align-items-center py-5">
+                                            <mat-spinner diameter="30"></mat-spinner>
+                                        </div>
+                                        } @else if(unsplashConfigured === false) {
+                                        <!-- Not configured -->
+                                        <div class="unsplash-not-configured">
+                                            <div class="not-configured-icon">
+                                                <i class="fa-solid fa-image"></i>
+                                            </div>
+                                            <h4>Media API Not Configured</h4>
+                                            <p class="text-muted">
+                                                To search free images from Unsplash, configure your
+                                                API key in the integrations settings.
+                                            </p>
+                                            <button class="btn btn-primary" (click)="navigateToIntegrations()">
+                                                <i class="fa-solid fa-gear me-2"></i>
+                                                Configure API Key
+                                            </button>
+                                        </div>
+                                        } @else {
+                                        <!-- Configured: show search box -->
+                                        <div class="container">
+                                            <div class="row">
+                                                <div
+                                                    class="col-12 d-flex flex-column justify-content-center align-items-center">
+                                                    <div class="centered-search-box">
+                                                        <div class="search-box">
+                                                            <i class="fas fa-search me-2 text-muted"></i>
+                                                            <input #searchInput type="text" [(ngModel)]="searchValue"
+                                                                placeholder="Search for free images..."
+                                                                (keyup.enter)="searchImage(searchValue)" [disabled]="isSearching">
+                                                            <button (click)="searchImage(searchValue)"
+                                                                type="button" [disabled]="isSearching" [class.searching]="isSearching">
+                                                                @if(isSearching) {
+                                                                <i class="fas fa-spinner fa-spin me-1"></i> Searching...
+                                                                } @else {
+                                                                Search
+                                                                }
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        }
+                                    }
+
+                                </div>
+                            </div>
+                            }
+
+                            @if(searchResults && searchResults.length){
+                            <div class="second_div" [ngClass]="{'asModal': _DIALOG_DATA.isDialogOpen}">
+
+                                @if(selectedItem?.value === 'upload'){
+                                <div class="img_container mt-2">
+                                    <figure class="upload_container upload_figure dropzone"
+                                            [class.dragover]="isDragOver"
+                                            [class.has-file]="uploadImage"
+                                            (dragover)="onDragOver($event)"
+                                            (dragleave)="onDragLeave($event)"
+                                            (drop)="onDrop($event)"
+                                            (click)="openFilePicker()"
+                                            style="width: 100%; position: relative; cursor: pointer;">
+                                        <figcaption class="fig_upload">
+                                            @if(uploadImage){
+                                            <img [src]="uploadImage" alt="Selected Image" class="selected-image"
+                                                height="140px">
+                                            @if(showUploadingSpinner) {
+                                            <mat-progress-spinner class="example-margin" [mode]="mode"
+                                                [value]="progressValue"
+                                                style="position: absolute;top: 50%;left: 50%;transform: translate(-50%, -50%);z-index: 1;">
+                                            </mat-progress-spinner>
+                                            @if(uploadTotal > 1) {
+                                            <div class="upload-counter">{{ uploadCurrent }} of {{ uploadTotal }}</div>
+                                            }
+                                            }
+                                            }
+                                            @else {
+                                            <span class="material-icons cloud_icon">cloud_upload</span>
+                                            }
+                                        </figcaption>
+                                    </figure>
+
+                                    @for(element of searchResults; track element.id; let i = $index){
+                                    <figure [ngClass]="{'selected_item': element.id === selectedMediaUrl?.id}">
+                                        <img (click)="selectMedia(element)" [src]="element.url" alt="..."
+                                            class="search_img" />
+                                        <figcaption><a href="#">{{ i + 1 }}</a></figcaption>
+                                        <i class="material-icons text-danger text-gradient position-absolute top-0 end-0 mt-2 me-2 d-none fs-2"
+                                            (click)="confirmationToDeleteItem(element)">delete</i>
+                                    </figure>
+                                    }
+                                </div>
+                                }
+
+                                @if(selectedItem?.value === 'search'){
+                                @if(searchResults && searchResults.length){
+                                <div class="img_container mt-2">
+                                    @for(element of searchResults; track element.id; let i = $index){
+                                    <figure (click)="selectMedia(element)"
+                                        [ngClass]="{'selected_item': element.id === selectedMediaUrl?.id}">
+                                        <img [src]="getUrl(element)" alt="..." class="search_img" />
+                                        <figcaption><a href="#">{{ i + 1 }}</a></figcaption>
+                                    </figure>
+                                    }
+                                </div>
+                                }
+                                }
+
+
+                            </div>
+                            }
+
+                        </div>
+
+                    </div>
+                    @if(searchResults && searchResults.length){
+                    <footer>
+                        <mat-paginator [length]="pagination?.totalItems" [pageSize]="pagination?.pageSize || 20"
+                            [pageIndex]="currentPageIndex" (page)="getPaginatorData($event)"
+                            aria-label="Select page">
+                        </mat-paginator>
+                    </footer>
+                    }
+                </div>
+                <div class="side-preview">
+                    <div class="preview-header">
+                        <div class="preview-title">Selected Media</div>
+                        @if(_DIALOG_DATA.isDialogOpen){
+                        <button mat-dialog-close class="close-modal-btn" title="Close">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        }
+                    </div>
+                    <div class="preview-container" [class.clickable]="selectedMediaUrl"
+                        (click)="selectedMediaUrl && openFullImage()"
+                        [title]="selectedMediaUrl ? 'Click to open full-size image in new tab' : ''">
+                        <img [src]=" selectedMediaUrl?.urls?.regular || selectedMediaUrl?.url || 'https://placehold.co/800x450/e9f7fe/555555?text=Selected+photo+will+come+here'"
+                            alt="Company Logo Wide"
+                            (error)="handleImageError($event)">
+                        @if(selectedMediaUrl) {
+                        <div class="preview-overlay">
+                            <i class="fas fa-external-link-alt"></i> Open full size
+                        </div>
+                        }
+                    </div>
+                    @if(selectedMediaUrl) {
+                    <div class="preview-metadata">
+                        @if(selectedMediaUrl.name) {
+                        <div class="metadata-row">
+                            <span class="metadata-label">Name</span>
+                            <span class="metadata-value" [title]="selectedMediaUrl.name">{{ selectedMediaUrl.name }}</span>
+                        </div>
+                        }
+                        @if(selectedImageDimensions) {
+                        <div class="metadata-row">
+                            <span class="metadata-label">Dimensions</span>
+                            <span class="metadata-value">{{ selectedImageDimensions }}</span>
+                        </div>
+                        }
+                        @if(selectedMediaUrl.uploadTime) {
+                        <div class="metadata-row">
+                            <span class="metadata-label">Uploaded</span>
+                            <span class="metadata-value">{{ selectedMediaUrl.uploadTime | date:'medium' }}</span>
+                        </div>
+                        }
+                    </div>
+                    }
+                    @if(_DIALOG_DATA.isDialogOpen){
+                    <button id="insertMediaBtn" (click)="insertMedia()" class=" btn btn-primary btn-insert">
+                        <i class="fas fa-check me-1 fs-6"></i> Insert Media
+                    </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

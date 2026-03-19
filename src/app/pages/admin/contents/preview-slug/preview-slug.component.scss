@@ -1,0 +1,51 @@
+.content-preview {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.content-body {
+    line-height: 1.8;
+    font-size: 1.1rem;
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        margin-top: 1.5em;
+        margin-bottom: 0.5em;
+    }
+
+    p {
+        margin-bottom: 1.25em;
+    }
+
+    img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 0.5rem;
+    }
+
+    blockquote {
+        border-left: 4px solid #007bff;
+        padding-left: 1rem;
+        margin: 1.5rem 0;
+        color: #555;
+        font-style: italic;
+    }
+
+    pre {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        overflow-x: auto;
+    }
+
+    code {
+        background: #f0f0f0;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        font-size: 0.9em;
+    }
+}

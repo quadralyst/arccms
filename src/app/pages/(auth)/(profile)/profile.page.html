@@ -1,0 +1,250 @@
+<div class="profile-container">
+  <!-- Page Header -->
+  <div class="profile-header">
+    <div>
+      <h1>My Profile</h1>
+      <p class="header-subtitle">Manage your account information</p>
+    </div>
+    <button class="btn btn-light btn-sm" (click)="goBack()">
+      <i class="fas fa-arrow-left me-1"></i> Back
+    </button>
+  </div>
+
+  <!-- Alerts -->
+  @if (successMsg()) {
+    <div class="alert alert-success d-flex align-items-center">
+      <i class="fas fa-check-circle me-2"></i>
+      <span>{{ successMsg() }}</span>
+      <button type="button" class="btn-close ms-auto" (click)="clearMessages()"></button>
+    </div>
+  }
+  @if (errorMsg()) {
+    <div class="alert alert-danger d-flex align-items-center">
+      <i class="fas fa-exclamation-circle me-2"></i>
+      <span>{{ errorMsg() }}</span>
+      <button type="button" class="btn-close ms-auto" (click)="clearMessages()"></button>
+    </div>
+  }
+
+  @if (currentUser()) {
+    <!-- CARD 1: Avatar Section -->
+    <div class="profile-card avatar-card">
+      <div class="avatar-section">
+        <div class="avatar-wrapper" (click)="openPhotoSelector()">
+          @if (currentUser()?.photo) {
+            <img [src]="currentUser()?.photo" alt="Profile Photo" class="avatar-img" />
+          } @else {
+            <div class="avatar-placeholder">
+              {{ getInitials(currentUser()?.name || '') }}
+            </div>
+          }
+          <div class="avatar-overlay">
+            <i class="fas fa-camera"></i>
+          </div>
+        </div>
+
+        <div class="avatar-actions">
+          <button class="btn btn-sm btn-outline-primary" (click)="openPhotoSelector()">
+            <i class="fas fa-image me-1"></i> Change Photo
+          </button>
+          @if (currentUser()?.photo) {
+            <button class="btn btn-sm btn-outline-danger" (click)="removePhoto()">
+              <i class="fas fa-trash me-1"></i> Remove
+            </button>
+          }
+        </div>
+      </div>
+
+      <h3 class="user-display-name">{{ currentUser()?.name }}</h3>
+      <div class="badge-row">
+        <span class="role-badge">{{ currentUser()?.role || 'User' }}</span>
+        <span class="status-badge" [class.active]="currentUser()?.isActive">
+          {{ currentUser()?.isActive ? 'Active' : 'Inactive' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- CARD 2: Personal Information -->
+    <div class="profile-card">
+      <div class="card-title-row">
+        <h2 class="section-title">
+          <i class="fas fa-user me-2"></i> Personal Information
+        </h2>
+      </div>
+
+      <!-- Name Row -->
+      <div class="info-row">
+        <label>Name</label>
+        @if (!isEditingName()) {
+          <div class="info-value">
+            <span>{{ currentUser()?.name }}</span>
+            <button class="btn btn-sm btn-outline-secondary" (click)="editName()">
+              <i class="fas fa-pen me-1"></i> Edit
+            </button>
+          </div>
+        } @else {
+          <div class="edit-form">
+            <input type="text" class="form-control" [formControl]="nameControl"
+                   placeholder="Enter your name" />
+            @if (nameControl.invalid && nameControl.touched) {
+              <div class="text-danger mt-1 small">Please enter a valid name (max 50 characters).</div>
+            }
+            <div class="edit-actions">
+              <button class="btn btn-sm btn-primary" (click)="saveName()" [disabled]="isSavingName()">
+                Save
+                @if (isSavingName()) {
+                  <span class="spinner-border spinner-border-sm ms-1"></span>
+                }
+              </button>
+              <button class="btn btn-sm btn-light" (click)="cancelEditName()">Cancel</button>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Email Row -->
+      <div class="info-row">
+        <label>Email</label>
+        @if (!isEditingEmail()) {
+          <div class="info-value">
+            <span>{{ currentUser()?.email }}</span>
+            @if (currentUser()?.emailVerified) {
+              <span class="verified-badge"><i class="fas fa-check-circle me-1"></i>Verified</span>
+            }
+            <button class="btn btn-sm btn-outline-secondary" (click)="startEditEmail()">
+              <i class="fas fa-pen me-1"></i> Edit
+            </button>
+          </div>
+        } @else {
+          <div class="edit-form" [formGroup]="emailForm">
+            <div class="mb-3">
+              <label class="form-label">New Email</label>
+              <input type="email" class="form-control" formControlName="email"
+                     placeholder="Enter new email address" />
+              @if (emailForm.get('email')?.invalid && emailForm.get('email')?.touched) {
+                <div class="text-danger mt-1 small">Please enter a valid email address.</div>
+              }
+            </div>
+            <div class="mb-3">
+              <label class="form-label">
+                Current Password
+                <span class="text-muted small ms-1">(required to change email)</span>
+              </label>
+              <div class="input-group">
+                <input [type]="showEmailPassword() ? 'text' : 'password'"
+                       class="form-control" formControlName="password"
+                       placeholder="Enter your current password" />
+                <button type="button" class="btn btn-outline-secondary"
+                        (click)="showEmailPassword.set(!showEmailPassword())">
+                  <i class="fas" [class.fa-eye]="showEmailPassword()"
+                     [class.fa-eye-slash]="!showEmailPassword()"></i>
+                </button>
+              </div>
+              @if (emailForm.get('password')?.invalid && emailForm.get('password')?.touched) {
+                <div class="text-danger mt-1 small">Password is required to change email.</div>
+              }
+            </div>
+            <div class="edit-actions">
+              <button class="btn btn-sm btn-primary" (click)="saveEmail()" [disabled]="isSavingEmail()">
+                Update Email
+                @if (isSavingEmail()) {
+                  <span class="spinner-border spinner-border-sm ms-1"></span>
+                }
+              </button>
+              <button class="btn btn-sm btn-light" (click)="cancelEditEmail()">Cancel</button>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- CARD 3: Security -->
+    <div class="profile-card">
+      <div class="card-title-row">
+        <h2 class="section-title">
+          <i class="fas fa-shield-alt me-2"></i> Security
+        </h2>
+      </div>
+
+      <div class="info-row">
+        <label>Password</label>
+        @if (!isChangingPassword()) {
+          <div class="info-value">
+            <span class="text-muted">********</span>
+            <button class="btn btn-sm btn-outline-secondary" (click)="startChangePassword()">
+              <i class="fas fa-key me-1"></i> Change Password
+            </button>
+          </div>
+        } @else {
+          <div class="edit-form" [formGroup]="passwordForm">
+            <!-- Current Password -->
+            <div class="mb-3">
+              <label class="form-label">Current Password</label>
+              <div class="input-group">
+                <input [type]="showCurrentPassword() ? 'text' : 'password'"
+                       class="form-control" formControlName="currentPassword"
+                       placeholder="Enter current password" />
+                <button type="button" class="btn btn-outline-secondary"
+                        (click)="showCurrentPassword.set(!showCurrentPassword())">
+                  <i class="fas" [class.fa-eye]="showCurrentPassword()"
+                     [class.fa-eye-slash]="!showCurrentPassword()"></i>
+                </button>
+              </div>
+              @if (passwordForm.get('currentPassword')?.invalid && passwordForm.get('currentPassword')?.touched) {
+                <div class="text-danger mt-1 small">Current password is required.</div>
+              }
+            </div>
+            <!-- New Password -->
+            <div class="mb-3">
+              <label class="form-label">New Password</label>
+              <div class="input-group">
+                <input [type]="showNewPassword() ? 'text' : 'password'"
+                       class="form-control" formControlName="newPassword"
+                       placeholder="Min 8 characters" />
+                <button type="button" class="btn btn-outline-secondary"
+                        (click)="showNewPassword.set(!showNewPassword())">
+                  <i class="fas" [class.fa-eye]="showNewPassword()"
+                     [class.fa-eye-slash]="!showNewPassword()"></i>
+                </button>
+              </div>
+              @if (passwordForm.get('newPassword')?.invalid && passwordForm.get('newPassword')?.touched) {
+                <div class="text-danger mt-1 small">Password must be at least 8 characters.</div>
+              }
+            </div>
+            <!-- Confirm Password -->
+            <div class="mb-3">
+              <label class="form-label">Confirm New Password</label>
+              <div class="input-group">
+                <input [type]="showConfirmPassword() ? 'text' : 'password'"
+                       class="form-control" formControlName="confirmPassword"
+                       placeholder="Re-enter new password" />
+                <button type="button" class="btn btn-outline-secondary"
+                        (click)="showConfirmPassword.set(!showConfirmPassword())">
+                  <i class="fas" [class.fa-eye]="showConfirmPassword()"
+                     [class.fa-eye-slash]="!showConfirmPassword()"></i>
+                </button>
+              </div>
+              @if (hasPasswordMismatch) {
+                <div class="text-danger mt-1 small">Passwords do not match.</div>
+              }
+            </div>
+            <div class="edit-actions">
+              <button class="btn btn-sm btn-primary" (click)="savePassword()" [disabled]="isSavingPassword()">
+                Update Password
+                @if (isSavingPassword()) {
+                  <span class="spinner-border spinner-border-sm ms-1"></span>
+                }
+              </button>
+              <button class="btn btn-sm btn-light" (click)="cancelChangePassword()">Cancel</button>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="loading-state">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-3 text-muted">Loading profile...</p>
+    </div>
+  }
+</div>

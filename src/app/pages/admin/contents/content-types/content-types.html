@@ -1,0 +1,111 @@
+<!-- Content Types Page -->
+<mat-drawer-container class="example-container" hasBackdrop="true" (backdropClick)="closeDrawer()">
+    <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 600px;">
+        @if(currentAction() === 'add') {
+        <arc-add-content-type [action]="currentAction()" (close)="closeDrawer()"></arc-add-content-type>
+        } @else if(currentAction() === 'edit' && currentId()) {
+        <arc-edit-content-type [id]="currentId()" [action]="currentAction()"
+            (close)="closeDrawer()"></arc-edit-content-type>
+        } @else if(currentAction() === 'view' && currentId()) {
+        <arc-view-content-type [id]="currentId()" [action]="currentAction()"
+            (close)="closeDrawer()"></arc-view-content-type>
+        } @else {
+        <div class="alert alert-danger">No action selected</div>
+        }
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="arc">
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-center top-bar">
+                    <h5 class="mb-0">Content Types Management</h5>
+                </div>
+
+                <div class="content-area">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="mb-0">All Content Types</h6>
+                            <small class="text-muted">Define and manage content type structures</small>
+                        </div>
+                        <button mat-raised-button color="primary" (click)="openAdd()">
+                            <mat-icon>add</mat-icon> Add Content Type
+                        </button>
+                    </div>
+
+                    <!-- Filter Bar -->
+                    <!-- <div class="filter-bar mb-3">
+                        <div class="row g-2">
+                            @for(column of filterableColumns; track column.field) {
+                            <div class="col-md-3">
+                                <input type="text" class="form-control form-control-sm"
+                                    [placeholder]="'Filter by ' + column.label" [value]="filters()[column.field] || ''"
+                                    (input)="onFilterChange(column.field, $event)" />
+                            </div>
+                            }
+                            @if(hasActiveFilters()) {
+                            <div class="col-auto">
+                                <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()">
+                                    Clear Filters
+                                </button>
+                            </div>
+                            }
+                        </div>
+                    </div> -->
+
+                    <app-global-table [data]="contentTypesStore.items()" [columns]="tableColumns"
+                        [loading]="contentTypesStore.isLoading()" [sortField]="sortField()" [sortOrder]="sortOrder()"
+                        (sortChange)="setSortField($event)" [pageIndex]="currentPage()" [pageSize]="pageSize()"
+                        emptyTitle="No Content Types Found"
+                        emptyDescription="No content types found. Click 'Add Content Type' to create one."
+                        [showEmptyAction]="false">
+                    </app-global-table>
+
+                    <!-- Pagination and Record Count -->
+                    @if(contentTypesStore.items().length){
+                    <div class="pagination-footer d-flex justify-content-between align-items-center">
+                        @if(!contentTypesStore.isLoading()) {
+                        <div class="record-count text-muted">
+                            @if(contentTypesStore.totalRecords() > 0) {
+                            Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
+                            <strong>{{ contentTypesStore.totalRecords() }}</strong>
+                            @if(hasActiveFilters()) {
+                            <span class="text-primary">filtered</span>
+                            }
+                            records
+                            } @else {
+                            No records found
+                            }
+                        </div>
+                        <mat-paginator [length]="contentTypesStore.totalRecords()" [pageSize]="pageSize()"
+                            [pageIndex]="currentPage()" [pageSizeOptions]="[5, 10, 25, 50]"
+                            [showFirstLastButtons]="true" (page)="onPageChange($event)">
+                        </mat-paginator>
+                        }
+                        @else {
+                        <!-- Skeleton Loading State -->
+                        <div class="pagination-container">
+                            <div class="record-count-skeleton">
+                                <span class="skeleton skeleton-text"></span>
+                            </div>
+                            <div class="pagination-controls-skeleton">
+                                <div class="items-per-page-skeleton">
+                                    <span class="skeleton skeleton-text-small"></span>
+                                    <span class="skeleton skeleton-select"></span>
+                                </div>
+                                <span class="skeleton skeleton-text-medium"></span>
+                                <div class="pagination-buttons-skeleton">
+                                    <span class="skeleton skeleton-button"></span>
+                                    <span class="skeleton skeleton-button"></span>
+                                    <span class="skeleton skeleton-button"></span>
+                                    <span class="skeleton skeleton-button"></span>
+                                </div>
+                            </div>
+                        </div>
+                        }
+                    </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

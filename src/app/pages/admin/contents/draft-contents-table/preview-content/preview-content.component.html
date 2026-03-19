@@ -1,0 +1,82 @@
+<div class="side-panel">
+  <div class="panel-header">
+    <h5 class="mb-0">Preview Content</h5>
+    <button class="close-btn" (click)="closeView()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  @if(contentItem()) {
+  <div class="view-content">
+    
+    <!-- Header Info -->
+    <div class="detail-row">
+      <label>Title:</label>
+      <span class="fw-bold">{{ contentItem().title || 'Untitled' }}</span>
+    </div>
+
+    <div class="detail-row">
+      <label>Status:</label>
+      @if (contentItem().publishedStatus) {
+        <span class="badge bg-success">Published</span>
+      } @else {
+        <span class="badge bg-secondary">Draft</span>
+      }
+    </div>
+
+    <hr />
+    
+    <!-- Custom Fields -->
+    <div class="form-section-title">Fields</div>
+    
+    @for(field of getDisplayFields(); track field.key) {
+      <div class="detail-row">
+        <label>{{ field.label }}:</label>
+        
+        <!-- Handle specific types for better rendering -->
+        <!-- Trigger Rebuild -->
+        @if(isRichText(field.type)) {
+           <div class="rich-text-preview" [innerHTML]="contentItem().customFields?.[field.key] || '--'"></div>
+        } 
+        @else if (field.type === 'image') {
+           @if(contentItem().customFields?.[field.key]) {
+             <img [src]="contentItem().customFields?.[field.key]" class="img-fluid preview-image" alt="Field Image">
+           } @else {
+             <span class="text-muted">No image</span>
+           }
+        }
+        @else {
+           <span>{{ formatValue(field.key, contentItem().customFields?.[field.key]) || '--' }}</span>
+        }
+      </div>
+    }
+
+    <hr />
+    
+    <!-- Metadata -->
+    <div class="metadata">
+      <div class="form-section-title">Metadata</div>
+
+      <div class="detail-row">
+        <label>Created At:</label>
+        <span>{{ globalService.convertMillisecondsToFormatDate(contentItem().createdAt, 'dd MMM yyyy, HH:mm:ss') }}</span>
+      </div>
+      
+      <div class="detail-row">
+        <label>Updated At:</label>
+        <span>{{ globalService.convertMillisecondsToFormatDate(contentItem().modifiedAt, 'dd MMM yyyy, HH:mm:ss') }}</span>
+      </div>
+
+       <div class="detail-row">
+        <label>ID:</label>
+        <span class="text-muted small">{{ contentItem().id }}</span>
+      </div>
+    </div>
+
+  </div>
+  } @else {
+    <div class="p-3 text-center text-muted">
+      Select an item to preview
+    </div>
+  }
+</div>

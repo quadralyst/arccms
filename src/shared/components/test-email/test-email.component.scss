@@ -1,0 +1,221 @@
+/**
+ * Test Email Dialog Styles
+ */
+
+.test-email-dialog {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+}
+
+// Header
+.dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #fff;
+
+    h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+
+        i {
+            margin-right: 10px;
+        }
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+
+        .btn-link {
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            font-size: 0.875rem;
+
+            &:hover {
+                color: #fff;
+            }
+        }
+
+        .btn-primary {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+
+            i {
+                margin-right: 6px;
+            }
+
+            &:hover:not(:disabled) {
+                background: rgba(255, 255, 255, 0.3);
+            }
+
+            &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+        }
+    }
+}
+
+// Content
+.dialog-content {
+    display: flex;
+    padding: 24px;
+    gap: 24px;
+    overflow: auto;
+    flex: 1;
+}
+
+// Preview Column
+.preview-column {
+    flex: 1;
+    min-width: 300px;
+
+    h4 {
+        margin: 0 0 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .template-preview-wrapper {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        max-height: 500px;
+        overflow: auto;
+        background: #fff;
+    }
+
+    .template-preview {
+        padding: 16px;
+        font-size: 0.875rem;
+        line-height: 1.6;
+
+        * {
+            max-width: 100%;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+    }
+}
+
+// Form Column
+.form-column {
+    flex: 1;
+    min-width: 300px;
+}
+
+.form-group {
+    margin-bottom: 16px;
+
+    label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 6px;
+        color: #333;
+        font-size: 0.875rem;
+
+        .required {
+            color: #dc3545;
+        }
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        transition: border-color 0.2s;
+
+        &:focus {
+            outline: none;
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+        }
+    }
+}
+
+// Variables Section
+.variables-section {
+    margin-top: 24px;
+
+    .variables-table {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .variable-name {
+            width: 40%;
+
+            code {
+                background: #f0f0f0;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 0.75rem;
+            }
+        }
+
+        .form-control {
+            padding: 8px 10px;
+        }
+    }
+}
+
+// Spinner
+.spinner-border-sm {
+    width: 14px;
+    height: 14px;
+    border-width: 2px;
+    margin-right: 6px;
+}
+
+// Responsive
+@media (max-width: 768px) {
+    .dialog-content {
+        flex-direction: column;
+    }
+
+    .preview-column,
+    .form-column {
+        min-width: auto;
+    }
+}

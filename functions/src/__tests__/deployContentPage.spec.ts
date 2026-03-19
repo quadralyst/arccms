@@ -1,0 +1,487 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// ─── Hoisted mocks ──────────────────────────────────────────────────────────
+const {
+    mockFetch,
+    mockDeployFileToHosting,
+    mockRemoveFileFromHosting,
+    mockGetPartials,
+    mockGetSiteConfig,
+    mockGetMiscSettings,
+    // Firestore mocks
+    mockDocGet,
+    mockCollectionDocGet,
+    mockContentTypeWhere,
+    mockContentTypeLimitGet,
+    mockCollection,
+    mockTopDoc,
+} = vi.hoisted(() => ({
+    mockFetch: vi.fn(),
+    mockDeployFileToHosting: vi.fn(),
+    mockRemoveFileFromHosting: vi.fn(),
+    mockGetPartials: vi.fn(),
+    mockGetSiteConfig: vi.fn(),
+    mockGetMiscSettings: vi.fn(),
+    // Firestore chain mocks
+    mockDocGet: vi.fn(),
+    mockCollectionDocGet: vi.fn(),
+    mockContentTypeWhere: vi.fn(),
+    mockContentTypeLimitGet: vi.fn(),
+    mockCollection: vi.fn(),
+    mockTopDoc: vi.fn(),
+}));
+
+// ─── Global fetch mock ──────────────────────────────────────────────────────
+vi.stubGlobal('fetch', mockFetch);
+
+// ─── Module mocks ───────────────────────────────────────────────────────────
+vi.mock('../init', () => ({
+    db: {
+        collection: mockCollection,
+        doc: mockTopDoc,
+    },
+}));
+
+vi.mock('../pages/deployToHosting', () => ({
+    deployFileToHosting: mockDeployFileToHosting,
+    removeFileFromHosting: mockRemoveFileFromHosting,
+}));
+
+vi.mock('../shared/site-settings', () => ({
+    getPartials: mockGetPartials,
+    getSiteConfig: mockGetSiteConfig,
+    getMiscSettings: mockGetMiscSettings,
+}));
+
+// Let template-hydration and html-document run unmocked (real logic)
+
+import {
+    generateAndDeployContentDetailPage,
+    removeContentPage,
+} from '../pages/deployContentPage.js';
+
+// ─── Test Data ──────────────────────────────────────────────────────────────
+
+const MOCK_CONTENT = {
+    title: 'Test Article',
+    content: '<p>This is the article body with enough words for reading time.</p>',
+    urlSlug: 'test-article',
+    type: 'articles',
+    coverImage: 'https://example.com/image.jpg',
+    tags: ['javascript', 'testing'],
+    tagsWithColors: [
+        { name: 'javascript', color: '#f7df1e' },
+        { name: 'testing', color: '#4caf50' },
+    ],
+    seoTitle: 'Test Article - SEO Title',
+    metaDescription: 'A test article for unit testing',
+    canonicalUrl: '',
+    publishedOn: { seconds: 1705334400, nanoseconds: 0 }, // Jan 15, 2024
+    publishedStatus: true,
+    summary: 'A brief summary of the test article',
+    customFields: { author: 'John Doe' },
+};
+
+const MOCK_CONTENT_TYPE = {
+    name: 'Articles',
+    slug: 'articles',
+    templateFolder: 'articles',
+    fields: [],
+};
+
+const MOCK_PARTIALS = {
+    headerHtml: '<header>Site Header</header>',
+    footerHtml: '<footer>Site Footer</footer>',
+};
+
+const MOCK_SITE_CONFIG = {
+    siteName: 'Test Site',
+    baseUrl: 'https://example.com',
+    cssUrls: ['/assets/css/main.css'],
+};
+
+const MOCK_TEMPLATE_HTML = `<article>
+    <h1 data-arc-bind="title">Title</h1>
+    <time data-arc-bind="publishedOn">Date</time>
+    <span data-arc-bind="readTime">0</span> min read
+    <img data-arc-bind="coverImage" alt="" style="max-width:100%">
+    <div [innerHTML]="content">Content</div>
+    <div class="tags-container" data-arc-loop="tags">
+        <span data-arc-bind="name" data-arc-style-background="color">Tag</span>
+    </div>
+    <a data-arc-bind="share.facebook">Share</a>
+</article>`;
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function restoreMockImplementations() {
+    // Site settings
+    mockGetPartials.mockResolvedValue(MOCK_PARTIALS);
+    mockGetSiteConfig.mockResolvedValue(MOCK_SITE_CONFIG);
+    mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
+
+    // Deploy functions
+    mockDeployFileToHosting.mockResolvedValue(undefined);
+    mockRemoveFileFromHosting.mockResolvedValue(undefined);
+
+    // Firestore: db.collection('arc_articles').doc('doc123').get()
+    mockCollectionDocGet.mockResolvedValue({
+        exists: true,
+        id: 'doc123',
+        data: () => ({ ...MOCK_CONTENT }),
+    });
+
+    // Firestore: db.collection('ContentTypes').where().limit().get()
+    mockContentTypeLimitGet.mockResolvedValue({
+        empty: false,
+        docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE }) }],
+    });
+
+    // Wire up collection chain based on collection name
+    mockCollection.mockImplementation((name: string) => {
+        if (name === 'ContentTypes') {
+            return {
+                where: mockContentTypeWhere.mockReturnValue({
+                    limit: vi.fn().mockReturnValue({
+                        get: mockContentTypeLimitGet,
+                    }),
+                }),
+            };
+        }
+        // Default: published content collection (arc_*)
+        return {
+            doc: vi.fn().mockReturnValue({
+                get: mockCollectionDocGet,
+            }),
+        };
+    });
+
+    // Firestore: db.doc('templates/articles:detail').get() — Tier 1 template
+    mockDocGet.mockResolvedValue({
+        exists: true,
+        data: () => ({ html: MOCK_TEMPLATE_HTML }),
+    });
+    mockTopDoc.mockReturnValue({
+        get: mockDocGet,
+    });
+
+    // Global fetch — Tier 2 template (not needed by default, Tier 1 succeeds)
+    mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(MOCK_TEMPLATE_HTML),
+    });
+}
+
+// ─── Tests ──────────────────────────────────────────────────────────────────
+
+describe('deployContentPage', () => {
+    beforeEach(() => {
+        vi.resetAllMocks();
+        restoreMockImplementations();
+        process.env.GCLOUD_PROJECT = 'test-project';
+    });
+
+    // --- Firestore reads ---
+
+    describe('Firestore reads', () => {
+        it('should read content from the correct published collection', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            // First call to mockCollection should be for the published collection
+            expect(mockCollection).toHaveBeenCalledWith('arc_articles');
+        });
+
+        it('should read ContentType from ContentTypes where slug matches', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(mockCollection).toHaveBeenCalledWith('ContentTypes');
+            expect(mockContentTypeWhere).toHaveBeenCalledWith('slug', '==', 'articles');
+        });
+    });
+
+    // --- Template 3-tier fallback ---
+
+    describe('Template 3-tier fallback', () => {
+        it('Tier 1: should load template from Firestore html field', async () => {
+            const customTemplate = '<div data-arc-bind="title">Custom</div>';
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: customTemplate }),
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            // Verify template doc was read
+            expect(mockTopDoc).toHaveBeenCalledWith('templates/articles:detail');
+            // Verify the deployed HTML contains hydrated content from the custom template
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(deployedHtml).toContain('Test Article');
+        });
+
+        it('Tier 1 fallback: should use originalHtml when html field is missing', async () => {
+            const originalTemplate = '<div data-arc-bind="title">Original</div>';
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ originalHtml: originalTemplate }),
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(deployedHtml).toContain('Test Article');
+        });
+
+        it('Tier 2: should fetch from hosting when Firestore doc missing', async () => {
+            // Tier 1 fails (doc doesn't exist)
+            mockDocGet.mockResolvedValue({
+                exists: false,
+                data: () => null,
+            });
+
+            // Tier 2 succeeds
+            const hostingTemplate = '<h2 data-arc-bind="title">Hosting</h2>';
+            mockFetch.mockResolvedValue({
+                ok: true,
+                text: () => Promise.resolve(hostingTemplate),
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(mockFetch).toHaveBeenCalledWith(
+                'https://test-project.web.app/templates/articles/detail.html',
+            );
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(deployedHtml).toContain('Test Article');
+        });
+
+        it('Tier 3: should use built-in fallback when Tier 1+2 fail', async () => {
+            // Tier 1 fails
+            mockDocGet.mockRejectedValue(new Error('Firestore error'));
+
+            // Tier 2 fails
+            mockFetch.mockRejectedValue(new Error('Network error'));
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            // Fallback template has data-arc-bind="title" which gets hydrated
+            expect(deployedHtml).toContain('Test Article');
+        });
+
+        it('should skip Tier 1+2 when templateFolder is "default"', async () => {
+            // ContentType with templateFolder = 'default'
+            mockContentTypeLimitGet.mockResolvedValue({
+                empty: false,
+                docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, templateFolder: 'default' }) }],
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            // Should not read template doc or fetch from hosting
+            expect(mockTopDoc).not.toHaveBeenCalled();
+            expect(mockFetch).not.toHaveBeenCalled();
+            // Should still deploy successfully
+            expect(mockDeployFileToHosting).toHaveBeenCalled();
+        });
+
+        it('should skip Tier 1+2 when templateFolder is empty', async () => {
+            // ContentType with no templateFolder
+            mockContentTypeLimitGet.mockResolvedValue({
+                empty: false,
+                docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, templateFolder: '' }) }],
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(mockTopDoc).not.toHaveBeenCalled();
+            expect(mockFetch).not.toHaveBeenCalled();
+            expect(mockDeployFileToHosting).toHaveBeenCalled();
+        });
+    });
+
+    // --- Template data and hydration ---
+
+    describe('Template data and hydration', () => {
+        it('should include share URLs with proper URL encoding', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            // The template has <a data-arc-bind="share.facebook"> which gets hydrated
+            expect(deployedHtml).toContain('facebook.com/sharer/sharer.php');
+        });
+
+        it('should include readTime calculated from content', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            // readTime is injected into <span data-arc-bind="readTime"> → <span>N</span> min read
+            expect(deployedHtml).toMatch(/<span>\d+<\/span> min read/);
+        });
+
+        it('should include formatted date from Firestore Timestamp', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            // Jan 15, 2024 — the Firestore timestamp we set (seconds: 1705334400)
+            expect(deployedHtml).toContain('January 15, 2024');
+        });
+
+        it('should process tags loop via tagsWithColors', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(deployedHtml).toContain('javascript');
+            expect(deployedHtml).toContain('testing');
+        });
+    });
+
+    // --- HTML assembly and deployment ---
+
+    describe('HTML assembly and deployment', () => {
+        it('should deploy to correct file path /{slug}/{urlSlug}.html', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(mockDeployFileToHosting).toHaveBeenCalledWith(
+                'test-project',
+                '/articles/test-article.html',
+                expect.any(String),
+                'arc_articles',
+                'doc123',
+            );
+        });
+
+        it('should pass correct collectionName and docId to deployFileToHosting', async () => {
+            await generateAndDeployContentDetailPage('blog-posts', 'abc456');
+
+            // Need to set up mocks for the blog-posts content
+            // Already handled by generic mockCollection implementation
+            expect(mockDeployFileToHosting.mock.calls[0][3]).toBe('arc_blog-posts');
+            expect(mockDeployFileToHosting.mock.calls[0][4]).toBe('abc456');
+        });
+
+        it('should pass siteId from GCLOUD_PROJECT', async () => {
+            process.env.GCLOUD_PROJECT = 'my-custom-project';
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(mockDeployFileToHosting.mock.calls[0][0]).toBe('my-custom-project');
+        });
+
+        it('should build HTML containing SEO meta tags', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(deployedHtml).toContain('<title>Test Article - SEO Title</title>');
+            expect(deployedHtml).toContain('A test article for unit testing');
+            expect(deployedHtml).toContain('arc-served-by');
+            expect(deployedHtml).toContain('firebase-hosting');
+        });
+    });
+
+    // --- Error handling ---
+
+    describe('Error handling', () => {
+        it('should throw CONTENT_NOT_FOUND when content doc missing', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: false,
+                id: 'doc123',
+                data: () => null,
+            });
+
+            await expect(
+                generateAndDeployContentDetailPage('articles', 'doc123'),
+            ).rejects.toThrow('Published content not found');
+
+            try {
+                await generateAndDeployContentDetailPage('articles', 'doc123');
+            } catch (err: any) {
+                expect(err.code).toBe('CONTENT_NOT_FOUND');
+            }
+        });
+
+        it('should throw CONTENT_TYPE_NOT_FOUND when ContentType query empty', async () => {
+            mockContentTypeLimitGet.mockResolvedValue({
+                empty: true,
+                docs: [],
+            });
+
+            await expect(
+                generateAndDeployContentDetailPage('articles', 'doc123'),
+            ).rejects.toThrow('Content type configuration not found');
+
+            try {
+                await generateAndDeployContentDetailPage('articles', 'doc123');
+            } catch (err: any) {
+                expect(err.code).toBe('CONTENT_TYPE_NOT_FOUND');
+            }
+        });
+    });
+
+    // --- Edge cases ---
+
+    describe('Edge cases', () => {
+        it('should handle content with no tags (empty arrays)', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({
+                    ...MOCK_CONTENT,
+                    tags: [],
+                    tagsWithColors: undefined,
+                }),
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            // Should still deploy successfully even with no tags
+            expect(mockDeployFileToHosting).toHaveBeenCalled();
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(deployedHtml).toContain('Test Article');
+        });
+    });
+
+    // --- Powered-by footer ---
+
+    describe('Powered-by footer', () => {
+        it('should include "Powered by Arc CMS" when showPoweredBy is true', async () => {
+            mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(deployedHtml).toContain('Powered by');
+            expect(deployedHtml).toContain('arccms.com');
+        });
+
+        it('should NOT include "Powered by Arc CMS" when showPoweredBy is false', async () => {
+            mockGetMiscSettings.mockResolvedValue({ showPoweredBy: false });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(deployedHtml).not.toContain('Powered by');
+            expect(deployedHtml).not.toContain('arccms.com');
+        });
+    });
+
+    // --- removeContentPage ---
+
+    describe('removeContentPage', () => {
+        it('should call removeFileFromHosting with correct path', async () => {
+            await removeContentPage('articles', 'test-article');
+
+            expect(mockRemoveFileFromHosting).toHaveBeenCalledWith(
+                'test-project',
+                '/articles/test-article.html',
+            );
+        });
+
+        it('should pass GCLOUD_PROJECT as siteId', async () => {
+            process.env.GCLOUD_PROJECT = 'custom-project';
+
+            await removeContentPage('articles', 'test-article');
+
+            expect(mockRemoveFileFromHosting.mock.calls[0][0]).toBe('custom-project');
+        });
+    });
+});

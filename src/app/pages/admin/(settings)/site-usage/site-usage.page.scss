@@ -1,0 +1,249 @@
+.site-usage-settings {
+    max-width: 800px;
+}
+
+.disabled-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+}
+
+.disabled-content {
+    text-align: center;
+    padding: 40px;
+}
+
+.disabled-icon {
+    font-size: 3rem;
+    color: #6c757d;
+    margin-bottom: 20px;
+}
+
+.disabled-content h3 {
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.preview-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.preview-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 12px;
+    font-weight: 500;
+}
+
+.banner-preview {
+    border-radius: 8px;
+    padding: 16px 20px;
+    min-height: 60px;
+}
+
+.preview-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.preview-text {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.preview-message {
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.preview-link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.preview-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.preview-button {
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border: 1px solid;
+}
+
+.preview-reject {
+    background: transparent;
+    border: 2px solid;
+}
+
+.gradient-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.gradient-option {
+    position: relative;
+    height: 70px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 3px solid transparent;
+}
+
+.gradient-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.gradient-option.selected {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+}
+
+.gradient-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.check-icon {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 0.875rem;
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+mat-spinner {
+    display: inline-block;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+    .cookie-consent-settings {
+        max-width: 100%;
+    }
+
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+
+        // Ensure switch takes full width or aligns well
+        mat-slide-toggle {
+            margin-left: 0;
+        }
+    }
+
+    .preview-content {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+
+    .preview-text {
+        width: 100%;
+    }
+
+    .preview-actions {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+
+        .preview-button {
+            flex: 1;
+            text-align: center;
+        }
+    }
+
+    .gradient-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 10px;
+    }
+
+    .gradient-option {
+        height: 60px;
+    }
+}
+
+@media (max-width: 576px) {
+    .disabled-content {
+        padding: 20px;
+    }
+
+    .disabled-icon {
+        font-size: 2.5rem;
+    }
+
+    .disabled-content h3 {
+        font-size: 1.1rem;
+    }
+
+    .banner-preview {
+        padding: 12px 15px;
+    }
+
+    .preview-message {
+        font-size: 0.8rem;
+    }
+
+    .preview-link {
+        font-size: 0.75rem;
+    }
+
+    .preview-button {
+        padding: 6px 14px;
+        font-size: 0.75rem;
+    }
+
+    .gradient-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .gradient-option {
+        height: 50px;
+    }
+
+    .gradient-name {
+        font-size: 0.65rem;
+    }
+
+    .form-label {
+        font-size: 0.9rem;
+    }
+}

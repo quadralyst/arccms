@@ -1,0 +1,90 @@
+<!-- Add User Form -->
+<div class="side-panel">
+    <div class="panel-header">
+        <h5 class="mb-0">
+            @for (roles of constantVariables.roles; track roles.userType) {
+            @if(roles.userType === role) {
+            Add a new {{roles.userTypeLabel}}
+            }
+            }
+            @if(!role) {
+            Add a new User
+            }
+        </h5>
+        <button class="close-btn" (click)="closeAdd()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <form [formGroup]="addForm" (ngSubmit)="onSubmit()" class="centered-form rounded">
+        <div class="row mb-4">
+            <div class="col-12">
+                <label for="name" class="form-label">Full name <span class="required">*</span></label>
+                <input type="text" placeholder="Enter full name" formControlName="name" class="form-control" id="name"
+                    (blur)="trimUnwantedSpace(addForm.controls['name'])" [class]="{
+                        'is-invalid': name?.invalid && (name?.dirty || name?.touched),
+                        'is-valid': name?.valid && (name?.dirty || name?.touched)
+                    }" />
+                <div class="invalid-feedback">Full name is required.</div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <label for="email" class="form-label">Email <span class="required">*</span></label>
+                <input type="email" placeholder="Enter valid email" formControlName="email" class="form-control"
+                    (blur)="trimUnwantedSpace(addForm.controls['email'])" id="email" [class]="{
+                        'is-invalid': email?.invalid && (email?.dirty || email?.touched),
+                        'is-valid': email?.valid && (email?.dirty || email?.touched)
+                    }" />
+
+                @if(addForm.get('email')?.errors?.['required']) {
+                <div class="invalid-feedback">Email is required.</div>
+                } @else {
+                <div class="invalid-feedback">Please enter a valid email.</div>
+                }
+
+                @if (alreadyExist) {
+                <label class="text-danger small mt-1">Email already exists.</label>
+                }
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <label for="password" class="form-label">Password <span class="required">*</span></label>
+                <input type="password" formControlName="password" class="form-control" id="password"
+                    placeholder="Password (min 8 characters)" [class]="{
+                        'is-invalid': password?.invalid && (password?.dirty || password?.touched),
+                        'is-valid': password?.valid && (password?.dirty || password?.touched)
+                    }" />
+
+                @if(addForm.get('password')?.errors?.['required']) {
+                <div class="invalid-feedback">Password is required.</div>
+                } @else {
+                <div class="invalid-feedback">Password must be at least 8 characters.</div>
+                }
+            </div>
+        </div>
+
+        @if(errorMessages && errorMessages.length) {
+        <div class="mt-4 alert alert-danger mb-0">
+            <label>Please fix these errors:</label>
+            <ul class="mb-0 ps-3">
+                @for(error of errorMessages; track error) {
+                <li>{{ error }}</li>
+                }
+            </ul>
+        </div>
+        }
+
+        <div class="d-grid gap-2 d-flex justify-content-end mt-4">
+            <button type="button" class="btn btn-light btn-sm" (click)="closeAdd()">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm ms-2">Save User</button>
+        </div>
+    </form>
+
+    <div class="copyright">
+        &copy; {{globalService.showCurrentYear()}} {{constantVariables.APPLICATION_NAME}}
+    </div>
+</div>

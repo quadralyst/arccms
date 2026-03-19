@@ -1,0 +1,330 @@
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center top-bar">
+    <h5 class="mb-0">{{ waitlist()?.name || 'Waitlist Dashboard' }}</h5>
+</div>
+
+@if (loading()) {
+<div class="dashboard-content">
+    <div class="row g-2">
+        @for (i of [1, 2, 3, 4]; track i) {
+        <div class="col-md-3">
+            <div class="metric-card">
+                <div class="placeholder-glow">
+                    <span class="placeholder col-8"></span>
+                    <span class="placeholder col-6 mt-2"></span>
+                    <span class="placeholder col-4 mt-2"></span>
+                </div>
+            </div>
+        </div>
+        }
+    </div>
+</div>
+} @else {
+<div class="dashboard-content">
+
+    <!-- Description & Status -->
+    @if (waitlist()?.description || waitlist()) {
+    <div class="waitlist-info-bar mb-3">
+        @if (waitlist()?.description) {
+        <p class="mb-0 text-muted">{{ waitlist()?.description }}</p>
+        }
+        <span class="badge rounded-pill ms-auto" [class]="waitlist()?.isActive ? 'bg-success' : 'bg-secondary'">
+            {{ waitlist()?.isActive ? 'Active' : 'Inactive' }}
+        </span>
+    </div>
+    }
+
+    <!-- Key Metrics -->
+    <section class="dashboard-section">
+        <div class="section-header">
+            <h2>Key Metrics</h2>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-3 col-6">
+                <div class="metric-card">
+                    <div class="metric-card-header">
+                        <div class="metric-icon blue">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                        <div class="metric-title">Total Signups</div>
+                    </div>
+                    <div class="metric-value">{{ totalCount() | number }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="metric-card">
+                    <div class="metric-card-header">
+                        <div class="metric-icon green">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </div>
+                        <div class="metric-title">Verified Users</div>
+                    </div>
+                    <div class="metric-value">{{ verifiedCount() | number }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="metric-card">
+                    <div class="metric-card-header">
+                        <div class="metric-icon orange">
+                            <i class="bi bi-hourglass-split"></i>
+                        </div>
+                        <div class="metric-title">Pending Verification</div>
+                    </div>
+                    <div class="metric-value">{{ pendingCount() | number }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="metric-card">
+                    <div class="metric-card-header">
+                        <div class="metric-icon navy">
+                            <i class="bi bi-share-fill"></i>
+                        </div>
+                        <div class="metric-title">Total Referrals</div>
+                    </div>
+                    <div class="metric-value">{{ totalReferrals() | number }}</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="dashboard-section">
+        <div class="section-header">
+            <h2>Quick Actions</h2>
+        </div>
+        <div class="quick-actions">
+            <a [routerLink]="['/admin/waitlists/users', waitlistId()]"
+                [queryParams]="{ returnUrl: '/admin/waitlists/dashboard/' + waitlistId() }"
+                class="btn btn-outline-primary quick-action-btn">
+                <i class="bi bi-people me-2"></i> Users
+            </a>
+            <a [routerLink]="['/admin/waitlists/tags']"
+                [queryParams]="{ waitlistId: waitlistId(), waitlistName: waitlist()?.name, returnUrl: '/admin/waitlists/dashboard/' + waitlistId() }"
+                class="btn btn-outline-secondary quick-action-btn">
+                <i class="bi bi-tags me-2"></i> Tags
+            </a>
+            <a [routerLink]="['/admin/waitlists/templates', waitlistId()]"
+                [queryParams]="{ returnUrl: '/admin/waitlists/dashboard/' + waitlistId() }"
+                class="btn btn-outline-success quick-action-btn">
+                <i class="bi bi-envelope me-2"></i> Email Templates
+            </a>
+            <a [href]="'/leaderboard/' + waitlist()?.slug" target="_blank" rel="noopener"
+                class="btn btn-outline-warning quick-action-btn">
+                <i class="bi bi-trophy me-2"></i> Leaderboard
+            </a>
+            <button class="btn btn-outline-info quick-action-btn" (click)="exportUsers()">
+                <i class="bi bi-download me-2"></i> Export
+            </button>
+            <button class="btn btn-outline-dark quick-action-btn" (click)="openSettings()">
+                <i class="bi bi-gear me-2"></i> Settings
+            </button>
+        </div>
+    </section>
+
+    <!-- Growth Insights -->
+    <section class="dashboard-section">
+        <div class="section-header">
+            <h2>Growth Insights</h2>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-3 col-6">
+                <div class="metric-card">
+                    <div class="metric-card-header">
+                        <div class="metric-icon teal">
+                            <i class="bi bi-graph-up-arrow"></i>
+                        </div>
+                        <div class="metric-title">Signups This Week</div>
+                    </div>
+                    <div class="metric-value">{{ signupsThisWeek() | number }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="metric-card">
+                    <div class="metric-card-header">
+                        <div class="metric-icon green">
+                            <i class="bi bi-percent"></i>
+                        </div>
+                        <div class="metric-title">Verification Rate</div>
+                    </div>
+                    <div class="metric-value">{{ verificationRate() }}%</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="metric-card">
+                    <div class="metric-card-header">
+                        <div class="metric-icon navy">
+                            <i class="bi bi-megaphone-fill"></i>
+                        </div>
+                        <div class="metric-title">Referral Rate</div>
+                    </div>
+                    <div class="metric-value">{{ referralRate() }}%</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="metric-card">
+                    <div class="metric-card-header">
+                        <div class="metric-icon orange">
+                            <i class="bi bi-bar-chart-fill"></i>
+                        </div>
+                        <div class="metric-title">Avg Referrals / User</div>
+                    </div>
+                    <div class="metric-value">{{ avgReferrals() }}</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Source, Device & Behavioral Breakdown -->
+    <section class="dashboard-section">
+        <div class="section-header">
+            <h2>User Insights</h2>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-3 d-flex flex-column">
+                <div class="metric-card flex-grow-1">
+                    <h6 class="breakdown-label mb-2">Traffic Sources</h6>
+                    @if (sourceBreakdown().length) {
+                    @for (source of sourceBreakdown(); track source.name) {
+                    <div class="breakdown-item">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="breakdown-label">{{ source.name }}</span>
+                            <span class="breakdown-value">{{ source.count }} ({{ source.percent }}%)</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-primary" [style.width.%]="source.percent"></div>
+                        </div>
+                    </div>
+                    }
+                    } @else {
+                    <div class="text-center text-muted py-3">No data</div>
+                    }
+                </div>
+            </div>
+            <div class="col-md-3 d-flex flex-column">
+                <div class="metric-card flex-grow-1">
+                    <h6 class="breakdown-label mb-2">Device Types</h6>
+                    @if (deviceBreakdown().length) {
+                    @for (device of deviceBreakdown(); track device.name) {
+                    <div class="breakdown-item">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="breakdown-label">{{ device.name }}</span>
+                            <span class="breakdown-value">{{ device.count }} ({{ device.percent }}%)</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-success" [style.width.%]="device.percent"></div>
+                        </div>
+                    </div>
+                    }
+                    } @else {
+                    <div class="text-center text-muted py-3">No data</div>
+                    }
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="metric-card">
+                    <div class="metric-card-header">
+                        <div class="metric-icon teal">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </div>
+                        <div class="metric-title">Avg. Return Visits</div>
+                    </div>
+                    <div class="metric-value">{{ avgReturnVisits() }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="metric-card">
+                    <div class="metric-card-header">
+                        <div class="metric-icon orange">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                        <div class="metric-title">Avg. Time on Page</div>
+                    </div>
+                    <div class="metric-value">{{ avgTimeOnPage() }}</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Top Referrers & Recent Signups -->
+    <section class="dashboard-section">
+        <div class="row g-2">
+            <div class="col-lg-5 d-flex flex-column">
+                <div class="section-header">
+                    <h2>Top Referrers</h2>
+                </div>
+                <div class="activity-table flex-grow-1">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Referrals</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (user of topReferrers(); track user.id) {
+                            <tr>
+                                <td>{{ user.firstName || '—' }}</td>
+                                <td>{{ user.email }}</td>
+                                <td><span class="badge bg-success">{{ user.totalReferrals }}</span></td>
+                            </tr>
+                            } @empty {
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-4">No referrals yet</td>
+                            </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="col-lg-7 d-flex flex-column">
+                <div class="section-header">
+                    <h2>Recent Signups</h2>
+                    <a [routerLink]="['/admin/waitlists/users', waitlistId()]">View All &rarr;</a>
+                </div>
+                <div class="activity-table flex-grow-1">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Signed Up</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (user of recentSignups(); track user.id) {
+                            <tr>
+                                <td>{{ user.firstName || '—' }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    <span class="badge"
+                                        [class]="user.emailVerified ? 'bg-success' : (user.isConfirmed ? 'bg-info' : 'bg-warning text-dark')">
+                                        {{ user.emailVerified ? 'Verified' : (user.isConfirmed ? 'Confirmed' : 'Pending') }}
+                                    </span>
+                                </td>
+                                <td>{{ getTimeAgo(user.signupTimestamp) }}</td>
+                            </tr>
+                            } @empty {
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">No signups yet</td>
+                            </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</div>
+}
+
+<!-- Shared Settings Drawer -->
+<arc-waitlist-edit-drawer
+    [isOpen]="isDrawerOpen()"
+    [action]="'edit'"
+    [waitlist]="waitlist()"
+    (saved)="onDrawerSaved($event)"
+    (closed)="closeDrawer()">
+</arc-waitlist-edit-drawer>

@@ -1,0 +1,51 @@
+<div class="page-wrapper">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="header-left">
+            <button class="btn-back" (click)="goBack()">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div>
+                <h1>Subscribers</h1>
+                <p class="subtitle">All users across all waitlists</p>
+            </div>
+        </div>
+        <button class="btn btn-primary" (click)="exportSubscribers()" [disabled]="subscribers().length === 0">
+            <i class="fas fa-download"></i> Export CSV
+        </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ totalSubscribers() }}</div>
+                <div class="stat-label">Unique Subscribers</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <app-global-table [data]="paginatedSubscribers()" [columns]="tableColumns" [loading]="loading()"
+        [pageIndex]="currentPage()" [pageSize]="pageSize()" emptyTitle="No Subscribers Found"
+        [emptyDescription]="'No users have signed up for any waitlist yet.'" [showEmptyAction]="false">
+    </app-global-table>
+
+    <!-- Pagination -->
+    <div class="pagination-footer d-flex justify-content-between align-items-center p-3">
+        <div class="record-count text-muted">
+            @if(totalSubscribers() > 0) {
+            Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
+            <strong>{{ totalSubscribers() }}</strong> records
+            } @else {
+            No records found
+            }
+        </div>
+        <mat-paginator [length]="totalSubscribers()" [pageSize]="pageSize()" [pageIndex]="currentPage()"
+            [pageSizeOptions]="[5, 10, 25, 50]" [showFirstLastButtons]="true" (page)="onPageChange($event)">
+        </mat-paginator>
+    </div>
+</div>

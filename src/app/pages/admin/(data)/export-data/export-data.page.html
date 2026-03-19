@@ -1,0 +1,219 @@
+<div class="export-data-container">
+    <div class="export-header">
+        <div class="export-header-left">
+            <h2>Export Data</h2>
+            <p class="text-muted">Select collections to export as JSON. Document IDs and cross-references are preserved.</p>
+        </div>
+        <button
+            mat-flat-button
+            color="primary"
+            class="export-btn"
+            (click)="startExport()"
+            [disabled]="totalSelectedCount === 0 || isExporting()">
+            @if (isExporting()) {
+                <i class="fa-solid fa-spinner fa-spin me-2"></i> Exporting...
+            } @else {
+                <i class="fa-solid fa-file-export me-2"></i> Export Selected ({{ totalSelectedCount }})
+            }
+        </button>
+    </div>
+
+    <!-- Preset Bar -->
+    <div class="preset-bar">
+        <div class="preset-buttons">
+            @for (preset of presets; track preset.id) {
+                <button class="preset-btn" (click)="applyPreset(preset.id)">
+                    <i [class]="preset.icon"></i>
+                    {{ preset.label }}
+                </button>
+            }
+        </div>
+        <span class="selection-summary">{{ totalSelectedCount }} collections selected</span>
+    </div>
+
+    <!-- Collection Groups -->
+    <div class="group-list">
+        @for (group of groups(); track group.id) {
+            <div class="collection-group">
+                <!-- Group Header -->
+                <div class="group-header" (click)="toggleGroupExpanded(group.id)">
+                    <div class="group-header-left">
+                        <i class="fa-solid chevron-icon"
+                           [class.fa-chevron-right]="!group.expanded"
+                           [class.fa-chevron-down]="group.expanded"></i>
+                        <i [class]="group.icon" class="group-icon"></i>
+                        <span class="group-label">{{ group.label }}</span>
+                    </div>
+                    <mat-checkbox
+                        [checked]="isGroupFullySelected(group)"
+                        [indeterminate]="isGroupPartiallySelected(group)"
+                        (change)="toggleGroup(group.id, $event.checked)"
+                        (click)="$event.stopPropagation()"
+                        [disabled]="isExporting()">
+                    </mat-checkbox>
+                </div>
+
+                <!-- Group Body -->
+                @if (group.expanded) {
+                    <div class="group-body">
+                        <!-- Static Collections -->
+                        @for (col of group.collections; track col.name) {
+                            <div class="collection-row" [class.selected]="col.selected">
+                                <mat-checkbox
+                                    [checked]="col.selected"
+                                    (change)="toggleCollection(group.id, col.name)"
+                                    [disabled]="isExporting()">
+                                    <div class="collection-info">
+                                        <span class="collection-name">{{ col.displayName }}</span>
+                                        <span class="collection-path">{{ col.name }}</span>
+                                    </div>
+                                </mat-checkbox>
+                                <span class="collection-count">
+                                    @if (col.loadingCount) {
+                                        <span class="loading-dots">...</span>
+                                    } @else {
+                                        {{ col.count }} docs
+                                    }
+                                </span>
+                            </div>
+
+                            <!-- Subcollections indented -->
+                            @if (col.subcollections) {
+                                @for (sub of col.subcollections; track sub.name) {
+                                    <div class="collection-row subcollection" [class.selected]="col.selected">
+                                        <div class="sub-indent">
+                                            <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
+                                            <span class="collection-name">{{ sub.displayName }}</span>
+                                            <span class="collection-path">{{ col.name }}/*/{{ sub.name }}</span>
+                                        </div>
+                                        <span class="collection-count auto-tag">auto</span>
+                                    </div>
+                                }
+                            }
+                        }
+
+                        <!-- Content Type Bundles -->
+                        @for (sb of group.bundles; track sb.bundle.contentTypeSlug) {
+                            <div class="bundle-row" [class.selected]="sb.selected">
+                                <div class="bundle-header">
+                                    <mat-checkbox
+                                        [checked]="sb.selected"
+                                        (change)="toggleBundle(group.id, sb.bundle.contentTypeSlug)"
+                                        [disabled]="isExporting()">
+                                        <div class="bundle-info">
+                                            @if (sb.bundle.contentTypeIcon) {
+                                                <i [class]="sb.bundle.contentTypeIcon" class="bundle-icon"></i>
+                                            }
+                                            <span class="bundle-name">{{ sb.bundle.contentTypeName }}</span>
+                                            <span class="bundle-badge">3 collections</span>
+                                            @if (sb.bundle.referencedSlugs.length > 0) {
+                                                <span class="bundle-refs">
+                                                    <i class="fa-solid fa-link"></i>
+                                                    {{ getReferencedNames(sb.bundle.referencedSlugs) }}
+                                                </span>
+                                            }
+                                        </div>
+                                    </mat-checkbox>
+                                    <div class="bundle-right">
+                                        <span class="collection-count">
+                                            @if (sb.loadingCounts) {
+                                                <span class="loading-dots">...</span>
+                                            } @else {
+                                                {{ (sb.counts.drafts || 0) + (sb.counts.published || 0) + (sb.counts.tags || 0) }} docs
+                                            }
+                                        </span>
+                                        <button class="expand-btn" (click)="toggleBundleExpanded(group.id, sb.bundle.contentTypeSlug); $event.stopPropagation()">
+                                            <i class="fa-solid"
+                                               [class.fa-chevron-right]="!sb.expanded"
+                                               [class.fa-chevron-down]="sb.expanded"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Bundle Details -->
+                                @if (sb.expanded) {
+                                    <div class="bundle-details">
+                                        <div class="bundle-sub-row">
+                                            <div class="sub-indent">
+                                                <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
+                                                <span class="collection-name">Drafts</span>
+                                                <span class="collection-path">{{ sb.bundle.draftsCollection.name }}</span>
+                                            </div>
+                                            <span class="collection-count">
+                                                @if (sb.loadingCounts) {
+                                                    <span class="loading-dots">...</span>
+                                                } @else {
+                                                    {{ sb.counts.drafts || 0 }} docs
+                                                }
+                                            </span>
+                                        </div>
+                                        <div class="bundle-sub-row">
+                                            <div class="sub-indent">
+                                                <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
+                                                <span class="collection-name">Published</span>
+                                                <span class="collection-path">{{ sb.bundle.publishedCollection.name }}</span>
+                                            </div>
+                                            <span class="collection-count">
+                                                @if (sb.loadingCounts) {
+                                                    <span class="loading-dots">...</span>
+                                                } @else {
+                                                    {{ sb.counts.published || 0 }} docs
+                                                }
+                                            </span>
+                                        </div>
+                                        <div class="bundle-sub-row">
+                                            <div class="sub-indent">
+                                                <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
+                                                <span class="collection-name">Tags</span>
+                                                <span class="collection-path">{{ sb.bundle.tagsCollection.name }}</span>
+                                            </div>
+                                            <span class="collection-count">
+                                                @if (sb.loadingCounts) {
+                                                    <span class="loading-dots">...</span>
+                                                } @else {
+                                                    {{ sb.counts.tags || 0 }} docs
+                                                }
+                                            </span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Progress -->
+    @if (isExporting()) {
+        <div class="export-progress">
+            <mat-progress-bar
+                mode="determinate"
+                [value]="exportProgress() ? (exportProgress()!.collectionsCompleted / exportProgress()!.totalCollections) * 100 : 0">
+            </mat-progress-bar>
+            <p class="progress-text">
+                Exporting: {{ exportProgress()?.currentCollection }}
+                ({{ exportProgress()?.collectionsCompleted }}/{{ exportProgress()?.totalCollections }} collections,
+                {{ exportProgress()?.documentsExported }} documents)
+            </p>
+        </div>
+    }
+
+    <!-- Export complete -->
+    @if (exportComplete()) {
+        <div class="export-complete">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Export completed successfully. The JSON file has been downloaded.</span>
+        </div>
+    }
+
+    <!-- Error -->
+    @if (exportError()) {
+        <div class="export-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span>{{ exportError() }}</span>
+        </div>
+    }
+
+</div>

@@ -1,0 +1,100 @@
+<!-- Tags Management Page -->
+<mat-drawer-container class="example-container" hasBackdrop="true">
+    <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 500px;">
+        @if(currentAction() === 'add') {
+        <arc-add-tag [contentTypeSlug]="contentTypeSlug" (close)="closeDrawer()">
+        </arc-add-tag>
+        } @else if(currentAction() === 'edit' && currentId()) {
+        <arc-edit-tag [id]="currentId()" [contentTypeSlug]="contentTypeSlug" (close)="closeDrawer()">
+        </arc-edit-tag>
+        } @else if(currentAction() === 'view' && currentId()) {
+        <arc-view-tag [id]="currentId()" [contentTypeSlug]="contentTypeSlug" (close)="closeDrawer()">
+        </arc-view-tag>
+        } @else {
+        <div class="alert alert-info m-3">No action selected</div>
+        }
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="d-flex justify-content-between align-items-center top-bar">
+            <div>
+                <h5 class="mb-0">Tags Management</h5>
+                @if(contentTypeName) {
+                <small class="text-muted">for {{ contentTypeName }}</small>
+                }
+            </div>
+        </div>
+        <div class="arc">
+            <div class="flex-grow-1">
+
+                <div class="content-area">
+                    <!-- Quick Add Tag -->
+                    <div class="quick-add-bar mb-3">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Enter new tag name..."
+                                [(ngModel)]="newTagLabel" (keyup.enter)="quickAddTag()" />
+                            <button class="btn btn-primary" type="button" [disabled]="!newTagLabel?.trim()"
+                                (click)="quickAddTag()">
+                                <mat-icon>add</mat-icon> Add Tag
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Bar -->
+                    <div class="filter-bar mb-3">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-4">
+                                <input type="text" class="form-control form-control-sm" placeholder="Filter by label..."
+                                    [value]="filters()['label'] || ''" (input)="onFilterChange('label', $event)" />
+                            </div>
+                            @if(hasActiveFilters()) {
+                            <div class="col-auto">
+                                <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()">
+                                    Clear Filters
+                                </button>
+                            </div>
+                            }
+                            <div class="col-auto ms-auto">
+                                <button mat-raised-button color="primary" (click)="openAdd()">
+                                    <mat-icon>add</mat-icon> Add Tag (Advanced)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tags Table -->
+                    <!-- <div class="card mb-4">
+                        <div class="card-body p-0"> -->
+                    <app-global-table [data]="tagsStore.items()" [columns]="tableColumns"
+                        [loading]="tagsStore.isLoading()" [sortField]="sortField()" [sortOrder]="sortDirection()"
+                        (sortChange)="setSortField($event)" [pageIndex]="currentPage()" [pageSize]="pageSize()"
+                        emptyTitle="No Tags Found" emptyDescription="Use the input above to create your first tag."
+                        [showEmptyAction]="false">
+                    </app-global-table>
+                    <!-- </div> -->
+
+                    <!-- Pagination -->
+                    <div class="pagination-footer d-flex justify-content-between align-items-center p-3 border-top">
+                        <div class="record-count text-muted">
+                            @if(tagsStore.totalRecords() > 0) {
+                            Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
+                            <strong>{{ tagsStore.totalRecords() }}</strong>
+                            @if(hasActiveFilters()) {
+                            <span class="text-primary ms-2">filtered</span>
+                            }
+                            tags
+                            } @else {
+                            No tags found
+                            }
+                        </div>
+                        <mat-paginator [length]="tagsStore.totalRecords()" [pageSize]="pageSize()"
+                            [pageIndex]="currentPage()" [pageSizeOptions]="[5, 10, 25, 50]"
+                            [showFirstLastButtons]="true" (page)="onPageChange($event)">
+                        </mat-paginator>
+                    </div>
+                    <!-- </div> -->
+                </div>
+            </div>
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

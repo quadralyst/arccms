@@ -1,0 +1,101 @@
+@if (isOpen) {
+<div class="drawer-overlay" (click)="onClose()"></div>
+<div class="drawer">
+    <div class="drawer-header">
+        <h2>{{ action === 'edit' ? 'Edit Waitlist' : 'Add Waitlist' }}</h2>
+        <button class="btn-close" (click)="onClose()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <form [formGroup]="waitlistForm" (ngSubmit)="onSave()" class="drawer-form">
+        <div class="form-group">
+            <label for="drawer-name">Name <span class="required">*</span></label>
+            <input type="text" id="drawer-name" formControlName="name" (blur)="generateSlug()"
+                placeholder="e.g., Product Launch">
+        </div>
+        <div class="form-group">
+            <label for="drawer-slug">
+                Slug <span class="required">*</span>
+                @if (action === 'edit' && isSlugEditable()) {
+                <span class="text-danger ms-2" style="font-size: 0.8em;">
+                    <i class="fas fa-exclamation-triangle"></i> Changing this will break existing links!
+                </span>
+                }
+            </label>
+            <div class="input-group">
+                <input type="text" id="drawer-slug" class="form-control" formControlName="slug"
+                    placeholder="e.g., product-launch" [readonly]="!isSlugEditable()">
+                @if (action === 'edit') {
+                <button class="btn btn-outline-secondary" type="button" (click)="toggleSlugEdit()"
+                    [title]="isSlugEditable() ? 'Cancel Edit' : 'Edit Slug'">
+                    <i class="fas" [ngClass]="isSlugEditable() ? 'fa-rotate-left' : 'fa-pen'"></i>
+                </button>
+                }
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="drawer-description">Description</label>
+            <textarea id="drawer-description" formControlName="description" rows="3"
+                placeholder="Brief description"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Cover Image</label>
+            <div class="cover-image-upload">
+                @if (!coverImage()) {
+                <div class="upload-area" (click)="openMediaManager()">
+                    <i class="fas fa-image" style="font-size: 2rem; color: #94a3b8; margin-bottom: 10px;"></i>
+                    <p style="margin: 0 0 5px 0; color: #475569;">Click to select image</p>
+                    <small style="color: #94a3b8;">Recommended: 1200 x 400 pixels</small>
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-2">Browse</button>
+                </div>
+                } @else {
+                <div class="image-preview-container d-flex flex-column align-items-center p-2">
+                    <img [src]="coverImage()" class="img-fluid rounded border mb-3"
+                        style="max-height: 150px; object-fit: cover;">
+                    <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeCoverImage()">
+                        <i class="fa-solid fa-trash me-1"></i> Remove
+                    </button>
+                </div>
+                }
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="toggle-label">
+                <input type="checkbox" formControlName="isActive">
+                <span class="toggle-text">Active</span>
+            </label>
+            <small style="display: block; color: #64748b; margin-top: 5px;">When disabled, users will see the message
+                below</small>
+        </div>
+        @if (!waitlistForm.get('isActive')?.value) {
+        <div class="form-group">
+            <label for="drawer-disabledMessage">Message to show to users</label>
+            <textarea id="drawer-disabledMessage" formControlName="disabledMessage" rows="3"
+                placeholder="Message shown when waitlist is closed"></textarea>
+            <small style="display: block; color: #64748b; margin-top: 5px;">This message will appear as an overlay on
+                the form</small>
+        </div>
+        }
+        @if (action === 'edit' && availableTags().length > 0) {
+        <div class="form-group">
+            <label for="drawer-defaultTagId">Default Tag</label>
+            <select id="drawer-defaultTagId" class="form-control" formControlName="defaultTagId">
+                <option value="">None</option>
+                @for (tag of availableTags(); track tag.id) {
+                <option [value]="tag.id">
+                    {{ tag.label }}
+                </option>
+                }
+            </select>
+            <small style="display: block; color: #64748b; margin-top: 5px;">This tag will be automatically assigned to all new subscribers</small>
+        </div>
+        }
+        <div class="drawer-actions">
+            <button type="button" class="btn btn-secondary" (click)="onClose()">Cancel</button>
+            <button type="submit" class="btn btn-primary" [disabled]="waitlistForm.invalid">
+                {{ action === 'edit' ? 'Update' : 'Create' }}
+            </button>
+        </div>
+    </form>
+</div>
+}

@@ -1,0 +1,343 @@
+<!-- Page Header -->
+<div class="page-header mb-4 top-bar">
+    <div>
+        <h5 class="mb-0">Dashboard</h5>
+        @if (analyticsConnectionStatus.isConnected()) {
+        <div class="last-sync">
+            Last sync: <strong>{{ formatDate(analyticsConnectionStatus.lastSyncDate()) || 'N/A' }}</strong>
+        </div>
+        }
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        @if (analyticsConnectionStatus.isConnected()) {
+        <button class="btn btn-outline-secondary" (click)="refreshAnalytics()"
+            [disabled]="isRefreshing()">
+            @if (isRefreshing()) {
+            <span class="spinner-border spinner-border-sm me-1"></span> Refreshing...
+            } @else {
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+            }
+        </button>
+        }
+        @if (analyticsConnectionStatus.isConnected() && analyticsConnectionStatus.propertyId()) {
+        <a [href]="getGa4Url()" target="_blank" rel="noopener noreferrer"
+            class="btn btn-link text-decoration-none p-0">
+            View Full Analytics <i class="bi bi-box-arrow-up-right"></i>
+        </a>
+        }
+    </div>
+</div>
+
+<!-- Email Not Configured Warning Banner -->
+@if (emailConfigService.shouldShowBanner()) {
+<div class="alert alert-warning d-flex align-items-center justify-content-between mb-4" role="alert">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span><strong>Email not configured.</strong> Waitlist OTP verification and emails are currently disabled.</span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a routerLink="/admin/settings/email" class="btn btn-warning btn-sm">
+            <i class="bi bi-gear me-1"></i> Configure Email
+        </a>
+        <button type="button" class="btn-close" aria-label="Dismiss"
+            (click)="emailConfigService.dismissBanner()"></button>
+    </div>
+</div>
+}
+
+<div class="arc p-4">
+    <!-- Analytics Summary Section -->
+    <div class="section-header">
+        <h2>Google Analytics Overview</h2>
+        @if (analyticsData()[0]?.dateRange) {
+        <span class="date-range-badge">
+            {{ formatShortDate(analyticsData()[0]?.dateRange?.startDate) }}
+            –
+            {{ formatShortDate(analyticsData()[0]?.dateRange?.endDate) }}
+        </span>
+        }
+    </div>
+
+    @if (isAnalyticsDataCurrent() && !analyticsStore.isLoading()) {
+    <!-- 2-column analytics layout: 3×3 metrics (left) + 2×2 list panels (right) -->
+    <div class="analytics-layout mb-3">
+        <!-- Left: 3×3 Metric Grid -->
+        <div class="metrics-grid">
+            @for (metric of analyticsData()[0]?.metrics; track metric.title) {
+            <div class="metric-card">
+                <div class="metric-card-header">
+                    <div class="metric-icon" [ngClass]="getMetricColor(metric.title)">
+                        <i [class]="metric.icon"></i>
+                    </div>
+                    <div class="metric-title">{{ metric.title }}</div>
+                </div>
+                <div class="metric-value">{{ metric.value }}</div>
+                <div class="metric-change" [ngClass]="metric.changeType === 'positive' ? 'positive' : 'negative'">
+                    @if (metric.change && metric.changeType) {
+                    <i [class]="metric.changeType === 'positive' ? 'bi bi-arrow-up' : 'bi bi-arrow-down'"></i>
+                    {{ metric.change }}
+                    } @else {
+                    <span class="text-muted">--</span>
+                    }
+                </div>
+            </div>
+            }
+        </div>
+
+        <!-- Right: 2×2 List Panels -->
+        <div class="panels-grid">
+            @for (panel of analyticsData()[0]?.acquisitionPanels; track panel.title) {
+            <div class="metric-card">
+                <div class="metric-card-header">
+                    <div class="metric-icon blue">
+                        <i [class]="panel.icon"></i>
+                    </div>
+                    <div class="metric-title">{{ panel.title }}</div>
+                </div>
+                <div class="list-panel-items">
+                    @for (item of panel.items; track item.name) {
+                    <div class="list-item">
+                        <div class="list-item-header">
+                            <span class="list-item-name" [title]="item.name">{{ item.name }}</span>
+                            <span class="list-item-value">{{ item.value | number }}</span>
+                        </div>
+                        <div class="list-item-bar-container">
+                            <div class="list-item-bar" [style.width.%]="item.percentage"></div>
+                        </div>
+                    </div>
+                    } @empty {
+                    <div class="text-center text-muted" style="font-size: 0.85rem;">No data available</div>
+                    }
+                </div>
+            </div>
+            }
+        </div>
+    </div>
+    } @else if (analyticsStore.isLoading() || (analyticsData().length && !isAnalyticsDataCurrent() && analyticsConnectionStatus.isConnected())) {
+    <div class="analytics-layout mb-3">
+        <div class="metrics-grid">
+            @for (i of [1, 2, 3, 4, 5, 6, 7, 8, 9]; track i) {
+            <div class="metric-card">
+                <div class="placeholder-glow">
+                    <span class="placeholder col-8"></span>
+                    <span class="placeholder col-6 mt-2"></span>
+                    <span class="placeholder col-4 mt-2"></span>
+                </div>
+            </div>
+            }
+        </div>
+        <div class="panels-grid">
+            @for (i of [1, 2, 3, 4]; track i) {
+            <div class="metric-card">
+                <div class="placeholder-glow">
+                    <span class="placeholder col-8"></span>
+                    <span class="placeholder col-6 mt-2"></span>
+                    <span class="placeholder col-4 mt-2"></span>
+                    <span class="placeholder col-7 mt-2"></span>
+                    <span class="placeholder col-5 mt-2"></span>
+                </div>
+            </div>
+            }
+        </div>
+    </div>
+    } @else {
+    <div class="row g-3 mb-3">
+        <div class="col-12">
+            @if (analyticsConnectionStatus.isLoading()) {
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+            } @else if (!analyticsConnectionStatus.isConnected()) {
+            <div class="analytics-connect-card text-center py-5">
+                <div class="mb-3">
+                    <i class="fa-solid fa-chart-line" style="font-size: 2.5rem; color: #94a3b8;"></i>
+                </div>
+                <h5>Google Analytics Not Connected</h5>
+                <p class="text-muted mb-4" style="max-width: 400px; margin: 0 auto;">
+                    Set up Google Analytics to see real-time website metrics like sessions, users, and bounce rate.
+                </p>
+                <a routerLink="/admin/settings/analytics" class="btn btn-primary">
+                    <i class="bi bi-gear me-2"></i> Set Up Analytics
+                </a>
+                <p class="text-muted mt-4 mb-0" style="font-size: 0.875rem;">
+                    You can also view basic analytics directly on your
+                    <a [href]="getGa4Url()" target="_blank" rel="noopener noreferrer">
+                        Firebase console <i class="bi bi-box-arrow-up-right" style="font-size: 0.75rem;"></i>
+                    </a>
+                </p>
+            </div>
+            } @else {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                No analytics data available yet. Click <strong>Refresh</strong> to fetch data from Google Analytics.
+            </div>
+            }
+        </div>
+    </div>
+    }
+
+    <!-- Content & Media Section -->
+    <div class="section-header">
+        <div class="d-flex align-items-center gap-2">
+            <h2>Content & Media</h2>
+        </div>
+        <div class="alert alert-info py-1 px-3 mb-0" style="font-size: 0.9rem;">
+            Managing {{ contentTypes().length + 1 }} content type{{ contentTypes().length + 1 > 1 ? 's' : '' }}
+            ({{ contentTypeNames() ? contentTypeNames() + ', ' : '' }}Media).
+        </div>
+    </div>
+
+    <div class="scrollable-row mb-4">
+        @for (contentType of contentTypes(); track contentType.id; let i = $index) {
+        <div class="scrollable-card" (click)="navigateToContentType(contentType.slug)">
+            <div class="metric-card clickable">
+                <div class="metric-card-header">
+                    <div class="metric-icon" [ngClass]="getContentTypeColor(i)">
+                        <i [class]="contentType.icon || 'bi bi-file-text'"></i>
+                    </div>
+                    <div class="metric-title">{{ contentType.name }}</div>
+                </div>
+                <div class="metric-value">{{ getContentCount(contentType.slug).total }}</div>
+                <div class="metric-subtitle">
+                    <span class="text-success">{{ getContentCount(contentType.slug).published }} Published</span> •
+                    <span class="text-warning">{{ getContentCount(contentType.slug).draft }} Draft</span>
+                </div>
+            </div>
+        </div>
+        }
+        <div class="scrollable-card" (click)="navigateToMedia()">
+            <div class="metric-card clickable">
+                <div class="metric-card-header">
+                    <div class="metric-icon green">
+                        <i class="bi bi-image"></i>
+                    </div>
+                    <div class="metric-title">Media</div>
+                </div>
+                <div class="metric-value">{{ mediaCount() }}</div>
+                <div class="metric-subtitle">
+                    Media files in library
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Growth & Leads Section -->
+    <div class="section-header">
+        <h2>Growth & Leads</h2>
+        <a routerLink="/admin/waitlists">View All →</a>
+    </div>
+
+    <div class="scrollable-row mb-4">
+        <!-- Total Signups Summary Card -->
+        <div class="scrollable-card" (click)="navigateToWaitlists()">
+            <div class="metric-card clickable">
+                <div class="metric-card-header">
+                    <div class="metric-icon teal">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                    <div class="metric-title">Total Signups</div>
+                </div>
+                <div class="metric-value">{{ totalWaitlistCount() | number }}</div>
+                <div class="metric-subtitle card-footer-row">
+                    <span class="text-primary">+{{ last7DaysWaitlistCount() | number }} this week</span>
+                </div>
+            </div>
+        </div>
+        <!-- Individual Waitlist Cards -->
+        @for (waitlist of waitlists(); track waitlist.id) {
+        <div class="scrollable-card" (click)="navigateToWaitlistDashboard(waitlist.id!)">
+            <div class="metric-card clickable">
+                <div class="metric-card-header">
+                    <div class="metric-icon navy">
+                        <i class="bi bi-clipboard-data"></i>
+                    </div>
+                    <div class="metric-title">{{ waitlist.name }}</div>
+                </div>
+                <div class="metric-value">{{ getWaitlistCount(waitlist.id!).total | number }}</div>
+                <div class="metric-subtitle card-footer-row">
+                    <span class="text-primary">
+                        @if (getWaitlistCount(waitlist.id!).thisWeek > 0) {
+                        +{{ getWaitlistCount(waitlist.id!).thisWeek | number }} this week
+                        }
+                    </span>
+                    @if (waitlist.isActive) {
+                    <span class="badge bg-success">Active</span>
+                    } @else {
+                    <span class="badge bg-secondary">Inactive</span>
+                    }
+                </div>
+            </div>
+        </div>
+        }
+    </div>
+
+    <!-- Waitlist Signups & Recent Activity Section -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-8 d-flex flex-column">
+            <div class="section-header mt-0">
+                <h2>Recent Waitlist Signups</h2>
+                <a routerLink="/admin/waitlists">View All →</a>
+            </div>
+            <div class="activity-table flex-grow-1">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Date</th>
+                            <th>Waitlist</th>
+                            <th>Referrals</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (signup of recentWaitlistSignups(); track signup.id) {
+                        <tr>
+                            <td>{{ signup.email }}</td>
+                            <td>{{ getTimeAgo(signup.createdAt || signup.signupTimestamp) }}</td>
+                            <td><span class="badge bg-secondary">{{ signup.waitlistId || 'Default' }}</span></td>
+                            <td>{{ signup.totalReferrals || 0 }}</td>
+                        </tr>
+                        } @empty {
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">No recent signups</td>
+                        </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-md-4 d-flex flex-column">
+            <div class="section-header mt-0">
+                <h2>Recent Activity</h2>
+            </div>
+            <div class="activity-log-card flex-grow-1">
+                @for (activity of recentActivity(); track activity.id) {
+                <div class="activity-item" (click)="navigateToContentType(activity._contentTypeSlug)">
+                    <div class="activity-icon-col">
+                        <div class="activity-dot" [ngClass]="activity.status === 'publish' ? 'dot-published' : 'dot-draft'"></div>
+                        @if (!$last) {
+                        <div class="activity-line"></div>
+                        }
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">{{ activity.title }}</div>
+                        <div class="activity-meta">
+                            <i [class]="activity._contentTypeIcon" class="activity-type-icon"></i>
+                            <span>{{ activity._contentTypeName }}</span>
+                            <span class="activity-separator">·</span>
+                            <span class="activity-status" [class.text-success]="activity.status === 'publish'" [class.text-warning]="activity.status !== 'publish'">
+                                {{ activity.status === 'publish' ? 'Published' : 'Draft' }}
+                            </span>
+                            <span class="activity-separator">·</span>
+                            <span>{{ getTimeAgo(activity.modifiedAt) }}</span>
+                        </div>
+                    </div>
+                </div>
+                } @empty {
+                <div class="text-center text-muted py-4">No recent activity</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

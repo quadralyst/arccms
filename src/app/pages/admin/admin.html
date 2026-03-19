@@ -1,0 +1,30 @@
+<div class="arc-admin">
+    <mat-drawer-container class="arc-main-page" autosize hasBackdrop="false">
+        <mat-drawer class="arc-side-panel user_panel" [style.width.px]="!isExpanded && drawerMode !== 'over' ? 65 : 230"
+            #drawer position="start" [mode]="drawerMode" [opened]="drawerMode === 'over' ? false : true" cdkScrollable>
+            <arc-side-navbar (toggleMenu)="toggleMenu()" [isExpanded]="drawerMode === 'over' ? true : isExpanded"
+                [drawerMode]="drawerMode"></arc-side-navbar>
+        </mat-drawer>
+        <mat-drawer-content autosize>
+            <!-- <div [hidden]="drawerMode === 'side'" class="btn arrow">
+          <button class="btn btn-link text-decoration-none mob_menu" (click)="drawer.toggle()">Menu</button>
+        </div> -->
+
+            <mat-toolbar class="mob_menu d-flex justify-content-between align-items-center"
+                [ngClass]="drawerMode === 'side' ? 'd-none' : ''">
+                <div class="d-flex align-items-center">
+                    <div class="btn d-flex border-0" (click)="drawer.toggle()">
+                        <mat-icon class="">menu</mat-icon>
+                    </div>
+                    <span>{{ constantVariables.APPLICATION_NAME }}</span>
+                </div>
+                <button mat-icon-button class="example-icon favorite-icon"
+                    aria-label="Example icon-button with heart icon">
+                    <mat-icon>notifications</mat-icon>
+                </button>
+            </mat-toolbar>
+            <router-outlet></router-outlet>
+            <!-- <arc-footer></arc-footer> -->
+        </mat-drawer-content>
+    </mat-drawer-container>
+</div>

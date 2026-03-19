@@ -1,0 +1,750 @@
+@if(publishForm && seoForm){
+
+}
+<div class="create-content-container">
+    
+    <!-- Top Navigation Bar -->
+    <nav class="top-nav">
+        <div class="nav-left">
+            <i class="fa-solid fa-file-lines text-primary me-2"></i>
+            @if(getContentTypeName()){
+            <span class="content-type-label">
+                {{ contentId ? 'Edit' : 'Add a new' }}
+                <strong>{{ getContentTypeName() }}</strong>
+            </span>
+            }
+        </div>
+
+        <div class="nav-right">
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="globalService.goBack()"
+                [disabled]="isSavingDraft">
+                <i class="fa-solid fa-xmark"></i> <span class="btn-text">Close</span>
+            </button>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="navigateBySlug()"
+                [disabled]="isSavingDraft || !publishForm.get('urlSlug')?.value">
+                <i class="fa-regular fa-eye"></i> <span class="btn-text">Preview</span>
+            </button>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="saveAsDraft()"
+                [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
+                @if(isSavingDraft){
+                <i class="fas fa-spinner fa-spin"></i> <span class="btn-text">Saving...</span>
+                }
+                @else {
+                <i class="fa-regular fa-floppy-disk"></i> <span class="btn-text">Save as draft</span>
+                }
+            </button>
+
+            <button type="button" class="btn btn-primary btn-sm" (click)="directPublishContent()"
+                [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
+                <i class="fa-solid fa-upload"></i> <span class="btn-text">Publish</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Save Status Overlay -->
+    @if(saveStatusMessage){
+    <div class="save-status-overlay">
+        <div class="status-toast"
+            [ngClass]="{'success': saveStatusType === 'success', 'error': saveStatusType === 'error', 'info': saveStatusType === 'info'}">
+            <i class="fa-solid"
+                [ngClass]="{'fa-check-circle': saveStatusType === 'success', 'fa-exclamation-circle': saveStatusType === 'error', 'fa-spinner fa-spin': saveStatusType === 'info'}"></i>
+            <span>{{ saveStatusMessage }}</span>
+        </div>
+    </div>
+    }
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+
+        <!-- VERSION PREVIEW MODE: replaces the editor when viewing a historical version -->
+        @if(previewingVersion()){
+        <div class="version-preview-area">
+            <!-- Preview Header Bar -->
+            <div class="version-preview-header">
+                <div class="version-preview-header-left">
+                    <button class="btn btn-outline-secondary btn-sm" (click)="closeVersionPreview()">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Back to editor
+                    </button>
+                    <span class="version-preview-label">
+                        <i class="fa-solid fa-clock-rotate-left me-1"></i>
+                        Version {{ previewingVersion()!.versionNumber }} &mdash;
+                        {{ formatVersionDate(previewingVersion()!.publishedOn) }}
+                    </span>
+                </div>
+                <button class="btn btn-primary btn-sm" (click)="restoreVersion(previewingVersion()!)">
+                    <i class="fa-solid fa-rotate-left me-1"></i> Restore this version
+                </button>
+            </div>
+
+            <!-- 2-Column Preview Layout -->
+            <div class="version-preview-columns">
+                <!-- Left: Content Preview (wider) -->
+                <div class="version-preview-content">
+                    @if(previewingVersion()!.coverImage){
+                    <div class="version-preview-cover">
+                        <img [src]="previewingVersion()!.coverImage" alt="Cover image" />
+                    </div>
+                    }
+                    <h1 class="version-preview-title">{{ previewingVersion()!.title }}</h1>
+                    <div class="version-preview-body" [innerHTML]="getPreviewSafeHtml(previewingVersion()!.content)"></div>
+                </div>
+
+                <!-- Right: Basic + SEO info (narrower) -->
+                <div class="version-preview-meta">
+                    <!-- Basic Info -->
+                    <div class="meta-section">
+                        <h6 class="meta-section-title"><i class="fa-solid fa-circle-info me-1"></i> Basic</h6>
+
+                        @if(previewingVersion()!.summary){
+                        <div class="meta-field">
+                            <label>Summary</label>
+                            <p>{{ previewingVersion()!.summary }}</p>
+                        </div>
+                        }
+
+                        @if(previewingVersion()!.urlSlug){
+                        <div class="meta-field">
+                            <label>URL Slug</label>
+                            <p class="text-muted">{{ previewingVersion()!.urlSlug }}</p>
+                        </div>
+                        }
+
+                        @if(previewingVersion()!.coverImage){
+                        <div class="meta-field">
+                            <label>Cover Image</label>
+                            <img [src]="previewingVersion()!.coverImage" alt="Cover" class="meta-thumb" />
+                        </div>
+                        }
+
+                        @if(previewingVersion()!.tagsWithColors && previewingVersion()!.tagsWithColors!.length > 0){
+                        <div class="meta-field">
+                            <label>Tags</label>
+                            <div class="meta-tags">
+                                @for(tag of previewingVersion()!.tagsWithColors; track tag.name){
+                                <span class="tag-pill" [style.background-color]="tag.color">{{ tag.name }}</span>
+                                }
+                            </div>
+                        </div>
+                        } @else if(previewingVersion()!.tags && previewingVersion()!.tags!.length > 0){
+                        <div class="meta-field">
+                            <label>Tags</label>
+                            <div class="meta-tags">
+                                @for(tag of previewingVersion()!.tags; track tag){
+                                <span class="tag-pill">{{ tag }}</span>
+                                }
+                            </div>
+                        </div>
+                        }
+
+                        <!-- Custom Fields -->
+                        @if(previewingVersion()!.customFields){
+                        <div class="meta-field">
+                            <label>Custom Fields</label>
+                            @for(entry of (previewingVersion()!.customFields | keyvalue); track entry.key){
+                            <div class="custom-field-entry">
+                                <span class="custom-field-key">{{ entry.key }}:</span>
+                                <span class="custom-field-value">{{ entry.value }}</span>
+                            </div>
+                            }
+                        </div>
+                        }
+                    </div>
+
+                    <!-- SEO Info -->
+                    <div class="meta-section">
+                        <h6 class="meta-section-title"><i class="fa-solid fa-magnifying-glass me-1"></i> SEO</h6>
+
+                        <div class="meta-field">
+                            <label>SEO Title</label>
+                            <p>{{ previewingVersion()!.seoTitle || '—' }}</p>
+                        </div>
+
+                        <div class="meta-field">
+                            <label>Meta Description</label>
+                            <p>{{ previewingVersion()!.metaDescription || '—' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        } @else {
+
+        <!-- NORMAL EDITOR MODE -->
+        <div class="editor-area">
+            <!-- Title Input - Immediately above content -->
+            <div class="title-input-wrapper">
+                <input type="text" placeholder="Enter title here..." [(ngModel)]="pageTitle" class="page-title-input"
+                    (input)="createSlag(); triggerAutoSave()" [disabled]="checkingSlug" />
+            </div>
+
+            <div class="editor-wrapper">
+                <app-tiptap-editor [productValue]="publishForm.get('content')?.value"
+                    (textEditorContent)="passEditorContentToParent($event); triggerAutoSave()">
+                </app-tiptap-editor>
+            </div>
+        </div>
+        }
+
+        <!-- Settings Sidebar -->
+        <div class="settings-sidebar">
+            <div class="sidebar-tabs">
+                <button class="tab-btn" [class.active]="activeTab === 'basic'"
+                    (click)="activeTab = 'basic'">Basic</button>
+                <button class="tab-btn" [class.active]="activeTab === 'seo'" (click)="activeTab = 'seo'">SEO</button>
+                @if(publishedId){
+                <button class="tab-btn" [class.active]="activeTab === 'history'"
+                    (click)="activeTab = 'history'">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i>History
+                </button>
+                }
+            </div>
+
+            <div class="sidebar-content">
+                <!-- Status info at top of sidebar -->
+                @if(lastDraftSavedDate || lastPublishedDate || contentId){
+                <div class="content-status-info sidebar-status">
+                    <div class="status-badges">
+                        @if(lastDraftSavedDate){
+                        <span class="status-badge draft">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            Draft saved: {{ lastDraftSavedDate | date:'MMM d, y, h:mm a' }}
+                        </span>
+                        }
+
+                        @if(lastPublishedDate){
+                        <span class="status-badge published">
+                            <i class="fa-solid fa-globe"></i>
+                            Published: {{ lastPublishedDate | date:'MMM d, y, h:mm a' }}
+                        </span>
+                        }
+
+                        @if(contentId && !lastDraftSavedDate && !lastPublishedDate){
+                        <span class="status-badge id-info">
+                            <i class="fa-solid fa-file"></i>
+                            Editing draft...
+                        </span>
+                        }
+
+                        <!-- Auto-save Status -->
+                        @if(saveStatusMessage === 'Auto-saved'){
+                        <span class="status-badge auto-saved">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            Auto-saved
+                        </span>
+                        }
+
+                        <!-- Deployment Status -->
+                        @if(deployStatus() === 'pending'){
+                        <span class="status-badge deploying">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                            Deploying to hosting...
+                        </span>
+                        }
+                        @if(deployStatus() === 'deployed'){
+                        <span class="status-badge deploy-success">
+                            <i class="fa-solid fa-check-circle"></i>
+                            Deployed to hosting
+                        </span>
+                        }
+                        @if(deployStatus() === 'failed'){
+                        <span class="status-badge deploy-failed" [title]="deployError()">
+                            <i class="fa-solid fa-exclamation-triangle"></i>
+                            Deploy failed
+                            <button class="retry-btn" (click)="retryDeployment()" title="Retry deployment">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </button>
+                        </span>
+                        }
+                    </div>
+                </div>
+                }
+
+                <!-- Basic Tab -->
+                @if(activeTab === 'basic'){
+                <div class="tab-panel">
+                    <form [formGroup]="publishForm">
+                        <!-- Cover Image -->
+                        <div class="form-group">
+                            <label class="form-label">Cover Image</label>
+                            <div class="cover-image-upload" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
+                                @if (!coverImage) {
+                                <div class="upload-area" (click)="openMediaManager()">
+                                    <p class="mb-1">Click to upload</p>
+                                    <small class="text-muted">Recommended: 1200 x 630 pixels</small>
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2">Upload
+                                        image</button>
+                                    <input type="file" id="coverImageInput" hidden (change)="onFileSelected($event)"
+                                        accept="image/*">
+                                </div>
+                                } @else {
+                                <div class="image-preview-container d-flex flex-column align-items-center p-2">
+                                    <img [src]="coverImage" class="img-fluid rounded border mb-3"
+                                        style="max-height: 150px; object-fit: cover;">
+
+                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                        (click)="removeCoverImage()">
+                                        <i class="fa-solid fa-trash me-1"></i> Remove Image
+                                    </button>
+                                </div>
+                                }
+                            </div>
+
+                            <small class="text-danger d-block mt-1">{{ errorMessage }}</small>
+
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="form-group mb-3">
+                            <label class="form-label">Summary</label>
+                            <textarea class="form-control form-control-sm" formControlName="summary" rows="3"
+                                placeholder="Enter content summary (auto-generated from content)"></textarea>
+                            <small class="text-muted">Used for content lists and default SEO description.</small>
+                        </div>
+
+                        <!-- URL Slug (Read-only display) -->
+                        <!-- URL Slug -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                URL
+                                @if (isEditingSlug()) {
+                                <span class="text-danger ms-2" style="font-size: 0.8em;">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    Changing this will break existing links!
+                                </span>
+                                }
+                            </label>
+
+                            @if (!isEditingSlug() && publishForm.get('urlSlug')?.value) {
+                            <div class="url-display">
+                                <a [href]="domain + contentTypeSlug + '/' + publishForm.get('urlSlug')?.value"
+                                    target="_blank" class="url-link">
+                                    {{ domain }}{{ contentTypeSlug }}/{{ publishForm.get('urlSlug')?.value }}
+                                </a>
+                                <button type="button" class="btn btn-link btn-sm p-0 ms-2"
+                                    (click)="copyUrlToClipboard()" title="Copy URL">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                                <button type="button" class="btn btn-link btn-sm p-0 ms-2 text-primary"
+                                    (click)="toggleSlugEdit()" title="Edit URL">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                            </div>
+                            } @else {
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control" formControlName="urlSlug"
+                                    placeholder="enter-slug-here">
+                                <button class="btn btn-outline-secondary" type="button" (click)="toggleSlugEdit()" *ngIf="publishForm.get('urlSlug')?.value">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                                <button class="btn btn-outline-primary" type="button" (click)="saveSlug()">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                Full URL: {{ domain }}{{ contentTypeSlug }}/{{ publishForm.get('urlSlug')?.value }}
+                            </small>
+                            }
+                        </div>
+
+                        <!-- Tags with Autocomplete -->
+                        <div class="form-group">
+                            <label class="form-label">Tags</label>
+
+                            <!-- Selected Tags with Colors -->
+                            <div class="tags-container mb-2">
+                                @if (selectedTags().length) {
+                                @for (tag of selectedTags(); track tag.label) {
+                                <span class="tag-badge me-1 mb-1" [style.background-color]="tag.color">
+                                    {{ tag.label }}
+                                    <button type="button" class="tag-remove-btn" (click)="removeTag(tag)">×</button>
+                                </span>
+                                }
+                                }
+                            </div>
+
+                            <!-- Tag Search Input -->
+                            <div class="tag-search-wrapper position-relative">
+                                <input type="text" class="form-control form-control-sm"
+                                    placeholder="Search or create tags..." [value]="tagSearchTerm()"
+                                    (input)="onTagSearchInput($event)" (focus)="onTagSearchFocus()"
+                                    (blur)="onTagSearchBlur()" (keyup.enter)="createInlineTag()">
+
+                                <!-- Autocomplete Dropdown -->
+                                @if (showTagDropdown()) {
+                                <div class="tag-dropdown">
+                                    @if (filteredTags.length > 0) {
+                                    @for (tag of filteredTags; track tag.id) {
+                                    <div class="tag-option" (mousedown)="selectTag(tag)">
+                                        <span class="tag-color-dot" [style.background-color]="tag.color"></span>
+                                        {{ tag.label }}
+                                    </div>
+                                    }
+                                    }
+
+                                    <!-- Create New Tag Option -->
+                                    @if (tagSearchTerm() && !hasMatchingTag()) {
+                                    <div class="tag-option create-new" (mousedown)="createInlineTag()">
+                                        <i class="fa-solid fa-plus me-2"></i>
+                                        Create "{{ tagSearchTerm() }}"
+                                    </div>
+                                    }
+
+                                    @if (!filteredTags.length && !tagSearchTerm()) {
+                                    <div class="tag-option text-muted">
+                                        Start typing to search or create tags
+                                    </div>
+                                    }
+                                </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Custom Fields Section -->
+                        @if (currentFields.length > 0) {
+                        <hr class="my-3">
+                        <div class="form-section-title mb-3">Custom Fields</div>
+
+                        @for (field of currentFields; track field.key) {
+                        <div class="form-group mb-3">
+                            <label class="form-label">
+                                {{ field.label }}
+                                @if (field.required) {
+                                <span class="text-danger">*</span>
+                                }
+                            </label>
+
+                            <!-- Text input -->
+                            @if (field.type === 'text') {
+                            <input type="text" class="form-control form-control-sm"
+                                [value]="customFieldValues[field.key] || ''"
+                                (input)="onCustomFieldChange(field.key, $any($event.target).value)"
+                                placeholder="Enter {{ field.label | lowercase }}">
+                            }
+                            
+                            <!-- Number input -->
+                            @else if (field.type === 'number') {
+                            <input type="number" class="form-control form-control-sm"
+                                [value]="customFieldValues[field.key] || ''"
+                                (input)="onCustomFieldChange(field.key, $any($event.target).value)"
+                                placeholder="Enter {{ field.label | lowercase }}">
+                            }
+
+                            <!-- Date input -->
+                            @else if (field.type === 'date' || field.type === 'datetime') {
+                            <input type="datetime-local" class="form-control form-control-sm"
+                                [value]="customFieldValues[field.key] || ''"
+                                (input)="onCustomFieldChange(field.key, $any($event.target).value)">
+                            }
+
+                            <!-- Boolean (checkbox toggle) -->
+                            @else if (field.type === 'boolean') {
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox"
+                                    [checked]="customFieldValues[field.key] === true"
+                                    (change)="onCustomFieldChange(field.key, $any($event.target).checked)">
+                            </div>
+                            }
+
+                            <!-- Rich text (tiptap editor) -->
+                            @else if (field.type === 'richtext') {
+                            <div class="richtext-field-wrapper">
+                                <div class="richtext-toolbar">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        (click)="openFullscreenEditor(field.key, field.label)"
+                                        title="Open in fullscreen editor">
+                                        <i class="fa-solid fa-expand me-1"></i> Expand
+                                    </button>
+                                </div>
+                                <div class="richtext-editor-container">
+                                    <app-tiptap-editor
+                                        [productValue]="customFieldValues[field.key] || ''"
+                                        (textEditorContent)="onRichTextFieldChange(field.key, $event)">
+                                    </app-tiptap-editor>
+                                </div>
+                            </div>
+                            }
+
+                            <!-- Dropdown (select) -->
+                            @else if (field.type === 'dropdown') {
+                                @if (field.useCollectionRef) {
+                                    <!-- Collection Reference Dropdown -->
+                                    <div class="collection-ref-wrapper">
+                                        <select class="form-select form-select-sm"
+                                            [value]="customFieldValues[field.key] || ''"
+                                            (change)="onReferenceChange(field.key, $any($event.target).value)"
+                                            [disabled]="loadingReferences()">
+                                            <option value="">Select {{ field.label | lowercase }}</option>
+                                            @for (option of referenceOptions()[field.key] || []; track option.id) {
+                                            <option [value]="option.id" [selected]="customFieldValues[field.key] === option.id">
+                                                {{ option[field.collectionRef!.displayField] || option.id }}
+                                            </option>
+                                            }
+                                        </select>
+                                        @if(loadingReferences()){
+                                            <small class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading options...</small>
+                                        }
+                                    </div>
+                                } @else {
+                                    <!-- Manual Options Dropdown -->
+                                    <select class="form-select form-select-sm" [value]="customFieldValues[field.key] || ''"
+                                        (change)="onCustomFieldChange(field.key, $any($event.target).value)">
+                                        <option value="">Select {{ field.label | lowercase }}</option>
+                                        @for (option of parseOptions(field.options); track option) {
+                                        <option [value]="option" [selected]="customFieldValues[field.key] === option">{{ option
+                                            }}</option>
+                                        }
+                                    </select>
+                                }
+                            }
+
+                            <!-- Checkbox (multi-select) -->
+                            @else if (field.type === 'checkbox') {
+                                @if (field.useCollectionRef) {
+                                    <!-- Collection Reference Checkbox -->
+                                    <div class="checkbox-group reference-checkboxes">
+                                        @if(loadingReferences()){
+                                            <small class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading options...</small>
+                                        }
+                                        @for (option of referenceOptions()[field.key] || []; track option.id) {
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" 
+                                                    [id]="field.key + '_' + option.id"
+                                                    [checked]="isCheckboxOptionSelected(field.key, option.id)"
+                                                    (change)="onRefCheckboxChange(field.key, option.id, $any($event.target).checked)">
+                                                <label class="form-check-label" [for]="field.key + '_' + option.id">
+                                                    {{ option[field.collectionRef!.displayField] || option.id }}
+                                                </label>
+                                            </div>
+                                        }
+                                        @if(!(referenceOptions()[field.key] || []).length && !loadingReferences()) {
+                                            <small class="text-muted">No items found in {{ field.collectionRef?.collectionName }}.</small>
+                                        }
+                                    </div>
+                                } @else {
+                                    <!-- Manual Options Checkbox -->
+                                    <div class="checkbox-group">
+                                        @for (option of parseOptions(field.options); track option) {
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" [id]="field.key + '_' + option"
+                                                [checked]="isCheckboxOptionSelected(field.key, option)"
+                                                (change)="onCheckboxFieldChange(field.key, option, $any($event.target).checked)">
+                                            <label class="form-check-label" [for]="field.key + '_' + option">
+                                                {{ option }}
+                                            </label>
+                                        </div>
+                                        }
+                                    </div>
+                                }
+                            }
+
+                            <!-- Radio buttons -->
+                            @else if (field.type === 'radio') {
+                                @if (field.useCollectionRef) {
+                                    <!-- Collection Reference Radio -->
+                                    <div class="radio-group reference-radios">
+                                        @if(loadingReferences()){
+                                            <small class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading options...</small>
+                                        }
+                                        @for (option of referenceOptions()[field.key] || []; track option.id) {
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" [name]="field.key"
+                                                    [id]="field.key + '_' + option.id" [value]="option.id"
+                                                    [checked]="customFieldValues[field.key] === option.id"
+                                                    (change)="onReferenceChange(field.key, option.id)">
+                                                <label class="form-check-label" [for]="field.key + '_' + option.id">
+                                                    {{ option[field.collectionRef!.displayField] || option.id }}
+                                                </label>
+                                            </div>
+                                        }
+                                        @if(!(referenceOptions()[field.key] || []).length && !loadingReferences()) {
+                                            <small class="text-muted">No items found in {{ field.collectionRef?.collectionName }}.</small>
+                                        }
+                                    </div>
+                                } @else {
+                                    <!-- Manual Options Radio -->
+                                    <div class="radio-group">
+                                        @for (option of parseOptions(field.options); track option) {
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" [name]="field.key"
+                                                [id]="field.key + '_' + option" [value]="option"
+                                                [checked]="customFieldValues[field.key] === option"
+                                                (change)="onCustomFieldChange(field.key, option)">
+                                            <label class="form-check-label" [for]="field.key + '_' + option">
+                                                {{ option }}
+                                            </label>
+                                        </div>
+                                        }
+                                    </div>
+                                }
+                            }
+
+                            <!-- Image (media modal) -->
+                            @else if (field.type === 'image') {
+                            <div class="custom-image-upload">
+                                @if (!customFieldValues[field.key]) {
+                                <div class="upload-area" (click)="openMediaManagerForField(field.key)">
+                                    <i class="fa-solid fa-image mb-1" style="font-size: 1.5rem; color: #adb5bd;"></i>
+                                    <p class="mb-1 small">Click to select image</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm">Select image</button>
+                                </div>
+                                } @else {
+                                <div class="image-preview-container d-flex flex-column align-items-center p-2">
+                                    <img [src]="customFieldValues[field.key]" class="img-fluid rounded border mb-2"
+                                        style="max-height: 120px; object-fit: cover;">
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-outline-primary btn-sm"
+                                            (click)="openMediaManagerForField(field.key)">
+                                            <i class="fa-solid fa-arrows-rotate me-1"></i> Change
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                            (click)="removeCustomFieldImage(field.key)">
+                                            <i class="fa-solid fa-trash me-1"></i> Remove
+                                        </button>
+                                    </div>
+                                </div>
+                                }
+                            </div>
+                            }
+                        </div>
+                        }
+                        }
+
+                        <!-- Next Content Section -->
+                        <hr class="my-3">
+                        <div class="form-group next-content-section">
+                            <label class="form-label">
+                                <i class="fa-solid fa-arrow-right me-1"></i>
+                                Next {{ getContentTypeName() }}
+                            </label>
+                            <p class="text-muted small mb-2">
+                                Link to the next content in a series (e.g., tutorial steps)
+                            </p>
+
+                            <!-- Selected Next Content Display -->
+                            @if (selectedNextContent) {
+                            <div class="next-content-selected">
+                                <div class="next-content-info">
+                                    <strong>{{ selectedNextContent.title }}</strong>
+                                    <small class="text-muted d-block">
+                                        {{ (selectedNextContent.summary || '') | slice:0:100 }}{{
+                                        (selectedNextContent.summary.length || 0) > 100 ? '...' : '' }}
+                                    </small>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                    (click)="removeNextContent()">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                            </div>
+                            } @else {
+                            <!-- Search/Select Dropdown -->
+                            <div class="next-content-search position-relative">
+                                <input type="text" class="form-control form-control-sm"
+                                    placeholder="Search for content..." [value]="nextContentSearchTerm()"
+                                    (input)="onNextContentSearchInput($event)" (focus)="onNextContentSearchFocus()"
+                                    (blur)="onNextContentSearchBlur()">
+
+                                @if (showNextContentDropdown()) {
+                                <div class="next-content-dropdown">
+                                    @if (isLoadingContents) {
+                                    <div class="next-content-empty">
+                                        <i class="fa-solid fa-spinner fa-spin me-1"></i> Loading...
+                                    </div>
+                                    } @else if (filteredNextContents.length > 0) {
+                                    @for (content of filteredNextContents; track content.id) {
+                                    <div class="next-content-option" (mousedown)="selectNextContent(content)">
+                                        <span class="next-content-title">{{ content.title }}</span>
+                                        <span class="next-content-summary">
+                                            {{ (content.metaDescription || '') | slice:0:80 }}{{
+                                            (content.metaDescription.length || 0) > 80 ? '...' : '' }}
+                                        </span>
+                                    </div>
+                                    }
+                                    } @else {
+                                    <div class="next-content-empty">
+                                        No content found
+                                    </div>
+                                    }
+                                </div>
+                                }
+                            </div>
+                            }
+                        </div>
+                    </form>
+                </div>
+                }
+
+                <!-- SEO Tab -->
+                @if(activeTab === 'seo'){
+                <div class="tab-panel">
+                    <form [formGroup]="seoForm">
+                        <div class="form-group">
+                            <label class="form-label">SEO Title</label>
+                            <input type="text" class="form-control form-control-sm" formControlName="seoTitle"
+                                placeholder="Enter SEO title" (input)="triggerAutoSave()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Meta Description</label>
+                            <textarea class="form-control form-control-sm" formControlName="metaDescription" rows="3"
+                                placeholder="Enter meta description" (input)="triggerAutoSave()"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Canonical URL</label>
+                            <input type="url" class="form-control form-control-sm" formControlName="canonicalUrl"
+                                placeholder="https://yourdomain.com/original-post-url" (input)="triggerAutoSave()">
+                        </div>
+
+                        <!-- Social Sharing Preview -->
+                        <hr class="my-3">
+                        <div class="social-preview-section">
+                            <label class="form-label">
+                                <i class="fa-solid fa-share-nodes me-1"></i>
+                                Social Sharing Preview
+                            </label>
+                            <p class="text-muted small mb-2">Preview how this content may appear when shared on social
+                                media</p>
+
+                            <div class="social-preview-card">
+                                <div class="social-preview-image">
+                                    @if (coverImage) {
+                                    <img [src]="coverImage" alt="Cover preview">
+                                    } @else {
+                                    <div class="image-placeholder">
+                                        <i class="fa-solid fa-image"></i>
+                                        <span>No cover image</span>
+                                    </div>
+                                    }
+                                </div>
+                                <div class="social-preview-content">
+                                    <div class="social-preview-domain">{{ domain || 'yourdomain.com' }}</div>
+                                    <div class="social-preview-title">
+                                        {{ seoForm.get('seoTitle')?.value || pageTitle || 'Page Title' }}
+                                    </div>
+                                    <div class="social-preview-description">
+                                        {{ seoForm.get('metaDescription')?.value ||
+                                        'Add a meta description to see how it will appear in social shares...' }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                }
+
+                <!-- History Tab -->
+                @if(activeTab === 'history' && publishedId){
+                <div class="tab-panel history-tab-panel">
+                    <arc-version-history
+                        [publishedId]="publishedId"
+                        [contentTypeSlug]="contentTypeSlug"
+                        (preview)="previewVersion($event)"
+                        (restore)="restoreVersion($event)">
+                    </arc-version-history>
+                </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

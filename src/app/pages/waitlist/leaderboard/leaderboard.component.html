@@ -1,0 +1,234 @@
+<arc-header></arc-header>
+
+<!-- Waitlist Banner -->
+@if(waitlistData) {
+<div class="waitlist-banner" [style.background-image]="'url(' + coverImageUrl + ')'">
+    <div class="banner-overlay">
+        <div class="banner-content">
+            <h1 class="banner-title">{{ waitlistData.name }}</h1>
+            @if(waitlistData.description) {
+            <p class="banner-description">{{ waitlistData.description }}</p>
+            }
+        </div>
+    </div>
+</div>
+}
+
+<!-- Main Content -->
+<div class="container-main">
+    <div class="container">
+        <!-- Personal Stats Card -->
+        @if(showPersonalStats && personalUserData){
+        <div class="personal-stats-card mt-2">
+            <!-- Section 1: Header + Stats (Flex Row) -->
+            <div class="card-header-section d-flex justify-content-between align-items-center flex-wrap">
+                <div class="welcome-message mb-0">
+                    <div class="welcome-title">Welcome back, {{ personalUserData.firstName || 'User' }}
+                        <span class="wave"><i class="fas fa-hand-sparkles"></i></span>
+                    </div>
+                    <div class="welcome-subtitle">Here's your referral performance overview</div>
+                </div>
+
+                <!-- Stats Row (Now inside header) -->
+                <div class="stats-row mb-0">
+                    <div class="stat-item">
+                        <div class="stat-number">#{{ currentUserPosition || personalUserData.queuePosition || 0 }}</div>
+                        <div class="stat-label">Overall Rank</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">{{ personalUserData.totalReferrals || 0 }}</div>
+                        <div class="stat-label">Referrals</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Referral Tools -->
+            <div class="referral-tools mt-3">
+                <div class="row">
+                    <!-- Referral Code (Smaller width) -->
+                    <div class="col-md-4">
+                        <div class="referral-field">
+                            <label class="referral-label">Your Referral Code</label>
+                            <div class="input-group-container">
+                                <div class="code-display">{{ personalUserData.referralCode || 'N/A' }}</div>
+                                <button class="copy-btn-inline pt-2"
+                                    (click)="copyToClipboard(personalUserData.referralCode || '')" title="Copy Code">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Referral URL (Larger width) -->
+                    <div class="col-md-8">
+                        <div class="referral-field">
+                            <label class="referral-label">Referral URL</label>
+                            <div class="input-group-container">
+                                <div class="url-display">{{ personalUserData.referralLink || 'N/A' }}</div>
+                                <button class="copy-btn-inline pt-2"
+                                    (click)="copyToClipboard(personalUserData.referralLink || '')" title="Copy URL">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @if(personalUserData.referralCode) {
+                <div class="share-buttons d-flex w-100">
+                    <a [href]="getWhatsAppShareUrl()" class="btn-share whatsapp flex-fill text-center" target="_blank">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </a>
+                    <a [href]="getFacebookShareUrl()" class="btn-share facebook flex-fill text-center" target="_blank">
+                        <i class="fab fa-facebook"></i> Facebook
+                    </a>
+                    <a [href]="getTwitterShareUrl()" class="btn-share twitter flex-fill text-center" target="_blank">
+                        <i class="fab fa-twitter"></i> Twitter
+                    </a>
+                    <a [href]="getLinkedInShareUrl()" class="btn-share linkedin flex-fill text-center" target="_blank">
+                        <i class="fab fa-linkedin"></i> LinkedIn
+                    </a>
+                </div>
+                }
+
+                <button class="my-referrals-toggle" (click)="toggleMyReferrals()">
+                    <span><i class="fas fa-users me-2"></i> My Referrals ({{ allReferralsData?.length || 0 }})</span>
+                    <i class="fas fa-chevron-down ms-auto" id="referrals-chevron"></i>
+                </button>
+
+
+                <div class="my-referrals-content" id="my-referrals-content">
+                    @if(allReferralsData && allReferralsData.length > 0) {
+                    @for(refUser of allReferralsData.slice(0, 5); track refUser.id){
+                    <div class="referral-user">
+                        <div class="referral-user-avatar">{{ getInitials(refUser.referredName) }}</div>
+                        <div class="referral-user-info">
+                            <div class="referral-user-name">{{ refUser.referredName }}</div>
+                            <div class="referral-user-email">{{ refUser.referredMaskedEmail }}</div>
+                        </div>
+                        <div class="referral-date">
+                            @if(refUser.completedAt?.seconds) {
+                                {{ globalService.timeAgo(refUser.completedAt.seconds) }}
+                            } @else {
+                                <span class="badge bg-warning text-dark">Pending</span>
+                            }
+                        </div>
+                    </div>
+                    }
+
+                    @if(allReferralsData.length > 5) {
+                    <div class="text-center mt-3">
+                        <small style="color: #b1bbca;">and {{ allReferralsData.length - 5 }} more...</small>
+                    </div>
+                    }
+                    }
+                    @else {
+                    <div class="text-center mt-3">
+                        <small style="color: #b1bbca;">No referrals found.</small>
+                    </div>
+                    }
+                </div>
+            </div>
+        </div>
+        }
+
+        <!-- Leaderboard Section -->
+        @if(!loading && !error) {
+        <div class="leaderboard-section mt-2">
+            <h2 class="section-title">
+                <i class="fas fa-trophy section-title-icon"></i> Leaderboard
+                <small class="section-subtitle">Rankings for {{ waitlistData?.name || 'this waitlist' }}</small>
+            </h2>
+
+            <!-- Leaderboard Items -->
+            @if(displayLeaderboard && displayLeaderboard.length > 0) {
+            @for(item of displayLeaderboard; track $index; let i = $index) {
+            <!-- Separator dots -->
+            @if (item?.isSeparator) {
+            <div class="leaderboard-separator">
+                <div class="separator-dots">
+                    <span class="dot">•</span>
+                    <span class="dot">•</span>
+                    <span class="dot">•</span>
+                </div>
+            </div>
+            } @else {
+            <!-- Regular leaderboard item -->
+            <div class="leaderboard-item" [class.current-user]="isCurrentUser(item)" [class.top-three]="i < 3">
+
+                <div class="rank-number" [class.top-rank]="i < 3"
+                     [class.rank-gold]="i === 0" [class.rank-silver]="i === 1" [class.rank-bronze]="i === 2">
+                    @if(i < 3) {
+                    <i class="fas fa-medal"></i>
+                    } @else {
+                    <span>#{{ i + 1 }}</span>
+                    }
+                </div>
+
+                <div class="user-avatar">
+                    {{ getInitials(item.firstName) }}
+                </div>
+
+                <div class="user-info">
+                    <div class="user-name">
+                        {{ isCurrentUser(item) ? 'You' : item.firstName }}
+                        @if(i === 0){
+                        <span class="crown-icon"><i class="fas fa-crown"></i></span>
+                        }
+                    </div>
+                    <div class="user-email">{{ item?.maskedEmail }}</div>
+                </div>
+
+                <div class="referral-count">
+                    <div class="referral-number">{{ item.totalReferrals || 0 }}</div>
+                    <div class="referral-label">referrals</div>
+                </div>
+            </div>
+            }
+            }
+            }
+
+            <!-- Empty State -->
+            @if(!displayLeaderboard || displayLeaderboard.length === 0){
+            <div class="no-data-container">
+                <div class="no-data-card">
+                    <div class="icon"><i class="fas fa-chart-bar"></i></div>
+                    <h5>No Leaderboard Found</h5>
+                    <p>It looks like there's nothing here yet.</p>
+                </div>
+            </div>
+            }
+
+            <!-- Total Count -->
+            @if((displayLeaderboard && displayLeaderboard.length > 0) && totalUsers){
+            <div class="total-count">
+                <div class="count-verified">
+                    <i class="fas fa-user-check"></i>
+                    <strong>{{ totalUsers }}</strong> verified users
+                </div>
+                @if(unverifiedUsers > 0) {
+                <div class="count-unverified">
+                    <i class="fas fa-user-clock"></i>
+                    +{{ unverifiedUsers }} unverified users
+                </div>
+                }
+            </div>
+            }
+        </div>
+        }
+        @else if(loading) {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading your details...</p>
+        </div>
+        }
+        @else if(error) {
+        <div class="error-container">
+            <p>{{ error }}</p>
+            <button class="btn btn-primary" (click)="loadLeaderboard()">Retry</button>
+        </div>
+        }
+    </div>
+</div>
+
+<arc-footer></arc-footer>

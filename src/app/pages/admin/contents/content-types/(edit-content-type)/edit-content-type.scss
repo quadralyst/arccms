@@ -1,0 +1,233 @@
+/* Form Panel Styles */
+.side-panel {
+  padding: 20px;
+  transform: translateX(0);
+  max-height: 100vh;
+  overflow-y: auto;
+}
+
+.side-panel.closed {
+  transform: translateX(100%);
+}
+
+.panel-header {
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  color: #dc3545;
+}
+
+.form-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #1f2937;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #4b5563;
+  display: block;
+}
+
+.form-label .required {
+  color: #ef4444;
+  margin-left: 3px;
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #495057;
+  background-color: #fff;
+  background-clip: padding-box;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+.form-control:focus {
+  color: #495057;
+  background-color: #fff;
+  border-color: #3c76f5;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(60, 118, 245, 0.25);
+}
+
+.form-control.is-invalid {
+  border-color: #ef4444;
+}
+
+.form-select {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #495057;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  appearance: none;
+  transition: all 0.2s;
+}
+
+.form-select:focus {
+  border-color: #3c76f5;
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(60, 118, 245, 0.25);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #3c76f5, #1d47a3);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  box-shadow: 0 2px 5px rgba(29, 71, 163, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
+}
+
+.btn-secondary {
+  background-color: #f8f9fa;
+  border: 1px solid #ced4da;
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: #495057;
+  font-weight: 500;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #e9ecef;
+}
+
+.btn-outline-primary {
+  background-color: transparent;
+  border: 1px solid #3c76f5;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: #3c76f5;
+  font-weight: 500;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.btn-outline-primary:hover {
+  background-color: #3c76f5;
+  color: white;
+}
+
+.copyright {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #8898aa;
+  margin-top: 20px;
+}
+
+.input-group-text {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.input-group {
+  flex-wrap: nowrap;
+
+  .form-control {
+    min-width: 0;
+  }
+
+  .btn {
+    flex-shrink: 0;
+  }
+}
+
+hr {
+  border: 0;
+  height: 1px;
+  background: #333;
+  background-image: linear-gradient(to right, #ccc, #333, #ccc);
+  margin: 20px 0;
+}
+
+/* Field Group Styles */
+.field-group {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.btn-remove-field {
+  background: transparent;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-remove-field:hover {
+  background-color: #fef2f2;
+}
+
+.form-check-input {
+  width: 2.5em;
+  height: 1.25em;
+  cursor: pointer;
+}
+
+.form-check-input:checked {
+  background-color: #3c76f5;
+  border-color: #3c76f5;
+}

@@ -1,0 +1,159 @@
+/**
+ * Onboarding Wizard Defaults
+ *
+ * Constants for the default content types, waitlist, and email template previews
+ * that are auto-created when the onboarding wizard completes.
+ */
+
+import { ContentType } from '../admin/contents/content-types/content-types.model';
+import { DEFAULT_UI_CONFIG } from '../waitlist/waitlist.model';
+
+/**
+ * Default CSS URLs for the site (matches cloud function defaults in site-settings.ts)
+ */
+export const DEFAULT_SITE_CSS_URLS = [
+    'https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css',
+    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
+    '/assets/css/main.css',
+];
+
+/**
+ * Three default content types created during onboarding
+ */
+export const DEFAULT_CONTENT_TYPES: Omit<ContentType, 'id' | 'createdAt' | 'modifiedAt' | 'createdBy' | 'modifiedBy'>[] = [
+    {
+        name: 'Articles',
+        singularName: 'Article',
+        slug: 'articles',
+        description: 'Blog posts, news, and announcements',
+        icon: 'fas fa-newspaper',
+        order: 1,
+        hasPublicUrl: true,
+        templateFolder: 'default',
+        listColumns: ['title', 'status', 'createdAt'],
+        fields: [
+            { key: 'title', label: 'Title', type: 'text', required: true, order: 1 },
+            { key: 'urlSlug', label: 'URL Slug', type: 'text', required: true, order: 2 },
+            { key: 'coverImage', label: 'Cover Image', type: 'image', required: false, order: 3 },
+            { key: 'excerpt', label: 'Excerpt', type: 'text', required: false, order: 4 },
+            { key: 'body', label: 'Body', type: 'richtext', required: true, order: 5 },
+            { key: 'publishDate', label: 'Publish Date', type: 'date', required: false, order: 6 },
+        ],
+    },
+    {
+        name: 'User Manuals',
+        singularName: 'User Manual',
+        slug: 'user-manuals',
+        description: 'Product documentation and how-to guides',
+        icon: 'fas fa-book',
+        order: 2,
+        hasPublicUrl: true,
+        templateFolder: 'default',
+        listColumns: ['title', 'status', 'createdAt'],
+        fields: [
+            { key: 'title', label: 'Title', type: 'text', required: true, order: 1 },
+            { key: 'urlSlug', label: 'URL Slug', type: 'text', required: true, order: 2 },
+            { key: 'coverImage', label: 'Cover Image', type: 'image', required: false, order: 3 },
+            { key: 'body', label: 'Content', type: 'richtext', required: true, order: 4 },
+            { key: 'category', label: 'Category', type: 'dropdown', required: false, order: 5, options: 'Getting Started,Configuration,Troubleshooting,FAQ' },
+        ],
+    },
+    {
+        name: 'Release Notes',
+        singularName: 'Release Note',
+        slug: 'release-notes',
+        description: 'Product updates and changelog entries',
+        icon: 'fas fa-code-branch',
+        order: 3,
+        hasPublicUrl: true,
+        templateFolder: 'default',
+        listColumns: ['title', 'version', 'releaseDate', 'status'],
+        fields: [
+            { key: 'title', label: 'Title', type: 'text', required: true, order: 1 },
+            { key: 'urlSlug', label: 'URL Slug', type: 'text', required: true, order: 2 },
+            { key: 'version', label: 'Version', type: 'text', required: true, order: 3 },
+            { key: 'releaseDate', label: 'Release Date', type: 'date', required: true, order: 4 },
+            { key: 'body', label: 'Changes', type: 'richtext', required: true, order: 5 },
+            { key: 'isBreaking', label: 'Breaking Changes', type: 'boolean', required: false, order: 6 },
+        ],
+    },
+];
+
+/**
+ * Default waitlist created during onboarding.
+ * Doc ID will be 'default' so landing pages using data-waitlist-id="default" work immediately.
+ */
+export const DEFAULT_WAITLIST = {
+    slug: 'default',
+    name: 'Waitlist',
+    description: 'Default waitlist for early access signups',
+    isActive: true,
+    otpEnabled: true,
+    startingPoint: 0,
+    totalSignups: 0,
+    uiConfig: DEFAULT_UI_CONFIG,
+};
+
+/**
+ * Preview of the OTP verification email template.
+ * Matches the template created by onWaitlistsCreate cloud function.
+ */
+export const OTP_TEMPLATE_PREVIEW = `<div class="container" style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden; padding: 40px; box-sizing: border-box;">
+  <div class="header" style="text-align: center; padding-bottom: 20px; border-bottom: 1px solid #e5e7eb;">
+    <h1 style="font-size: 24px; font-weight: 600; color: #1f2937; margin: 0;">
+      Verification Code
+    </h1>
+  </div>
+  <div class="content" style="padding: 30px 0; text-align: center;">
+    <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin: 0 0 20px;">
+      Hello,
+    </p>
+    <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin: 0 0 20px;">
+      You have requested to join our waitlist. Please use the following One-Time Password (OTP) to verify your email address. This code is valid for 15 minutes.
+    </p>
+    <div class="otp-code" style="display: inline-block; background-color: #e0f2fe; color: #0369a1; font-size: 32px; font-weight: 600; letter-spacing: 4px; padding: 15px 30px; border-radius: 8px; margin-bottom: 20px; border: 2px dashed #93c5fd;">123456</div>
+    <p class="otp-note" style="font-size: 14px; color: #6b7280; margin-bottom: 30px;">
+      If you did not request this, please ignore this email.
+    </p>
+    <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin: 0 0 20px;">
+      Thank you!</p>
+  </div>
+  <div class="footer" style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+    <p style="font-size: 12px; color: #9ca3af; margin: 0;">All rights reserved.</p>
+  </div>
+</div>`;
+
+/**
+ * Preview of the welcome email template.
+ * Matches the template created by onWaitlistsCreate cloud function.
+ */
+export const WELCOME_TEMPLATE_PREVIEW = `<div class="container" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+  <div class="header" style="background-color: #2c3e50; color: #ffffff; text-align: center; padding: 40px 20px;">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 700;">
+      You're on the Waitlist!
+    </h1>
+  </div>
+  <div class="content" style="padding: 40px; text-align: center; color: #34495e; line-height: 1.6;">
+    <p style="margin: 0 0 20px; font-size: 16px;">
+      Hello,
+    </p>
+    <p style="margin: 0 0 20px; font-size: 16px;">
+      Thank you for joining our waitlist! We're excited to have you. You can check your progress and see your rank on the leaderboard by clicking the links below.
+    </p>
+    <a href="#" style="display: inline-block; text-decoration: none; color: #ffffff; font-weight: 600; font-size: 16px; padding: 12px 24px; border-radius: 8px; margin: 10px; background-color: #3498db;">
+      Your Referral Link
+    </a>
+    <a href="#" style="display: inline-block; text-decoration: none; color: #ffffff; font-weight: 600; font-size: 16px; padding: 12px 24px; border-radius: 8px; margin: 10px; background-color: #3498db;">
+      Waitlist Leaderboard
+    </a>
+    <p style="margin: 0 0 20px; font-size: 16px; margin-top: 32px;">
+      We'll notify you as soon as your spot is ready.
+    </p>
+    <p style="margin: 0 0 20px; font-size: 16px;">
+      Best regards,<br>The Team
+    </p>
+  </div>
+  <div class="footer" style="text-align: center; padding: 20px; font-size: 12px; color: #9baec8; border-top: 1px solid #e2e8f0;">
+    <p style="margin: 0; font-size: 12px; color: #9baec8;">All rights reserved.</p>
+  </div>
+</div>`;

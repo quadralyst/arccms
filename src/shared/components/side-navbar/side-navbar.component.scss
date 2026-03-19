@@ -1,0 +1,234 @@
+@use '../../../styles/variables' as *;
+
+//=====================================================
+.collapsed-bottom-icons {
+    position: absolute;
+    bottom: 20px;
+    display: flex;
+    justify-content: space-around;
+    flex-direction: column;
+}
+
+::ng-deep .mat-drawer-inner-container {
+    height: auto !important;
+}
+
+.toggle {
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    padding: 5px;
+
+    &:hover {
+        cursor: pointer;
+    }
+}
+
+.sidebar {
+    position: relative;
+    overflow: hidden;
+    color: white;
+    min-height: 100vh;
+    // padding-top: 15px;
+    width: 230px;
+    z-index: 1;
+    transition: width 0.3s ease;
+
+    &.collapsed {
+        width: 65px;
+    }
+}
+
+.sidebar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 10% 10%, #2654bd 0%, transparent 50%),
+        radial-gradient(circle at 90% 20%, #24c6dc 0%, transparent 60%),
+        radial-gradient(circle at 50% 50%, #3c76f5 0%, transparent 70%),
+        radial-gradient(circle at 80% 80%, #1d47a3 0%, transparent 50%),
+        radial-gradient(circle at 20% 90%, #1b429a 0%, transparent 60%), linear-gradient(135deg, #1d47a3 0%, #24c6dc 100%);
+    z-index: -1;
+    opacity: 0.95;
+}
+
+.logo {
+    width: 40px;
+    height: 40px;
+}
+
+.logo-container {
+    padding: 8px 8px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.logo-container-close {
+    padding: 8px 8px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-text {
+    color: white;
+    font-weight: 600;
+    margin-left: 10px;
+    font-size: 1.2rem;
+}
+
+.sidebar-menu {
+    margin-top: 10px;
+    padding: 0 5px;
+}
+
+.nav-link {
+    color: rgba(255, 255, 255, 0.8);
+    padding: 9px 16px;
+    margin: 2px 0;
+    border-radius: 6px;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    transform: translateX(3px);
+}
+
+.nav-link i {
+    text-align: center;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.nav-link span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+.icon-size {
+    font-size: 14px;
+    // width: 20px;
+}
+
+.icon-size-large {
+    font-size: 20px;
+    // width: 24px;
+    margin: 0 auto;
+}
+
+.fa-icon-size {
+    font-size: 14px;
+    width: 20px;
+}
+
+.fa-icon-size-large {
+    font-size: 20px;
+    width: 24px;
+    margin: 0 auto;
+}
+
+.avatar {
+    img {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background-color: rgba(255, 255, 255, 0.2);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.75rem;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 10px;
+}
+
+.user-info-collapsed {
+    display: flex;
+    justify-content: center;
+    padding: 0 10px 15px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 10px;
+}
+
+.user-info-text {
+    font-size: 0.8rem;
+    line-height: 1.2;
+    margin-left: 10px;
+}
+
+.active-menu {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+.menu-arrow-icon {
+    margin-left: auto;
+}
+
+.menu-separator {
+    border-color: rgba(255, 255, 255, 0.15);
+    margin: 6px 16px;
+    opacity: 1;
+}
+
+.logo_img {
+    height: 60px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.open-pen {
+    position: relative;
+    left: 22%;
+    font-size: 26px;
+    cursor: pointer !important;
+}
+
+.close-pen {
+    position: relative;
+    left: 30%;
+    top: 5px;
+    font-size: 30px;
+}
+
+// @-webkit-keyframes blinker {
+//   from {
+//     opacity: 1;
+//   }
+//   to {
+//     opacity: 0;
+//   }
+// }
+// .blink {
+//   text-decoration: blink;
+//   -webkit-animation-name: blinker;
+//   -webkit-animation-duration: 0.8s;
+//   -webkit-animation-iteration-count: infinite;
+//   -webkit-animation-timing-function: ease-in-out;
+//   -webkit-animation-direction: alternate;
+// }

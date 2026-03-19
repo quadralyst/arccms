@@ -1,0 +1,289 @@
+<!-- Documentation Partials Template - Embeddable Section -->
+<!-- Styled consistently with docs-list.html -->
+
+<section class="docs-partials-section">
+    <div class="container">
+        <div class="docs-partials-header">
+            <div class="header-content">
+                <i class="fas fa-book-open header-icon"></i>
+                <h2 class="docs-partials-title arc-skeleton">{{ sectionTitle }}</h2>
+            </div>
+            <a href="/docs" class="docs-partials-view-all">
+                View All Docs <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+
+        <div class="docs-partials-grid" data-arc-loop="items" data-limit="4">
+            <!-- Documentation Card Template -->
+            <a class="doc-partial-card" href="{{ url }}">
+                <div class="doc-partial-icon">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="doc-partial-content">
+                    <div class="doc-partial-meta">
+                        <span class="doc-partial-category arc-skeleton">{{ cat }}</span>
+                        <span class="meta-separator">•</span>
+                        <span class="arc-skeleton">{{ readTime }}</span> min
+                    </div>
+                    <h3 class="doc-partial-title arc-skeleton">{{ title }}</h3>
+                    <p class="doc-partial-excerpt arc-skeleton">{{ excerpt }}</p>
+                    <div class="doc-partial-tags" [innerHTML]="tagsHtml"></div>
+                </div>
+                <div class="doc-partial-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </a>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="partialsEmptyState">
+            <i class="fas fa-book"></i>
+            <h3>No Documentation Yet</h3>
+            <p>Check back soon for guides and tutorials.</p>
+        </div>
+    </div>
+</section>
+
+<style>
+    /* Documentation Partials Section - Modern Technical Design */
+    .docs-partials-section {
+        padding: 4rem 0;
+        background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+    }
+
+    .docs-partials-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .header-content {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .header-icon {
+        font-size: 1.5rem;
+        color: #00a8cc;
+    }
+
+    .docs-partials-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin: 0;
+        letter-spacing: -0.02em;
+    }
+
+    .docs-partials-view-all {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #00a8cc;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: color 0.2s;
+    }
+
+    .docs-partials-view-all:hover {
+        color: #008ba7;
+    }
+
+    .docs-partials-view-all i {
+        font-size: 0.75rem;
+        transition: transform 0.2s;
+    }
+
+    .docs-partials-view-all:hover i {
+        transform: translateX(4px);
+    }
+
+    .docs-partials-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .doc-partial-card {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        border: 1px solid #e9ecef;
+    }
+
+    .doc-partial-card:hover {
+        transform: translateX(4px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        border-color: #00a8cc;
+    }
+
+    .doc-partial-card:hover .doc-partial-arrow {
+        color: #00a8cc;
+        transform: translateX(4px);
+    }
+
+    .doc-partial-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #00d4ff;
+        border-radius: 10px;
+        font-size: 1.25rem;
+    }
+
+    .doc-partial-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .doc-partial-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-bottom: 0.35rem;
+    }
+
+    .doc-partial-category {
+        display: inline-block;
+        padding: 0.1rem 0.4rem;
+        background: #e9ecef;
+        border-radius: 4px;
+        font-weight: 500;
+        color: #495057;
+        text-transform: uppercase;
+        font-size: 0.65rem;
+        letter-spacing: 0.03em;
+    }
+
+    .doc-partial-category:empty,
+    .meta-separator:has(+ .doc-partial-category:empty) {
+        display: none;
+    }
+
+    .doc-partial-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        line-height: 1.35;
+        margin: 0 0 0.35rem 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .doc-partial-excerpt {
+        font-size: 0.85rem;
+        color: #6c757d;
+        line-height: 1.4;
+        margin: 0 0 0.5rem 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .doc-partial-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+    .doc-partial-tags:empty {
+        display: none;
+    }
+
+    .doc-partial-tags .tag-pill {
+        font-size: 0.6rem;
+        padding: 0.1rem 0.35rem;
+        border-radius: 100px;
+        font-weight: 500;
+    }
+
+    .doc-partial-arrow {
+        color: #adb5bd;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+    }
+
+    /* Empty State */
+    .docs-partials-section .empty-state {
+        display: none;
+        text-align: center;
+        padding: 3rem 2rem;
+    }
+
+    .docs-partials-section .empty-state i {
+        font-size: 2.5rem;
+        color: #dee2e6;
+        margin-bottom: 1rem;
+    }
+
+    .docs-partials-section .empty-state h3 {
+        font-size: 1.1rem;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+    }
+
+    .docs-partials-section .empty-state p {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    /* Show empty state when grid is empty */
+    .docs-partials-grid:empty+.empty-state {
+        display: block;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .docs-partials-section {
+            padding: 3rem 0;
+        }
+
+        .docs-partials-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .docs-partials-title {
+            font-size: 1.5rem;
+        }
+
+        .doc-partial-card {
+            padding: 1rem;
+        }
+
+        .doc-partial-icon {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            font-size: 1rem;
+        }
+
+        .doc-partial-excerpt {
+            display: none;
+        }
+    }
+</style>
+
+<script>
+    // No special scripts needed for partials
+    // Keep minimal for embedding performance
+</script>

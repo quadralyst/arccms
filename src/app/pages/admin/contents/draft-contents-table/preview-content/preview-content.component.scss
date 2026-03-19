@@ -1,0 +1,141 @@
+.side-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 450px;
+  height: 100vh;
+  background: white;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease-out;
+  border-left: 1px solid #eee;
+
+  @media (max-width: 576px) {
+    width: 100%;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.panel-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f8f9fa;
+
+  h5 {
+    margin: 0;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    &:hover {
+      color: #000;
+    }
+  }
+}
+
+.view-content {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.detail-row {
+  margin-bottom: 1rem;
+  
+  label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  
+  span, div {
+    display: block; // Changed to block to handle content better
+    font-size: 0.95rem;
+    color: #333;
+    word-break: break-word; // Ensure long words wrap
+  }
+
+  .rich-text-preview {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+      padding: 0.5rem;
+      border-radius: 4px;
+      background-color: #fafafa;
+      
+      ::ng-deep img {
+          max-width: 100%;
+          height: auto;
+      }
+  }
+
+  .preview-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+      border: 1px solid #eee;
+      max-height: 200px;
+      object-fit: cover;
+  }
+}
+
+.form-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1.5rem 0 1rem;
+  padding-bottom: 0.5rem;
+  color: #2c3e50;
+  // border-bottom: 2px solid #e9ecef;
+}
+
+.metadata {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 2rem;
+
+  .form-section-title {
+    margin-top: 0;
+    font-size: 0.9rem;
+  }
+
+  .detail-row {
+    margin-bottom: 0.75rem;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+hr {
+  margin: 1.5rem 0;
+  border-color: #eee;
+}

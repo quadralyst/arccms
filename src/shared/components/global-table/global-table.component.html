@@ -1,0 +1,125 @@
+<div class="table-container">
+
+    <!-- Table State -->
+    @if(!loading && data.length > 0){
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th *ngFor="let col of columns" [class.sortable-header]="col.sortable" (click)="onHeaderClick(col)"
+                        [class.text-center]="col.type === 'actions'">
+                        <div class="d-flex align-items-center">
+                            <span>{{ col.header }}</span>
+                            <i *ngIf="col.sortable && sortField === col.key" class="fas ms-2"
+                                [class.fa-arrow-up]="sortOrder === 'asc'" [class.fa-arrow-down]="sortOrder === 'desc'">
+                            </i>
+                            <i *ngIf="col.sortable && sortField !== col.key" class="fas fa-sort ms-2 text-muted"
+                                style="opacity: 0.3;">
+                            </i>
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let row of data; let i = index; trackBy: trackByFn" (click)="onRowClick(row, $event)">
+                    <td *ngFor="let col of columns" [class.text-center]="col.type === 'actions' || col.type === 'icon'">
+                        <!-- Icon Type -->
+                        <ng-container *ngIf="col.type === 'icon'">
+                             <i [class]="col.classFn ? col.classFn(row) : ''" 
+                                [class.clickable]="col.clickable"
+                                (click)="col.clickable ? onCellClick(col, row) : null">
+                            </i>
+                        </ng-container>
+
+                        <!-- Index Type -->
+                        <ng-container *ngIf="col.type === 'index'">
+                            {{ (pageIndex * pageSize) + i + 1 }}
+                        </ng-container>
+
+                        <!-- Text Type (Default) -->
+                        <ng-container *ngIf="!col.type || col.type === 'text'">
+                            <span [class]="col.classFn ? col.classFn(row) : ''" [class.clickable]="col.clickable"
+                                (click)="col.clickable ? onCellClick(col, row) : null">
+                                {{ col.transformFn ? col.transformFn(row) : row[col.key] }}
+                            </span>
+                        </ng-container>
+
+                        <!-- Date Type -->
+                        <ng-container *ngIf="col.type === 'date'">
+                            {{ resolveDate(row[col.key]) | date: (col.dateFormat || 'MMM d, y') }}
+                        </ng-container>
+
+                        <!-- Code Type -->
+                        <ng-container *ngIf="col.type === 'code'">
+                            <code>{{ col.transformFn ? col.transformFn(row) : row[col.key] }}</code>
+                        </ng-container>
+
+                        <!-- HTML Type -->
+                        <ng-container *ngIf="col.type === 'html'">
+                            <div [innerHTML]="col.transformFn ? col.transformFn(row) : row[col.key]"></div>
+                        </ng-container>
+
+                        <!-- Badge Type -->
+                        <ng-container *ngIf="col.type === 'badge'">
+                            <span class="status-badge" [class.active]="row[col.key]" [class.inactive]="!row[col.key]"
+                                [ngClass]="col.classFn ? col.classFn(row) : ''">
+                                {{ row[col.key] ? (col.badgeConfig?.trueText || 'Active') :
+                                (col.badgeConfig?.falseText
+                                || 'Inactive') }}
+                            </span>
+                        </ng-container>
+
+                        <!-- Tags Type -->
+                        <ng-container *ngIf="col.type === 'tags'">
+                            <div class="d-flex flex-wrap gap-1">
+                                <ng-container
+                                    *ngFor="let tag of (col.transformFn ? col.transformFn(row) : row[col.key])">
+                                    <span class="tag-badge"
+                                        [style.background-color]="tag[col.tagConfig?.colorKey || 'color']"
+                                        [class]="col.tagConfig?.class || ''">
+                                        {{ tag[col.tagConfig?.labelKey || 'label'] }}
+                                    </span>
+                                </ng-container>
+                                <span *ngIf="!(col.transformFn ? col.transformFn(row) : row[col.key])?.length"
+                                    class="text-muted small">—</span>
+                            </div>
+                        </ng-container>
+
+                        <!-- Actions Type -->
+                        <ng-container *ngIf="col.type === 'actions'">
+                            <ng-container *ngFor="let action of col.actions">
+                                <button *ngIf="!action.hide || !action.hide(row)" class="action-btn"
+                                    [class]="action.class || ''"
+                                    [title]="action.labelFn ? action.labelFn(row) : action.label"
+                                    (click)="onActionClick(action, row); $event.stopPropagation()">
+                                    <i [class]="action.iconFn ? action.iconFn(row) : action.icon"></i>
+                                </button>
+                            </ng-container>
+                        </ng-container>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    }
+
+    <!-- Empty State -->
+    @else if(!loading && data.length === 0){
+    <div class="empty-state">
+        <i [class]="emptyIcon" class="main_icon"></i>
+        <h3>{{ emptyTitle }}</h3>
+        <p>{{ emptyDescription }}</p>
+        <button *ngIf="showEmptyAction" class="btn btn-primary" (click)="onEmptyActionClick()">
+            <i [class]="emptyActionIcon"></i> {{ emptyActionLabel }}
+        </button>
+    </div>
+    }
+
+    <!-- Loading State -->
+    @else {
+    <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+    }
+</div>

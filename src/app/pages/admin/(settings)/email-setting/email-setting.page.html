@@ -1,0 +1,283 @@
+<div class="email-settings">
+    <!-- Email Disabled State -->
+    @if (!emailEnabled()) {
+    <div class="disabled-state">
+        <div class="disabled-content">
+            @if(!isLoading()){
+            <div class="disabled-icon">
+                <i class="fa-regular fa-envelope"></i>
+            </div>
+            <h3>Email is Disabled</h3>
+            <p class="text-muted">
+                Email functionality is currently turned off.
+                Enable it to configure email providers and send emails.
+            </p>
+            <button mat-flat-button color="primary" (click)="enableEmail()">
+                <i class="fa-solid fa-power-off me-2"></i>
+                Enable Email
+            </button>
+            }
+            @else{
+            <mat-spinner [diameter]="50"></mat-spinner>
+            }
+        </div>
+    </div>
+    } @else {
+    <!-- Header with Enable Toggle -->
+    <div class="header mb-4">
+        <div class="header-content">
+            <h3 class="m-0">Email Configuration</h3>
+            <p class="text-muted mb-0">Set up how your site sends emails for waitlist confirmations, notifications, and broadcasts</p>
+        </div>
+        <mat-slide-toggle [checked]="emailEnabled()" (change)="toggleEmail($event.checked)" color="primary">
+            Email Enabled
+        </mat-slide-toggle>
+    </div>
+
+    <form [formGroup]="emailForm" (ngSubmit)="onSubmit()">
+        <!-- Provider Selection - Collapsed View -->
+        @if (!showProviderList()) {
+        <div class="provider-header mb-4">
+            <div class="provider-selected">
+                <i [class]="getSelectedProvider().icon + ' provider-icon-sm'"></i>
+                <div class="provider-selected-info">
+                    <span class="provider-selected-label">Email Provider</span>
+                    <span class="provider-selected-name">{{ getSelectedProvider().name }}</span>
+                </div>
+            </div>
+            <button mat-stroked-button type="button" (click)="showProviderList.set(true)">
+                <i class="fa-solid fa-exchange-alt me-2"></i>
+                Change Provider
+            </button>
+        </div>
+        }
+
+        <!-- Provider Selection - Expanded List -->
+        @if (showProviderList()) {
+        <mat-card class="mb-4">
+            <mat-card-header>
+                <mat-card-title>
+                    <i class="fa-solid fa-plug me-2"></i>
+                    Select Email Provider
+                </mat-card-title>
+                <mat-card-subtitle>
+                    Choose the service that will send emails from your site
+                </mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="pt-3">
+                <mat-radio-group formControlName="activeProvider" class="provider-group">
+                    @for (provider of providers; track provider.id) {
+                    <div class="provider-option"
+                        [class.selected]="emailForm.get('activeProvider')?.value === provider.id"
+                        (click)="selectProvider(provider.id)">
+                        <mat-radio-button [value]="provider.id" color="primary">
+                            <div class="provider-info">
+                                <i [class]="provider.icon + ' provider-icon'"></i>
+                                <div class="provider-text">
+                                    <span class="provider-name">{{ provider.name }}</span>
+                                    <span class="provider-desc">{{ provider.description }}</span>
+                                    <span class="provider-desc text-muted"><small>{{ provider.freeLimit }}</small></span>
+                                </div>
+                            </div>
+                        </mat-radio-button>
+                    </div>
+                    }
+                </mat-radio-group>
+                <div class="mt-3 text-end">
+                    <button mat-flat-button color="primary" type="button" (click)="showProviderList.set(false)">
+                        Done
+                    </button>
+                </div>
+            </mat-card-content>
+        </mat-card>
+        }
+
+        <!-- Provider Configuration (Dynamic) -->
+        @switch (emailForm.get('activeProvider')?.value) {
+            @case ('smtp') {
+                <app-smtp-provider
+                    [initialData]="getProviderData('smtp')"
+                    (componentReady)="onProviderComponentReady($event)" />
+            }
+            @case ('gmail') {
+                <app-gmail-provider
+                    [initialData]="getProviderData('gmail')"
+                    (componentReady)="onProviderComponentReady($event)"
+                    (userChanged)="onGmailUserChanged($event)" />
+            }
+            @case ('resend') {
+                <app-resend-provider
+                    [initialData]="getProviderData('resend')"
+                    (componentReady)="onProviderComponentReady($event)" />
+            }
+        }
+
+        <!-- Sender Information Section -->
+        <mat-card class="mb-4">
+            <mat-card-header>
+                <mat-card-title>
+                    <i class="fa-solid fa-user me-2"></i>
+                    Sender Information
+                </mat-card-title>
+                <mat-card-subtitle>
+                    This is how your emails will appear to recipients
+                </mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="pt-3">
+                <div class="row">
+                    <div class="col-md-6">
+                        <mat-form-field appearance="outline" class="w-100">
+                            <mat-label>Sender Name</mat-label>
+                            <input matInput formControlName="senderName" placeholder="e.g. My Website">
+                            <mat-hint>The name recipients see (e.g. your website name)</mat-hint>
+                        </mat-form-field>
+                    </div>
+                    <div class="col-md-6">
+                        <mat-form-field appearance="outline" class="w-100">
+                            <mat-label>Sender Email</mat-label>
+                            <input matInput type="email" formControlName="senderEmail"
+                                placeholder="noreply@yoursite.com"
+                                [readonly]="gmailSenderLocked()">
+                            @if (gmailSenderLocked()) {
+                            <mat-hint>
+                                <i class="fa-solid fa-lock me-1"></i>
+                                Locked to your Gmail address (Gmail requires this)
+                            </mat-hint>
+                            } @else {
+                            <mat-hint>The "from" address on your emails</mat-hint>
+                            }
+                        </mat-form-field>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <mat-form-field appearance="outline" class="w-100">
+                            <mat-label>Reply-To Email (Optional)</mat-label>
+                            <input matInput type="email" formControlName="replyToEmail"
+                                placeholder="support@yoursite.com">
+                            <mat-hint>When someone replies to your email, it goes here instead</mat-hint>
+                        </mat-form-field>
+                    </div>
+                    <div class="col-md-6">
+                        <mat-form-field appearance="outline" class="w-100">
+                            <mat-label>BCC Email (Optional)</mat-label>
+                            <input matInput type="email" formControlName="bccEmail" placeholder="admin@yoursite.com">
+                            <mat-hint>Secretly receive a copy of every email sent</mat-hint>
+                        </mat-form-field>
+                    </div>
+                </div>
+            </mat-card-content>
+        </mat-card>
+
+        <!-- Provider Rate Limits -->
+        <mat-card class="mb-4">
+            <mat-card-header>
+                <mat-card-title>
+                    <i class="fa-solid fa-gauge me-2"></i>
+                    Rate Limits ({{ getSelectedProvider().name }})
+                </mat-card-title>
+                <mat-card-subtitle>
+                    Controls how fast emails are sent to avoid hitting provider limits
+                </mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="pt-3" [formGroup]="getActiveProviderRateLimitGroup()">
+                <div class="alert alert-light border small mb-3">
+                    <i class="fa-solid fa-circle-info text-primary me-1"></i>
+                    These defaults are pre-configured based on {{ getSelectedProvider().name }} guidelines.
+                    You usually don't need to change them unless you have a custom plan with higher limits.
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <mat-form-field appearance="outline" class="w-100">
+                            <mat-label>Per Second</mat-label>
+                            <input matInput type="number" formControlName="perSecond" min="1">
+                            <mat-hint>Max emails sent per second</mat-hint>
+                            <mat-error>Must be at least 1</mat-error>
+                        </mat-form-field>
+                    </div>
+                    <div class="col-md-4">
+                        <mat-form-field appearance="outline" class="w-100">
+                            <mat-label>Per Hour (optional)</mat-label>
+                            <input matInput type="number" formControlName="perHour" min="1">
+                            <mat-hint>Leave empty for no hourly cap</mat-hint>
+                        </mat-form-field>
+                    </div>
+                    <div class="col-md-4">
+                        <mat-form-field appearance="outline" class="w-100">
+                            <mat-label>Per Day (optional)</mat-label>
+                            <input matInput type="number" formControlName="perDay" min="1">
+                            <mat-hint>Your daily sending limit</mat-hint>
+                        </mat-form-field>
+                    </div>
+                </div>
+            </mat-card-content>
+        </mat-card>
+
+        <!-- Auto-Purge Email Logs -->
+        <mat-card class="mb-4" formGroupName="autoPurge">
+            <mat-card-header>
+                <mat-card-title>
+                    <i class="fa-solid fa-broom me-2"></i>
+                    Auto-Purge Email Logs
+                </mat-card-title>
+                <mat-card-subtitle>
+                    Automatically clean up old email logs to save storage space
+                </mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="pt-3">
+                <div class="d-flex align-items-center gap-4 flex-wrap">
+                    <mat-slide-toggle formControlName="enabled" color="primary">
+                        Enable auto-purge
+                    </mat-slide-toggle>
+                    @if (emailForm.get('autoPurge.enabled')?.value) {
+                    <mat-form-field appearance="outline" style="width: 220px;">
+                        <mat-label>Keep logs for (days)</mat-label>
+                        <input matInput type="number" formControlName="retentionDays" min="1" max="365">
+                        <mat-hint class="text-nowrap">Logs older than this are automatically deleted</mat-hint>
+                        <mat-error>Must be between 1 and 365</mat-error>
+                    </mat-form-field>
+                    }
+                </div>
+            </mat-card-content>
+        </mat-card>
+
+        <!-- Action Buttons -->
+        <div class="action-section">
+            <div class="d-flex justify-content-between align-items-center">
+                <button mat-stroked-button type="button" (click)="testConnection()"
+                    [disabled]="isTesting() || !isProviderConfigValid()" [class.test-success]="testPassed()"
+                    class="test-btn">
+                    @if (isTesting()) {
+                    <mat-spinner diameter="20" class="me-2"></mat-spinner>
+                    Testing...
+                    } @else if (testPassed()) {
+                    <i class="fa-solid fa-check-circle me-2"></i>
+                    Test Passed
+                    } @else {
+                    <i class="fa-solid fa-plug me-2"></i>
+                    Send a Test Email
+                    }
+                </button>
+
+                <div class="save-section">
+                    @if (!testPassed() && emailForm.dirty) {
+                    <span class="save-hint text-muted me-3">
+                        <i class="fa-solid fa-info-circle me-1"></i>
+                        Please test connection before saving
+                    </span>
+                    }
+                    <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || !testPassed()">
+                        @if (isSaving()) {
+                        <mat-spinner diameter="20" class="me-2"></mat-spinner>
+                        } @else {
+                        <i class="fa-solid fa-save me-2"></i>
+                        }
+                        Save Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+    }
+</div>

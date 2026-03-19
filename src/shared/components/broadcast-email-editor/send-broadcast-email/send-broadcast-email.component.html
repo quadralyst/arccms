@@ -1,0 +1,55 @@
+<!-- Send Broadcast Email Dialog -->
+<div class="send-broadcast-dialog">
+    <!-- Header -->
+    <div class="dialog-header">
+        <h2><i class="fas fa-paper-plane"></i> Confirm Broadcast Email</h2>
+    </div>
+
+    <!-- Content -->
+    <div class="dialog-content">
+        <!-- Summary -->
+        <div class="broadcast-summary">
+            <div class="summary-item">
+                <label>Recipients:</label>
+                <span class="value highlight">{{ recipientCount }} users</span>
+            </div>
+            <div class="summary-item">
+                <label>Subject:</label>
+                <span class="value">{{ subject }}</span>
+            </div>
+            <div class="summary-item">
+                <label>From:</label>
+                <span class="value">{{ senderName }} &lt;{{ senderEmail }}&gt;</span>
+            </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="email-preview">
+            <h4>Email Preview</h4>
+            <div class="preview-container">
+                <div class="preview-content" [innerHTML]="previewContent"></div>
+            </div>
+        </div>
+
+        <!-- Warning -->
+        <div class="warning-box">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>This action will send emails to <strong>{{ recipientCount }}</strong> recipients. This cannot be undone.
+            </p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="dialog-footer">
+        <button class="btn btn-light" (click)="dismissModal()" [disabled]="isSending">
+            Cancel
+        </button>
+        <button class="btn btn-primary" (click)="sendBroadcastEmail()" [disabled]="isSending || recipientCount === 0">
+            @if (isSending) {
+            <i class="fas fa-spinner fa-spin"></i> Sending...
+            } @else {
+            <i class="fas fa-paper-plane"></i> Send to {{ recipientCount }} users
+            }
+        </button>
+    </div>
+</div>

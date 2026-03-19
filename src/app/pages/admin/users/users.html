@@ -1,0 +1,108 @@
+<mat-drawer-container class="example-container" hasBackdrop="true">
+    <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 500px;">
+        @if(currentAction() === 'add') {
+        <arc-add-user [role]="role" [action]="currentAction()" (close)="closeDrawer()"></arc-add-user>
+        } @else if(currentId()) {
+        @if(currentAction() === 'edit') {
+        <arc-edit-user [role]="role" [id]="currentId()" [action]="currentAction()" (close)="closeDrawer()">
+        </arc-edit-user>
+        } @else if(currentAction() === 'view') {
+        <arc-view-user [id]="currentId()" [action]="currentAction()" (close)="closeDrawer()"></arc-view-user>
+        } @else {
+        <div class="alert alert-danger m-3">Invalid action</div>
+        }
+        } @else {
+        <div class="alert alert-info m-3">No user selected</div>
+        }
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="arc">
+            <div class="flex-grow-1">
+                <!-- Top Bar -->
+                <div class="d-flex justify-content-between align-items-center top-bar">
+                    <h5 class="mb-0">Users Management</h5>
+                </div>
+
+                <!-- Content Area -->
+                <div class="content-area">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="mb-0">All Users</h6>
+                            <small class="text-muted">Manage your users</small>
+                        </div>
+                        <div class="justify-content-end">
+                            <button mat-raised-button color="primary" (click)="openAdd()">
+                                <mat-icon>add</mat-icon>
+                                @for (roles of constantVariables.roles; track roles.userType) {
+                                @if(roles.userType === role) {
+                                Add {{roles.userTypeLabel}}
+                                }
+                                }
+                                @if(!role) {
+                                Add User
+                                }
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- <div class="card mb-4 mt-3">
+                        <div class="card-body p-0"> -->
+                    <app-global-table [data]="userStore.items()" [columns]="tableColumns"
+                        [loading]="userStore.isLoading()" [sortField]="sortField()" [sortOrder]="sortOrder()"
+                        (sortChange)="setSortField($event)" (cellClick)="onCellClick($event)"
+                        [pageIndex]="currentPage()" [pageSize]="pageSize()" emptyTitle="No Users Found"
+                        emptyDescription="No users found matching your criteria." [showEmptyAction]="false">
+                    </app-global-table>
+                    <!-- </div> -->
+
+                    <!-- Pagination and Record Count -->
+                    @if(userStore.items().length){
+                    <div class="pagination-footer d-flex justify-content-between align-items-center">
+                        @if(!userStore.isLoading()) {
+                        <div class="record-count text-muted">
+                            @if(userStore.totalRecords() > 0) {
+                            Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
+                            <strong>{{ userStore.totalRecords() }}</strong>
+                            @if(hasActiveFilters()) {
+                            <span class="text-primary ms-2">filtered</span>
+                            }
+                            records
+                            } @else {
+                            No records found
+                            }
+                        </div>
+                        <mat-paginator [length]="userStore.totalRecords()" [pageSize]="pageSize()"
+                            [pageIndex]="currentPage()" [pageSizeOptions]="[5, 10, 25, 50]"
+                            [showFirstLastButtons]="true" (page)="onPageChange($event)">
+                        </mat-paginator>
+                        }
+                        @else {
+                        <!-- Skeleton Loading State -->
+                        <div class="pagination-container">
+                            <div class="record-count-skeleton">
+                                <span class="skeleton skeleton-text"></span>
+                            </div>
+                            <div class="pagination-controls-skeleton">
+                                <div class="items-per-page-skeleton">
+                                    <span class="skeleton skeleton-text-small"></span>
+                                    <span class="skeleton skeleton-select"></span>
+                                </div>
+                                <span class="skeleton skeleton-text-medium"></span>
+                                <div class="pagination-buttons-skeleton">
+                                    <span class="skeleton skeleton-button"></span>
+                                    <span class="skeleton skeleton-button"></span>
+                                    <span class="skeleton skeleton-button"></span>
+                                    <span class="skeleton skeleton-button"></span>
+                                </div>
+                            </div>
+                        </div>
+                        }
+                    </div>
+                    }
+                    <!-- </div> -->
+                </div>
+            </div>
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

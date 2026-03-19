@@ -1,0 +1,211 @@
+<div class="import-data-container">
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+        <div class="step" [class.active]="currentStep() >= 1" [class.completed]="currentStep() > 1">
+            <span class="step-number">1</span>
+            <span class="step-label">Upload</span>
+        </div>
+        <div class="step-line" [class.active]="currentStep() > 1"></div>
+        <div class="step" [class.active]="currentStep() >= 2" [class.completed]="currentStep() > 2">
+            <span class="step-number">2</span>
+            <span class="step-label">Preview</span>
+        </div>
+        <div class="step-line" [class.active]="currentStep() > 2"></div>
+        <div class="step" [class.active]="currentStep() >= 3">
+            <span class="step-number">3</span>
+            <span class="step-label">Import</span>
+        </div>
+    </div>
+
+    <!-- Step 1: File Upload -->
+    @if (currentStep() === 1) {
+        <div class="step-content">
+            <h2>Upload Export File</h2>
+            <p class="text-muted">Select a JSON file exported from ArcCMS.</p>
+
+            <div class="drop-zone"
+                 (dragover)="onDragOver($event)"
+                 (drop)="onDrop($event)">
+                <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
+                <p>Drag and drop your JSON file here</p>
+                <p class="text-muted">or</p>
+                <label class="file-input-label">
+                    <input type="file" accept=".json" (change)="onFileSelected($event)" hidden>
+                    <span class="browse-btn">Browse Files</span>
+                </label>
+            </div>
+
+            @if (selectedFile()) {
+                <div class="file-info">
+                    <i class="fa-solid fa-file-code"></i>
+                    <span>{{ selectedFile()!.name }} ({{ (selectedFile()!.size / 1024).toFixed(1) }} KB)</span>
+                </div>
+            }
+
+            @if (parseError()) {
+                <div class="error-message">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span>{{ parseError() }}</span>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Step 2: Preview & Configure -->
+    @if (currentStep() === 2) {
+        <div class="step-content">
+            <h2>Preview & Configure</h2>
+            <p class="text-muted">
+                Version: {{ validationResult()?.version }} |
+                Collections: {{ validationResult()?.collectionSummary?.length }}
+            </p>
+
+            <!-- Warnings -->
+            @if (validationResult()?.warnings?.length) {
+                <div class="warnings-box">
+                    <h4><i class="fa-solid fa-triangle-exclamation me-2"></i>Warnings</h4>
+                    @for (warning of validationResult()!.warnings; track warning) {
+                        <p class="warning-item">{{ warning }}</p>
+                    }
+                </div>
+            }
+
+            <!-- Conflict Mode -->
+            <div class="config-section">
+                <h4>When a document already exists:</h4>
+                <mat-radio-group [(ngModel)]="conflictMode" class="conflict-options">
+                    <mat-radio-button value="skip">Skip existing</mat-radio-button>
+                    <mat-radio-button value="overwrite">Overwrite</mat-radio-button>
+                    <mat-radio-button value="merge">Merge</mat-radio-button>
+                </mat-radio-group>
+            </div>
+
+            <!-- Collection Selection (Grouped) -->
+            <div class="collection-selection">
+                <div class="select-all-row">
+                    <mat-checkbox
+                        [checked]="selectedCount === validationResult()?.collectionSummary?.length"
+                        [indeterminate]="selectedCount > 0 && selectedCount < (validationResult()?.collectionSummary?.length || 0)"
+                        (change)="toggleAllCollections($event.checked)">
+                        Select All ({{ selectedCount }} selected)
+                    </mat-checkbox>
+                </div>
+
+                @for (group of getGroupedImportCollections(); track group.id) {
+                    <div class="import-group">
+                        <div class="import-group-header">
+                            <mat-checkbox
+                                [checked]="isImportGroupFullySelected(group)"
+                                [indeterminate]="isImportGroupPartiallySelected(group)"
+                                (change)="toggleImportGroup(group, $event.checked)">
+                                <span class="import-group-label">
+                                    <i [class]="group.icon" class="import-group-icon"></i>
+                                    {{ group.label }}
+                                </span>
+                            </mat-checkbox>
+                        </div>
+
+                        @for (col of group.items; track col.path) {
+                            <div class="collection-row" [class.unknown]="!col.isKnown">
+                                <mat-checkbox
+                                    [checked]="selectedCollections().has(col.path)"
+                                    (change)="toggleCollection(col.path)">
+                                    <span class="col-path">{{ col.path }}</span>
+                                </mat-checkbox>
+                                <span class="col-count">{{ col.documentCount }} docs</span>
+                                @if (!col.isKnown) {
+                                    <span class="unknown-badge">unknown</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Navigation -->
+            <div class="step-actions">
+                <button mat-stroked-button (click)="goBack()">
+                    <i class="fa-solid fa-arrow-left me-2"></i> Back
+                </button>
+                <button mat-flat-button color="primary"
+                        (click)="startImport()"
+                        [disabled]="selectedCount === 0">
+                    <i class="fa-solid fa-file-import me-2"></i> Import Selected ({{ selectedCount }})
+                </button>
+            </div>
+        </div>
+    }
+
+    <!-- Step 3: Import Progress -->
+    @if (currentStep() === 3) {
+        <div class="step-content">
+            <h2>Import Progress</h2>
+
+            @if (isImporting()) {
+                <div class="import-progress">
+                    <mat-progress-bar
+                        mode="determinate"
+                        [value]="importProgress() ? (importProgress()!.collectionsCompleted / importProgress()!.totalCollections) * 100 : 0">
+                    </mat-progress-bar>
+                    <p class="progress-text">
+                        Importing: {{ importProgress()?.currentCollection }}
+                        ({{ importProgress()?.collectionsCompleted }}/{{ importProgress()?.totalCollections }})
+                    </p>
+                    <p class="progress-stats">
+                        Imported: {{ importProgress()?.documentsImported }} |
+                        Skipped: {{ importProgress()?.documentsSkipped }} |
+                        Errors: {{ importProgress()?.documentsErrored }}
+                    </p>
+                </div>
+            }
+
+            @if (importResult()) {
+                <div class="import-summary">
+                    <h3>Import Complete</h3>
+                    <div class="summary-stats">
+                        <div class="stat success">
+                            <span class="stat-value">{{ importResult()!.totalImported }}</span>
+                            <span class="stat-label">Imported</span>
+                        </div>
+                        <div class="stat skipped">
+                            <span class="stat-value">{{ importResult()!.totalSkipped }}</span>
+                            <span class="stat-label">Skipped</span>
+                        </div>
+                        <div class="stat error">
+                            <span class="stat-value">{{ importResult()!.totalErrored }}</span>
+                            <span class="stat-label">Errors</span>
+                        </div>
+                    </div>
+
+                    <!-- Per-collection results -->
+                    <div class="collection-results">
+                        @for (cr of importResult()!.collectionResults; track cr.name) {
+                            <div class="result-row">
+                                <span class="result-name">{{ cr.name }}</span>
+                                <span class="result-stats">
+                                    {{ cr.imported }} imported, {{ cr.skipped }} skipped, {{ cr.errors }} errors
+                                </span>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Errors -->
+                    @if (importResult()!.errors.length > 0) {
+                        <div class="error-log">
+                            <h4>Error Details</h4>
+                            @for (err of importResult()!.errors; track err) {
+                                <p class="error-item">{{ err }}</p>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="step-actions">
+                    <button mat-flat-button color="primary" (click)="resetImport()">
+                        <i class="fa-solid fa-redo me-2"></i> New Import
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</div>

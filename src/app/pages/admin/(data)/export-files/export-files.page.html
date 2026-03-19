@@ -1,0 +1,114 @@
+<div class="export-files-container">
+    <div class="export-header">
+        <div class="export-header-left">
+            <h2>Export Media</h2>
+            <p class="text-muted">Select media files to export. The download includes both the files and a JSON manifest with metadata.</p>
+        </div>
+        @if (!isLoading() && !loadError() && mediaItems().length > 0) {
+            <button mat-flat-button color="primary"
+                    class="download-btn"
+                    (click)="downloadAsZip()"
+                    [disabled]="selectedCount === 0 || isDownloading()">
+                @if (isDownloading()) {
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i> Downloading...
+                } @else {
+                    <i class="fa-solid fa-file-zipper me-2"></i>
+                    Download ZIP ({{ selectedCount }} files)
+                }
+            </button>
+        }
+    </div>
+
+    <!-- Loading -->
+    @if (isLoading()) {
+        <div class="loading-state">
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <p>Loading media from collection...</p>
+        </div>
+    }
+
+    <!-- Error -->
+    @if (loadError()) {
+        <div class="error-message">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span>{{ loadError() }}</span>
+        </div>
+    }
+
+    <!-- Media List -->
+    @if (!isLoading() && !loadError()) {
+        @if (mediaItems().length === 0) {
+            <div class="empty-state">
+                <i class="fa-solid fa-images"></i>
+                <p>No media files found in the collection.</p>
+            </div>
+        } @else {
+            <!-- Select All Bar -->
+            <div class="select-bar">
+                <mat-checkbox
+                    [checked]="allSelected"
+                    [indeterminate]="someSelected"
+                    (change)="toggleAll($event.checked)"
+                    [disabled]="isDownloading()">
+                    Select All
+                </mat-checkbox>
+                <span class="selection-summary">
+                    {{ selectedCount }} of {{ totalCount }} selected
+                </span>
+            </div>
+
+            <!-- Media Grid -->
+            <div class="media-grid">
+                @for (item of mediaItems(); track item.id) {
+                    <div class="media-card" [class.selected]="item.selected"
+                         (click)="toggleItem(item.id)">
+                        <!-- Checkbox -->
+                        <div class="card-checkbox">
+                            <mat-checkbox
+                                [checked]="item.selected"
+                                (change)="toggleItem(item.id)"
+                                (click)="$event.stopPropagation()"
+                                [disabled]="isDownloading()">
+                            </mat-checkbox>
+                        </div>
+
+                        <!-- Thumbnail -->
+                        <div class="card-thumbnail">
+                            @if (item.downloadURL) {
+                                <img [src]="item.downloadURL" [alt]="item.name"
+                                     loading="lazy"
+                                     (error)="$any($event.target).style.display='none'">
+                            }
+                            <div class="thumbnail-fallback">
+                                <i class="fa-solid fa-image"></i>
+                            </div>
+                        </div>
+
+                        <!-- Info -->
+                        <div class="card-info">
+                            <span class="media-name" [title]="item.name">{{ item.name }}</span>
+                            <span class="media-path">{{ item.storagePath }}</span>
+                            @if (item.uploadTime) {
+                                <span class="media-date">{{ formatUploadDate(item.uploadTime) }}</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Download Progress -->
+            @if (isDownloading() && downloadProgress()) {
+                <div class="download-progress">
+                    <mat-progress-bar
+                        mode="determinate"
+                        [value]="(downloadProgress()!.filesCompleted / downloadProgress()!.totalFiles) * 100">
+                    </mat-progress-bar>
+                    <p class="progress-text">
+                        Downloading: {{ downloadProgress()!.currentFile }}
+                        ({{ downloadProgress()!.filesCompleted }}/{{ downloadProgress()!.totalFiles }} files)
+                    </p>
+                </div>
+            }
+        }
+    }
+</div>

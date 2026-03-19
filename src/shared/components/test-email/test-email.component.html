@@ -1,0 +1,87 @@
+<!-- Test Email Dialog -->
+<div class="test-email-dialog">
+    <!-- Header -->
+    <div class="dialog-header">
+        <h2><i class="fas fa-envelope"></i> Send Test Email</h2>
+        <div class="header-actions">
+            <button class="btn btn-link" (click)="dismissModal()">Dismiss</button>
+            <button type="button" class="btn btn-primary" (click)="onSubmit()"
+                [disabled]="!testEmailForm.valid || testEmailStore.isLoading()">
+                @if (testEmailStore.isLoading()) {
+                <span class="spinner-border spinner-border-sm"></span> Sending...
+                } @else {
+                <i class="fas fa-paper-plane"></i> Send
+                }
+            </button>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="dialog-content">
+        <!-- Preview Column -->
+        <div class="preview-column">
+            <h4>Template Preview</h4>
+            <div class="template-preview-wrapper">
+                <div class="template-preview" [innerHTML]="previewContent"></div>
+            </div>
+        </div>
+
+        <!-- Form Column -->
+        <div class="form-column">
+            <form [formGroup]="testEmailForm">
+                <!-- Subject -->
+                <div class="form-group">
+                    <label for="subject">Subject</label>
+                    <input type="text" class="form-control" id="subject" formControlName="subject"
+                        placeholder="Enter email subject">
+                </div>
+
+                <!-- Receiver Email -->
+                <div class="form-group">
+                    <label for="toEmail">Receiver's Email <span class="required">*</span></label>
+                    <input type="email" class="form-control" id="toEmail" formControlName="toEmail"
+                        placeholder="Enter receiver's email">
+                </div>
+
+                <!-- Receiver Name -->
+                <div class="form-group">
+                    <label for="toName">Receiver's Name <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="toName" formControlName="toName"
+                        placeholder="Enter receiver's name">
+                </div>
+
+                <!-- Variables -->
+                @if (variables.length > 0) {
+                <div class="form-group variables-section">
+                    <label>Template Variables</label>
+                    <div class="variables-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Variable</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody formArrayName="variables">
+                                @for (variable of variables.controls; track variable; let i = $index) {
+                                <tr [formGroupName]="i">
+                                    <td class="variable-name">
+                                        <code>##{{ variable.get('name')?.value }}##</code>
+                                        <input type="hidden" formControlName="name">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" formControlName="value"
+                                            [placeholder]="'Enter ' + variable.get('name')?.value"
+                                            (input)="updatePreview()">
+                                    </td>
+                                </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                }
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,397 @@
+<!-- Fixed menus -->
+<!-- <div>
+    <div class="border-black border-2 border-b-0 rounded-t-md p-1 flex">
+
+        <button [matTooltip]="'Image'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles" (click)="fileInput.click()">
+            <i class="bi bi-image"></i>
+        </button>
+        <input type="file" #fileInput (change)="handleImageUpload($event)" style="display: none;">
+
+        <button [matTooltip]="'Bold'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-dark fixedMenuButtonStyles" (click)="editor.chain().focus().toggleBold().run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('bold') }">
+            <i class="bi bi-type-bold"></i>
+        </button>
+        <button [matTooltip]="'Italic'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles" (click)="editor.chain().focus().toggleItalic().run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('italic') }">
+            <i class="bi bi-type-italic"></i>
+        </button>
+        <button [matTooltip]="'Strike'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles" (click)="editor.chain().focus().toggleStrike().run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('strike') }">
+            <i class="bi bi-type-strikethrough"></i>
+        </button>
+
+        <button type="button" class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().toggleHeading({ level: 1 }).run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('heading', { level: 1 }) }">
+            <i class="bi bi-type-h1"></i>
+        </button>
+        <button type="button" class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().toggleHeading({ level: 2 }).run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('heading', { level: 2 }) }">
+            <i class="bi bi-type-h2"></i>
+        </button>
+        <button type="button" class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().toggleHeading({ level: 3 }).run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('heading', { level: 3 }) }">
+            <i class="bi bi-type-h3"></i>
+        </button>
+
+        <button [matTooltip]="'Blockquote'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().toggleBlockquote().run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('blockquote') }">
+            <i class="bi bi-blockquote-left"></i>
+        </button>
+
+        <input type="color" class="color_selection" (input)="setColor($event)"
+            [value]="editor.getAttributes('textStyle')['color']" data-testid="setColor" />
+
+        <button [matTooltip]="'Task list'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles" (click)="editor.chain().focus().toggleTaskList().run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('taskItem') }">
+            <i class="bi bi-ui-checks"></i>
+        </button>
+        <button [matTooltip]="'Task item'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().sinkListItem('taskItem').run()"
+            [disabled]="!editor.can().sinkListItem('taskItem')">
+            <i class="bi bi-diagram-3"></i>
+        </button>
+
+        <button [matTooltip]="'Bullet list'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().toggleBulletList().run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('bulletList') }">
+            <i class="bi bi-list-ul"></i>
+        </button>
+
+        <button [matTooltip]="'List item'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().splitListItem('listItem').run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('listItem') }">
+            <i class="bi bi-list-nested"></i>
+        </button>
+
+        <button [matTooltip]="'Sink list'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().sinkListItem('listItem').run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('listItem') }">
+            <i class="bi bi-card-list"></i>
+        </button>
+
+        <button [matTooltip]="'Lift list'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().liftListItem('listItem').run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('listItem') }">
+            <i class="bi bi-card-checklist"></i>
+        </button>
+
+        <button [matTooltip]="'Left align'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().setTextAlign('left').run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive({ textAlign: 'left' }) }">
+            <i class="bi bi-text-left"></i>
+        </button>
+        <button [matTooltip]="'Center align'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().setTextAlign('center').run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive({ textAlign: 'center' }) }">
+            <i class="bi bi-text-center"></i>
+        </button>
+        <button [matTooltip]="'Right align'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().setTextAlign('right').run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive({ textAlign: 'right' }) }">
+            <i class="bi bi-text-right"></i>
+        </button>
+        <button [matTooltip]="'Justify'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white fixedMenuButtonStyles"
+            (click)="editor.chain().focus().setTextAlign('justify').run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive({ textAlign: 'justify' }) }">
+            <i class="bi bi-justify"></i>
+        </button>
+
+        <button [matTooltip]="'Horizontal rule'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().setHorizontalRule().run()">
+            <i class="bi bi-hr"></i>
+        </button>
+
+        <button [matTooltip]="'Set code'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().setCode().run()"
+            [disabled]="editor.isActive('code')">
+            <i class="bi bi-code"></i>
+        </button>
+        <button [matTooltip]="'Unset code'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().unsetCode().run()"
+            [disabled]="!editor.isActive('code')">
+            <i class="bi bi-code-slash"></i>
+        </button>
+
+        <button [matTooltip]="'Highlight'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles"
+            (click)="editor.chain().focus().toggleHighlight({ color: '#ffc078' }).run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('highlight', { color: '#ffc078' }) }">
+            <i class="bi bi-highlighter"></i>
+        </button>
+
+        <button [matTooltip]="'Unset highlight'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().unsetHighlight().run()">
+            Unset highlight
+        </button>
+
+        <button [matTooltip]="'Set link'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles"
+            (click)="editor.chain().focus().extendMarkRange('link').setLink({ href: '' })"
+            [disabled]="editor.isActive('link')">
+            <i class="bi bi-link-45deg"></i>
+        </button>
+        <button [matTooltip]="'Unset link'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().unsetLink().run()"
+            [disabled]="!editor.isActive('link')">
+            <i class="bi bi-link"></i>
+        </button>
+
+        <button [matTooltip]="'Toggle subscript'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().toggleSubscript().run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('subscript') }">
+            Toggle subscript
+        </button>
+        <button [matTooltip]="'Set subscript'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().setSubscript().run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('subscript') }">
+            Set subscript
+        </button>
+        <button [matTooltip]="'Unset subscript'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().unsetSubscript().run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('subscript') }">
+            Unset subscript
+        </button>
+
+        <button [matTooltip]="'Toggle underline'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().toggleUnderline().run()"
+            [ngClass]="{ 'fixed_custome_selected': editor.isActive('underline') }">
+            Toggle underline
+        </button>
+        <button [matTooltip]="'Set underline'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().setUnderline().run()"
+            [disabled]="editor.isActive('underline')">
+            Set underline
+        </button>
+        <button [matTooltip]="'Unset underline'" matTooltipPosition="below" type="button"
+            class="px-1 hover:text-white menuButtonStyles" (click)="editor.chain().focus().unsetUnderline().run()"
+            [disabled]="!editor.isActive('underline')">
+            Toggle underline
+        </button>
+    </div>
+</div> -->
+
+<!-- Floating menus -->
+@if(editor){
+<div class="no-select">
+    <tiptap-editor #contentArea [editor]="editor" id="editor-with-bubble-menu"></tiptap-editor>
+    <tiptap-bubble-menu [editor]="editor">
+        <div class="border rounded text-gray-300 divide-x p-1 bubble_menu" data-test-id="bubble-menu">
+            <input type="file" #fileInput (change)="handleImageUpload($event)" style="display: none;">
+
+            <!-- Heading Buttons -->
+            <button [matTooltip]="'Text formate'" matTooltipPosition="below"
+                (click)="isOpenFormateOverlay = !isOpenFormateOverlay"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles" type="button" cdkOverlayOrigin
+                #triggerFormate="cdkOverlayOrigin">
+                Aa <i class="bi bi-chevron-down"></i>
+            </button>
+            <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="triggerFormate"
+                cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+                [cdkConnectedOverlayHasBackdrop]="true" [cdkConnectedOverlayOpen]="isOpenFormateOverlay"
+                (detach)="isOpenFormateOverlay = false" (backdropClick)="isOpenFormateOverlay = false">
+                <ul class="heading-list">
+                    <li>
+                        <button type="button"
+                            class="px-1 hover:text-white bg-light border-0 w-100 text-start fs-4 text_styles_dropdown"
+                            (click)="editor.chain().focus().toggleHeading({ level: 1 }).run(); isOpenFormateOverlay = false"
+                            [ngClass]="{ 'formate_custome_selected': editor.isActive('heading', { level: 1 }) }">
+                            Heading 1
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button"
+                            class="px-1 hover:text-white bg-light border-0 w-100 text-start fs-5 text_styles_dropdown"
+                            (click)="editor.chain().focus().toggleHeading({ level: 2 }).run(); isOpenFormateOverlay = false"
+                            [ngClass]="{ 'formate_custome_selected': editor.isActive('heading', { level: 2 }) }">
+                            Heading 2
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button"
+                            class="px-1 hover:text-white bg-light border-0 w-100 text-start fs-6 text_styles_dropdown"
+                            (click)="editor.chain().focus().toggleHeading({ level: 3 }).run(); isOpenFormateOverlay = false"
+                            [ngClass]="{ 'formate_custome_selected': editor.isActive('heading', { level: 3 }) }">
+                            Heading 3
+                        </button>
+                    </li>
+                </ul>
+            </ng-template>
+
+            <!-- Text Style Buttons -->
+            <button type="button" [matTooltip]="'Bold'" matTooltipPosition="below"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles"
+                (click)="editor.chain().focus().toggleBold().run()"
+                [ngClass]="{ 'fixed_custome_selected': editor.isActive('bold') }">
+                <i class="bi bi-type-bold"></i>
+            </button>
+            <button type="button" [matTooltip]="'Italic'" matTooltipPosition="below"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles"
+                (click)="editor.chain().focus().toggleItalic().run()"
+                [ngClass]="{ 'fixed_custome_selected': editor.isActive('italic') }">
+                <i class="bi bi-type-italic"></i>
+            </button>
+            <button type="button" [matTooltip]="'Strike through'" matTooltipPosition="below"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles"
+                (click)="editor.chain().focus().toggleStrike().run()"
+                [ngClass]="{ 'fixed_custome_selected': editor.isActive('strike') }">
+                <i class="bi bi-type-strikethrough"></i>
+            </button>
+            <button type="button" [matTooltip]="'Underline'" matTooltipPosition="below"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles"
+                (click)="editor.chain().focus().toggleUnderline().run()"
+                [ngClass]="{ 'fixed_custome_selected': editor.isActive('underline') }">
+                <i class="bi bi-type-underline"></i>
+            </button>
+            <button type="button" [matTooltip]="'Subscript'" matTooltipPosition="below"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles"
+                (click)="editor.chain().focus().toggleSubscript().run()"
+                [ngClass]="{ 'fixed_custome_selected': editor.isActive('subscript') }">
+                <i class="bi bi-subscript"></i>
+            </button>
+
+            <!-- Blockquote Buttons -->
+            <button type="button" [matTooltip]="'Blockquote'" matTooltipPosition="below"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles"
+                (click)="editor.chain().focus().toggleBlockquote().run()"
+                [ngClass]="{ 'fixed_custome_selected': editor.isActive('blockquote') }">
+                <i class="bi bi-quote"></i>
+            </button>
+
+            <!-- Set List type -->
+            <button [matTooltip]="'List type'" matTooltipPosition="below"
+                (click)="isOpenListTypeOverlay = !isOpenListTypeOverlay"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles" type="button" cdkOverlayOrigin
+                #triggerListType="cdkOverlayOrigin">
+                <i class="bi bi-card-checklist"></i> <i class="bi bi-chevron-down"></i>
+            </button>
+            <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="triggerListType"
+                cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+                [cdkConnectedOverlayHasBackdrop]="true" [cdkConnectedOverlayOpen]="isOpenListTypeOverlay"
+                (detach)="isOpenListTypeOverlay = false" (backdropClick)="isOpenListTypeOverlay = false">
+                <ul class="heading-list">
+                    <li>
+                        <button type="button"
+                            class="px-1 hover:text-white bg-light border-0 w-100 text-start text_styles_dropdown"
+                            (click)="editor.chain().focus().toggleBulletList().run(); isOpenListTypeOverlay = false"
+                            [ngClass]="{ 'formate_custome_selected': editor.isActive('bulletList') }">
+                            <i class="bi bi-list-ul"></i> &nbsp; List
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button"
+                            class="px-1 hover:text-white bg-light border-0 w-100 text-start text_styles_dropdown"
+                            (click)="editor.chain().focus().toggleTaskList().run(); isOpenListTypeOverlay = false"
+                            [ngClass]="{ 'formate_custome_selected': editor.isActive('taskList') }">
+                            <i class="bi bi-ui-checks"></i> &nbsp; Checklist
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button"
+                            class="px-1 hover:text-white bg-light border-0 w-100 text-start text_styles_dropdown"
+                            (click)="editor.chain().focus().toggleOrderedList().run(); isOpenListTypeOverlay = false"
+                            [ngClass]="{ 'formate_custome_selected': editor.isActive('itemList') }">
+                            <i class="bi bi-list-ol"></i> &nbsp; Ordered List
+                        </button>
+                    </li>
+                </ul>
+            </ng-template>
+
+            <!-- Alignment -->
+            <button [matTooltip]="'Alignment'" matTooltipPosition="below"
+                (click)="isOpenAlignOverlay = !isOpenAlignOverlay"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles" type="button" cdkOverlayOrigin
+                #triggerAlign="cdkOverlayOrigin">
+                <i class="bi bi-text-left"></i> <i class="bi bi-chevron-down"></i>
+            </button>
+            <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="triggerAlign"
+                cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+                [cdkConnectedOverlayHasBackdrop]="true" [cdkConnectedOverlayOpen]="isOpenAlignOverlay"
+                (detach)="isOpenAlignOverlay = false" (backdropClick)="isOpenAlignOverlay = false">
+                <ul class="heading-list">
+                    <li>
+                        <button type="button"
+                            class="px-1 hover:text-white bg-light border-0 w-100 text-start text_styles_dropdown"
+                            (click)="editor.chain().focus().setTextAlign('left').run(); isOpenAlignOverlay = false"
+                            [ngClass]="{ 'formate_custome_selected': editor.isActive({ textAlign: 'left' }) }">
+                            <i class="bi bi-text-left"></i> &nbsp; Left
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button"
+                            class="px-1 hover:text-white bg-light border-0 w-100 text-start text_styles_dropdown"
+                            (click)="editor.chain().focus().setTextAlign('center').run(); isOpenAlignOverlay = false"
+                            [ngClass]="{ 'formate_custome_selected': editor.isActive({ textAlign: 'center' }) }">
+                            <i class="bi bi-text-center"></i> &nbsp; Center
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button"
+                            class="px-1 hover:text-white bg-light border-0 w-100 text-start text_styles_dropdown"
+                            (click)="editor.chain().focus().setTextAlign('right').run(); isOpenAlignOverlay = false"
+                            [ngClass]="{ 'formate_custome_selected': editor.isActive({ textAlign: 'right' }) }">
+                            <i class="bi bi-text-right"></i> &nbsp; Right
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button"
+                            class="px-1 hover:text-white bg-light border-0 w-100 text-start text_styles_dropdown"
+                            (click)="editor.chain().focus().setTextAlign('justify').run(); isOpenAlignOverlay = false"
+                            [ngClass]="{ 'formate_custome_selected': editor.isActive({ textAlign: 'justify' }) }">
+                            <i class="bi bi-justify"></i> &nbsp; Justify
+                        </button>
+                    </li>
+                </ul>
+            </ng-template>
+
+            <!-- Set link -->
+            <button type="button" [matTooltip]="'Insert link'" matTooltipPosition="below"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles" (click)="openToAddUrlModal('link')">
+                <i class="bi bi-link-45deg"></i>
+            </button>
+
+            <!-- Set or Unset code -->
+            <button type="button" [matTooltip]="'Inline code'" matTooltipPosition="below"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles"
+                (click)="editor.chain().focus().setCode().run()" [disabled]="editor.isActive('code')">
+                <i class="bi bi-code"></i>
+            </button>
+            <button type="button" class="px-1 hover:text-white border-0 fs-6 menuButtonStyles"
+                (click)="editor.chain().focus().unsetCode().run()" [disabled]="!editor.isActive('code')">
+                <i class="bi bi-code-slash"></i>
+            </button>
+
+            <!-- Undo/Redo -->
+            <button type="button" [matTooltip]="'Undo'" matTooltipPosition="below"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles"
+                (click)="editor.chain().focus().undo().run()" [disabled]="!editor.can().undo()">
+                <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+            <button type="button" [matTooltip]="'Redo'" matTooltipPosition="below"
+                class="px-1 hover:text-white border-0 fs-6 menuButtonStyles"
+                (click)="editor.chain().focus().redo().run()" [disabled]="!editor.can().redo()">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+
+        </div>
+    </tiptap-bubble-menu>
+</div>
+}

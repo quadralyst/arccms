@@ -1,0 +1,248 @@
+<!-- Waitlist Component Template -->
+<!-- Uses inline forms since we removed the waitlist-form child component -->
+
+<!-- Child Component View - Show inline form when used as child -->
+@if(isUsedAsChild) {
+<div class="waitlist-child-form" [@stepSlider]="currentStep">
+    @if(currentStep === 'signup') {
+    <div class="signup-step">
+        <h2>{{ title }}</h2>
+        <p>{{ description }}</p>
+        <form [formGroup]="signupForm" (ngSubmit)="onSignupSubmit()">
+            <div class="form-group">
+                <label for="firstName">Name <span class="required">*</span></label>
+                <input type="text" id="firstName" formControlName="firstName" placeholder="Enter your name">
+            </div>
+            <div class="form-group">
+                <label for="email">Email <span class="required">*</span></label>
+                <input type="email" id="email" formControlName="email" placeholder="Enter your email">
+            </div>
+            <button type="submit" class="btn-submit" [disabled]="signupForm.invalid || loading">
+                {{ loading ? 'Sending...' : buttonText }}
+            </button>
+        </form>
+    </div>
+    }
+    @if(currentStep === 'verify') {
+    <div class="verify-step">
+        <h3>Check Your Email</h3>
+        <p>We sent a 6-digit code to {{ userData['email'] }}</p>
+        <form [formGroup]="otpForm" (ngSubmit)="onVerifyOtp()">
+            <div class="form-group">
+                <input type="text" formControlName="otpCode" placeholder="000000" maxlength="6" class="otp-input">
+            </div>
+            @if(!hasReferralCode) {
+            <div class="form-group">
+                <input type="text" formControlName="referralCode" placeholder="Referral code (optional)">
+            </div>
+            }
+            <button type="submit" class="btn-submit" [disabled]="otpForm.invalid || loading">
+                {{ loading ? 'Verifying...' : 'Verify Email' }}
+            </button>
+        </form>
+        <div class="action-links">
+            <button class="link-btn" (click)="resendOtp()" [disabled]="loading">Resend code</button>
+            <span>|</span>
+            <button class="link-btn" (click)="goBack()">Change email</button>
+        </div>
+    </div>
+    }
+    @if(currentStep === 'success') {
+    <div class="success-step">
+        <div class="success-icon">✓</div>
+        <h3>You're on the list!</h3>
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number">#{{ $any(successData)['queuePosition'] }}</div>
+                <div class="stat-label">Your Position</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">{{ $any(successData)['totalSignups'] }}</div>
+                <div class="stat-label">Total Signups</div>
+            </div>
+        </div>
+        <div class="referral-section">
+            <h4>Share to move up!</h4>
+            <div class="copy-group">
+                <input readonly [value]="$any(successData)['referralCode']">
+                <button (click)="copyToClipboard($any(successData)['referralCode'] + '')">Copy</button>
+            </div>
+        </div>
+        <a [href]="$any(successData)['leaderboardLink']" class="btn-leaderboard">View Leaderboard</a>
+    </div>
+    }
+    @if(currentStep === 'existing-user') {
+    <div class="existing-step">
+        <div class="info-icon">ℹ</div>
+        <h3>Welcome back!</h3>
+        <p>You're already on the waitlist.</p>
+        <a [href]="$any(existingUserData)['leaderboardLink']" class="btn-leaderboard">View Leaderboard</a>
+    </div>
+    }
+    @if(currentStep === 'error') {
+    <div class="error-step">
+        <div class="error-icon">⚠</div>
+        <h3>Something went wrong</h3>
+        <p>{{ error }}</p>
+        <button class="btn-submit" (click)="retry()">Try Again</button>
+    </div>
+    }
+</div>
+}
+
+<!-- Standalone Component View - Two column layout -->
+@if(isStandalone) {
+<div class="standalone-container">
+    <div class="two-column-layout">
+        <!-- Left Side - Marketing Content -->
+        <div class="left-content">
+            <div class="hero-section">
+                <h3>Welcome to Our Platform</h3>
+                <p>Discover amazing features and join our community</p>
+            </div>
+
+            <div class="features-list">
+                <div class="feature-item">
+                    <div class="feature-icon">🚀</div>
+                    <div class="feature-content">
+                        <h3>Fast & Reliable</h3>
+                        <p>Experience lightning-fast performance with our optimized platform</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🔒</div>
+                    <div class="feature-content">
+                        <h3>Secure</h3>
+                        <p>Your data is protected with enterprise-grade security measures</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🌟</div>
+                    <div class="feature-content">
+                        <h3>User-Friendly</h3>
+                        <p>Intuitive design that makes everything easy to use and understand</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stat-item">
+                    <div class="stat-number">10K+</div>
+                    <div class="stat-label">Active Users</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">99.9%</div>
+                    <div class="stat-label">Uptime</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">24/7</div>
+                    <div class="stat-label">Support</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side - Waitlist Form (inline) -->
+        <div class="right-form" [@stepSlider]="currentStep">
+            @if(currentStep === 'signup') {
+            <div class="signup-step">
+                <h2>{{ title }}</h2>
+                <p>{{ description }}</p>
+                <form [formGroup]="signupForm" (ngSubmit)="onSignupSubmit()">
+                    <div class="form-group">
+                        <label for="firstName">Name <span class="required">*</span></label>
+                        <input type="text" id="firstName" formControlName="firstName" placeholder="Enter your name">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email <span class="required">*</span></label>
+                        <input type="email" id="email" formControlName="email" placeholder="Enter your email">
+                    </div>
+                    <button type="submit" class="btn-submit" [disabled]="signupForm.invalid || loading">
+                        {{ loading ? 'Sending...' : buttonText }}
+                    </button>
+                </form>
+                <p class="leaderboard-link"><a routerLink="/leaderboard">Go To Leaderboard →</a></p>
+            </div>
+            }
+            @if(currentStep === 'verify') {
+            <div class="verify-step">
+                <h3>Check Your Email</h3>
+                <p>We sent a 6-digit code to<br><strong>{{ userData['email'] }}</strong></p>
+                <form [formGroup]="otpForm" (ngSubmit)="onVerifyOtp()">
+                    <div class="form-group">
+                        <input type="text" formControlName="otpCode" placeholder="000000" maxlength="6"
+                            class="otp-input">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" formControlName="referralCode" placeholder="Referral code (optional)">
+                    </div>
+                    <button type="submit" class="btn-submit" [disabled]="otpForm.invalid || loading">
+                        {{ loading ? 'Verifying...' : 'Verify Email' }}
+                    </button>
+                </form>
+                <div class="action-links">
+                    <button class="link-btn" (click)="resendOtp()" [disabled]="loading">Resend code</button>
+                    <span class="separator">|</span>
+                    <button class="link-btn" (click)="goBack()">Change email</button>
+                </div>
+            </div>
+            }
+            @if(currentStep === 'success') {
+            <div class="success-step">
+                <div class="success-icon">✓</div>
+                <h3>You're on the list!</h3>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-number">#{{ successData['queuePosition'] }}</div>
+                        <div class="stat-label">Your Position</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">{{ successData['totalSignups'] }}</div>
+                        <div class="stat-label">Total Signups</div>
+                    </div>
+                </div>
+                <div class="referral-section">
+                    <h4>🚀 Move up by referring friends!</h4>
+                    <div class="copy-group">
+                        <label>Your Code:</label>
+                        <input readonly [value]="successData['referralCode']">
+                        <button (click)="copyToClipboard(successData['referralCode'] + '')">📋 Copy</button>
+                    </div>
+                    <div class="copy-group">
+                        <label>Share Link:</label>
+                        <input readonly [value]="successData['referralLink']">
+                        <button (click)="copyToClipboard(successData['referralLink'] + '')">📋 Copy</button>
+                    </div>
+                </div>
+                <a [href]="successData['leaderboardLink']" class="btn-leaderboard">🏆 View Leaderboard</a>
+            </div>
+            }
+            @if(currentStep === 'existing-user') {
+            <div class="existing-step">
+                <div class="info-icon">ℹ</div>
+                <h3>Welcome back!</h3>
+                <p>You're already on the waitlist.</p>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-number">#{{ existingUserData['queuePosition'] }}</div>
+                        <div class="stat-label">Your Position</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">{{ existingUserData['totalReferrals'] || 0 }}</div>
+                        <div class="stat-label">Your Referrals</div>
+                    </div>
+                </div>
+                <a [href]="existingUserData['leaderboardLink']" class="btn-leaderboard">🏆 View Leaderboard</a>
+            </div>
+            }
+            @if(currentStep === 'error') {
+            <div class="error-step">
+                <div class="error-icon">⚠</div>
+                <h3>Something went wrong</h3>
+                <p>{{ error }}</p>
+                <button class="btn-submit" (click)="retry()">Try Again</button>
+            </div>
+            }
+        </div>
+    </div>
+</div>
+}

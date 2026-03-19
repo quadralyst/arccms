@@ -1,0 +1,236 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.role == 'admin';
+    }
+
+    // ============================================================
+    // 1. PUBLIC READ + AUTHENTICATED WRITE
+    //    SSR (unauthenticated) needs to read these collections.
+    // ============================================================
+
+    // ContentTypes - content type definitions, SSR reads for routing
+    match /ContentTypes/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Dynamic content, tags, and waitlist-tag collections:
+    //   arc_{slug}           → published content, public read
+    //   arc_{slug}_drafts    → drafts, authenticated read
+    //   Tags_{slug}          → tags, public read
+    //   WaitlistUserTags_{id}→ admin only
+    // Firestore does NOT support prefix matching in paths, so we
+    // use a catch-all wildcard with collection.matches() regex.
+    match /{collection}/{docId} {
+      // Published content: arc_* but NOT *_drafts → public read
+      allow read: if collection.matches('arc_.*') && !collection.matches('.*_drafts');
+      // Draft content: arc_*_drafts → authenticated read
+      allow read: if collection.matches('arc_.*_drafts') && isAuthenticated();
+      // Tags: Tags_* → public read
+      allow read: if collection.matches('Tags_.*');
+      // WaitlistUserTags: admin read
+      allow read: if collection.matches('WaitlistUserTags_.*') && isAdmin();
+
+      // Writes: arc_* and Tags_* → authenticated
+      allow write: if (collection.matches('arc_.*') || collection.matches('Tags_.*'))
+                   && isAuthenticated();
+      // WaitlistUserTags → admin write; allow unauthenticated usageCount increment for signup flow
+      allow create, delete: if collection.matches('WaitlistUserTags_.*') && isAdmin();
+      allow update: if collection.matches('WaitlistUserTags_.*')
+                    && (isAdmin() || request.resource.data.diff(resource.data)
+                        .affectedKeys()
+                        .hasOnly(['usageCount']));
+
+      // PublishedHistory subcollection — version history for published content
+      // Written by Cloud Functions (Admin SDK bypasses rules), read by admin
+      match /PublishedHistory/{historyId} {
+        allow read: if isAdmin();
+        allow write: if false; // Only Cloud Functions write history
+      }
+    }
+
+    // Media metadata - images displayed on public pages
+    match /media/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Email lookup - SHA-256 hashed emails for signup flow
+    // Public read (check if hash exists), authenticated write
+    match /email_lookup/{hashId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // ============================================================
+    // 2. SETTINGS - Per-document access control
+    // ============================================================
+
+    match /Settings/{settingId} {
+      // Public-safe settings documents (no sensitive data)
+      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users'];
+      // Onboarding status — any authenticated user can read/write
+      // (needed because admin custom claim isn't available yet during onboarding)
+      allow read, write: if settingId == 'onboarding_status' && isAuthenticated();
+      // All other Settings docs (incl. 'email') require admin
+      allow read: if isAdmin();
+      // Only admins can write any settings
+      allow write: if isAdmin();
+
+      // Email connection test document (single document)
+      // Allow unauthenticated users to read/write for onboarding flow
+      match /emailTestingConnection {
+        allow read, write: if true;
+      }
+    }
+
+    // ============================================================
+    // 3. USERS - Authenticated read, owner/admin write
+    // ============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() || isAdmin();
+      // Doc IDs are auto-generated; compare auth uid against the uid field in the doc
+      // Admin can also update any user doc (needed for migration re-keying)
+      allow update: if (isAuthenticated() && resource.data.uid == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Publish queue — admin writes trigger docs; Cloud Function processes them
+    match /_publish_queue/{docId} {
+      allow read: if false;       // Cloud Functions use Admin SDK (bypasses rules)
+      allow write: if isAuthenticated();
+    }
+
+    // ============================================================
+    // 4. ADMIN-ONLY COLLECTIONS
+    // ============================================================
+
+    // Legacy collections - only accessible by admin during migration
+    match /DraftContents/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /Contents/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+
+    match /AnalyticsDashboards/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /EmailTemplate/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /BroadcastEmails/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Broadcast continuation queue - Cloud Functions only (Admin SDK)
+    match /_broadcast_continue/{docId} {
+      allow read, write: if false;
+    }
+
+    // Email send counters - Cloud Functions only (Admin SDK)
+    match /_email_counters/{counterId} {
+      allow read, write: if false;
+    }
+
+    match /EmailLogs/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Legacy singular collection (all new code uses 'EmailLogs'). Kept for backward compatibility.
+    match /EmailLog/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // 5. WAITLIST COLLECTIONS
+    //    Signup flow runs client-side without authentication.
+    //    Future: migrate to Cloud Functions for proper security.
+    // ============================================================
+
+    // Waitlists main documents - public read for signup pages
+    match /Waitlists/{waitlistId} {
+      allow read: if true;
+      // Admin can write any field
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+                    // Allow unauthenticated signup flow to increment totalSignups only
+                    || request.resource.data.diff(resource.data)
+                       .affectedKeys()
+                       .hasOnly(['totalSignups']);
+
+      // Users subcollection - signup flow (unauthenticated)
+      match /users/{userId} {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasAll(['email', 'waitlistId'])
+                      && request.resource.data.email is string
+                      && request.resource.data.email.size() > 0
+                      && request.resource.data.email.size() < 255;
+        allow update: if isAdmin() || request.resource.data.diff(resource.data)
+                         .affectedKeys()
+                         .hasOnly(['emailVerified', 'isConfirmed', 'verificationCode',
+                                   'verificationExpires', 'verifiedAt', 'queuePosition',
+                                   'isSubscribed', 'firstName', 'leaderboardLink',
+                                   'totalReferrals', 'tags', 'referredBy']);
+        allow delete: if isAdmin();
+
+        // Notes subcollection - admin-only internal annotations on subscribers
+        match /notes/{noteId} {
+          allow read, write: if isAdmin();
+        }
+      }
+    }
+
+    // WaitlistedUsers - global user registry for signup + leaderboard
+    match /WaitlistedUsers/{userId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['email', 'waitlistId'])
+                    && request.resource.data.email is string
+                    && request.resource.data.email.size() > 0
+                    && request.resource.data.email.size() < 255;
+      allow update: if isAdmin() || request.resource.data.diff(resource.data)
+                       .affectedKeys()
+                       .hasOnly(['emailVerified', 'isConfirmed', 'verificationCode',
+                                 'verificationExpires', 'verifiedAt', 'queuePosition',
+                                 'isSubscribed', 'firstName', 'leaderboardLink',
+                                 'totalReferrals', 'waitlistId', 'waitlistIds', 'referredBy']);
+      allow delete: if isAdmin();
+
+      // Referrals subcollection - leaderboard + signup flow
+      match /referrals/{referralId} {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasAll(['referredEmail'])
+                      && request.resource.data.referredEmail is string
+                      && request.resource.data.referredEmail.size() > 0
+                      && request.resource.data.referredEmail.size() < 255;
+        allow update: if isAdmin() || request.resource.data.diff(resource.data)
+                         .affectedKeys()
+                         .hasOnly(['status', 'completedAt']);
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ============================================================
+    // No catch-all needed - Firestore denies unmatched paths by default
+    // ============================================================
+  }
+}

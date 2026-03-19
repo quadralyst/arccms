@@ -1,0 +1,98 @@
+/* View User Panel Styles */
+.side-panel {
+    padding: 20px;
+    transform: translateX(0);
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-header {
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    color: #dc3545;
+}
+
+.user-details {
+    flex: 1;
+}
+
+.detail-row {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.detail-value {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #1f2937;
+}
+
+.detail-value a {
+    color: #3c76f5;
+    text-decoration: none;
+}
+
+.detail-value a:hover {
+    text-decoration: underline;
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.btn-light {
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+    padding: 8px 14px;
+    border-radius: 8px;
+    color: #495057;
+    font-weight: 500;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.btn-light:hover {
+    background-color: #e9ecef;
+}
+
+.copyright {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #8898aa;
+    margin-top: auto;
+    padding-top: 20px;
+}

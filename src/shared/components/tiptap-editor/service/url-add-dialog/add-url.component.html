@@ -1,0 +1,14 @@
+<mat-dialog-content>
+    <p>{{ data.msg }}</p>
+    <mat-form-field style="width: 100%">
+        <mat-label>{{ data.placeholder }}</mat-label>
+        <input matInput [(ngModel)]="url" />
+    </mat-form-field>
+</mat-dialog-content>
+<mat-dialog-actions>
+
+    <div class="d-flex justify-content-end">
+        <button matTooltip="Close" class="btn secondary_button mx-2" (click)="onNoClick()">Close</button>&nbsp;
+        <button matTooltip="Save" type="button" class="btn default-button" [mat-dialog-close]="url()">Ok</button>
+    </div>
+</mat-dialog-actions>

@@ -1,0 +1,244 @@
+/* Custom TipTap editor styles */
+
+/* Bubble Menu - Selection Toolbar */
+.bubble_menu {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 6px 8px;
+  gap: 2px;
+}
+
+/* TipTap popups are handled globally in styles.css */
+
+
+::ng-deep .ProseMirror {
+  color: #000;
+  margin: 0 !important;
+  padding: 10px !important;
+  // box-shadow: 0px 0px 8px inset rgba(0, 0, 0, 0.2) !important;
+  // border-radius: 8px !important;
+
+  /* Constrain images and media to editor width */
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+    video,
+    iframe {
+      max-width: 100%;
+      height: auto;
+    }
+
+    ul[data-type="taskList"] {
+      list-style: none;
+      padding: 0;
+
+      li {
+        display: flex;
+        align-items: center;
+
+        >label {
+          flex: 0 0 auto;
+          margin-right: 0.5rem;
+          user-select: none;
+        }
+
+        >div {
+          flex: 1 1 auto;
+        }
+        
+        p {
+            margin: 0;
+        }
+      }
+    }
+}
+
+::ng-deep tiptap-editor {
+  // border: 1px solid #000 !important;
+}
+
+.custom_tip_tap_editor {
+  padding: 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  outline: none;
+  // transition: border-color 0.2s ease-in-out;
+}
+
+.custom_tip_tap_editor:focus {
+  border: none;
+  outline: none;
+}
+
+.menuButtonStyles:hover {
+  background-color: #f0f0f0 !important;
+  border-radius: 6px !important;
+}
+
+.menuButtonStyles {
+  background-color: transparent;
+  margin: 0 2px;
+  color: #37352f;
+  padding: 6px 8px;
+  border-radius: 6px;
+  position: relative;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  i {
+    font-size: 16px;
+  }
+}
+
+.fixedMenuButtonStyles {
+  margin: 0 3px 0px 3px;
+  border-radius: 3px;
+}
+
+.fixed_custome_selected {
+  background-color: rgb(45, 107, 172);
+  color: #fff;
+  border: 1px solid rgb(89, 169, 255);
+}
+
+.menuButtonStyles:disabled {
+  background-color: #e8e8e8;
+  color: #bababa;
+}
+
+.text_styles_dropdown {
+  background-color: #fff !important;
+}
+
+.heading-list {
+  padding: 4px !important;
+  margin-bottom: 0 !important;
+
+  li {
+    button:hover {
+      background-color: #dfdfdf !important;
+      border-radius: 5px !important;
+    }
+
+    .fs-4 {
+      font-size: 18px !important;
+    }
+
+    .fs-5 {
+      font-size: 17px !important;
+    }
+
+    .fs-6 {
+      font-size: 16px !important;
+    }
+
+    .formate_custome_selected {
+      background-color: #e6e6e6 !important;
+      border: 1px solid rgb(221 221 221) !important;
+      border-radius: 5px !important;
+    }
+  }
+}
+
+/* Tiptap Placeholder Styles */
+::ng-deep .ProseMirror.is-editor-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+  font-style: normal;
+}
+
+::ng-deep .ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+  font-style: normal;
+}
+
+::ng-deep .ProseMirror p.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+  font-style: normal;
+}
+
+.bi-chevron-down {
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+::ng-deep .ProseMirror-focused {
+  border: 0 !important;
+}
+
+::ng-deep .ProseMirror-focused {
+  outline: none !important;
+}
+
+/* To show dynamic button of add col and row end*/
+/* For emoji selection */
+::ng-deep .emoji-suggestions {
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 5px;
+  border-radius: 10px;
+  max-height: 230px;
+  max-width: 269px;
+  overflow-y: auto;
+}
+
+::ng-deep .emoji-item {
+  // display: block;
+  border-radius: 7px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  // width: 100%;
+  text-align: left;
+  font-size: 18px !important;
+}
+
+::ng-deep .emoji-item.selected {
+  background-color: #f0f0f0;
+}
+
+::ng-deep .ProseMirror .is-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #ADB5BD;
+  pointer-events: none;
+  height: 0;
+  font-style: normal;
+}
+
+/* Hide placeholder on all other empty elements */
+::ng-deep .ProseMirror .is-empty:not(:first-child)::before {
+  display: none !important;
+}
+
+.my-custom-is-empty-class {
+  display: none;
+}
+
+.bi-chevron-down {
+  font-size: 12px;
+  margin-left: 4px;
+}

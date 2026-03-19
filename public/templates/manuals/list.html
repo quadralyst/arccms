@@ -1,0 +1,346 @@
+<div class="arc-cms-template">
+    <arc-header></arc-header>
+
+    <!-- Documentation Hub - Clean Technical Design -->
+    <section class="docs-hero">
+        <div class="container">
+            <div class="docs-hero-content">
+                <i class="fas fa-book-open docs-hero-icon"></i>
+                <h1 class="docs-title arc-skeleton">{{ contentType }}</h1>
+                <p class="docs-subtitle arc-skeleton">{{ contentTypeDescription }}</p>
+            </div>
+            <div class="docs-search">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search documentation..." id="docsSearch">
+            </div>
+        </div>
+    </section>
+
+    <!-- Documentation Grid Section -->
+    <section class="docs-section">
+        <div class="container">
+            <div class="docs-grid" data-arc-loop="items" data-limit="24">
+                <!-- Documentation Card Template -->
+                <a class="doc-card" href="{{ url }}">
+                    <div class="doc-card-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="doc-card-content">
+                        <div class="doc-card-meta">
+                            <span class="doc-category arc-skeleton">{{ cat }}</span>
+                            <span class="meta-separator">•</span>
+                            <span class="arc-skeleton">{{ readTime }}</span> min read
+                        </div>
+                        <h2 class="doc-card-title arc-skeleton">{{ title }}</h2>
+                        <p class="doc-card-excerpt arc-skeleton">{{ excerpt }}</p>
+                        <div class="doc-card-tags" [innerHTML]="tagsHtml"></div>
+                        <span class="doc-card-link">
+                            Read Documentation <i class="fas fa-arrow-right"></i>
+                        </span>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState">
+                <i class="fas fa-book"></i>
+                <h3>No Documentation Yet</h3>
+                <p>Check back soon for guides and tutorials.</p>
+            </div>
+        </div>
+    </section>
+
+    <arc-footer></arc-footer>
+</div>
+
+<style>
+    /* Documentation List Styles - Modern Technical Design */
+    .docs-hero {
+        padding: 4rem 0 3rem;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        color: #ffffff;
+    }
+
+    .docs-hero-content {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .docs-hero-icon {
+        font-size: 3rem;
+        color: #00d4ff;
+        margin-bottom: 1rem;
+        opacity: 0.9;
+    }
+
+    .docs-title {
+        font-size: 2.75rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+        letter-spacing: -0.02em;
+    }
+
+    .docs-subtitle {
+        font-size: 1.1rem;
+        color: rgba(255, 255, 255, 0.7);
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.5;
+    }
+
+    .docs-search {
+        max-width: 500px;
+        margin: 0 auto;
+        position: relative;
+    }
+
+    .docs-search i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .docs-search input {
+        width: 100%;
+        padding: 1rem 1rem 1rem 2.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+        font-size: 1rem;
+        outline: none;
+        transition: all 0.3s ease;
+    }
+
+    .docs-search input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .docs-search input:focus {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: #00d4ff;
+    }
+
+    .docs-section {
+        padding: 3rem 0 5rem;
+        background: #f8f9fa;
+    }
+
+    .docs-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .doc-card {
+        display: flex;
+        background: #ffffff;
+        border-radius: 16px;
+        overflow: hidden;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+        border: 1px solid #e9ecef;
+    }
+
+    .doc-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border-color: #00d4ff;
+    }
+
+    .doc-card:hover .doc-card-link {
+        color: #00a8cc;
+    }
+
+    .doc-card:hover .doc-card-link i {
+        transform: translateX(4px);
+    }
+
+    .doc-card-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 80px;
+        min-width: 80px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #00d4ff;
+        font-size: 1.75rem;
+    }
+
+    .doc-card-content {
+        padding: 1.5rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .doc-card-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+
+    .doc-category {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        background: #e9ecef;
+        border-radius: 4px;
+        font-weight: 500;
+        color: #495057;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        letter-spacing: 0.03em;
+    }
+
+    .doc-category:empty,
+    .meta-separator:has(+ .doc-category:empty) {
+        display: none;
+    }
+
+    .doc-card-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        line-height: 1.35;
+        margin-bottom: 0.5rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .doc-card-excerpt {
+        font-size: 0.9rem;
+        color: #6c757d;
+        line-height: 1.5;
+        margin-bottom: 0.75rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        flex: 1;
+    }
+
+    .doc-card-tags {
+        margin-bottom: 0.75rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+
+    .doc-card-tags:empty {
+        display: none;
+    }
+
+    .doc-card-tags .tag-pill {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 100px;
+        font-weight: 500;
+    }
+
+    .doc-card-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #1a1a2e;
+        transition: color 0.2s ease;
+        margin-top: auto;
+    }
+
+    .doc-card-link i {
+        font-size: 0.75rem;
+        transition: transform 0.2s ease;
+    }
+
+    /* Empty State */
+    .empty-state {
+        display: none;
+        text-align: center;
+        padding: 6rem 2rem;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1.5rem;
+    }
+
+    .empty-state h3 {
+        font-size: 1.5rem;
+        color: #1a1a2e;
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: #6c757d;
+        font-size: 1rem;
+    }
+
+    .docs-grid:empty+.empty-state {
+        display: block;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .docs-hero {
+            padding: 3rem 0 2rem;
+        }
+
+        .docs-title {
+            font-size: 2rem;
+        }
+
+        .docs-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .doc-card {
+            flex-direction: column;
+        }
+
+        .doc-card-icon {
+            width: 100%;
+            height: 60px;
+            min-width: auto;
+        }
+    }
+</style>
+
+<script>
+    // Simple client-side search functionality
+    (function () {
+        var searchInput = document.getElementById('docsSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', function (e) {
+                var query = e.target.value.toLowerCase().trim();
+                var cards = document.querySelectorAll('.doc-card');
+
+                cards.forEach(function (card) {
+                    var title = card.querySelector('.doc-card-title');
+                    var excerpt = card.querySelector('.doc-card-excerpt');
+                    var category = card.querySelector('.doc-category');
+
+                    var text = (title ? title.textContent : '') +
+                        (excerpt ? excerpt.textContent : '') +
+                        (category ? category.textContent : '');
+
+                    if (query === '' || text.toLowerCase().includes(query)) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        }
+    })();
+</script>

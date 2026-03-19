@@ -1,0 +1,157 @@
+<div class="import-files-container">
+    <div class="import-header">
+        <h2>Import Files</h2>
+        <p class="text-muted">Upload files to Firebase Storage.</p>
+    </div>
+
+    <!-- Mode Selection -->
+    @if (!uploadResults()) {
+        <div class="mode-selection">
+            <mat-radio-group [ngModel]="mode()" (ngModelChange)="mode.set($event)" class="mode-options">
+                <mat-radio-button value="upload">Upload new files</mat-radio-button>
+                <mat-radio-button value="manifest">Restore from manifest</mat-radio-button>
+            </mat-radio-group>
+        </div>
+
+        <!-- Manifest Upload (manifest mode only) -->
+        @if (mode() === 'manifest') {
+            <div class="manifest-section">
+                <h4>Manifest File</h4>
+                <p class="text-muted">Upload the media-manifest.json exported from Export Files.</p>
+                <label class="file-input-label">
+                    <input type="file" accept=".json" (change)="onManifestSelected($event)" hidden>
+                    <span class="browse-btn">
+                        <i class="fa-solid fa-file-code me-2"></i>
+                        {{ manifestFile() ? manifestFile()!.name : 'Select Manifest JSON' }}
+                    </span>
+                </label>
+                @if (manifestData()) {
+                    <p class="manifest-info">
+                        <i class="fa-solid fa-circle-check text-success me-1"></i>
+                        {{ Object.keys(manifestData()!).length }} entries found in manifest
+                    </p>
+                }
+            </div>
+        }
+
+        <!-- Target Prefix (upload mode only) -->
+        @if (mode() === 'upload') {
+            <div class="config-section">
+                <label class="config-label">Storage path prefix:</label>
+                <input type="text" class="prefix-input"
+                       [ngModel]="targetPrefix()"
+                       (ngModelChange)="targetPrefix.set($event)">
+            </div>
+        }
+
+        <!-- File Drop Zone -->
+        <div class="drop-zone"
+             (dragover)="onDragOver($event)"
+             (drop)="onDrop($event)">
+            <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
+            <p>Drag and drop files here</p>
+            <p class="text-muted">or</p>
+            <label class="file-input-label">
+                <input type="file" multiple (change)="onFilesSelected($event)" hidden>
+                <span class="browse-btn">Browse Files</span>
+            </label>
+        </div>
+
+        <!-- Selected Files List -->
+        @if (selectedFiles().length > 0) {
+            <div class="file-list">
+                <div class="file-list-header">
+                    {{ selectedFiles().length }} files selected ({{ formatSize(totalSize) }})
+                </div>
+                @for (file of selectedFiles(); track $index) {
+                    <div class="file-row">
+                        <div class="file-info">
+                            <span class="file-name">{{ file.name }}</span>
+                            <span class="file-size">{{ formatSize(file.size) }}</span>
+                        </div>
+                        <button class="remove-btn" (click)="removeFile($index)" [disabled]="isUploading()">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Options -->
+        @if (selectedFiles().length > 0) {
+            <div class="options-section">
+                <mat-checkbox
+                    [ngModel]="updateMediaCollection()"
+                    (ngModelChange)="updateMediaCollection.set($event)">
+                    Update media collection metadata
+                </mat-checkbox>
+            </div>
+        }
+
+        <!-- Upload Progress -->
+        @if (isUploading() && uploadProgress()) {
+            <div class="upload-progress">
+                <mat-progress-bar
+                    mode="determinate"
+                    [value]="(uploadProgress()!.filesCompleted / uploadProgress()!.totalFiles) * 100">
+                </mat-progress-bar>
+                <p class="progress-text">
+                    Uploading: {{ uploadProgress()!.currentFile }}
+                    ({{ uploadProgress()!.filesCompleted }}/{{ uploadProgress()!.totalFiles }})
+                </p>
+            </div>
+        }
+
+        <!-- Upload Button -->
+        <div class="import-actions">
+            <button mat-flat-button color="primary"
+                    (click)="startUpload()"
+                    [disabled]="selectedFiles().length === 0 || isUploading() || (mode() === 'manifest' && !manifestData())">
+                @if (isUploading()) {
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i> Uploading...
+                } @else {
+                    <i class="fa-solid fa-cloud-arrow-up me-2"></i>
+                    Upload {{ selectedFiles().length }} Files
+                }
+            </button>
+        </div>
+    }
+
+    <!-- Upload Results -->
+    @if (uploadResults()) {
+        <div class="upload-summary">
+            <h3>Upload Complete</h3>
+
+            <div class="summary-stats">
+                <div class="stat success">
+                    <span class="stat-value">{{ successCount }}</span>
+                    <span class="stat-label">Successful</span>
+                </div>
+                <div class="stat error">
+                    <span class="stat-value">{{ failCount }}</span>
+                    <span class="stat-label">Failed</span>
+                </div>
+            </div>
+
+            <div class="result-list">
+                @for (result of uploadResults(); track result.fileName) {
+                    <div class="result-row" [class.error]="!result.success">
+                        <div class="result-info">
+                            <i [class]="result.success ? 'fa-solid fa-circle-check text-success' : 'fa-solid fa-circle-xmark text-danger'"></i>
+                            <span class="result-name">{{ result.fileName }}</span>
+                        </div>
+                        @if (!result.success) {
+                            <span class="result-error">{{ result.error }}</span>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="import-actions">
+                <button mat-flat-button color="primary" (click)="resetUpload()">
+                    <i class="fa-solid fa-redo me-2"></i> New Upload
+                </button>
+            </div>
+        </div>
+    }
+</div>

@@ -1,0 +1,246 @@
+<div class="dialog-container">
+  <div
+    mat-dialog-title
+    class="d-flex justify-content-between align-items-center p-4 border-bottom"
+  >
+    <h2 class="m-0">Bulk Import {{ contentType()?.singularName }}</h2>
+    <button mat-icon-button (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div mat-dialog-content class="step-content">
+    <!-- Step 1: File Upload -->
+    @if (currentStep() === 1) {
+      <div
+        class="upload-zone"
+        (click)="fileInput.click()"
+        (drop)="onDrop($event)"
+        (dragover)="onDragOver($event)"
+      >
+        <input
+          #fileInput
+          type="file"
+          (change)="onFileSelected($event)"
+          accept=".xlsx, .csv"
+          hidden
+        />
+        <mat-icon>cloud_upload</mat-icon>
+        <h3>Drag and drop file here</h3>
+        <p>or click to browse</p>
+        <small class="text-muted">Supports .xlsx and .csv files</small>
+      </div>
+    }
+
+    <!-- Step 2: Field Mapping -->
+    @if (currentStep() === 2) {
+      <p class="mb-3 text-muted">
+        Map your file columns to content fields. You can create new custom
+        fields for unmapped columns.
+      </p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>File Column</th>
+              <th>Target Field</th>
+              <th>Preview (Row 1)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (
+              mapping of columnMappings();
+              track mapping.fileHeader;
+              let i = $index
+            ) {
+              <tr [class.unmapped-highlight]="!mapping.targetField">
+                <td>{{ mapping.fileHeader }}</td>
+                <td>
+                  <mat-form-field
+                    appearance="outline"
+                    subscriptSizing="dynamic"
+                    class="mapping-select"
+                  >
+                    <mat-select
+                      [value]="mapping.targetField"
+                      (selectionChange)="updateMapping(i, $event.value)"
+                    >
+                      <mat-option [value]="''">-- Do Not Import --</mat-option>
+                      @for (field of availableFields(); track field.key) {
+                        <mat-option [value]="field.key">
+                          {{ field.label }}
+                          @if (mapping.targetField === field.key) {
+                            <mat-icon class="ms-auto" color="primary"
+                              >check</mat-icon
+                            >
+                          }
+                        </mat-option>
+                      }
+                      <mat-divider></mat-divider>
+                      <mat-option
+                        [value]="'__create_custom__'"
+                        (onSelectionChange)="$event.isUserInput && createCustomField(mapping.fileHeader)"
+                      >
+                        <mat-icon>add</mat-icon> Create Custom Field
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </td>
+                <td class="text-muted">
+                  {{ parsedFile()?.rows?.[0]?.[mapping.fileHeader] || "-" }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <!-- Step 3: Validation & Preview -->
+    @if (currentStep() === 3) {
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div
+          class="validation-summary"
+          [class.has-errors]="(validationSummary()?.errorCount ?? 0) > 0"
+          [class.valid]="(validationSummary()?.errorCount ?? 0) === 0"
+        >
+          @if ((validationSummary()?.errorCount ?? 0) === 0) {
+            <mat-icon class="me-2">check_circle</mat-icon>
+            <span
+              >All {{ validationSummary()?.validCount ?? 0 }} rows are valid. Ready
+              to import!</span
+            >
+          } @else {
+            <mat-icon class="me-2">warning</mat-icon>
+            <span
+              >Found {{ validationSummary()?.errorCount ?? 0 }} rows with errors.
+              Only valid rows will be imported.</span
+            >
+          }
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Row #</th>
+              @for (col of columnMappings(); track col.fileHeader) {
+                @if (col.targetField) {
+                  <th>{{ col.fileHeader }}</th>
+                }
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of getPage(previewPage(), 50); track $index; let i = $index) {
+              <tr [class.error-row]="hasErrors(previewPage() * 50 + i)">
+                <td>{{ previewPage() * 50 + i + 1 }}</td>
+                @for (col of columnMappings(); track col.fileHeader) {
+                  @if (col.targetField) {
+                    <td>
+                      {{ row[col.fileHeader] }}
+                      @if (
+                        validationSummary()?.rowResults?.[previewPage() * 50 + i]?.errors?.[
+                          col.targetField
+                        ]
+                      ) {
+                        <div class="cell-error">
+                          {{
+                            validationSummary()?.rowResults?.[previewPage() * 50 + i]?.errors?.[
+                              col.targetField
+                            ]
+                          }}
+                        </div>
+                      }
+                    </td>
+                  }
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if ((parsedFile()?.totalRows ?? 0) > 50) {
+        <div class="d-flex justify-content-center align-items-center mt-2 gap-2">
+          <button mat-icon-button [disabled]="previewPage() === 0" (click)="previewPage.set(previewPage() - 1)">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <span>Page {{ previewPage() + 1 }} of {{ Math.ceil((parsedFile()?.totalRows ?? 0) / 50) }}</span>
+          <button mat-icon-button [disabled]="(previewPage() + 1) * 50 >= (parsedFile()?.totalRows ?? 0)" (click)="previewPage.set(previewPage() + 1)">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      }
+    }
+
+    <!-- Step 4: Importing (Loading State) -->
+    @if (isImporting()) {
+      <div class="progress-container">
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        <p class="mt-3">Importing items... Please wait.</p>
+      </div>
+    }
+  </div>
+
+  <div mat-dialog-actions class="p-4 border-top d-flex justify-content-between align-items-center">
+    @if (!isImporting()) {
+      <div>
+        @if (currentStep() === 1) {
+          <button mat-stroked-button (click)="downloadTemplate()">
+            <mat-icon>download</mat-icon> Download Template
+          </button>
+        }
+      </div>
+
+      <div class="d-flex gap-2">
+        <button mat-button (click)="cancel()">Cancel</button>
+
+        @if (currentStep() > 1) {
+          <button mat-button (click)="prevStep()">Back</button>
+        }
+
+        @if (currentStep() === 1) {
+          <button
+            mat-raised-button
+            color="primary"
+            [disabled]="!parsedFile()"
+            (click)="nextStep()"
+          >
+            Next: Map Fields
+          </button>
+        }
+
+        @if (currentStep() === 2) {
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="validateAndPreview()"
+          >
+            Next: Review & Validate
+          </button>
+        }
+
+        @if (currentStep() === 3) {
+          <button
+            mat-raised-button
+            color="primary"
+            [disabled]="(validationSummary()?.validCount ?? 0) === 0"
+            (click)="importContent('draft')"
+          >
+            Import as Drafts
+          </button>
+          <button
+            mat-stroked-button
+            color="warn"
+            [disabled]="(validationSummary()?.validCount ?? 0) === 0"
+            (click)="importContent('publish')"
+          >
+            Import & Publish
+          </button>
+        }
+      </div>
+    }
+  </div>
+</div>

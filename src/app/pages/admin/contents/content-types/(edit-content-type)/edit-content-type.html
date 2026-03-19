@@ -1,0 +1,291 @@
+<div class="side-panel">
+    <div class="panel-header">
+        <h5 class="mb-0">Edit Content Type</h5>
+        <button class="close-btn" (click)="closeEdit()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <form [formGroup]="editForm" (ngSubmit)="onSubmit()">
+        <div class="form-group">
+            <label class="form-label">
+                Content Type Name (Plural) <span class="required">*</span>
+            </label>
+            <input type="text" placeholder="e.g., Articles" formControlName="name" class="form-control" id="name"
+                [class.is-invalid]="name.invalid && (name.dirty || name.touched)"
+                [class.is-valid]="name.valid && (name.dirty || name.touched)" />
+            <small class="text-muted">Used for lists (e.g., "All Articles")</small>
+
+            <div class="invalid-feedback">
+                @if(editForm.get('name')?.errors?.['required']){
+                <p>Name is required.</p>
+                } @else if(editForm.get('name')?.errors?.['minlength']){
+                <p>Name must be at least {{editForm.get('name')?.errors?.['minlength']?.requiredLength}} characters
+                    long.
+                </p>
+                }
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Singular Name</label>
+            <input type="text" placeholder="e.g., Article" formControlName="singularName" class="form-control"
+                id="singularName" />
+            <small class="text-muted">Used for single items (e.g., "Add Article")</small>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">
+                Description
+            </label>
+            <textarea class="form-control" rows="3" formControlName="description"
+                placeholder="Enter content type description"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Icon (Font Awesome)</label>
+            <arc-icon-picker formControlName="icon"></arc-icon-picker>
+        </div>
+
+        <div class="form-group mb-3">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" formControlName="hasPublicUrl"
+                    id="hasPublicUrlToggle">
+                <label class="form-check-label ms-2" for="hasPublicUrlToggle">Generate public pages</label>
+            </div>
+            @if (editForm.get('hasPublicUrl')?.value === false) {
+            <small class="text-muted">Content of this type will not have standalone web pages.</small>
+            }
+        </div>
+
+        @if (editForm.get('hasPublicUrl')?.value !== false) {
+        <div class="mb-4 form-group">
+            <label for="slug" class="form-label">Content Type Slug <span class="required">*</span></label>
+
+            @if (!isEditingSlug()) {
+                <div class="url-display d-flex align-items-center">
+                    <span class="me-2 text-muted">{{ domain }}</span>
+                    <strong class="me-2">{{ editForm.get('slug')?.value }}</strong>
+                    <button type="button" class="btn btn-link btn-sm p-0 text-primary" (click)="toggleSlugEdit()" title="Edit Slug" aria-label="Edit slug">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
+                <small class="text-muted">Slug is used as the content type identifier.</small>
+            } @else {
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text" id="domain-addon">{{ domain }}</span>
+                    <input type="text" class="form-control form-control-sm" formControlName="slug" id="slug"
+                        aria-describedby="domain-addon"
+                        [class.is-invalid]="(slug.invalid || errorSlug()) && (slug.dirty || slug.touched)"
+                        [class.is-valid]="slug.valid && !errorSlug() && (slug.dirty || slug.touched)" />
+                    <button class="btn btn-outline-secondary" type="button" (click)="toggleSlugEdit()" aria-label="Cancel slug edit">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" type="button" (click)="saveSlug()" [disabled]="slug.invalid || checkingSlug()" aria-label="Save slug">
+                        @if (checkingSlug()) {
+                            <i class="fas fa-spinner fa-spin"></i>
+                        } @else {
+                            <i class="fas fa-check"></i>
+                        }
+                    </button>
+                </div>
+                @if ((slug.invalid || errorSlug()) && (slug.dirty || slug.touched)) {
+                    <div class="invalid-feedback d-block">
+                        @if (editForm.get('slug')?.errors?.['required']) {
+                            <p>Slug is required.</p>
+                        } @else if (editForm.get('slug')?.errors?.['pattern']) {
+                            <p>Slug must contain only lowercase letters, numbers, and hyphens.</p>
+                        } @else if (errorSlug()) {
+                            <p>This slug already exists. Please choose a different one.</p>
+                        }
+                    </div>
+                }
+                <small class="text-danger d-block mt-1">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Changing the slug will break existing content links for this type!
+                </small>
+            }
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Content Template</label>
+            @if(templatesLoading()) {
+            <div class="d-flex align-items-center">
+                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                <span>Loading templates...</span>
+            </div>
+            } @else {
+            <select formControlName="templateFolder" class="form-select">
+                @for(template of templateFolders(); track template.name) {
+                <option [value]="template.name" [disabled]="!template.isValid">
+                    {{ template.displayName }}
+                    @if(!template.isValid) {
+                    ({{ template.invalidReason }})
+                    }
+                </option>
+                }
+            </select>
+            <small class="text-muted">Select a template for displaying this content type's list and detail pages</small>
+            }
+        </div>
+        }
+
+        <hr />
+
+        <div class="form-section-title">Custom fields</div>
+
+        <div formArrayName="fields">
+            @for(field of fields.controls; track $index; let fieldIndex = $index) {
+            <div [formGroupName]="fieldIndex" class="field-group">
+                <div class="field-header">
+                    <span>Field {{ fieldIndex + 1 }}</span>
+                    <button type="button" class="btn-remove-field" (click)="removeField(fieldIndex)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label class="form-label">Key <span class="required">*</span></label>
+                        <input type="text" placeholder="field_key" formControlName="key" class="form-control" />
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label class="form-label">Label <span class="required">*</span></label>
+                        <input type="text" placeholder="Field Label" formControlName="label" class="form-control" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-8 form-group">
+                        <label class="form-label">Type <span class="required">*</span></label>
+                        <select formControlName="type" class="form-select">
+                            @for(type of fieldTypes; track type) {
+                            <option [value]="type">{{ type }}</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label class="form-label">Required</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" formControlName="required" />
+                        </div>
+                    </div>
+                </div>
+
+                @if(field.get('type')?.value === 'dropdown' || field.get('type')?.value === 'checkbox' ||
+                field.get('type')?.value === 'radio') {
+
+                <!-- Toggle: Manual Options vs Collection Reference -->
+                <div class="row mb-2">
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" formControlName="useCollectionRef"
+                                [id]="'useCollectionRef_' + $index">
+                            <label class="form-check-label" [for]="'useCollectionRef_' + $index">
+                                Use data from another collection
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                @if (!field.get('useCollectionRef')?.value) {
+                <div class="row">
+                    <div class="col-12 form-group">
+                        <label class="form-label">Options <span class="required">*</span></label>
+                        <textarea formControlName="options" class="form-control" rows="2"
+                            placeholder="Enter comma-separated options (e.g., Red, Green, Blue)"></textarea>
+                        <small class="text-muted">Separate each option with a comma</small>
+                    </div>
+                </div>
+                } @else {
+                <!-- Collection Reference Configuration -->
+                <div class="collection-ref-config">
+                    <!-- Step 1: Select Collection -->
+                    <div class="row">
+                        <div class="col-12 form-group">
+                            <label class="form-label">Source Collection <span class="required">*</span></label>
+                            <select formControlName="collectionRefSlug" class="form-select">
+                                <option value="">Select a collection...</option>
+                                @for(ct of availableCollections(); track ct.slug) {
+                                <option [value]="ct.slug">{{ ct.name }}</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (field.get('collectionRefSlug')?.value) {
+                    <!-- Step 2: Select Display Field -->
+                    <div class="row">
+                        <div class="col-12 form-group">
+                            <label class="form-label">Display Field <span class="required">*</span></label>
+                            <select formControlName="collectionRefDisplayField" class="form-select">
+                                <option value="">Select field to display...</option>
+                                @for(f of getCollectionFields(field.get('collectionRefSlug')?.value || ''); track f.key) {
+                                <option [value]="f.key">{{ f.label }} ({{ f.key }})</option>
+                                }
+                            </select>
+                            <small class="text-muted">Field shown as the option label. This field and the logical ID are always saved.</small>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Select Fields to Sync (denormalize) -->
+                    <div class="row">
+                        <div class="col-12 form-group">
+                            <label class="form-label">Additional Fields to Save (Denormalize)</label>
+                            <small class="text-muted d-block mb-2">
+                                Select which fields from "{{ field.get('collectionRefSlug')?.value }}"
+                                to store in this collection. These will be kept in sync automatically.
+                            </small>
+                            <div class="sync-fields-list">
+                                @for(f of getCollectionFields(field.get('collectionRefSlug')?.value || ''); track f.key) {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                        [id]="'sync_' + fieldIndex + '_' + f.key"
+                                        [checked]="isSyncFieldSelected(fieldIndex, f.key) || f.key === 'id' || f.key === field.get('collectionRefDisplayField')?.value"
+                                        [disabled]="f.key === 'id' || f.key === field.get('collectionRefDisplayField')?.value"
+                                        (change)="toggleSyncField(fieldIndex, f.key, $any($event.target).checked)">
+                                    <label class="form-check-label" [for]="'sync_' + fieldIndex + '_' + f.key">
+                                        {{ f.label }} <code>({{ f.key }})</code>
+                                        @if(f.key === 'id' || f.key === field.get('collectionRefDisplayField')?.value) {
+                                            <span class="badge bg-secondary ms-2" style="font-size: 0.7em;">Required</span>
+                                        }
+                                    </label>
+                                </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    }
+                </div>
+                }
+                }
+            </div>
+            }
+        </div>
+
+        @if (fields.errors?.['duplicateKeys']) {
+        <div class="text-danger small mb-2">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            Duplicate field keys found: {{ fields.errors?.['duplicateKeys']?.join(', ') }}.
+            Each field key must be unique.
+        </div>
+        }
+
+        <button type="button" class="btn btn-outline-primary btn-sm mb-3" (click)="addField()">
+            <i class="fas fa-plus me-1"></i> Add Field
+        </button>
+
+        <hr />
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+            <button type="button" class="btn btn-secondary me-md-2" (click)="closeEdit()">Cancel</button>
+            <button type="submit" class="btn btn-primary"
+                [disabled]="!editForm.valid || contentTypesStore.isLoading()">Update
+                Content Type</button>
+        </div>
+    </form>
+
+    <div class="copyright">
+        &copy; {{globalService.showCurrentYear()}} {{constantVariables.APPLICATION_NAME}}
+    </div>
+</div>

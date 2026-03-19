@@ -1,0 +1,84 @@
+<!-- Joined Users Page with Material Drawer -->
+<mat-drawer-container class="page-container" hasBackdrop="true">
+    <mat-drawer #drawer mode="over" position="end" class="detail-drawer">
+        <arc-view-user-detail [user]="currentUser()" [waitlistId]="waitlistId()" (close)="closeDrawer()"
+            (userUpdated)="onUserUpdated($event)">
+        </arc-view-user-detail>
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="page-wrapper">
+            <!-- Header -->
+            <div class="page-header">
+                <div class="header-left">
+                    <button class="btn-back" (click)="goBack()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h1>Waitlist Users</h1>
+                        <p class="subtitle">{{ waitlistName() || waitlistId() }}</p>
+                    </div>
+                </div>
+                <button class="btn btn-primary" (click)="exportUsers()" [disabled]="users().length === 0">
+                    <i class="fas fa-download"></i> Export CSV
+                </button>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{ totalUsers() }}</div>
+                        <div class="stat-label">Total Signups</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon verified">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{ verifiedUsers() }}</div>
+                        <div class="stat-label">Verified</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon referrals">
+                        <i class="fas fa-share-alt"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">{{ totalReferrals() }}</div>
+                        <div class="stat-label">Total Referrals</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Table -->
+            <!-- <div class="card"> -->
+            <!-- <div class="card-body p-0"> -->
+            <app-global-table [data]="paginatedUsers()" [columns]="tableColumns" [loading]="loading()"
+                [pageIndex]="currentPage()" [pageSize]="pageSize()" emptyTitle="No Users Found"
+                [emptyDescription]="'No users have joined this waitlist yet.'" [showEmptyAction]="false">
+            </app-global-table>
+            <!-- </div> -->
+
+            <!-- Pagination -->
+            <div class="pagination-footer d-flex justify-content-between align-items-center p-3">
+                <div class="record-count text-muted">
+                    @if(totalUsers() > 0) {
+                    Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
+                    <strong>{{ totalUsers() }}</strong> records
+                    } @else {
+                    No records found
+                    }
+                </div>
+                <mat-paginator [length]="totalUsers()" [pageSize]="pageSize()" [pageIndex]="currentPage()"
+                    [pageSizeOptions]="[5, 10, 25, 50]" [showFirstLastButtons]="true" (page)="onPageChange($event)">
+                </mat-paginator>
+            </div>
+            <!-- </div> -->
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

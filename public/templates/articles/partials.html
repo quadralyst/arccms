@@ -1,0 +1,285 @@
+<!-- Articles Partials Template - Embeddable Section -->
+<!-- Styled consistently with articles-list.html -->
+
+<section class="articles-partials-section">
+    <div class="container">
+        <div class="articles-partials-header">
+            <h2 class="articles-partials-title" data-arc-bind="sectionTitle">Latest Articles</h2>
+            <a href="/articles" class="articles-partials-view-all">
+                View All <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+
+        <div class="articles-partials-grid" data-arc-loop="items" data-limit="6">
+            <!-- Article Card Template -->
+            <a class="article-partial-card" data-arc-bind="url">
+                <div class="article-partial-image-wrapper">
+                    <img class="article-partial-image" data-arc-bind="coverImage" alt="">
+                </div>
+                <div class="article-partial-content">
+                    <div class="article-partial-meta">
+                        <time data-arc-bind="publishedOn">Jan 1, 2025</time>
+                        <span class="meta-separator">•</span>
+                        <span data-arc-bind="readTime">5</span> min read
+                    </div>
+                    <h3 class="article-partial-title" data-arc-bind="title">Article Title</h3>
+                    <p class="article-partial-excerpt" data-arc-bind="excerpt">Article excerpt goes here...</p>
+                    <div class="article-partial-tags" data-arc-bind="tagsHtml"></div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="partialsEmptyState">
+            <i class="fas fa-newspaper"></i>
+            <h3>No Articles Yet</h3>
+            <p>Check back soon for new content.</p>
+        </div>
+    </div>
+</section>
+
+<style>
+    /* Articles Partials Section - Apple-inspired Design */
+    .articles-partials-section {
+        padding: 4rem 0;
+        background: #f5f5f7;
+    }
+
+    .articles-partials-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .articles-partials-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1d1d1f;
+        margin: 0;
+        letter-spacing: -0.02em;
+    }
+
+    .articles-partials-view-all {
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: #0066cc;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: color 0.2s;
+    }
+
+    .articles-partials-view-all:hover {
+        color: #004499;
+    }
+
+    .articles-partials-view-all i {
+        font-size: 0.8rem;
+        transition: transform 0.2s;
+    }
+
+    .articles-partials-view-all:hover i {
+        transform: translateX(4px);
+    }
+
+    .articles-partials-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .article-partial-card {
+        display: flex;
+        flex-direction: column;
+        background: #ffffff;
+        border-radius: 16px;
+        overflow: hidden;
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        height: 100%;
+    }
+
+    .article-partial-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .article-partial-image-wrapper {
+        position: relative;
+        width: 100%;
+        height: 160px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .article-partial-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+
+    .article-partial-card:hover .article-partial-image {
+        transform: scale(1.05);
+    }
+
+    .article-partial-content {
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+    }
+
+    .article-partial-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.75rem;
+        color: #6e6e73;
+        margin-bottom: 0.5rem;
+    }
+
+    .article-partial-meta .meta-separator {
+        color: #d2d2d7;
+    }
+
+    .article-partial-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1d1d1f;
+        line-height: 1.3;
+        margin: 0 0 0.5rem 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .article-partial-excerpt {
+        font-size: 0.9rem;
+        color: #6e6e73;
+        line-height: 1.5;
+        margin: 0 0 0.75rem 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        flex: 1;
+    }
+
+    .article-partial-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+
+    .article-partial-tags:empty {
+        display: none;
+    }
+
+    .article-partial-tags .tag-pill {
+        font-size: 0.65rem;
+        padding: 0.15rem 0.4rem;
+        border-radius: 100px;
+        font-weight: 500;
+    }
+
+    /* Empty State */
+    .articles-partials-section .empty-state {
+        display: none;
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+
+    .articles-partials-section .empty-state i {
+        font-size: 3rem;
+        color: #d2d2d7;
+        margin-bottom: 1rem;
+    }
+
+    .articles-partials-section .empty-state h3 {
+        font-size: 1.25rem;
+        color: #1d1d1f;
+        margin-bottom: 0.5rem;
+    }
+
+    .articles-partials-section .empty-state p {
+        color: #6e6e73;
+        font-size: 0.95rem;
+    }
+
+    /* Show empty state when grid is empty */
+    .articles-partials-grid:empty+.empty-state {
+        display: block;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .articles-partials-section {
+            padding: 3rem 0;
+        }
+
+        .articles-partials-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .articles-partials-title {
+            font-size: 1.5rem;
+        }
+
+        .articles-partials-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+    // Handle missing images
+    (function () {
+        function handleImageError(img) {
+            img.style.display = 'none';
+            img.parentElement.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        }
+
+        function processImages() {
+            document.querySelectorAll('.article-partial-image').forEach(function (img) {
+                if (!img.src || img.src === window.location.href || img.src === '' ||
+                    (img.complete && img.naturalHeight === 0)) {
+                    handleImageError(img);
+                }
+
+                img.onerror = function () {
+                    handleImageError(this);
+                };
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', processImages);
+        } else {
+            processImages();
+        }
+
+        setTimeout(processImages, 500);
+        setTimeout(processImages, 1500);
+
+        var observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                if (mutation.addedNodes.length) {
+                    processImages();
+                }
+            });
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true
+        });
+    })();
+</script>

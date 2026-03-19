@@ -1,0 +1,70 @@
+<div class="container py-5">
+    @if (draftStore.isLoading()) {
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 text-muted">Loading content...</p>
+    </div>
+    } @else if (!isSlugUrlAvailable) {
+    <div class="text-center py-5">
+        <i class="fa-solid fa-file-circle-xmark fa-4x text-muted mb-3"></i>
+        <h3>Content Not Found</h3>
+        <p class="text-muted">The content you're looking for doesn't exist or has been removed.</p>
+        <button class="btn btn-primary" (click)="globalService.goBack()">
+            <i class="fa-solid fa-arrow-left me-1"></i> Go Back
+        </button>
+    </div>
+    } @else {
+    <article class="content-preview">
+        <header class="mb-4">
+            <h1 class="display-5 fw-bold">{{ contentDetailedData()?.title }}</h1>
+
+            <div class="d-flex align-items-center text-muted mt-3">
+                @if (contentDetailedData()?.publishedOn) {
+                <span class="me-3">
+                    <i class="fa-regular fa-calendar me-1"></i>
+                    {{ contentDetailedData()?.publishedOn | date:'MMMM dd, yyyy' }}
+                </span>
+                }
+                @if (contentDetailedData()?.type) {
+                <span class="badge bg-primary me-2">{{ contentDetailedData()?.type }}</span>
+                }
+                @if (contentDetailedData()?.publishedStatus) {
+                <span class="badge bg-success">Published</span>
+                } @else {
+                <span class="badge bg-warning">Draft</span>
+                }
+            </div>
+
+            @if (contentDetailedData()?.tags?.length) {
+            <div class="mt-3">
+                @for (tag of contentDetailedData()?.tags; track tag) {
+                <span class="badge bg-secondary me-1">{{ tag }}</span>
+                }
+            </div>
+            }
+        </header>
+
+        @if (contentDetailedData()?.coverImage) {
+        <div class="mb-4">
+            <img [src]="contentDetailedData()?.coverImage" [alt]="contentDetailedData()?.title"
+                class="img-fluid rounded shadow-sm">
+        </div>
+        }
+
+        <div class="content-body" [innerHTML]="getSafeString()"></div>
+
+        <footer class="mt-5 pt-4 border-top">
+            <div class="d-flex justify-content-between align-items-center">
+                <button class="btn btn-outline-secondary" (click)="globalService.goBack()">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Back
+                </button>
+                <small class="text-muted">
+                    Preview URL: <a [href]="fullUrl" target="_blank">{{ fullUrl }}</a>
+                </small>
+            </div>
+        </footer>
+    </article>
+    }
+</div>

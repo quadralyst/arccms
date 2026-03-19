@@ -1,0 +1,580 @@
+/* You can add global styles to this file, and also import other style files */
+@import "@angular/material/prebuilt-themes/indigo-pink.css";
+
+/* ============================================================
+   ADMIN-ONLY STYLES
+   All styles below are scoped to .arc-admin to prevent
+   leaking into public pages.
+   ============================================================ */
+
+/* ============================================================
+   INITIAL LOADING PLACEHOLDER
+   Shown before Angular hydrates, auto-removed when app loads
+   ============================================================ */
+
+.app-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  z-index: 9999;
+}
+
+.app-loading .loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e9ecef;
+  border-top-color: #1d47a3;
+  border-radius: 50%;
+  animation: app-spin 1s linear infinite;
+}
+
+.app-loading .loading-text {
+  margin-top: 16px;
+  font-family:
+    "Roboto",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+@keyframes app-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   GLOBAL SKELETON LOADER
+   Used for hydrated content placeholders
+   ============================================================ */
+.arc-skeleton,
+[data-arc-bind] {
+  color: transparent !important;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: arc-skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+  display: inline-block;
+  min-width: 2ch;
+  min-height: 1em;
+  user-select: none;
+  pointer-events: none;
+  vertical-align: middle;
+}
+
+@keyframes arc-skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ============================================================
+   HYDRATION TRANSITION SMOOTHING
+   Prevents hard visual pops during SSR → client handoff
+   ============================================================ */
+arc-content-detail,
+arc-content-list,
+arc-content-partials {
+  animation: arc-hydrate-in 0.2s ease-in;
+}
+
+@keyframes arc-hydrate-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.arc-admin ::-webkit-scrollbar,
+.arc-onboarding ::-webkit-scrollbar {
+  width: 5px;
+}
+
+.arc-admin .top-bar {
+  background-color: white;
+  border-bottom: 1px solid #e9ecef;
+  padding: 10px 20px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Consistent Primary Button Styling for Admin Area & Onboarding */
+.arc-admin .btn-primary,
+.arc-onboarding .btn-primary {
+  background: linear-gradient(135deg, #3c76f5, #1d47a3) !important;
+  color: white !important;
+  box-shadow: 0 2px 5px rgba(29, 71, 163, 0.3);
+  border: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.arc-admin .btn-primary:hover,
+.arc-onboarding .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
+  background: linear-gradient(135deg, #3c76f5, #1d47a3);
+  color: white;
+}
+
+.arc-admin .btn-primary:focus,
+.arc-admin .btn-primary:active,
+.arc-onboarding .btn-primary:focus,
+.arc-onboarding .btn-primary:active {
+  background: linear-gradient(135deg, #2a5fd8, #163a8a);
+  box-shadow: 0 2px 8px rgba(29, 71, 163, 0.5);
+  color: white;
+}
+
+.arc-admin .btn-primary:disabled,
+.arc-onboarding .btn-primary:disabled {
+  opacity: 0.6;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* Consistent Danger Button Styling for Admin Area */
+.btn-danger {
+  background: linear-gradient(135deg, #f53c3c, #e5457b) !important;
+  color: white !important;
+  box-shadow: 0 2px 5px rgba(229, 69, 123, 0.3);
+  border: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(229, 69, 123, 0.4);
+  background: linear-gradient(135deg, #f53c3c, #e5457b);
+  color: white;
+}
+
+.btn-danger:focus,
+.btn-danger:active {
+  background: linear-gradient(135deg, #d82a2a, #c83668);
+  box-shadow: 0 2px 8px rgba(229, 69, 123, 0.5);
+  color: white;
+  outline: none;
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* Material button primary variants */
+.arc-admin .mat-mdc-raised-button.mat-primary,
+.arc-admin .mat-mdc-flat-button.mat-primary,
+.arc-admin .mat-mdc-unelevated-button.mat-primary,
+.arc-onboarding .mat-mdc-raised-button.mat-primary,
+.arc-onboarding .mat-mdc-flat-button.mat-primary,
+.arc-onboarding .mat-mdc-unelevated-button.mat-primary {
+  background: linear-gradient(135deg, #3c76f5, #1d47a3) !important;
+  color: white !important;
+}
+
+.arc-admin .mat-mdc-raised-button.mat-primary:hover,
+.arc-admin .mat-mdc-flat-button.mat-primary:hover,
+.arc-admin .mat-mdc-unelevated-button.mat-primary:hover,
+.arc-onboarding .mat-mdc-raised-button.mat-primary:hover,
+.arc-onboarding .mat-mdc-flat-button.mat-primary:hover,
+.arc-onboarding .mat-mdc-unelevated-button.mat-primary:hover {
+  box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
+}
+
+/* Pagination Footer */
+.arc-admin .pagination-footer {
+  padding: 10px !important;
+  /* border: 1px solid lightgray !important; */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  border-radius: 8px !important;
+  margin-top: 8px !important;
+  background: white !important;
+}
+
+/* Container */
+.arc-admin .pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: transparent;
+  min-height: 64px;
+  width: 100% !important;
+}
+
+/* Skeleton Base Styles */
+.arc-admin .skeleton {
+  background: linear-gradient(90deg, #d0d0d0 0%, #e0e0e0 50%, #d0d0d0 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Record Count Skeleton - Left Side */
+.arc-admin .record-count-skeleton {
+  flex: 0 0 auto;
+}
+
+.arc-admin .skeleton-text {
+  width: 180px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+/* Pagination Controls Skeleton - Right Side */
+.arc-admin .pagination-controls-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+/* Items per page */
+.arc-admin .items-per-page-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.arc-admin .skeleton-text-small {
+  width: 90px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.arc-admin .skeleton-select {
+  width: 60px;
+  height: 32px;
+  border-radius: 4px;
+}
+
+/* Range text (1 - 10 of 118) */
+.arc-admin .skeleton-text-medium {
+  width: 80px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+/* Pagination Buttons */
+.arc-admin .pagination-buttons-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.arc-admin .skeleton-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+}
+
+/* TipTap Editor Popups (Slash Commands and Bubble Menu) */
+/* These need to appear above Material Dialog overlays (z-index ~1000-2000) */
+/* Using an extremely high z-index to ensure visibility above all modals */
+/* Note: These are global since popups render at body level */
+[data-tippy-root] {
+  z-index: 100000 !important;
+}
+
+.tippy-box {
+  z-index: 100000 !important;
+}
+
+.tippy-content {
+  z-index: 100000 !important;
+}
+
+/* Slash commands popup */
+.slash-commands {
+  z-index: 100000 !important;
+}
+
+/* Bubble menu */
+.bubble_menu {
+  z-index: 100000 !important;
+}
+
+/* ============================================================
+   ADMIN MOBILE RESPONSIVE STYLES
+   Global responsive utilities for all admin pages
+   ============================================================ */
+
+/* Responsive Table Wrapper */
+.arc-admin .table-responsive-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+}
+
+/* Medium devices (tablets landscape) */
+@media (max-width: 992px) {
+  .arc-admin .page-header {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .arc-admin .filter-bar .row {
+    flex-direction: column;
+  }
+
+  .arc-admin .filter-bar .col-md-3 {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Small devices (tablets portrait) */
+@media (max-width: 768px) {
+  /* Header & Toolbar adjustments */
+  .arc-admin .top-bar {
+    padding: 10px 15px;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    height: auto;
+    min-height: 60px;
+  }
+
+  .arc-admin .top-bar h5 {
+    font-size: 1.1rem;
+  }
+
+  /* Page headers stack vertically */
+  .arc-admin .page-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 1rem;
+  }
+
+  .arc-admin .page-header .btn {
+    width: 100%;
+  }
+
+  /* Content area padding reduction */
+  .arc-admin .content-area {
+    padding: 15px;
+  }
+
+  /* Card grid adjustments - make 2 columns */
+  .arc-admin .row .col-md-3 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+
+  .arc-admin .row .col-md-4 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+
+  /* Table styles */
+  .arc-admin .table {
+    font-size: 0.85rem;
+  }
+
+  .arc-admin .table th,
+  .arc-admin .table td {
+    padding: 0.5rem;
+    white-space: nowrap;
+  }
+
+  /* Drawers full-width on tablets */
+  .arc-admin .drawer,
+  .arc-admin mat-drawer.drawer {
+    width: 80% !important;
+    max-width: 400px;
+  }
+
+  /* Pagination adjustments */
+  .arc-admin .pagination-footer {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch !important;
+  }
+
+  .arc-admin .pagination-footer .record-count {
+    text-align: center;
+  }
+
+  .arc-admin mat-paginator {
+    justify-content: center;
+  }
+
+  /* Filter bar stacking */
+  .arc-admin .filter-bar {
+    padding: 10px;
+  }
+
+  /* Metric cards */
+  .arc-admin .metric-card {
+    padding: 1rem;
+  }
+
+  .arc-admin .metric-value {
+    font-size: 1.5rem;
+  }
+
+  /* Section headers */
+  .arc-admin .section-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.5rem;
+  }
+
+  /* Alert banners */
+  .arc-admin .alert {
+    flex-direction: column;
+    gap: 0.75rem;
+    text-align: center;
+  }
+
+  .arc-admin .alert .d-flex {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+/* Extra small devices (phones) */
+@media (max-width: 576px) {
+  /* Single column card grid */
+  .arc-admin .row .col-md-3,
+  .arc-admin .row .col-md-4,
+  .arc-admin .row .col-md-6 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+
+  /* Reduced padding */
+  .arc-admin .content-area {
+    padding: 10px;
+  }
+
+  .arc-admin .page-container {
+    padding: 15px;
+  }
+
+  /* Full-width drawers */
+  .arc-admin .drawer,
+  .arc-admin mat-drawer.drawer {
+    width: 100% !important;
+    max-width: 100%;
+    border-radius: 0 !important;
+  }
+
+  /* Drawer header/footer */
+  .arc-admin .drawer-header,
+  .arc-admin .drawer-actions {
+    padding: 15px;
+  }
+
+  .arc-admin .drawer-form {
+    padding: 15px;
+  }
+
+  .arc-admin .drawer-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .arc-admin .drawer-actions .btn {
+    width: 100%;
+  }
+
+  /* Form controls */
+  .arc-admin .form-control,
+  .arc-admin input[type="text"],
+  .arc-admin input[type="email"],
+  .arc-admin textarea,
+  .arc-admin select {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+
+  .arc-admin .form-group {
+    margin-bottom: 1rem;
+  }
+
+  /* Table header hide on very small screens */
+  .arc-admin .table th {
+    font-size: 0.75rem;
+  }
+
+  /* Button full width */
+  .arc-admin .btn-primary,
+  .arc-admin .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Top bar adjustments */
+  .arc-admin .top-bar {
+    padding: 10px;
+  }
+
+  /* Smaller metric cards */
+  .arc-admin .metric-card {
+    padding: 0.75rem;
+  }
+
+  .arc-admin .metric-value {
+    font-size: 1.25rem;
+  }
+
+  .arc-admin .metric-title {
+    font-size: 0.8rem;
+  }
+
+  .arc-admin .metric-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+
+  /* Activity table on dashboard - hide some columns */
+  .arc-admin .activity-table .table th:nth-child(4),
+  .arc-admin .activity-table .table td:nth-child(4) {
+    display: none;
+  }
+
+  /* Pagination compact */
+  .arc-admin .mat-mdc-paginator-page-size {
+    display: none;
+  }
+
+  /* Search boxes */
+  .arc-admin .search-box {
+    width: 100%;
+  }
+
+  /* Tab buttons */
+  .arc-admin .tab-btn {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+}

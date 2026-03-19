@@ -1,0 +1,115 @@
+.version-history-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.loading-state,
+.error-state,
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+    text-align: center;
+    gap: 0.5rem;
+
+    i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+}
+
+.error-state {
+    color: #dc3545;
+}
+
+.empty-state {
+    small {
+        color: #adb5bd;
+    }
+}
+
+// Timeline Panel (full width in sidebar)
+.timeline-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.timeline-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e9ecef;
+
+    h6 {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #495057;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+}
+
+.timeline-list {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.timeline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f3f5;
+    transition: background-color 0.15s;
+
+    &:hover {
+        background-color: #f8f9fa;
+    }
+
+    &.selected {
+        background-color: #e8f4fd;
+        border-left: 3px solid #0d6efd;
+        padding-left: calc(1rem - 3px);
+    }
+}
+
+.version-badge {
+    background-color: #6c757d;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
+    margin-top: 0.1rem;
+
+    .selected & {
+        background-color: #0d6efd;
+    }
+}
+
+.version-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.version-title {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #212529;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.version-date {
+    font-size: 0.7rem;
+    color: #868e96;
+}

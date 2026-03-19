@@ -1,0 +1,276 @@
+<div class="side-panel">
+  <div class="panel-header">
+    <h5 class="mb-0">View Content Type</h5>
+    <button class="close-btn" (click)="closeView()">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+
+  @if(currentItem) {
+  <div class="view-content">
+    <div class="detail-row">
+      <label>Name:</label>
+      <span>{{ currentItem.name }}</span>
+    </div>
+
+    <div class="detail-row">
+      <label>Slug:</label>
+      <span>{{ currentItem.slug }}</span>
+    </div>
+
+    @if(currentItem.description) {
+    <div class="detail-row">
+      <label>Description:</label>
+      <span>{{ currentItem.description }}</span>
+    </div>
+    } @if(currentItem.singularName) {
+    <div class="detail-row">
+      <label>Singular Name:</label>
+      <span>{{ currentItem.singularName }}</span>
+    </div>
+    } @if(currentItem.icon) {
+    <div class="detail-row">
+      <label>Icon:</label>
+      <span><i [class]="currentItem.icon"></i> {{ currentItem.icon }}</span>
+    </div>
+    }
+
+    <div class="detail-row">
+      <label>Template:</label>
+      @if(currentItem.templateFolder && currentItem.templateFolder !==
+      'default') {
+      <span class="template-path"
+        >/public/templates/{{ currentItem.templateFolder }}</span
+      >
+      } @else {
+      <span class="text-muted">Default (built-in)</span>
+      }
+    </div>
+
+    <hr />
+
+    <div class="form-section-title">Fields</div>
+
+    @if(currentItem.fields && currentItem.fields.length > 0) {
+    <div class="fields-list">
+      @for(field of currentItem.fields; track field.key) {
+      <div class="field-item">
+        <div class="field-info">
+          <strong>{{ field.label }}</strong>
+          <span class="field-key">({{ field.key }})</span>
+        </div>
+        <div class="field-meta">
+          <span class="badge badge-type">{{ field.type }}</span>
+          @if(field.required) {
+          <span class="badge badge-required">Required</span>
+          }
+        </div>
+
+        @if(field.useCollectionRef && field.collectionRef) {
+        <div class="ref-info">
+          <div class="ref-header">
+            <i class="fa-solid fa-link me-1"></i>
+            References:
+            <strong>{{ field.collectionRef.collectionName }}</strong>
+          </div>
+          <div class="ref-details">
+            <span class="ref-detail-item"
+              >Display:
+              <code>{{ field.collectionRef.displayField }}</code></span
+            >
+            <span class="ref-detail-item"
+              >Value: <code>{{ field.collectionRef.valueField }}</code></span
+            >
+            <span class="ref-detail-item"
+              >Synced:
+              <code
+                >{{ field.collectionRef.syncFields?.join(', ') || 'None'
+                }}</code
+              ></span
+            >
+          </div>
+        </div>
+        }
+      </div>
+      }
+    </div>
+    } @else {
+    <p class="text-muted">No fields defined</p>
+    }
+
+    <hr />
+
+    <div class="template-ref">
+      <div class="form-section-title">Template Reference</div>
+
+      <!-- Loop Containers -->
+      <div class="attr-subsection">
+        <div class="attr-subsection-title">
+          <i class="fas fa-repeat me-1"></i> Loop Containers
+        </div>
+        @for(attr of loopAttributes; track attr.key) {
+        <div class="attr-row">
+          <span class="attr-label">{{ attr.label }}</span>
+          <code class="attr-code" [class.copied]="copiedKey === attr.key"
+            (click)="copyToClipboard(attr.syntax, attr.key)"
+            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
+          @if(attr.note) {
+          <span class="attr-note">{{ attr.note }}</span>
+          }
+        </div>
+        }
+      </div>
+
+      <!-- Content Fields (built-in + custom) -->
+      <div class="attr-subsection">
+        <div class="attr-subsection-title">
+          <i class="fas fa-database me-1"></i> Content Fields
+        </div>
+        <div class="attr-subsection-hint">
+          Available inside <code>data-arc-loop="items"</code> and on detail pages
+        </div>
+        @for(attr of builtInContentFields; track attr.key) {
+        <div class="attr-row">
+          <span class="attr-label">{{ attr.label }}</span>
+          <code class="attr-code" [class.copied]="copiedKey === attr.key"
+            (click)="copyToClipboard(attr.syntax, attr.key)"
+            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
+          @if(attr.note) {
+          <span class="attr-note">{{ attr.note }}</span>
+          }
+        </div>
+        }
+
+        @if(customFieldEntries.length > 0) {
+        <div class="attr-custom-divider">Custom Fields</div>
+        @for(attr of customFieldEntries; track attr.key) {
+        <div class="attr-row">
+          <span class="attr-label">{{ attr.label }}</span>
+          <code class="attr-code" [class.copied]="copiedKey === attr.key"
+            (click)="copyToClipboard(attr.syntax, attr.key)"
+            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
+          @if(attr.note) {
+          <span class="attr-note">{{ attr.note }}</span>
+          }
+        </div>
+        }
+        }
+      </div>
+
+      <!-- Page-Level Fields -->
+      <div class="attr-subsection">
+        <div class="attr-subsection-title">
+          <i class="fas fa-file-alt me-1"></i> Page-Level Fields
+        </div>
+        @for(attr of pageFields; track attr.key) {
+        <div class="attr-row">
+          <span class="attr-label">{{ attr.label }}</span>
+          <code class="attr-code" [class.copied]="copiedKey === attr.key"
+            (click)="copyToClipboard(attr.syntax, attr.key)"
+            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
+          @if(attr.note) {
+          <span class="attr-note">{{ attr.note }}</span>
+          }
+        </div>
+        }
+      </div>
+
+      <!-- Detail Page Only -->
+      <div class="attr-subsection">
+        <div class="attr-subsection-title">
+          <i class="fas fa-file-lines me-1"></i> Detail Page Only
+        </div>
+        @for(attr of detailOnlyFields; track attr.key) {
+        <div class="attr-row">
+          <span class="attr-label">{{ attr.label }}</span>
+          <code class="attr-code" [class.copied]="copiedKey === attr.key"
+            (click)="copyToClipboard(attr.syntax, attr.key)"
+            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
+          @if(attr.note) {
+          <span class="attr-note">{{ attr.note }}</span>
+          }
+        </div>
+        }
+      </div>
+
+      <!-- Tag Loop Fields -->
+      <div class="attr-subsection">
+        <div class="attr-subsection-title">
+          <i class="fas fa-tags me-1"></i> Tag Fields
+        </div>
+        <div class="attr-subsection-hint">
+          Available inside <code>data-arc-loop="tags"</code>
+        </div>
+        @for(attr of tagLoopFields; track attr.key) {
+        <div class="attr-row">
+          <span class="attr-label">{{ attr.label }}</span>
+          <code class="attr-code" [class.copied]="copiedKey === attr.key"
+            (click)="copyToClipboard(attr.syntax, attr.key)"
+            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
+        </div>
+        }
+      </div>
+
+      <!-- Directives -->
+      <div class="attr-subsection">
+        <div class="attr-subsection-title">
+          <i class="fas fa-code me-1"></i> Directives
+        </div>
+        @for(attr of directives; track attr.key) {
+        <div class="attr-row">
+          <span class="attr-label">{{ attr.label }}</span>
+          <code class="attr-code" [class.copied]="copiedKey === attr.key"
+            (click)="copyToClipboard(attr.syntax, attr.key)"
+            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
+          @if(attr.note) {
+          <span class="attr-note">{{ attr.note }}</span>
+          }
+        </div>
+        }
+      </div>
+    </div>
+
+    <hr />
+    <div class="metadata">
+      <div class="form-section-title">Metadata</div>
+
+      @if(currentItem.createdBy) {
+      <div class="detail-row">
+        <label>Created By:</label>
+        <span>{{ currentItem.createdBy }}</span>
+      </div>
+      } @if(currentItem.createdAt) {
+      <div class="detail-row">
+        <label>Created At:</label>
+        <span
+          >{{
+          globalService.convertMillisecondsToFormatDate(currentItem.createdAt,
+          'dd MMM yyyy, HH:mm:ss') }}</span
+        >
+      </div>
+      } @if(currentItem.modifiedBy) {
+      <div class="detail-row">
+        <label>Updated By:</label>
+        <span>{{ currentItem.modifiedBy }}</span>
+      </div>
+      } @if(currentItem.modifiedAt) {
+      <div class="detail-row">
+        <label>Updated At:</label>
+        <span
+          >{{
+          globalService.convertMillisecondsToFormatDate(currentItem.modifiedAt,
+          'dd MMM yyyy, HH:mm:ss') }}</span
+        >
+      </div>
+      }
+    </div>
+  </div>
+  } @else {
+  <p class="text-muted">Loading...</p>
+  }
+
+  <div class="copyright">
+    &copy; {{globalService.showCurrentYear()}}
+    {{constantVariables.APPLICATION_NAME}}
+  </div>
+</div>

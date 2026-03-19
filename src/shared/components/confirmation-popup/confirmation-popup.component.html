@@ -1,0 +1,9 @@
+<h2 mat-dialog-title class="text-center">{{ _DIALOG_DATA.dialogType }}</h2>
+<mat-dialog-content [innerHTML]="_DIALOG_DATA.dialogMessage"></mat-dialog-content>
+<mat-dialog-actions>
+    <button mat-button mat-dialog-close>Close</button>
+    <button class="btn" [ngClass]="_DIALOG_DATA.panelType === 'warn' ? 'btn-danger' : 'btn-primary'" mat-button mat-dialog-close cdkFocusInitial
+        (click)="confirm()">
+        {{ _DIALOG_DATA.btnText }}
+    </button>
+</mat-dialog-actions>

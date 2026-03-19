@@ -1,0 +1,98 @@
+{
+    "auth": {
+        "providers": {
+            "emailPassword": true
+        }
+    },
+    "firestore": {
+        "rules": "firestore.rules",
+        "indexes": "firestore.indexes.json"
+    },
+    "functions": [
+        {
+            "source": "functions",
+            "codebase": "default",
+            "ignore": [
+                "node_modules",
+                ".git",
+                "firebase-debug.log",
+                "firebase-debug.*.log"
+            ],
+            "cpu": "gcf_gen1",
+            "memory": "256MiB"
+        }
+    ],
+    "hosting": {
+        "public": "dist/analog/public",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "cleanUrls": true,
+        "trailingSlash": false,
+        "redirects": [
+            {
+                "source": "/p/:page",
+                "destination": "/pages/:page",
+                "type": 301
+            }
+        ],
+        "rewrites": [
+            {
+                "source": "**",
+                "destination": "/__shell.html"
+            }
+        ],
+        "headers": [
+            {
+                "source": "**/*.html",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "public, max-age=300, s-maxage=3600"
+                    }
+                ]
+            },
+            {
+                "source": "**/*.@(js|css)",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "max-age=31536000"
+                    }
+                ]
+            },
+            {
+                "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico|woff|woff2)",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "max-age=31536000"
+                    }
+                ]
+            },
+            {
+                "source": "**/*.xml",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "public, max-age=3600, s-maxage=86400"
+                    }
+                ]
+            },
+            {
+                "source": "robots.txt",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "public, max-age=3600"
+                    }
+                ]
+            }
+        ]
+    },
+    "storage": {
+        "rules": "storage.rules"
+    }
+}

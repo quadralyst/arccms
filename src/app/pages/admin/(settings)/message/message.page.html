@@ -1,0 +1,123 @@
+<div class="global-message-settings">
+    <!-- Disabled State -->
+    @if (!messageEnabled()) {
+    <div class="disabled-state">
+        <div class="disabled-content">
+            <div class="disabled-icon">
+                <i class="fa-solid fa-bullhorn"></i>
+            </div>
+            <h3>Global Message Banner</h3>
+            <p class="text-muted">
+                Display a site-wide announcement banner at the top of all pages.
+                <br>
+                Enable it to configure your message.
+            </p>
+            <button mat-flat-button color="primary" (click)="enableMessage()">
+                <i class="fa-solid fa-power-off me-2"></i>
+                Enable Banner
+            </button>
+        </div>
+    </div>
+    } @else {
+    <!-- Header with Enable Toggle -->
+    <div class="header mb-4">
+        <div class="header-content">
+            <h3 class="m-0">Global Message Banner</h3>
+            <p class="text-muted mb-0">Configure the site-wide announcement banner</p>
+        </div>
+        <mat-slide-toggle [checked]="messageEnabled()" (change)="toggleMessage($event.checked)" color="primary">
+            Banner Enabled
+        </mat-slide-toggle>
+    </div>
+
+    <!-- Live Preview -->
+    <div class="preview-section mb-4">
+        <h4 class="preview-label">Live Preview</h4>
+        <div class="banner-preview" [style.background]="getSelectedGradient().gradient">
+            <div class="preview-content" [style.color]="getSelectedGradient().textColor">
+                <div class="preview-text">
+                    <strong class="preview-heading">{{ messageForm.get('heading')?.value || 'Your heading here...'
+                        }}</strong>
+                    <span class="preview-message">{{ messageForm.get('message')?.value || 'Your message here...'
+                        }}</span>
+                </div>
+                @if (messageForm.get('buttonLabel')?.value) {
+                <a class="preview-button" [style.borderColor]="getSelectedGradient().textColor"
+                    [style.color]="getSelectedGradient().textColor">
+                    {{ messageForm.get('buttonLabel')?.value }}
+                </a>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Form -->
+    <form [formGroup]="messageForm" (ngSubmit)="onSubmit()">
+        <!-- Heading -->
+        <div class="form-group mb-3">
+            <label class="form-label">Heading <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="heading" placeholder="e.g., 🎉 Limited Time Offer!"
+                [class.is-invalid]="messageForm.get('heading')?.touched && messageForm.get('heading')?.invalid">
+            @if (messageForm.get('heading')?.touched && messageForm.get('heading')?.errors?.['required']) {
+            <div class="invalid-feedback">Heading is required</div>
+            }
+        </div>
+
+        <!-- Message -->
+        <div class="form-group mb-3">
+            <label class="form-label">Message <span class="text-danger">*</span></label>
+            <textarea class="form-control" formControlName="message" rows="2"
+                placeholder="e.g., Get 50% off on all plans. Use code: SAVE50"
+                [class.is-invalid]="messageForm.get('message')?.touched && messageForm.get('message')?.invalid"></textarea>
+            @if (messageForm.get('message')?.touched && messageForm.get('message')?.errors?.['required']) {
+            <div class="invalid-feedback">Message is required</div>
+            }
+        </div>
+
+        <!-- Button Label & Link -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Button Label <span class="text-muted">(optional)</span></label>
+                    <input type="text" class="form-control" formControlName="buttonLabel"
+                        placeholder="e.g., Learn More">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Button URL <span class="text-muted">(optional)</span></label>
+                    <input type="url" class="form-control" formControlName="buttonLink"
+                        placeholder="e.g., https://example.com/promo">
+                </div>
+            </div>
+        </div>
+
+        <!-- Gradient Selection -->
+        <div class="form-group mb-4">
+            <label class="form-label">Background Style</label>
+            <div class="gradient-grid">
+                @for (gradient of gradients; track gradient.id) {
+                <div class="gradient-option" [class.selected]="messageForm.get('gradientId')?.value === gradient.id"
+                    (click)="selectGradient(gradient.id)" [style.background]="gradient.gradient">
+                    <span class="gradient-name" [style.color]="gradient.textColor">{{ gradient.name }}</span>
+                    @if (messageForm.get('gradientId')?.value === gradient.id) {
+                    <i class="fa-solid fa-check check-icon" [style.color]="gradient.textColor"></i>
+                    }
+                </div>
+                }
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="d-flex justify-content-end gap-2">
+            <button type="submit" mat-flat-button color="primary" [disabled]="messageForm.invalid || isSaving()">
+                @if (isSaving()) {
+                <mat-spinner diameter="20" class="me-2"></mat-spinner>
+                }
+                <i class="fa-solid fa-save me-2"></i>
+                Save Settings
+            </button>
+        </div>
+    </form>
+    }
+</div>

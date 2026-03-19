@@ -1,0 +1,48 @@
+<div class="version-history-container">
+    <!-- Loading State -->
+    @if(isLoading()){
+    <div class="loading-state">
+        <i class="fa-solid fa-spinner fa-spin"></i>
+        <span>Loading version history...</span>
+    </div>
+    }
+
+    <!-- Error State -->
+    @if(errorMessage()){
+    <div class="error-state">
+        <i class="fa-solid fa-exclamation-circle"></i>
+        <span>{{ errorMessage() }}</span>
+    </div>
+    }
+
+    <!-- Empty State -->
+    @if(!isLoading() && !errorMessage() && versions().length === 0){
+    <div class="empty-state">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <p>No version history available yet.</p>
+        <small>Version snapshots are created each time content is published.</small>
+    </div>
+    }
+
+    <!-- Timeline List -->
+    @if(!isLoading() && versions().length > 0){
+    <div class="timeline-panel">
+        <div class="timeline-header">
+            <h6><i class="fa-solid fa-clock-rotate-left"></i> Versions ({{ versions().length }})</h6>
+        </div>
+        <div class="timeline-list">
+            @for(version of versions(); track version.historyId){
+            <div class="timeline-item"
+                 [class.selected]="selectedVersion()?.historyId === version.historyId"
+                 (click)="selectVersion(version)">
+                <div class="version-badge">v{{ version.versionNumber }}</div>
+                <div class="version-info">
+                    <span class="version-title">{{ version.title || 'Untitled' }}</span>
+                    <span class="version-date">{{ formatDate(version.publishedOn) }}</span>
+                </div>
+            </div>
+            }
+        </div>
+    </div>
+    }
+</div>

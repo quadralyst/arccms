@@ -1,0 +1,157 @@
+import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
+
+export interface TableAction {
+    icon: string; // fallback icon class
+    action: string;
+    label?: string; // fallback tooltip
+    class?: string; // fallback class
+    hide?: (row: any) => boolean;
+    iconFn?: (row: any) => string;
+    labelFn?: (row: any) => string;
+    onAction?: (row: any) => void;
+    isRowClick?: boolean;
+}
+
+export interface TableColumn {
+    key: string;
+    header: string;
+    type?: 'text' | 'badge' | 'actions' | 'code' | 'index' | 'date' | 'tags' | 'html' | 'icon'; // Added 'html' and 'icon'
+    sortable?: boolean;
+
+    // Config-driven options replacing TemplateRef
+    dateFormat?: string; // for 'date' type
+    transformFn?: (row: any) => any;
+    classFn?: (row: any) => string;
+    clickable?: boolean;
+
+    actions?: TableAction[];
+    badgeConfig?: {
+        trueClass?: string;
+        falseClass?: string;
+        trueText?: string;
+        falseText?: string;
+    };
+    tagConfig?: {
+        labelKey?: string;
+        colorKey?: string;
+        class?: string;
+    };
+}
+
+@Component({
+    selector: 'app-global-table',
+    templateUrl: './global-table.component.html',
+    styleUrls: ['./global-table.component.scss'],
+    standalone: true,
+    imports: [CommonModule]
+})
+export class GlobalTableComponent {
+    @Input() data: any[] = [];
+    @Input() columns: TableColumn[] = [];
+    @Input() loading = false;
+
+    // Pagination Inputs (Required for 'index' type)
+    @Input() pageIndex = 0;
+    @Input() pageSize = 10;
+
+    // Empty State Inputs
+    @Input() emptyTitle = 'No Items Yet';
+    @Input() emptyDescription = 'Create your first item to get started.';
+    @Input() emptyIcon = 'fas fa-list-alt'; // Font Awesome class
+    @Input() showEmptyAction = true;
+    @Input() emptyActionLabel = 'Create Item';
+    @Input() emptyActionIcon = 'fas fa-plus';
+
+    @Input() trackByFn: (index: number, item: any) => any = (index, item) => item.id || index;
+
+    @Output() actionClick = new EventEmitter<{ action: string, row: any }>();
+    @Output() cellClick = new EventEmitter<{ key: string, row: any }>();
+    @Output() emptyActionClick = new EventEmitter<void>();
+
+    @Input() sortField: string = '';
+    @Input() sortOrder: 'asc' | 'desc' = 'desc';
+    @Output() sortChange = new EventEmitter<string>();
+
+    onActionClick(action: TableAction, row: any) {
+        if (action.onAction) {
+            action.onAction(row);
+        } else {
+            this.actionClick.emit({ action: action.action, row });
+        }
+    }
+
+    onCellClick(col: TableColumn, row: any) {
+        if (col.clickable) {
+            this.cellClick.emit({ key: col.key, row });
+        }
+    }
+
+    onHeaderClick(col: TableColumn) {
+        if (col.sortable) {
+            this.sortChange.emit(col.key);
+        }
+    }
+
+    onEmptyActionClick() {
+        this.emptyActionClick.emit();
+    }
+
+    onRowClick(row: any, event: Event) {
+        // Find the actions column
+        const actionsColumn = this.columns.find(c => c.type === 'actions');
+        if (!actionsColumn?.actions) return;
+
+        // 1. Try to find an action explicitly marked for row click
+        let targetAction = actionsColumn.actions.find(action => action.isRowClick);
+
+        // 2. If valid target action found but it is hidden, we shouldn't click it?
+        // Or should we fallback? The requirement says "default behaviour... must open first action".
+        // If isRowClick is set, we should probably respect it if visible, or do nothing? 
+        // User said: "clicking it opens the edit button. This must not be hardcoded".
+        
+        // Let's first check visibility of the target action if it exists
+        if (targetAction && targetAction.hide && targetAction.hide(row)) {
+            targetAction = undefined; // It's hidden, so we can't use it
+        }
+
+        // 3. Fallback: Find the first visible action if no specific row click action is defined or valid
+        if (!targetAction) {
+             targetAction = actionsColumn.actions.find(action => {
+                // If isRowClick was explicitly set on ANOTHER action (that was hidden), 
+                // should we fallback to absolute first?
+                // Standard behavior: Default to first visible.
+                // Configured behavior: Use configured.
+                
+                // If we are here, it means we didn't find a visible `isRowClick` action.
+                // We should only pick the first visible one if NO action has `isRowClick` set at all?
+                // Or just always fallback?
+                // "The default behaviour... is that clicking it must open the first action item."
+                
+                if (!action.hide) return true;
+                return !action.hide(row);
+            });
+        }
+
+        if (targetAction) {
+            // Stop propagation to prevent any parent handlers
+            event.stopPropagation();
+            this.onActionClick(targetAction, row);
+        }
+    }
+
+    resolveDate(date: any): any {
+        if (!date) return null;
+
+        // Handle Firestore Timestamp
+        if (typeof date === 'object') {
+            if (typeof date.toDate === 'function') {
+                return date.toDate();
+            } else if ('seconds' in date && typeof date.seconds === 'number') {
+                return new Date(date.seconds * 1000);
+            }
+        }
+
+        return date;
+    }
+}

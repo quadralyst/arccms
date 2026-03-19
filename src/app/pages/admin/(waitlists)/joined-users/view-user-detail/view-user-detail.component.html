@@ -1,0 +1,377 @@
+<div class="side-panel">
+  <div class="panel-header">
+    <h5 class="mb-0">User Details</h5>
+    <button class="close-btn" (click)="closePanel()">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+
+  @if(user) {
+  <div class="panel-content">
+    <!-- User Info Section -->
+    <div class="section">
+      <div class="section-title">User Information</div>
+
+      <div class="detail-row">
+        <label>Name:</label>
+        <div class="copyable-value">
+          <span>{{ user.firstName || "—" }}</span>
+          @if(user.firstName) {
+          <button
+            class="btn-copy"
+            (click)="copyToClipboard(user.firstName)"
+            title="Copy name"
+          >
+            <i class="fas fa-copy"></i>
+          </button>
+          }
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <label>Email:</label>
+        <div class="copyable-value">
+          <span>{{ user.email }}</span>
+          <button
+            class="btn-copy"
+            (click)="copyToClipboard(user.email)"
+            title="Copy email"
+          >
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <label>Email Verified:</label>
+        <span
+          class="status-badge"
+          [class.verified]="user.emailVerified"
+          [class.pending]="!user.emailVerified"
+        >
+          {{ user.emailVerified ? "Yes" : "No" }}
+        </span>
+      </div>
+
+      <div class="detail-row">
+        <label>Status:</label>
+        <span
+          class="status-badge"
+          [class.confirmed]="user.isConfirmed"
+          [class.pending]="!user.isConfirmed"
+        >
+          {{ user.isConfirmed ? "Confirmed" : "Pending" }}
+        </span>
+      </div>
+
+      <div class="detail-row">
+        <label>Position:</label>
+        <span class="position">{{
+          user.queuePosition > 0 ? "#" + user.queuePosition : "—"
+        }}</span>
+      </div>
+
+      <div class="detail-row">
+        <label>Signed Up:</label>
+        <span>{{ formatDate(user.signupTimestamp) }}</span>
+      </div>
+
+      @if(user.verifiedAt) {
+      <div class="detail-row">
+        <label>Verified At:</label>
+        <span>{{ formatDate(user.verifiedAt) }}</span>
+      </div>
+      }
+    </div>
+
+    <!-- Dynamic Form Data Section -->
+    @if(formDataEntries().length > 0) {
+    <div class="section">
+      <div class="section-title">Form Submissions</div>
+
+      @for(entry of formDataEntries(); track entry.key) {
+      <div class="detail-row">
+        <label>{{ entry.label }}:</label>
+        <span>{{ entry.value }}</span>
+      </div>
+      }
+    </div>
+    }
+
+    <!-- Referral Section -->
+    <div class="section">
+      <div class="section-title">Referral Information</div>
+
+      <div class="detail-row">
+        <label>Referral Code:</label>
+        <code>{{ user.referralCode }}</code>
+      </div>
+
+      @if(user.referralLink) {
+      <div class="detail-row">
+        <label>Referral Link:</label>
+        <div class="referral-link">
+          <code class="link-text">{{ user.referralLink }}</code>
+          <button
+            class="btn-copy"
+            (click)="copyToClipboard(user.referralLink)"
+            title="Copy"
+          >
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
+      </div>
+      }
+
+      <div class="detail-row">
+        <label>Total Referrals:</label>
+        <span
+          class="referral-count"
+          [class.has-referrals]="user.totalReferrals > 0"
+        >
+          {{ user.totalReferrals }}
+        </span>
+      </div>
+
+      @if(referredByCode()) {
+      <div class="detail-row referred-by-row">
+        <label>Referred By:</label>
+        @if(isLoadingReferredBy()) {
+          <span class="text-muted"><i class="fas fa-spinner fa-spin"></i></span>
+        } @else if(referredByUser(); as referrer) {
+          <span class="referred-by-info">
+            <span>{{ referrer.firstName || referrer.email }}</span>
+            <code>{{ referredByCode() }}</code>
+          </span>
+        } @else {
+          <span class="referred-by-info">
+            <code>{{ referredByCode() }}</code>
+            <span class="external-source-badge">External Source</span>
+          </span>
+        }
+      </div>
+      }
+    </div>
+
+    <!-- Referred Users Section -->
+    @if(isLoadingReferredUsers() || referredUsers().length > 0) {
+    <div class="section">
+      <div class="section-title">Referred Users</div>
+
+      @if(isLoadingReferredUsers()) {
+        <div class="referrals-loading">
+          <i class="fas fa-spinner fa-spin"></i> Loading referrals...
+        </div>
+      } @else {
+        <div class="referral-list">
+          @for(ref of referredUsers(); track ref.id) {
+          <div class="referral-item">
+            <div class="referral-item-header">
+              <span class="referral-item-name">{{ ref.referredName || ref.referredMaskedEmail }}</span>
+              <span
+                class="status-badge"
+                [class.confirmed]="ref.status === 'completed'"
+                [class.pending]="ref.status === 'pending'"
+              >
+                {{ ref.status === 'completed' ? 'Completed' : 'Pending' }}
+              </span>
+            </div>
+            @if(ref.referredName && ref.referredMaskedEmail) {
+            <div class="referral-item-email">{{ ref.referredMaskedEmail }}</div>
+            }
+            <div class="referral-item-date">{{ formatDate(ref.completedAt || ref.createdAt) }}</div>
+          </div>
+          }
+        </div>
+      }
+    </div>
+    }
+
+    <!-- Signup Metadata Section -->
+    @if(hasSignupMetadata()) {
+    <div class="section">
+      <div class="section-title">Signup Metadata</div>
+
+      @for(entry of metadataEntries(); track entry.key) {
+      <div class="detail-row">
+        <label>
+          @if(entry.icon) {
+          <i class="fas {{ entry.icon }} me-1"></i>
+          }
+          {{ entry.label }}:
+        </label>
+        <span>{{ entry.value }}</span>
+      </div>
+      }
+    </div>
+    }
+
+    <!-- Tags Section -->
+    <div class="section">
+      <div class="section-title">Tags</div>
+
+      <!-- Selected Tags -->
+      <div class="tags-container">
+        @for(tag of selectedTags(); track tag.id) {
+        <span class="tag-badge" [style.background-color]="tag.color">
+          {{ tag.label }}
+          <button type="button" class="tag-remove-btn" (click)="removeTag(tag)">
+            ×
+          </button>
+        </span>
+        }
+      </div>
+
+      <!-- Tag Search Input -->
+      <div class="tag-search-wrapper">
+        <input
+          type="text"
+          class="form-control form-control-sm"
+          placeholder="Search or create tags..."
+          [value]="tagSearchTerm()"
+          (input)="onTagSearchInput($event)"
+          (focus)="onTagSearchFocus()"
+          (blur)="onTagSearchBlur()"
+          (keyup.enter)="createTag()"
+        />
+
+        <!-- Autocomplete Dropdown -->
+        @if(showTagDropdown()) {
+        <div class="tag-dropdown">
+          @if(filteredTags().length > 0) { @for(tag of filteredTags(); track
+          tag.id) {
+          <div class="tag-option" (mousedown)="selectTag(tag)">
+            <span
+              class="tag-color-dot"
+              [style.background-color]="tag.color"
+            ></span>
+            {{ tag.label }}
+          </div>
+          } }
+
+          <!-- Create New Tag Option -->
+          @if(tagSearchTerm() && !hasMatchingTag()) {
+          <div class="tag-option create-new" (mousedown)="createTag()">
+            <i class="fas fa-plus me-2"></i>
+            Create "{{ tagSearchTerm() }}"
+          </div>
+          } @if(!filteredTags().length && !tagSearchTerm()) {
+          <div class="tag-option text-muted">
+            Start typing to search or create tags
+          </div>
+          }
+        </div>
+        }
+      </div>
+
+      @if(isSavingTags()) {
+      <small class="text-muted"
+        ><i class="fas fa-spinner fa-spin"></i> Saving...</small
+      >
+      }
+    </div>
+
+    <!-- Notes/Journal Section -->
+    <div class="section">
+      <div class="section-title">Notes</div>
+
+      <!-- Notes List (displayed first) -->
+      @if(isLoadingNotes()) {
+      <div class="notes-loading">
+        <i class="fas fa-spinner fa-spin"></i> Loading notes...
+      </div>
+      } @else if(notes().length > 0) {
+      <div class="notes-list">
+        @for(note of notes(); track note.id) {
+        <div class="note-item">
+          @if(editingNoteId() === note.id) {
+          <!-- Edit Mode -->
+          <div class="note-edit-wrapper">
+            <textarea
+              class="form-control"
+              rows="3"
+              [value]="editNoteContent()"
+              (input)="editNoteContent.set($any($event.target).value)"
+              [disabled]="isSavingNote()"
+            ></textarea>
+            <div class="note-edit-actions">
+              <button
+                class="btn btn-primary btn-sm"
+                (click)="saveEditedNote(note)"
+                [disabled]="!editNoteContent().trim() || isSavingNote()"
+              >
+                @if(isSavingNote()) {
+                <i class="fas fa-spinner fa-spin"></i>
+                } @else {
+                <i class="fas fa-check"></i> Save }
+              </button>
+              <button
+                class="btn btn-secondary btn-sm"
+                (click)="cancelEditNote()"
+                [disabled]="isSavingNote()"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+          } @else {
+          <!-- View Mode -->
+          <div class="note-header">
+            <span class="note-date">{{ formatDate(note.createdAt) }}</span>
+            <div class="note-actions">
+              <button
+                class="btn-edit-note"
+                (click)="startEditNote(note)"
+                title="Edit"
+              >
+                <i class="fas fa-pen"></i>
+              </button>
+              <button
+                class="btn-delete-note"
+                (click)="deleteNote(note)"
+                title="Delete"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div class="note-content">{{ note.content }}</div>
+          }
+        </div>
+        }
+      </div>
+      } @else {
+      <div class="notes-empty">
+        <i class="fas fa-sticky-note"></i>
+        <p>No notes yet</p>
+      </div>
+      }
+
+      <!-- Add Note (at bottom) -->
+      <div class="note-input-wrapper mt-3">
+        <textarea
+          class="form-control"
+          rows="2"
+          placeholder="Add a new note..."
+          [value]="newNoteContent()"
+          (input)="newNoteContent.set($any($event.target).value)"
+          [disabled]="isSavingNote()"
+        ></textarea>
+        <button
+          class="btn btn-primary btn-sm mt-2"
+          (click)="addNote()"
+          [disabled]="!newNoteContent().trim() || isSavingNote()"
+        >
+          @if(isSavingNote()) {
+          <i class="fas fa-spinner fa-spin"></i> Adding... } @else {
+          <i class="fas fa-plus"></i> Add Note }
+        </button>
+      </div>
+    </div>
+  </div>
+  } @else {
+  <div class="panel-content">
+    <p class="text-muted">Loading...</p>
+  </div>
+  }
+</div>

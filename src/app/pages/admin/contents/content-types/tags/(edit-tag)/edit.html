@@ -1,0 +1,77 @@
+<div class="drawer-content">
+    <div class="drawer-header">
+        <h5>Edit Tag</h5>
+        <button mat-icon-button (click)="onCancel()">
+            <mat-icon>close</mat-icon>
+        </button>
+    </div>
+
+    @if(isLoading()) {
+    <div class="drawer-body text-center py-5">
+        <span class="spinner-border"></span>
+        <p class="mt-2">Loading tag...</p>
+    </div>
+    } @else {
+    <form [formGroup]="tagForm" (ngSubmit)="onSubmit()" class="drawer-body">
+        @if(errorMessage()) {
+        <div class="alert alert-danger">{{ errorMessage() }}</div>
+        }
+
+        <!-- Label Input -->
+        <div class="mb-4">
+            <label for="label" class="form-label">Tag Label <span class="text-danger">*</span></label>
+            <input type="text" id="label" class="form-control" formControlName="label" placeholder="Enter tag label..."
+                [class.is-invalid]="tagForm.get('label')?.touched && tagForm.get('label')?.invalid" />
+            @if(tagForm.get('label')?.touched && tagForm.get('label')?.errors) {
+            <div class="invalid-feedback">
+                @if(tagForm.get('label')?.errors?.['required']) {
+                Label is required
+                } @else if(tagForm.get('label')?.errors?.['minlength']) {
+                Label must be at least 2 characters
+                } @else if(tagForm.get('label')?.errors?.['maxlength']) {
+                Label must be less than 50 characters
+                }
+            </div>
+            }
+        </div>
+
+        <!-- Color Picker -->
+        <div class="mb-4">
+            <label class="form-label">Tag Color</label>
+            <div class="color-picker-grid">
+                @for(option of colorOptions; track option.color) {
+                <button type="button" class="color-option" [class.selected]="selectedColor() === option.color"
+                    [style.background-color]="option.color" [title]="option.title" (click)="selectColor(option.color)">
+                    @if(selectedColor() === option.color) {
+                    <mat-icon>check</mat-icon>
+                    }
+                </button>
+                }
+            </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="mb-4">
+            <label class="form-label">Preview</label>
+            <div class="tag-preview">
+                <span class="tag-badge" [style.background-color]="selectedColor()">
+                    {{ tagForm.get('label')?.value || 'Tag Label' }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="drawer-footer">
+            <button type="button" class="btn btn-outline-secondary" (click)="onCancel()">
+                Cancel
+            </button>
+            <button type="submit" class="btn btn-primary" [disabled]="isSubmitting() || tagForm.invalid">
+                @if(isSubmitting()) {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Save Changes
+            </button>
+        </div>
+    </form>
+    }
+</div>

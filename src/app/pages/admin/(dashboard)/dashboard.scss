@@ -1,0 +1,589 @@
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.last-sync {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.bi-arrow-right {
+    position: relative;
+    top: 2px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    // margin-top: 2rem;
+}
+
+.section-header h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    color: #495057;
+}
+
+.section-header a {
+    font-size: 0.9rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.metric-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    height: 100%;
+    border: 1px solid #e9ecef;
+}
+
+.metric-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.metric-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.metric-icon.blue {
+    background: #e3f2fd;
+    color: #2196F3;
+}
+
+.metric-icon.green {
+    background: #e8f5e9;
+    color: #4CAF50;
+}
+
+.metric-icon.navy {
+    background: #e8eaf6;
+    color: #1d47a3;
+}
+
+.metric-icon.orange {
+    background: #fff3e0;
+    color: #FF9800;
+}
+
+.metric-icon.red {
+    background: #ffebee;
+    color: #f44336;
+}
+
+.metric-icon.teal {
+    background: #e0f2f1;
+    color: #009688;
+}
+
+.metric-title {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 0.25rem;
+}
+
+.metric-change {
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.metric-change.positive {
+    color: #4CAF50;
+}
+
+.metric-change.negative {
+    color: #f44336;
+}
+
+.metric-subtitle {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+}
+
+// ── Card Footer Row (left text + right badge) ──
+.card-footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+// ── Scrollable Card Row ──
+.scrollable-row {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    // Mask the right edge to hint at more cards
+    mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%);
+
+    // Hide scrollbar for cleaner look but keep functionality
+    scrollbar-width: thin;
+    scrollbar-color: #dee2e6 transparent;
+
+    &::-webkit-scrollbar {
+        height: 4px;
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #dee2e6;
+        border-radius: 2px;
+    }
+
+    // Remove mask when scrolled to the end (handled naturally by overflow)
+    &:hover {
+        mask-image: none;
+        -webkit-mask-image: none;
+    }
+}
+
+.scrollable-card {
+    flex: 0 0 220px;
+    min-width: 220px;
+}
+
+// ── Clickable Card ──
+.metric-card.clickable {
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+
+    &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+
+    &:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+}
+
+.activity-table {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e9ecef;
+}
+
+// ── Activity Log (timeline style) ──
+.activity-log-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e9ecef;
+}
+
+.activity-item {
+    display: flex;
+    gap: 0.75rem;
+    cursor: pointer;
+    padding: 0.5rem 0;
+
+    &:hover .activity-title {
+        color: #2196F3;
+    }
+}
+
+.activity-icon-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 4px;
+    flex-shrink: 0;
+    width: 12px;
+}
+
+.activity-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    &.dot-published {
+        background: #4CAF50;
+    }
+    &.dot-draft {
+        background: #FF9800;
+    }
+}
+
+.activity-line {
+    width: 2px;
+    flex: 1;
+    background: #e9ecef;
+    margin-top: 4px;
+}
+
+.activity-content {
+    flex: 1;
+    min-width: 0;
+    padding-bottom: 0.5rem;
+}
+
+.activity-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #212529;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.15s ease;
+}
+
+.activity-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 2px;
+    flex-wrap: wrap;
+}
+
+.activity-type-icon {
+    font-size: 0.7rem;
+}
+
+.activity-separator {
+    color: #adb5bd;
+}
+
+.activity-status {
+    font-weight: 500;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+.table thead th {
+    border-top: none;
+    border-bottom: 2px solid #e9ecef;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #495057;
+    padding: 0.75rem;
+}
+
+.table tbody td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    font-size: 0.9rem;
+}
+
+/* Ensure badge styles propagate if ViewEncapsulation is emulated, 
+   though Bootstrap handles .badge usually. 
+   Adding just in case overrides are needed or bootstrap missing */
+.badge {
+    padding: 0.35rem 0.75rem;
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+.quick-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.quick-action-btn {
+    flex: 1;
+    min-width: 180px;
+}
+
+// ── Analytics 2-Column Layout ──
+.analytics-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.panels-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.metrics-grid,
+.panels-grid {
+    min-width: 0; // prevent grid blowout from long text
+}
+
+// Ensure panel cards don't overflow their grid cell
+.panels-grid .metric-card {
+    min-width: 0;
+    overflow: hidden;
+}
+
+// Metric cards in the 3×3 grid: label top-left, value bottom-right
+.metrics-grid .metric-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.metrics-grid .metric-value {
+    text-align: right;
+}
+
+.metrics-grid .metric-change {
+    justify-content: flex-end;
+}
+
+// ── List Panel Styles ──
+.list-panel-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.list-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.list-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+}
+
+.list-item-name {
+    color: #495057;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 70%;
+}
+
+.list-item-value {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #212529;
+}
+
+.list-item-bar-container {
+    height: 4px;
+    background: #e9ecef;
+    border-radius: 2px;
+}
+
+.list-item-bar {
+    height: 100%;
+    background: #2196F3;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.analytics-connect-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 2px dashed #dee2e6;
+}
+
+.date-range-badge {
+    background: #e3f2fd;
+    color: #2196F3;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 1200px) {
+    .analytics-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .panels-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .metrics-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .panels-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-header .d-flex {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .page-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .section-header h2 {
+        font-size: 1rem;
+    }
+
+    .metric-card {
+        padding: 1rem;
+    }
+
+    .metric-value {
+        font-size: 1.5rem;
+    }
+
+    .activity-table {
+        padding: 1rem;
+        overflow-x: auto;
+    }
+
+    .activity-table .table {
+        min-width: 500px;
+    }
+
+    .quick-actions {
+        flex-direction: column;
+    }
+
+    .quick-action-btn {
+        min-width: 100%;
+    }
+}
+
+@media (max-width: 576px) {
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .panels-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .page-header h1 {
+        font-size: 1.25rem;
+    }
+
+    .last-sync {
+        font-size: 0.8rem;
+    }
+
+    .date-range-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .metric-card {
+        padding: 0.75rem;
+    }
+
+    .metric-card-header {
+        gap: 0.5rem;
+    }
+
+    .metric-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+    }
+
+    .metric-title {
+        font-size: 0.8rem;
+    }
+
+    .metric-value {
+        font-size: 1.25rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .metric-change,
+    .metric-subtitle {
+        font-size: 0.75rem;
+    }
+
+    .activity-table {
+        padding: 0.75rem;
+    }
+
+    .table thead th {
+        font-size: 0.75rem;
+        padding: 0.5rem;
+    }
+
+    .table tbody td {
+        font-size: 0.8rem;
+        padding: 0.5rem;
+    }
+
+    /* Hide referrals column on very small screens */
+    .activity-table .table th:nth-child(4),
+    .activity-table .table td:nth-child(4) {
+        display: none;
+    }
+
+    .scrollable-card {
+        flex: 0 0 180px;
+        min-width: 180px;
+    }
+}

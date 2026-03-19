@@ -1,0 +1,407 @@
+<div class="arc-cms-template">
+    <arc-header></arc-header>
+
+    <!-- Article Page - Medium-style clean design -->
+    <article class="article-page">
+        <div class="container">
+            <div class="article-wrapper">
+                <!-- Back Link -->
+                <a href="/{{ contentTypeSlug }}" class="back-link">
+                    <i class="fas fa-arrow-left"></i> Back to {{ contentType }}
+                </a>
+
+                <!-- Article Header -->
+                <header class="article-header">
+                    <h1 class="article-title arc-skeleton">{{ title }}</h1>
+                    <div class="article-meta">
+                        <span><i class="far fa-calendar"></i> <span class="arc-skeleton">{{ date }}</span></span>
+                        <span class="meta-separator">·</span>
+                        <span><i class="far fa-clock"></i> <span class="arc-skeleton">{{ readingTime }}</span></span>
+                        <span class="meta-separator category-separator">·</span>
+                        <span class="category-label"><i class="fas fa-folder"></i> <span class="arc-skeleton">{{ cat }}</span></span>
+                    </div>
+                </header>
+
+                <!-- Cover Image (Full Width within content area) -->
+                <figure class="article-cover">
+                    <img src="{{ coverImage }}" alt="{{ title }}" class="cover-image">
+                </figure>
+
+                <!-- Article Body -->
+                <div class="article-content" [innerHTML]="content">
+                    <p class="arc-skeleton">Article content loads here...</p>
+                </div>
+
+                <!-- Tags Section -->
+                <div class="article-tags">
+                    <div class="tag-list" data-arc-loop="tags">
+                        <span class="tag" style="background-color: {{ color }}; color: #333;">{{ name }}</span>
+                    </div>
+                </div>
+
+                <!-- Share Buttons -->
+                <div class="share-section">
+                    <div class="share-buttons">
+                        <a href="{{ share.facebook }}" target="_blank" class="share-btn"
+                            title="Share on Facebook">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
+                        <a href="{{ share.twitter }}" target="_blank" class="share-btn"
+                            title="Share on Twitter">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="{{ share.linkedin }}" target="_blank" class="share-btn"
+                            title="Share on LinkedIn">
+                            <i class="fab fa-linkedin-in"></i>
+                        </a>
+                        <a href="{{ share.whatsapp }}" target="_blank" class="share-btn"
+                            title="Share on WhatsApp">
+                            <i class="fab fa-whatsapp"></i>
+                        </a>
+                        <a href="{{ share.email }}" class="share-btn" title="Share via Email">
+                            <i class="fas fa-envelope"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Article Navigation -->
+                <nav class="article-nav">
+                    <div class="nav-prev" data-arc-if="previousContent">
+                        <a href="{{ previousContent.url }}" class="nav-link">
+                            <span class="nav-direction"><i class="fas fa-chevron-left"></i> Previous</span>
+                            <span class="nav-title">{{ previousContent.title }}</span>
+                        </a>
+                    </div>
+                    <div class="nav-next" data-arc-if="nextContent">
+                        <a href="{{ nextContent.url }}" class="nav-link">
+                            <span class="nav-direction">Next <i class="fas fa-chevron-right"></i></span>
+                            <span class="nav-title">{{ nextContent.title }}</span>
+                        </a>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </article>
+
+    <arc-footer></arc-footer>
+</div>
+
+<style>
+    /* Medium-style Article Page */
+    .article-page {
+        padding: 2rem 0 4rem;
+        background: #fff;
+        min-height: 60vh;
+    }
+
+    .article-wrapper {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+    }
+
+    /* Back Link */
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6b7280;
+        text-decoration: none;
+        font-size: 0.9rem;
+        margin-bottom: 2rem;
+        transition: color 0.2s;
+    }
+
+    .back-link:hover {
+        color: #111827;
+    }
+
+    /* Article Header */
+    .article-header {
+        margin-bottom: 2rem;
+    }
+
+    .article-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1.2;
+        margin-bottom: 1rem;
+        letter-spacing: -0.02em;
+    }
+
+    .article-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.95rem;
+        color: #6b7280;
+    }
+
+    .meta-separator {
+        color: #d1d5db;
+    }
+
+    .article-meta i {
+        margin-right: 0.35rem;
+    }
+
+    .category-label {
+        color: #6b7280;
+    }
+
+    .category-label span:empty,
+    .category-separator:has(+ .category-label span:empty) {
+        display: none;
+    }
+
+    /* Cover Image */
+    .article-cover {
+        margin: 0 0 2.5rem 0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .cover-image {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 8px;
+    }
+
+    /* Article Content */
+    .article-content {
+        font-size: 1.125rem;
+        line-height: 1.85;
+        color: #292929;
+        font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+    }
+
+    .article-content h2 {
+        font-size: 1.625rem;
+        font-weight: 700;
+        margin-top: 2.5rem;
+        margin-bottom: 1rem;
+        color: #111827;
+        font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .article-content h3 {
+        font-size: 1.375rem;
+        font-weight: 600;
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+        color: #111827;
+        font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .article-content p {
+        margin-bottom: 1.5rem;
+    }
+
+    .article-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 4px;
+        margin: 2rem 0;
+    }
+
+    .article-content blockquote {
+        border-left: 3px solid #111827;
+        padding-left: 1.25rem;
+        margin: 2rem 0;
+        font-style: italic;
+        color: #4b5563;
+    }
+
+    .article-content code {
+        background: #f3f4f6;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.9em;
+        font-family: 'SF Mono', Monaco, monospace;
+    }
+
+    .article-content pre {
+        background: #1a1a1a;
+        color: #e5e7eb;
+        padding: 1.25rem;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 2rem 0;
+    }
+
+    .article-content pre code {
+        background: none;
+        padding: 0;
+    }
+
+    .article-content ul,
+    .article-content ol {
+        margin-bottom: 1.5rem;
+        padding-left: 1.5rem;
+    }
+
+    .article-content li {
+        margin-bottom: 0.5rem;
+    }
+
+    /* Tags */
+    .article-tags {
+        margin-top: 3rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .tag {
+        background: #6b7280;
+        /* Default fallback color */
+        color: #333;
+        padding: 0.35rem 0.75rem;
+        border-radius: 100px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    /* Share Section */
+    .share-section {
+        margin-top: 2rem;
+        padding: 1.5rem 0;
+        text-align: center;
+    }
+
+    .share-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .share-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #f3f4f6;
+        color: #4b5563;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .share-btn:hover {
+        background: #111827;
+        color: #fff;
+    }
+
+    /* Article Navigation */
+    .article-nav {
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        gap: 2rem;
+    }
+
+    .nav-prev,
+    .nav-next {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .nav-next {
+        text-align: right;
+    }
+
+    .article-nav .nav-link {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        padding: 1rem;
+        border-radius: 8px;
+        transition: background 0.2s;
+    }
+
+    .article-nav .nav-link:hover {
+        background: #f9fafb;
+    }
+
+    .nav-direction {
+        display: block;
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .nav-title {
+        display: block;
+        font-weight: 600;
+        color: #111827;
+        font-size: 1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .article-title {
+            font-size: 1.875rem;
+        }
+
+        .article-meta {
+            flex-wrap: wrap;
+        }
+
+        .article-nav {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .nav-next {
+            text-align: left;
+        }
+    }
+</style>
+
+<script>
+    // Hide cover image if not available
+    (function () {
+        function processCoverImage() {
+            document.querySelectorAll('.cover-image').forEach(function (img) {
+                if (!img.src || img.src === window.location.href || img.src === '' ||
+                    (img.complete && img.naturalHeight === 0)) {
+                    img.closest('.article-cover').style.display = 'none';
+                }
+                img.onerror = function () {
+                    this.closest('.article-cover').style.display = 'none';
+                };
+            });
+
+            // Hide empty nav links
+            document.querySelectorAll('.nav-link').forEach(function (link) {
+                var title = link.querySelector('.nav-title');
+                if (title && !title.textContent.trim()) {
+                    link.closest('.nav-prev, .nav-next').style.display = 'none';
+                }
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', processCoverImage);
+        } else {
+            processCoverImage();
+        }
+        setTimeout(processCoverImage, 500);
+        setTimeout(processCoverImage, 1500);
+    })();
+</script>

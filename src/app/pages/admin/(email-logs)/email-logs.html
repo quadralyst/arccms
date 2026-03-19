@@ -1,0 +1,105 @@
+<mat-drawer-container class="example-container" hasBackdrop="true">
+    <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 600px;">
+        @if(currentId()) {
+        <arc-view-email-log [id]="currentId()" (close)="closeDrawer()"></arc-view-email-log>
+        } @else {
+        <div class="alert alert-info m-3">No email log selected</div>
+        }
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="arc">
+            <div class="flex-grow-1">
+                <!-- Top Bar -->
+                <div class="d-flex justify-content-between align-items-center top-bar">
+                    <h5 class="mb-0">Email Logs</h5>
+                </div>
+
+                <!-- Content Area -->
+                <div class="content-area">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <div>
+                            <h6 class="mb-0">All Email Logs</h6>
+                            <small class="text-muted">View sent email history and delivery status</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- Status Filter -->
+                            <mat-form-field appearance="outline" class="status-filter">
+                                <mat-label>Status</mat-label>
+                                <mat-select [value]="statusFilter()"
+                                    (selectionChange)="onStatusFilterChange($event.value)">
+                                    <mat-option value="">All</mat-option>
+                                    <mat-option value="success">Success</mat-option>
+                                    <mat-option value="failed">Failed</mat-option>
+                                    <mat-option value="delivered">Delivered</mat-option>
+                                    <mat-option value="bounced">Bounced</mat-option>
+                                    <mat-option value="complained">Complained</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <!-- Purge Button -->
+                            <button mat-raised-button color="warn" (click)="purgeOldLogs()"
+                                [disabled]="isPurging()">
+                                <mat-icon>delete_sweep</mat-icon>
+                                {{ isPurging() ? 'Purging...' : 'Purge Old Logs' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Active Broadcast Progress -->
+                    @for(broadcast of activeBroadcasts(); track broadcast.id) {
+                    <div class="broadcast-progress-banner mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ broadcast.subject }}</strong>
+                                <span class="badge bg-primary ms-2">{{ broadcast.status }}</span>
+                            </div>
+                            <span class="text-muted small">
+                                {{ broadcast.sentCount }} / {{ broadcast.totalCount }} sent
+                                @if(broadcast.failedCount) {
+                                <span class="text-danger ms-1">&middot; {{ broadcast.failedCount }} failed</span>
+                                }
+                            </span>
+                        </div>
+                        <mat-progress-bar mode="determinate"
+                            [value]="broadcast.totalCount > 0 ? ((broadcast.sentCount + broadcast.failedCount) / broadcast.totalCount * 100) : 0"
+                            class="mt-2">
+                        </mat-progress-bar>
+                    </div>
+                    }
+
+                    <app-global-table [data]="emailLogStore.items()" [columns]="tableColumns"
+                        [loading]="emailLogStore.isLoading()" [sortField]="sortField()" [sortOrder]="sortOrder()"
+                        (sortChange)="setSortField($event)" (cellClick)="onCellClick($event)"
+                        [pageIndex]="currentPage()" [pageSize]="pageSize()" emptyTitle="No Email Logs"
+                        emptyDescription="No emails have been sent yet." [showEmptyAction]="false">
+                    </app-global-table>
+
+                    <!-- Pagination -->
+                    @if(emailLogStore.items().length) {
+                    <div class="pagination-footer d-flex justify-content-between align-items-center">
+                        @if(!emailLogStore.isLoading()) {
+                        <div class="record-count text-muted">
+                            @if(emailLogStore.totalRecords() > 0) {
+                            Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
+                            <strong>{{ emailLogStore.totalRecords() }}</strong>
+                            @if(statusFilter()) {
+                            <span class="text-primary ms-2">filtered</span>
+                            }
+                            records
+                            } @else {
+                            No records found
+                            }
+                        </div>
+                        <mat-paginator [length]="emailLogStore.totalRecords()" [pageSize]="pageSize()"
+                            [pageIndex]="currentPage()" [pageSizeOptions]="[10, 25, 50]"
+                            [showFirstLastButtons]="true" (page)="onPageChange($event)">
+                        </mat-paginator>
+                        }
+                    </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

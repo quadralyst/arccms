@@ -1,0 +1,131 @@
+.disabled-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+}
+
+.disabled-content {
+    text-align: center;
+    padding: 40px;
+}
+
+.disabled-icon {
+    font-size: 3rem;
+    color: #6c757d;
+    margin-bottom: 20px;
+}
+
+.disabled-content h3 {
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.user-settings-page {
+    max-width: 700px;
+}
+
+.page-header {
+    margin-bottom: 24px;
+}
+
+.page-header h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    padding: 60px;
+}
+
+.settings-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.setting-row:last-of-type {
+    border-bottom: none;
+}
+
+.setting-info {
+    flex: 1;
+}
+
+.setting-label {
+    font-weight: 500;
+    font-size: 1rem;
+    color: #212529;
+    display: flex;
+    align-items: center;
+}
+
+.setting-label i {
+    color: #6c757d;
+}
+
+.setting-description {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 4px;
+    margin-left: 28px;
+}
+
+.setting-control {
+    flex-shrink: 0;
+    margin-left: 24px;
+}
+
+.role-select {
+    width: 150px;
+}
+
+::ng-deep .role-select .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+}
+
+.role-setting {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.info-banner {
+    margin-top: 20px;
+    padding: 16px;
+    background: #e7f3ff;
+    border-radius: 8px;
+    color: #0d6efd;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.info-banner.disabled-banner {
+    background: #f8d7da;
+    color: #842029;
+}
+
+.info-banner i {
+    font-size: 1.1rem;
+}

@@ -1,0 +1,91 @@
+<!-- View User Details -->
+<div class="side-panel">
+    <div class="panel-header">
+        <h5 class="mb-0">User Details</h5>
+        <button class="close-btn" (click)="closeView()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    @if(currentItem) {
+    <div class="user-details">
+        <!-- Name -->
+        <div class="detail-row">
+            <label class="detail-label">Full Name</label>
+            <p class="detail-value">{{ currentItem.name || 'N/A' }}</p>
+        </div>
+
+        <!-- Email -->
+        <div class="detail-row">
+            <label class="detail-label">Email</label>
+            <p class="detail-value">
+                <a href="mailto:{{ currentItem.email }}">{{ currentItem.email || 'N/A' }}</a>
+            </p>
+        </div>
+
+        <!-- Status -->
+        <div class="detail-row">
+            <label class="detail-label">Status</label>
+            <p class="detail-value">
+                <span class="badge" [class]="getStatusBadgeClass()">
+                    {{ currentItem.status || 'N/A' }}
+                </span>
+            </p>
+        </div>
+
+        <!-- Role -->
+        <div class="detail-row">
+            <label class="detail-label">Role</label>
+            <p class="detail-value">{{ currentItem.role || 'N/A' }}</p>
+        </div>
+
+        <!-- Active Status -->
+        <div class="detail-row">
+            <label class="detail-label">Account Status</label>
+            <p class="detail-value">
+                @if(currentItem.isActive) {
+                <span class="badge bg-success">Active</span>
+                } @else {
+                <span class="badge bg-danger">Blocked</span>
+                }
+            </p>
+        </div>
+
+        <!-- Email Verified -->
+        <div class="detail-row">
+            <label class="detail-label">Email Verified</label>
+            <p class="detail-value">
+                @if(currentItem.emailVerified) {
+                <span class="text-success"><i class="fas fa-check-circle me-1"></i>Verified</span>
+                } @else {
+                <span class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>Not Verified</span>
+                }
+            </p>
+        </div>
+
+        <!-- Created At -->
+        <div class="detail-row">
+            <label class="detail-label">Date Joined</label>
+            <p class="detail-value">{{ formatDisplayDate(currentItem.createdAt) }}</p>
+        </div>
+
+        <!-- Updated At -->
+        @if(currentItem.updatedAt) {
+        <div class="detail-row">
+            <label class="detail-label">Last Updated</label>
+            <p class="detail-value">{{ formatDisplayDate(currentItem.updatedAt) }}</p>
+        </div>
+        }
+    </div>
+    } @else {
+    <div class="alert alert-info">Loading user details...</div>
+    }
+
+    <div class="d-grid gap-2 d-flex justify-content-end mt-4">
+        <button type="button" class="btn btn-light btn-sm" (click)="closeView()">Close</button>
+    </div>
+
+    <div class="copyright">
+        &copy; {{globalService.showCurrentYear()}} {{constantVariables.APPLICATION_NAME}}
+    </div>
+</div>

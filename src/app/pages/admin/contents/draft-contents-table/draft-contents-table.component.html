@@ -1,0 +1,178 @@
+<!-- Templates for Global Table -->
+<ng-template #titleTemplate let-row>
+    <a href="javascript:void(0)" (click)="openContent(row.id)">
+        {{ row.title || 'Untitled' }}
+    </a>
+    @if (row.isFeatured) {
+    <span class="badge bg-warning ms-1">Featured</span>
+    }
+</ng-template>
+
+<ng-template #statusTemplate let-row>
+    @if (row.publishedStatus) {
+    <span class="badge bg-success">Published</span>
+    } @else {
+    <span class="badge bg-secondary">Draft</span>
+    }
+</ng-template>
+
+<ng-template #dateTemplate let-row>
+    {{ formatDate(row.modifiedAt || row.updatedAt || row.createdAt) }}
+</ng-template>
+
+<div class="contents-list-container">
+    <!-- Error message for invalid content type slug -->
+    @if (!isValidSlug()) {
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                <div>
+                    <strong>Content Type Not Found</strong><br>
+                    {{ invalidSlugMessage() }}
+                </div>
+            </div>
+            <a routerLink="/admin/contents/content-types" class="btn btn-primary">
+                <i class="fa-solid fa-arrow-left me-1"></i> Go to Content Types
+            </a>
+        </div>
+    </div>
+    } @else {
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <h4>{{ getContentTypePluralName() }}</h4>
+            <small class="text-muted">Manage your {{ getContentTypePluralName() | lowercase }}</small>
+        </div>
+        <div class="col-md-6 text-end">
+
+            <button mat-raised-button color="primary" (click)="openContent('')">
+                <mat-icon>add</mat-icon> Add {{ getContentTypeSingularName() }}
+            </button>
+            <button mat-stroked-button class="ms-2" (click)="openBulkImport()">
+                <mat-icon>upload_file</mat-icon> Bulk Import
+            </button>
+            <button mat-stroked-button class="ms-2" [matMenuTriggerFor]="columnsMenu">
+                <mat-icon>view_column</mat-icon> Columns
+            </button>
+            
+            <mat-menu #columnsMenu="matMenu">
+                <div class="px-3 py-2" (click)="$event.stopPropagation()">
+                    <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+                        <span class="fw-bold small">Visible Columns</span>
+                        @if(isSavingColumns()) {
+                            <small class="text-muted"><i class="fa-solid fa-circle-notch fa-spin me-1"></i>Saving...</small>
+                        }
+                    </div>
+                    
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        @for(col of availableColumns(); track col.key) {
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" 
+                                       [id]="'col-' + col.key"
+                                       [checked]="col.checked"
+                                       (change)="toggleColumn(col.key)">
+                                <label class="form-check-label" [for]="'col-' + col.key" style="cursor: pointer;">
+                                    {{ col.label }}
+                                </label>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mt-2 pt-2 border-top">
+                        <button mat-button color="warn" class="w-100" (click)="resetColumnPreferences()">
+                            Reset to Default
+                        </button>
+                    </div>
+                </div>
+            </mat-menu>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar mb-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-auto">
+                <label class="form-label mb-0 me-2">Status:</label>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" [value]="statusFilter()"
+                    (change)="onStatusFilterChange($event)">
+                    <option value="">All</option>
+                    <option value="published">Published</option>
+                    <option value="draft">Draft</option>
+                </select>
+            </div>
+            @if(hasActiveFilters()) {
+            <div class="col-auto">
+                <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()">
+                    Clear Filters
+                </button>
+            </div>
+            }
+        </div>
+    </div>
+
+    <app-global-table [data]="draftContentsData()" [columns]="tableColumns" [loading]="draftContentStore.isLoading()"
+        [sortField]="sortField()" [sortOrder]="sortOrder()" (sortChange)="setSortField($event)"
+        (cellClick)="onCellClick($event)" emptyTitle="No Items Found"
+        [emptyDescription]="'No ' + (getContentTypePluralName() | lowercase) + ' yet. Click Add New to get started.'"
+        emptyActionLabel="Add {{ getContentTypeSingularName() }}" (emptyActionClick)="openContent('')"
+        [showEmptyAction]="true"
+        [trackByFn]="trackByContentId">
+    </app-global-table>
+
+    <!-- Pagination and Record Count -->
+    @if(draftContentsData().length || draftContentStore.items().length){
+    <div class="pagination-footer d-flex justify-content-between align-items-center">
+        @if(!draftContentStore.isLoading()) {
+        <div class="record-count text-muted">
+            @if(filteredTotalRecords() > 0) {
+            Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
+            <strong>{{ filteredTotalRecords() }}</strong>
+            @if(hasActiveFilters()) {
+            <span class="text-primary ms-2">filtered</span>
+            }
+            records
+            } @else {
+            No records found
+            }
+        </div>
+        <mat-paginator [length]="filteredTotalRecords()" [pageSize]="pageSizeSignal()"
+            [pageIndex]="currentPageNum()" [pageSizeOptions]="[5, 10, 25, 50]" [showFirstLastButtons]="true"
+            (page)="onPageChange($event)">
+        </mat-paginator>
+        }
+        @else {
+        <!-- Skeleton Loading State -->
+        <div class="pagination-container">
+            <div class="record-count-skeleton">
+                <span class="skeleton skeleton-text"></span>
+            </div>
+            <div class="pagination-controls-skeleton">
+                <div class="items-per-page-skeleton">
+                    <span class="skeleton skeleton-text-small"></span>
+                    <span class="skeleton skeleton-select"></span>
+                </div>
+                <span class="skeleton skeleton-text-medium"></span>
+                <div class="pagination-buttons-skeleton">
+                    <span class="skeleton skeleton-button"></span>
+                    <span class="skeleton skeleton-button"></span>
+                    <span class="skeleton skeleton-button"></span>
+                    <span class="skeleton skeleton-button"></span>
+                </div>
+            </div>
+        </div>
+        }
+    </div>
+    }
+    }
+
+    <!-- Preview Panel -->
+    @if(previewItem()) {
+      <app-preview-content 
+        [contentItem]="previewItem()" 
+        [contentType]="currentContentType()" 
+        (close)="previewItem.set(null)">
+      </app-preview-content>
+    }
+</div>

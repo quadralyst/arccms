@@ -1,0 +1,245 @@
+<!-- Email Templates Page -->
+<div class="page-container">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="header-left">
+            <button class="btn-back" (click)="goBack()">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div>
+                <h1>Email Templates</h1>
+                <p class="subtitle">{{ waitlistName() }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        @for (tab of tabs; track tab.key) {
+        <button class="tab" [class.active]="activeTab() === tab.key" (click)="setActiveTab(tab.key)">
+            <i class="fas {{ tab.icon }}"></i>
+            {{ tab.label }}
+        </button>
+        }
+    </div>
+
+    <!-- Content -->
+    @if (loading()) {
+    <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading templates...</p>
+    </div>
+    } @else {
+
+    <!-- Email Not Configured Overlay -->
+    <div class="content-wrapper" [class.has-overlay]="!emailConfigService.isEmailConfigured()">
+        @if (!emailConfigService.isEmailConfigured()) {
+        <div class="email-overlay">
+            <div class="overlay-content">
+                <i class="fas fa-envelope-open-text overlay-icon"></i>
+                <h3>Email Not Configured</h3>
+                <p>Configure your email settings to enable OTP verification, welcome emails, and broadcasts.</p>
+                <a routerLink="/admin/settings/email" class="btn btn-primary">
+                    <i class="fas fa-cog me-2"></i> Configure Email Settings
+                </a>
+            </div>
+        </div>
+        }
+
+        <!-- Broadcast Tab - Show History Table -->
+        @if (activeTab() === 'waitlist_broadcast_email') {
+        <div class="broadcast-section" [class.editor-active]="isComposingBroadcast()">
+            <!-- Broadcast Header with Create Button -->
+            <div class="broadcast-header">
+                <h3>Broadcast History</h3>
+                <button class="btn btn-primary" (click)="openBroadcastEditor()" [disabled]="isComposingBroadcast()">
+                    <i class="fas fa-plus"></i> Create Broadcast
+                </button>
+            </div>
+
+            <!-- Inline Broadcast Editor -->
+            @if (isComposingBroadcast()) {
+            <div class="broadcast-editor-overlay">
+                <arc-broadcast-email-editor [waitlistId]="waitlistId()" [allUsers]="waitlistUsers()"
+                    (close)="closeBroadcastEditor()" (broadcastSent)="onBroadcastSent()">
+                </arc-broadcast-email-editor>
+            </div>
+            }
+
+            <!-- Broadcast History Table -->
+            @if (loadingBroadcasts()) {
+            <div class="loading-state small">
+                <div class="spinner"></div>
+                <p>Loading broadcasts...</p>
+            </div>
+            } @else if (broadcastHistory().length === 0) {
+            <div class="empty-state">
+                <i class="fas fa-bullhorn"></i>
+                <h4>No broadcasts yet</h4>
+                <p>Create your first broadcast email to reach all waitlist subscribers.</p>
+                <button class="btn btn-primary" (click)="openBroadcastEditor()">
+                    <i class="fas fa-plus"></i> Create First Broadcast
+                </button>
+            </div>
+            } @else {
+            <div class="broadcast-table-container">
+                <table class="broadcast-table">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Status</th>
+                            <th>Recipients</th>
+                            <th>Sent Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (broadcast of broadcastHistory(); track broadcast.id) {
+                        <tr>
+                            <td class="subject-cell">
+                                <span class="subject">{{ broadcast.subject }}</span>
+                                <span class="preview-text">{{ broadcast.previewText || '-' }}</span>
+                            </td>
+                            <td>
+                                <span class="status-badge" [class]="getStatusClass(broadcast.status)">
+                                    {{ broadcast.status | titlecase }}
+                                </span>
+                            </td>
+                            <td>{{ broadcast.totalCount || broadcast.recipientCount }} users</td>
+                            <td>{{ formatDate(broadcast.sentAt || broadcast.createdAt) }}</td>
+                        </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            }
+        </div>
+        } @else {
+        <!-- OTP and Welcome Tabs - Show Template Editor with WYSIWYG -->
+        <div class="template-editor">
+            <!-- Disabled State Panel -->
+            @if (!templateForm.get('isActive')?.value) {
+            <div class="template-disabled-state">
+                <div class="disabled-content">
+                    <div class="disabled-icon">
+                        <i class="fa-solid"
+                            [ngClass]="activeTab() === 'waitlist_verify_otp_email' ? 'fa-lock' : 'fa-envelope'"></i>
+                    </div>
+                    @if (activeTab() === 'waitlist_verify_otp_email') {
+                    <h3>One Time Password Disabled</h3>
+                    <p class="text-muted">
+                        Emails will not be verified with a One Time Password.
+                        Users joining the waitlist will have their email status set to "Pending".
+                    </p>
+                    } @else {
+                    <h3>Welcome Email Disabled</h3>
+                    <p class="text-muted">
+                        Welcome emails will not be sent to users joining the waitlist.
+                    </p>
+                    }
+                    <button type="button" class="btn btn-primary" (click)="enableTemplateAndSave()">
+                        <i class="fa-solid fa-power-off me-2"></i>
+                        Enable {{ activeTab() === 'waitlist_verify_otp_email' ? 'Email Verification' : 'Welcome Email'
+                        }}
+                    </button>
+                </div>
+            </div>
+            } @else {
+            <form [formGroup]="templateForm" (ngSubmit)="saveTemplate()">
+                <div class="form-grid">
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label>Sender Name</label>
+                            <p class="text-muted">{{ templateForm.get('senderName')?.value }}</p>
+                            <!-- <input type="text" formControlName="senderName" placeholder="Arc CMS"> -->
+                        </div>
+
+                        <div class="form-group">
+                            <label>Sender Email</label>
+                            <p class="text-muted">{{ templateForm.get('senderEmail')?.value }}</p>
+                            <!-- <input type="email" formControlName="senderEmail" placeholder="noreply@arccms.com"> -->
+                        </div>
+
+                        <p class="text-warning mb-4 text-detail">Sender name and sender email can only be edited from
+                            email
+                            settings
+                        </p>
+
+                        <div class="form-group">
+                            <div class="field-header">
+                                <label>Subject <span class="required">*</span></label>
+                                <!-- Subject Placeholder Dropdown -->
+                                <select class="placeholder-dropdown" (change)="onSubjectPlaceholderSelect($event)">
+                                    <option value="">Insert Placeholder</option>
+                                    @for (placeholder of getPlaceholders(); track placeholder) {
+                                    <option [value]="placeholder">{{ placeholder }}</option>
+                                    }
+                                </select>
+                            </div>
+                            <input type="text" formControlName="subject" placeholder="Email subject line">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Preview Text</label>
+                            <input type="text" formControlName="previewText"
+                                placeholder="Preview text shown in email clients">
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" formControlName="isActive"
+                                    (change)="onTemplateActiveChange($event)">
+                                <span>{{ activeTab() === 'waitlist_verify_otp_email' ? 'Verify waitlist emails with a
+                                    One
+                                    time
+                                    Password' : 'Send a welcome email to new signups' }}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-column template-column">
+                        <div class="form-group">
+                            <div class="field-header">
+                                <label>Email Template <span class="required">*</span></label>
+                                <div class="field-actions">
+                                    <!-- Body Placeholder Dropdown -->
+                                    <select class="placeholder-dropdown" (change)="onBodyPlaceholderSelect($event)">
+                                        <option value="">Insert Placeholder</option>
+                                        @for (placeholder of getPlaceholders(); track placeholder) {
+                                        <option [value]="placeholder">{{ placeholder }}</option>
+                                        }
+                                    </select>
+                                    <button type="button" class="btn-small" (click)="resetToDefault()">
+                                        <i class="fas fa-undo"></i> Reset to Default
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- WYSIWYG Email Template Editor -->
+                            <arc-email-template-editor [placeholders]="[]" [value]="templateForm.get('template')?.value"
+                                (contentChange)="onTemplateContentChange($event)">
+                            </arc-email-template-editor>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" (click)="goBack()">Cancel</button>
+                    <button type="button" class="btn btn-outline" (click)="openTestEmailDialog()">
+                        <i class="fas fa-paper-plane"></i> Send Test Email
+                    </button>
+                    <button type="submit" class="btn btn-primary" [disabled]="templateForm.invalid || saving()">
+                        @if (saving()) {
+                        <i class="fas fa-spinner fa-spin"></i> Saving...
+                        } @else {
+                        <i class="fas fa-save"></i> Save Template
+                        }
+                    </button>
+                </div>
+            </form>
+            } <!-- Close @if templateForm.isActive -->
+        </div>
+        }
+
+    </div> <!-- Close content-wrapper -->
+    }
+</div>

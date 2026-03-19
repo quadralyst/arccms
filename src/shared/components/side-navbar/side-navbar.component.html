@@ -1,0 +1,113 @@
+<div class="sidebar" [ngClass]="{'collapsed': !isExpanded}">
+
+
+    <!-- <div class="toggle pt-2" [ngClass]="{'justify-content-end': isExpanded}">
+    <mat-icon (click)="toggleMenu.emit(null)">
+      {{ isExpanded ? "close" : "dehaze" }}
+    </mat-icon>
+  </div> -->
+
+    @if(!isExpanded) {
+    <mat-icon (click)="toggleMenu.emit(null)" slot="end" class="close-pen blink mt-2 mb-2">
+        {{ isExpanded ? "navigate_before" : "navigate_next" }}
+    </mat-icon>
+    <!-- <div class="logo-container-close mt-2 " >
+      <img
+        src="https://firebasestorage.googleapis.com/v0/b/iiq-staging.firebasestorage.app/o/favicon.ico?alt=media&token=f72ec001-795f-4aa4-bb2d-a4b04b369b05"
+        alt="CMS Logo" class="logo">
+    </div>  -->
+
+    }
+
+    <div class="logo-container mt-2" [hidden]="!isExpanded">
+        <a routerLink="/" class="d-flex align-items-center text-decoration-none cursor-pointer" style="color: inherit;">
+            <img [src]="logoSmall" width="92" height="46" alt="CMS Logo" class="logo">
+            @if(isExpanded){
+            <span class="logo-text">{{ constantVariables.APPLICATION_NAME }}</span>
+            }
+        </a>
+
+        @if(isExpanded) {
+        <mat-icon (click)="toggleMenu.emit(null)" slot="end" class="open-pen blink">
+            {{ isExpanded ? "navigate_before" : "navigate_next" }}
+        </mat-icon>
+        }
+    </div>
+
+    @if (authStore.currentUser()) {
+    <div class="user-info cursor" [ngClass]="{'justify-content-center': !isExpanded}" routerLink="/admin/profile">
+        <div class="avatar">
+            @if (authStore.currentUser()?.photo) {
+            <img [src]="authStore.currentUser()?.photo" alt="">
+            } @else {
+            <img [src]="adminAvatar" width="200" height="200" alt="">
+            }
+        </div>
+
+        @if(isExpanded){
+        <div class="user-info-text">
+            <div class="fw-bold text-white">{{authStore.currentUser()?.name}}</div>
+        </div>
+        }
+    </div>
+    }
+
+    <div class="sidebar-menu">
+        @for (item of menuItems(); track $index) {
+        @if(item.allowRoles?.includes(authStore.currentUser()?.role ?? '') || item.allowRoles?.includes('showAll')) {
+        @if (item.separator) {
+        <hr class="menu-separator">
+        } @else if (item.externalUrl) {
+        <a [href]="item.externalUrl" target="_blank" rel="noopener noreferrer" class="nav-link">
+            <i [matTooltip]="!isExpanded ? item.label : null" matTooltipPosition="right"
+                [ngClass]="{'icon-size': isExpanded, 'icon-size-large': !isExpanded}" class="{{item.icon}}"></i>
+            @if(isExpanded){
+            <span>{{ item.label }}</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ms-auto" style="font-size: 0.7rem; opacity: 0.6;"></i>
+            }
+        </a>
+        } @else {
+        <a [routerLink]="item.label === 'Logout' ? null : item.route" class="nav-link" routerLinkActive="active-menu"
+            [routerLinkActiveOptions]="{exact: !item.subItems}"
+            (click)="item.label === 'Logout' ? confirmLogout() : toggleDropdown(item)">
+            <i [matTooltip]="!isExpanded ? item.label : null" matTooltipPosition="right"
+                [ngClass]="{'icon-size': isExpanded, 'icon-size-large': !isExpanded}" class="{{item.icon}}"></i>
+            @if(isExpanded){
+            <span>{{ item.label }}</span>
+            }
+            @if (item.subItems && isExpanded) {
+            <i class="{{item.isOpen ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'}} menu-arrow-icon fs-6"></i>
+            }
+        </a>
+        }
+
+        @if (item.subItems && item.isOpen) {
+        <div @expandContractMenu class="menu-sub-item" [ngClass]="{ 'ms-3' : isExpanded}">
+            @for (subItem of item.subItems; track subItem.label) {
+            <a class="nav-link my-0" (click)="subItemClick()" [routerLink]="subItem.route"
+                [queryParams]="subItem.queryParams || null"
+                [class.active-menu]="isRouteActive(subItem.route || '')">
+                <i class="{{subItem.icon}}" [ngClass]="{'fa-icon-size': isExpanded, 'fa-icon-size-large': !isExpanded}"
+                    [matTooltip]="!isExpanded ? subItem.label : null"></i>
+                @if(isExpanded){
+                <span class="m-0 p-0"> {{ subItem.label }}</span>
+                }
+            </a>
+            }
+        </div>
+        }
+        }
+        }
+
+        <!-- <div class="collapsed-bottom-icons">
+      <a class="nav-link" routerLinkActive="active-menu" (click)="confirmLogout()">
+        <i class="fa-solid fa-right-from-bracket"
+          [ngClass]="{'fa-icon-size': isExpanded, 'fa-icon-size-large': !isExpanded}" [matTooltip]="'Logout'"></i>
+        @if(isExpanded){
+        <span class="m-0 p-0"> Logout</span>
+        }
+      </a>
+    </div> -->
+
+    </div>
+</div>

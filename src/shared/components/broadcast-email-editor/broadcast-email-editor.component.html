@@ -1,0 +1,183 @@
+<!-- Broadcast Email Editor -->
+<div class="broadcast-editor-container">
+    <!-- Header -->
+    <div class="editor-header">
+        <h2><i class="fas fa-bullhorn"></i> Create Broadcast Email</h2>
+        <button class="btn-close-editor" (click)="closeModal()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <div class="editor-content">
+        <!-- Left Column: Form -->
+        <div class="form-column">
+            <form [formGroup]="broadcastForm" (ngSubmit)="onSubmit()">
+                <mat-tab-group>
+                    <!-- Email Configuration Tab -->
+                    <mat-tab label="Email Configuration">
+                        <div class="tab-content">
+                            <!-- Send To -->
+                            <div class="form-group">
+                                <label for="sendTo">Send to <span class="required">*</span></label>
+                                <select class="form-select" formControlName="sendTo" (change)="onSelectChange($event)">
+                                    <option selected value="" disabled>Select recipients</option>
+                                    <option value="all">All users</option>
+                                    <option value="some">Select users</option>
+                                    <option value="new">New emails</option>
+                                </select>
+                                @if (!broadcastForm.value.sendTo) {
+                                <div class="error-text">Select recipients above.</div>
+                                }
+
+                                @if (sendToValue() !== 'new' && sendToValue() !== '') {
+                                <div class="selected-count">
+                                    Selected Users:
+                                    <span [class.error]="selectedUsers.length === 0">{{ selectedUsers.length }}</span>
+                                </div>
+                                }
+                            </div>
+
+                            <!-- New Emails Input -->
+                            @if (showEmailInput()) {
+                            <div class="form-group">
+                                <label for="emails">Enter new users</label>
+                                <textarea class="form-control" formControlName="emails"
+                                    placeholder="Enter name, email&#10;John Doe, john@example.com" rows="4">
+                                </textarea>
+                                <small class="helper-text">One entry per line: name, email</small>
+                            </div>
+                            }
+
+                            <!-- Sender Name -->
+                            <div class="form-group">
+                                <label>Sender Name</label>
+                                <p class="text-muted">{{ broadcastForm.get('senderName')?.value }}</p>
+                            </div>
+
+                            <!-- Sender Email -->
+                            <div class="form-group">
+                                <label>Sender Email</label>
+                                <p class="text-muted">{{ broadcastForm.get('senderEmail')?.value }}</p>
+                            </div>
+
+                            <p class="text-warning mb-4 text-detail">Sender name and sender email can only be edited from email settings</p>
+
+                            <!-- Subject -->
+                            <div class="form-group">
+                                <label for="subject">Subject <span class="required">*</span></label>
+                                <input type="text" class="form-control" formControlName="subject"
+                                    placeholder="Email subject line"
+                                    [class.is-invalid]="subject?.invalid && (subject?.dirty || subject?.touched)"
+                                    [class.is-valid]="subject?.valid && (subject?.dirty || subject?.touched)">
+                                <div class="invalid-feedback">Subject is required.</div>
+                            </div>
+
+                            <!-- Preview Text -->
+                            <div class="form-group">
+                                <label for="previewText">Preview Text</label>
+                                <input type="text" class="form-control" formControlName="previewText"
+                                    placeholder="Text shown in email previews">
+                            </div>
+
+                            <!-- Error Messages -->
+                            @if (errorMessages.length) {
+                            <div class="alert alert-danger">
+                                @for (error of errorMessages; track error) {
+                                <li>{{ error }}</li>
+                                }
+                            </div>
+                            }
+
+                            <!-- Action Buttons -->
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" (click)="openTestEmailDialog()">
+                                    <i class="fas fa-envelope"></i> Send Test Email
+                                </button>
+                                <button type="button" class="btn btn-primary" (click)="submitBroadcastEmail()"
+                                    [disabled]="!canSubmit()">
+                                    <i class="fas fa-paper-plane"></i> Send Broadcast
+                                </button>
+                            </div>
+                        </div>
+                    </mat-tab>
+
+                    <!-- Recipients Tab -->
+                    <mat-tab label="Recipients">
+                        <div class="tab-content recipients-tab">
+                            <mat-selection-list #userList class="users-list"
+                                (selectionChange)="onSelectionChange($event)" [disabled]="sendToValue() === 'new'">
+                                @for (user of allUsers; track user.email) {
+                                <mat-list-option [value]="user">
+                                    <div class="user-option">
+                                        <span class="user-name">{{ user?.name }}</span>
+                                        <span class="user-email">{{ user?.email }}</span>
+                                    </div>
+                                </mat-list-option>
+                                }
+                            </mat-selection-list>
+                            @if (allUsers.length === 0) {
+                            <div class="empty-state">
+                                <i class="fas fa-users"></i>
+                                <p>No users in this waitlist yet.</p>
+                            </div>
+                            }
+                        </div>
+                    </mat-tab>
+                </mat-tab-group>
+            </form>
+        </div>
+
+        <!-- Right Column: Editor -->
+        <div class="editor-column">
+            <h3>Email Content</h3>
+
+            <!-- Editor Tabs -->
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link" [class.active]="activeTab() === 'editor'" (click)="setActiveTab('editor')">
+                        <i class="fas fa-edit"></i> Visual Editor
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" [class.active]="activeTab() === 'html'" (click)="setActiveTab('html')">
+                        <i class="fas fa-code"></i> HTML
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Placeholders -->
+            <div class="placeholders">
+                <label>Insert Placeholder:</label>
+                <mat-chip-set>
+                    @for (placeholder of emailPlaceholders; track placeholder) {
+                    <mat-chip (click)="insertPlaceholder(placeholder)">{{ placeholder }}</mat-chip>
+                    }
+                </mat-chip-set>
+            </div>
+
+            <!-- Editor Content -->
+            <div class="tab-content">
+                @if (activeTab() === 'html') {
+                <div class="html-editor">
+                    <arc-html-code-editor [content]="htmlContent" (contentChange)="onEditorChanges($event)"
+                        [height]="'350px'" [showLineNumbers]="true" placeholder="<html>...</html>">
+                    </arc-html-code-editor>
+                </div>
+                } @else {
+                <div class="visual-editor">
+                    <app-tiptap-editor [productValue]="htmlContent" (textEditorContent)="onEditorChanges($event)">
+                    </app-tiptap-editor>
+                </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="editor-footer">
+        <button class="btn btn-light" (click)="closeModal()">Cancel</button>
+        <button class="btn btn-secondary" (click)="openTestEmailDialog()">
+            <i class="fas fa-envelope"></i> Send Test Email
+        </button>
+    </div>
+</div>

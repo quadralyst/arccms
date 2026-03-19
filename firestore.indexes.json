@@ -1,0 +1,139 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "arc_articles_drafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "publishedStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "modifiedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "arc_journals_drafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "publishedStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "modifiedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "arc_manuals_drafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "publishedStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "modifiedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "arc_people_drafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "publishedStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "modifiedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "BroadcastEmails",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "waitlistId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "EmailLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "emailVerified",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "totalReferrals",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "signupTimestamp",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isConfirmed",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "totalReferrals",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "signupTimestamp",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

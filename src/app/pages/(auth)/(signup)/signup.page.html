@@ -1,0 +1,318 @@
+<div class="arc-signup">
+    <div class="container-fluid p-0">
+        <div class="row g-0">
+
+            <div class="col-md-6 d-none d-md-block m-0 p-0">
+                <!-- <arc-image [imgName]="'Mask.png'"></arc-image> -->
+                <div class="auth-container">
+                    <!-- Left Panel - Gradient Background -->
+                    <div class="auth-left">
+                        <div class="auth-left-content">
+                            <h1 class="auth-left-title">Your Landing Page, Supercharged</h1>
+                            <p class="auth-left-description">Turn static HTML into a growth machine. Waitlist capture,
+                                viral referrals, email automation, and analytics—integrated in minutes. No recurring
+                                fees, complete data ownership. Start validating your startup idea today.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <form [formGroup]="registrationForm" (ngSubmit)="handleSubmit()">
+
+                    <!-- Email Request Slide -->
+                    @if (currentStep() === 'request') {
+                    <div class="auth-form-container">
+                        <div class="auth-logo">
+                            <img ngSrc="/assets/images/logo.png" width="190" height="60" alt="Arc CMS Logo"
+                                class="d-inline-block">
+                            <!-- <h2 class="auth-logo-text">Arc CMS</h2> -->
+                        </div>
+                    </div>
+                    <div class="request-container">
+                        <div class="card request-card border-0">
+                            <div class="card-body customPadding">
+                                <h2 class="auth-title">Welcome</h2>
+                                <p class="auth-subtitle">Enter your email to get started</p>
+
+                                <div class="mb-4 mt-4">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" formControlName="email" class="form-control" id="email"
+                                        placeholder="name@company.com" [readonly]="isLoading()"
+                                        [class.is-invalid]="isFieldInvalid('email')" />
+
+                                    @if(isFieldInvalid('email')){
+                                    <div class="invalid-feedback">
+                                        Please enter a valid email address
+                                    </div>
+                                    }
+                                </div>
+
+                                <div class="mb-3">
+                                    <button type="button" (click)="checkEmail()" class="btn btn-primary w-100"
+                                        [disabled]="isLoading()">
+                                        Continue
+                                        <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                            role="status"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="copyright">
+                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                    </div>
+                    }
+
+                    <!-- Login Slide -->
+                    @if (currentStep() === 'login') {
+                    <div class="auth-form-container">
+                        <div class="auth-logo">
+                            <h2 class="auth-logo-text">Arc CMS</h2>
+                        </div>
+                    </div>
+                    <div class="request-container request-height">
+                        <div class="card request-card border-0">
+                            <div class="card-body customPadding">
+                                <h5 class="card-title login-title text-primary mb-3">Welcome Back!</h5>
+                                <p class="login-subtitle m-0">
+                                    You are logging in as <strong>{{ registrationForm.get('email')?.value }}</strong>
+                                </p>
+                                <p class="login-subtitle">Enter your password to continue</p>
+
+                                <div class="mb-3 mt-4">
+                                    <label for="password" class="form-label visually-hidden">Enter your password</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <input [type]="showLoginPassword() ? 'text' : 'password'"
+                                            formControlName="loginPassword" class="form-control p-2" id="password"
+                                            placeholder="********"
+                                            [class.is-invalid]="isFieldInvalid('loginPassword')" />
+                                        <button type="button" class="btn btn-outline-secondary"
+                                            (click)="showLoginPassword.set(!showLoginPassword())">
+                                            <i class="fas"
+                                                [ngClass]="showLoginPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
+                                        </button>
+                                    </div>
+
+                                    @if(isFieldInvalid('loginPassword')){
+                                    <div class="invalid-feedback d-block">
+                                        Password is required
+                                    </div>
+                                    }
+                                </div>
+
+                                @if (errorMessage()) {
+                                <div class="alert alert-danger">
+                                    {{ errorMessage() }}
+                                </div>
+                                }
+
+                                <div class="d-flex justify-content-between mt-4">
+                                    <a (click)="goToStep('request')"
+                                        class="change-email cursor text-decoration-none text-dark"
+                                        style="cursor: pointer;">
+                                        <i class="bi bi-arrow-left"></i>&nbsp;Change Email
+                                    </a>
+                                </div>
+
+                                <button type="button" (click)="login()" class="btn btn-primary login-button w-100 mt-3"
+                                    [disabled]="isLoading()">
+                                    Login
+                                    <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                        role="status"></span>
+                                </button>
+
+                                <div class="mt-3 text-center">
+                                    <a (click)="forgotPassword()" class="forgot-password cursor"
+                                        style="cursor: pointer;">Forgot Password?</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="copyright">
+                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                    </div>
+                    }
+
+                    <!-- Verify Slide -->
+                    @if (currentStep() === 'verify') {
+                    <div class="auth-form-container">
+                        <div class="auth-logo">
+                            <h2 class="auth-logo-text">Arc CMS</h2>
+                        </div>
+                    </div>
+                    <div class="verification-container request-height">
+                        <div class="card verification-card border-0">
+                            <div class="card-body customPadding">
+                                <h5 class="card-title verification-title text-center text-primary">Verify Email</h5>
+                                <p class="verification-message">
+                                    We've sent a verification code to <br />
+                                    <span class="email-highlight">{{ registrationForm.get('email')?.value }}</span>
+                                </p>
+
+                                <div class="code-input-group mt-4">
+                                    @for (i of [0, 1, 2, 3, 4, 5]; track i) {
+                                    <input [readonly]="isLoading()" #otpInput type="text"
+                                        class="form-control code-input text-center" maxlength="1" inputmode="numeric"
+                                        [attr.data-index]="i" (input)="onOtpInput($event, i)"
+                                        (keydown)="onOtpKeyDown($event, i)"
+                                        [class.is-invalid]="isFieldInvalid('otp')" />
+                                    }
+                                </div>
+
+                                @if (otpError()) {
+                                <div class="text-danger mt-2 text-center">
+                                    {{ otpError() }}
+                                </div>
+                                }
+
+                                <div class="d-flex justify-content-between mt-4">
+                                    <a (click)="goToStep('request')"
+                                        class="change-email cursor text-decoration-none text-dark"
+                                        style="cursor: pointer;">
+                                        <i class="bi bi-arrow-left"></i>&nbsp;Change Email
+                                    </a>
+
+                                    <span id="timer" class="">
+                                        @if (resendCountdown() === 0) {
+                                        <a href="javascript:void(0)" class="text-primary mb-0 text-decoration-none"
+                                            (click)="resendOtp()">Resend</a>
+                                        } @else {
+                                        <p class="text-primary mb-0">Resend in <span class="counter text-dark">{{
+                                                resendCountdown() }}</span> sec</p>
+                                        }
+                                    </span>
+                                </div>
+
+                                <button type="button" (click)="verifyOtp()"
+                                    class="btn btn-primary verify-button w-100 mt-4" [disabled]="isLoading()">
+                                    Verify Code
+                                    <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                        role="status"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="copyright">
+                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                    </div>
+                    }
+
+                    <!-- Signup Slide -->
+                    @if (currentStep() === 'signup') {
+                    <div class="auth-form-container">
+                        <div class="auth-logo">
+                            <h2 class="auth-logo-text">Arc CMS</h2>
+                        </div>
+                    </div>
+                    <div class="signup-container request-height">
+                        <div class="card signup-card border-0">
+                            <div class="card-body customPadding">
+                                <h5 class="card-title signup-title text-primary">Complete Your Profile</h5>
+                                <p class="signup-subtitle">Set up your account to get started</p>
+
+                                <div class="mb-3 mt-4">
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                        <input type="text" formControlName="name" class="form-control p-2"
+                                            placeholder="Your full name" [class.is-invalid]="isFieldInvalid('name')"
+                                            [readOnly]="isLoading()">
+                                    </div>
+                                    @if(isFieldInvalid('name')){
+                                    <div class="text-danger mt-2">
+                                        Name is required
+                                    </div>
+                                    }
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="password" class="form-label visually-hidden">Enter your password</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <input [type]="showPassword() ? 'text' : 'password'" formControlName="password"
+                                            class="form-control" id="password" placeholder="********"
+                                            [class.is-invalid]="isFieldInvalid('password')" [readOnly]="isLoading()" />
+                                        <span class="input-group-text password-toggle eye_btn"
+                                            (click)="showPassword.set(!showPassword())" style="cursor: pointer;">
+                                            <i class="fas" [ngClass]="showPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
+                                        </span>
+                                    </div>
+
+                                    @if(isFieldInvalid('password')){
+                                    <div class="text-danger mt-2">
+                                        Password must be at least 8 characters
+                                    </div>
+                                    }
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <input [type]="showConfirmPassword() ? 'text' : 'password'"
+                                            formControlName="confirmPassword" class="form-control p-2"
+                                            placeholder="********"
+                                            [class.is-invalid]="isFieldInvalid('confirmPassword') || hasPasswordMismatch()"
+                                            [readOnly]="isLoading()" />
+
+                                        <span class="input-group-text password-toggle eye_btn"
+                                            (click)="showConfirmPassword.set(!showConfirmPassword())"
+                                            style="cursor: pointer;">
+                                            <i class="fas"
+                                                [ngClass]="showConfirmPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
+                                        </span>
+                                    </div>
+
+                                    @if(hasPasswordMismatch()){
+                                    <div class="text-danger">
+                                        Passwords do not match
+                                    </div>
+                                    }
+                                </div>
+
+                                <button type="button" (click)="register()"
+                                    class="btn btn-primary signup-button w-100 mt-4" [disabled]="isLoading()">
+                                    Create Account
+                                    <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                        role="status"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="copyright">
+                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                    </div>
+                    }
+
+                    <!-- Signup Disabled Message -->
+                    @if (currentStep() === 'disabled' ) {
+                    <div class="auth-form-container">
+                        <div class="auth-logo">
+                            <img ngSrc="/assets/images/logo.png" width="190" height="60" alt="Arc CMS Logo"
+                                class="d-inline-block">
+                        </div>
+                    </div>
+                    <div class="request-container">
+                        <div class="card request-card border-0">
+                            <div class="card-body customPadding text-center">
+                                <div class="disabled-icon mb-4">
+                                    <i class="fa-solid fa-user-lock fa-3x text-muted"></i>
+                                </div>
+                                <h2 class="auth-title">Signups Disabled</h2>
+                                <p class="auth-subtitle">New user signups are currently disabled.</p>
+                                <p class="text-muted">To create a new account, please contact an administrator.</p>
+                                <p class="text-muted" role="button">If you already have an account, please <a
+                                        (click)="resetAll()" class="text-primary">log in</a>.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="copyright">
+                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                    </div>
+                    }
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

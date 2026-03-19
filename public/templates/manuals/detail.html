@@ -1,0 +1,744 @@
+<div class="arc-cms-template">
+    <arc-header></arc-header>
+
+    <!-- Documentation Detail Page - Clean Technical Design -->
+    <article class="docs-page">
+        <div class="container">
+            <div class="docs-layout">
+                <!-- Main Content -->
+                <div class="docs-main">
+                    <!-- Breadcrumb -->
+                    <nav class="docs-breadcrumb">
+                        <a href="/docs">Documentation</a>
+                        <i class="fas fa-chevron-right"></i>
+                        <span class="arc-skeleton">{{ title }}</span>
+                    </nav>
+
+                    <!-- Document Header -->
+                    <header class="docs-header">
+                        <div class="docs-meta">
+                            <span class="doc-category-badge">{{ cat }}</span>
+                            <span class="meta-separator">•</span>
+                            <time datetime="{{ date }}">{{ date }}</time>
+                            <span class="meta-separator">•</span>
+                            <span><i class="far fa-clock"></i> <span class="arc-skeleton">{{ readingTime }}</span></span>
+                        </div>
+                        <h1 class="docs-title arc-skeleton">{{ title }}</h1>
+                    </header>
+
+                    <!-- Document Content -->
+                    <div class="docs-content" [innerHTML]="content">
+                        <p class="arc-skeleton">Documentation content loads here...</p>
+                    </div>
+
+                    <!-- Tags Section -->
+                    <div class="docs-tags">
+                        <div class="tag-list" data-arc-loop="tags">
+                            <span class="tag" style="background-color: {{ color }}; color: #333;">{{ name }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Document Actions -->
+                    <div class="docs-actions">
+                        <div class="action-buttons">
+                            <button class="action-btn" onclick="window.print()">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                            <button class="action-btn" id="copyLinkBtn">
+                                <i class="fas fa-link"></i> Copy Link
+                            </button>
+                        </div>
+                        <div class="share-buttons">
+                            <span class="share-label">Share:</span>
+                            <a href="{{ share.twitter }}" target="_blank" class="share-btn"
+                                title="Share on Twitter">
+                                <i class="fab fa-twitter"></i>
+                            </a>
+                            <a href="{{ share.linkedin }}" target="_blank" class="share-btn"
+                                title="Share on LinkedIn">
+                                <i class="fab fa-linkedin-in"></i>
+                            </a>
+                            <a href="{{ share.email }}" class="share-btn" title="Share via Email">
+                                <i class="fas fa-envelope"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Document Navigation -->
+                    <nav class="docs-nav">
+                        <div class="nav-prev" data-arc-if="previousContent">
+                            <a href="{{ previousContent.url }}" class="nav-link">
+                                <span class="nav-direction"><i class="fas fa-chevron-left"></i> Previous</span>
+                                <span class="nav-title">{{ previousContent.title }}</span>
+                            </a>
+                        </div>
+                        <div class="nav-next" data-arc-if="nextContent">
+                            <a href="{{ nextContent.url }}" class="nav-link">
+                                <span class="nav-direction">Next <i class="fas fa-chevron-right"></i></span>
+                                <span class="nav-title">{{ nextContent.title }}</span>
+                            </a>
+                        </div>
+                    </nav>
+                </div>
+
+                <!-- Sidebar - Table of Contents -->
+                <aside class="docs-sidebar">
+                    <div class="toc-wrapper">
+                        <h4 class="toc-title">
+                            <i class="fas fa-list"></i> On This Page
+                        </h4>
+                        <nav class="toc" id="tableOfContents">
+                            <!-- Auto-generated from content headings -->
+                        </nav>
+                    </div>
+                    <a href="/docs" class="back-to-docs">
+                        <i class="fas fa-arrow-left"></i> Back to All Docs
+                    </a>
+                </aside>
+            </div>
+        </div>
+    </article>
+
+    <arc-footer></arc-footer>
+</div>
+
+<style>
+    /* Documentation Detail Styles - Modern Technical Design */
+    .docs-page {
+        padding: 2rem 0 4rem;
+        background: #ffffff;
+        min-height: 70vh;
+    }
+
+    .docs-layout {
+        display: grid;
+        grid-template-columns: 1fr 280px;
+        gap: 4rem;
+        align-items: start;
+    }
+
+    .docs-main {
+        max-width: 800px;
+    }
+
+    /* Breadcrumb */
+    .docs-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 1.5rem;
+    }
+
+    .docs-breadcrumb a {
+        color: #00a8cc;
+        text-decoration: none;
+    }
+
+    .docs-breadcrumb a:hover {
+        text-decoration: underline;
+    }
+
+    .docs-breadcrumb i {
+        font-size: 0.7rem;
+        color: #adb5bd;
+    }
+
+    /* Document Header */
+    .docs-header {
+        margin-bottom: 2.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .docs-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+
+    .doc-category-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #00d4ff;
+        border-radius: 4px;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        letter-spacing: 0.05em;
+    }
+
+    .doc-category-badge:empty,
+    .meta-separator:has(+ .doc-category-badge:empty) {
+        display: none;
+    }
+
+    .meta-separator {
+        color: #dee2e6;
+    }
+
+    .docs-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        line-height: 1.25;
+        letter-spacing: -0.02em;
+    }
+
+    /* Document Content */
+    .docs-content {
+        font-size: 1.05rem;
+        line-height: 1.8;
+        color: #333;
+    }
+
+    .docs-content h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-top: 3rem;
+        margin-bottom: 1rem;
+        color: #1a1a2e;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .docs-content h3 {
+        font-size: 1.35rem;
+        font-weight: 600;
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+        color: #1a1a2e;
+    }
+
+    .docs-content h4 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        color: #1a1a2e;
+    }
+
+    .docs-content p {
+        margin-bottom: 1.25rem;
+    }
+
+    .docs-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        margin: 1.5rem 0;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .docs-content blockquote {
+        border-left: 4px solid #00a8cc;
+        padding: 1rem 1.25rem;
+        margin: 1.5rem 0;
+        background: #f8f9fa;
+        border-radius: 0 8px 8px 0;
+        color: #495057;
+    }
+
+    .docs-content blockquote p:last-child {
+        margin-bottom: 0;
+    }
+
+    .docs-content code {
+        background: #f1f3f5;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.9em;
+        font-family: 'SF Mono', 'Fira Code', Monaco, monospace;
+        color: #d63384;
+    }
+
+    .docs-content pre {
+        background: #1a1a2e;
+        color: #e9ecef;
+        padding: 1.5rem;
+        border-radius: 12px;
+        overflow-x: auto;
+        margin: 1.5rem 0;
+        position: relative;
+    }
+
+    .docs-content pre code {
+        background: none;
+        padding: 0;
+        color: inherit;
+        font-size: 0.9rem;
+    }
+
+    .docs-content pre::before {
+        content: 'Code';
+        position: absolute;
+        top: 0.5rem;
+        right: 0.75rem;
+        font-size: 0.7rem;
+        color: rgba(255, 255, 255, 0.4);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .docs-content ul,
+    .docs-content ol {
+        margin-bottom: 1.25rem;
+        padding-left: 1.5rem;
+    }
+
+    .docs-content li {
+        margin-bottom: 0.5rem;
+    }
+
+    .docs-content table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+        font-size: 0.95rem;
+    }
+
+    .docs-content th,
+    .docs-content td {
+        padding: 0.75rem 1rem;
+        border: 1px solid #e9ecef;
+        text-align: left;
+    }
+
+    .docs-content th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #1a1a2e;
+    }
+
+    .docs-content a {
+        color: #00a8cc;
+        text-decoration: none;
+    }
+
+    .docs-content a:hover {
+        text-decoration: underline;
+    }
+
+    /* Callout boxes */
+    .docs-content .note,
+    .docs-content .warning,
+    .docs-content .tip {
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        margin: 1.5rem 0;
+    }
+
+    .docs-content .note {
+        background: #e7f5ff;
+        border-left: 4px solid #339af0;
+    }
+
+    .docs-content .warning {
+        background: #fff9db;
+        border-left: 4px solid #fab005;
+    }
+
+    .docs-content .tip {
+        background: #d3f9d8;
+        border-left: 4px solid #40c057;
+    }
+
+    /* Tags */
+    .docs-tags {
+        margin-top: 3rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .tag {
+        background: #6c757d;
+        color: #333;
+        padding: 0.35rem 0.75rem;
+        border-radius: 100px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    /* Document Actions */
+    .docs-actions {
+        margin-top: 2rem;
+        padding: 1.5rem 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #495057;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+        background: #f8f9fa;
+        border-color: #adb5bd;
+    }
+
+    .share-buttons {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .share-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    .share-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #f8f9fa;
+        color: #495057;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .share-btn:hover {
+        background: #1a1a2e;
+        color: #ffffff;
+    }
+
+    /* Document Navigation */
+    .docs-nav {
+        margin-top: 2rem;
+        padding-top: 2rem;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        gap: 2rem;
+    }
+
+    .nav-prev,
+    .nav-next {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .nav-next {
+        text-align: right;
+    }
+
+    .docs-nav .nav-link {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+        transition: all 0.2s;
+    }
+
+    .docs-nav .nav-link:hover {
+        background: #f8f9fa;
+        border-color: #00a8cc;
+    }
+
+    .nav-direction {
+        display: block;
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .nav-title {
+        display: block;
+        font-weight: 600;
+        color: #1a1a2e;
+        font-size: 0.95rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Sidebar */
+    .docs-sidebar {
+        position: sticky;
+        top: 2rem;
+    }
+
+    .toc-wrapper {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .toc-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .toc-title i {
+        color: #00a8cc;
+    }
+
+    .toc {
+        font-size: 0.85rem;
+    }
+
+    .toc a {
+        display: block;
+        padding: 0.4rem 0;
+        color: #6c757d;
+        text-decoration: none;
+        border-left: 2px solid transparent;
+        padding-left: 0.75rem;
+        transition: all 0.2s;
+    }
+
+    .toc a:hover,
+    .toc a.active {
+        color: #00a8cc;
+        border-left-color: #00a8cc;
+    }
+
+    .toc a.level-3 {
+        padding-left: 1.5rem;
+        font-size: 0.8rem;
+    }
+
+    .back-to-docs {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: color 0.2s;
+    }
+
+    .back-to-docs:hover {
+        color: #1a1a2e;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+        .docs-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .docs-sidebar {
+            display: none;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .docs-title {
+            font-size: 1.75rem;
+        }
+
+        .docs-meta {
+            flex-wrap: wrap;
+        }
+
+        .docs-actions {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .docs-nav {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .nav-next {
+            text-align: left;
+        }
+    }
+
+    /* Print styles */
+    @media print {
+
+        .docs-sidebar,
+        .docs-actions,
+        .docs-nav,
+        .docs-breadcrumb,
+        arc-header,
+        arc-footer {
+            display: none !important;
+        }
+
+        .docs-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .docs-content pre {
+            background: #f5f5f5 !important;
+            color: #333 !important;
+        }
+    }
+</style>
+
+<script>
+    (function () {
+        // Slugify function - converts text to URL-friendly slug
+        function slugify(text) {
+            return text
+                .toLowerCase()
+                .trim()
+                .replace(/[^\w\s-]/g, '') // Remove special characters
+                .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
+                .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+        }
+
+        // Generate Table of Contents from headings
+        function generateTOC() {
+            var content = document.querySelector('.docs-content');
+            var toc = document.getElementById('tableOfContents');
+            if (!content || !toc) return;
+
+            // Clear existing TOC entries to prevent duplicates
+            toc.innerHTML = '';
+
+            var headings = content.querySelectorAll('h2, h3');
+            var usedSlugs = {}; // Track used slugs to avoid duplicates
+
+            headings.forEach(function (heading, index) {
+                // Create slug from heading text
+                var baseSlug = slugify(heading.textContent);
+                var slug = baseSlug;
+
+                // Handle duplicate slugs by appending a number
+                if (usedSlugs[slug]) {
+                    usedSlugs[slug]++;
+                    slug = baseSlug + '-' + usedSlugs[slug];
+                } else {
+                    usedSlugs[baseSlug] = 1;
+                }
+
+                // Set the heading ID to the slug
+                heading.id = slug;
+
+                var link = document.createElement('a');
+                link.href = '#' + slug;
+                link.textContent = heading.textContent;
+                link.className = heading.tagName === 'H3' ? 'level-3' : '';
+
+                // Add explicit click handler for smooth scrolling
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    var targetId = this.getAttribute('href').substring(1);
+                    var targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        // Update URL hash without jumping
+                        history.pushState(null, null, '#' + targetId);
+                    }
+                });
+
+                toc.appendChild(link);
+            });
+        }
+
+        // Copy link functionality
+        var copyBtn = document.getElementById('copyLinkBtn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function () {
+                navigator.clipboard.writeText(window.location.href).then(function () {
+                    var originalText = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                    setTimeout(function () {
+                        copyBtn.innerHTML = originalText;
+                    }, 2000);
+                });
+            });
+        }
+
+        // Highlight current section in TOC
+        function highlightTOC() {
+            var headings = document.querySelectorAll('.docs-content h2, .docs-content h3');
+            var tocLinks = document.querySelectorAll('.toc a');
+
+            var currentSection = null;
+            headings.forEach(function (heading) {
+                var rect = heading.getBoundingClientRect();
+                if (rect.top <= 100) {
+                    currentSection = heading.id;
+                }
+            });
+
+            tocLinks.forEach(function (link) {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + currentSection) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Hide empty nav links
+        function processNavLinks() {
+            document.querySelectorAll('.nav-link').forEach(function (link) {
+                var title = link.querySelector('.nav-title');
+                if (title && !title.textContent.trim()) {
+                    link.closest('.nav-prev, .nav-next').style.display = 'none';
+                }
+            });
+        }
+
+        // Initialize
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function () {
+                generateTOC();
+                processNavLinks();
+            });
+        } else {
+            generateTOC();
+            processNavLinks();
+        }
+
+        // Delayed initialization for Angular hydration
+        setTimeout(function () {
+            generateTOC();
+            processNavLinks();
+        }, 500);
+        setTimeout(function () {
+            generateTOC();
+            processNavLinks();
+        }, 1500);
+
+        window.addEventListener('scroll', highlightTOC);
+    })();
+</script>
