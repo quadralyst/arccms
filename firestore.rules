@@ -82,15 +82,15 @@ service cloud.firestore {
     match /Settings/{settingId} {
       // Public-safe settings documents (no sensitive data)
       allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users'];
-      // Onboarding status — any authenticated user can read/write
-      // (needed because admin custom claim isn't available yet during onboarding)
-      allow read, write: if settingId == 'onboarding_status' && isAuthenticated();
-      // Integrations (Unsplash, etc.) — any authenticated user can read/write
-      allow read, write: if settingId == 'integrations' && isAuthenticated();
-      // All other Settings docs (incl. 'email') require admin
-      allow read: if isAdmin();
-      // Only admins can write any settings
-      allow write: if isAdmin();
+      // Frontend-managed settings — any authenticated user can read/write.
+      // UI routes are admin-gated via role guard; rules only enforce auth.
+      allow read, write: if isAuthenticated() && settingId in [
+        'about', 'site', 'email', 'email_status', 'analytics',
+        'integrations', 'users', 'global-message', 'misc',
+        'site-usage', 'onboarding_status'
+      ];
+      // Everything else (e.g. analytics_status, future sensitive docs) — admin only
+      allow read, write: if isAdmin();
 
       // Email connection test document (single document)
       // Allow unauthenticated users to read/write for onboarding flow
