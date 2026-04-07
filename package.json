@@ -90,7 +90,7 @@
     "firebase-functions": "^7.0.5",
     "jsdom": "^22.0.0",
     "typescript": "~5.9.0",
-    "vite": "^7.0.0",
+    "vite": "^7.3.2",
     "vite-tsconfig-paths": "^4.2.0",
     "vitest": "^4.0.0",
     "zone.js": "^0.16.0"
