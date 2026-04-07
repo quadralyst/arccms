@@ -89,6 +89,9 @@ service cloud.firestore {
         'integrations', 'users', 'global-message', 'misc',
         'site-usage', 'onboarding_status'
       ];
+      // analytics_status — authenticated read (frontend listener for GA connect flow);
+      // writes are Cloud Function only (Admin SDK bypasses rules).
+      allow read: if settingId == 'analytics_status' && isAuthenticated();
       // Everything else (e.g. analytics_status, future sensitive docs) — admin only
       allow read, write: if isAdmin();
 
