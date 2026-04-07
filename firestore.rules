@@ -85,6 +85,8 @@ service cloud.firestore {
       // Onboarding status — any authenticated user can read/write
       // (needed because admin custom claim isn't available yet during onboarding)
       allow read, write: if settingId == 'onboarding_status' && isAuthenticated();
+      // Integrations (Unsplash, etc.) — any authenticated user can read/write
+      allow read, write: if settingId == 'integrations' && isAuthenticated();
       // All other Settings docs (incl. 'email') require admin
       allow read: if isAdmin();
       // Only admins can write any settings
