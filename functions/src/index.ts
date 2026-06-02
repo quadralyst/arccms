@@ -49,5 +49,12 @@ export * from './AnalyticsDashboard/selectAnalyticsProperty.js';
 // Unsplash proxy — keeps API key server-side
 export * from './integrations/searchUnsplash.js';
 
+// Dodo Payments — checkout, webhook ingestion, event processing, trial reminders
+export * from './dodo-payments/createCheckoutSession.js';
+export * from './dodo-payments/dodoWebhook.js';
+export * from './dodo-payments/handlePaymentEvent.js';
+export * from './dodo-payments/testDodoConnection.js';
+export * from './dodo-payments/scanTrialEndings.js';
+
 // One-time seed function — deploy all existing content as static HTML
 export { seedStaticPages } from './pages/seedStaticPages.js';
