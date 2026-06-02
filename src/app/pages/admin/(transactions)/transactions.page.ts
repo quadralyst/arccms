@@ -82,6 +82,6 @@ export default class TransactionsPageComponent extends BaseComponent implements 
     });
 
     ngOnInit(): void {
-        this.store.getAll({ currentPageNumber: 0 });
+        this.store.getAll();
     }
 }

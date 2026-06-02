@@ -51,6 +51,7 @@ export * from './integrations/searchUnsplash.js';
 
 // Dodo Payments — checkout, webhook ingestion, event processing, trial reminders
 export * from './dodo-payments/createCheckoutSession.js';
+export * from './dodo-payments/createTestCheckoutLink.js';
 export * from './dodo-payments/dodoWebhook.js';
 export * from './dodo-payments/handlePaymentEvent.js';
 export * from './dodo-payments/testDodoConnection.js';

@@ -13,10 +13,11 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
+import { EmailTemplateEditorComponent } from '../../../../../shared/components/email-template-editor/email-template-editor.component';
 import { roleGuard } from '../../../../guards/role.guard';
 import { PaymentSettingsService, PAYMENT_EMAIL_DEFINITIONS } from './payment-settings.service';
 import { MASKED_VALUE } from './payment-settings.model';
-import { IEmailTemplate } from '../../(waitlists)/email-template.model';
+import { IEmailTemplate, PaymentEmailType } from '../../(waitlists)/email-template.model';
 
 export const routeMeta: RouteMeta = {
     title: 'Payments Settings | Arc CMS',
@@ -40,6 +41,7 @@ export const routeMeta: RouteMeta = {
         MatSelectModule,
         MatExpansionModule,
         MatTooltipModule,
+        EmailTemplateEditorComponent,
     ],
     template: `
         <div class="payments-settings">
@@ -179,10 +181,12 @@ export const routeMeta: RouteMeta = {
                                         <mat-label>Subject</mat-label>
                                         <input matInput [(ngModel)]="templates[def.type].subject" />
                                     </mat-form-field>
-                                    <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>HTML Body</mat-label>
-                                        <textarea matInput rows="10" [(ngModel)]="templates[def.type].template"></textarea>
-                                    </mat-form-field>
+                                    <label class="editor-label">Email body</label>
+                                    <arc-email-template-editor
+                                        [placeholders]="paymentTags"
+                                        [value]="templates[def.type].template"
+                                        (contentChange)="templates[def.type].template = $event">
+                                    </arc-email-template-editor>
 
                                     <div class="d-flex justify-content-end">
                                         <button mat-raised-button color="primary" type="button" (click)="saveTemplate(def.type)" [disabled]="savingType() === def.type">
@@ -205,6 +209,7 @@ export const routeMeta: RouteMeta = {
         mat-card-title { font-size: 1rem !important; font-weight: 600; }
         .webhook-hint { font-size: 0.8rem; color: #495057; background: #f8f9fa; border-left: 3px solid #0d6efd; border-radius: 6px; padding: 10px 14px; margin-top: 8px; }
         .webhook-hint code { background: #e9ecef; padding: 1px 5px; border-radius: 3px; }
+        .editor-label { display: block; font-size: 0.8rem; color: #6c757d; margin: 4px 0 6px; }
     `],
 })
 export default class PaymentsSettingPageComponent extends BaseComponent implements OnInit {
@@ -220,6 +225,12 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
     emailDefs = PAYMENT_EMAIL_DEFINITIONS;
     templates: Record<string, IEmailTemplate> = {};
 
+    /** Tags surfaced as insertable chips in the email body editor. */
+    paymentTags = [
+        '##NAME##', '##PAYMENT_AMOUNT##', '##CURRENCY##', '##PAYMENT_STATUS##',
+        '##SUBSCRIPTION_PLAN##', '##RENEWAL_DATE##', '##TRIAL_ENDS_AT##',
+    ];
+
     ngOnInit(): void {
         this.form = this.fb.group({
             enabled: [false],
@@ -231,7 +242,27 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
             successUrl: [''],
             cancelUrl: [''],
         });
+        this.initTemplates();
         this.load();
+    }
+
+    private defaultTemplate(def: { type: PaymentEmailType; subject: string; template: string }): IEmailTemplate {
+        return {
+            type: def.type,
+            scope: 'payments',
+            senderEmail: '',
+            senderName: '',
+            subject: def.subject,
+            template: def.template,
+            isActive: false,
+        };
+    }
+
+    /** Populate template objects synchronously so the form renders before the async load resolves. */
+    private initTemplates(): void {
+        for (const def of this.emailDefs) {
+            this.templates[def.type] = this.defaultTemplate(def);
+        }
     }
 
     private load(): void {
@@ -244,20 +275,16 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
             error: () => this.isLoading.set(false),
         });
 
-        this.service.getPaymentTemplates().then((saved) => {
-            for (const def of this.emailDefs) {
-                const existing = saved[def.type];
-                this.templates[def.type] = existing ?? {
-                    type: def.type,
-                    scope: 'payments',
-                    senderEmail: '',
-                    senderName: '',
-                    subject: def.subject,
-                    template: def.template,
-                    isActive: false,
-                };
-            }
-        });
+        this.service.getPaymentTemplates()
+            .then((saved) => {
+                // Overwrite defaults with any saved templates.
+                for (const def of this.emailDefs) {
+                    if (saved[def.type]) {
+                        this.templates[def.type] = saved[def.type];
+                    }
+                }
+            })
+            .catch((e) => console.error('Failed to load payment templates', e));
     }
 
     async save(): Promise<void> {
