@@ -12,8 +12,10 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSelectModule } from '@angular/material/select';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { EmailTemplateEditorComponent } from '../../../../../shared/components/email-template-editor/email-template-editor.component';
+import { TestEmailComponent } from '../../../../../shared/components/test-email/test-email.component';
 import { roleGuard } from '../../../../guards/role.guard';
 import { PaymentSettingsService, PAYMENT_EMAIL_DEFINITIONS } from './payment-settings.service';
 import { MASKED_VALUE } from './payment-settings.model';
@@ -41,6 +43,7 @@ export const routeMeta: RouteMeta = {
         MatSelectModule,
         MatExpansionModule,
         MatTooltipModule,
+        MatDialogModule,
         EmailTemplateEditorComponent,
     ],
     template: `
@@ -167,32 +170,56 @@ export const routeMeta: RouteMeta = {
                                         <div class="col-md-6">
                                             <mat-form-field appearance="outline" class="w-100">
                                                 <mat-label>Sender Name</mat-label>
-                                                <input matInput [(ngModel)]="templates[def.type].senderName" />
+                                                <input matInput [ngModel]="templates[def.type].senderName" (ngModelChange)="onFieldChange(def.type, 'senderName', $event)" />
                                             </mat-form-field>
                                         </div>
                                         <div class="col-md-6">
                                             <mat-form-field appearance="outline" class="w-100">
                                                 <mat-label>Sender Email</mat-label>
-                                                <input matInput [(ngModel)]="templates[def.type].senderEmail" />
+                                                <input matInput [ngModel]="templates[def.type].senderEmail" (ngModelChange)="onFieldChange(def.type, 'senderEmail', $event)" />
                                             </mat-form-field>
                                         </div>
                                     </div>
                                     <mat-form-field appearance="outline" class="w-100">
                                         <mat-label>Subject</mat-label>
-                                        <input matInput [(ngModel)]="templates[def.type].subject" />
+                                        <input matInput [ngModel]="templates[def.type].subject" (ngModelChange)="onFieldChange(def.type, 'subject', $event)" />
                                     </mat-form-field>
                                     <label class="editor-label">Email body</label>
                                     <arc-email-template-editor
                                         [placeholders]="paymentTags"
                                         [value]="templates[def.type].template"
-                                        (contentChange)="templates[def.type].template = $event">
+                                        (contentChange)="onFieldChange(def.type, 'template', $event)">
                                     </arc-email-template-editor>
 
-                                    <div class="d-flex justify-content-end">
-                                        <button mat-raised-button color="primary" type="button" (click)="saveTemplate(def.type)" [disabled]="savingType() === def.type">
-                                            @if (savingType() === def.type) { <mat-spinner diameter="18" class="me-2"></mat-spinner> Saving… }
-                                            @else { Save Template }
-                                        </button>
+                                    <!-- Test → confirm → save gate -->
+                                    <div class="template-footer">
+                                        @if (awaitingConfirm()[def.type]) {
+                                            <div class="confirm-box">
+                                                <span class="confirm-q"><mat-icon class="me-1">mark_email_read</mat-icon> Did you receive the test email?</span>
+                                                <span class="confirm-actions">
+                                                    <button mat-stroked-button type="button" (click)="confirmReceived(def.type, false)">Not yet</button>
+                                                    <button mat-raised-button color="primary" type="button" (click)="confirmReceived(def.type, true)">Yes, I received it</button>
+                                                </span>
+                                            </div>
+                                        }
+                                        <div class="footer-row">
+                                            <span class="confirm-hint">
+                                                @if (confirmed()[def.type]) {
+                                                    <mat-icon class="ok">check_circle</mat-icon> Test confirmed — you can save.
+                                                } @else {
+                                                    Send a test email and confirm receipt to enable saving.
+                                                }
+                                            </span>
+                                            <span class="footer-actions">
+                                                <button mat-stroked-button type="button" (click)="sendTest(def)" [disabled]="!templates[def.type].template">
+                                                    <mat-icon class="me-1">send</mat-icon> Test email
+                                                </button>
+                                                <button mat-raised-button color="primary" type="button" (click)="saveTemplate(def.type)" [disabled]="savingType() === def.type || !confirmed()[def.type]">
+                                                    @if (savingType() === def.type) { <mat-spinner diameter="18" class="me-2"></mat-spinner> Saving… }
+                                                    @else { Save Template }
+                                                </button>
+                                            </span>
+                                        </div>
                                     </div>
                                 </mat-expansion-panel>
                             }
@@ -210,11 +237,25 @@ export const routeMeta: RouteMeta = {
         .webhook-hint { font-size: 0.8rem; color: #495057; background: #f8f9fa; border-left: 3px solid #0d6efd; border-radius: 6px; padding: 10px 14px; margin-top: 8px; }
         .webhook-hint code { background: #e9ecef; padding: 1px 5px; border-radius: 3px; }
         .editor-label { display: block; font-size: 0.8rem; color: #6c757d; margin: 4px 0 6px; }
+        .template-footer { margin-top: 12px; }
+        .footer-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .footer-actions { display: flex; gap: 8px; }
+        .confirm-hint { font-size: 0.8rem; color: #6c757d; display: inline-flex; align-items: center; gap: 4px; }
+        .confirm-hint .ok { color: #198754; font-size: 18px; height: 18px; width: 18px; }
+        .confirm-box { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+            background: #fff8e1; border: 1px solid #ffe69c; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
+        .confirm-q { display: inline-flex; align-items: center; font-size: 0.875rem; font-weight: 500; color: #664d03; }
+        .confirm-actions { display: flex; gap: 8px; }
     `],
 })
 export default class PaymentsSettingPageComponent extends BaseComponent implements OnInit {
     private fb = inject(FormBuilder);
     private service = inject(PaymentSettingsService);
+    private dialog = inject(MatDialog);
+
+    /** Per-template gate: a test email must be sent and confirmed before saving. */
+    confirmed = signal<Record<string, boolean>>({});
+    awaitingConfirm = signal<Record<string, boolean>>({});
 
     form!: FormGroup;
     isLoading = signal(true);
@@ -337,6 +378,55 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
             this.toastService.error('Failed to save template.');
         } finally {
             this.savingType.set(null);
+        }
+    }
+
+    /** Update a template field and invalidate any prior test confirmation. */
+    onFieldChange(type: string, key: 'senderName' | 'senderEmail' | 'subject' | 'template', value: string): void {
+        (this.templates[type] as unknown as Record<string, string>)[key] = value;
+        if (this.confirmed()[type] || this.awaitingConfirm()[type]) {
+            this.confirmed.update((m) => ({ ...m, [type]: false }));
+            this.awaitingConfirm.update((m) => ({ ...m, [type]: false }));
+        }
+    }
+
+    /** Open the shared test-email dialog (sends via the EmailLogs pipeline), then ask for confirmation. */
+    sendTest(def: { type: PaymentEmailType }): void {
+        const tpl = this.templates[def.type];
+        if (!tpl?.template) {
+            this.toastService.error('Add email content before sending a test.');
+            return;
+        }
+        const ref = this.dialog.open(TestEmailComponent, {
+            width: '90vw',
+            maxWidth: '1000px',
+            maxHeight: '90vh',
+            panelClass: 'test-email-dialog',
+            data: {
+                formValue: {
+                    senderName: tpl.senderName,
+                    senderEmail: tpl.senderEmail,
+                    subject: tpl.subject,
+                    previewText: tpl.previewText || '',
+                },
+                contentTemplate: tpl.template,
+                allSelectedTemplateData: { type: def.type },
+            },
+        });
+        ref.afterClosed().subscribe(() => {
+            // The test is sent from inside the dialog; once it closes, confirm receipt.
+            this.awaitingConfirm.update((m) => ({ ...m, [def.type]: true }));
+        });
+    }
+
+    /** Record whether the admin received the test email; gates the Save button. */
+    confirmReceived(type: string, received: boolean): void {
+        this.awaitingConfirm.update((m) => ({ ...m, [type]: false }));
+        if (received) {
+            this.confirmed.update((m) => ({ ...m, [type]: true }));
+            this.toastService.success('Confirmed — you can now save this template.');
+        } else {
+            this.toastService.error('No test received. Check your Email settings, then send another test.');
         }
     }
 }
