@@ -66,7 +66,7 @@ export const routeMeta: RouteMeta = {
                 }
 
                 <div class="section-label">Pricing tiers</div>
-                @if (p.tiers?.length) {
+                @if (p.tiers.length) {
                   <table class="tiers-table">
                     <thead><tr><th>Tier</th><th>Up to</th><th>Code</th><th>Off</th><th>Test payment link</th></tr></thead>
                     <tbody>
@@ -85,8 +85,11 @@ export const routeMeta: RouteMeta = {
                               </div>
                             } @else {
                               <button mat-stroked-button class="gen-btn" (click)="generateTestLink(p, i, t.discountCode)" [disabled]="generatingTier() === i">
-                                @if (generatingTier() === i) { <mat-spinner diameter="16" class="me-1"></mat-spinner> Generating… }
-                                @else { <mat-icon class="me-1">link</mat-icon> Generate }
+                                @if (generatingTier() === i) {
+                                  <span class="btn-inner"><mat-spinner diameter="16" class="me-1"></mat-spinner> Generating…</span>
+                                } @else {
+                                  <span class="btn-inner"><mat-icon class="me-1">link</mat-icon> Generate</span>
+                                }
                               </button>
                             }
                           </td>
@@ -278,6 +281,7 @@ export const routeMeta: RouteMeta = {
         .tiers-table th { color: #6c757d; font-weight: 600; }
         .link-cell { min-width: 160px; }
         .gen-btn { font-size: 0.75rem; line-height: 1.6; min-height: 30px; padding: 0 10px; }
+        .btn-inner { display: inline-flex; align-items: center; }
         .link-row { display: flex; align-items: center; gap: 2px; }
         .link-input { width: 110px; font-size: 0.72rem; font-family: monospace; border: 1px solid #e9ecef; border-radius: 4px; padding: 3px 6px; background: #f8f9fa; }
         .detail-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid #e9ecef; }
@@ -344,11 +348,11 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         this.selected.set(p);
         this.testLinks.set({});
         this.generatingTier.set(null);
-        this.drawer?.open();
+        this.drawer.open();
     }
 
     closeDetail(): void {
-        this.drawer?.close();
+        this.drawer.close();
         this.selected.set(null);
         this.testLinks.set({});
     }
