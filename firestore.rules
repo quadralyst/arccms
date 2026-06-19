@@ -82,13 +82,21 @@ service cloud.firestore {
     match /Settings/{settingId} {
       // Public-safe settings documents (no sensitive data)
       allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users'];
-      // Onboarding status — any authenticated user can read/write
-      // (needed because admin custom claim isn't available yet during onboarding)
-      allow read, write: if settingId == 'onboarding_status' && isAuthenticated();
-      // All other Settings docs (incl. 'email') require admin
-      allow read: if isAdmin();
-      // Only admins can write any settings
-      allow write: if isAdmin();
+      // Frontend-managed settings — any authenticated user can read/write.
+      // UI routes are admin-gated via role guard; rules only enforce auth.
+      allow read, write: if isAuthenticated() && settingId in [
+        'about', 'site', 'email', 'email_status', 'analytics',
+        'integrations', 'users', 'global-message', 'misc',
+        'site-usage', 'onboarding_status'
+      ];
+      // analytics_status — authenticated read (frontend listener for GA connect flow);
+      // writes are Cloud Function only (Admin SDK bypasses rules).
+      allow read: if settingId == 'analytics_status' && isAuthenticated();
+      // dodo-payments — holds API keys + webhook secret. Admin only (secrets are
+      // also masked on read in the UI layer). Listed explicitly for clarity.
+      allow read, write: if settingId == 'dodo-payments' && isAdmin();
+      // Everything else (e.g. analytics_status, future sensitive docs) — admin only
+      allow read, write: if isAdmin();
 
       // Email connection test document (single document)
       // Allow unauthenticated users to read/write for onboarding flow
@@ -104,10 +112,39 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() || isAdmin();
-      // Doc IDs are auto-generated; compare auth uid against the uid field in the doc
-      // Admin can also update any user doc (needed for migration re-keying)
-      allow update: if (isAuthenticated() && resource.data.uid == request.auth.uid) || isAdmin();
+      // Doc IDs are auto-generated; compare auth uid against the uid field in the doc.
+      // Admin can update any user doc (migration re-keying). A user may update their
+      // own doc EXCEPT the premium entitlement fields — those are written only by
+      // Cloud Functions (Admin SDK bypasses rules) so users cannot self-grant access.
+      allow update: if isAdmin() ||
+        (isAuthenticated() && resource.data.uid == request.auth.uid
+         && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
+                       'premiumExpiresAt', 'dodoSubscriptionId', 'dodoCustomerId',
+                       'premiumTrialReminderSent']));
       allow delete: if isAdmin();
+    }
+
+    // ============================================================
+    // PAYMENTS (Dodo) — products, transactions, raw webhook log
+    // ============================================================
+
+    // Products — public read of active products (pricing page); admin write.
+    match /Products/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Transactions — owner or admin read; never written by clients (Cloud Functions only).
+    match /Transactions/{docId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+
+    // WebhookEvents — raw forensic log. Admin read for debugging; Cloud Functions only write.
+    match /WebhookEvents/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // Publish queue — admin writes trigger docs; Cloud Function processes them

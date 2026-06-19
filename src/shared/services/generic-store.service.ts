@@ -358,7 +358,7 @@ export function createGenericStore<T extends IBaseModel>(
                     }),
                     catchError((error) => {
                         patchState(store, { isLoading: false, isSuccess: false, error: error.message || 'An error occurred' });
-                        return of(undefined);
+                        return throwError(() => error);
                     }),
                     finalize(() => {
                         patchState(store, { isLoading: store.isLoading(), isSuccess: store.isSuccess(), error: store.error() });

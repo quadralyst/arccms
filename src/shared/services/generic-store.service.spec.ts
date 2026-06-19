@@ -4,13 +4,18 @@
  * Tests verify the generic store factory function and state management.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { Injectable } from '@angular/core';
+import { of, throwError } from 'rxjs';
 import {
     GenericState,
     getDefaultInitialState,
     createGenericStore,
 } from './generic-store.service';
 import { IBaseModel } from '../models/base-model';
+import { DbService } from './db.service';
+import { AuthState } from '../../app/pages/(auth)/auth.store';
 
 // Test model extending IBaseModel
 interface TestModel extends IBaseModel {
@@ -199,6 +204,65 @@ describe('Generic Store Service', () => {
             it('should track orConditions array', () => {
                 const state = getDefaultInitialState<TestModel>();
                 expect(Array.isArray(state.orConditions)).toBe(true);
+            });
+        });
+
+        describe('delete() error propagation', () => {
+            // Regression: previously catchError swallowed the error and returned of(undefined),
+            // causing callers to see `next` even on Firestore permission failures (e.g., the
+            // "user deleted successfully" toast bug on the Manage Users screen).
+
+            @Injectable({ providedIn: 'root' })
+            class FakeService {
+                delete = vi.fn();
+            }
+
+            const TestStore = createGenericStore<TestModel>(FakeService as any);
+
+            let fakeService: FakeService;
+            let store: InstanceType<typeof TestStore>;
+
+            beforeEach(() => {
+                TestBed.configureTestingModule({
+                    providers: [
+                        FakeService,
+                        { provide: AuthState, useValue: { currentUser: () => ({ id: 'u1' }) } },
+                    ],
+                });
+                fakeService = TestBed.inject(FakeService);
+                store = TestBed.inject(TestStore);
+            });
+
+            it('emits next on success', async () => {
+                fakeService.delete.mockReturnValue(of(undefined));
+
+                const result = await new Promise<{ ok: boolean; err?: any }>((resolve) => {
+                    store.delete('id-1').subscribe({
+                        next: () => resolve({ ok: true }),
+                        error: (err) => resolve({ ok: false, err }),
+                    });
+                });
+
+                expect(result.ok).toBe(true);
+                expect(fakeService.delete).toHaveBeenCalledWith('id-1', undefined);
+            });
+
+            it('errors (does NOT emit next) when underlying service fails', async () => {
+                fakeService.delete.mockReturnValue(
+                    throwError(() => new Error('Missing or insufficient permissions.'))
+                );
+
+                const result = await new Promise<{ ok: boolean; err?: any }>((resolve) => {
+                    store.delete('id-1').subscribe({
+                        next: () => resolve({ ok: true }),
+                        error: (err) => resolve({ ok: false, err }),
+                    });
+                });
+
+                expect(result.ok).toBe(false);
+                expect(result.err?.message).toBe('Missing or insufficient permissions.');
+                expect(store.error()).toBe('Missing or insufficient permissions.');
+                expect(store.isSuccess()).toBe(false);
             });
         });
 
