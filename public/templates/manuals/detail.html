@@ -80,21 +80,6 @@
                         </div>
                     </nav>
                 </div>
-
-                <!-- Sidebar - Table of Contents -->
-                <aside class="docs-sidebar">
-                    <div class="toc-wrapper">
-                        <h4 class="toc-title">
-                            <i class="fas fa-list"></i> On This Page
-                        </h4>
-                        <nav class="toc" id="tableOfContents">
-                            <!-- Auto-generated from content headings -->
-                        </nav>
-                    </div>
-                    <a href="/docs" class="back-to-docs">
-                        <i class="fas fa-arrow-left"></i> Back to All Docs
-                    </a>
-                </aside>
             </div>
         </div>
     </article>
@@ -111,10 +96,7 @@
     }
 
     .docs-layout {
-        display: grid;
-        grid-template-columns: 1fr 280px;
-        gap: 4rem;
-        align-items: start;
+        display: block;
     }
 
     .docs-main {
@@ -487,83 +469,7 @@
         text-overflow: ellipsis;
     }
 
-    /* Sidebar */
-    .docs-sidebar {
-        position: sticky;
-        top: 2rem;
-    }
-
-    .toc-wrapper {
-        background: #f8f9fa;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .toc-title {
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: #1a1a2e;
-        margin-bottom: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .toc-title i {
-        color: #00a8cc;
-    }
-
-    .toc {
-        font-size: 0.85rem;
-    }
-
-    .toc a {
-        display: block;
-        padding: 0.4rem 0;
-        color: #6c757d;
-        text-decoration: none;
-        border-left: 2px solid transparent;
-        padding-left: 0.75rem;
-        transition: all 0.2s;
-    }
-
-    .toc a:hover,
-    .toc a.active {
-        color: #00a8cc;
-        border-left-color: #00a8cc;
-    }
-
-    .toc a.level-3 {
-        padding-left: 1.5rem;
-        font-size: 0.8rem;
-    }
-
-    .back-to-docs {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: #6c757d;
-        text-decoration: none;
-        font-size: 0.85rem;
-        transition: color 0.2s;
-    }
-
-    .back-to-docs:hover {
-        color: #1a1a2e;
-    }
-
     /* Responsive */
-    @media (max-width: 1024px) {
-        .docs-layout {
-            grid-template-columns: 1fr;
-        }
-
-        .docs-sidebar {
-            display: none;
-        }
-    }
-
     @media (max-width: 768px) {
         .docs-title {
             font-size: 1.75rem;
@@ -592,17 +498,12 @@
     /* Print styles */
     @media print {
 
-        .docs-sidebar,
         .docs-actions,
         .docs-nav,
         .docs-breadcrumb,
         arc-header,
         arc-footer {
             display: none !important;
-        }
-
-        .docs-layout {
-            grid-template-columns: 1fr;
         }
 
         .docs-content pre {
@@ -614,65 +515,6 @@
 
 <script>
     (function () {
-        // Slugify function - converts text to URL-friendly slug
-        function slugify(text) {
-            return text
-                .toLowerCase()
-                .trim()
-                .replace(/[^\w\s-]/g, '') // Remove special characters
-                .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
-                .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-        }
-
-        // Generate Table of Contents from headings
-        function generateTOC() {
-            var content = document.querySelector('.docs-content');
-            var toc = document.getElementById('tableOfContents');
-            if (!content || !toc) return;
-
-            // Clear existing TOC entries to prevent duplicates
-            toc.innerHTML = '';
-
-            var headings = content.querySelectorAll('h2, h3');
-            var usedSlugs = {}; // Track used slugs to avoid duplicates
-
-            headings.forEach(function (heading, index) {
-                // Create slug from heading text
-                var baseSlug = slugify(heading.textContent);
-                var slug = baseSlug;
-
-                // Handle duplicate slugs by appending a number
-                if (usedSlugs[slug]) {
-                    usedSlugs[slug]++;
-                    slug = baseSlug + '-' + usedSlugs[slug];
-                } else {
-                    usedSlugs[baseSlug] = 1;
-                }
-
-                // Set the heading ID to the slug
-                heading.id = slug;
-
-                var link = document.createElement('a');
-                link.href = '#' + slug;
-                link.textContent = heading.textContent;
-                link.className = heading.tagName === 'H3' ? 'level-3' : '';
-
-                // Add explicit click handler for smooth scrolling
-                link.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    var targetId = this.getAttribute('href').substring(1);
-                    var targetElement = document.getElementById(targetId);
-                    if (targetElement) {
-                        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        // Update URL hash without jumping
-                        history.pushState(null, null, '#' + targetId);
-                    }
-                });
-
-                toc.appendChild(link);
-            });
-        }
-
         // Copy link functionality
         var copyBtn = document.getElementById('copyLinkBtn');
         if (copyBtn) {
@@ -687,27 +529,6 @@
             });
         }
 
-        // Highlight current section in TOC
-        function highlightTOC() {
-            var headings = document.querySelectorAll('.docs-content h2, .docs-content h3');
-            var tocLinks = document.querySelectorAll('.toc a');
-
-            var currentSection = null;
-            headings.forEach(function (heading) {
-                var rect = heading.getBoundingClientRect();
-                if (rect.top <= 100) {
-                    currentSection = heading.id;
-                }
-            });
-
-            tocLinks.forEach(function (link) {
-                link.classList.remove('active');
-                if (link.getAttribute('href') === '#' + currentSection) {
-                    link.classList.add('active');
-                }
-            });
-        }
-
         // Hide empty nav links
         function processNavLinks() {
             document.querySelectorAll('.nav-link').forEach(function (link) {
@@ -718,27 +539,12 @@
             });
         }
 
-        // Initialize
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function () {
-                generateTOC();
-                processNavLinks();
-            });
+            document.addEventListener('DOMContentLoaded', processNavLinks);
         } else {
-            generateTOC();
             processNavLinks();
         }
-
-        // Delayed initialization for Angular hydration
-        setTimeout(function () {
-            generateTOC();
-            processNavLinks();
-        }, 500);
-        setTimeout(function () {
-            generateTOC();
-            processNavLinks();
-        }, 1500);
-
-        window.addEventListener('scroll', highlightTOC);
+        setTimeout(processNavLinks, 500);
+        setTimeout(processNavLinks, 1500);
     })();
 </script>

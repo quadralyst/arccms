@@ -21,6 +21,20 @@ export interface IUser extends IBaseModel {
     uid: string;
     isOnBoardingComplete?: boolean;
     updatedAt?: Date;
+
+    // ── Premium entitlement (written ONLY by Cloud Functions; clients cannot set these) ──
+    /** Master gate — true when the user currently holds a paid entitlement. */
+    isPro?: boolean;
+    /** The single active tier key, e.g. 'plus' | 'gold' | 'platinum'. */
+    premiumType?: string;
+    /** Internal rank used for highest-tier-wins resolution (higher = more access). */
+    premiumTierRank?: number;
+    premiumStatus?: 'active' | 'trialing' | 'past_due' | 'cancelled' | 'expired';
+    premiumExpiresAt?: Date;
+    dodoSubscriptionId?: string;
+    dodoCustomerId?: string;
+    /** Set once a trial-ending reminder email has been sent. */
+    premiumTrialReminderSent?: boolean;
 }
 
 export type UserFormData = OmitCommonFields<IUser>;

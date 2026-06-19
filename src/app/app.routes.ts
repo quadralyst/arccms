@@ -123,6 +123,11 @@ export const routes: Routes = [
               import('./pages/admin/(settings)/analytics-setting/analytics-setting.page').then((m) => m.default),
           },
           {
+            path: 'payments',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/payments/payments-setting.page').then((m) => m.default),
+          },
+          {
             path: 'misc',
             loadComponent: () =>
               import('./pages/admin/(settings)/misc/misc-settings.page').then((m) => m.MiscSettingsPage),
@@ -273,6 +278,43 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Products Routes
+  {
+    path: 'admin/products',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(products)/products.page').then((m) => m.default),
+      },
+    ],
+  },
+  // Admin Transactions Routes
+  {
+    path: 'admin/transactions',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(transactions)/transactions.page').then((m) => m.default),
+      },
+    ],
+  },
+  // Public Pricing Page (logged-in users purchase from here)
+  {
+    path: 'pricing',
+    loadComponent: () =>
+      import('./pages/pricing/pricing.page').then((m) => m.default),
+  },
+
   // Dynamic Public Pages - must be before 404
   {
     path: 'p/:fileName',

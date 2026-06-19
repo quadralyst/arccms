@@ -285,6 +285,13 @@ export default class SettingsPageComponent extends BaseComponent {
             description: 'Google Analytics OAuth connection',
         },
         {
+            id: 'payments',
+            label: 'Payments',
+            icon: 'fa-solid fa-credit-card',
+            route: '/admin/settings/payments',
+            description: 'Dodo integration & payment emails',
+        },
+        {
             id: 'user',
             label: 'User Settings',
             icon: 'fa-solid fa-users',

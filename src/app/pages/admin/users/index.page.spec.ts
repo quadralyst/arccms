@@ -7,7 +7,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { BrowserAnimationsModule, NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 
 import UsersComponent from './index.page';
@@ -99,6 +100,7 @@ describe('UsersComponent', () => {
             .overrideProvider(ToastService, { useValue: mockToastService })
             .overrideProvider(Router, { useValue: mockRouter })
             .overrideProvider(ActivatedRoute, { useValue: mockActivatedRoute })
+            .overrideProvider(MatDialog, { useValue: mockDialog })
             .compileComponents();
 
         fixture = TestBed.createComponent(UsersComponent);
@@ -262,6 +264,45 @@ describe('UsersComponent', () => {
 
         it('should have onActiveDeactivate method', () => {
             expect(typeof component.onActiveDeactivate).toBe('function');
+        });
+    });
+
+    describe('deleteItem', () => {
+        const sampleUser = {
+            id: 'user-1',
+            name: 'Test User',
+            email: 'test@example.com',
+        } as any;
+
+        beforeEach(() => {
+            mockToastService.success.mockClear();
+            mockToastService.error.mockClear();
+            mockUserStore.delete.mockReset();
+            mockDialog.open.mockReturnValue({ afterClosed: () => of(true) } as any);
+        });
+
+        it('shows success toast when delete succeeds', async () => {
+            mockUserStore.delete.mockReturnValue(of(undefined));
+
+            component.deleteItem(sampleUser);
+            await Promise.resolve();
+
+            expect(mockUserStore.delete).toHaveBeenCalledWith('user-1');
+            expect(mockToastService.success).toHaveBeenCalledWith('User deleted successfully.');
+            expect(mockToastService.error).not.toHaveBeenCalled();
+        });
+
+        it('shows error toast and NOT success when delete errors (e.g. permission denied)', async () => {
+            mockUserStore.delete.mockReturnValue(
+                throwError(() => new Error('Missing or insufficient permissions.'))
+            );
+
+            component.deleteItem(sampleUser);
+            await Promise.resolve();
+
+            expect(mockUserStore.delete).toHaveBeenCalledWith('user-1');
+            expect(mockToastService.error).toHaveBeenCalledWith('Failed to delete user.');
+            expect(mockToastService.success).not.toHaveBeenCalled();
         });
     });
 });
