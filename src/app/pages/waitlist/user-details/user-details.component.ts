@@ -10,6 +10,20 @@ import { ActivatedRoute } from '@angular/router';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { WaitlistService } from '../waitlist.service';
 
+interface UserDetailsData {
+    user?: {
+        firstName?: string;
+        email?: string;
+        queuePosition?: number;
+        referralLink?: string;
+    };
+    stats?: {
+        totalReferrals?: number;
+        successfulReferrals?: number;
+        pendingReferrals?: number;
+    };
+}
+
 @Component({
     selector: 'arc-user-details',
     standalone: true,
@@ -221,12 +235,12 @@ export class UserDetailsComponent extends BaseComponent implements OnInit {
 
     waitlistId = '';
     userId = '';
-    userDetails: unknown = null;
+    userDetails: UserDetailsData | null = null;
     loading = true;
     error = '';
 
     ngOnInit(): void {
-        this.route.paramMap.subscribe(async (params) => {
+        this.activatedRoute.paramMap.subscribe(async (params) => {
             this.waitlistId = params.get('waitlistId') || '';
             this.userId = params.get('userId') || '';
 
@@ -244,7 +258,7 @@ export class UserDetailsComponent extends BaseComponent implements OnInit {
         this.error = '';
 
         try {
-            this.userDetails = await this.waitlistService.getUserDetails(this.waitlistId, this.userId);
+            this.userDetails = await this.waitlistService.getUserDetails(this.waitlistId, this.userId) as UserDetailsData;
             if (!this.userDetails) {
                 this.error = 'User not found';
             }
