@@ -27,6 +27,9 @@ export interface IProduct extends IBaseModel {
     tierRank: number;
     interval?: 'month' | 'year';
     trialDays?: number;
+    /** One-time products only: length of the included free-updates window. */
+    updatesYears?: number;
+    updatesDays?: number;
     tiers: IPricingTier[];
     /** Confirmed-purchase counter (incremented by Cloud Functions). */
     purchaseCount: number;

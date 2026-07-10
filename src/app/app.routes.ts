@@ -315,6 +315,23 @@ export const routes: Routes = [
       import('./pages/pricing/pricing.page').then((m) => m.default),
   },
 
+  // Public payment test screens
+  {
+    path: 'account',
+    loadComponent: () =>
+      import('./pages/account/account.page').then((m) => m.default),
+  },
+  {
+    path: 'checkout/success',
+    loadComponent: () =>
+      import('./pages/checkout-success/checkout-success.page').then((m) => m.default),
+  },
+  {
+    path: 'checkout/cancel',
+    loadComponent: () =>
+      import('./pages/checkout-cancel/checkout-cancel.page').then((m) => m.default),
+  },
+
   // Dynamic Public Pages - must be before 404
   {
     path: 'p/:fileName',
