@@ -80,6 +80,12 @@ export interface TransactionDoc {
   type: 'one_time' | 'subscription';
   tierApplied?: string;
   eventType: string;
+  /**
+   * Stable dedup key. `pay:<payment_id>` when a payment id is present, otherwise
+   * `sub:<subscription_id>:<eventType>:<period>` so subscription-only events
+   * (which carry no payment id) are still idempotent across redeliveries.
+   */
+  idempotencyKey: string;
   createdAt: Timestamp;
 }
 
@@ -129,6 +135,12 @@ export interface UserEntitlement {
   premiumExpiresAt: Timestamp | null;
   dodoSubscriptionId: string | null;
   dodoCustomerId: string | null;
+  /**
+   * Timestamp of the webhook event that last drove this entitlement. Used to
+   * discard out-of-order deliveries (e.g. a delayed `active` arriving after a
+   * `cancelled`). Null when no ordered event has been applied yet.
+   */
+  premiumEventAt?: Timestamp | null;
 }
 
 export const PAYMENT_EMAIL_TYPES = [

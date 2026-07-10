@@ -38,33 +38,36 @@ export const handlePaymentEvent = onDocumentCreated('WebhookEvents/{eventId}', a
 async function processEvent(payload: DodoWebhookPayload): Promise<void> {
   const { type } = payload;
   const data = payload.data || {};
+  // Event time drives out-of-order protection in the entitlement writes.
+  const eventAt = payload.timestamp ? new Date(payload.timestamp) : undefined;
+  const at = eventAt && !isNaN(eventAt.getTime()) ? eventAt : undefined;
 
   switch (type) {
     case 'payment.succeeded':
     case 'subscription.active':
     case 'subscription.renewed':
-      await handleSuccess(type, data);
+      await handleSuccess(type, data, at);
       break;
 
     case 'payment.failed':
     case 'subscription.failed':
-      await handleFailure(type, data);
+      await handleFailure(type, data, at);
       break;
 
     case 'subscription.on_hold':
-      await handleOnHold(data);
+      await handleOnHold(data, at);
       break;
 
     case 'subscription.cancelled':
-      await handleEnd(data, 'cancelled');
+      await handleEnd(data, 'cancelled', at);
       break;
 
     case 'subscription.expired':
-      await handleEnd(data, 'expired');
+      await handleEnd(data, 'expired', at);
       break;
 
     case 'refund.succeeded':
-      await handleRefund(data);
+      await handleRefund(data, at);
       break;
 
     default:
@@ -87,7 +90,21 @@ function toMajorUnits(amount?: number): number {
   return Math.round(amount) / 100;
 }
 
-/** Write a Transaction, idempotently keyed on the Dodo payment id. */
+/**
+ * Stable idempotency key for a webhook event. Prefer the payment id; fall back to
+ * the subscription id + event type + billing period so subscription-only events
+ * (activation, renewal, cancellation — which may carry no payment id) still dedup.
+ */
+function buildIdempotencyKey(data: DodoWebhookData, eventType: string): string {
+  if (data.payment_id) return `pay:${data.payment_id}`;
+  if (data.subscription_id) {
+    const period = data.next_billing_date || '';
+    return `sub:${data.subscription_id}:${eventType}:${period}`;
+  }
+  return `evt:${eventType}:${data.customer?.customer_id || ''}`;
+}
+
+/** Write a Transaction, idempotently keyed on {@link buildIdempotencyKey}. */
 async function recordTransaction(
   data: DodoWebhookData,
   eventType: string,
@@ -95,13 +112,11 @@ async function recordTransaction(
   product: (ProductDoc & { id: string }) | null,
   userId: string,
 ): Promise<boolean> {
-  const dodoPaymentId = data.payment_id;
-  if (dodoPaymentId) {
-    const existing = await db.collection('Transactions').where('dodoPaymentId', '==', dodoPaymentId).limit(1).get();
-    if (!existing.empty) {
-      logger.info(`Transaction for payment ${dodoPaymentId} already recorded; skipping.`);
-      return false;
-    }
+  const idempotencyKey = buildIdempotencyKey(data, eventType);
+  const existing = await db.collection('Transactions').where('idempotencyKey', '==', idempotencyKey).limit(1).get();
+  if (!existing.empty) {
+    logger.info(`Transaction for ${idempotencyKey} already recorded; skipping.`);
+    return false;
   }
 
   const txn: TransactionDoc = {
@@ -117,23 +132,55 @@ async function recordTransaction(
     type: product?.type || (data.subscription_id ? 'subscription' : 'one_time'),
     tierApplied: data.metadata?.tierLabel || '',
     eventType,
+    idempotencyKey,
     createdAt: Timestamp.now(),
   };
   await db.collection('Transactions').add(txn);
   return true;
 }
 
-async function handleSuccess(eventType: string, data: DodoWebhookData): Promise<void> {
+/**
+ * Increment a product's confirmed-buyer counter at most once per buyer.
+ *
+ * A "buyer" is a one-time purchase (keyed on payment id) or the first activation
+ * of a subscription (keyed on subscription id). Renewal charges — which arrive as
+ * `subscription.renewed` or as a fresh `payment.succeeded` carrying a
+ * subscription id — never add a buyer. A `CountedBuyers/{key}` marker created via
+ * `.create()` makes this atomic and safe under webhook redelivery/retry.
+ */
+async function countBuyerOnce(
+  product: ProductDoc & { id: string },
+  data: DodoWebhookData,
+  eventType: string,
+): Promise<void> {
+  let key: string | null = null;
+  if (eventType === 'payment.succeeded' && !data.subscription_id && data.payment_id) {
+    key = `pay:${data.payment_id}`;
+  } else if (eventType === 'subscription.active' && data.subscription_id) {
+    key = `sub:${data.subscription_id}`;
+  }
+  if (!key) return; // renewals / recurring charges don't add buyers
+
+  try {
+    await db.collection('CountedBuyers').doc(key).create({ productId: product.id, countedAt: Timestamp.now() });
+  } catch {
+    logger.info(`Buyer ${key} already counted for product ${product.id}; skipping increment.`);
+    return;
+  }
+  await db.collection('Products').doc(product.id).update({ purchaseCount: FieldValue.increment(1) });
+}
+
+async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?: Date): Promise<void> {
   const product = await loadProduct(data);
   const userRef = await findUserRef(data);
   const userId = data.metadata?.userId || '';
 
   const created = await recordTransaction(data, eventType, 'succeeded', product, userId);
 
-  // Increment the product purchase counter once per buyer — on first activation
-  // or one-time success, NOT on subscription renewals (tiers count buyers).
-  if (created && product && eventType !== 'subscription.renewed') {
-    await db.collection('Products').doc(product.id).update({ purchaseCount: FieldValue.increment(1) });
+  // Count the buyer at most once — one-time purchase or first subscription
+  // activation only. Renewal charges never add a buyer (tiers count buyers).
+  if (created && product) {
+    await countBuyerOnce(product, data, eventType);
   }
 
   if (userRef && product) {
@@ -144,6 +191,7 @@ async function handleSuccess(eventType: string, data: DodoWebhookData): Promise<
       rawStatus: data.status,
       isTrial,
       nextBillingDate: data.next_billing_date,
+      eventAt,
     });
   }
 
@@ -160,14 +208,14 @@ async function handleSuccess(eventType: string, data: DodoWebhookData): Promise<
   );
 }
 
-async function handleFailure(eventType: string, data: DodoWebhookData): Promise<void> {
+async function handleFailure(eventType: string, data: DodoWebhookData, eventAt?: Date): Promise<void> {
   const product = await loadProduct(data);
   const userId = data.metadata?.userId || '';
   await recordTransaction(data, eventType, 'failed', product, userId);
 
   if (eventType === 'subscription.failed') {
     const userRef = await findUserRef(data);
-    if (userRef) await markPastDue(userRef);
+    if (userRef) await markPastDue(userRef, data.subscription_id, eventAt);
   }
 
   await sendPaymentEmail(
@@ -177,9 +225,9 @@ async function handleFailure(eventType: string, data: DodoWebhookData): Promise<
   );
 }
 
-async function handleOnHold(data: DodoWebhookData): Promise<void> {
+async function handleOnHold(data: DodoWebhookData, eventAt?: Date): Promise<void> {
   const userRef = await findUserRef(data);
-  if (userRef) await markPastDue(userRef);
+  if (userRef) await markPastDue(userRef, data.subscription_id, eventAt);
   await sendPaymentEmail(
     'subscription_lifecycle_email',
     { email: data.customer?.email || '', name: data.customer?.name },
@@ -187,9 +235,9 @@ async function handleOnHold(data: DodoWebhookData): Promise<void> {
   );
 }
 
-async function handleEnd(data: DodoWebhookData, finalStatus: 'cancelled' | 'expired'): Promise<void> {
+async function handleEnd(data: DodoWebhookData, finalStatus: 'cancelled' | 'expired', eventAt?: Date): Promise<void> {
   const userRef = await findUserRef(data);
-  if (userRef) await revokeEntitlement(userRef, data.subscription_id, finalStatus);
+  if (userRef) await revokeEntitlement(userRef, data.subscription_id, finalStatus, eventAt);
   await sendPaymentEmail(
     'subscription_lifecycle_email',
     { email: data.customer?.email || '', name: data.customer?.name },
@@ -197,13 +245,13 @@ async function handleEnd(data: DodoWebhookData, finalStatus: 'cancelled' | 'expi
   );
 }
 
-async function handleRefund(data: DodoWebhookData): Promise<void> {
+async function handleRefund(data: DodoWebhookData, eventAt?: Date): Promise<void> {
   const product = await loadProduct(data);
   const userId = data.metadata?.userId || '';
   await recordTransaction(data, 'refund.succeeded', 'refunded', product, userId);
 
   const userRef = await findUserRef(data);
-  if (userRef) await revokeEntitlement(userRef, data.subscription_id, 'expired');
+  if (userRef) await revokeEntitlement(userRef, data.subscription_id, 'expired', eventAt);
 
   await sendPaymentEmail(
     'subscription_lifecycle_email',

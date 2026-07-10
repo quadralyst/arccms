@@ -52,11 +52,25 @@ function mapStatus(rawStatus?: string, isTrial?: boolean): UserEntitlement['prem
 export async function grantEntitlement(
   userRef: DocumentReference,
   product: ProductDoc,
-  opts: { subscriptionId?: string; customerId?: string; rawStatus?: string; isTrial?: boolean; nextBillingDate?: string },
+  opts: {
+    subscriptionId?: string;
+    customerId?: string;
+    rawStatus?: string;
+    isTrial?: boolean;
+    nextBillingDate?: string;
+    eventAt?: Date;
+  },
 ): Promise<void> {
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(userRef);
     const current = snap.data() ?? {};
+
+    // Discard events that predate the last one we applied (out-of-order delivery).
+    if (isStaleEvent(current, opts.eventAt)) {
+      logger.info('Skipping entitlement grant — stale (out-of-order) event', { eventAt: opts.eventAt });
+      return;
+    }
+
     const currentRank: number = typeof current['premiumTierRank'] === 'number' ? current['premiumTierRank'] : -1;
     const isCurrentlyPro = current['isPro'] === true;
 
@@ -79,7 +93,11 @@ export async function grantEntitlement(
       dodoCustomerId: opts.customerId ?? null,
     };
 
-    tx.set(userRef, { ...entitlement, modifiedAt: Timestamp.now() }, { merge: true });
+    tx.set(
+      userRef,
+      { ...entitlement, ...eventAtPatch(current, opts.eventAt), modifiedAt: Timestamp.now() },
+      { merge: true },
+    );
   });
 }
 
@@ -92,6 +110,7 @@ export async function revokeEntitlement(
   userRef: DocumentReference,
   subscriptionId: string | undefined,
   finalStatus: 'cancelled' | 'expired',
+  eventAt?: Date,
 ): Promise<void> {
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(userRef);
@@ -106,6 +125,12 @@ export async function revokeEntitlement(
       return;
     }
 
+    // Discard events that predate the last one we applied (out-of-order delivery).
+    if (isStaleEvent(current, eventAt)) {
+      logger.info('Skipping revoke — stale (out-of-order) event', { eventAt });
+      return;
+    }
+
     tx.set(
       userRef,
       {
@@ -114,6 +139,7 @@ export async function revokeEntitlement(
         premiumType: null,
         premiumTierRank: null,
         dodoSubscriptionId: FieldValue.delete(),
+        ...eventAtPatch(current, eventAt),
         modifiedAt: Timestamp.now(),
       },
       { merge: true },
@@ -121,7 +147,53 @@ export async function revokeEntitlement(
   });
 }
 
-/** Mark a user's entitlement as past_due without revoking (renewal/payment failure). */
-export async function markPastDue(userRef: DocumentReference): Promise<void> {
-  await userRef.set({ premiumStatus: 'past_due', modifiedAt: Timestamp.now() }, { merge: true });
+/**
+ * Mark a user's entitlement as past_due without revoking (renewal/payment
+ * failure). Only applies when the failing subscription is the one currently
+ * granting access, and only for events newer than the last applied one.
+ */
+export async function markPastDue(
+  userRef: DocumentReference,
+  subscriptionId?: string,
+  eventAt?: Date,
+): Promise<void> {
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(userRef);
+    const current = snap.data() ?? {};
+
+    if (subscriptionId && current['dodoSubscriptionId'] && current['dodoSubscriptionId'] !== subscriptionId) {
+      logger.info('Skipping past-due — different active subscription', {
+        failing: subscriptionId,
+        active: current['dodoSubscriptionId'],
+      });
+      return;
+    }
+
+    if (isStaleEvent(current, eventAt)) {
+      logger.info('Skipping past-due — stale (out-of-order) event', { eventAt });
+      return;
+    }
+
+    tx.set(
+      userRef,
+      { premiumStatus: 'past_due', ...eventAtPatch(current, eventAt), modifiedAt: Timestamp.now() },
+      { merge: true },
+    );
+  });
+}
+
+/** True when `eventAt` is strictly older than the last applied event timestamp. */
+function isStaleEvent(current: Record<string, unknown>, eventAt?: Date): boolean {
+  if (!eventAt) return false;
+  const stored = current['premiumEventAt'];
+  if (stored instanceof Timestamp) {
+    return stored.toDate().getTime() > eventAt.getTime();
+  }
+  return false;
+}
+
+/** Merge patch that advances the stored event timestamp (only when we have one). */
+function eventAtPatch(current: Record<string, unknown>, eventAt?: Date): Record<string, unknown> {
+  if (!eventAt) return {};
+  return { premiumEventAt: Timestamp.fromDate(eventAt) };
 }
