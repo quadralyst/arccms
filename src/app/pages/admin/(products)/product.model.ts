@@ -11,6 +11,8 @@ export interface IPricingTier {
     discountCode: string;
     /** Display-only percentage. */
     discountPct: number;
+    /** Display-only effective price for this tier (major units), e.g. 15 for $15/mo. */
+    price?: number;
 }
 
 export interface IProduct extends IBaseModel {
@@ -21,6 +23,9 @@ export interface IProduct extends IBaseModel {
     /** Product id from the Dodo dashboard. */
     dodoProductId: string;
     type: 'one_time' | 'subscription';
+    /** Display-only list price (major units) and ISO currency, e.g. 29 / 'USD'. */
+    price?: number;
+    currency?: string;
     /** Entitlement granted on purchase, e.g. 'plus' | 'gold' | 'platinum'. */
     premiumType: string;
     /** Higher rank wins when a user already holds an entitlement. */

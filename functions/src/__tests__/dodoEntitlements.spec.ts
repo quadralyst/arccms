@@ -73,6 +73,20 @@ describe('grantEntitlement — ordering guard', () => {
   });
 });
 
+describe('grantEntitlement — grandfathering audit trail', () => {
+    it('writes the locked-in tier label and discount code', async () => {
+        const { set } = withCurrent({});
+        await grantEntitlement(userRef, product, { subscriptionId: 's1', tierLabel: 'First 100', discountCode: 'EARLY' });
+        expect(set.mock.calls[0][1]).toMatchObject({ premiumTierLabel: 'First 100', premiumDiscountCode: 'EARLY' });
+    });
+
+    it('preserves the original deal on a renewal whose metadata is missing', async () => {
+        const { set } = withCurrent({ premiumTierLabel: 'First 100', premiumDiscountCode: 'EARLY' });
+        await grantEntitlement(userRef, product, { subscriptionId: 's1' }); // no tierLabel/discountCode
+        expect(set.mock.calls[0][1]).toMatchObject({ premiumTierLabel: 'First 100', premiumDiscountCode: 'EARLY' });
+    });
+});
+
 describe('grantEntitlement — updatesUntil (one-time free-updates window)', () => {
     const oneTime = { premiumType: 'gold', tierRank: 2, type: 'one_time', updatesYears: 2 } as any;
 
