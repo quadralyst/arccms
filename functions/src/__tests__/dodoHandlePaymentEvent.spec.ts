@@ -12,6 +12,7 @@ const {
   mockTxnAdd,
   mockProductGet,
   mockProductUpdate,
+  mockCountedCreate,
   mockFindUserRef,
   mockGrant,
   mockRevoke,
@@ -22,6 +23,7 @@ const {
   mockTxnAdd: vi.fn(),
   mockProductGet: vi.fn(),
   mockProductUpdate: vi.fn(),
+  mockCountedCreate: vi.fn(),
   mockFindUserRef: vi.fn(),
   mockGrant: vi.fn(),
   mockRevoke: vi.fn(),
@@ -45,6 +47,9 @@ vi.mock('../init', () => ({
       }
       if (name === 'Products') {
         return { doc: () => ({ get: mockProductGet, update: mockProductUpdate }) };
+      }
+      if (name === 'CountedBuyers') {
+        return { doc: () => ({ create: mockCountedCreate }) };
       }
       return { doc: vi.fn() };
     }),
@@ -78,6 +83,7 @@ beforeEach(() => {
   mockTxnAdd.mockResolvedValue({ id: 't1' });
   mockProductGet.mockResolvedValue({ exists: true, id: 'p1', data: () => product });
   mockProductUpdate.mockResolvedValue(undefined);
+  mockCountedCreate.mockResolvedValue(undefined); // buyer not yet counted
   mockFindUserRef.mockResolvedValue({ id: 'userRef' });
   mockGrant.mockResolvedValue(undefined);
   mockRevoke.mockResolvedValue(undefined);
@@ -124,6 +130,68 @@ describe('handlePaymentEvent', () => {
     expect(mockProductUpdate).not.toHaveBeenCalled(); // renewals don't add buyers
   });
 
+  it('subscription.active increments the buyer counter once (keyed on subscription)', async () => {
+    const payload = {
+      type: 'subscription.active',
+      data: { subscription_id: 'sub1', metadata: { productId: 'p1', userId: 'u1' }, customer: { email: 'a@b.com' } },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+
+    expect(mockCountedCreate).toHaveBeenCalledTimes(1);
+    expect(mockProductUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('recurring payment.succeeded carrying a subscription_id does NOT add a buyer', async () => {
+    // A renewal charge arrives as payment.succeeded WITH a subscription id — must not count.
+    const payload = {
+      type: 'payment.succeeded',
+      data: { payment_id: 'payR', subscription_id: 'sub1', metadata: { productId: 'p1', userId: 'u1' }, customer: { email: 'a@b.com' } },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+
+    expect(mockTxnAdd).toHaveBeenCalledTimes(1); // still recorded
+    expect(mockCountedCreate).not.toHaveBeenCalled();
+    expect(mockProductUpdate).not.toHaveBeenCalled();
+  });
+
+  it('an already-counted buyer (marker exists) does not double-increment', async () => {
+    mockCountedCreate.mockRejectedValue(new Error('ALREADY_EXISTS')); // marker already present
+    const payload = {
+      type: 'subscription.active',
+      data: { subscription_id: 'sub1', metadata: { productId: 'p1', userId: 'u1' }, customer: { email: 'a@b.com' } },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+
+    expect(mockCountedCreate).toHaveBeenCalledTimes(1);
+    expect(mockProductUpdate).not.toHaveBeenCalled(); // create failed → no increment
+  });
+
+  it('subscription.active with no payment_id still dedups (transaction idempotencyKey)', async () => {
+    mockTxnGet.mockResolvedValue({ empty: false }); // same activation already recorded
+    const payload = {
+      type: 'subscription.active',
+      data: { subscription_id: 'sub1', metadata: { productId: 'p1', userId: 'u1' }, customer: { email: 'a@b.com' } },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+
+    expect(mockTxnAdd).not.toHaveBeenCalled();
+    expect(mockCountedCreate).not.toHaveBeenCalled();
+  });
+
+  it('passes the payload timestamp through to grantEntitlement for ordering', async () => {
+    const payload = {
+      type: 'payment.succeeded',
+      timestamp: '2026-01-01T00:00:00.000Z',
+      data: { payment_id: 'pay9', metadata: { productId: 'p1', userId: 'u1' }, customer: { email: 'a@b.com' } },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+
+    expect(mockGrant).toHaveBeenCalledTimes(1);
+    const opts = mockGrant.mock.calls[0][2];
+    expect(opts.eventAt).toBeInstanceOf(Date);
+    expect(opts.eventAt.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+  });
+
   it('subscription.cancelled revokes the entitlement', async () => {
     const payload = {
       type: 'subscription.cancelled',
@@ -131,7 +199,7 @@ describe('handlePaymentEvent', () => {
     };
     await (handlePaymentEvent as any)(makeEvent(payload).event);
 
-    expect(mockRevoke).toHaveBeenCalledWith({ id: 'userRef' }, 'sub1', 'cancelled');
+    expect(mockRevoke).toHaveBeenCalledWith({ id: 'userRef' }, 'sub1', 'cancelled', undefined);
     expect(mockSendEmail).toHaveBeenCalledWith('subscription_lifecycle_email', expect.anything(), expect.anything());
   });
 });
