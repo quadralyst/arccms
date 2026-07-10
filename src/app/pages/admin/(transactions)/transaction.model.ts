@@ -14,5 +14,6 @@ export interface ITransaction extends IBaseModel {
     status: 'succeeded' | 'failed' | 'refunded' | 'pending';
     type: 'one_time' | 'subscription';
     tierApplied?: string;
+    discountCode?: string;
     eventType: string;
 }

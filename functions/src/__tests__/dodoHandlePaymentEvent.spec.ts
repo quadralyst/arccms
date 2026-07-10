@@ -178,6 +178,24 @@ describe('handlePaymentEvent', () => {
     expect(mockCountedCreate).not.toHaveBeenCalled();
   });
 
+  it('records the discount code and passes the locked-in deal to grantEntitlement', async () => {
+    const payload = {
+      type: 'payment.succeeded',
+      data: {
+        payment_id: 'payD',
+        total_amount: 1500,
+        currency: 'USD',
+        metadata: { productId: 'p1', userId: 'u1', tierLabel: 'First 100', discountCode: 'EARLY' },
+        customer: { email: 'a@b.com' },
+      },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+
+    expect(mockTxnAdd.mock.calls[0][0]).toMatchObject({ tierApplied: 'First 100', discountCode: 'EARLY' });
+    const opts = mockGrant.mock.calls[0][2];
+    expect(opts).toMatchObject({ tierLabel: 'First 100', discountCode: 'EARLY' });
+  });
+
   it('passes the payload timestamp through to grantEntitlement for ordering', async () => {
     const payload = {
       type: 'payment.succeeded',
