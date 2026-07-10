@@ -33,6 +33,9 @@ export interface IUser extends IBaseModel {
     premiumExpiresAt?: Date;
     /** One-time purchases: end of the included free-updates window (access is lifetime). */
     updatesUntil?: Date;
+    /** Grandfathering audit trail — the deal locked in at purchase. */
+    premiumTierLabel?: string;
+    premiumDiscountCode?: string;
     dodoSubscriptionId?: string;
     dodoCustomerId?: string;
     /** Set once a trial-ending reminder email has been sent. */

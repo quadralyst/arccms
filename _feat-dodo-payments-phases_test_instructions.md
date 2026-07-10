@@ -444,6 +444,48 @@ Simulate a subscription whose cancellation webhook was missed:
 
 ---
 
+## Phase 3 — Pricing display & grandfathering audit trail
+
+Phase 3 makes prices visible and records the exact deal each buyer locked in, so
+"I was promised $15/mo forever" is auditable even if a Dodo discount code changes.
+
+### What changed
+| Area | Change |
+|------|--------|
+| Product | New **List price** + **Currency** fields, and a per-tier **Price** field (admin Products form). All display-only. |
+| Pricing page | Shows the active tier's price with the list price struck through + the tier label (e.g. **$15.00/yr** ~~$29.00~~ · First 100). Active tier resolved client-side (mirror of backend `resolveTier`). |
+| Checkout | `createCheckoutSession` now also puts the applied `discountCode` in the Dodo metadata. |
+| Transaction | Records `discountCode` alongside `tierApplied`. |
+| Entitlement | `users/{id}` now carries `premiumTierLabel` + `premiumDiscountCode` (the locked-in deal). Preserved across renewals whose webhook omits the metadata. |
+| Account page | Shows "Plan / deal" and "Discount code". |
+| Admin | A **grandfathering reminder** appears on subscription products: the Dodo discount code must be **recurring** or the early-bird price only applies to the first payment. |
+
+### P3.1 — Pricing display
+1. In admin → Products, edit a product: set **List price** (e.g. `29`), **Currency** `USD`, and on a tier set **Price** (e.g. `15`) with a low **Limit** (e.g. `100`).
+2. Open `/pricing`: the card shows **$15.00** (active tier price), the **$29.00** list price struck through, and the tier label. Once `purchaseCount` reaches the tier limit, the next tier's price shows automatically.
+3. Products with no price configured simply show no price block (graceful).
+
+### P3.2 — Grandfathering audit trail
+1. Configure a subscription product with a tier that has a **discount code** (e.g. `EARLY`).
+2. Buy it (Approach C, or inject a `payment.succeeded`/`subscription.active` per Approach A with `metadata.discountCode: 'EARLY'` and `metadata.tierLabel: 'First 100'`).
+3. Verify:
+   - The **Transaction** doc has `discountCode: 'EARLY'`, `tierApplied: 'First 100'`.
+   - The **user doc** has `premiumTierLabel: 'First 100'`, `premiumDiscountCode: 'EARLY'` (also shown on `/account`).
+4. **Renewal preserves the deal:** inject a `subscription.renewed` with **no** `discountCode`/`tierLabel` metadata → the user doc keeps the original `premiumTierLabel`/`premiumDiscountCode` (not overwritten with blanks).
+
+### P3.3 — Recurring-code reminder (manual/config)
+This is a **process** safeguard, not an automated check: when creating a subscription tier's
+discount code **in the Dodo dashboard**, set it to **recurring**. The admin form shows the
+warning; verify by checking your Dodo discount codes are recurring, then confirm a **renewal**
+webhook still charges the discounted amount (Transaction `amount` on the renewal equals the
+tier price, not the list price).
+
+> Covered by unit tests: `pricing-utils.spec.ts` (tier resolution + price display),
+> `dodoHandlePaymentEvent.spec.ts` (discount code recorded, deal passed to grant),
+> `dodoEntitlements.spec.ts` (deal written + preserved on renewal).
+
+---
+
 ## 5. Resetting between runs
 
 Because the fixes are idempotent, a clean re-run needs fresh state:
@@ -494,6 +536,8 @@ const db = admin.firestore();
 - [ ] C: `/pricing` → checkout → `/checkout/success` confirms Pro → `/account` shows entitlement + transaction (self-contained UI)
 - [ ] P2.1: one-time purchase sets `updatesUntil` = purchase + N years, keeps lifetime access, set-once on re-delivery
 - [ ] P2.2: `scanExpiredEntitlements` force-expires a stale subscription but leaves lifetime one-time grants untouched
+- [ ] P3.1: `/pricing` shows active-tier price with list price struck through + tier label
+- [ ] P3.2: transaction records `discountCode`; user doc carries `premiumTierLabel`/`premiumDiscountCode`, preserved on renewal
 
 ---
 
