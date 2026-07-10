@@ -172,6 +172,15 @@ export const routeMeta: RouteMeta = {
                                         </mat-form-field>
                                     </div>
                                 }
+                                @if (form.get('type')?.value === 'one_time') {
+                                    <div class="col-md-3">
+                                        <mat-form-field appearance="outline" class="w-100">
+                                            <mat-label>Free-updates years</mat-label>
+                                            <input matInput type="number" formControlName="updatesYears" />
+                                            <mat-hint>Lifetime access; updates for N years</mat-hint>
+                                        </mat-form-field>
+                                    </div>
+                                }
                             </div>
                             <div class="row">
                                 <div class="col-md-3">
@@ -319,6 +328,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
             type: ['subscription', Validators.required],
             interval: ['month'],
             trialDays: [0],
+            updatesYears: [0],
             premiumType: ['', Validators.required],
             tierRank: [1, Validators.required],
             active: [true],
@@ -409,6 +419,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         this.form.patchValue({
             name: p.name, dodoProductId: p.dodoProductId, description: p.description ?? '',
             type: p.type, interval: p.interval ?? 'month', trialDays: p.trialDays ?? 0,
+            updatesYears: p.updatesYears ?? 0,
             premiumType: p.premiumType, tierRank: p.tierRank, active: p.active,
         });
         (p.tiers ?? []).forEach((t) => this.tiers.push(this.tierGroup(t)));
@@ -429,6 +440,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
             type: v.type,
             interval: v.type === 'subscription' ? v.interval : undefined,
             trialDays: v.type === 'subscription' ? Number(v.trialDays) || 0 : 0,
+            updatesYears: v.type === 'one_time' ? Number(v.updatesYears) || 0 : 0,
             premiumType: v.premiumType,
             tierRank: Number(v.tierRank) || 0,
             active: v.active,

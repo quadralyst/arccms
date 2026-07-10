@@ -31,6 +31,8 @@ export interface IUser extends IBaseModel {
     premiumTierRank?: number;
     premiumStatus?: 'active' | 'trialing' | 'past_due' | 'cancelled' | 'expired';
     premiumExpiresAt?: Date;
+    /** One-time purchases: end of the included free-updates window (access is lifetime). */
+    updatesUntil?: Date;
     dodoSubscriptionId?: string;
     dodoCustomerId?: string;
     /** Set once a trial-ending reminder email has been sent. */

@@ -59,6 +59,13 @@ export interface ProductDoc {
   tierRank: number;
   interval?: 'month' | 'year';
   trialDays?: number;
+  /**
+   * One-time products only: length of the included "free updates" window. Access
+   * itself is lifetime (never auto-revoked); `updatesUntil` on the user is set to
+   * purchase date + this span. Both may be set; they add together.
+   */
+  updatesYears?: number;
+  updatesDays?: number;
   tiers: PricingTier[];
   /** Count of confirmed purchases — incremented once per successful payment. */
   purchaseCount: number;
@@ -141,6 +148,12 @@ export interface UserEntitlement {
    * `cancelled`). Null when no ordered event has been applied yet.
    */
   premiumEventAt?: Timestamp | null;
+  /**
+   * One-time purchases only: the end of the included free-updates window
+   * (purchase date + product.updatesYears/updatesDays). Access is lifetime; this
+   * date only governs update eligibility and is never used to revoke `isPro`.
+   */
+  updatesUntil?: Timestamp | null;
 }
 
 export const PAYMENT_EMAIL_TYPES = [
