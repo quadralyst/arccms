@@ -57,6 +57,7 @@ export * from './dodo-payments/handlePaymentEvent.js';
 export * from './dodo-payments/testDodoConnection.js';
 export * from './dodo-payments/scanTrialEndings.js';
 export * from './dodo-payments/scanExpiredEntitlements.js';
+export * from './dodo-payments/consumeCredits.js';
 
 // One-time seed function — deploy all existing content as static HTML
 export { seedStaticPages } from './pages/seedStaticPages.js';
