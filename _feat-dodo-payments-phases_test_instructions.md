@@ -486,6 +486,46 @@ tier price, not the list price).
 
 ---
 
+## Phase 4 — Prepaid credits
+
+A local, auditable credit system: purchases grant credits, the app spends them, and
+every change is an append-only ledger entry so the balance is always rebuildable.
+
+### What changed
+| Area | Change |
+|------|--------|
+| Product | New **Credits granted** field — granted once per one-time purchase, or per renewal for subscriptions (a recurring allowance). |
+| User | New `creditBalance` (Cloud-Function / callable-written only; clients cannot self-edit — enforced in `firestore.rules`). |
+| Collection | New **`CreditLedger`** — append-only entries (`delta`, `reason`, `balanceAfter`, …). `creditBalance` = sum of the ledger. Owner-readable, no client write. |
+| Webhook | `payment.succeeded`/`subscription.active`/`subscription.renewed` grant the allowance (idempotent via a deterministic ledger id); `refund.succeeded` claws it back (clamped at 0). |
+| Callable | New **`consumeCredits`** — atomically debits and rejects when the balance is insufficient. |
+| UI | `/account` shows the balance, a **Use 1 credit** button, and the ledger history. Admin Products form has **Credits granted**. |
+
+### P4.1 — Grant on purchase
+1. Admin → Products: set **Credits granted** = e.g. `100` on a product.
+2. Buy it (Approach C, or inject a `payment.succeeded` per Approach A).
+3. Verify: `/account` shows **100 credits**; a `CreditLedger` doc exists (`delta: 100`, `reason: purchase`, `balanceAfter: 100`); `users/{uid}.creditBalance` = 100.
+4. **Idempotency:** re-deliver the same event (new `WebhookEvents` id) → balance stays 100 (the deterministic ledger id `grant:pay:<id>` / `grant:sub:<id>:active` blocks a double grant).
+
+### P4.2 — Renewal allowance
+- Inject a `subscription.renewed` for a credit subscription → balance increases by `creditsGranted` again; a ledger entry with `reason: renewal` and a distinct `grant:sub:<id>:renew:<period>` id. (Renewals with the same period are idempotent.)
+
+### P4.3 — Consume
+1. On `/account`, click **Use 1 credit** (calls the `consumeCredits` callable) → balance drops by 1; a ledger entry `reason: consume`, `delta: -1`.
+2. Spend down to 0, then click again → the button is disabled at 0, and a direct call returns **"Insufficient credits."** (the callable throws `failed-precondition`).
+
+### P4.4 — Refund clawback
+- Inject a `refund.succeeded` for a credit purchase → credits are deducted (ledger `reason: refund`), **clamped so the balance never goes negative** even if the user already spent some.
+
+### P4.5 — Rules check (optional)
+- Attempt to write `creditBalance` on your own `users/{uid}` doc from a signed-in client → **denied** by `firestore.rules` (only Cloud Functions / the callable may change it).
+
+> Unit tests: `dodoCredits.spec.ts` (grant idempotency, refund clamp, consume rejection,
+> ledger-matches-balance), `dodoHandlePaymentEvent.spec.ts` (grant on purchase/renewal,
+> refund clawback, non-credit products skipped), `account.page.spec.ts` (balance + ledger UI).
+
+---
+
 ## 5. Resetting between runs
 
 Because the fixes are idempotent, a clean re-run needs fresh state:
@@ -538,6 +578,7 @@ const db = admin.firestore();
 - [ ] P2.2: `scanExpiredEntitlements` force-expires a stale subscription but leaves lifetime one-time grants untouched
 - [ ] P3.1: `/pricing` shows active-tier price with list price struck through + tier label
 - [ ] P3.2: transaction records `discountCode`; user doc carries `premiumTierLabel`/`premiumDiscountCode`, preserved on renewal
+- [ ] P4.1–4.4: purchase grants credits (idempotent), renewal re-grants, consume debits/rejects at 0, refund claws back (clamped)
 
 ---
 

@@ -181,6 +181,13 @@ export const routeMeta: RouteMeta = {
                                         </mat-form-field>
                                     </div>
                                 }
+                                <div class="col-md-3">
+                                    <mat-form-field appearance="outline" class="w-100">
+                                        <mat-label>Credits granted</mat-label>
+                                        <input matInput type="number" formControlName="creditsGranted" />
+                                        <mat-hint>{{ form.get('type')?.value === 'subscription' ? 'Per renewal' : 'Per purchase' }} · 0 = none</mat-hint>
+                                    </mat-form-field>
+                                </div>
                             </div>
                             <div class="row">
                                 <div class="col-md-3">
@@ -349,6 +356,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
             interval: ['month'],
             trialDays: [0],
             updatesYears: [0],
+            creditsGranted: [0],
             price: [0],
             currency: ['USD'],
             premiumType: ['', Validators.required],
@@ -443,6 +451,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
             name: p.name, dodoProductId: p.dodoProductId, description: p.description ?? '',
             type: p.type, interval: p.interval ?? 'month', trialDays: p.trialDays ?? 0,
             updatesYears: p.updatesYears ?? 0,
+            creditsGranted: p.creditsGranted ?? 0,
             price: p.price ?? 0, currency: p.currency ?? 'USD',
             premiumType: p.premiumType, tierRank: p.tierRank, active: p.active,
         });
@@ -465,6 +474,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
             interval: v.type === 'subscription' ? v.interval : undefined,
             trialDays: v.type === 'subscription' ? Number(v.trialDays) || 0 : 0,
             updatesYears: v.type === 'one_time' ? Number(v.updatesYears) || 0 : 0,
+            creditsGranted: Number(v.creditsGranted) || 0,
             price: Number(v.price) || 0,
             currency: v.currency || 'USD',
             premiumType: v.premiumType,

@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions/v2';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { findUserRef, grantEntitlement, revokeEntitlement, markPastDue } from './entitlements.js';
+import { grantCredits, refundCredits } from './credits.js';
 import { sendPaymentEmail } from './paymentEmailHelper.js';
 import { DodoWebhookPayload, DodoWebhookData, ProductDoc, TransactionDoc, TransactionStatus } from './types.js';
 
@@ -171,6 +172,30 @@ async function countBuyerOnce(
   await db.collection('Products').doc(product.id).update({ purchaseCount: FieldValue.increment(1) });
 }
 
+/**
+ * Decide whether a success event grants a credit allowance and under which
+ * idempotency key. Mirrors {@link countBuyerOnce}'s dedup shape, but — unlike the
+ * buyer counter — renewals DO grant (a recurring allowance). A recurring
+ * `payment.succeeded` that carries a subscription id is skipped to avoid
+ * double-granting alongside `subscription.active`/`.renewed`.
+ */
+function creditGrantPlan(
+  data: DodoWebhookData,
+  eventType: string,
+): { ledgerId: string; reason: 'purchase' | 'renewal' } | null {
+  if (eventType === 'payment.succeeded' && !data.subscription_id && data.payment_id) {
+    return { ledgerId: `grant:pay:${data.payment_id}`, reason: 'purchase' };
+  }
+  if (eventType === 'subscription.active' && data.subscription_id) {
+    return { ledgerId: `grant:sub:${data.subscription_id}:active`, reason: 'purchase' };
+  }
+  if (eventType === 'subscription.renewed' && data.subscription_id) {
+    const period = data.next_billing_date || data.payment_id || '';
+    return { ledgerId: `grant:sub:${data.subscription_id}:renew:${period}`, reason: 'renewal' };
+  }
+  return null;
+}
+
 async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?: Date): Promise<void> {
   const product = await loadProduct(data);
   const userRef = await findUserRef(data);
@@ -196,6 +221,18 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
       tierLabel: data.metadata?.tierLabel,
       discountCode: data.metadata?.discountCode,
     });
+
+    // Prepaid credits: grant the allowance once per charge (initial + each renewal).
+    const plan = creditGrantPlan(data, eventType);
+    if (plan && (product.creditsGranted ?? 0) > 0) {
+      await grantCredits(userRef, userId, product.creditsGranted as number, {
+        ledgerId: plan.ledgerId,
+        reason: plan.reason,
+        productId: product.id,
+        dodoPaymentId: data.payment_id,
+        dodoSubscriptionId: data.subscription_id,
+      });
+    }
   }
 
   await sendPaymentEmail(
@@ -254,7 +291,19 @@ async function handleRefund(data: DodoWebhookData, eventAt?: Date): Promise<void
   await recordTransaction(data, 'refund.succeeded', 'refunded', product, userId);
 
   const userRef = await findUserRef(data);
-  if (userRef) await revokeEntitlement(userRef, data.subscription_id, 'expired', eventAt);
+  if (userRef) {
+    await revokeEntitlement(userRef, data.subscription_id, 'expired', eventAt);
+
+    // Claw back the credits granted for the refunded charge (clamped at zero).
+    if (product && (product.creditsGranted ?? 0) > 0) {
+      const key = data.payment_id || data.subscription_id || '';
+      await refundCredits(userRef, userId, product.creditsGranted as number, {
+        ledgerId: `refund:${key}`,
+        productId: product.id,
+        dodoPaymentId: data.payment_id,
+      });
+    }
+  }
 
   await sendPaymentEmail(
     'subscription_lifecycle_email',

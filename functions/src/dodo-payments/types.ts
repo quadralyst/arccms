@@ -71,6 +71,12 @@ export interface ProductDoc {
    */
   updatesYears?: number;
   updatesDays?: number;
+  /**
+   * Prepaid credits granted per successful charge — once for a one-time purchase,
+   * and again on each subscription renewal (a recurring allowance). 0/undefined =
+   * not a credit product.
+   */
+  creditsGranted?: number;
   tiers: PricingTier[];
   /** Count of confirmed purchases — incremented once per successful payment. */
   purchaseCount: number;
@@ -168,6 +174,27 @@ export interface UserEntitlement {
    */
   premiumTierLabel?: string | null;
   premiumDiscountCode?: string | null;
+}
+
+/** Why a credit ledger entry was written. */
+export type CreditLedgerReason = 'purchase' | 'renewal' | 'refund' | 'consume' | 'adjustment';
+
+/**
+ * Append-only prepaid-credit ledger entry. The user's `creditBalance` is the
+ * running sum of these deltas, so the balance is always auditable / rebuildable.
+ */
+export interface CreditLedgerDoc {
+  userId: string;
+  /** Signed change: positive = grant, negative = debit (already clamped so balance ≥ 0). */
+  delta: number;
+  reason: CreditLedgerReason;
+  /** Balance immediately after this entry was applied. */
+  balanceAfter: number;
+  productId?: string;
+  dodoPaymentId?: string;
+  dodoSubscriptionId?: string;
+  note?: string;
+  createdAt: Timestamp;
 }
 
 export const PAYMENT_EMAIL_TYPES = [

@@ -35,6 +35,8 @@ export interface IProduct extends IBaseModel {
     /** One-time products only: length of the included free-updates window. */
     updatesYears?: number;
     updatesDays?: number;
+    /** Prepaid credits granted per charge (one-time once, subscription per renewal). */
+    creditsGranted?: number;
     tiers: IPricingTier[];
     /** Confirmed-purchase counter (incremented by Cloud Functions). */
     purchaseCount: number;

@@ -36,6 +36,8 @@ export interface IUser extends IBaseModel {
     /** Grandfathering audit trail — the deal locked in at purchase. */
     premiumTierLabel?: string;
     premiumDiscountCode?: string;
+    /** Prepaid credit balance (sum of the CreditLedger; written only by Cloud Functions). */
+    creditBalance?: number;
     dodoSubscriptionId?: string;
     dodoCustomerId?: string;
     /** Set once a trial-ending reminder email has been sent. */
