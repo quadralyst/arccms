@@ -18,6 +18,8 @@ const {
   mockRevoke,
   mockMarkPastDue,
   mockSendEmail,
+  mockGrantCredits,
+  mockRefundCredits,
 } = vi.hoisted(() => ({
   mockTxnGet: vi.fn(),
   mockTxnAdd: vi.fn(),
@@ -29,6 +31,8 @@ const {
   mockRevoke: vi.fn(),
   mockMarkPastDue: vi.fn(),
   mockSendEmail: vi.fn(),
+  mockGrantCredits: vi.fn(),
+  mockRefundCredits: vi.fn(),
 }));
 
 vi.mock('firebase-functions/v2/firestore', () => ({
@@ -63,6 +67,11 @@ vi.mock('../dodo-payments/entitlements', () => ({
   markPastDue: mockMarkPastDue,
 }));
 
+vi.mock('../dodo-payments/credits', () => ({
+  grantCredits: mockGrantCredits,
+  refundCredits: mockRefundCredits,
+}));
+
 vi.mock('../dodo-payments/paymentEmailHelper', () => ({ sendPaymentEmail: mockSendEmail }));
 
 import { handlePaymentEvent } from '../dodo-payments/handlePaymentEvent.js';
@@ -88,6 +97,8 @@ beforeEach(() => {
   mockGrant.mockResolvedValue(undefined);
   mockRevoke.mockResolvedValue(undefined);
   mockSendEmail.mockResolvedValue(undefined);
+  mockGrantCredits.mockResolvedValue({ applied: 0, balance: 0 });
+  mockRefundCredits.mockResolvedValue({ applied: 0, balance: 0 });
 });
 
 describe('handlePaymentEvent', () => {
@@ -208,6 +219,57 @@ describe('handlePaymentEvent', () => {
     const opts = mockGrant.mock.calls[0][2];
     expect(opts.eventAt).toBeInstanceOf(Date);
     expect(opts.eventAt.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+  });
+
+  it('grants credits on a one-time purchase of a credit product', async () => {
+    mockProductGet.mockResolvedValue({ exists: true, id: 'p1', data: () => ({ ...product, creditsGranted: 100 }) });
+    const payload = {
+      type: 'payment.succeeded',
+      data: { payment_id: 'payC', metadata: { productId: 'p1', userId: 'u1' }, customer: { email: 'a@b.com' } },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+
+    expect(mockGrantCredits).toHaveBeenCalledTimes(1);
+    expect(mockGrantCredits.mock.calls[0]).toMatchObject([
+      { id: 'userRef' },
+      'u1',
+      100,
+      { ledgerId: 'grant:pay:payC', reason: 'purchase', productId: 'p1' },
+    ]);
+  });
+
+  it('grants a renewal allowance on subscription.renewed (reason: renewal)', async () => {
+    mockProductGet.mockResolvedValue({ exists: true, id: 'p1', data: () => ({ ...product, type: 'subscription', creditsGranted: 50 }) });
+    const payload = {
+      type: 'subscription.renewed',
+      data: { subscription_id: 'sub1', next_billing_date: '2026-09-10', metadata: { productId: 'p1', userId: 'u1' }, customer: { email: 'a@b.com' } },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+
+    expect(mockGrantCredits).toHaveBeenCalledTimes(1);
+    expect(mockGrantCredits.mock.calls[0][2]).toBe(50);
+    expect(mockGrantCredits.mock.calls[0][3]).toMatchObject({ ledgerId: 'grant:sub:sub1:renew:2026-09-10', reason: 'renewal' });
+  });
+
+  it('does NOT grant credits for a non-credit product', async () => {
+    const payload = {
+      type: 'payment.succeeded',
+      data: { payment_id: 'payX', metadata: { productId: 'p1', userId: 'u1' }, customer: { email: 'a@b.com' } },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+    expect(mockGrantCredits).not.toHaveBeenCalled();
+  });
+
+  it('claws back credits on refund of a credit product', async () => {
+    mockProductGet.mockResolvedValue({ exists: true, id: 'p1', data: () => ({ ...product, creditsGranted: 100 }) });
+    const payload = {
+      type: 'refund.succeeded',
+      data: { payment_id: 'payR', metadata: { productId: 'p1', userId: 'u1' }, customer: { email: 'a@b.com' } },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+
+    expect(mockRefundCredits).toHaveBeenCalledTimes(1);
+    expect(mockRefundCredits.mock.calls[0]).toMatchObject([{ id: 'userRef' }, 'u1', 100, { ledgerId: 'refund:payR' }]);
   });
 
   it('subscription.cancelled revokes the entitlement', async () => {
