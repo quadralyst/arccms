@@ -59,6 +59,8 @@ export async function grantEntitlement(
     isTrial?: boolean;
     nextBillingDate?: string;
     eventAt?: Date;
+    tierLabel?: string;
+    discountCode?: string;
   },
 ): Promise<void> {
   await db.runTransaction(async (tx) => {
@@ -91,6 +93,10 @@ export async function grantEntitlement(
       premiumExpiresAt: expiresAt,
       dodoSubscriptionId: opts.subscriptionId ?? null,
       dodoCustomerId: opts.customerId ?? null,
+      // Grandfathering audit trail — the deal locked in at purchase. Preserve the
+      // original values on renewals whose webhook omits the checkout metadata.
+      premiumTierLabel: opts.tierLabel ?? (current['premiumTierLabel'] as string | undefined) ?? null,
+      premiumDiscountCode: opts.discountCode ?? (current['premiumDiscountCode'] as string | undefined) ?? null,
     };
 
     tx.set(

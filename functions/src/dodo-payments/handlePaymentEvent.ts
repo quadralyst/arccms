@@ -131,6 +131,7 @@ async function recordTransaction(
     status,
     type: product?.type || (data.subscription_id ? 'subscription' : 'one_time'),
     tierApplied: data.metadata?.tierLabel || '',
+    discountCode: data.metadata?.discountCode || '',
     eventType,
     idempotencyKey,
     createdAt: Timestamp.now(),
@@ -192,6 +193,8 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
       isTrial,
       nextBillingDate: data.next_billing_date,
       eventAt,
+      tierLabel: data.metadata?.tierLabel,
+      discountCode: data.metadata?.discountCode,
     });
   }
 

@@ -75,6 +75,8 @@ export const createCheckoutSession = onCall(async (request) => {
         premiumType: product.premiumType,
         tierRank: String(product.tierRank ?? 0),
         tierLabel: tier?.label ?? '',
+        // Snapshot the applied discount code so the webhook can record the locked-in deal.
+        discountCode: tier?.discountCode ?? '',
       },
     };
 

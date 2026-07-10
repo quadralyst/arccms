@@ -9,6 +9,7 @@ import { AuthState } from '../(auth)/auth.store';
 import { ProductsService } from '../admin/(products)/products.service';
 import { IProduct } from '../admin/(products)/product.model';
 import { PublicNavComponent } from '../payments-ui/public-nav.component';
+import { displayPrice, isDiscounted, formatMoney, resolveDisplayTier } from '../payments-ui/pricing-utils';
 
 @Component({
     standalone: true,
@@ -30,6 +31,14 @@ import { PublicNavComponent } from '../payments-ui/public-nav.component';
                         <mat-card class="plan-card">
                             <mat-card-header><mat-card-title>{{ p.name }}</mat-card-title></mat-card-header>
                             <mat-card-content class="pt-2">
+                                @if (price(p) !== null) {
+                                    <p class="price">
+                                        <span class="amount">{{ money(price(p), p.currency) }}</span>
+                                        @if (p.type === 'subscription') { <span class="per">/{{ p.interval === 'year' ? 'yr' : 'mo' }}</span> }
+                                        @if (discounted(p)) { <span class="list">{{ money(p.price, p.currency) }}</span> }
+                                    </p>
+                                    @if (tierLabel(p); as label) { <p class="tier-note"><i class="fa-solid fa-tag me-1"></i>{{ label }}</p> }
+                                }
                                 <p class="desc">{{ p.description }}</p>
                                 @if (p.type === 'subscription') {
                                     <p class="meta">{{ p.interval === 'year' ? 'Billed yearly' : 'Billed monthly' }}@if (p.trialDays) { · {{ p.trialDays }}-day free trial }</p>
@@ -57,6 +66,11 @@ import { PublicNavComponent } from '../payments-ui/public-nav.component';
         .desc { color: #495057; min-height: 40px; }
         .meta { font-size: 0.85rem; color: #6c757d; }
         .feature { font-size: 0.9rem; color: #212529; margin: 4px 0; }
+        .price { margin: 4px 0 2px; }
+        .price .amount { font-size: 1.6rem; font-weight: 700; color: #212529; }
+        .price .per { font-size: 0.9rem; color: #6c757d; }
+        .price .list { margin-left: 8px; color: #adb5bd; text-decoration: line-through; font-size: 0.95rem; }
+        .tier-note { font-size: 0.8rem; color: #0d6efd; margin: 0 0 8px; }
     `],
 })
 export default class PricingPageComponent implements OnInit {
@@ -68,6 +82,15 @@ export default class PricingPageComponent implements OnInit {
     products = signal<IProduct[]>([]);
     isLoading = signal(true);
     buyingId = signal<string | null>(null);
+
+    // Display-only pricing (authoritative tier/discount is resolved server-side at checkout).
+    price(p: IProduct): number | null { return displayPrice(p); }
+    discounted(p: IProduct): boolean { return isDiscounted(p); }
+    money(amount: number | null | undefined, currency?: string): string { return formatMoney(amount, currency); }
+    tierLabel(p: IProduct): string | null {
+        const tier = resolveDisplayTier(p);
+        return tier && tier.price != null && this.discounted(p) ? tier.label : null;
+    }
 
     ngOnInit(): void {
         this.productsService.getAll({ limitCount: 100, currentPageNumber: 0, previousPageNumber: 0 }).subscribe({

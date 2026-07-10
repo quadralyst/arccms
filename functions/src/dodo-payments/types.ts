@@ -42,6 +42,8 @@ export interface PricingTier {
   discountCode: string;
   /** Display-only percentage shown in the admin UI / pricing page. */
   discountPct: number;
+  /** Display-only effective price for this tier (in major units), e.g. 15 for $15/mo. */
+  price?: number;
 }
 
 /** Firestore Products document (the fields the backend relies on). */
@@ -53,6 +55,9 @@ export interface ProductDoc {
   active: boolean;
   dodoProductId: string;
   type: 'one_time' | 'subscription';
+  /** Display-only list price (major units) and ISO currency, e.g. 29 / 'USD'. */
+  price?: number;
+  currency?: string;
   /** Entitlement granted on successful purchase, e.g. 'plus' | 'gold' | 'platinum'. */
   premiumType: string;
   /** Higher rank wins when a user already holds an entitlement. */
@@ -86,6 +91,8 @@ export interface TransactionDoc {
   status: TransactionStatus;
   type: 'one_time' | 'subscription';
   tierApplied?: string;
+  /** Dodo discount code applied at checkout — part of the grandfathering audit trail. */
+  discountCode?: string;
   eventType: string;
   /**
    * Stable dedup key. `pay:<payment_id>` when a payment id is present, otherwise
@@ -154,6 +161,13 @@ export interface UserEntitlement {
    * date only governs update eligibility and is never used to revoke `isPro`.
    */
   updatesUntil?: Timestamp | null;
+  /**
+   * Grandfathering audit trail — the deal the user locked in at purchase. Lets
+   * support answer "what price/tier was I promised?" even if the Dodo discount
+   * code is later changed or removed.
+   */
+  premiumTierLabel?: string | null;
+  premiumDiscountCode?: string | null;
 }
 
 export const PAYMENT_EMAIL_TYPES = [
