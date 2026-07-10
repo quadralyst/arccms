@@ -73,6 +73,38 @@ describe('grantEntitlement — ordering guard', () => {
   });
 });
 
+describe('grantEntitlement — updatesUntil (one-time free-updates window)', () => {
+    const oneTime = { premiumType: 'gold', tierRank: 2, type: 'one_time', updatesYears: 2 } as any;
+
+    it('sets updatesUntil = purchase date + updatesYears for a one-time product', async () => {
+        const { set } = withCurrent({});
+        await grantEntitlement(userRef, oneTime, { eventAt: new Date('2026-01-01T00:00:00Z') });
+        const written = set.mock.calls[0][1];
+        expect(written.updatesUntil).toBeInstanceOf(FakeTimestamp);
+        expect(written.updatesUntil.ms).toBe(new Date('2028-01-01T00:00:00Z').getTime());
+    });
+
+    it('does not set updatesUntil for a subscription product', async () => {
+        const { set } = withCurrent({});
+        const sub = { premiumType: 'gold', tierRank: 2, type: 'subscription' } as any;
+        await grantEntitlement(userRef, sub, { eventAt: new Date('2026-01-01T00:00:00Z'), subscriptionId: 's1' });
+        expect('updatesUntil' in set.mock.calls[0][1]).toBe(false);
+    });
+
+    it('preserves an already-set updatesUntil (set once)', async () => {
+        const { set } = withCurrent({ updatesUntil: new FakeTimestamp(999) });
+        await grantEntitlement(userRef, oneTime, { eventAt: new Date('2026-01-01T00:00:00Z') });
+        expect('updatesUntil' in set.mock.calls[0][1]).toBe(false);
+    });
+
+    it('sets updatesUntil null when the one-time product has no updates window', async () => {
+        const { set } = withCurrent({});
+        const noWindow = { premiumType: 'gold', tierRank: 2, type: 'one_time' } as any;
+        await grantEntitlement(userRef, noWindow, { eventAt: new Date('2026-01-01T00:00:00Z') });
+        expect(set.mock.calls[0][1].updatesUntil).toBeNull();
+    });
+});
+
 describe('revokeEntitlement — scoping + ordering', () => {
   it('leaves a different active subscription untouched', async () => {
     const { set } = withCurrent({ dodoSubscriptionId: 'subA' });

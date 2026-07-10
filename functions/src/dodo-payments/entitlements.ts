@@ -95,10 +95,41 @@ export async function grantEntitlement(
 
     tx.set(
       userRef,
-      { ...entitlement, ...eventAtPatch(current, opts.eventAt), modifiedAt: Timestamp.now() },
+      {
+        ...entitlement,
+        ...updatesUntilPatch(product, current, opts.eventAt),
+        ...eventAtPatch(current, opts.eventAt),
+        modifiedAt: Timestamp.now(),
+      },
       { merge: true },
     );
   });
+}
+
+/**
+ * For one-time products, resolve the "free updates until" date once and preserve
+ * it thereafter. Returns a merge patch: `{}` (leave the field alone) for
+ * subscriptions or when already set, else `{ updatesUntil: <Timestamp|null> }`.
+ * `null` means the product has no updates window configured.
+ */
+function updatesUntilPatch(
+  product: ProductDoc,
+  current: Record<string, unknown>,
+  eventAt?: Date,
+): Record<string, unknown> {
+  if (product.type !== 'one_time') return {};
+  // Set once — the original purchase date defines the window; don't slide it on re-grant.
+  if (current['updatesUntil'] instanceof Timestamp) return {};
+
+  const years = product.updatesYears ?? 0;
+  const days = product.updatesDays ?? 0;
+  if (years <= 0 && days <= 0) return { updatesUntil: null };
+
+  const base = eventAt ?? new Date();
+  const until = new Date(base.getTime());
+  if (years > 0) until.setFullYear(until.getFullYear() + years);
+  if (days > 0) until.setDate(until.getDate() + days);
+  return { updatesUntil: Timestamp.fromDate(until) };
 }
 
 /**

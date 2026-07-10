@@ -8,11 +8,14 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthState } from '../(auth)/auth.store';
 import { ProductsService } from '../admin/(products)/products.service';
 import { IProduct } from '../admin/(products)/product.model';
+import { PublicNavComponent } from '../payments-ui/public-nav.component';
 
 @Component({
     standalone: true,
-    imports: [CommonModule, MatButtonModule, MatCardModule, MatProgressSpinnerModule],
+    imports: [CommonModule, MatButtonModule, MatCardModule, MatProgressSpinnerModule, PublicNavComponent],
     template: `
+        <app-public-nav></app-public-nav>
+
         <div class="pricing">
             <h1 class="text-center">Pricing</h1>
             <p class="text-center text-muted mb-4">Choose a plan that works for you.</p>
@@ -30,6 +33,8 @@ import { IProduct } from '../admin/(products)/product.model';
                                 <p class="desc">{{ p.description }}</p>
                                 @if (p.type === 'subscription') {
                                     <p class="meta">{{ p.interval === 'year' ? 'Billed yearly' : 'Billed monthly' }}@if (p.trialDays) { · {{ p.trialDays }}-day free trial }</p>
+                                } @else {
+                                    <p class="meta">One-time · lifetime access@if (p.updatesYears) { · {{ p.updatesYears }} {{ p.updatesYears === 1 ? 'year' : 'years' }} of free updates }</p>
                                 }
                                 @for (feat of p.features ?? []; track feat) { <div class="feature"><i class="fa-solid fa-check me-2"></i>{{ feat }}</div> }
                             </mat-card-content>
@@ -75,9 +80,10 @@ export default class PricingPageComponent implements OnInit {
     }
 
     async buy(product: IProduct): Promise<void> {
-        if (!this.authState.isAuthenticated()) {
-            // Send unauthenticated buyers to the home page to sign in first.
-            this.router.navigate(['/'], { queryParams: { redirect: '/pricing' } });
+        // Gate on the actual signed-in user, NOT authState.isAuthenticated() —
+        // that signal is false for plain `user`-role accounts (see auth.store).
+        if (!this.authState.currentUser()) {
+            this.router.navigate(['/signup'], { queryParams: { redirect: '/pricing' } });
             return;
         }
 
