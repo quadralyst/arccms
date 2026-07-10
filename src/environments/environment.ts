@@ -1,21 +1,22 @@
 /**
  * Development Environment Configuration
- *
- * Copy environment.example.ts and fill in your Firebase credentials.
- * See INSTALL.md for setup instructions.
+ * 
+ * This file contains the development environment settings including
+ * Firebase configuration for local/development testing.
  */
 
 export const environment = {
     production: false,
 
+    // For Local Testing only
     firebaseConfig: {
-        apiKey: 'YOUR_API_KEY',
-        authDomain: 'your-project.firebaseapp.com',
-        databaseURL: 'https://your-project.firebaseio.com',
-        projectId: 'your-project-id',
-        storageBucket: 'your-project.appspot.com',
-        messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-        appId: 'YOUR_APP_ID',
-        measurementId: 'G-YOUR_MEASUREMENT_ID',
+        apiKey: 'AIzaSyBBCl1esmI7bPFTRAdxm0SbR8Z3R-8LwdY',
+        authDomain: 'xlm-project-864ff.firebaseapp.com',
+        databaseURL: 'https://xlm-project-864ff.firebaseio.com',
+        projectId: 'xlm-project-864ff',
+        storageBucket: 'xlm-project-864ff.appspot.com',
+        messagingSenderId: '957465473852',
+        appId: '1:957465473852:web:8c4b169c444d18b6a36439',
+        measurementId: 'G-7JE7LY5876',
     },
 };
