@@ -9,7 +9,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
 import { AuthState } from '../(auth)/auth.store';
 import { MembershipService } from '../payments-ui/membership.service';
-import { PublicNavComponent } from '../payments-ui/public-nav.component';
+import { UserShellComponent } from '../user/user-shell.component';
 import { IUser } from '../admin/users/user.model';
 import { TransactionsService } from '../admin/(transactions)/transactions.service';
 import { ITransaction } from '../admin/(transactions)/transaction.model';
@@ -32,11 +32,10 @@ import { toJsDate } from '../payments-ui/date-utils';
         MatProgressSpinnerModule,
         MatTableModule,
         MatChipsModule,
-        PublicNavComponent,
+        UserShellComponent,
     ],
     template: `
-        <app-public-nav></app-public-nav>
-
+        <app-user-shell>
         <div class="account">
             @if (!uid()) {
                 <mat-card class="signin-card">
@@ -158,6 +157,7 @@ import { toJsDate } from '../payments-ui/date-utils';
                 }
             }
         </div>
+        </app-user-shell>
     `,
     styles: [`
         .account { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
