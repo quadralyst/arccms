@@ -22,7 +22,7 @@ import { PaymentEmailType } from './types.js';
  *   ##TRIAL_ENDS_AT##             → trialEndsAt
  */
 export async function sendPaymentEmail(
-  type: PaymentEmailType,
+  type: PaymentEmailType | 'updates_ending_email',
   recipient: { email: string; name?: string },
   vars: {
     amount?: number;
@@ -31,6 +31,8 @@ export async function sendPaymentEmail(
     plan?: string;
     renewalDate?: string;
     trialEndsAt?: string;
+    /** ##UPDATES_END_DATE## — used by the updates-ending reminder (E2). */
+    updatesEndDate?: string;
   },
 ): Promise<void> {
   if (!recipient.email) {
@@ -71,6 +73,7 @@ export async function sendPaymentEmail(
       subscriptionPlan: vars.plan || '',
       renewalDate: vars.renewalDate || '',
       trialEndsAt: vars.trialEndsAt || '',
+      updatesEndDate: vars.updatesEndDate || '',
     },
   });
   logger.info(`Enqueued payment email ${type} to ${recipient.email}`);

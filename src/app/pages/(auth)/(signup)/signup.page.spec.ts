@@ -10,6 +10,15 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Signup OTP is now server-side (E3): mock the callable factory so we can drive
+// verify success/failure without a real Functions backend.
+const { mockCallableFn } = vi.hoisted(() => ({ mockCallableFn: vi.fn() }));
+vi.mock('@angular/fire/functions', () => ({
+    Functions: class {},
+    httpsCallable: vi.fn(() => mockCallableFn),
+}));
+
 import SignupComponent from './signup.page';
 
 describe('SignupComponent', () => {
@@ -338,13 +347,13 @@ describe('SignupComponent', () => {
         });
     });
 
-    describe('verifyOtp acceptance', () => {
-        const verifyOtp = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => void>)['verifyOtp'];
+    describe('verifyOtp acceptance (server-authoritative)', () => {
+        const verifyOtp = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => Promise<void>>)['verifyOtp'];
 
-        function ctx(entered: string, generated: string) {
+        function ctx(entered: string) {
             return {
                 registrationForm: { get: () => ({ value: entered }) },
-                generatedOtp: generated,
+                functions: {},
                 otpVerified: false,
                 otpError: { set: vi.fn() },
                 isLoading: { set: vi.fn() },
@@ -353,26 +362,31 @@ describe('SignupComponent', () => {
             };
         }
 
-        it('accepts the generated code, marks otpVerified, advances to signup', () => {
-            const c = ctx('654321', '654321');
-            verifyOtp.call(c);
+        beforeEach(() => mockCallableFn.mockReset());
+
+        it('marks otpVerified and advances to signup when the server verifies', async () => {
+            mockCallableFn.mockResolvedValue({ data: { verified: true } });
+            const c = ctx('654321');
+            await verifyOtp.call(c);
             expect(c.otpVerified).toBe(true);
             expect(c.goToStep).toHaveBeenCalledWith('signup');
         });
 
-        it('rejects the old hardcoded 123456 bypass', () => {
-            const c = ctx('123456', '999999');
-            verifyOtp.call(c);
+        it('rejects when the server does not verify the code', async () => {
+            mockCallableFn.mockResolvedValue({ data: { verified: false } });
+            const c = ctx('123456');
+            await verifyOtp.call(c);
             expect(c.otpError.set).toHaveBeenCalledWith('Invalid verification code');
             expect(c.otpVerified).toBe(false);
             expect(c.goToStep).not.toHaveBeenCalled();
         });
+
     });
 
-    describe('checkEmail — skip OTP when email is disabled', () => {
+    describe('checkEmail — E4 verification gating', () => {
         const checkEmail = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => Promise<void>>)['checkEmail'];
 
-        function ctx(emailEnabled: boolean, emailExists = false) {
+        function ctx(mustVerify: boolean, emailExists = false) {
             return {
                 registrationForm: { get: () => ({ invalid: false, value: 'new@user.com', markAsTouched: vi.fn() }) },
                 isLoading: { set: vi.fn() },
@@ -380,13 +394,13 @@ describe('SignupComponent', () => {
                 otpVerified: true, // should be reset to false by checkEmail
                 authStore: { checkItemNumberExist: vi.fn().mockResolvedValue({ toPromise: () => Promise.resolve(emailExists ? [{}] : []) }) },
                 signupSettings: { isSignupEnabled: true },
-                isEmailChannelEnabled: vi.fn().mockResolvedValue(emailEnabled),
-                sendOtp: vi.fn(),
+                shouldVerifySignup: vi.fn().mockResolvedValue(mustVerify),
+                sendOtp: vi.fn().mockResolvedValue(undefined),
                 goToStep: vi.fn(),
             };
         }
 
-        it('skips OTP and goes straight to signup when email is disabled', async () => {
+        it('skips OTP and goes straight to signup when verification is not required', async () => {
             const c = ctx(false);
             await checkEmail.call(c);
             expect(c.sendOtp).not.toHaveBeenCalled();
@@ -394,7 +408,7 @@ describe('SignupComponent', () => {
             expect(c.otpVerified).toBe(false);
         });
 
-        it('shows the OTP step when email is enabled', async () => {
+        it('shows the OTP step and requests a code when verification is required', async () => {
             const c = ctx(true);
             await checkEmail.call(c);
             expect(c.sendOtp).toHaveBeenCalled();

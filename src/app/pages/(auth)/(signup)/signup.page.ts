@@ -22,6 +22,7 @@ import {
 } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { Functions, httpsCallable } from '@angular/fire/functions';
 import { filter, firstValueFrom, take } from 'rxjs';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { AuthState } from '../auth.store';
@@ -53,6 +54,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private setupService = inject(OnboardingSetupService);
   private userSettingService = inject(UserSettingService);
   private emailConfigStatus = inject(EmailConfigStatusService);
+  private functions = inject(Functions);
   currentStep = signal<SignupStep>('request');
 
   isLoading = signal(false);
@@ -67,7 +69,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   signupSettings: any;
 
   private countdownInterval: any;
-  private generatedOtp = '';
   /** True only when the user actually completed the OTP step (email verification). */
   private otpVerified = false;
 
@@ -269,13 +270,14 @@ export default class SignupComponent extends BaseComponent implements OnInit {
           return;
         }
 
-        // Only verify email when an email channel is actually configured. With no
-        // email/SMS to deliver a code, skip verification and go straight to account
+        // E4: require the OTP step only when email is configured AND the admin
+        // enabled "require signup verification". Otherwise skip straight to account
         // creation (the account is then marked emailVerified: false — see register()).
-        const emailEnabled = await this.isEmailChannelEnabled();
-        if (emailEnabled) {
-          this.sendOtp();
+        // Signup must never block just because email is on.
+        const mustVerify = await this.shouldVerifySignup();
+        if (mustVerify) {
           this.goToStep('verify');
+          await this.sendOtp();
         } else {
           this.goToStep('signup');
         }
@@ -288,21 +290,34 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   }
 
   /**
-   * Resolve whether email is configured/enabled, waiting for the config-status
-   * document to finish loading first so a slow read can't wrongly skip verification.
+   * E4 gate: whether the OTP step is required (email configured AND the admin
+   * toggle on). Waits for the config-status document to finish loading first so a
+   * slow read can't wrongly skip verification.
    */
-  private async isEmailChannelEnabled(): Promise<boolean> {
+  private async shouldVerifySignup(): Promise<boolean> {
     await firstValueFrom(this.emailConfigStatus.isLoading$.pipe(filter((loading) => !loading), take(1)));
-    return this.emailConfigStatus.isEmailConfigured();
+    return this.emailConfigStatus.shouldVerifySignup();
   }
 
-  sendOtp() {
-    // Generate 6-digit OTP
-    this.generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  /**
+   * Request a verification code from the server (E3). The code is generated,
+   * hashed and delivered server-side via the email pipeline — never in the client.
+   */
+  async sendOtp(): Promise<void> {
+    const email = this.registrationForm.get('email')?.value?.trim().toLowerCase();
+    const name = this.registrationForm.get('name')?.value || undefined;
+    this.otpError.set('');
 
-    // In production, this would send via email/SMS
-    this.toastService.success('Verification code sent to your email');
-    this.startCountdown();
+    try {
+      const callable = httpsCallable(this.functions, 'requestSignupOtp');
+      await callable({ email, name });
+      this.toastService.success('Verification code sent to your email');
+      this.startCountdown();
+    } catch (error: any) {
+      const message = error?.message || 'Could not send verification code. Please try again.';
+      this.otpError.set(message);
+      this.toastService.error(message);
+    }
   }
 
   startCountdown() {
@@ -320,8 +335,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   }
 
   resendOtp() {
-    this.sendOtp();
+    if (this.resendCountdown() > 0) return;
     this.otpError.set('');
+    void this.sendOtp();
   }
 
   onOtpInput(event: any, index: number) {
@@ -352,7 +368,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     }
   }
 
-  verifyOtp() {
+  async verifyOtp(): Promise<void> {
     const otp = this.registrationForm.get('otp')?.value;
 
     if (!otp || otp.length !== 6) {
@@ -360,16 +376,26 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       return;
     }
 
+    const email = this.registrationForm.get('email')?.value?.trim().toLowerCase();
     this.isLoading.set(true);
+    this.otpError.set('');
 
-    if (otp === this.generatedOtp) {
-      this.otpVerified = true;
+    try {
+      // Server-authoritative verification (E3): the server checks the hashed
+      // code, expiry and attempt cap. Only a successful call marks the email verified.
+      const callable = httpsCallable(this.functions, 'verifySignupOtp');
+      const result = await callable({ email, code: otp });
+      if ((result.data as { verified?: boolean })?.verified) {
+        this.otpVerified = true;
+        this.toastService.success('Email verified successfully');
+        this.goToStep('signup');
+      } else {
+        this.otpError.set('Invalid verification code');
+      }
+    } catch (error: any) {
+      this.otpError.set(error?.message || 'Invalid verification code');
+    } finally {
       this.isLoading.set(false);
-      this.toastService.success('Email verified successfully');
-      this.goToStep('signup');
-    } else {
-      this.isLoading.set(false);
-      this.otpError.set('Invalid verification code');
     }
   }
 

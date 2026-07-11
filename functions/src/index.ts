@@ -6,6 +6,12 @@ export * from './email-log/createEmailLog.js';
 export * from './email-core/handleUnsubscribe.js';
 export * from './email-core/retryPendingEmails.js';
 
+// Email-core (Phase 2): default-template seeding callable + signup OTP callables
+// + welcome-on-signup trigger.
+export * from './email-core/seedEmailTemplates.js';
+export * from './auth/signupOtp.js';
+export * from './users/onUserWelcomeEmail.js';
+
 export * from './publishQueue/processPublishQueue.js';
 
 export * from './content-types/onContentTypeDelete.js';
@@ -61,6 +67,7 @@ export * from './dodo-payments/dodoWebhook.js';
 export * from './dodo-payments/handlePaymentEvent.js';
 export * from './dodo-payments/testDodoConnection.js';
 export * from './dodo-payments/scanTrialEndings.js';
+export * from './dodo-payments/scanUpdatesEnding.js';
 export * from './dodo-payments/scanExpiredEntitlements.js';
 export * from './dodo-payments/consumeCredits.js';
 
