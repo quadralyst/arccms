@@ -22,13 +22,14 @@ import {
 } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { take } from 'rxjs';
+import { filter, firstValueFrom, take } from 'rxjs';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { AuthState } from '../auth.store';
 import { AuthService } from '../auth.service';
 import { ConstantVariables } from '../../../../shared/constants/common-constants';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
 import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.service';
+import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 
 export const routeMeta: RouteMeta = {
   title: 'Signup | Arc CMS',
@@ -51,6 +52,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private authService = inject(AuthService);
   private setupService = inject(OnboardingSetupService);
   private userSettingService = inject(UserSettingService);
+  private emailConfigStatus = inject(EmailConfigStatusService);
   currentStep = signal<SignupStep>('request');
 
   isLoading = signal(false);
@@ -66,6 +68,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   private countdownInterval: any;
   private generatedOtp = '';
+  /** True only when the user actually completed the OTP step (email verification). */
+  private otpVerified = false;
 
   registrationForm!: FormGroup;
   private fb = inject(FormBuilder);
@@ -89,10 +93,16 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       // Handle error
       if (error) {
         this.errorMessage.set(error);
+        this.authActionPending = false; // a failed attempt must not redirect later
       }
 
-      // Handle successful authentication
-      if (success && authenticated && currentUser) {
+      // Redirect once a signup/login the user just initiated has produced a
+      // currentUser. Gated on currentUser (NOT isAuthenticated/isSuccess, which are
+      // false for the default 'user' role) so regular users are redirected too.
+      void success;
+      void authenticated;
+      if (this.authActionPending && currentUser && !loading) {
+        this.authActionPending = false;
         this.handleLoginSuccess();
       }
     });
@@ -243,6 +253,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
     this.isLoading.set(true);
     this.errorMessage.set('');
+    this.otpVerified = false; // reset for a fresh flow
 
     const email = this.registrationForm.get('email')?.value?.trim().toLowerCase();
 
@@ -258,15 +269,31 @@ export default class SignupComponent extends BaseComponent implements OnInit {
           return;
         }
 
-        // New user, send OTP and go to verify
-        this.sendOtp();
-        this.goToStep('verify');
+        // Only verify email when an email channel is actually configured. With no
+        // email/SMS to deliver a code, skip verification and go straight to account
+        // creation (the account is then marked emailVerified: false — see register()).
+        const emailEnabled = await this.isEmailChannelEnabled();
+        if (emailEnabled) {
+          this.sendOtp();
+          this.goToStep('verify');
+        } else {
+          this.goToStep('signup');
+        }
       }
     } catch (error) {
       this.errorMessage.set('Error checking email. Please try again.');
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  /**
+   * Resolve whether email is configured/enabled, waiting for the config-status
+   * document to finish loading first so a slow read can't wrongly skip verification.
+   */
+  private async isEmailChannelEnabled(): Promise<boolean> {
+    await firstValueFrom(this.emailConfigStatus.isLoading$.pipe(filter((loading) => !loading), take(1)));
+    return this.emailConfigStatus.isEmailConfigured();
   }
 
   sendOtp() {
@@ -335,8 +362,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
     this.isLoading.set(true);
 
-    // For demo - accept the generated OTP or "123456"
-    if (otp === this.generatedOtp || otp === '123456') {
+    if (otp === this.generatedOtp) {
+      this.otpVerified = true;
       this.isLoading.set(false);
       this.toastService.success('Email verified successfully');
       this.goToStep('signup');
@@ -364,9 +391,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       role: this.defaultRole,
       status: 'Active',
       isActive: true,
-      emailVerified: true,
+      // Verified only if the user actually completed the OTP step. When email is
+      // disabled the OTP step is skipped, so this is false (unverified).
+      emailVerified: this.otpVerified,
     };
 
+    this.authActionPending = true;
     this.authStore.signup(formData);
   }
 
@@ -382,6 +412,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     const email = this.registrationForm.get('email')?.value;
     const password = this.registrationForm.get('loginPassword')?.value;
 
+    this.authActionPending = true;
     this.authStore.login({ email, password });
   }
 
@@ -399,6 +430,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   }
 
   private navigationInProgress = false;
+  /** Set when the user submits signup/login, so the auth effect only redirects
+   *  after an action they initiated (not on passive currentUser changes). */
+  private authActionPending = false;
 
   private handleLoginSuccess() {
     // Prevent duplicate navigation

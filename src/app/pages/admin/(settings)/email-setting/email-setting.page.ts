@@ -61,6 +61,8 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
     providers = EMAIL_PROVIDERS;
 
     emailEnabled = signal(false);
+    /** True while the admin is configuring a provider but email is not yet enabled. */
+    configuring = signal(false);
     showProviderList = signal(false);
     isLoading = signal(true);
     isSaving = signal(false);
@@ -238,14 +240,27 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
         }
     }
 
-    enableEmail(): void {
-        this.emailEnabled.set(true);
-        this.emailForm.patchValue({ isEnabled: true });
-        this.emailForm.markAsDirty();
-        this.onSubmit(true);
+    /**
+     * Reveal the provider configuration form WITHOUT enabling email. Email only
+     * becomes enabled once a valid provider is configured (see toggleEmail).
+     */
+    startConfiguring(): void {
+        this.configuring.set(true);
     }
 
     toggleEmail(enabled: boolean): void {
+        // Invariant: email cannot be enabled unless a valid provider is configured.
+        if (enabled && !this.isProviderConfigValid()) {
+            this.toastService.openCustomSnackbar(
+                'Configure a valid email provider before enabling email.',
+                'warning',
+                'warning',
+            );
+            this.emailEnabled.set(false);
+            this.emailForm.patchValue({ isEnabled: false });
+            this.configuring.set(true); // keep the form open so they can finish configuring
+            return;
+        }
         this.emailEnabled.set(enabled);
         this.emailForm.patchValue({ isEnabled: enabled });
         this.emailForm.markAsDirty();
@@ -274,6 +289,13 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
     }
 
     async onSubmit(type?: boolean): Promise<void> {
+        // Enforce the invariant on every persist (defence-in-depth alongside
+        // toggleEmail): never store isEnabled=true without a valid provider config.
+        if (this.emailForm.get('isEnabled')?.value && !this.isProviderConfigValid()) {
+            this.emailForm.patchValue({ isEnabled: false });
+            this.emailEnabled.set(false);
+        }
+
         if (!this.testPassed() && !type) {
             this.toastService.openCustomSnackbar('Please test the connection first', 'warning', 'warning');
             return;
