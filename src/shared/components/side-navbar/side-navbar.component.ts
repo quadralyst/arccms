@@ -115,6 +115,15 @@ export default class NavbarComponent extends BaseComponent {
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
+            icon: 'fa-solid fa-address-book',
+            label: 'Audience',
+            allowRoles: [this.constantVariables.ADMIN],
+            subItems: [
+                { label: 'Contacts', route: '/admin/contacts', icon: 'fa-solid fa-user-group' },
+                { label: 'Lists', route: '/admin/lists', icon: 'fa-solid fa-rectangle-list' },
+            ],
+        },
+        {
             icon: 'fa-solid fa-box-open',
             label: 'Products',
             route: '/admin/products',

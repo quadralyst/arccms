@@ -12,6 +12,14 @@ export * from './email-core/seedEmailTemplates.js';
 export * from './auth/signupOtp.js';
 export * from './users/onUserWelcomeEmail.js';
 
+// Email-core (Phase 3): Contacts/Lists sync triggers, backfill, preference
+// center, CSV import.
+export * from './email-core/contactSync.js';
+export * from './email-core/backfillContacts.js';
+export * from './email-core/handleEmailPreferences.js';
+export * from './email-core/csvImport.js';
+export * from './email-core/adminContacts.js';
+
 export * from './publishQueue/processPublishQueue.js';
 
 export * from './content-types/onContentTypeDelete.js';

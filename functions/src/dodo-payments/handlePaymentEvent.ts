@@ -5,6 +5,7 @@ import { db } from '../init.js';
 import { findUserRef, grantEntitlement, revokeEntitlement, markPastDue } from './entitlements.js';
 import { grantCredits, refundCredits } from './credits.js';
 import { sendPaymentEmail } from './paymentEmailHelper.js';
+import { upsertContact, ensureSystemLists, SYSTEM_LISTS } from '../email-core/contacts.js';
 import { toMajorUnits } from './money.js';
 import { DodoWebhookPayload, DodoWebhookData, ProductDoc, TransactionDoc, TransactionStatus, PAYMENT_PROVIDER } from './types.js';
 
@@ -232,9 +233,27 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
     }
   }
 
+  // Mirror the buyer into the unified Contacts layer (source `customer`,
+  // joins the `all-customers` system list). Idempotent — repeat charges no-op.
+  const customerEmail = data.customer?.email || '';
+  if (customerEmail) {
+    try {
+      await ensureSystemLists();
+      await upsertContact({
+        email: customerEmail,
+        name: data.customer?.name,
+        userId: userId || undefined,
+        source: 'customer',
+        addLists: [SYSTEM_LISTS.ALL_CUSTOMERS],
+      });
+    } catch (err) {
+      logger.warn('handleSuccess: failed to sync customer contact', err);
+    }
+  }
+
   await sendPaymentEmail(
     'payment_succeeded_email',
-    { email: data.customer?.email || '', name: data.customer?.name },
+    { email: customerEmail, name: data.customer?.name },
     {
       amount: toMajorUnits(data.total_amount, data.currency),
       currency: data.currency,

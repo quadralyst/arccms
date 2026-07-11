@@ -6,11 +6,15 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockAdd, mockSettingsGet, mockSuppressionGet } = vi.hoisted(() => ({
+const { mockAdd, mockSettingsGet, mockSuppressionGet, mockGetContactConsent } = vi.hoisted(() => ({
   mockAdd: vi.fn().mockResolvedValue({ id: 'log-1' }),
   mockSettingsGet: vi.fn(),
   mockSuppressionGet: vi.fn(),
+  mockGetContactConsent: vi.fn().mockResolvedValue(null),
 }));
+
+// Phase 3: the marketing gate consults Contacts consent (fallback to isSubscribed).
+vi.mock('../email-core/contacts', () => ({ getContactConsent: mockGetContactConsent }));
 
 vi.mock('../init', () => ({
   db: {
@@ -77,6 +81,7 @@ describe('queueEmail', () => {
     vi.clearAllMocks();
     mockAdd.mockResolvedValue({ id: 'log-1' });
     mockSuppressionGet.mockResolvedValue({ exists: false, data: () => undefined });
+    mockGetContactConsent.mockResolvedValue(null); // no contact → fall back to isSubscribed
   });
 
   it('writes a pending log when all gates pass', async () => {
@@ -168,6 +173,29 @@ describe('queueEmail', () => {
 
     expect(res.status).toBe('skipped');
     expect(res.skipReason).toBe('unsubscribed');
+  });
+
+  it('gate 4: Contacts consent overrides the isSubscribed fallback (unsubscribed)', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+    mockGetContactConsent.mockResolvedValue('unsubscribed');
+
+    const res = await queueEmail({
+      ...baseParams,
+      category: 'marketing',
+      type: 'waitlist_welcome_email',
+      isSubscribed: true, // legacy says subscribed, but the Contact says otherwise
+    });
+
+    expect(res.status).toBe('skipped');
+    expect(res.skipReason).toBe('unsubscribed');
+  });
+
+  it('gate 4: Contacts consent subscribed passes even when isSubscribed is unset', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+    mockGetContactConsent.mockResolvedValue('subscribed');
+
+    const res = await queueEmail({ ...baseParams, category: 'marketing', type: 'waitlist_welcome_email' });
+    expect(res.status).toBe('pending');
   });
 
   it('gate 4: transactional ignores consent', async () => {

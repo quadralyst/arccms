@@ -4,6 +4,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import type { EmailSettings } from '../types.js';
 import { verifyUnsubscribeToken } from './unsubscribeToken.js';
+import { setContactConsent } from './contacts.js';
 
 /**
  * One-click unsubscribe endpoint: `/unsubscribe?e={emailHash}&t={hmac}`.
@@ -86,6 +87,14 @@ async function unsubscribeByEmailHash(emailHash: string): Promise<void> {
     },
     { merge: true },
   );
+
+  // Update the unified Contacts consent (Phase 3) so the preference center and
+  // marketing gate agree. Non-fatal if the contact doesn't exist yet.
+  try {
+    await setContactConsent(emailHash, 'unsubscribed', email || undefined);
+  } catch (err) {
+    logger.warn('handleUnsubscribe: could not update Contact consent', err);
+  }
 
   // Best-effort: keep legacy waitlist readers in sync (isSubscribed:false).
   if (email) {

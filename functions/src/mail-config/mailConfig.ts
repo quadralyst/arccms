@@ -6,7 +6,7 @@ import { EmailLogData, EmailSettings, ProcessedTemplate } from '../types.js';
 import { checkQuota, incrementSendCount, resolveProviderLimits } from './emailCounter.js';
 import { getMiscSettings } from '../shared/site-settings.js';
 import { POWERED_BY_EMAIL_HTML } from '../shared/html-document.js';
-import { buildUnsubscribeUrl } from '../email-core/unsubscribeToken.js';
+import { buildUnsubscribeUrl, buildPreferencesUrl } from '../email-core/unsubscribeToken.js';
 
 /** Base retry backoff unit: 5 minutes. */
 const RETRY_BASE_MS = 5 * 60 * 1000;
@@ -265,6 +265,7 @@ export async function processEmailTemplate(
     // HMAC-token unsubscribe link keyed by the recipient's emailHash — fixes the
     // historical empty-userId bug. Empty when no unsubscribeSecret is configured.
     const unsubscribe_link = buildUnsubscribeUrl(emailLogsData.toEmail, configData?.unsubscribeSecret);
+    const preferences_link = buildPreferencesUrl(emailLogsData.toEmail, configData?.unsubscribeSecret);
 
     // Default tag mappings - automatically maps tags to data paths
     const defaultMappings: Record<string, () => string> = {
@@ -286,6 +287,7 @@ export async function processEmailTemplate(
         LEADERBOARD_LINK: () => emailLogsData?.leaderboardLink || '',
         WAITLIST: () => emailLogsData?.waitlistName || '',
         UNSUBSCRIBE_LINK: () => unsubscribe_link || '',
+        PREFERENCES_LINK: () => preferences_link || '',
     };
 
     // Auto-detect tags from template and subject
