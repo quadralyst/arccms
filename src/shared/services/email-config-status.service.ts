@@ -29,6 +29,8 @@ export class EmailConfigStatusService {
   isEmailConfigured = signal(false);
   isLoading = signal(true);
   bannerDismissed = signal(false);
+  /** E4 — mirror of Settings/email.requireSignupVerification (public status doc). */
+  requireSignupVerification = signal(false);
 
   private unsubscribe: (() => void) | null = null;
 
@@ -58,6 +60,7 @@ export class EmailConfigStatusService {
 
         this._isEmailConfigured.next(enabled);
         this.isEmailConfigured.set(enabled);
+        this.requireSignupVerification.set(!!data?.['requireSignupVerification']);
 
         this._isLoading.next(false);
         this.isLoading.set(false);
@@ -66,6 +69,7 @@ export class EmailConfigStatusService {
         console.error('Error listening to email settings:', error);
         this._isEmailConfigured.next(false);
         this.isEmailConfigured.set(false);
+        this.requireSignupVerification.set(false);
         this._isLoading.next(false);
         this.isLoading.set(false);
       }
@@ -108,6 +112,15 @@ export class EmailConfigStatusService {
     return (
       !this.isEmailConfigured() && !this.bannerDismissed() && !this.isLoading()
     );
+  }
+
+  /**
+   * E4 — whether the signup flow should require email OTP verification:
+   * email must be configured AND the admin toggle must be on. When email is
+   * disabled this is always false (the step is skipped).
+   */
+  shouldVerifySignup(): boolean {
+    return this.isEmailConfigured() && this.requireSignupVerification();
   }
 
   /**

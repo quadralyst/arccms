@@ -82,7 +82,10 @@ export class OnboardingSetupService {
         delete dataToSave.id;
 
         await setDoc(doc(this.firestore, 'Settings', 'email'), dataToSave);
-        await setDoc(doc(this.firestore, 'Settings', 'email_status'), { isEnabled: enable });
+        await setDoc(doc(this.firestore, 'Settings', 'email_status'), {
+            isEnabled: enable,
+            requireSignupVerification: settings.requireSignupVerification ?? false,
+        });
     }
 
     /**
@@ -97,7 +100,10 @@ export class OnboardingSetupService {
         };
 
         await setDoc(doc(this.firestore, 'Settings', 'email'), dataToSave);
-        await setDoc(doc(this.firestore, 'Settings', 'email_status'), { isEnabled: false });
+        await setDoc(doc(this.firestore, 'Settings', 'email_status'), {
+            isEnabled: false,
+            requireSignupVerification: false,
+        });
     }
 
     /**

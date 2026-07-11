@@ -57,9 +57,17 @@ export class EmailSettingService {
 
         await setDoc(docRef, dataToSave, { merge: true });
 
-        // Sync the public-facing status document (contains only isEnabled, no credentials)
+        // Sync the public-facing status document (no credentials). Mirrors the
+        // signup-verification toggle so the pre-auth signup page can read it (E4).
         const statusDocRef = doc(this.firestore, SETTINGS_COLLECTION, 'email_status');
-        await setDoc(statusDocRef, { isEnabled: settings.isEnabled }, { merge: true });
+        await setDoc(
+            statusDocRef,
+            {
+                isEnabled: settings.isEnabled,
+                requireSignupVerification: settings.requireSignupVerification ?? false,
+            },
+            { merge: true },
+        );
     }
 
     /**

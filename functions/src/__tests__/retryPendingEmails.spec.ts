@@ -3,12 +3,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockSendMail, statusQueries, mockGetFactory } = vi.hoisted(() => {
+const { mockSendMail, statusQueries } = vi.hoisted(() => {
   const statusQueries: Record<string, any[]> = { retrying: [], deferred: [] };
   return {
     mockSendMail: vi.fn().mockResolvedValue(undefined),
     statusQueries,
-    mockGetFactory: vi.fn(),
   };
 });
 
