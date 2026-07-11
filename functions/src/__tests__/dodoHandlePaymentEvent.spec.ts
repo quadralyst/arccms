@@ -111,7 +111,7 @@ describe('handlePaymentEvent', () => {
     await (handlePaymentEvent as any)(event);
 
     expect(mockTxnAdd).toHaveBeenCalledTimes(1);
-    expect(mockTxnAdd.mock.calls[0][0]).toMatchObject({ status: 'succeeded', amount: 49.99, currency: 'USD', userId: 'u1' });
+    expect(mockTxnAdd.mock.calls[0][0]).toMatchObject({ status: 'succeeded', amount: 49.99, currency: 'USD', userId: 'u1', provider: 'dodo', providerPaymentId: 'pay1' });
     expect(mockProductUpdate).toHaveBeenCalledTimes(1); // counter incremented
     expect(mockGrant).toHaveBeenCalledTimes(1);
     expect(mockSendEmail).toHaveBeenCalledWith('payment_succeeded_email', expect.anything(), expect.anything());

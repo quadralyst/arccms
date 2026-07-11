@@ -120,7 +120,7 @@ service cloud.firestore {
         (isAuthenticated() && resource.data.uid == request.auth.uid
          && !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
-                       'premiumExpiresAt', 'dodoSubscriptionId', 'dodoCustomerId',
+                       'premiumExpiresAt', 'provider', 'providerSubscriptionId', 'providerCustomerId',
                        'premiumTrialReminderSent', 'premiumEventAt', 'updatesUntil',
                        'premiumTierLabel', 'premiumDiscountCode', 'creditBalance']));
       allow delete: if isAdmin();

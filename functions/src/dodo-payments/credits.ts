@@ -1,6 +1,6 @@
 import { Timestamp, DocumentReference } from 'firebase-admin/firestore';
 import { db } from '../init.js';
-import { CreditLedgerDoc, CreditLedgerReason } from './types.js';
+import { CreditLedgerDoc, CreditLedgerReason, PAYMENT_PROVIDER } from './types.js';
 
 const LEDGER = 'CreditLedger';
 
@@ -18,8 +18,10 @@ interface ApplyOpts {
   /** Deterministic ledger doc id → idempotent (grants/refunds). Omit for consume (auto-id). */
   ledgerId?: string;
   productId?: string;
-  dodoPaymentId?: string;
-  dodoSubscriptionId?: string;
+  providerPaymentId?: string;
+  providerSubscriptionId?: string;
+  /** Gateway behind a grant/refund; omitted for in-app consume. */
+  provider?: typeof PAYMENT_PROVIDER;
   note?: string;
   /** Clamp a negative delta so the balance never drops below zero (refunds). */
   clamp?: boolean;
@@ -69,9 +71,10 @@ async function applyCreditDelta(
       delta: applied,
       reason: opts.reason,
       balanceAfter: newBalance,
+      ...(opts.provider ? { provider: opts.provider } : {}),
       ...(opts.productId ? { productId: opts.productId } : {}),
-      ...(opts.dodoPaymentId ? { dodoPaymentId: opts.dodoPaymentId } : {}),
-      ...(opts.dodoSubscriptionId ? { dodoSubscriptionId: opts.dodoSubscriptionId } : {}),
+      ...(opts.providerPaymentId ? { providerPaymentId: opts.providerPaymentId } : {}),
+      ...(opts.providerSubscriptionId ? { providerSubscriptionId: opts.providerSubscriptionId } : {}),
       ...(opts.note ? { note: opts.note } : {}),
       createdAt: Timestamp.now(),
     };
@@ -91,15 +94,16 @@ export function grantCredits(
   userRef: DocumentReference,
   userId: string,
   amount: number,
-  opts: { ledgerId: string; reason?: 'purchase' | 'renewal'; productId?: string; dodoPaymentId?: string; dodoSubscriptionId?: string },
+  opts: { ledgerId: string; reason?: 'purchase' | 'renewal'; productId?: string; providerPaymentId?: string; providerSubscriptionId?: string },
 ): Promise<CreditResult> {
   if (!(amount > 0)) return Promise.resolve({ applied: 0, balance: 0, skipped: true });
   return applyCreditDelta(userRef, userId, amount, {
     reason: opts.reason ?? 'purchase',
     ledgerId: opts.ledgerId,
+    provider: PAYMENT_PROVIDER,
     productId: opts.productId,
-    dodoPaymentId: opts.dodoPaymentId,
-    dodoSubscriptionId: opts.dodoSubscriptionId,
+    providerPaymentId: opts.providerPaymentId,
+    providerSubscriptionId: opts.providerSubscriptionId,
   });
 }
 
@@ -108,15 +112,16 @@ export function refundCredits(
   userRef: DocumentReference,
   userId: string,
   amount: number,
-  opts: { ledgerId: string; productId?: string; dodoPaymentId?: string },
+  opts: { ledgerId: string; productId?: string; providerPaymentId?: string },
 ): Promise<CreditResult> {
   if (!(amount > 0)) return Promise.resolve({ applied: 0, balance: 0, skipped: true });
   return applyCreditDelta(userRef, userId, -amount, {
     reason: 'refund',
     ledgerId: opts.ledgerId,
     clamp: true,
+    provider: PAYMENT_PROVIDER,
     productId: opts.productId,
-    dodoPaymentId: opts.dodoPaymentId,
+    providerPaymentId: opts.providerPaymentId,
   });
 }
 

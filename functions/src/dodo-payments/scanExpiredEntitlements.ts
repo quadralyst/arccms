@@ -16,7 +16,7 @@ const ACTIVE_STATUSES = ['active', 'trialing', 'past_due'] as const;
  * subscription whose `premiumExpiresAt` is older than now − GRACE_DAYS.
  *
  * One-time / lifetime purchases are unaffected: they carry no `premiumExpiresAt`
- * (so they never match the range query) and no `dodoSubscriptionId` (a second
+ * (so they never match the range query) and no `providerSubscriptionId` (a second
  * guard). Their `updatesUntil` is informational and never revokes access.
  *
  * Reuses the existing users composite index (premiumStatus + premiumExpiresAt).
@@ -35,7 +35,7 @@ export const scanExpiredEntitlements = onSchedule({ schedule: 'every day 08:00',
     for (const doc of snap.docs) {
       const user = doc.data();
       // Only subscriptions expire; a lifetime one-time grant has no subscription id.
-      if (!user['dodoSubscriptionId']) continue;
+      if (!user['providerSubscriptionId']) continue;
 
       await doc.ref.set(
         {
