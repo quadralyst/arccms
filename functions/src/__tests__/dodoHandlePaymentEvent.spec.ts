@@ -260,7 +260,7 @@ describe('handlePaymentEvent', () => {
     expect(mockGrantCredits).not.toHaveBeenCalled();
   });
 
-  it('claws back credits on refund of a credit product', async () => {
+  it('claws back credits on a FULL refund of a credit product', async () => {
     mockProductGet.mockResolvedValue({ exists: true, id: 'p1', data: () => ({ ...product, creditsGranted: 100 }) });
     const payload = {
       type: 'refund.succeeded',
@@ -270,6 +270,21 @@ describe('handlePaymentEvent', () => {
 
     expect(mockRefundCredits).toHaveBeenCalledTimes(1);
     expect(mockRefundCredits.mock.calls[0]).toMatchObject([{ id: 'userRef' }, 'u1', 100, { ledgerId: 'refund:payR' }]);
+    expect(mockRevoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('a PARTIAL refund records a txn but does NOT revoke access or claw back credits', async () => {
+    mockProductGet.mockResolvedValue({ exists: true, id: 'p1', data: () => ({ ...product, creditsGranted: 100 }) });
+    const payload = {
+      type: 'refund.succeeded',
+      data: { payment_id: 'payP', is_partial: true, amount: 500, currency: 'USD', metadata: { productId: 'p1', userId: 'u1' }, customer: { email: 'a@b.com' } },
+    };
+    await (handlePaymentEvent as any)(makeEvent(payload).event);
+
+    expect(mockTxnAdd).toHaveBeenCalledTimes(1);
+    expect(mockTxnAdd.mock.calls[0][0]).toMatchObject({ status: 'refunded', amount: 5 }); // 500 minor units → 5.00
+    expect(mockRefundCredits).not.toHaveBeenCalled();
+    expect(mockRevoke).not.toHaveBeenCalled();
   });
 
   it('subscription.cancelled revokes the entitlement', async () => {
