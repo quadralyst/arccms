@@ -2,6 +2,9 @@ import { IBaseModel } from '../../../../shared/models/base-model';
 
 export const PRODUCTS_COLLECTION = 'Products';
 
+/** Payment gateways the schema is prepared for. Only 'dodo' is active today. */
+export type PaymentProvider = 'dodo' | 'stripe' | 'razorpay';
+
 /** A headcount-based pricing tier (first N buyers get a discount, etc.). */
 export interface IPricingTier {
     label: string;
@@ -20,8 +23,8 @@ export interface IProduct extends IBaseModel {
     description?: string;
     features?: string[];
     active: boolean;
-    /** Product id from the Dodo dashboard. */
-    dodoProductId: string;
+    /** Gateway product id per provider, e.g. { dodo: 'prod_123' }. */
+    providerProductIds?: Partial<Record<PaymentProvider, string>>;
     type: 'one_time' | 'subscription';
     /** Display-only list price (major units) and ISO currency, e.g. 29 / 'USD'. */
     price?: number;

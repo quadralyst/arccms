@@ -5,7 +5,8 @@ import { db } from '../init.js';
 import { findUserRef, grantEntitlement, revokeEntitlement, markPastDue } from './entitlements.js';
 import { grantCredits, refundCredits } from './credits.js';
 import { sendPaymentEmail } from './paymentEmailHelper.js';
-import { DodoWebhookPayload, DodoWebhookData, ProductDoc, TransactionDoc, TransactionStatus } from './types.js';
+import { toMajorUnits } from './money.js';
+import { DodoWebhookPayload, DodoWebhookData, ProductDoc, TransactionDoc, TransactionStatus, PAYMENT_PROVIDER } from './types.js';
 
 /**
  * Processes a recorded webhook event: updates Transactions, adjusts the product
@@ -85,12 +86,6 @@ async function loadProduct(data: DodoWebhookData): Promise<(ProductDoc & { id: s
   return { id: doc.id, ...(doc.data() as ProductDoc) };
 }
 
-/** Dodo amounts are in the smallest currency unit (e.g. cents) — convert to major units. */
-function toMajorUnits(amount?: number): number {
-  if (typeof amount !== 'number') return 0;
-  return Math.round(amount) / 100;
-}
-
 /**
  * Stable idempotency key for a webhook event. Prefer the payment id; fall back to
  * the subscription id + event type + billing period so subscription-only events
@@ -123,11 +118,12 @@ async function recordTransaction(
   const txn: TransactionDoc = {
     userId,
     userEmail: data.customer?.email || '',
-    dodoPaymentId: data.payment_id,
-    dodoSubscriptionId: data.subscription_id,
+    provider: PAYMENT_PROVIDER,
+    providerPaymentId: data.payment_id,
+    providerSubscriptionId: data.subscription_id,
     productId: product?.id || data.metadata?.productId || '',
     premiumType: product?.premiumType || data.metadata?.premiumType || '',
-    amount: toMajorUnits(data.total_amount),
+    amount: toMajorUnits(data.total_amount, data.currency),
     currency: data.currency || '',
     status,
     type: product?.type || (data.subscription_id ? 'subscription' : 'one_time'),
@@ -229,8 +225,8 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
         ledgerId: plan.ledgerId,
         reason: plan.reason,
         productId: product.id,
-        dodoPaymentId: data.payment_id,
-        dodoSubscriptionId: data.subscription_id,
+        providerPaymentId: data.payment_id,
+        providerSubscriptionId: data.subscription_id,
       });
     }
   }
@@ -239,7 +235,7 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
     'payment_succeeded_email',
     { email: data.customer?.email || '', name: data.customer?.name },
     {
-      amount: toMajorUnits(data.total_amount),
+      amount: toMajorUnits(data.total_amount, data.currency),
       currency: data.currency,
       status: 'succeeded',
       plan: product?.premiumType,
@@ -261,7 +257,7 @@ async function handleFailure(eventType: string, data: DodoWebhookData, eventAt?:
   await sendPaymentEmail(
     'payment_failed_email',
     { email: data.customer?.email || '', name: data.customer?.name },
-    { amount: toMajorUnits(data.total_amount), currency: data.currency, status: 'failed', plan: product?.premiumType },
+    { amount: toMajorUnits(data.total_amount, data.currency), currency: data.currency, status: 'failed', plan: product?.premiumType },
   );
 }
 
@@ -300,7 +296,7 @@ async function handleRefund(data: DodoWebhookData, eventAt?: Date): Promise<void
       await refundCredits(userRef, userId, product.creditsGranted as number, {
         ledgerId: `refund:${key}`,
         productId: product.id,
-        dodoPaymentId: data.payment_id,
+        providerPaymentId: data.payment_id,
       });
     }
   }
@@ -308,6 +304,6 @@ async function handleRefund(data: DodoWebhookData, eventAt?: Date): Promise<void
   await sendPaymentEmail(
     'subscription_lifecycle_email',
     { email: data.customer?.email || '', name: data.customer?.name },
-    { amount: toMajorUnits(data.total_amount), currency: data.currency, status: 'refunded' },
+    { amount: toMajorUnits(data.total_amount, data.currency), currency: data.currency, status: 'refunded' },
   );
 }

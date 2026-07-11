@@ -75,8 +75,8 @@ import { toJsDate } from '../payments-ui/date-utils';
                                 <div class="field"><span class="k">Discount code</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '—' }}</span></div>
                                 <div class="field"><span class="k">Renews / expires</span><span class="v">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span></div>
                                 <div class="field"><span class="k">Free updates until</span><span class="v">{{ fmtDate(updatesUntil()) }}</span></div>
-                                <div class="field"><span class="k">Subscription ID</span><span class="v mono">{{ entitlement()?.dodoSubscriptionId || '—' }}</span></div>
-                                <div class="field"><span class="k">Customer ID</span><span class="v mono">{{ entitlement()?.dodoCustomerId || '—' }}</span></div>
+                                <div class="field"><span class="k">Subscription ID</span><span class="v mono">{{ entitlement()?.providerSubscriptionId || '—' }}</span></div>
+                                <div class="field"><span class="k">Customer ID</span><span class="v mono">{{ entitlement()?.providerCustomerId || '—' }}</span></div>
                             </div>
 
                             @if (!entitlement()?.isPro) {
