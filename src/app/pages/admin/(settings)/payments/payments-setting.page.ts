@@ -76,12 +76,6 @@ export const routeMeta: RouteMeta = {
                                         </mat-select>
                                     </mat-form-field>
                                 </div>
-                                <div class="col-md-6">
-                                    <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>Brand / Business ID (optional)</mat-label>
-                                        <input matInput formControlName="brandId" autocomplete="off" />
-                                    </mat-form-field>
-                                </div>
                             </div>
 
                             <div class="row">
@@ -276,7 +270,6 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
         this.form = this.fb.group({
             enabled: [false],
             mode: ['test'],
-            brandId: [''],
             testApiKey: [''],
             liveApiKey: [''],
             webhookSecret: [''],
