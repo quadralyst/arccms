@@ -2,11 +2,14 @@ import { IBaseModel } from '../../../../shared/models/base-model';
 
 export const TRANSACTIONS_COLLECTION = 'Transactions';
 
+export type PaymentProvider = 'dodo' | 'stripe' | 'razorpay';
+
 export interface ITransaction extends IBaseModel {
     userId: string;
     userEmail: string;
-    dodoPaymentId?: string;
-    dodoSubscriptionId?: string;
+    provider?: PaymentProvider;
+    providerPaymentId?: string;
+    providerSubscriptionId?: string;
     productId: string;
     premiumType: string;
     amount: number;

@@ -1,7 +1,7 @@
 import { Timestamp, DocumentReference, FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
-import { DodoWebhookData, ProductDoc, UserEntitlement } from './types.js';
+import { DodoWebhookData, ProductDoc, UserEntitlement, PAYMENT_PROVIDER } from './types.js';
 
 /**
  * Locate the users/{id} document for a webhook event.
@@ -91,8 +91,9 @@ export async function grantEntitlement(
       premiumTierRank: newRank,
       premiumStatus: mapStatus(opts.rawStatus, opts.isTrial),
       premiumExpiresAt: expiresAt,
-      dodoSubscriptionId: opts.subscriptionId ?? null,
-      dodoCustomerId: opts.customerId ?? null,
+      provider: PAYMENT_PROVIDER,
+      providerSubscriptionId: opts.subscriptionId ?? null,
+      providerCustomerId: opts.customerId ?? null,
       // Grandfathering audit trail — the deal locked in at purchase. Preserve the
       // original values on renewals whose webhook omits the checkout metadata.
       premiumTierLabel: opts.tierLabel ?? (current['premiumTierLabel'] as string | undefined) ?? null,
@@ -154,10 +155,10 @@ export async function revokeEntitlement(
     const current = snap.data() ?? {};
 
     // If the user's active subscription differs from the one ending, leave it.
-    if (subscriptionId && current['dodoSubscriptionId'] && current['dodoSubscriptionId'] !== subscriptionId) {
+    if (subscriptionId && current['providerSubscriptionId'] && current['providerSubscriptionId'] !== subscriptionId) {
       logger.info('Skipping revoke — different active subscription', {
         ending: subscriptionId,
-        active: current['dodoSubscriptionId'],
+        active: current['providerSubscriptionId'],
       });
       return;
     }
@@ -175,7 +176,7 @@ export async function revokeEntitlement(
         premiumStatus: finalStatus,
         premiumType: null,
         premiumTierRank: null,
-        dodoSubscriptionId: FieldValue.delete(),
+        providerSubscriptionId: FieldValue.delete(),
         ...eventAtPatch(current, eventAt),
         modifiedAt: Timestamp.now(),
       },
@@ -198,10 +199,10 @@ export async function markPastDue(
     const snap = await tx.get(userRef);
     const current = snap.data() ?? {};
 
-    if (subscriptionId && current['dodoSubscriptionId'] && current['dodoSubscriptionId'] !== subscriptionId) {
+    if (subscriptionId && current['providerSubscriptionId'] && current['providerSubscriptionId'] !== subscriptionId) {
       logger.info('Skipping past-due — different active subscription', {
         failing: subscriptionId,
-        active: current['dodoSubscriptionId'],
+        active: current['providerSubscriptionId'],
       });
       return;
     }

@@ -526,6 +526,29 @@ every change is an append-only ledger entry so the balance is always rebuildable
 
 ---
 
+## Gateway-flexibility seams (multi-provider prep)
+
+Stored records are now gateway-neutral so a second gateway (Stripe, Razorpay) can be
+added later without a data migration. No behaviour changes for Dodo. What changed:
+
+- **`provider` field** on Transactions, WebhookEvents, CreditLedger, and the user
+  entitlement — set to `'dodo'` today (`PAYMENT_PROVIDER` in `functions/src/dodo-payments/types.ts`).
+- **Generalised id field names:** `dodoPaymentId → providerPaymentId`,
+  `dodoSubscriptionId → providerSubscriptionId`, `dodoCustomerId → providerCustomerId`,
+  and `Product.dodoProductId → Product.providerProductIds: { dodo: '...' }` (a per-gateway map).
+- **Currency-aware amounts:** `toMajorUnits(amount, currency)` (`money.ts`) — fixes
+  zero-decimal currencies (JPY/KRW divide by 1, not 100) and three-decimal (KWD ÷1000).
+- **firestore.rules** now block self-writes to `provider`, `providerSubscriptionId`,
+  `providerCustomerId`, `creditBalance` (plus the earlier premium fields).
+
+> ⚠️ **Migration:** existing `Products` docs created before this change still carry the
+> old `dodoProductId` field. Re-save each product in admin → Products (re-enter the Dodo
+> Product ID) so it's stored under `providerProductIds.dodo`; otherwise checkout will fail
+> with "Product is not linked to a Dodo product." (Old `Transactions`/`CreditLedger` docs
+> keep their old id fields — harmless, forward-only.)
+
+---
+
 ## 5. Resetting between runs
 
 Because the fixes are idempotent, a clean re-run needs fresh state:

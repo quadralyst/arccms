@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db, owner } from '../init.js';
 import { getDodoClient } from './dodoClient.js';
-import { ProductDoc } from './types.js';
+import { ProductDoc, providerProductId } from './types.js';
 
 /**
  * Callable (admin only): generate a Dodo checkout URL for a SPECIFIC tier's
@@ -32,7 +32,8 @@ export const createTestCheckoutLink = onCall(async (request) => {
     throw new HttpsError('not-found', 'Product not found.');
   }
   const product = { id: snap.id, ...(snap.data() as ProductDoc) };
-  if (!product.dodoProductId) {
+  const dodoProductId = providerProductId(product);
+  if (!dodoProductId) {
     throw new HttpsError('failed-precondition', 'Product is not linked to a Dodo product.');
   }
 
@@ -42,7 +43,7 @@ export const createTestCheckoutLink = onCall(async (request) => {
     const { client, settings } = await getDodoClient();
 
     const checkoutParams: Record<string, unknown> = {
-      product_cart: [{ product_id: product.dodoProductId, quantity: 1 }],
+      product_cart: [{ product_id: dodoProductId, quantity: 1 }],
       return_url: settings.successUrl,
       metadata: {
         test: 'true',

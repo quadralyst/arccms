@@ -2,7 +2,7 @@
  * Tests for functions/src/dodo-payments/scanExpiredEntitlements.ts
  *
  * The daily safety net force-expires subscriptions past their grace window while
- * leaving lifetime (one-time) grants — which have no dodoSubscriptionId — alone.
+ * leaving lifetime (one-time) grants — which have no providerSubscriptionId — alone.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -46,7 +46,7 @@ beforeEach(() => {
 
 describe('scanExpiredEntitlements', () => {
   it('force-expires a subscription past the grace window', async () => {
-    const sub = userDoc({ dodoSubscriptionId: 'sub1', premiumStatus: 'active' });
+    const sub = userDoc({ providerSubscriptionId: 'sub1', premiumStatus: 'active' });
     mockGet.mockResolvedValueOnce({ docs: [sub] }); // first status query returns it
 
     await (scanExpiredEntitlements as any)();
@@ -61,7 +61,7 @@ describe('scanExpiredEntitlements', () => {
   });
 
   it('leaves a lifetime (one-time) grant untouched — no subscription id', async () => {
-    const lifetime = userDoc({ premiumStatus: 'active', isPro: true }); // no dodoSubscriptionId
+    const lifetime = userDoc({ premiumStatus: 'active', isPro: true }); // no providerSubscriptionId
     mockGet.mockResolvedValueOnce({ docs: [lifetime] });
 
     await (scanExpiredEntitlements as any)();

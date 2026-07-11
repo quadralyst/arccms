@@ -1,14 +1,25 @@
 import { Timestamp } from 'firebase-admin/firestore';
 
 /**
- * Shared types for the Dodo Payments integration.
+ * Shared types for the payments integration.
+ *
+ * Currently only Dodo Payments is wired up, but the stored records are kept
+ * gateway-neutral (a `provider` discriminator + `provider*` id fields) so a second
+ * gateway (Stripe, Razorpay, …) can be added without a data migration. The raw
+ * Dodo payload shape lives in `DodoWebhookData`; everything we persist is neutral.
  *
  * Collections:
  *   Settings/dodo-payments  → single config document (secrets masked on read in the UI layer)
- *   Products                → mirror of Dodo products + tiering/entitlement metadata
+ *   Products                → mirror of gateway products + tiering/entitlement metadata
  *   Transactions            → normalized payment records (admin UI + user history)
  *   WebhookEvents           → raw, verbatim webhook payloads (forensics + idempotency)
  */
+
+/** Payment gateways the schema is prepared for. Only 'dodo' is active today. */
+export type PaymentProvider = 'dodo' | 'stripe' | 'razorpay';
+
+/** The single active provider. Centralised so records are tagged consistently. */
+export const PAYMENT_PROVIDER: PaymentProvider = 'dodo';
 
 /** Firestore Settings/dodo-payments document. */
 export interface DodoPaymentsSettings {
@@ -53,7 +64,11 @@ export interface ProductDoc {
   description?: string;
   features?: string[];
   active: boolean;
-  dodoProductId: string;
+  /**
+   * Gateway product id per provider, e.g. { dodo: 'prod_123' }. A product can map
+   * to a different id in each gateway. Use {@link providerProductId} to resolve.
+   */
+  providerProductIds?: Partial<Record<PaymentProvider, string>>;
   type: 'one_time' | 'subscription';
   /** Display-only list price (major units) and ISO currency, e.g. 29 / 'USD'. */
   price?: number;
@@ -82,14 +97,21 @@ export interface ProductDoc {
   purchaseCount: number;
 }
 
+/** Resolve a product's gateway product id for a provider (defaults to the active one). */
+export function providerProductId(product: ProductDoc, provider: PaymentProvider = PAYMENT_PROVIDER): string | undefined {
+  return product.providerProductIds?.[provider];
+}
+
 export type TransactionStatus = 'succeeded' | 'failed' | 'refunded' | 'pending';
 
 /** Firestore Transactions document. */
 export interface TransactionDoc {
   userId: string;
   userEmail: string;
-  dodoPaymentId?: string;
-  dodoSubscriptionId?: string;
+  /** Which gateway processed this charge. */
+  provider: PaymentProvider;
+  providerPaymentId?: string;
+  providerSubscriptionId?: string;
   productId: string;
   premiumType: string;
   amount: number;
@@ -97,7 +119,7 @@ export interface TransactionDoc {
   status: TransactionStatus;
   type: 'one_time' | 'subscription';
   tierApplied?: string;
-  /** Dodo discount code applied at checkout — part of the grandfathering audit trail. */
+  /** Discount code applied at checkout — part of the grandfathering audit trail. */
   discountCode?: string;
   eventType: string;
   /**
@@ -111,6 +133,8 @@ export interface TransactionDoc {
 
 /** Firestore WebhookEvents document (raw forensic log). */
 export interface WebhookEventDoc {
+  /** Which gateway delivered this event. */
+  provider: PaymentProvider;
   eventType: string;
   rawPayload: unknown;
   headers: Record<string, string>;
@@ -153,8 +177,10 @@ export interface UserEntitlement {
   premiumTierRank: number | null;
   premiumStatus: 'active' | 'trialing' | 'past_due' | 'cancelled' | 'expired' | null;
   premiumExpiresAt: Timestamp | null;
-  dodoSubscriptionId: string | null;
-  dodoCustomerId: string | null;
+  /** Which gateway granted the current entitlement. */
+  provider?: PaymentProvider;
+  providerSubscriptionId: string | null;
+  providerCustomerId: string | null;
   /**
    * Timestamp of the webhook event that last drove this entitlement. Used to
    * discard out-of-order deliveries (e.g. a delayed `active` arriving after a
@@ -190,9 +216,11 @@ export interface CreditLedgerDoc {
   reason: CreditLedgerReason;
   /** Balance immediately after this entry was applied. */
   balanceAfter: number;
+  /** Gateway that drove a grant/refund entry; absent for in-app 'consume' entries. */
+  provider?: PaymentProvider;
   productId?: string;
-  dodoPaymentId?: string;
-  dodoSubscriptionId?: string;
+  providerPaymentId?: string;
+  providerSubscriptionId?: string;
   note?: string;
   createdAt: Timestamp;
 }

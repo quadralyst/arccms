@@ -38,8 +38,10 @@ export interface IUser extends IBaseModel {
     premiumDiscountCode?: string;
     /** Prepaid credit balance (sum of the CreditLedger; written only by Cloud Functions). */
     creditBalance?: number;
-    dodoSubscriptionId?: string;
-    dodoCustomerId?: string;
+    /** Which gateway granted the current entitlement. */
+    provider?: 'dodo' | 'stripe' | 'razorpay';
+    providerSubscriptionId?: string;
+    providerCustomerId?: string;
     /** Set once a trial-ending reminder email has been sent. */
     premiumTrialReminderSent?: boolean;
 }

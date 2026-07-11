@@ -49,7 +49,7 @@ export const routeMeta: RouteMeta = {
               <div class="detail-body">
                 @if (p.description) { <p class="desc">{{ p.description }}</p> }
 
-                <div class="field"><span class="k">Dodo Product ID</span><span class="v mono">{{ p.dodoProductId || '—' }}</span></div>
+                <div class="field"><span class="k">Dodo Product ID</span><span class="v mono">{{ p.providerProductIds?.dodo || '—' }}</span></div>
                 <div class="field"><span class="k">Type</span><span class="v">{{ p.type === 'subscription' ? 'Subscription' : 'One-time' }}</span></div>
                 @if (p.type === 'subscription') {
                   <div class="field"><span class="k">Interval</span><span class="v">{{ p.interval === 'year' ? 'Yearly' : 'Monthly' }}</span></div>
@@ -448,7 +448,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         this.editingId.set(p.id);
         this.buildForm();
         this.form.patchValue({
-            name: p.name, dodoProductId: p.dodoProductId, description: p.description ?? '',
+            name: p.name, dodoProductId: p.providerProductIds?.dodo ?? '', description: p.description ?? '',
             type: p.type, interval: p.interval ?? 'month', trialDays: p.trialDays ?? 0,
             updatesYears: p.updatesYears ?? 0,
             creditsGranted: p.creditsGranted ?? 0,
@@ -468,7 +468,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         const v = this.form.getRawValue();
         const payload = {
             name: v.name,
-            dodoProductId: v.dodoProductId,
+            providerProductIds: { dodo: v.dodoProductId },
             description: v.description,
             type: v.type,
             interval: v.type === 'subscription' ? v.interval : undefined,
