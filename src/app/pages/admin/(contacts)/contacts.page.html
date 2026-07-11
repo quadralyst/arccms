@@ -1,0 +1,101 @@
+<div class="p-4">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h1 class="mb-0">Contacts</h1>
+        <button mat-stroked-button [disabled]="busy()" (click)="runBackfill()">
+            <mat-icon>sync</mat-icon> Backfill from users & waitlists
+        </button>
+    </div>
+    <p class="text-muted mb-4">The unified audience. Contacts sync automatically from signups, waitlists and customers.</p>
+
+    <!-- Add contact -->
+    <div class="d-flex gap-2 align-items-center flex-wrap mb-4">
+        <mat-form-field appearance="outline" style="width: 260px;">
+            <mat-label>Email</mat-label>
+            <input matInput [(ngModel)]="newEmail" placeholder="person@example.com" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="width: 200px;">
+            <mat-label>Name (optional)</mat-label>
+            <input matInput [(ngModel)]="newName" />
+        </mat-form-field>
+        <mat-checkbox [(ngModel)]="newConsent">I have consent to email them</mat-checkbox>
+        <button mat-flat-button color="primary" [disabled]="busy()" (click)="addContact()">
+            <mat-icon>person_add</mat-icon> Add
+        </button>
+    </div>
+
+    <!-- CSV import -->
+    <details class="mb-4">
+        <summary class="fw-medium mb-2" style="cursor: pointer;">Import from CSV</summary>
+        <div class="p-3 border rounded">
+            <p class="small text-muted">Paste rows as <code>email,name</code> (a header row is optional).</p>
+            <textarea class="form-control mb-2" rows="5" [(ngModel)]="csvText"
+                placeholder="email,name&#10;alice@example.com,Alice"></textarea>
+            <button mat-stroked-button [disabled]="busy() || !csvText.trim()" (click)="previewCsv()">Preview</button>
+
+            @if (csvPreview(); as p) {
+            <div class="mt-3">
+                <p class="mb-2">
+                    <span class="text-success">{{ p.validCount }} valid</span> ·
+                    <span class="text-warning">{{ p.duplicateCount }} duplicate</span> ·
+                    <span class="text-danger">{{ p.invalidCount }} invalid</span>
+                </p>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <mat-form-field appearance="outline" style="width: 240px;">
+                        <mat-label>Add to list</mat-label>
+                        <mat-select [(ngModel)]="importListId">
+                            @for (list of lists(); track list.id) {
+                            <mat-option [value]="list.id">{{ list.name }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-checkbox [(ngModel)]="importConsent">These contacts have consented to marketing</mat-checkbox>
+                    <button mat-flat-button color="primary" [disabled]="busy() || !p.validCount || !importListId" (click)="importCsv()">
+                        Import {{ p.validCount }} contacts
+                    </button>
+                </div>
+                <p class="small text-muted mt-2">Without affirming consent, imported contacts are marked <em>pending</em> and excluded from marketing sends.</p>
+            </div>
+            }
+        </div>
+    </details>
+
+    <!-- Search + table -->
+    <mat-form-field appearance="outline" style="width: 320px;">
+        <mat-label>Search contacts</mat-label>
+        <input matInput [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="email or name" />
+    </mat-form-field>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Sources</th>
+                <th>Lists</th>
+                <th>Consent</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (c of filtered(); track c.id) {
+            <tr>
+                <td>{{ c.email }}</td>
+                <td>{{ c.name || '—' }}</td>
+                <td class="small">{{ (c.sources || []).join(', ') || '—' }}</td>
+                <td class="small">{{ (c.listIds || []).length }}</td>
+                <td [class]="consentClass(c)">{{ c.consent?.marketing || 'pending' }}</td>
+                <td>
+                    @if (c.consent?.marketing !== 'subscribed') {
+                    <button mat-button (click)="setConsent(c, 'subscribed')">Subscribe</button>
+                    }
+                    @if (c.consent?.marketing !== 'unsubscribed') {
+                    <button mat-button color="warn" (click)="setConsent(c, 'unsubscribed')">Suppress</button>
+                    }
+                </td>
+            </tr>
+            } @empty {
+            <tr><td colspan="6" class="text-center text-muted py-4">No contacts found.</td></tr>
+            }
+        </tbody>
+    </table>
+</div>

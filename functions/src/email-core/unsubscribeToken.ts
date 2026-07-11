@@ -59,3 +59,14 @@ export function buildUnsubscribeUrl(email: string, secret: string | undefined): 
   const token = buildUnsubscribeToken(emailHash, secret);
   return `${getPublicBaseUrl()}unsubscribe?e=${emailHash}&t=${token}`;
 }
+
+/**
+ * Build the preference-center URL for a recipient (##PREFERENCES_LINK##).
+ * Same HMAC token scheme as unsubscribe, so it works for non-user contacts too.
+ */
+export function buildPreferencesUrl(email: string, secret: string | undefined): string {
+  if (!email || !secret) return '';
+  const emailHash = computeEmailHash(email);
+  const token = buildUnsubscribeToken(emailHash, secret);
+  return `${getPublicBaseUrl()}email-preferences?e=${emailHash}&t=${token}`;
+}

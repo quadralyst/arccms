@@ -206,6 +206,29 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Email system (Phase 3+): Contacts, Suppression, signup OTPs are
+    // functions-only writes; admins may read for the admin UIs. Lists are
+    // admin-managed (memberCount is maintained by functions but admin writes are
+    // allowed for manual list management).
+    match /Contacts/{emailHash} {
+      allow read: if isAdmin();
+      allow write: if false; // Cloud Functions (Admin SDK) only
+    }
+
+    match /Suppression/{emailHash} {
+      allow read: if isAdmin();
+      allow write: if false; // Cloud Functions only
+    }
+
+    match /signup_otps/{emailHash} {
+      allow read, write: if false; // Cloud Functions only (never client-readable)
+    }
+
+    match /Lists/{listId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
     // ============================================================
     // 5. WAITLIST COLLECTIONS
     //    Signup flow runs client-side without authentication.
