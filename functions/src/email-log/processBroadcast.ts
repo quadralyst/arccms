@@ -39,11 +39,12 @@ export const processBroadcast = onDocumentCreated(
         // Resolve per-provider rate limits
         let activeProvider = 'smtp';
         let providerLimits: ProviderRateLimits = { perSecond: 1 };
+        let emailSettings: EmailSettings | undefined;
         try {
             const settingsSnap = await db.collection('Settings').doc('email').get();
-            const settings = settingsSnap.data() as EmailSettings | undefined;
-            activeProvider = settings?.activeProvider || 'smtp';
-            providerLimits = resolveProviderLimits(activeProvider, settings?.providerRateLimits);
+            emailSettings = settingsSnap.data() as EmailSettings | undefined;
+            activeProvider = emailSettings?.activeProvider || 'smtp';
+            providerLimits = resolveProviderLimits(activeProvider, emailSettings?.providerRateLimits);
         } catch (err) {
             console.warn('processBroadcast: Could not read settings, using defaults:', err);
         }
@@ -90,6 +91,7 @@ export const processBroadcast = onDocumentCreated(
                 initialSentCount: broadcastData.sentCount || 0,
                 initialFailedCount: broadcastData.failedCount || 0,
                 quotaChecker,
+                emailSettings,
             });
 
             if (result.quotaExhausted) {

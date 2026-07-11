@@ -1,6 +1,11 @@
 
 export * from './email-log/createEmailLog.js';
 
+// Email-core (Phase 1): one-click unsubscribe endpoint + retry scheduler.
+// queueEmail() is a library helper (imported by senders), not an exported trigger.
+export * from './email-core/handleUnsubscribe.js';
+export * from './email-core/retryPendingEmails.js';
+
 export * from './publishQueue/processPublishQueue.js';
 
 export * from './content-types/onContentTypeDelete.js';

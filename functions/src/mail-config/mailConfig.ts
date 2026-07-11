@@ -3,9 +3,17 @@ import { constant } from '../constant.js';
 import { db } from '../init.js';
 import nodemailer from 'nodemailer';
 import { EmailLogData, EmailSettings, ProcessedTemplate } from '../types.js';
-import { incrementSendCount } from './emailCounter.js';
+import { checkQuota, incrementSendCount, resolveProviderLimits } from './emailCounter.js';
 import { getMiscSettings } from '../shared/site-settings.js';
 import { POWERED_BY_EMAIL_HTML } from '../shared/html-document.js';
+import { buildUnsubscribeUrl } from '../email-core/unsubscribeToken.js';
+
+/** Base retry backoff unit: 5 minutes. */
+const RETRY_BASE_MS = 5 * 60 * 1000;
+/** Delay before re-checking a quota-deferred send. */
+const QUOTA_DEFER_MS = 15 * 60 * 1000;
+/** Default max delivery attempts (mirrors queueEmail DEFAULT_MAX_ATTEMPTS). */
+const DEFAULT_MAX_ATTEMPTS = 3;
 
 /**
  * Build a 1x1 tracking-pixel <img> tag.
@@ -22,19 +30,49 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
 
     const logRef = db.collection('EmailLogs').doc(emailLogsId);
 
+    const currentAttempts = emailLogsData.attempts || 0;
+    const maxAttempts = emailLogsData.maxAttempts || DEFAULT_MAX_ATTEMPTS;
+
     let updatedTemplate: ProcessedTemplate | undefined;
     let activeProvider = 'smtp';
 
-    try {
-        const settings = settingsEmailDoc.data();
-        const isEnabled = settings?.isEnabled;
+    const settings = settingsEmailDoc.data() as EmailSettings | undefined;
 
-        if (!isEnabled) {
-            console.log('Email sending is disabled in settings.');
+    // Belt-and-braces kill-switch (chokepoint 2): if email was disabled after
+    // this doc was queued, mark it skipped rather than sending. Re-checked on
+    // every retry attempt too.
+    if (!settings?.isEnabled || !settings?.activeProvider) {
+        console.log('Email sending is disabled in settings.');
+        await logRef.update({
+            status: 'skipped',
+            skipReason: 'email_disabled',
+            sendingTime: Timestamp.now(),
+        });
+        return;
+    }
+
+    activeProvider = settings.activeProvider || 'smtp';
+
+    // Universal quota/rate-limit enforcement for ALL sends (spec §Phase-1.3).
+    // Exhausted ⇒ defer and let retryPendingEmails pick it up when quota resets.
+    try {
+        const limits = resolveProviderLimits(activeProvider, settings.providerRateLimits);
+        const quota = await checkQuota(activeProvider, limits);
+        if (!quota.ok) {
+            console.warn(`sendMail: quota exhausted for ${activeProvider}; deferring ${emailLogsId}.`);
+            await logRef.update({
+                status: 'deferred',
+                skipReason: 'quota',
+                nextAttemptAt: Timestamp.fromMillis(Date.now() + QUOTA_DEFER_MS),
+                activeProvider,
+            });
             return;
         }
+    } catch (quotaErr) {
+        console.warn('sendMail: quota check failed, proceeding with send:', quotaErr);
+    }
 
-        activeProvider = settings?.activeProvider || 'smtp';
+    try {
         updatedTemplate = await processEmailTemplate(emailLogsData, settings);
 
         // Conditionally append "Powered by Arc CMS" branding
@@ -47,23 +85,27 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
             console.warn('Failed to check showPoweredBy setting, skipping branding:', brandingErr);
         }
 
+        // Marketing sends carry List-Unsubscribe headers (RFC 2369 / 8058).
+        const unsubHeaders = buildListUnsubscribeHeaders(emailLogsData, settings);
+
         let result;
 
         switch (activeProvider) {
             case 'resend':
-                result = await sendResendMail(emailLogsData, updatedTemplate, settings);
+                result = await sendResendMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
                 break;
             case 'gmail':
-                result = await sendGmailMail(emailLogsData, updatedTemplate, settings);
+                result = await sendGmailMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
                 break;
             case 'smtp':
             default:
-                result = await sendSmtpMail(emailLogsData, updatedTemplate, settings);
+                result = await sendSmtpMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
                 break;
         }
 
         const updateData: Record<string, any> = {
             status: 'success',
+            attempts: currentAttempts + 1,
             sendingTime: Timestamp.now(),
             processedSubject: updatedTemplate.subject,
             processedTemplate: updatedTemplate.template,
@@ -85,12 +127,22 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
             console.warn('Failed to increment email counter:', counterErr);
         }
     } catch (err) {
+        // Transient failure ⇒ retry with exponential backoff until maxAttempts.
+        const newAttempts = currentAttempts + 1;
+        const exhausted = newAttempts >= maxAttempts;
+
         const failData: Record<string, any> = {
-            status: 'failed',
+            status: exhausted ? 'failed' : 'retrying',
+            attempts: newAttempts,
             sendingTime: Timestamp.now(),
             activeProvider,
             errorMessage: err instanceof Error ? err.message : String(err),
         };
+        if (!exhausted) {
+            failData.nextAttemptAt = Timestamp.fromMillis(
+                Date.now() + RETRY_BASE_MS * Math.pow(2, newAttempts),
+            );
+        }
         if (updatedTemplate) {
             failData.processedSubject = updatedTemplate.subject;
             failData.processedTemplate = updatedTemplate.template;
@@ -98,11 +150,32 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
             failData.unmappedTags = updatedTemplate.unmappedTags;
         }
         await logRef.update(failData);
-        console.error('Error sending email:', err);
+        console.error(
+            `Error sending email ${emailLogsId} (attempt ${newAttempts}/${maxAttempts}, ${exhausted ? 'failed' : 'will retry'}):`,
+            err,
+        );
     }
 }
 
-async function sendSmtpMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings) {
+/**
+ * Build List-Unsubscribe / List-Unsubscribe-Post headers for marketing sends.
+ * Returns an empty object for transactional email or when no unsubscribe URL
+ * can be built (missing secret).
+ */
+function buildListUnsubscribeHeaders(
+    emailLogsData: EmailLogData,
+    settings: EmailSettings,
+): Record<string, string> {
+    if (emailLogsData.category !== 'marketing') return {};
+    const url = buildUnsubscribeUrl(emailLogsData.toEmail, settings.unsubscribeSecret);
+    if (!url) return {};
+    return {
+        'List-Unsubscribe': `<${url}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+}
+
+async function sendSmtpMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings, extraHeaders: Record<string, string> = {}) {
     const smtpSettings = settings?.smtp || {} as Partial<import('../types.js').SmtpConfig>;
 
     const transporterMail = nodemailer.createTransport({
@@ -123,10 +196,11 @@ async function sendSmtpMail(emailLogsData: EmailLogData, updatedTemplate: Proces
         replyTo: settings.replyToEmail,
         html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? ''),
         bcc: emailLogsData.bcc || undefined,
+        headers: extraHeaders,
     });
 }
 
-async function sendResendMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings) {
+async function sendResendMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings, extraHeaders: Record<string, string> = {}) {
     const resendConfig = settings?.resend;
     if (!resendConfig?.apiKey) {
         throw new Error('Resend API Key is missing');
@@ -146,6 +220,7 @@ async function sendResendMail(emailLogsData: EmailLogData, updatedTemplate: Proc
             html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? ''),
             text: emailLogsData.text,
             reply_to: settings.replyToEmail,
+            ...(Object.keys(extraHeaders).length ? { headers: extraHeaders } : {}),
         }),
     });
 
@@ -158,7 +233,7 @@ async function sendResendMail(emailLogsData: EmailLogData, updatedTemplate: Proc
     return { messageId: data.id };
 }
 
-async function sendGmailMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings) {
+async function sendGmailMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings, extraHeaders: Record<string, string> = {}) {
     const gmailSettings = settings?.gmail || {} as Partial<import('../types.js').GmailConfig>;
     const transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -177,6 +252,7 @@ async function sendGmailMail(emailLogsData: EmailLogData, updatedTemplate: Proce
         html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? ''),
         replyTo: settings.replyToEmail || undefined,
         bcc: emailLogsData.bcc || undefined,
+        headers: extraHeaders,
     });
 }
 
@@ -186,9 +262,9 @@ export async function processEmailTemplate(
     configData: EmailSettings | undefined,
     customReplacements?: Record<string, string | (() => string)>
 ): Promise<ProcessedTemplate> {
-    const unsubscribe_link = constant.isProduction
-        ? `${constant.live_url}unsubscribe?userId=${''}`
-        : `${constant.local_url}unsubscribe?userId=${''}`;
+    // HMAC-token unsubscribe link keyed by the recipient's emailHash — fixes the
+    // historical empty-userId bug. Empty when no unsubscribeSecret is configured.
+    const unsubscribe_link = buildUnsubscribeUrl(emailLogsData.toEmail, configData?.unsubscribeSecret);
 
     // Default tag mappings - automatically maps tags to data paths
     const defaultMappings: Record<string, () => string> = {

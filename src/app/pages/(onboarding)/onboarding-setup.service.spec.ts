@@ -173,6 +173,51 @@ describe('OnboardingSetupService', () => {
             mockSetDoc.mockRejectedValueOnce(new Error('fail'));
             await expect(service.saveEmailConfig({ isEnabled: true } as any)).rejects.toThrow('fail');
         });
+
+        // E6: onboarding must apply the same "no enable without a valid provider"
+        // coercion the Email Settings page uses.
+        describe('E6 valid-provider guard', () => {
+            it('enables email when the chosen provider config is valid (gmail)', async () => {
+                await service.saveEmailConfig({
+                    activeProvider: 'gmail',
+                    gmail: { user: 'a@gmail.com', password: 'app-pass' },
+                } as any);
+
+                expect(mockSetDoc.mock.calls[0][1]).toEqual(expect.objectContaining({ isEnabled: true }));
+                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: true });
+            });
+
+            it('enables email for a valid smtp config', async () => {
+                await service.saveEmailConfig({
+                    activeProvider: 'smtp',
+                    smtp: { host: 'smtp.x.com', port: 587, secure: false, user: 'u', password: 'p' },
+                } as any);
+                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: true });
+            });
+
+            it('enables email for a valid resend config', async () => {
+                await service.saveEmailConfig({
+                    activeProvider: 'resend',
+                    resend: { apiKey: 're_123' },
+                } as any);
+                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: true });
+            });
+
+            it('keeps email DISABLED when the provider config is incomplete', async () => {
+                await service.saveEmailConfig({
+                    activeProvider: 'gmail',
+                    gmail: { user: 'a@gmail.com', password: '' }, // missing password
+                } as any);
+
+                expect(mockSetDoc.mock.calls[0][1]).toEqual(expect.objectContaining({ isEnabled: false }));
+                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: false });
+            });
+
+            it('keeps email DISABLED when no provider is selected', async () => {
+                await service.saveEmailConfig({ senderEmail: 'x@y.com' } as any);
+                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: false });
+            });
+        });
     });
 
     describe('saveEmailSkipped', () => {

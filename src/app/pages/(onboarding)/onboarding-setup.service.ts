@@ -10,7 +10,7 @@ import { inject, Injectable } from '@angular/core';
 import { Firestore, doc, collection, setDoc, getDoc, serverTimestamp } from '@angular/fire/firestore';
 import { Observable, from, map, of, catchError } from 'rxjs';
 import { DEFAULT_CONTENT_TYPES, DEFAULT_WAITLIST, DEFAULT_SITE_CSS_URLS } from './onboarding-defaults';
-import { DEFAULT_EMAIL_SETTINGS, IEmailSettings } from '../admin/(settings)/email-setting/email-setting.model';
+import { DEFAULT_EMAIL_SETTINGS, IEmailSettings, hasValidProviderConfig } from '../admin/(settings)/email-setting/email-setting.model';
 
 @Injectable({ providedIn: 'root' })
 export class OnboardingSetupService {
@@ -65,18 +65,24 @@ export class OnboardingSetupService {
 
     /**
      * Save email configuration with the chosen provider.
+     *
+     * E6 invariant: email can only be enabled when a valid provider is
+     * configured — the same coercion the Email Settings page applies. Without a
+     * valid provider, we persist the config but keep email disabled so the
+     * kill-switch (queueEmail/sendMail) never sends against a broken provider.
      */
     async saveEmailConfig(settings: IEmailSettings): Promise<void> {
+        const enable = hasValidProviderConfig(settings);
         const dataToSave = {
             ...settings,
-            isEnabled: true,
+            isEnabled: enable,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         };
         delete dataToSave.id;
 
         await setDoc(doc(this.firestore, 'Settings', 'email'), dataToSave);
-        await setDoc(doc(this.firestore, 'Settings', 'email_status'), { isEnabled: true });
+        await setDoc(doc(this.firestore, 'Settings', 'email_status'), { isEnabled: enable });
     }
 
     /**

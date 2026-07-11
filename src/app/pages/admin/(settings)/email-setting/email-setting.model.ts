@@ -62,6 +62,51 @@ export interface IAutoPurgeConfig {
 }
 
 /**
+ * Per-feature email toggles (spec §3.1).
+ * All default TRUE and are moot when the master `isEnabled` is off.
+ */
+export interface IEmailFeatureToggles {
+    /** OTP + welcome + waitlist broadcasts */
+    waitlistEmails: boolean;
+    /** signup OTP + welcome-on-signup */
+    authEmails: boolean;
+    /** payment lifecycle + trial/updates reminders */
+    paymentEmails: boolean;
+    /** notification → email delivery */
+    notificationEmails: boolean;
+    broadcasts: boolean;
+    drips: boolean;
+    /** instant admin alerts + daily digest */
+    adminAlerts: boolean;
+}
+
+/** Default feature toggles — everything on. */
+export const DEFAULT_EMAIL_FEATURES: IEmailFeatureToggles = {
+    waitlistEmails: true,
+    authEmails: true,
+    paymentEmails: true,
+    notificationEmails: true,
+    broadcasts: true,
+    drips: true,
+    adminAlerts: true,
+};
+
+/** UI metadata for rendering the Features toggle group. */
+export const EMAIL_FEATURE_META: Array<{
+    key: keyof IEmailFeatureToggles;
+    label: string;
+    description: string;
+}> = [
+    { key: 'waitlistEmails', label: 'Waitlist emails', description: 'OTP, welcome & waitlist broadcasts' },
+    { key: 'authEmails', label: 'Account emails', description: 'Signup OTP & welcome-on-signup' },
+    { key: 'paymentEmails', label: 'Payment emails', description: 'Receipts, trial & renewal reminders' },
+    { key: 'notificationEmails', label: 'Notification emails', description: 'Email delivery of in-app notifications' },
+    { key: 'broadcasts', label: 'Broadcasts', description: 'One-off campaign sends' },
+    { key: 'drips', label: 'Drip campaigns', description: 'Automated sequences' },
+    { key: 'adminAlerts', label: 'Admin alerts', description: 'Instant admin alerts & daily digest' },
+];
+
+/**
  * Email Settings Model
  */
 export interface IEmailSettings {
@@ -94,6 +139,29 @@ export interface IEmailSettings {
     providerRateLimits?: Record<string, IProviderRateLimits>;
     /** Auto-purge old email logs */
     autoPurge?: IAutoPurgeConfig;
+    /** Per-feature email toggles (spec §3.1) */
+    features?: IEmailFeatureToggles;
+    /** E4 — require email verification on signup (default false) */
+    requireSignupVerification?: boolean;
+}
+
+/**
+ * Whether `settings` carries a valid provider configuration.
+ * Mirrors the Email Settings page's `isProviderConfigValid()` but operates on
+ * plain data so callers without a live provider component (e.g. the onboarding
+ * wizard, E6) can enforce the same "no enable without a valid provider" rule.
+ */
+export function hasValidProviderConfig(settings: Partial<IEmailSettings>): boolean {
+    switch (settings.activeProvider) {
+        case 'smtp':
+            return !!settings.smtp?.host && !!settings.smtp?.user && !!settings.smtp?.password;
+        case 'gmail':
+            return !!settings.gmail?.user && !!settings.gmail?.password;
+        case 'resend':
+            return !!settings.resend?.apiKey;
+        default:
+            return false;
+    }
 }
 
 /**
@@ -142,6 +210,8 @@ export const DEFAULT_EMAIL_SETTINGS: IEmailSettings = {
         enabled: true,
         retentionDays: 60,
     },
+    features: { ...DEFAULT_EMAIL_FEATURES },
+    requireSignupVerification: false,
 };
 
 /**

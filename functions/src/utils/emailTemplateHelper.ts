@@ -1,7 +1,7 @@
-import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 // constant import removed
-import { EmailTemplateData, WaitlistUserData, EmailLogData } from '../types.js';
+import { EmailTemplateData, WaitlistUserData } from '../types.js';
+import { queueEmail } from '../email-core/queueEmail.js';
 
 /**
  * Fetches an email template, preferring the waitlist-specific one over the global config.
@@ -38,72 +38,57 @@ export async function getEmailTemplate(
 
 /**
  * Creates an email log for OTP verification.
+ * Transactional — routed through the queueEmail() chokepoint.
  */
 export async function createOtpEmailLog(
   userData: WaitlistUserData,
   templateData: EmailTemplateData
 ): Promise<void> {
-  // Fetch settings for BCC
-  let bccEmail = '';
-  try {
-    const settingsDoc = await db.collection('Settings').doc('email').get();
-    if (settingsDoc.exists) {
-      bccEmail = settingsDoc.data()?.bccEmail || '';
-    }
-  } catch (e) { console.error('Error fetching settings', e); }
-
-  const emailObj: EmailLogData = {
+  const toName = userData.firstName || userData.name || userData.email.split('@')[0];
+  await queueEmail({
+    source: 'waitlist',
+    category: 'transactional',
+    toEmail: userData.email,
+    toName,
     senderEmail: templateData.senderEmail,
     senderName: templateData.senderName,
-    toName: userData.firstName || userData.name || userData.email.split('@')[0],
-    name: userData.firstName || userData.name || userData.email.split('@')[0],
-    toEmail: userData.email,
     subject: templateData.subject,
     template: templateData.template,
     text: templateData.previewText || '',
-    bcc: bccEmail,
     type: 'waitlist_verify_otp_email',
-    createdAt: Timestamp.now(),
-    otp: userData.verificationCode,
-  };
-
-  await db.collection('EmailLogs').add(emailObj);
+    templateIsActive: templateData.isActive !== false,
+    data: { otp: userData.verificationCode },
+  });
 }
 
 /**
  * Creates an email log for welcome email.
+ * Marketing — respects the recipient's subscription state + suppression list.
  */
 export async function createWelcomeEmailLog(
   userData: WaitlistUserData,
   templateData: EmailTemplateData,
   waitlistName: string = ''
 ): Promise<void> {
-  // Fetch settings for BCC
-  let bccEmail = '';
-  try {
-    const settingsDoc = await db.collection('Settings').doc('email').get();
-    if (settingsDoc.exists) {
-      bccEmail = settingsDoc.data()?.bccEmail || '';
-    }
-  } catch (e) { console.error('Error fetching settings', e); }
-
-  const emailObj: EmailLogData = {
+  const toName = userData.firstName || userData.name || userData.email.split('@')[0];
+  await queueEmail({
+    source: 'waitlist',
+    category: 'marketing',
+    toEmail: userData.email,
+    toName,
     senderEmail: templateData.senderEmail,
     senderName: templateData.senderName,
-    toName: userData.firstName || userData.name || userData.email.split('@')[0],
-    name: userData.firstName || userData.name || userData.email.split('@')[0],
-    toEmail: userData.email,
     subject: templateData.subject,
     template: templateData.template,
     text: templateData.previewText || '',
-    bcc: bccEmail,
     type: 'waitlist_welcome_email',
-    createdAt: Timestamp.now(),
-    waitlistName: waitlistName,
-    referralLink: userData.referralLink || '',
-    leaderboardLink: userData.leaderboardLink || '',
-    position: userData.queuePosition,
-  };
-
-  await db.collection('EmailLogs').add(emailObj);
+    templateIsActive: templateData.isActive !== false,
+    isSubscribed: userData.isSubscribed !== false,
+    data: {
+      waitlistName,
+      referralLink: userData.referralLink || '',
+      leaderboardLink: userData.leaderboardLink || '',
+      position: userData.queuePosition,
+    },
+  });
 }

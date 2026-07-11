@@ -242,6 +242,59 @@
             </mat-card-content>
         </mat-card>
 
+        <!-- Feature Toggles -->
+        <mat-card class="mb-4">
+            <mat-card-header>
+                <mat-card-title>
+                    <i class="fa-solid fa-sliders me-2"></i>
+                    Email Features
+                </mat-card-title>
+                <mat-card-subtitle>
+                    Turn individual email types on or off. The master switch above overrides all of these.
+                </mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="pt-3">
+                @if (!emailEnabled()) {
+                <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Email is turned off. Enable email above to configure and use these features.</span>
+                </div>
+                }
+
+                <div formGroupName="features" class="feature-toggle-list">
+                    @for (f of featureMeta; track f.key) {
+                    <div class="feature-toggle-row d-flex align-items-start justify-content-between gap-3 py-2">
+                        <div class="feature-toggle-label">
+                            <div class="fw-medium">{{ f.label }}</div>
+                            <div class="text-muted small">{{ f.description }}</div>
+                        </div>
+                        <mat-slide-toggle
+                            [formControlName]="f.key"
+                            color="primary"
+                            [disabled]="!emailEnabled()"
+                            (change)="onFeatureToggleChange()">
+                        </mat-slide-toggle>
+                    </div>
+                    }
+                </div>
+
+                <hr class="my-3" />
+
+                <div class="feature-toggle-row d-flex align-items-start justify-content-between gap-3 py-2">
+                    <div class="feature-toggle-label">
+                        <div class="fw-medium">Require email verification on signup</div>
+                        <div class="text-muted small">New users must confirm their email via a one-time code before their account is verified. Forced off while email is disabled.</div>
+                    </div>
+                    <mat-slide-toggle
+                        formControlName="requireSignupVerification"
+                        color="primary"
+                        [disabled]="!emailEnabled()"
+                        (change)="onFeatureToggleChange()">
+                    </mat-slide-toggle>
+                </div>
+            </mat-card-content>
+        </mat-card>
+
         <!-- Action Buttons -->
         <div class="action-section">
             <div class="d-flex justify-content-between align-items-center">

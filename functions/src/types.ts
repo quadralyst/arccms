@@ -26,6 +26,39 @@ export interface WaitlistUserData {
   [key: string]: any;
 }
 
+/** Email category — drives consent/suppression rules (see spec §2.3). */
+export type EmailCategory = 'transactional' | 'marketing';
+
+/** Which feature produced an email — used for the per-feature toggle gate. */
+export type EmailSource =
+  | 'waitlist'
+  | 'auth'
+  | 'payment'
+  | 'notification'
+  | 'broadcast'
+  | 'drip'
+  | 'event'
+  | 'test';
+
+/** EmailLogs.status lifecycle (spec §3.4). */
+export type EmailLogStatus =
+  | 'pending'
+  | 'success'
+  | 'failed'
+  | 'retrying'
+  | 'deferred'
+  | 'skipped'
+  | 'suppressed';
+
+/** Why a send was blocked before/at send time (spec §3.4). */
+export type EmailSkipReason =
+  | 'email_disabled'
+  | 'feature_disabled'
+  | 'template_inactive'
+  | 'unsubscribed'
+  | 'suppressed'
+  | 'quota';
+
 export interface EmailLogData {
   id?: string;
   senderEmail: string;
@@ -44,13 +77,28 @@ export interface EmailLogData {
   waitlistName?: string;
   referralLink?: string;
   leaderboardLink?: string;
+  // ── Email-core pipeline fields (Phase 1) ──
+  /** transactional vs marketing — controls consent/suppression rules */
+  category?: EmailCategory;
+  /** Which feature produced this email */
+  source?: EmailSource;
+  /** sha256(lowercase(trim(toEmail))) — stable recipient key, matches email_lookup scheme */
+  emailHash?: string;
+  /** Delivery attempts so far (0 when freshly queued) */
+  attempts?: number;
+  /** Max delivery attempts before giving up (default 3) */
+  maxAttempts?: number;
+  /** When the next retry/deferred send should be attempted */
+  nextAttemptAt?: Timestamp;
+  /** Reason a send was blocked (set alongside status skipped/suppressed/deferred) */
+  skipReason?: EmailSkipReason;
   // Post-send processed data
   processedSubject?: string;
   processedTemplate?: string;
   usedTags?: string[];
   unmappedTags?: string[];
   activeProvider?: string;
-  status?: string;
+  status?: EmailLogStatus;
   sendingTime?: Timestamp;
   messageId?: string;
   errorMessage?: string;
@@ -109,6 +157,32 @@ export interface AutoPurgeConfig {
   retentionDays: number;
 }
 
+/**
+ * Per-feature email toggles (spec §3.1). All default TRUE and are moot when
+ * the master `isEnabled` is false. A feature toggle OFF disables only that
+ * feature's email delivery.
+ */
+export interface EmailFeatureToggles {
+  /** OTP + welcome + waitlist broadcasts */
+  waitlistEmails?: boolean;
+  /** signup OTP + welcome-on-signup */
+  authEmails?: boolean;
+  /** payment lifecycle + trial/updates reminders */
+  paymentEmails?: boolean;
+  /** notification → email delivery */
+  notificationEmails?: boolean;
+  broadcasts?: boolean;
+  drips?: boolean;
+  /** instant admin alerts + daily digest */
+  adminAlerts?: boolean;
+}
+
+/** Admin digest configuration (spec §3.1) */
+export interface AdminDigestConfig {
+  enabled: boolean;
+  hourUtc: number;
+}
+
 /** Shape of the Firestore Settings/email document */
 export interface EmailSettings {
   isEnabled?: boolean;
@@ -123,12 +197,22 @@ export interface EmailSettings {
   /** Legacy flat SMTP credentials (before nested smtp object) */
   smtpUser?: string;
   smtpPassword?: string;
+  bccEmail?: string;
   /** Rate limit for broadcast sending (legacy) */
   rateLimit?: RateLimitConfig;
   /** Per-provider rate limits (new). Overrides legacy rateLimit when present. */
   providerRateLimits?: Record<string, ProviderRateLimits>;
   /** Auto-purge old email logs */
   autoPurge?: AutoPurgeConfig;
+  // ── Email-core additions (Phase 1) ──
+  /** Per-feature email toggles */
+  features?: EmailFeatureToggles;
+  /** E4 — require email verification on signup (default false) */
+  requireSignupVerification?: boolean;
+  /** Daily admin digest config (default disabled, 08:00 UTC) */
+  adminDigest?: AdminDigestConfig;
+  /** Random secret used to sign one-click unsubscribe tokens (generated once) */
+  unsubscribeSecret?: string;
 }
 
 /** Schema for BroadcastEmails document processed server-side */
