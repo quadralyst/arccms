@@ -10,8 +10,9 @@ export interface ICreditLedgerEntry extends IBaseModel {
     delta: number;
     reason: CreditLedgerReason;
     balanceAfter: number;
+    provider?: 'dodo' | 'stripe' | 'razorpay';
     productId?: string;
-    dodoPaymentId?: string;
-    dodoSubscriptionId?: string;
+    providerPaymentId?: string;
+    providerSubscriptionId?: string;
     note?: string;
 }

@@ -121,19 +121,19 @@ describe('grantEntitlement — updatesUntil (one-time free-updates window)', () 
 
 describe('revokeEntitlement — scoping + ordering', () => {
   it('leaves a different active subscription untouched', async () => {
-    const { set } = withCurrent({ dodoSubscriptionId: 'subA' });
+    const { set } = withCurrent({ providerSubscriptionId: 'subA' });
     await revokeEntitlement(userRef, 'subB', 'cancelled');
     expect(set).not.toHaveBeenCalled();
   });
 
   it('skips a stale revoke', async () => {
-    const { set } = withCurrent({ dodoSubscriptionId: 'subA', premiumEventAt: new FakeTimestamp(5000) });
+    const { set } = withCurrent({ providerSubscriptionId: 'subA', premiumEventAt: new FakeTimestamp(5000) });
     await revokeEntitlement(userRef, 'subA', 'cancelled', new Date(1000));
     expect(set).not.toHaveBeenCalled();
   });
 
   it('revokes the matching subscription', async () => {
-    const { set } = withCurrent({ dodoSubscriptionId: 'subA' });
+    const { set } = withCurrent({ providerSubscriptionId: 'subA' });
     await revokeEntitlement(userRef, 'subA', 'expired', new Date(9000));
     expect(set).toHaveBeenCalledTimes(1);
     expect(set.mock.calls[0][1]).toMatchObject({ isPro: false, premiumStatus: 'expired', premiumType: null });
@@ -142,20 +142,20 @@ describe('revokeEntitlement — scoping + ordering', () => {
 
 describe('markPastDue — scoping + ordering', () => {
   it('ignores a failure for a subscription that is not the active one', async () => {
-    const { set } = withCurrent({ dodoSubscriptionId: 'subA' });
+    const { set } = withCurrent({ providerSubscriptionId: 'subA' });
     await markPastDue(userRef, 'subB');
     expect(set).not.toHaveBeenCalled();
   });
 
   it('marks past_due for the active subscription', async () => {
-    const { set } = withCurrent({ dodoSubscriptionId: 'subA' });
+    const { set } = withCurrent({ providerSubscriptionId: 'subA' });
     await markPastDue(userRef, 'subA', new Date(1000));
     expect(set).toHaveBeenCalledTimes(1);
     expect(set.mock.calls[0][1]).toMatchObject({ premiumStatus: 'past_due' });
   });
 
   it('skips a stale past_due event', async () => {
-    const { set } = withCurrent({ dodoSubscriptionId: 'subA', premiumEventAt: new FakeTimestamp(8000) });
+    const { set } = withCurrent({ providerSubscriptionId: 'subA', premiumEventAt: new FakeTimestamp(8000) });
     await markPastDue(userRef, 'subA', new Date(1000));
     expect(set).not.toHaveBeenCalled();
   });

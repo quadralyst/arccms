@@ -3,7 +3,7 @@ import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { getDodoSettings, buildDodoClient } from './dodoClient.js';
-import { DodoWebhookPayload, WebhookEventDoc } from './types.js';
+import { DodoWebhookPayload, WebhookEventDoc, PAYMENT_PROVIDER } from './types.js';
 
 /**
  * HTTP endpoint that receives Dodo Payments webhooks.
@@ -54,6 +54,7 @@ export const dodoWebhook = onRequest(async (request, response) => {
 
   // Persist raw event idempotently (doc id = webhook-id).
   const eventDoc: WebhookEventDoc = {
+    provider: PAYMENT_PROVIDER,
     eventType: payload?.type ?? 'unknown',
     rawPayload: payload,
     headers: {
