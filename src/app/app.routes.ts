@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { roleGuard } from './guards/role.guard';
+import { userGuard, entitledGuard } from './pages/user/user.guards';
 
 export const routes: Routes = [
   // AnalogJS file-based routes handle /admin/* automatically via .page.ts files
@@ -175,18 +176,12 @@ export const routes: Routes = [
     ],
   },
 
+  // Member profile (rendered in the user shell, not the admin shell)
   {
     path: 'user/profile',
+    canActivate: [userGuard],
     loadComponent: () =>
-      import('./pages/admin.page').then((m) => m.default),
-    canActivate: [roleGuard],
-    data: { allowedRoles: ['admin', 'user'] },
-    children: [
-      {
-        path: '',
-        loadComponent: () => import('./pages/(auth)/(profile)/profile.page').then((m) => m.default),
-      }
-    ]
+      import('./pages/user/profile/user-profile.page').then((m) => m.default),
   },
   // Admin Waitlist Routes (Angular router-based for admin area)
   {
@@ -315,12 +310,21 @@ export const routes: Routes = [
       import('./pages/pricing/pricing.page').then((m) => m.default),
   },
 
-  // Public payment test screens
+  // Member account / billing (sign-in required)
   {
     path: 'account',
+    canActivate: [userGuard],
     loadComponent: () =>
       import('./pages/account/account.page').then((m) => m.default),
   },
+  // Members-only premium area (paid entitlement required)
+  {
+    path: 'user/premium',
+    canActivate: [userGuard, entitledGuard],
+    loadComponent: () =>
+      import('./pages/user/premium/premium.page').then((m) => m.default),
+  },
+  // Public payment test screens
   {
     path: 'checkout/success',
     loadComponent: () =>
