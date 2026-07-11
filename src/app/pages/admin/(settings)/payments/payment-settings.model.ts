@@ -8,7 +8,6 @@ export interface IDodoPaymentSettings {
     testApiKey: string;
     liveApiKey: string;
     webhookSecret: string;
-    brandId: string;
     successUrl: string;
     cancelUrl: string;
 }
@@ -21,7 +20,6 @@ export const DEFAULT_DODO_PAYMENT_SETTINGS: IDodoPaymentSettings = {
     testApiKey: '',
     liveApiKey: '',
     webhookSecret: '',
-    brandId: '',
     successUrl: '',
     cancelUrl: '',
 };
