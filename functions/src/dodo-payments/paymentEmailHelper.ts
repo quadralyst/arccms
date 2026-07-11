@@ -1,7 +1,7 @@
-import { Timestamp } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
-import { EmailLogData, EmailTemplateData } from '../types.js';
+import { EmailTemplateData } from '../types.js';
+import { queueEmail } from '../email-core/queueEmail.js';
 import { PaymentEmailType } from './types.js';
 
 /**
@@ -46,45 +46,32 @@ export async function sendPaymentEmail(
   }
 
   const template = snap.docs[0].data() as EmailTemplateData & { isActive?: boolean };
-  if (template.isActive === false) {
-    logger.info(`Payment email template ${type} is disabled; skipping.`);
-    return;
-  }
-
-  // BCC from email settings (mirrors the waitlist email helpers).
-  let bccEmail = '';
-  try {
-    const settingsDoc = await db.collection('Settings').doc('email').get();
-    if (settingsDoc.exists) {
-      bccEmail = settingsDoc.data()?.['bccEmail'] || '';
-    }
-  } catch (e) {
-    logger.error('Error fetching email settings for BCC', e);
-  }
 
   const toName = recipient.name || recipient.email.split('@')[0];
 
-  const emailObj: EmailLogData = {
+  // Route through the queueEmail() chokepoint — it enforces the kill-switch,
+  // the paymentEmails feature toggle, template-active state, and suppression,
+  // and resolves BCC from settings. Payment email is transactional.
+  await queueEmail({
+    source: 'payment',
+    category: 'transactional',
+    toEmail: recipient.email,
+    toName,
     senderEmail: template.senderEmail,
     senderName: template.senderName,
-    toName,
-    name: toName,
-    toEmail: recipient.email,
     subject: template.subject,
     template: template.template,
     text: template.previewText || '',
-    bcc: bccEmail,
     type,
-    createdAt: Timestamp.now(),
-    // Tag data
-    currency: vars.currency || '',
-    price: vars.amount !== undefined ? String(vars.amount) : '',
-    paymentStatus: vars.status || '',
-    subscriptionPlan: vars.plan || '',
-    renewalDate: vars.renewalDate || '',
-    trialEndsAt: vars.trialEndsAt || '',
-  };
-
-  await db.collection('EmailLogs').add(emailObj);
+    templateIsActive: template.isActive !== false,
+    data: {
+      currency: vars.currency || '',
+      price: vars.amount !== undefined ? String(vars.amount) : '',
+      paymentStatus: vars.status || '',
+      subscriptionPlan: vars.plan || '',
+      renewalDate: vars.renewalDate || '',
+      trialEndsAt: vars.trialEndsAt || '',
+    },
+  });
   logger.info(`Enqueued payment email ${type} to ${recipient.email}`);
 }

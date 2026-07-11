@@ -73,10 +73,11 @@ export const continueBroadcast = onDocumentCreated(
 
         // Read active provider for quota checking
         let activeProvider = 'smtp';
+        let emailSettings: EmailSettings | undefined;
         try {
             const settingsSnap = await db.collection('Settings').doc('email').get();
-            const settings = settingsSnap.data() as EmailSettings | undefined;
-            activeProvider = settings?.activeProvider || 'smtp';
+            emailSettings = settingsSnap.data() as EmailSettings | undefined;
+            activeProvider = emailSettings?.activeProvider || 'smtp';
         } catch {
             /* use default */
         }
@@ -112,6 +113,7 @@ export const continueBroadcast = onDocumentCreated(
                 initialSentCount: broadcastData.sentCount || 0,
                 initialFailedCount: broadcastData.failedCount || 0,
                 quotaChecker,
+                emailSettings,
             });
 
             if (result.quotaExhausted) {

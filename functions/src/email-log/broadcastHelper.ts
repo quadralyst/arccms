@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase-admin/firestore';
-import { db } from '../init.js';
-import type { BroadcastEmailDoc, RateLimitConfig, ProviderRateLimits } from '../types.js';
+import type { BroadcastEmailDoc, RateLimitConfig, ProviderRateLimits, EmailSettings } from '../types.js';
+import { queueEmail } from '../email-core/queueEmail.js';
 
 /** Convert legacy rate limit config to milliseconds-per-email delay
  * @deprecated Use getDelayFromLimits instead */
@@ -55,6 +55,8 @@ export async function processRecipientBatch(params: {
     initialFailedCount: number;
     /** Optional callback that returns false when daily/hourly quota is exhausted */
     quotaChecker?: () => Promise<boolean>;
+    /** Pre-loaded email settings (avoids a per-recipient Settings read in queueEmail) */
+    emailSettings?: EmailSettings;
 }): Promise<BatchProcessResult> {
     const {
         broadcastRef,
@@ -66,6 +68,7 @@ export async function processRecipientBatch(params: {
         initialSentCount,
         initialFailedCount,
         quotaChecker,
+        emailSettings,
     } = params;
 
     const delayMs = getDelayFromLimits(providerLimits);
@@ -104,22 +107,29 @@ export async function processRecipientBatch(params: {
 
         const recipient = recipients[i];
 
-        // Create EmailLog with retry logic
+        // Enqueue via the queueEmail() chokepoint with retry logic.
+        // Broadcasts are marketing: each recipient passes the suppression gate;
+        // skipped/suppressed recipients are still audited (blocked EmailLogs doc).
         let success = false;
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                await db.collection('EmailLogs').add({
-                    senderEmail: broadcastData.senderEmail,
-                    senderName: broadcastData.senderName,
+                await queueEmail({
+                    source: 'broadcast',
+                    category: 'marketing',
                     toEmail: recipient.toEmail,
                     toName: recipient.toName,
+                    senderEmail: broadcastData.senderEmail,
+                    senderName: broadcastData.senderName,
                     subject: broadcastData.subject,
                     template: broadcastData.template,
                     text: broadcastData.previewText || '',
                     type: 'broadcast',
-                    broadcastId,
-                    waitlistId: broadcastData.waitlistId,
-                    createdAt: Timestamp.now(),
+                    isSubscribed: true,
+                    emailSettings,
+                    data: {
+                        broadcastId,
+                        waitlistId: broadcastData.waitlistId,
+                    },
                 });
                 success = true;
                 sentCount++;

@@ -184,7 +184,8 @@ describe('sendMail — email counter integration', () => {
       path.resolve(__dirname, '../mail-config/mailConfig.ts'),
       'utf-8'
     );
-    expect(fileContent).toContain("import { incrementSendCount } from './emailCounter.js'");
+    // Import now also pulls in quota helpers for universal rate-limit enforcement.
+    expect(fileContent).toMatch(/import \{[^}]*incrementSendCount[^}]*\} from '\.\/emailCounter\.js'/);
   });
 
   it('should call incrementSendCount after successful email send', async () => {
