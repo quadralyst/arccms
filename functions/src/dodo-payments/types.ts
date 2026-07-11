@@ -29,7 +29,6 @@ export interface DodoPaymentsSettings {
   liveApiKey?: string;
   /** Standard-Webhooks signing secret used by client.webhooks.unwrap(). */
   webhookSecret?: string;
-  brandId?: string;
   successUrl?: string;
   cancelUrl?: string;
   createdAt?: Timestamp;
@@ -99,7 +98,12 @@ export interface ProductDoc {
 
 /** Resolve a product's gateway product id for a provider (defaults to the active one). */
 export function providerProductId(product: ProductDoc, provider: PaymentProvider = PAYMENT_PROVIDER): string | undefined {
-  return product.providerProductIds?.[provider];
+  return (
+    product.providerProductIds?.[provider] ??
+    // Backward-compat: products created before the provider* rename stored a flat
+    // `dodoProductId`. Fall back to it so existing docs work without a migration.
+    (provider === 'dodo' ? (product as { dodoProductId?: string }).dodoProductId : undefined)
+  );
 }
 
 export type TransactionStatus = 'succeeded' | 'failed' | 'refunded' | 'pending';
@@ -167,6 +171,11 @@ export interface DodoWebhookData {
   trial_period_days?: number;
   customer?: { customer_id?: string; email?: string; name?: string };
   metadata?: Record<string, string>;
+  // Refund events (`refund.succeeded`): the refunded amount and whether it is a
+  // partial refund. Full refunds revoke access + claw back credits; partial do not.
+  refund_id?: string;
+  amount?: number;
+  is_partial?: boolean;
   [key: string]: unknown;
 }
 

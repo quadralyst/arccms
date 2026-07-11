@@ -45,5 +45,51 @@ with the deferred payments/lifecycle **email task** (see the Dodo payments phase
 
 ---
 
-_Reference: signup flow lives in `src/app/pages/(auth)/(signup)/signup.page.ts`; auth
-state in `src/app/pages/(auth)/auth.store.ts`._
+## EMAIL — one dedicated task (deferred throughout)
+
+All email work has been intentionally deferred to a single dedicated task. This is the
+consolidated scope. Nothing below is built/verified end-to-end unless noted.
+
+### E1. Payment lifecycle emails (deferred from the Dodo payments phases 1–5)
+Backend scaffolding exists but the whole email piece was skipped, never wired/tested end-to-end:
+- Helper: `functions/src/dodo-payments/paymentEmailHelper.ts` (`sendPaymentEmail` → writes an `EmailLogs` doc).
+- Types: `PAYMENT_EMAIL_TYPES` in `functions/src/dodo-payments/types.ts` = `payment_succeeded_email`, `payment_failed_email`, `subscription_lifecycle_email`, `trial_ending_email`.
+- Templates: `EmailTemplate` docs with `scope: 'payments'`; frontend `PAYMENT_EMAIL_DEFINITIONS` + the payment-settings template editor UI.
+- Senders already call it: `handlePaymentEvent.ts` (succeeded/failed/on_hold/cancelled/expired/refunded) and `scanTrialEndings.ts` (trial_ending_email).
+- **To do:** confirm default templates exist + are seeded, the `EmailLogs → send` trigger actually delivers via the configured provider, tags (`##PAYMENT_AMOUNT##`, `##RENEWAL_DATE##`, `##TRIAL_ENDS_AT##`, …) render, BCC from `Settings/email` works, and test each event end-to-end.
+
+### E2. "Free updates ending" reminder email (from payments Phase 2)
+Not built. One-time "lifetime + free updates for N years" products set `users/{id}.updatesUntil`.
+Add a scheduled scan (mirror `scanExpiredEntitlements`/`scanTrialEndings`) that emails users whose
+`updatesUntil` is approaching, guarded by a "reminder sent" flag. Needs a new email type + template.
+
+### E3. Real signup email-OTP delivery (replaces the client-side stub)
+Today `sendOtp()` generates a code in the browser and never sends it; the `123456` bypass was removed.
+Build a backend callable that generates a code, **emails it via the configured provider**, and verifies
+server-side; set `emailVerified: true` only after real confirmation. Until this exists, **enabling email
+blocks new signups at the OTP step** (see item #2 above). Files: `src/app/pages/(auth)/(signup)/signup.page.ts`.
+
+### E4. "Require email verification on signup" toggle (= item #3 above)
+Admin switch that, when ON + provider configured, forces real email-OTP (E3); when OFF or no provider,
+skips verification. Must degrade sensibly with the "no channel configured" handling (item #2).
+
+### E5. Email-disabled kill-switch audit (= the `[ ]` note above)
+When email is turned off (`Settings/email_status.isEnabled = false` / no valid provider), **all**
+email-sending paths must be disabled — audit every sender: waitlist confirmations, broadcasts,
+payment lifecycle emails (E1), trial/updates reminders (E2), signup OTP (E3). Nothing should attempt
+to send when email is off.
+
+### E6. Apply the "can't enable without valid config" invariant to onboarding
+The admin Email Settings page now blocks enabling email unless a valid provider is configured
+(done). The onboarding flow still writes `Settings/email_status.isEnabled` directly
+(`src/app/pages/(onboarding)/onboarding-setup.service.ts`) — apply the same guard there.
+
+### E7. SMS channel (optional / future)
+Todo notes mention email/SMS, but no SMS exists. Out of scope unless explicitly wanted; if added,
+it becomes another channel the signup-verification + kill-switch logic must account for.
+
+---
+
+_Reference: signup flow `src/app/pages/(auth)/(signup)/signup.page.ts`; auth store
+`src/app/pages/(auth)/auth.store.ts`; email config `src/shared/services/email-config-status.service.ts`
++ `src/app/pages/admin/(settings)/email-setting/`; payment emails `functions/src/dodo-payments/paymentEmailHelper.ts`._

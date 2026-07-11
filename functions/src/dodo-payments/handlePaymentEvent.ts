@@ -123,7 +123,8 @@ async function recordTransaction(
     providerSubscriptionId: data.subscription_id,
     productId: product?.id || data.metadata?.productId || '',
     premiumType: product?.premiumType || data.metadata?.premiumType || '',
-    amount: toMajorUnits(data.total_amount, data.currency),
+    // Refund events carry the refunded amount in `amount` rather than `total_amount`.
+    amount: toMajorUnits(data.total_amount ?? data.amount, data.currency),
     currency: data.currency || '',
     status,
     type: product?.type || (data.subscription_id ? 'subscription' : 'one_time'),
@@ -284,26 +285,32 @@ async function handleEnd(data: DodoWebhookData, finalStatus: 'cancelled' | 'expi
 async function handleRefund(data: DodoWebhookData, eventAt?: Date): Promise<void> {
   const product = await loadProduct(data);
   const userId = data.metadata?.userId || '';
+  const isPartial = data.is_partial === true;
+
+  // Always record the refund. Its amount is the refunded amount (data.amount).
   await recordTransaction(data, 'refund.succeeded', 'refunded', product, userId);
 
-  const userRef = await findUserRef(data);
-  if (userRef) {
-    await revokeEntitlement(userRef, data.subscription_id, 'expired', eventAt);
+  // Only a FULL refund removes access and claws back credits. A partial refund
+  // (e.g. a prorated/goodwill amount) leaves the entitlement and credits intact.
+  if (!isPartial) {
+    const userRef = await findUserRef(data);
+    if (userRef) {
+      await revokeEntitlement(userRef, data.subscription_id, 'expired', eventAt);
 
-    // Claw back the credits granted for the refunded charge (clamped at zero).
-    if (product && (product.creditsGranted ?? 0) > 0) {
-      const key = data.payment_id || data.subscription_id || '';
-      await refundCredits(userRef, userId, product.creditsGranted as number, {
-        ledgerId: `refund:${key}`,
-        productId: product.id,
-        providerPaymentId: data.payment_id,
-      });
+      if (product && (product.creditsGranted ?? 0) > 0) {
+        const key = data.payment_id || data.subscription_id || '';
+        await refundCredits(userRef, userId, product.creditsGranted as number, {
+          ledgerId: `refund:${key}`,
+          productId: product.id,
+          providerPaymentId: data.payment_id,
+        });
+      }
     }
   }
 
   await sendPaymentEmail(
     'subscription_lifecycle_email',
     { email: data.customer?.email || '', name: data.customer?.name },
-    { amount: toMajorUnits(data.total_amount, data.currency), currency: data.currency, status: 'refunded' },
+    { amount: toMajorUnits(data.total_amount ?? data.amount, data.currency), currency: data.currency, status: 'refunded' },
   );
 }
