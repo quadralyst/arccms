@@ -1,6 +1,6 @@
 <div class="email-settings">
     <!-- Email Disabled State -->
-    @if (!emailEnabled()) {
+    @if (!emailEnabled() && !configuring()) {
     <div class="disabled-state">
         <div class="disabled-content">
             @if(!isLoading()){
@@ -10,11 +10,11 @@
             <h3>Email is Disabled</h3>
             <p class="text-muted">
                 Email functionality is currently turned off.
-                Enable it to configure email providers and send emails.
+                Configure a provider and test the connection, then enable it to start sending emails.
             </p>
-            <button mat-flat-button color="primary" (click)="enableEmail()">
-                <i class="fa-solid fa-power-off me-2"></i>
-                Enable Email
+            <button mat-flat-button color="primary" (click)="startConfiguring()">
+                <i class="fa-solid fa-gear me-2"></i>
+                Configure Email
             </button>
             }
             @else{

@@ -338,6 +338,114 @@ describe('SignupComponent', () => {
         });
     });
 
+    describe('verifyOtp acceptance', () => {
+        const verifyOtp = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => void>)['verifyOtp'];
+
+        function ctx(entered: string, generated: string) {
+            return {
+                registrationForm: { get: () => ({ value: entered }) },
+                generatedOtp: generated,
+                otpVerified: false,
+                otpError: { set: vi.fn() },
+                isLoading: { set: vi.fn() },
+                toastService: { success: vi.fn() },
+                goToStep: vi.fn(),
+            };
+        }
+
+        it('accepts the generated code, marks otpVerified, advances to signup', () => {
+            const c = ctx('654321', '654321');
+            verifyOtp.call(c);
+            expect(c.otpVerified).toBe(true);
+            expect(c.goToStep).toHaveBeenCalledWith('signup');
+        });
+
+        it('rejects the old hardcoded 123456 bypass', () => {
+            const c = ctx('123456', '999999');
+            verifyOtp.call(c);
+            expect(c.otpError.set).toHaveBeenCalledWith('Invalid verification code');
+            expect(c.otpVerified).toBe(false);
+            expect(c.goToStep).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('checkEmail — skip OTP when email is disabled', () => {
+        const checkEmail = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => Promise<void>>)['checkEmail'];
+
+        function ctx(emailEnabled: boolean, emailExists = false) {
+            return {
+                registrationForm: { get: () => ({ invalid: false, value: 'new@user.com', markAsTouched: vi.fn() }) },
+                isLoading: { set: vi.fn() },
+                errorMessage: { set: vi.fn() },
+                otpVerified: true, // should be reset to false by checkEmail
+                authStore: { checkItemNumberExist: vi.fn().mockResolvedValue({ toPromise: () => Promise.resolve(emailExists ? [{}] : []) }) },
+                signupSettings: { isSignupEnabled: true },
+                isEmailChannelEnabled: vi.fn().mockResolvedValue(emailEnabled),
+                sendOtp: vi.fn(),
+                goToStep: vi.fn(),
+            };
+        }
+
+        it('skips OTP and goes straight to signup when email is disabled', async () => {
+            const c = ctx(false);
+            await checkEmail.call(c);
+            expect(c.sendOtp).not.toHaveBeenCalled();
+            expect(c.goToStep).toHaveBeenCalledWith('signup');
+            expect(c.otpVerified).toBe(false);
+        });
+
+        it('shows the OTP step when email is enabled', async () => {
+            const c = ctx(true);
+            await checkEmail.call(c);
+            expect(c.sendOtp).toHaveBeenCalled();
+            expect(c.goToStep).toHaveBeenCalledWith('verify');
+        });
+
+        it('routes an existing email to the login step', async () => {
+            const c = ctx(false, true);
+            await checkEmail.call(c);
+            expect(c.goToStep).toHaveBeenCalledWith('login');
+            expect(c.sendOtp).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('handleLoginSuccess redirect', () => {
+        // handleLoginSuccess is what the auth effect calls once a signup/login the
+        // user initiated produces a currentUser. It must route regular users too
+        // (they are 'user' role → isAuthenticated()/isSuccess() are false).
+        const handleLoginSuccess = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => void>)['handleLoginSuccess'];
+
+        function ctx(isAdmin: boolean, inProgress = false) {
+            const navigate = vi.fn();
+            return {
+                navigationInProgress: inProgress,
+                authStore: { currentUser: () => ({ uid: 'u1' }), isAdmin: () => isAdmin },
+                toastService: { success: vi.fn() },
+                router: { navigate },
+                _navigate: navigate,
+            };
+        }
+
+        it('routes a regular user to /user/dashboard', () => {
+            const c = ctx(false);
+            handleLoginSuccess.call(c);
+            expect(c._navigate).toHaveBeenCalledWith(['/user/dashboard'], { replaceUrl: true });
+            expect(c.navigationInProgress).toBe(true);
+        });
+
+        it('routes an admin to /admin/dashboard', () => {
+            const c = ctx(true);
+            handleLoginSuccess.call(c);
+            expect(c._navigate).toHaveBeenCalledWith(['/admin/dashboard'], { replaceUrl: true });
+        });
+
+        it('does not double-navigate when one is already in progress', () => {
+            const c = ctx(false, true);
+            handleLoginSuccess.call(c);
+            expect(c._navigate).not.toHaveBeenCalled();
+        });
+    });
+
     describe('Disabled Step', () => {
         it('should include disabled step in SignupStep type', () => {
             const validSteps = ['request', 'login', 'verify', 'signup', 'disabled'];
