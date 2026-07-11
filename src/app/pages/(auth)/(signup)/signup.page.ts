@@ -307,8 +307,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       next?.focus();
     }
 
-    // Combine all OTP inputs
-    const otpInputs = document.querySelectorAll('.otp-input') as NodeListOf<HTMLInputElement>;
+    // Combine all OTP inputs into the form control. The boxes use the `.code-input`
+    // class (see signup.page.scss); querying the old `.otp-input` matched nothing,
+    // leaving `otp` empty so verification always failed.
+    const otpInputs = document.querySelectorAll('.code-input') as NodeListOf<HTMLInputElement>;
     const otp = Array.from(otpInputs).map((i) => i.value).join('');
     this.registrationForm.get('otp')?.setValue(otp);
   }

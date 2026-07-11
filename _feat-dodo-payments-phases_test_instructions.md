@@ -549,6 +549,54 @@ added later without a data migration. No behaviour changes for Dodo. What change
 
 ---
 
+## Phase 5 — User dashboard & entitlement gating
+
+A proper signed-in **member area** with a sidebar shell, plus the reusable
+entitlement-gating layer.
+
+### What changed
+| Area | Change |
+|------|--------|
+| Member shell | New sidebar layout (`user-shell.component.ts`) — Dashboard · Account & Billing · Premium · Profile · Plans · Sign out, with a Pro/Free badge + credit count. Gates on `currentUser()`. |
+| Dashboard | `/user/dashboard` is now a real landing page (replaces the old placeholder): greeting, live tiles (membership, credits, tier), a members-only card, and quick links. It's where login/signup lands. |
+| Profile | `/user/profile` now renders inside the **user shell** (was the admin shell). Same form (name/email/password/photo), reused unchanged. |
+| Premium | New `/user/premium` page, protected by `entitledGuard` — non-members are redirected to `/pricing`. |
+| Gating primitives | `EntitlementService` (reactive `isPro`/`premiumType`/`tierRank`/`creditBalance`/`hasTier`), `userGuard` (login required → `/signup`), `entitledGuard` (paid required → `/pricing`), and the `*appIfEntitled` structural directive. |
+| Account | `/account` now uses the member shell and requires sign-in (`userGuard`). |
+
+### P5.1 — Login lands on a functional dashboard
+1. Sign in at `/signup` (existing account → email+password; new → email → OTP `123456` → name+password).
+2. You land on **`/user/dashboard`**, which shows:
+   - Greeting + live status tiles (membership, credits, plan tier).
+   - **Quick actions:** "Use 1 credit" (calls `consumeCredits` — disabled at 0 balance), "Buy credits / Upgrade" (→ pricing), "Manage billing" (→ account).
+   - **Compact membership detail** (members only): renews/expires, free-updates-until, deal, discount.
+   - **Recent activity:** a merged, newest-first feed of your last transactions + credit-ledger entries (full history stays on `/account` via "View all →").
+   - **Onboarding empty state:** a brand-new Free user with no activity sees a "Get started → See plans" card.
+   - The left sidebar navigates the whole member area.
+3. Sanity: "Use 1 credit" decrements the balance and adds a `consume` row to recent activity; at 0 credits the button is disabled.
+
+### P5.2 — Access guards
+- **Signed out**, visit `/user/dashboard`, `/account`, `/user/profile`, or `/user/premium` → redirected to **`/signup`**.
+- **Signed in but not Pro**, visit `/user/premium` → redirected to **`/pricing`**.
+- **Signed in + Pro** → `/user/premium` opens, and the dashboard's "Premium tools unlocked" card appears (via `*appIfEntitled`).
+
+### P5.3 — Navigation is unified
+- Sidebar links reach Dashboard, Account/Billing, Premium, Profile, Plans. **Sign out** is in the sidebar footer.
+- `/user/profile` is now discoverable (sidebar) and rendered in the user shell, not the admin UI.
+
+### P5.4 — Gating a real feature (pattern)
+- Inline: wrap any element with `*appIfEntitled` (or `*appIfEntitled="2"` for a min tier) — it shows only for members.
+- Route: add `canActivate: [userGuard, entitledGuard]` to protect a route.
+- Both react to entitlement live: after a purchase confirms (webhook grants `isPro`), refresh `/account` or revisit — gated UI/routes open up.
+
+> Unit tests: `entitlement.service.spec.ts`, `user.guards.spec.ts` (userGuard/entitledGuard
+> redirects), `if-entitled.directive.spec.ts` (show/hide + min tier), `dashboard.page.spec.ts`.
+
+> **Note on `isAuthenticated`:** the whole member area gates on `currentUser()`, so the
+> pre-existing quirk (plain `user` role reads `isAuthenticated()===false`) does not affect it.
+
+---
+
 ## 5. Resetting between runs
 
 Because the fixes are idempotent, a clean re-run needs fresh state:
@@ -602,6 +650,7 @@ const db = admin.firestore();
 - [ ] P3.1: `/pricing` shows active-tier price with list price struck through + tier label
 - [ ] P3.2: transaction records `discountCode`; user doc carries `premiumTierLabel`/`premiumDiscountCode`, preserved on renewal
 - [ ] P4.1–4.4: purchase grants credits (idempotent), renewal re-grants, consume debits/rejects at 0, refund claws back (clamped)
+- [ ] P5: login lands on /user/dashboard; guards redirect (signed-out→/signup, non-member→/pricing); sidebar reaches account/profile/premium; *appIfEntitled shows Pro-only UI
 
 ---
 
