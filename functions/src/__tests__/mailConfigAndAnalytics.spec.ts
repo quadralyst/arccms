@@ -36,8 +36,10 @@ describe('buildTrackingPixel (mailConfig.ts)', () => {
       'utf-8'
     );
 
-    // The function checks if TRACKING_PIXEL_URL is falsy and returns ''
-    expect(fileContent).toContain("if (!constant.TRACKING_PIXEL_URL) return '';");
+    // The function resolves a tracking URL (settings override → constant) and
+    // returns '' when none is configured.
+    expect(fileContent).toContain('const url = trackingUrl || constant.TRACKING_PIXEL_URL;');
+    expect(fileContent).toContain("if (!url) return '';");
   });
 
   it('should build a 1x1 invisible tracking pixel img tag', async () => {

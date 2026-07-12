@@ -292,6 +292,19 @@
                         (change)="onFeatureToggleChange()">
                     </mat-slide-toggle>
                 </div>
+
+                <div class="feature-toggle-row d-flex align-items-start justify-content-between gap-3 py-2">
+                    <div class="feature-toggle-label">
+                        <div class="fw-medium">Log-only mode (testing)</div>
+                        <div class="text-muted small">Record the fully-composed email in Email Logs but do <strong>not</strong> actually send it. Use to verify the pipeline end-to-end without a real provider or inbox.</div>
+                    </div>
+                    <mat-slide-toggle
+                        formControlName="logOnlyMode"
+                        color="primary"
+                        [disabled]="!emailEnabled()"
+                        (change)="onFeatureToggleChange()">
+                    </mat-slide-toggle>
+                </div>
             </mat-card-content>
         </mat-card>
 
