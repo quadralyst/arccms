@@ -1,0 +1,68 @@
+<div class="p-4">
+    <h1 class="mb-1">Drip Campaigns</h1>
+    <p class="text-muted mb-4">Linear sequences per list. Joining a list enrolls a contact; leaving or unsubscribing exits them.</p>
+
+    <!-- New campaign -->
+    <div class="d-flex gap-2 align-items-center flex-wrap mb-4 p-3 border rounded">
+        <mat-form-field appearance="outline" style="width: 220px;">
+            <mat-label>Campaign name</mat-label>
+            <input matInput [(ngModel)]="newName" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="width: 220px;">
+            <mat-label>List</mat-label>
+            <mat-select [(ngModel)]="newListId">
+                @for (l of lists(); track l.id) { <mat-option [value]="l.id">{{ l.name }}</mat-option> }
+            </mat-select>
+        </mat-form-field>
+        <mat-slide-toggle [(ngModel)]="newEnrollExisting" color="primary">Enroll existing members on activate</mat-slide-toggle>
+        <button mat-flat-button color="primary" (click)="create()"><mat-icon>add</mat-icon> Create</button>
+    </div>
+
+    <!-- Campaigns -->
+    @for (c of campaigns(); track c.id) {
+    <div class="border rounded p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+                <span class="h5">{{ c.name }}</span>
+                <span class="badge ms-2"
+                    [class.bg-success]="c.status === 'active'"
+                    [class.bg-secondary]="c.status === 'draft'"
+                    [class.bg-warning]="c.status === 'paused'"
+                    [class.bg-dark]="c.status === 'archived'">{{ c.status }}</span>
+                <div class="small text-muted">List: {{ listName(c.listId) }} ·
+                    enrolled {{ c.counts?.enrolled || 0 }} · completed {{ c.counts?.completed || 0 }} · exited {{ c.counts?.exited || 0 }}</div>
+            </div>
+            <div class="d-flex gap-1">
+                @if (c.status === 'draft' || c.status === 'paused') { <button mat-stroked-button color="primary" (click)="activate(c)">Activate</button> }
+                @if (c.status === 'active') { <button mat-stroked-button (click)="pause(c)">Pause</button> }
+                @if (c.status === 'paused') { <button mat-stroked-button (click)="resume(c)">Resume</button> }
+                @if (c.status !== 'archived') { <button mat-stroked-button color="warn" (click)="archive(c)">Archive</button> }
+            </div>
+        </div>
+
+        <!-- Steps -->
+        <div class="ms-2">
+            @for (s of c.steps || []; track s.id; let i = $index) {
+            <div class="d-flex gap-2 align-items-center mb-2">
+                <span class="badge bg-light text-dark">Step {{ i + 1 }}</span>
+                <mat-form-field appearance="outline" style="width: 240px;" class="mb-0">
+                    <mat-label>Template</mat-label>
+                    <mat-select [(ngModel)]="s.templateId">
+                        @for (t of templates(); track t.id) { <mat-option [value]="t.id">{{ t.label }}</mat-option> }
+                    </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" style="width: 140px;" class="mb-0">
+                    <mat-label>Delay (hours)</mat-label>
+                    <input matInput type="number" [(ngModel)]="s.delayHours" />
+                </mat-form-field>
+                <button mat-icon-button color="warn" (click)="removeStep(c, i)"><mat-icon>delete</mat-icon></button>
+            </div>
+            }
+            <button mat-button (click)="addStep(c)"><mat-icon>add</mat-icon> Add step</button>
+            <button mat-flat-button color="primary" class="ms-2" (click)="saveSteps(c)">Save steps</button>
+        </div>
+    </div>
+    } @empty {
+    <p class="text-muted">No campaigns yet.</p>
+    }
+</div>

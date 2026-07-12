@@ -30,6 +30,10 @@ export * from './email-core/announcements.js';
 export * from './email-core/sendAdminDigest.js';
 export * from './email-core/notificationPrefs.js';
 
+// Email-core (Phase 7): drip campaigns.
+export * from './email-core/processDripQueue.js';
+export * from './email-core/dripCampaigns.js';
+
 export * from './publishQueue/processPublishQueue.js';
 
 export * from './content-types/onContentTypeDelete.js';

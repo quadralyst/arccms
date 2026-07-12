@@ -63,6 +63,12 @@ vi.mock('firebase-admin/firestore', () => ({
 
 vi.mock('../constant', () => ({ constant: { isProduction: false, live_url: 'https://x/', local_url: 'http://l/' } }));
 
+// Membership helpers trigger drip enroll/exit (Phase 7) — stub them out here.
+vi.mock('../email-core/dripEnrollment', () => ({
+  enrollInListCampaigns: vi.fn().mockResolvedValue(undefined),
+  exitListCampaignEnrollments: vi.fn().mockResolvedValue(undefined),
+}));
+
 import {
   upsertContact,
   addContactToLists,
