@@ -20,6 +20,9 @@ export * from './email-core/handleEmailPreferences.js';
 export * from './email-core/csvImport.js';
 export * from './email-core/adminContacts.js';
 
+// Email-core (Phase 4): test-send for the block editor.
+export * from './email-core/sendTestEmail.js';
+
 export * from './publishQueue/processPublishQueue.js';
 
 export * from './content-types/onContentTypeDelete.js';

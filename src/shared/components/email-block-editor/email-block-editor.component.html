@@ -1,0 +1,94 @@
+<div class="email-block-editor">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <button mat-flat-button color="primary" [matMenuTriggerFor]="addMenu">
+            <mat-icon>add</mat-icon> Add block
+        </button>
+        <mat-menu #addMenu>
+            @for (t of blockTypes; track t) {
+            <button mat-menu-item (click)="add(t)"><span class="text-capitalize">{{ t }}</span></button>
+            }
+        </mat-menu>
+
+        <div class="btn-group">
+            <button mat-stroked-button [class.active]="previewMode() === 'desktop'" (click)="previewMode.set('desktop')">
+                <mat-icon>desktop_windows</mat-icon> Desktop
+            </button>
+            <button mat-stroked-button [class.active]="previewMode() === 'mobile'" (click)="previewMode.set('mobile')">
+                <mat-icon>smartphone</mat-icon> Mobile
+            </button>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button mat-stroked-button (click)="sendTest()"><mat-icon>send</mat-icon> Send test</button>
+            <button mat-flat-button color="primary" (click)="save()"><mat-icon>save</mat-icon> Save</button>
+        </div>
+    </div>
+
+    @if (error()) {
+    <div class="alert alert-danger">{{ error() }}</div>
+    }
+
+    <div class="row">
+        <!-- Block list -->
+        <div class="col-lg-6">
+            @for (block of blocks(); track block.id; let i = $index) {
+            <div class="border rounded p-2 mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <strong class="text-capitalize small">{{ block.type }}</strong>
+                    <div>
+                        <button mat-icon-button (click)="move(i, -1)" [disabled]="i === 0"><mat-icon>arrow_upward</mat-icon></button>
+                        <button mat-icon-button (click)="move(i, 1)" [disabled]="i === blocks().length - 1"><mat-icon>arrow_downward</mat-icon></button>
+                        <button mat-icon-button color="warn" (click)="remove(i)"><mat-icon>delete</mat-icon></button>
+                    </div>
+                </div>
+
+                @switch (block.type) {
+                @case ('heading') {
+                <input class="form-control mb-1" [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" placeholder="Heading text" />
+                <select class="form-select form-select-sm" [ngModel]="block.level" (ngModelChange)="patch(i, { level: +$event })">
+                    <option [value]="1">H1</option><option [value]="2">H2</option><option [value]="3">H3</option>
+                </select>
+                }
+                @case ('paragraph') {
+                <textarea class="form-control" rows="3" [ngModel]="block.html" (ngModelChange)="patch(i, { html: $event })"
+                    placeholder="Paragraph text (basic HTML allowed)"></textarea>
+                <button mat-button [matMenuTriggerFor]="tagMenu" class="mt-1"><mat-icon>tag</mat-icon> Insert tag</button>
+                <mat-menu #tagMenu>
+                    @for (p of placeholders; track p) {
+                    <button mat-menu-item (click)="insertTag(i, 'html', p)">{{ p }}</button>
+                    }
+                </mat-menu>
+                }
+                @case ('image') {
+                <input class="form-control mb-1" [ngModel]="block.src" (ngModelChange)="patch(i, { src: $event })" placeholder="Image URL" />
+                <input class="form-control mb-1" [ngModel]="block.alt" (ngModelChange)="patch(i, { alt: $event })" placeholder="Alt text" />
+                <input class="form-control" [ngModel]="block.href" (ngModelChange)="patch(i, { href: $event })" placeholder="Link URL (optional)" />
+                }
+                @case ('button') {
+                <input class="form-control mb-1" [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" placeholder="Button label" />
+                <input class="form-control" [ngModel]="block.href" (ngModelChange)="patch(i, { href: $event })" placeholder="Button URL" />
+                }
+                @case ('spacer') {
+                <input class="form-control" type="number" [ngModel]="block.height" (ngModelChange)="patch(i, { height: +$event })" placeholder="Height (px)" />
+                }
+                @case ('raw') {
+                <textarea class="form-control font-monospace" rows="4" [ngModel]="block.html" (ngModelChange)="patch(i, { html: $event })"></textarea>
+                }
+                @case ('social') { <p class="small text-muted mb-0">Uses the social links from your brand kit.</p> }
+                @case ('divider') { <p class="small text-muted mb-0">A horizontal divider.</p> }
+                @case ('columns') { <p class="small text-muted mb-0">Two-column layout (edit nested blocks in a future iteration).</p> }
+                }
+            </div>
+            } @empty {
+            <p class="text-muted">No blocks yet — add one to start.</p>
+            }
+        </div>
+
+        <!-- Preview -->
+        <div class="col-lg-6">
+            <div class="border rounded p-2" style="background:#e9ecef; overflow:auto;">
+                <div [style.max-width.px]="previewWidth()" style="margin:0 auto;" [innerHTML]="previewHtml()"></div>
+            </div>
+        </div>
+    </div>
+</div>
