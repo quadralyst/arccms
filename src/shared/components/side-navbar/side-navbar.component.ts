@@ -124,6 +124,15 @@ export default class NavbarComponent extends BaseComponent {
             ],
         },
         {
+            icon: 'fa-solid fa-palette',
+            label: 'Email',
+            allowRoles: [this.constantVariables.ADMIN],
+            subItems: [
+                { label: 'Brand Kit', route: '/admin/email-brand', icon: 'fa-solid fa-palette' },
+                { label: 'Composer', route: '/admin/email-composer', icon: 'fa-solid fa-pen-ruler' },
+            ],
+        },
+        {
             icon: 'fa-solid fa-box-open',
             label: 'Products',
             route: '/admin/products',

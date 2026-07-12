@@ -1,0 +1,82 @@
+<div class="p-4">
+    <h1 class="mb-1">Email Brand Kit</h1>
+    <p class="text-muted mb-4">Set your logo, colors and footer once — every branded email uses them.</p>
+
+    <div class="row">
+        <!-- Editor -->
+        <div class="col-lg-5">
+            <h3 class="h6 text-uppercase text-muted mb-3">Logo</h3>
+            <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Logo URL</mat-label>
+                <input matInput [ngModel]="kit().logoUrl" (ngModelChange)="update('logoUrl', $event)" placeholder="https://…/logo.png" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Logo width (px)</mat-label>
+                <input matInput type="number" [ngModel]="kit().logoWidth" (ngModelChange)="update('logoWidth', +$event)" />
+            </mat-form-field>
+
+            <h3 class="h6 text-uppercase text-muted mb-3 mt-3">Colors</h3>
+            <div class="d-flex flex-column gap-2">
+                <label class="d-flex justify-content-between align-items-center">Primary
+                    <input type="color" [ngModel]="kit().primaryColor" (ngModelChange)="update('primaryColor', $event)" /></label>
+                <label class="d-flex justify-content-between align-items-center">Page background
+                    <input type="color" [ngModel]="kit().backgroundColor" (ngModelChange)="update('backgroundColor', $event)" /></label>
+                <label class="d-flex justify-content-between align-items-center">Content background
+                    <input type="color" [ngModel]="kit().contentBackgroundColor" (ngModelChange)="update('contentBackgroundColor', $event)" /></label>
+                <label class="d-flex justify-content-between align-items-center">Text
+                    <input type="color" [ngModel]="kit().textColor" (ngModelChange)="update('textColor', $event)" /></label>
+                <label class="d-flex justify-content-between align-items-center">Links
+                    <input type="color" [ngModel]="kit().linkColor" (ngModelChange)="update('linkColor', $event)" /></label>
+            </div>
+
+            <mat-form-field appearance="outline" class="w-100 mt-3">
+                <mat-label>Font family</mat-label>
+                <mat-select [ngModel]="kit().fontFamily" (ngModelChange)="update('fontFamily', $event)">
+                    @for (f of fonts; track f) { <mat-option [value]="f">{{ f }}</mat-option> }
+                </mat-select>
+            </mat-form-field>
+
+            <h3 class="h6 text-uppercase text-muted mb-2 mt-3">Footer</h3>
+            <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Footer text (HTML — supports ##UNSUBSCRIBE_LINK##, ##PREFERENCES_LINK##)</mat-label>
+                <textarea matInput rows="3" [ngModel]="kit().footerText" (ngModelChange)="update('footerText', $event)"></textarea>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Physical address</mat-label>
+                <input matInput [ngModel]="kit().physicalAddress" (ngModelChange)="update('physicalAddress', $event)" />
+            </mat-form-field>
+
+            <h3 class="h6 text-uppercase text-muted mb-2 mt-3">Social links</h3>
+            @for (s of kit().socialLinks || []; track $index) {
+            <div class="d-flex gap-2 mb-2">
+                <mat-form-field appearance="outline" style="width: 130px;">
+                    <mat-select [ngModel]="s.platform" (ngModelChange)="updateSocial($index, { platform: $event })">
+                        @for (p of platforms; track p) { <mat-option [value]="p">{{ p }}</mat-option> }
+                    </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="flex-grow-1">
+                    <mat-label>URL</mat-label>
+                    <input matInput [ngModel]="s.url" (ngModelChange)="updateSocial($index, { url: $event })" />
+                </mat-form-field>
+                <button mat-icon-button color="warn" (click)="removeSocial($index)"><mat-icon>delete</mat-icon></button>
+            </div>
+            }
+            <button mat-stroked-button (click)="addSocial()"><mat-icon>add</mat-icon> Add social link</button>
+
+            <div class="mt-4">
+                <button mat-flat-button color="primary" [disabled]="saving()" (click)="save()">
+                    <mat-icon>save</mat-icon> Save brand kit
+                </button>
+            </div>
+        </div>
+
+        <!-- Live preview -->
+        <div class="col-lg-7">
+            <h3 class="h6 text-uppercase text-muted mb-3">Live preview</h3>
+            <div class="border rounded p-2" style="background:#e9ecef;">
+                <div [innerHTML]="previewHtml()"></div>
+            </div>
+            <p class="small text-muted mt-2">Merge tags like <code>##NAME##</code> and the unsubscribe/preferences links resolve when the email is actually sent.</p>
+        </div>
+    </div>
+</div>

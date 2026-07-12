@@ -1,0 +1,40 @@
+<div class="p-4">
+    <h1 class="mb-1">Email Composer</h1>
+    <p class="text-muted mb-4">Compose emails from blocks — no HTML required. Templates store both the design and compiled HTML.</p>
+
+    <mat-form-field appearance="outline" style="width: 360px;">
+        <mat-label>Template</mat-label>
+        <mat-select [ngModel]="selectedId()" (ngModelChange)="onSelect($event)">
+            @for (t of templates(); track t.id) {
+            <mat-option [value]="t.id">{{ t.title || t.type }} ({{ t.editorVersion || 'html' }})</mat-option>
+            }
+        </mat-select>
+    </mat-form-field>
+
+    @if (selected(); as t) {
+        @if (isBlocks) {
+        <arc-email-block-editor
+            [design]="currentDesign"
+            [brandKit]="brandKit()"
+            [category]="t.category || 'transactional'"
+            [placeholders]="placeholdersFor(t.type)"
+            (saved)="onSaved($event)"
+            (testSend)="onTestSend($event)">
+        </arc-email-block-editor>
+        } @else {
+        <div class="border rounded p-3">
+            <div class="alert alert-info d-flex justify-content-between align-items-center">
+                <span>This is a legacy (HTML) template. It sends unchanged. Upgrade to edit it with blocks.</span>
+                <button mat-flat-button color="primary" (click)="upgradeToBlocks()">
+                    <mat-icon>upgrade</mat-icon> Upgrade to blocks
+                </button>
+            </div>
+            <div class="border rounded p-2 bg-light" style="max-height: 400px; overflow:auto;">
+                <div [innerHTML]="t.template"></div>
+            </div>
+        </div>
+        }
+    } @else {
+    <p class="text-muted">Select a template to start composing.</p>
+    }
+</div>
