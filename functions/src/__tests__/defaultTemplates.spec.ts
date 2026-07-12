@@ -51,9 +51,11 @@ describe('ensureDefaultTemplates', () => {
     mockTemplateSet.mockResolvedValue(undefined);
   });
 
-  it('covers all 7 Phase 2 template types', () => {
+  it('covers the default template types (Phase 2 + Phase 5)', () => {
     const types = DEFAULT_TEMPLATES.map((t) => t.type).sort();
     expect(types).toEqual([
+      'admin_digest_email',
+      'notification_generic_email',
       'payment_failed_email',
       'payment_succeeded_email',
       'signup_otp_email',

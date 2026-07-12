@@ -229,6 +229,25 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Notifications (Phase 5): a user reads their own and may only flip `read`;
+    // create/delete are functions/admin only.
+    match /Notifications/{id} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow create, delete: if false;
+    }
+
+    // Event bus + announcements: functions-only writes; admins read for the UIs.
+    match /AppEvents/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /Announcements/{id} {
+      allow read: if isAdmin();
+      allow write: if false; // created via the sendAnnouncement callable
+    }
+
     // ============================================================
     // 5. WAITLIST COLLECTIONS
     //    Signup flow runs client-side without authentication.

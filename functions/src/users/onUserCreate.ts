@@ -10,6 +10,8 @@
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
+import { emitAppEvent } from '../email-core/appEvents.js';
+import { notifyAdmins } from '../email-core/adminAlerts.js';
 
 const EMAIL_LOOKUP_COLLECTION = 'email_lookup';
 
@@ -43,5 +45,15 @@ export const onUserCreated = onDocumentCreated(
         } catch (err: any) {
             console.error(`Failed to create email_lookup entry for email=${email}:`, err);
         }
+
+        // Notifications & event bus (Phase 5) — additive, non-fatal.
+        await Promise.allSettled([
+            emitAppEvent('user.signed_up', { userId: createdData.uid, contactEmail: email }),
+            notifyAdmins('admin_new_signup', {
+                title: 'New signup',
+                body: `${createdData.name || email} just signed up.`,
+                link: '/admin/users',
+            }),
+        ]);
     }
 );

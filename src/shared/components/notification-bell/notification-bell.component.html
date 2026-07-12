@@ -1,0 +1,31 @@
+<button mat-icon-button [matMenuTriggerFor]="menu" aria-label="Notifications">
+    <mat-icon [matBadge]="unreadCount()" [matBadgeHidden]="unreadCount() === 0" matBadgeColor="warn" matBadgeSize="small">
+        notifications
+    </mat-icon>
+</button>
+
+<mat-menu #menu class="notification-menu">
+    <div style="min-width: 320px; max-width: 380px;" (click)="$event.stopPropagation()">
+        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+            <strong>Notifications</strong>
+            @if (unreadCount() > 0) {
+            <button mat-button (click)="markAllRead()">Mark all read</button>
+            }
+        </div>
+
+        @for (n of recent(); track n.id) {
+        <button mat-menu-item (click)="open(n)" [style.font-weight]="n.read ? 'normal' : '600'" style="white-space: normal; height: auto; line-height: 1.3; padding-top: 8px; padding-bottom: 8px;">
+            <div>
+                <div>{{ n.title }}</div>
+                <div class="small text-muted">{{ n.body }}</div>
+            </div>
+        </button>
+        } @empty {
+        <div class="px-3 py-4 text-center text-muted">No notifications</div>
+        }
+
+        <div class="border-top text-center py-1">
+            <a mat-button routerLink="/notifications">View all</a>
+        </div>
+    </div>
+</mat-menu>
