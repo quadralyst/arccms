@@ -181,8 +181,8 @@ describe('sendMail hardening', () => {
     expect(sendArg.headers['List-Unsubscribe']).toBeUndefined();
   });
 
-  it('log-only mode records success WITHOUT calling a provider or counter', async () => {
-    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ logOnlyMode: true }) });
+  it('Debug Provider (Log Only) records success WITHOUT calling a provider or counter', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ activeProvider: 'debug_log' }) });
 
     await sendMail(baseLog() as any, 'log-1');
 
@@ -191,8 +191,19 @@ describe('sendMail hardening', () => {
     const upd = lastUpdate();
     expect(upd.status).toBe('success');
     expect(upd.logOnly).toBe(true);
+    expect(upd.messageId).toBe('debug-log-provider:log-1');
     // The exact composed message is still recorded for inspection.
     expect(upd.processedTemplate).toBeDefined();
     expect(upd.processedSubject).toBeDefined();
+  });
+
+  it('Debug Provider skips the quota check (never defers)', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ activeProvider: 'debug_log' }) });
+    mockCheckQuota.mockResolvedValue({ ok: false, dailyCount: 999, hourlyCount: 0 });
+
+    await sendMail(baseLog() as any, 'log-1');
+
+    expect(mockCheckQuota).not.toHaveBeenCalled();
+    expect(lastUpdate().status).toBe('success');
   });
 });

@@ -62,8 +62,8 @@ describe('EmailSettingService', () => {
     });
 
     describe('EMAIL_PROVIDERS', () => {
-        it('should have three providers', () => {
-            expect(EMAIL_PROVIDERS.length).toBe(3);
+        it('should have four providers (incl. Debug Provider)', () => {
+            expect(EMAIL_PROVIDERS.length).toBe(4);
         });
 
         it('should have correct provider IDs', () => {

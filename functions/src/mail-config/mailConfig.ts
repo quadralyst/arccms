@@ -54,9 +54,13 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
 
     activeProvider = settings.activeProvider || 'smtp';
 
-    // Universal quota/rate-limit enforcement for ALL sends (spec §Phase-1.3).
+    // Debug Provider (Log Only): a SIMULATED provider — record the composed
+    // email, never call a network provider, and never consume quota.
+    const isDebugProvider = activeProvider === 'debug_log';
+
+    // Universal quota/rate-limit enforcement for ALL real sends (spec §Phase-1.3).
     // Exhausted ⇒ defer and let retryPendingEmails pick it up when quota resets.
-    try {
+    if (!isDebugProvider) try {
         const limits = resolveProviderLimits(activeProvider, settings.providerRateLimits);
         const quota = await checkQuota(activeProvider, limits);
         if (!quota.ok) {
@@ -89,16 +93,16 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
         // Marketing sends carry List-Unsubscribe headers (RFC 2369 / 8058).
         const unsubHeaders = buildListUnsubscribeHeaders(emailLogsData, settings);
 
-        // Log-only mode (dev/test): record the fully-composed email but never call
-        // a provider. The stored processedTemplate/processedSubject is the exact
-        // message that would have been sent — verifiable from EmailLogs alone.
-        const logOnly = settings.logOnlyMode === true;
+        // Debug Provider (Log Only): record the fully-composed email but never
+        // call a provider. The stored processedTemplate/processedSubject is the
+        // exact message that would have been sent — verifiable from EmailLogs alone.
+        const logOnly = isDebugProvider;
 
         let result: { messageId?: string } | undefined;
 
         if (logOnly) {
-            result = { messageId: `log-only:${emailLogsId}` };
-            console.log(`sendMail: log-only mode — recorded ${emailLogsId} without sending.`);
+            result = { messageId: `debug-log-provider:${emailLogsId}` };
+            console.log(`sendMail: Debug Provider (Log Only) — recorded ${emailLogsId} without sending.`);
         } else {
             switch (activeProvider) {
                 case 'resend':

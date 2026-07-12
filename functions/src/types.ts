@@ -186,7 +186,12 @@ export interface AdminDigestConfig {
 /** Shape of the Firestore Settings/email document */
 export interface EmailSettings {
   isEnabled?: boolean;
-  activeProvider?: 'smtp' | 'resend' | 'gmail';
+  /**
+   * `debug_log` is a first-class SIMULATED provider: it composes and records the
+   * full email in EmailLogs (logOnly:true) but never calls a real provider — no
+   * credentials, nothing sent. Use it to verify the pipeline from logs alone.
+   */
+  activeProvider?: 'smtp' | 'resend' | 'gmail' | 'debug_log';
   replyToEmail?: string;
   companyName?: string;
   senderName?: string;
@@ -213,12 +218,6 @@ export interface EmailSettings {
   adminDigest?: AdminDigestConfig;
   /** Random secret used to sign one-click unsubscribe tokens (generated once) */
   unsubscribeSecret?: string;
-  /**
-   * Dev/test mode: compose and record the full email in EmailLogs but DON'T call
-   * a provider. Marks the log `success` with `logOnly:true`. Lets you verify the
-   * whole pipeline from logs alone, no inbox / real provider.
-   */
-  logOnlyMode?: boolean;
   /** Base URL for the open-tracking pixel (moved out of source constant). */
   trackingPixelUrl?: string;
   /** Public base URL for links (unsubscribe/preferences), overrides constant.live_url. */

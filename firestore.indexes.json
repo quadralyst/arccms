@@ -163,20 +163,6 @@
       ]
     },
     {
-      "collectionGroup": "Contacts",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "listIds",
-          "arrayConfig": "CONTAINS"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "BroadcastEmails",
       "queryScope": "COLLECTION",
       "fields": [

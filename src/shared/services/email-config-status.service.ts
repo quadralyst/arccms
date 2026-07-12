@@ -31,6 +31,8 @@ export class EmailConfigStatusService {
   bannerDismissed = signal(false);
   /** E4 — mirror of Settings/email.requireSignupVerification (public status doc). */
   requireSignupVerification = signal(false);
+  /** True when the simulated "Debug Provider (Log Only)" is the active provider. */
+  debugMode = signal(false);
 
   private unsubscribe: (() => void) | null = null;
 
@@ -61,6 +63,7 @@ export class EmailConfigStatusService {
         this._isEmailConfigured.next(enabled);
         this.isEmailConfigured.set(enabled);
         this.requireSignupVerification.set(!!data?.['requireSignupVerification']);
+        this.debugMode.set(!!data?.['debugMode']);
 
         this._isLoading.next(false);
         this.isLoading.set(false);
@@ -70,6 +73,7 @@ export class EmailConfigStatusService {
         this._isEmailConfigured.next(false);
         this.isEmailConfigured.set(false);
         this.requireSignupVerification.set(false);
+        this.debugMode.set(false);
         this._isLoading.next(false);
         this.isLoading.set(false);
       }

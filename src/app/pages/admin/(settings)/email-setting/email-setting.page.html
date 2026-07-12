@@ -110,6 +110,11 @@
                     [initialData]="getProviderData('resend')"
                     (componentReady)="onProviderComponentReady($event)" />
             }
+            @case ('debug_log') {
+                <app-debug-provider
+                    [initialData]="getProviderData('debug_log')"
+                    (componentReady)="onProviderComponentReady($event)" />
+            }
         }
 
         <!-- Sender Information Section -->
@@ -170,7 +175,8 @@
             </mat-card-content>
         </mat-card>
 
-        <!-- Provider Rate Limits -->
+        <!-- Provider Rate Limits (not applicable to the simulated debug provider) -->
+        @if (emailForm.get('activeProvider')?.value !== 'debug_log') {
         <mat-card class="mb-4">
             <mat-card-header>
                 <mat-card-title>
@@ -213,6 +219,7 @@
                 </div>
             </mat-card-content>
         </mat-card>
+        }
 
         <!-- Auto-Purge Email Logs -->
         <mat-card class="mb-4" formGroupName="autoPurge">
@@ -293,24 +300,19 @@
                     </mat-slide-toggle>
                 </div>
 
-                <div class="feature-toggle-row d-flex align-items-start justify-content-between gap-3 py-2">
-                    <div class="feature-toggle-label">
-                        <div class="fw-medium">Log-only mode (testing)</div>
-                        <div class="text-muted small">Record the fully-composed email in Email Logs but do <strong>not</strong> actually send it. Use to verify the pipeline end-to-end without a real provider or inbox.</div>
-                    </div>
-                    <mat-slide-toggle
-                        formControlName="logOnlyMode"
-                        color="primary"
-                        [disabled]="!emailEnabled()"
-                        (change)="onFeatureToggleChange()">
-                    </mat-slide-toggle>
-                </div>
             </mat-card-content>
         </mat-card>
 
         <!-- Action Buttons -->
         <div class="action-section">
+            @if (emailForm.get('activeProvider')?.value === 'debug_log') {
+            <div class="alert alert-warning small mb-3">
+                <i class="fa-solid fa-bug me-1"></i>
+                <strong>Debug Provider (Log Only)</strong> needs no connection test — emails are recorded in Email Logs, not sent. Just Save.
+            </div>
+            }
             <div class="d-flex justify-content-between align-items-center">
+                @if (emailForm.get('activeProvider')?.value !== 'debug_log') {
                 <button mat-stroked-button type="button" (click)="testConnection()"
                     [disabled]="isTesting() || !isProviderConfigValid()" [class.test-success]="testPassed()"
                     class="test-btn">
@@ -325,15 +327,17 @@
                     Send a Test Email
                     }
                 </button>
+                } @else { <span></span> }
 
                 <div class="save-section">
-                    @if (!testPassed() && emailForm.dirty) {
+                    @if (!testPassed() && emailForm.dirty && emailForm.get('activeProvider')?.value !== 'debug_log') {
                     <span class="save-hint text-muted me-3">
                         <i class="fa-solid fa-info-circle me-1"></i>
                         Please test connection before saving
                     </span>
                     }
-                    <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || !testPassed()">
+                    <button mat-flat-button color="primary" type="submit"
+                        [disabled]="isSaving() || (!testPassed() && emailForm.get('activeProvider')?.value !== 'debug_log')">
                         @if (isSaving()) {
                         <mat-spinner diameter="20" class="me-2"></mat-spinner>
                         } @else {

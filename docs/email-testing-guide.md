@@ -8,7 +8,8 @@ Legend:
 - **[unit]** — covered by the automated suite (`npm run test`). Listed so you
   know it's already proven; no manual action needed.
 - **[logs]** — verify from Firestore `EmailLogs` / admin **Email Logs** page.
-  Works with **Log-only mode** on — no real email leaves the system.
+  Works with the **Debug Provider (Log Only)** active — no real email leaves
+  the system.
 - **[live]** — needs a real provider (or a throwaway Resend/Gmail) to confirm
   actual delivery + rendering in a real inbox.
 
@@ -27,19 +28,21 @@ Legend:
    runs `seedEmailTemplates`), or call the `seedEmailTemplates` callable. This
    seeds email templates, the notification-type registry, event mappings and the
    system lists.
-4. **Configure a provider**: admin → **Settings → Email** → pick SMTP/Gmail/Resend,
-   **Test connection**, **enable email**.
-5. **Turn on Log-only mode** (admin → Settings → Email → Email Features →
-   *Log-only mode*) for all **[logs]** tests. Turn it **off** only for **[live]**
-   delivery tests.
-6. Create two accounts: one **admin**, one ordinary **user**.
+4. **Configure a provider** for all **[logs]** tests: admin → **Settings → Email**
+   → select **Debug Provider (Log Only)** → enable email. It needs no
+   credentials and no connection test — every email is composed and recorded in
+   `EmailLogs` but never actually sent. A prominent banner appears on the admin
+   dashboard while it's active, so it's never mistaken for a live setup. Switch
+   to SMTP/Gmail/Resend (and **Test connection**) only for **[live]** tests.
+5. Create two accounts: one **admin**, one ordinary **user**.
 
 ### How to verify email without an inbox
 Every send writes an `EmailLogs` doc. Open admin → **Email Logs** (or Firestore
 `EmailLogs`) and inspect: `status`, `skipReason`, `category`, `source`,
 `attempts`, and the fully-rendered `processedSubject` / `processedTemplate`.
-With **Log-only mode** on, successful sends show `status:'success'`,
-`logOnly:true` and the exact composed HTML — no provider is called.
+With **Debug Provider (Log Only)** active, successful sends show
+`status:'success'`, `logOnly:true`, `messageId:'debug-log-provider:...'` and the
+exact composed HTML — no provider is called and no quota is consumed.
 
 ---
 
@@ -51,7 +54,7 @@ With **Log-only mode** on, successful sends show `status:'success'`,
 | 1.2 | queueEmail gating matrix **[unit]** | — | each gate → correct `skipped`/`suppressed` + `skipReason` |
 | 1.3 | Master kill-switch **[logs]** | Disable email (master off). Trigger a waitlist OTP (join a waitlist). | `EmailLogs` doc `status:'skipped'`, `skipReason:'email_disabled'`; no provider call |
 | 1.4 | Feature toggle **[logs]** | Enable email; set **Waitlist emails** off. Trigger a waitlist OTP; also trigger a payment email. | OTP → `skipped`/`feature_disabled`; payment → `pending`/`success` |
-| 1.5 | Real send **[live]** | Log-only off, real provider. Trigger a waitlist OTP. | Email arrives; `status:'success'`, `attempts:1` |
+| 1.5 | Real send **[live]** | Switch to a real provider (SMTP/Gmail/Resend), test the connection. Trigger a waitlist OTP. | Email arrives; `status:'success'`, `attempts:1` |
 | 1.6 | Retry/backoff **[live]** | Set a wrong SMTP password; trigger a send. | Log goes `retrying` with `nextAttemptAt`; fix password; within ~5–10 min `retryPendingEmails` flips it to `success` |
 | 1.7 | Quota defer **[logs]** | Set a tiny `providerRateLimits.perDay` and exceed it. | Over-quota send → `deferred`/`quota` + `nextAttemptAt` |
 | 1.8 | Unsubscribe (HMAC) **[live]** | Send a marketing email (waitlist welcome). Click the footer **Unsubscribe**. | Link resolves (no empty id); confirmation page; recipient `isSubscribed:false`; `Suppression/{emailHash}` doc exists |
@@ -150,7 +153,7 @@ With **Log-only mode** on, successful sends show `status:'success'`,
 
 | # | Test | Steps | Expected |
 |---|------|-------|----------|
-| 8.1 | Log-only mode **[logs]** | Turn on Log-only mode; trigger any send. | `EmailLogs` `status:'success'`, `logOnly:true`, full `processedTemplate`; **no** provider call, counter not incremented |
+| 8.1 | Debug Provider (Log Only) **[logs]** | Select it as the active provider (no config needed), enable email, trigger any send. Also confirm the admin dashboard banner appears while it's active. | `EmailLogs` `status:'success'`, `logOnly:true`, `messageId:'debug-log-provider:...'`, full `processedTemplate`; **no** provider call, quota/counter not touched; dashboard shows the "Debug Provider active" banner |
 | 8.2 | Kill-switch audit **[unit]** | — | source scan: zero direct `EmailLogs` writes outside `email-core` |
 | 8.3 | Email health card **[live]** | Admin → Email Logs after a mixed batch. | 24h card shows sent/failed/retrying/deferred/skipped/suppressed matching reality |
 | 8.4 | Open tracking **[live]** | Set `Settings/email.trackingPixelUrl`; open a real email. | `EmailLogs.isOpened` flips via the pixel |
