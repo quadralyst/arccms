@@ -130,6 +130,7 @@ export default class NavbarComponent extends BaseComponent {
             subItems: [
                 { label: 'Brand Kit', route: '/admin/email-brand', icon: 'fa-solid fa-palette' },
                 { label: 'Composer', route: '/admin/email-composer', icon: 'fa-solid fa-pen-ruler' },
+                { label: 'Broadcasts', route: '/admin/broadcasts', icon: 'fa-solid fa-tower-broadcast' },
                 { label: 'Announcements', route: '/admin/announcements', icon: 'fa-solid fa-bullhorn' },
             ],
         },

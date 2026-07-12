@@ -215,6 +215,17 @@ export interface EmailSettings {
   unsubscribeSecret?: string;
 }
 
+/**
+ * Broadcast audience (Phase 6, §3.13). When present, recipients are resolved
+ * server-side at send time from `Contacts` (not a frozen inline array).
+ */
+export interface BroadcastAudience {
+  kind: 'list' | 'waitlist';
+  listId?: string;
+  waitlistId?: string;
+  filters?: Array<{ field: 'premiumType' | 'source' | 'createdAfter'; op: '==' | '>='; value: any }>;
+}
+
 /** Schema for BroadcastEmails document processed server-side */
 export interface BroadcastEmailDoc {
   waitlistId: string;
@@ -223,18 +234,26 @@ export interface BroadcastEmailDoc {
   senderEmail: string;
   previewText?: string;
   template: string;
-  /** Recipient list stored inline (~10K max within 1MB doc limit) */
+  /** Recipient list stored inline (legacy path; ~10K max within 1MB doc limit) */
   recipients: BroadcastRecipient[];
+  /** Audience (Phase 6). When set, recipients are resolved from Contacts at send time. */
+  audience?: BroadcastAudience;
+  /** Scheduled send time. Status stays 'scheduled' until due. */
+  scheduledAt?: Timestamp;
   /** Total number of recipients */
   totalCount: number;
   /** How many have been sent successfully */
   sentCount: number;
   /** How many failed after all retry attempts */
   failedCount: number;
-  /** Index of the next recipient to process (cursor) */
+  /** How many were skipped by consent/suppression gates (Phase 6 summary) */
+  skippedCount?: number;
+  /** Index of the next recipient to process (legacy cursor) */
   processedIndex: number;
+  /** Contacts paging cursor (audience path): last processed contact doc id */
+  lastContactId?: string;
   /** Current processing status */
-  status: 'queued' | 'processing' | 'paused' | 'completed' | 'failed';
+  status: 'scheduled' | 'queued' | 'processing' | 'paused' | 'completed' | 'failed' | 'cancelled';
   /** Snapshot of rate limit config at creation time (legacy) */
   rateLimitSnapshot?: RateLimitConfig;
   /** Snapshot of per-provider rate limits at creation time */

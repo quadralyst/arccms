@@ -3,6 +3,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import type { BroadcastEmailDoc, ProviderRateLimits, EmailSettings } from '../types.js';
 import { processRecipientBatch } from './broadcastHelper.js';
+import { runAudienceBroadcast } from './broadcastAudience.js';
 import { resolveProviderLimits, legacyToProviderLimits, checkQuota } from '../mail-config/emailCounter.js';
 
 /**
@@ -81,6 +82,12 @@ export const processBroadcast = onDocumentCreated(
         };
 
         try {
+            // Phase 6: audience broadcasts resolve recipients from Contacts at send time.
+            if (broadcastData.audience) {
+                await runAudienceBroadcast(broadcastRef, broadcastData, broadcastId, providerLimits, quotaChecker, PROCESSING_BUDGET_MS);
+                return;
+            }
+
             const result = await processRecipientBatch({
                 broadcastRef,
                 broadcastData,
