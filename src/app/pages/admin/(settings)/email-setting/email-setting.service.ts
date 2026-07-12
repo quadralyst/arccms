@@ -65,6 +65,8 @@ export class EmailSettingService {
             {
                 isEnabled: settings.isEnabled,
                 requireSignupVerification: settings.requireSignupVerification ?? false,
+                // Public flag so the dashboard can warn when the simulated provider is active.
+                debugMode: settings.activeProvider === 'debug_log',
             },
             { merge: true },
         );

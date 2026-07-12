@@ -1,7 +1,7 @@
 /**
  * Email Provider Types
  */
-export type EmailProvider = 'smtp' | 'resend' | 'gmail';
+export type EmailProvider = 'smtp' | 'resend' | 'gmail' | 'debug_log';
 
 /**
  * SMTP Configuration
@@ -143,8 +143,6 @@ export interface IEmailSettings {
     features?: IEmailFeatureToggles;
     /** E4 — require email verification on signup (default false) */
     requireSignupVerification?: boolean;
-    /** Dev/test: record composed emails in EmailLogs without calling a provider. */
-    logOnlyMode?: boolean;
     /** Open-tracking pixel base URL (moved out of source). */
     trackingPixelUrl?: string;
     /** Public base URL for unsubscribe/preferences links. */
@@ -165,6 +163,9 @@ export function hasValidProviderConfig(settings: Partial<IEmailSettings>): boole
             return !!settings.gmail?.user && !!settings.gmail?.password;
         case 'resend':
             return !!settings.resend?.apiKey;
+        case 'debug_log':
+            // Simulated provider — no credentials required.
+            return true;
         default:
             return false;
     }
@@ -177,6 +178,8 @@ export const PROVIDER_DEFAULT_LIMITS: Record<EmailProvider, IProviderRateLimits>
     smtp:   { perSecond: 1 },
     gmail:  { perSecond: 1, perDay: 500 },
     resend: { perSecond: 2, perDay: 100 },
+    // Simulated provider — effectively unlimited (never blocks in testing).
+    debug_log: { perSecond: 1000 },
 };
 
 /**
@@ -211,6 +214,7 @@ export const DEFAULT_EMAIL_SETTINGS: IEmailSettings = {
         smtp:   { perSecond: 1 },
         gmail:  { perSecond: 1, perDay: 500 },
         resend: { perSecond: 2, perDay: 100 },
+        debug_log: { perSecond: 1000 },
     },
     autoPurge: {
         enabled: true,
@@ -267,5 +271,15 @@ export const EMAIL_PROVIDERS: IEmailProviderInfo[] = [
         helpLabel: 'Get your Resend API Key',
         bestFor: 'Developers who want a simple, modern email service',
         freeLimit: 'Up to 100 emails/day and 3,000/month on the free plan',
+    },
+    {
+        id: 'debug_log',
+        name: 'Debug Provider (Log Only)',
+        description: 'Simulated provider — records every email in Email Logs but never actually sends.',
+        icon: 'fa-solid fa-bug',
+        helpUrl: '',
+        helpLabel: '',
+        bestFor: 'Testing the whole email pipeline without a real provider or inbox',
+        freeLimit: 'Nothing is sent — every message is recorded in Email Logs only',
     },
 ];

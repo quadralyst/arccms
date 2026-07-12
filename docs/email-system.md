@@ -22,8 +22,8 @@ spec (`docs/email-system-spec.md`).
         ▼  (status: 'pending')
    onEmailLogCreate ──► sendMail()
                       ├─ belt-and-braces kill-switch
-                      ├─ quota / rate limit         (deferred if exhausted)
-                      ├─ provider send (SMTP/Gmail/Resend)  OR  log-only mode
+                      ├─ quota / rate limit         (deferred if exhausted; skipped for Debug Provider)
+                      ├─ provider send (SMTP / Gmail / Resend / Debug Provider)
                       └─ retry w/ backoff (retrying → failed)   ← retryPendingEmails (5m)
 ```
 
@@ -160,8 +160,11 @@ compiler wraps every block design in the branded shell; the footer supplies
 
 ## 7. Admin runbook (fresh install)
 
-1. **Provider** — admin → Settings → Email: pick SMTP/Gmail/Resend, test the
-   connection, enable email. (Email can't be enabled without a valid provider.)
+1. **Provider** — admin → Settings → Email: pick a provider and enable email.
+   (Email can't be enabled without a valid provider.) For testing, pick
+   **Debug Provider (Log Only)** — it needs no credentials and no connection
+   test; every email is composed and recorded in `EmailLogs` but never actually
+   sent. Switch to SMTP/Gmail/Resend (and test the connection) before going live.
 2. **Seed** — open admin → Email → Announcements once (it runs
    `seedEmailTemplates`), or call the callable, to seed templates + registries +
    system lists.
@@ -169,8 +172,10 @@ compiler wraps every block design in the branded shell; the footer supplies
 4. **Backfill contacts** — admin → Audience → Contacts → "Backfill".
 5. **Feature toggles** — admin → Settings → Email → Email Features: turn
    individual email types on/off; the master switch gates them all.
-6. **Testing** — flip **Log-only mode** on (admin → Settings → Email) to verify
-   the whole pipeline from `EmailLogs` without sending real email.
+6. **Testing** — with **Debug Provider (Log Only)** active, exercise every flow
+   and verify the whole pipeline from `EmailLogs` alone. A prominent banner on
+   the admin dashboard reminds you it's active so it's never mistaken for a
+   live setup.
 
 ---
 

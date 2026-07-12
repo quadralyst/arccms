@@ -29,6 +29,7 @@ import { IEmailProviderComponent } from './providers/email-provider-base';
 import { SmtpProviderComponent } from './providers/smtp-provider.component';
 import { GmailProviderComponent } from './providers/gmail-provider.component';
 import { ResendProviderComponent } from './providers/resend-provider.component';
+import { DebugProviderComponent } from './providers/debug-provider.component';
 
 @Component({
     standalone: true,
@@ -47,6 +48,7 @@ import { ResendProviderComponent } from './providers/resend-provider.component';
         SmtpProviderComponent,
         GmailProviderComponent,
         ResendProviderComponent,
+        DebugProviderComponent,
     ],
     templateUrl: './email-setting.page.html',
     styleUrls: ['./email-setting.page.scss'],
@@ -129,7 +131,6 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
                 adminAlerts: [DEFAULT_EMAIL_FEATURES.adminAlerts],
             }),
             requireSignupVerification: [false],
-            logOnlyMode: [false],
             trackingPixelUrl: [''],
             liveUrl: [''],
         });
@@ -187,7 +188,6 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
                     autoPurge: settings.autoPurge,
                     features: { ...DEFAULT_EMAIL_FEATURES, ...(settings.features || {}) },
                     requireSignupVerification: settings.requireSignupVerification ?? false,
-                    logOnlyMode: settings.logOnlyMode ?? false,
                     trackingPixelUrl: settings.trackingPixelUrl ?? '',
                     liveUrl: settings.liveUrl ?? '',
                 });

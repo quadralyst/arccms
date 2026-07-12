@@ -153,7 +153,7 @@ describe('OnboardingSetupService', () => {
             }));
 
             const statusCall = mockSetDoc.mock.calls[1];
-            expect(statusCall[1]).toEqual({ isEnabled: true, requireSignupVerification: false });
+            expect(statusCall[1]).toEqual({ isEnabled: true, requireSignupVerification: false, debugMode: false });
         });
 
         it('should use serverTimestamp for email doc', async () => {
@@ -184,7 +184,7 @@ describe('OnboardingSetupService', () => {
                 } as any);
 
                 expect(mockSetDoc.mock.calls[0][1]).toEqual(expect.objectContaining({ isEnabled: true }));
-                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: true, requireSignupVerification: false });
+                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: true, requireSignupVerification: false, debugMode: false });
             });
 
             it('enables email for a valid smtp config', async () => {
@@ -192,7 +192,7 @@ describe('OnboardingSetupService', () => {
                     activeProvider: 'smtp',
                     smtp: { host: 'smtp.x.com', port: 587, secure: false, user: 'u', password: 'p' },
                 } as any);
-                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: true, requireSignupVerification: false });
+                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: true, requireSignupVerification: false, debugMode: false });
             });
 
             it('enables email for a valid resend config', async () => {
@@ -200,7 +200,7 @@ describe('OnboardingSetupService', () => {
                     activeProvider: 'resend',
                     resend: { apiKey: 're_123' },
                 } as any);
-                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: true, requireSignupVerification: false });
+                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: true, requireSignupVerification: false, debugMode: false });
             });
 
             it('keeps email DISABLED when the provider config is incomplete', async () => {
@@ -210,12 +210,12 @@ describe('OnboardingSetupService', () => {
                 } as any);
 
                 expect(mockSetDoc.mock.calls[0][1]).toEqual(expect.objectContaining({ isEnabled: false }));
-                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: false, requireSignupVerification: false });
+                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: false, requireSignupVerification: false, debugMode: false });
             });
 
             it('keeps email DISABLED when no provider is selected', async () => {
                 await service.saveEmailConfig({ senderEmail: 'x@y.com' } as any);
-                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: false, requireSignupVerification: false });
+                expect(mockSetDoc.mock.calls[1][1]).toEqual({ isEnabled: false, requireSignupVerification: false, debugMode: false });
             });
         });
     });
@@ -232,7 +232,7 @@ describe('OnboardingSetupService', () => {
             }));
 
             const statusCall = mockSetDoc.mock.calls[1];
-            expect(statusCall[1]).toEqual({ isEnabled: false, requireSignupVerification: false });
+            expect(statusCall[1]).toEqual({ isEnabled: false, requireSignupVerification: false, debugMode: false });
         });
 
         it('should propagate Firestore errors', async () => {

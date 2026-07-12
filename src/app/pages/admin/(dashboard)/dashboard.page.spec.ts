@@ -75,7 +75,8 @@ describe('DashboardComponent', () => {
         isLoading: vi.fn().mockReturnValue(false),
         bannerDismissed: vi.fn().mockReturnValue(false),
         shouldShowBanner: vi.fn().mockReturnValue(true),
-        dismissBanner: vi.fn()
+        dismissBanner: vi.fn(),
+        debugMode: vi.fn().mockReturnValue(false)
     };
     const mockAnalyticsConnectionStatus = {
         isConnected: vi.fn().mockReturnValue(false),

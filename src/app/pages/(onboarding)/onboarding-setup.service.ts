@@ -85,6 +85,7 @@ export class OnboardingSetupService {
         await setDoc(doc(this.firestore, 'Settings', 'email_status'), {
             isEnabled: enable,
             requireSignupVerification: settings.requireSignupVerification ?? false,
+            debugMode: settings.activeProvider === 'debug_log',
         });
     }
 
@@ -103,6 +104,7 @@ export class OnboardingSetupService {
         await setDoc(doc(this.firestore, 'Settings', 'email_status'), {
             isEnabled: false,
             requireSignupVerification: false,
+            debugMode: false,
         });
     }
 
