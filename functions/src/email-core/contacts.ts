@@ -1,6 +1,7 @@
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { computeEmailHash } from './unsubscribeToken.js';
+import { enrollInListCampaigns, exitListCampaignEnrollments } from './dripEnrollment.js';
 
 /**
  * Unified audience layer (spec §3.5–3.6, D5).
@@ -135,6 +136,10 @@ export async function addContactToLists(emailHash: string, listIds: string[]): P
       );
     }
     return toAdd;
+  }).then(async (toAdd) => {
+    // Joining a list enrolls the contact in that list's active drip campaigns (D4).
+    if (toAdd.length) await enrollInListCampaigns(emailHash, toAdd);
+    return toAdd;
   });
 }
 
@@ -162,6 +167,10 @@ export async function removeContactFromLists(emailHash: string, listIds: string[
         { merge: true },
       );
     }
+    return toRemove;
+  }).then(async (toRemove) => {
+    // Leaving a list exits the contact from that list's drip campaigns (D4).
+    if (toRemove.length) await exitListCampaignEnrollments(emailHash, toRemove, 'left_list');
     return toRemove;
   });
 }

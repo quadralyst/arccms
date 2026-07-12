@@ -5,6 +5,7 @@ import { db } from '../init.js';
 import type { EmailSettings } from '../types.js';
 import { verifyUnsubscribeToken } from './unsubscribeToken.js';
 import { setContactConsent } from './contacts.js';
+import { exitAllEnrollments } from './dripEnrollment.js';
 
 /**
  * One-click unsubscribe endpoint: `/unsubscribe?e={emailHash}&t={hmac}`.
@@ -94,6 +95,13 @@ async function unsubscribeByEmailHash(emailHash: string): Promise<void> {
     await setContactConsent(emailHash, 'unsubscribed', email || undefined);
   } catch (err) {
     logger.warn('handleUnsubscribe: could not update Contact consent', err);
+  }
+
+  // Unsubscribing exits all active drip enrollments (D4).
+  try {
+    await exitAllEnrollments(emailHash, 'unsubscribed');
+  } catch (err) {
+    logger.warn('handleUnsubscribe: could not exit drip enrollments', err);
   }
 
   // Best-effort: keep legacy waitlist readers in sync (isSubscribed:false).

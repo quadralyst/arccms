@@ -248,6 +248,16 @@ service cloud.firestore {
       allow write: if false; // created via the sendAnnouncement callable
     }
 
+    // Drip campaigns (Phase 7): admin-managed. Enrollments are functions-only.
+    match /DripCampaigns/{id} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    match /DripEnrollments/{id} {
+      allow read: if isAdmin();
+      allow write: if false; // Cloud Functions only
+    }
+
     // ============================================================
     // 5. WAITLIST COLLECTIONS
     //    Signup flow runs client-side without authentication.
