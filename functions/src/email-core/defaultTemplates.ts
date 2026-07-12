@@ -119,6 +119,28 @@ export const DEFAULT_TEMPLATES: DefaultTemplateDef[] = [
       <p style="margin:0;">If you have any questions about this change, just reply to this email.</p>`),
   },
   {
+    type: 'notification_generic_email',
+    category: 'transactional',
+    subject: '##TITLE##',
+    title: 'Generic Notification',
+    previewText: 'You have a new notification',
+    body: shell(`
+      <h1 style="font-size:20px;color:#111827;margin:0 0 16px;">##TITLE##</h1>
+      <p style="margin:0 0 20px;">##BODY##</p>
+      <p style="margin:0;"><a href="##LINK##" style="color:#3b82f6;">View details</a></p>`),
+  },
+  {
+    type: 'admin_digest_email',
+    category: 'transactional',
+    subject: 'Your daily summary',
+    title: 'Admin Daily Digest',
+    previewText: 'Your last 24 hours at a glance',
+    body: shell(`
+      <h1 style="font-size:20px;color:#111827;margin:0 0 16px;">Daily summary</h1>
+      <p style="margin:0 0 20px;">Here's what happened in the last 24 hours:</p>
+      <div style="margin:0 0 20px;">##BODY##</div>`),
+  },
+  {
     type: 'trial_ending_email',
     category: 'transactional',
     subject: 'Your free trial ends soon',

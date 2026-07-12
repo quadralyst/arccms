@@ -10,6 +10,7 @@ import {
   waitlistListId,
 } from './contacts.js';
 import type { WaitlistUserData } from '../types.js';
+import { emitAppEvent } from './appEvents.js';
 
 /**
  * Contacts auto-sync (spec §Phase-3.1). Each product moment that creates or
@@ -79,6 +80,7 @@ export const onWaitlistVerifiedContact = onDocumentUpdated(
         // Waitlist members opted in by joining; keep legacy isSubscribed semantics.
         consent: after.isSubscribed === false ? 'unsubscribed' : 'subscribed',
       });
+      await emitAppEvent('waitlist.joined', { contactEmail: after.email, data: { waitlistId } });
     } catch (err) {
       logger.error('onWaitlistVerifiedContact failed', err);
     }

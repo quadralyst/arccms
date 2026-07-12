@@ -6,6 +6,9 @@ import { findUserRef, grantEntitlement, revokeEntitlement, markPastDue } from '.
 import { grantCredits, refundCredits } from './credits.js';
 import { sendPaymentEmail } from './paymentEmailHelper.js';
 import { upsertContact, ensureSystemLists, SYSTEM_LISTS } from '../email-core/contacts.js';
+import { createNotification } from '../email-core/notifications.js';
+import { notifyAdmins } from '../email-core/adminAlerts.js';
+import { emitAppEvent } from '../email-core/appEvents.js';
 import { toMajorUnits } from './money.js';
 import { DodoWebhookPayload, DodoWebhookData, ProductDoc, TransactionDoc, TransactionStatus, PAYMENT_PROVIDER } from './types.js';
 
@@ -262,6 +265,15 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
       renewalDate: data.next_billing_date,
     },
   );
+
+  // Notifications & event bus (Phase 5) — additive, non-fatal.
+  await Promise.allSettled([
+    userId
+      ? createNotification({ userId, type: 'payment_succeeded', title: 'Payment received', body: 'Thank you! Your payment was successful.', createdBy: 'system' })
+      : Promise.resolve(''),
+    notifyAdmins('admin_payment_received', { title: 'Payment received', body: `${customerEmail || 'A customer'} paid.`, link: '/admin/transactions' }),
+    emitAppEvent('payment.succeeded', { userId, contactEmail: customerEmail }),
+  ]);
 }
 
 async function handleFailure(eventType: string, data: DodoWebhookData, eventAt?: Date): Promise<void> {
@@ -279,6 +291,15 @@ async function handleFailure(eventType: string, data: DodoWebhookData, eventAt?:
     { email: data.customer?.email || '', name: data.customer?.name },
     { amount: toMajorUnits(data.total_amount, data.currency), currency: data.currency, status: 'failed', plan: product?.premiumType },
   );
+
+  // Notifications & event bus (Phase 5) — additive, non-fatal.
+  await Promise.allSettled([
+    userId
+      ? createNotification({ userId, type: 'payment_failed', title: 'Payment failed', body: 'We could not process your payment. Please update your payment method.', createdBy: 'system' })
+      : Promise.resolve(''),
+    notifyAdmins('admin_payment_failed', { title: 'Payment failed', body: `${data.customer?.email || 'A customer'} had a payment fail.`, link: '/admin/transactions' }),
+    emitAppEvent('payment.failed', { userId, contactEmail: data.customer?.email || '' }),
+  ]);
 }
 
 async function handleOnHold(data: DodoWebhookData, eventAt?: Date): Promise<void> {

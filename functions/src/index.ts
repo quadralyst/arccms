@@ -23,6 +23,13 @@ export * from './email-core/adminContacts.js';
 // Email-core (Phase 4): test-send for the block editor.
 export * from './email-core/sendTestEmail.js';
 
+// Email-core (Phase 5): notifications, event bus, announcements, admin digest.
+export * from './email-core/onNotificationCreate.js';
+export * from './email-core/appEvents.js';
+export * from './email-core/announcements.js';
+export * from './email-core/sendAdminDigest.js';
+export * from './email-core/notificationPrefs.js';
+
 export * from './publishQueue/processPublishQueue.js';
 
 export * from './content-types/onContentTypeDelete.js';

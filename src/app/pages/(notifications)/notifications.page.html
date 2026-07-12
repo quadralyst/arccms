@@ -1,0 +1,42 @@
+<div class="container py-4" style="max-width: 760px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="mb-0">Notifications</h1>
+        <button mat-stroked-button (click)="markAllRead()"><mat-icon>done_all</mat-icon> Mark all read</button>
+    </div>
+
+    <div class="list-group mb-5">
+        @for (n of notifications(); track n.id) {
+        <div class="list-group-item d-flex justify-content-between align-items-start" [class.bg-light]="!n.read">
+            <div>
+                <div [style.font-weight]="n.read ? 'normal' : '600'">{{ n.title }}</div>
+                <div class="text-muted">{{ n.body }}</div>
+                @if (n.link) { <a [href]="n.link" (click)="open(n)">View</a> }
+            </div>
+            @if (!n.read) {
+            <button mat-button (click)="open(n)">Mark read</button>
+            }
+        </div>
+        } @empty {
+        <div class="text-center text-muted py-5">You're all caught up.</div>
+        }
+    </div>
+
+    @if (prefs().length) {
+    <h2 class="h5 mb-3">Email preferences</h2>
+    <p class="text-muted">Choose which notifications also reach you by email.</p>
+    <div class="mb-3">
+        @for (p of prefs(); track p.key) {
+        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <div>
+                <div class="fw-medium">{{ p.label }}</div>
+                <div class="small text-muted">{{ p.description }}</div>
+            </div>
+            <mat-slide-toggle [(ngModel)]="p.email" color="primary"></mat-slide-toggle>
+        </div>
+        }
+    </div>
+    <button mat-flat-button color="primary" [disabled]="savingPrefs()" (click)="savePrefs()">
+        <mat-icon>save</mat-icon> Save preferences
+    </button>
+    }
+</div>
