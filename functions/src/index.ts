@@ -64,6 +64,8 @@ export * from './email-log/trackEmailOpen.js';
 export * from './email-log/purgeEmailLogs.js';
 export * from './email-log/processBroadcast.js';
 export * from './email-log/continueBroadcast.js';
+export * from './email-log/processScheduledBroadcasts.js';
+export * from './email-log/previewBroadcastAudience.js';
 export * from './email-log/scheduledPurgeEmailLogs.js';
 
 export * from './mail-config/testSmtpConfigConnection.js';

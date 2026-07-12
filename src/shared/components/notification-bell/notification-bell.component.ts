@@ -25,6 +25,8 @@ export class NotificationBellComponent {
 
     notifications = signal<INotification[]>([]);
     unreadCount = computed(() => this.notifications().filter((n) => !n.read).length);
+    /** Badge label: exact count up to 9, then "9+" (we don't surface the real total). */
+    badgeText = computed(() => (this.unreadCount() > 9 ? '9+' : String(this.unreadCount())));
     recent = computed(() => this.notifications().slice(0, 8));
 
     private sub: Subscription | null = null;

@@ -1,5 +1,5 @@
 <button mat-icon-button [matMenuTriggerFor]="menu" aria-label="Notifications">
-    <mat-icon [matBadge]="unreadCount()" [matBadgeHidden]="unreadCount() === 0" matBadgeColor="warn" matBadgeSize="small">
+    <mat-icon [matBadge]="badgeText()" [matBadgeHidden]="unreadCount() === 0" matBadgeColor="warn" matBadgeSize="small">
         notifications
     </mat-icon>
 </button>
