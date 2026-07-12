@@ -39,9 +39,13 @@ export function verifyUnsubscribeToken(
   }
 }
 
-/** Base URL for public email links (unsubscribe / preferences). */
-export function getPublicBaseUrl(): string {
-  const base = constant.isProduction ? constant.live_url : constant.local_url;
+/**
+ * Base URL for public email links (unsubscribe / preferences).
+ * Prefers an explicit override (e.g. `Settings/email.liveUrl`) so per-product
+ * deploys don't edit source; falls back to the constant.
+ */
+export function getPublicBaseUrl(override?: string): string {
+  const base = override || (constant.isProduction ? constant.live_url : constant.local_url);
   // Guarantee a single trailing slash.
   if (!base) return '/';
   return base.endsWith('/') ? base : `${base}/`;
@@ -53,20 +57,20 @@ export function getPublicBaseUrl(): string {
  * now carries the recipient's emailHash + an HMAC token instead of a blank id.
  * Returns an empty string when no secret is configured (link can't be verified).
  */
-export function buildUnsubscribeUrl(email: string, secret: string | undefined): string {
+export function buildUnsubscribeUrl(email: string, secret: string | undefined, baseUrl?: string): string {
   if (!email || !secret) return '';
   const emailHash = computeEmailHash(email);
   const token = buildUnsubscribeToken(emailHash, secret);
-  return `${getPublicBaseUrl()}unsubscribe?e=${emailHash}&t=${token}`;
+  return `${getPublicBaseUrl(baseUrl)}unsubscribe?e=${emailHash}&t=${token}`;
 }
 
 /**
  * Build the preference-center URL for a recipient (##PREFERENCES_LINK##).
  * Same HMAC token scheme as unsubscribe, so it works for non-user contacts too.
  */
-export function buildPreferencesUrl(email: string, secret: string | undefined): string {
+export function buildPreferencesUrl(email: string, secret: string | undefined, baseUrl?: string): string {
   if (!email || !secret) return '';
   const emailHash = computeEmailHash(email);
   const token = buildUnsubscribeToken(emailHash, secret);
-  return `${getPublicBaseUrl()}email-preferences?e=${emailHash}&t=${token}`;
+  return `${getPublicBaseUrl(baseUrl)}email-preferences?e=${emailHash}&t=${token}`;
 }

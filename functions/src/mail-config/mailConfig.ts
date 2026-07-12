@@ -19,9 +19,10 @@ const DEFAULT_MAX_ATTEMPTS = 3;
  * Build a 1x1 tracking-pixel <img> tag.
  * Returns an empty string when TRACKING_PIXEL_URL is not configured.
  */
-function buildTrackingPixel(emailId: string): string {
-    if (!constant.TRACKING_PIXEL_URL) return '';
-    return `<img src="${constant.TRACKING_PIXEL_URL}?emailId=${emailId}" width="1" height="1" style="opacity:0; position:absolute; top:-9999px; left:-9999px;" alt=""/>`;
+function buildTrackingPixel(emailId: string, trackingUrl?: string): string {
+    const url = trackingUrl || constant.TRACKING_PIXEL_URL;
+    if (!url) return '';
+    return `<img src="${url}?emailId=${emailId}" width="1" height="1" style="opacity:0; position:absolute; top:-9999px; left:-9999px;" alt=""/>`;
 }
 
 export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string): Promise<void> {
@@ -88,19 +89,29 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
         // Marketing sends carry List-Unsubscribe headers (RFC 2369 / 8058).
         const unsubHeaders = buildListUnsubscribeHeaders(emailLogsData, settings);
 
-        let result;
+        // Log-only mode (dev/test): record the fully-composed email but never call
+        // a provider. The stored processedTemplate/processedSubject is the exact
+        // message that would have been sent — verifiable from EmailLogs alone.
+        const logOnly = settings.logOnlyMode === true;
 
-        switch (activeProvider) {
-            case 'resend':
-                result = await sendResendMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
-                break;
-            case 'gmail':
-                result = await sendGmailMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
-                break;
-            case 'smtp':
-            default:
-                result = await sendSmtpMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
-                break;
+        let result: { messageId?: string } | undefined;
+
+        if (logOnly) {
+            result = { messageId: `log-only:${emailLogsId}` };
+            console.log(`sendMail: log-only mode — recorded ${emailLogsId} without sending.`);
+        } else {
+            switch (activeProvider) {
+                case 'resend':
+                    result = await sendResendMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
+                    break;
+                case 'gmail':
+                    result = await sendGmailMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
+                    break;
+                case 'smtp':
+                default:
+                    result = await sendSmtpMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
+                    break;
+            }
         }
 
         const updateData: Record<string, any> = {
@@ -113,6 +124,7 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
             unmappedTags: updatedTemplate.unmappedTags,
             activeProvider,
         };
+        if (logOnly) updateData.logOnly = true;
 
         if (result?.messageId) {
             updateData.messageId = result.messageId;
@@ -120,11 +132,13 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
 
         await logRef.update(updateData);
 
-        // Increment daily/hourly send counters (non-fatal if this fails)
-        try {
-            await incrementSendCount(activeProvider);
-        } catch (counterErr) {
-            console.warn('Failed to increment email counter:', counterErr);
+        // Increment daily/hourly send counters (skip in log-only — no real send).
+        if (!logOnly) {
+            try {
+                await incrementSendCount(activeProvider);
+            } catch (counterErr) {
+                console.warn('Failed to increment email counter:', counterErr);
+            }
         }
     } catch (err) {
         // Transient failure ⇒ retry with exponential backoff until maxAttempts.
@@ -167,7 +181,7 @@ function buildListUnsubscribeHeaders(
     settings: EmailSettings,
 ): Record<string, string> {
     if (emailLogsData.category !== 'marketing') return {};
-    const url = buildUnsubscribeUrl(emailLogsData.toEmail, settings.unsubscribeSecret);
+    const url = buildUnsubscribeUrl(emailLogsData.toEmail, settings.unsubscribeSecret, settings.liveUrl);
     if (!url) return {};
     return {
         'List-Unsubscribe': `<${url}>`,
@@ -194,7 +208,7 @@ async function sendSmtpMail(emailLogsData: EmailLogData, updatedTemplate: Proces
         subject: updatedTemplate.subject,
         text: emailLogsData.text,
         replyTo: settings.replyToEmail,
-        html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? ''),
+        html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? '', settings.trackingPixelUrl),
         bcc: emailLogsData.bcc || undefined,
         headers: extraHeaders,
     });
@@ -217,7 +231,7 @@ async function sendResendMail(emailLogsData: EmailLogData, updatedTemplate: Proc
             from: `${emailLogsData.senderName} <${emailLogsData.senderEmail}>`,
             to: [emailLogsData.toEmail],
             subject: updatedTemplate.subject,
-            html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? ''),
+            html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? '', settings.trackingPixelUrl),
             text: emailLogsData.text,
             reply_to: settings.replyToEmail,
             ...(Object.keys(extraHeaders).length ? { headers: extraHeaders } : {}),
@@ -249,7 +263,7 @@ async function sendGmailMail(emailLogsData: EmailLogData, updatedTemplate: Proce
         to: `"${emailLogsData.toName}" <${emailLogsData.toEmail}>`,
         subject: updatedTemplate.subject,
         text: emailLogsData.text,
-        html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? ''),
+        html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? '', settings.trackingPixelUrl),
         replyTo: settings.replyToEmail || undefined,
         bcc: emailLogsData.bcc || undefined,
         headers: extraHeaders,
@@ -264,8 +278,8 @@ export async function processEmailTemplate(
 ): Promise<ProcessedTemplate> {
     // HMAC-token unsubscribe link keyed by the recipient's emailHash — fixes the
     // historical empty-userId bug. Empty when no unsubscribeSecret is configured.
-    const unsubscribe_link = buildUnsubscribeUrl(emailLogsData.toEmail, configData?.unsubscribeSecret);
-    const preferences_link = buildPreferencesUrl(emailLogsData.toEmail, configData?.unsubscribeSecret);
+    const unsubscribe_link = buildUnsubscribeUrl(emailLogsData.toEmail, configData?.unsubscribeSecret, configData?.liveUrl);
+    const preferences_link = buildPreferencesUrl(emailLogsData.toEmail, configData?.unsubscribeSecret, configData?.liveUrl);
 
     // Default tag mappings - automatically maps tags to data paths
     const defaultMappings: Record<string, () => string> = {

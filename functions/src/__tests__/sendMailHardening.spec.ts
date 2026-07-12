@@ -180,4 +180,19 @@ describe('sendMail hardening', () => {
     const sendArg = mockTransportSend.mock.calls[0][0];
     expect(sendArg.headers['List-Unsubscribe']).toBeUndefined();
   });
+
+  it('log-only mode records success WITHOUT calling a provider or counter', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ logOnlyMode: true }) });
+
+    await sendMail(baseLog() as any, 'log-1');
+
+    expect(mockTransportSend).not.toHaveBeenCalled();
+    expect(mockIncrement).not.toHaveBeenCalled();
+    const upd = lastUpdate();
+    expect(upd.status).toBe('success');
+    expect(upd.logOnly).toBe(true);
+    // The exact composed message is still recorded for inspection.
+    expect(upd.processedTemplate).toBeDefined();
+    expect(upd.processedSubject).toBeDefined();
+  });
 });

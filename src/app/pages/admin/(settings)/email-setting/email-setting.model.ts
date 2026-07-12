@@ -143,6 +143,12 @@ export interface IEmailSettings {
     features?: IEmailFeatureToggles;
     /** E4 — require email verification on signup (default false) */
     requireSignupVerification?: boolean;
+    /** Dev/test: record composed emails in EmailLogs without calling a provider. */
+    logOnlyMode?: boolean;
+    /** Open-tracking pixel base URL (moved out of source). */
+    trackingPixelUrl?: string;
+    /** Public base URL for unsubscribe/preferences links. */
+    liveUrl?: string;
 }
 
 /**

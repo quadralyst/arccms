@@ -129,6 +129,9 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
                 adminAlerts: [DEFAULT_EMAIL_FEATURES.adminAlerts],
             }),
             requireSignupVerification: [false],
+            logOnlyMode: [false],
+            trackingPixelUrl: [''],
+            liveUrl: [''],
         });
     }
 
@@ -184,6 +187,9 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
                     autoPurge: settings.autoPurge,
                     features: { ...DEFAULT_EMAIL_FEATURES, ...(settings.features || {}) },
                     requireSignupVerification: settings.requireSignupVerification ?? false,
+                    logOnlyMode: settings.logOnlyMode ?? false,
+                    trackingPixelUrl: settings.trackingPixelUrl ?? '',
+                    liveUrl: settings.liveUrl ?? '',
                 });
 
                 this.emailEnabled.set(settings.isEnabled);

@@ -21,6 +21,7 @@ import { ToastService } from '../../../../shared/services/toast.service';
 import { EmailLogStore } from './email-log.store';
 import { IEmailLog } from './email-log.model';
 import ViewEmailLogComponent from './(view-email-log)/view-email-log.component';
+import { EmailHealthCardComponent } from '../../../../shared/components/email-health-card/email-health-card.component';
 
 interface ActiveBroadcast {
     id: string;
@@ -46,6 +47,7 @@ interface ActiveBroadcast {
         MatFormFieldModule,
         GlobalTableComponent,
         ViewEmailLogComponent,
+        EmailHealthCardComponent,
     ],
     providers: [DatePipe],
     templateUrl: './email-logs.html',
