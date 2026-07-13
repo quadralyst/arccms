@@ -46,8 +46,11 @@ export class EmailConfigStatusService {
    */
   private initializeListener(): void {
     if (!isPlatformBrowser(this.platformId)) {
-      this.isLoading.set(false);
-      this._isLoading.next(false);
+      // Leave isLoading at its default (true) on the server. Forcing it false here
+      // makes the SSR render disagree with the client's own pre-listener state
+      // (also loading=true until the first snapshot arrives), and that mismatch at
+      // the hydration boundary leaves the affected @if content permanently inert —
+      // present in the DOM but with no live view/listeners attached to it.
       return;
     }
 

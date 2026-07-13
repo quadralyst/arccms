@@ -1,9 +1,10 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import {
     Firestore, collection, collectionData, addDoc, doc, updateDoc, getDoc, serverTimestamp, query, orderBy, limit, Timestamp,
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Observable } from 'rxjs';
+import { Observable, catchError, of } from 'rxjs';
 
 export interface BroadcastAudience {
     kind: 'list' | 'waitlist';
@@ -27,6 +28,7 @@ export interface BroadcastRow {
 export class BroadcastService {
     private firestore = inject(Firestore);
     private functions = inject(Functions);
+    private platformId = inject(PLATFORM_ID);
 
     previewAudience(audience: BroadcastAudience) {
         return httpsCallable<{ audience: BroadcastAudience }, { eligible: number; scanned: number; capped: boolean }>(
@@ -35,8 +37,18 @@ export class BroadcastService {
     }
 
     watchRecent(max = 20): Observable<BroadcastRow[]> {
+        // Admin-only Firestore rules; SSR has no authenticated user, so skip
+        // the doomed request instead of letting it fail with permission-denied.
+        if (!isPlatformBrowser(this.platformId)) {
+            return of([]);
+        }
         const ref = collection(this.firestore, 'BroadcastEmails');
-        return collectionData(query(ref, orderBy('createdAt', 'desc'), limit(max)), { idField: 'id' }) as Observable<BroadcastRow[]>;
+        return (collectionData(query(ref, orderBy('createdAt', 'desc'), limit(max)), { idField: 'id' }) as Observable<BroadcastRow[]>).pipe(
+            catchError((err) => {
+                console.error('Error fetching recent broadcasts:', err);
+                return of([]);
+            }),
+        );
     }
 
     private async senderIdentity(): Promise<{ senderName: string; senderEmail: string }> {

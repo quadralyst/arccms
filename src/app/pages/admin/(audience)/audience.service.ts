@@ -1,4 +1,5 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import {
     Firestore,
     collection,
@@ -12,7 +13,7 @@ import {
     limit,
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Observable } from 'rxjs';
+import { Observable, catchError, of } from 'rxjs';
 import { IContact, IList, ICsvPreview, MarketingConsent } from './audience.model';
 
 /**
@@ -26,19 +27,38 @@ import { IContact, IList, ICsvPreview, MarketingConsent } from './audience.model
 export class AudienceService {
     private firestore = inject(Firestore);
     private functions = inject(Functions);
+    private platformId = inject(PLATFORM_ID);
 
     /** Live list of Lists. */
     getLists(): Observable<IList[]> {
+        // Admin-only Firestore rules; SSR has no authenticated user, so skip
+        // the doomed request instead of letting it fail with permission-denied.
+        if (!isPlatformBrowser(this.platformId)) {
+            return of([]);
+        }
         const ref = collection(this.firestore, 'Lists');
-        return collectionData(query(ref, orderBy('name')), { idField: 'id' }) as Observable<IList[]>;
+        return (collectionData(query(ref, orderBy('name')), { idField: 'id' }) as Observable<IList[]>).pipe(
+            catchError((err) => {
+                console.error('Error fetching lists:', err);
+                return of([]);
+            }),
+        );
     }
 
     /** Live (capped) list of Contacts for the admin table. */
     getContacts(max = 500): Observable<IContact[]> {
+        if (!isPlatformBrowser(this.platformId)) {
+            return of([]);
+        }
         const ref = collection(this.firestore, 'Contacts');
-        return collectionData(query(ref, orderBy('updatedAt', 'desc'), limit(max)), {
+        return (collectionData(query(ref, orderBy('updatedAt', 'desc'), limit(max)), {
             idField: 'id',
-        }) as Observable<IContact[]>;
+        }) as Observable<IContact[]>).pipe(
+            catchError((err) => {
+                console.error('Error fetching contacts:', err);
+                return of([]);
+            }),
+        );
     }
 
     /** Create a manual list (admins may write Lists directly). */

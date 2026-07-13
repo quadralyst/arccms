@@ -72,6 +72,12 @@ export class EmailBlockEditorComponent {
         this.blocks.update((b) => b.map((blk, i) => (i === index ? ({ ...blk, ...patch } as EmailBlock) : blk)));
     }
 
+    /** Heading level select emits a string; narrow it to the 1|2|3 union here (not in the template). */
+    setHeadingLevel(index: number, value: string): void {
+        const level = Number(value) as 1 | 2 | 3;
+        this.patch(index, { level });
+    }
+
     /** Insert a merge tag into a text/html field of the block. */
     insertTag(index: number, field: 'text' | 'html', tag: string): void {
         this.blocks.update((b) =>

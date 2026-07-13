@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -33,6 +33,7 @@ export default class DripsPageComponent implements OnInit {
     private service = inject(DripService);
     private audience = inject(AudienceService);
     private toast = inject(ToastService);
+    private destroyRef = inject(DestroyRef);
 
     campaigns = signal<DripCampaign[]>([]);
     lists = signal<IList[]>([]);
@@ -44,9 +45,9 @@ export default class DripsPageComponent implements OnInit {
     newEnrollExisting = false;
 
     ngOnInit(): void {
-        this.service.watchCampaigns().pipe(takeUntilDestroyed()).subscribe((c) => this.campaigns.set(c));
-        this.audience.getLists().pipe(takeUntilDestroyed()).subscribe((l) => this.lists.set(l));
-        this.service.watchTemplates().pipe(takeUntilDestroyed()).subscribe((t) => this.templates.set(t));
+        this.service.watchCampaigns().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((c) => this.campaigns.set(c));
+        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
+        this.service.watchTemplates().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((t) => this.templates.set(t));
     }
 
     listName(id: string): string {

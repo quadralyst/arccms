@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -39,6 +39,7 @@ export default class BroadcastsPageComponent implements OnInit {
     private brandKitService = inject(BrandKitService);
     private functions = inject(Functions);
     private toast = inject(ToastService);
+    private destroyRef = inject(DestroyRef);
 
     lists = signal<IList[]>([]);
     recent = signal<BroadcastRow[]>([]);
@@ -62,8 +63,8 @@ export default class BroadcastsPageComponent implements OnInit {
     ] };
 
     ngOnInit(): void {
-        this.audience.getLists().pipe(takeUntilDestroyed()).subscribe((l) => this.lists.set(l));
-        this.service.watchRecent().pipe(takeUntilDestroyed()).subscribe((r) => this.recent.set(r));
+        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
+        this.service.watchRecent().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((r) => this.recent.set(r));
         this.brandKitService.getBrandKit().subscribe((k) => this.brandKit.set(k));
     }
 
