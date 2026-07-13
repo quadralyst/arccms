@@ -5,6 +5,7 @@ import {
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Observable, catchError, of } from 'rxjs';
+import { dedupeTemplatesByType } from '../../../../shared/utils/template-dedupe';
 
 export interface DripStep { id: string; templateId: string; delayHours: number; }
 
@@ -51,7 +52,7 @@ export class DripService {
         return new Observable<TemplateOption[]>((sub) => {
             const inner = collectionData(ref, { idField: 'id' }).subscribe({
                 next: (docs: any[]) => {
-                    sub.next(docs.map((d) => ({ id: d.id, label: d.title || d.type || d.id })));
+                    sub.next(dedupeTemplatesByType(docs).map((d) => ({ id: d.id, label: d.title || d.type || d.id })));
                 },
                 error: (err) => {
                     console.error('Error fetching email templates:', err);

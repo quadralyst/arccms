@@ -162,3 +162,61 @@ in §3 are real but non-blocking: the bell (§3.1) is a usability gap, the
 duplicate templates (§3.2) are cosmetic clutter, and the notification-sync gap
 (§3.3) needs a source read to even confirm as a bug rather than by-design
 behavior.
+
+---
+
+## 6. Follow-up resolutions (§3 open items)
+
+A later session worked the four §3 items end-to-end, again against the live
+`xlm-project-864ff` project with browser verification. Outcome:
+
+### 6.1 (§3.1) Bell unreachable on desktop — FIXED
+`admin.html` no longer hides the whole top toolbar in `side` mode. The toolbar
+is always rendered; only the mobile hamburger + app-name group is hidden on
+desktop (the sidebar already supplies those), and the bell is right-aligned
+with `ms-auto`. Verified at 1440px in `side` mode: toolbar `display:flex`, bell
+48×48 top-right, dropdown opens. The mobile (`over`) bell still works.
+
+### 6.2 (§3.2) "Duplicate" templates — FIXED (and not what it looked like)
+Root cause was **not** a non-idempotent seeder writing two docs per template.
+The live `EmailTemplate` collection has 13 docs in 13 distinct
+`type`+`waitlistId` groups — **zero true duplicates**. There are simply **two
+waitlists**, and `onWaitlistsCreate` writes a per-waitlist welcome + OTP
+template for each; those share a `type`/`title`, so the global composer and
+drip pickers (which list every `EmailTemplate` doc) showed "Waitlist welcome
+email" / "Waitlist verify OTP Email" twice.
+
+Fixes:
+- **Frontend dedupe by `type`** (`shared/utils/template-dedupe.ts`) in the
+  composer and drip selectors — senders already resolve templates with
+  `where('type','==',…).limit(1)`, so the pickers now surface one entry per
+  type. Verified: composer shows 11 unique templates. Per-waitlist editing
+  still lives on each waitlist's own Email Templates screen.
+- **Deterministic per-waitlist doc ids** (`<type>_<waitlistId>`) in
+  `onWaitlistsCreate`, with an existence check, so a retried/re-fired create
+  trigger upserts instead of writing a second copy — prevents *real*
+  duplicates going forward.
+- **`dedupeEmailTemplates` admin callable** for one-off cleanup if genuine
+  duplicates ever appear (groups by `type`+`waitlistId`, keeps the
+  deterministic-id/oldest doc). On the live project it currently finds 0.
+
+### 6.3 (§3.3) Announcement in-app notification — NOT A BUG (verified working)
+Traced `sendAnnouncement` → `resolveAudience('all')` reads the `users`
+collection and creates notifications keyed by `users.uid`; the bell / `/notifications`
+read `Notifications` where `userId == currentUser().uid`, and `currentUser()`
+comes from the *same* `users` collection (`AuthService extends
+GlobalAuthService` with `super('users')`). No collection/field mismatch, and
+the sender is not skipped. Verified live: publishing to "All users" (targeted
+3, notified 3) created a notification for the admin's own uid and the bell
+unread count updated in realtime (1 → 2) with the new title appearing. The
+original "You're all caught up" reading was a propagation-timing artifact
+(checked before the async fan-out landed), not a delivery failure. Hardening:
+`NotificationService.watch()` now has a `catchError` so a transient query
+failure logs instead of silently rendering an empty "all caught up" state.
+
+### 6.4 (§3.4) NG0100 on Contacts — already resolved
+Does not reproduce on the current committed code (the `takeUntilDestroyed(DestroyRef)`
+fix from §2.1 removed the `ngOnInit` abort that left the component in the
+inconsistent CD state behind it). Verified the console is clean with the 3
+backfilled contacts rendered, on cold load and on forced component re-mount.
+No further change made.

@@ -115,11 +115,18 @@ export const onWaitlistsCreate = onDocumentCreated('Waitlists/{waitlistsId}', as
     },
   ];
 
+  // Deterministic per-waitlist doc ids (`<type>_<waitlistId>`) so a retried or
+  // re-fired create trigger upserts the same two docs instead of adding a
+  // second copy each run. Existing docs are left untouched to preserve any
+  // admin edits.
+  let created = 0;
   const batch = db.batch();
 
-  templates.forEach((t) => {
-    const docRef = db.collection('EmailTemplate').doc();
-    const docId = docRef.id;
+  for (const t of templates) {
+    const docId = `${t.type}_${waitlistsId}`;
+    const docRef = db.collection('EmailTemplate').doc(docId);
+    const existing = await docRef.get();
+    if (existing.exists) continue;
     const payload = {
       ...t,
       waitlistId: waitlistsId,
@@ -128,9 +135,10 @@ export const onWaitlistsCreate = onDocumentCreated('Waitlists/{waitlistsId}', as
       modifiedAt: t.modifiedAt || new Date(),
     };
     batch.set(docRef, payload);
-  });
+    created++;
+  }
 
-  await batch.commit();
+  if (created > 0) await batch.commit();
 
-  console.log(`Created ${templates.length} EmailTemplate docs for Waitlist ${waitlistsId}`);
+  console.log(`Ensured ${templates.length} EmailTemplate docs for Waitlist ${waitlistsId} (created ${created}).`);
 });
