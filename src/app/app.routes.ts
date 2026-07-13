@@ -238,6 +238,44 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Email Routes (Brand Kit, Composer, Broadcasts, Drip Campaigns, Announcements)
+  // Nested under a shared /admin/email/* prefix so the sidebar's Email submenu
+  // maps to real, matching routes instead of scattered top-level paths.
+  {
+    path: 'admin/email',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      { path: '', redirectTo: 'brand-kit', pathMatch: 'full' },
+      {
+        path: 'brand-kit',
+        loadComponent: () =>
+          import('./pages/admin/(email-brand)/brand-kit.page').then((m) => m.default),
+      },
+      {
+        path: 'composer',
+        loadComponent: () =>
+          import('./pages/admin/(email-composer)/email-composer.page').then((m) => m.default),
+      },
+      {
+        path: 'broadcasts',
+        loadComponent: () =>
+          import('./pages/admin/(broadcasts)/broadcasts.page').then((m) => m.default),
+      },
+      {
+        path: 'drip-campaigns',
+        loadComponent: () =>
+          import('./pages/admin/(drips)/drips.page').then((m) => m.default),
+      },
+      {
+        path: 'announcements',
+        loadComponent: () =>
+          import('./pages/admin/(announcements)/announcements.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin Users Routes (router-based for admin area)
   {
     path: 'admin/users',

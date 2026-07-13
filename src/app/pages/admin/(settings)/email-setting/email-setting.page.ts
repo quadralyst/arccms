@@ -295,6 +295,11 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
         return this.activeProviderComponent()?.isConfigValid() ?? false;
     }
 
+    /** True when the simulated Debug Provider is selected — it needs no connection test. */
+    isDebugProvider(): boolean {
+        return this.emailForm.get('activeProvider')?.value === 'debug_log';
+    }
+
     /**
      * Persist a Features / verification toggle change immediately.
      * These are independent of provider-connection testing, so we save directly
@@ -330,7 +335,8 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
             this.emailEnabled.set(false);
         }
 
-        if (!this.testPassed() && !type) {
+        // The simulated Debug Provider has no connection to test — never gate its save.
+        if (!this.testPassed() && !type && !this.isDebugProvider()) {
             this.toastService.openCustomSnackbar('Please test the connection first', 'warning', 'warning');
             return;
         }

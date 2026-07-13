@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -31,6 +31,7 @@ export const routeMeta: RouteMeta = {
 export default class ContactsPageComponent implements OnInit {
     private audience = inject(AudienceService);
     private toast = inject(ToastService);
+    private destroyRef = inject(DestroyRef);
 
     contacts = signal<IContact[]>([]);
     lists = signal<IList[]>([]);
@@ -57,8 +58,8 @@ export default class ContactsPageComponent implements OnInit {
     importConsent = false;
 
     ngOnInit(): void {
-        this.audience.getContacts().pipe(takeUntilDestroyed()).subscribe((c) => this.contacts.set(c));
-        this.audience.getLists().pipe(takeUntilDestroyed()).subscribe((l) => this.lists.set(l));
+        this.audience.getContacts().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((c) => this.contacts.set(c));
+        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
     }
 
     consentClass(c: IContact): string {

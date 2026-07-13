@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -26,6 +26,7 @@ export const routeMeta: RouteMeta = {
 export default class ListsPageComponent implements OnInit {
     private audience = inject(AudienceService);
     private toast = inject(ToastService);
+    private destroyRef = inject(DestroyRef);
 
     lists = signal<IList[]>([]);
     newListName = '';
@@ -33,7 +34,7 @@ export default class ListsPageComponent implements OnInit {
 
     ngOnInit(): void {
         this.audience.getLists()
-            .pipe(takeUntilDestroyed())
+            .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe((lists) => this.lists.set(lists));
     }
 

@@ -128,11 +128,11 @@ export default class NavbarComponent extends BaseComponent {
             label: 'Email',
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
-                { label: 'Brand Kit', route: '/admin/email-brand', icon: 'fa-solid fa-palette' },
-                { label: 'Composer', route: '/admin/email-composer', icon: 'fa-solid fa-pen-ruler' },
-                { label: 'Broadcasts', route: '/admin/broadcasts', icon: 'fa-solid fa-tower-broadcast' },
-                { label: 'Drip Campaigns', route: '/admin/drips', icon: 'fa-solid fa-droplet' },
-                { label: 'Announcements', route: '/admin/announcements', icon: 'fa-solid fa-bullhorn' },
+                { label: 'Brand Kit', route: '/admin/email/brand-kit', icon: 'fa-solid fa-palette' },
+                { label: 'Composer', route: '/admin/email/composer', icon: 'fa-solid fa-pen-ruler' },
+                { label: 'Broadcasts', route: '/admin/email/broadcasts', icon: 'fa-solid fa-tower-broadcast' },
+                { label: 'Drip Campaigns', route: '/admin/email/drip-campaigns', icon: 'fa-solid fa-droplet' },
+                { label: 'Announcements', route: '/admin/email/announcements', icon: 'fa-solid fa-bullhorn' },
             ],
         },
         {

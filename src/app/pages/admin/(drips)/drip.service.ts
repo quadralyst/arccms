@@ -1,9 +1,10 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import {
     Firestore, collection, collectionData, doc, addDoc, setDoc, serverTimestamp, query, orderBy,
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Observable } from 'rxjs';
+import { Observable, catchError, of } from 'rxjs';
 
 export interface DripStep { id: string; templateId: string; delayHours: number; }
 
@@ -25,17 +26,37 @@ export interface TemplateOption { id: string; label: string; }
 export class DripService {
     private firestore = inject(Firestore);
     private functions = inject(Functions);
+    private platformId = inject(PLATFORM_ID);
 
     watchCampaigns(): Observable<DripCampaign[]> {
+        // Admin-only Firestore rules; SSR has no authenticated user, so skip
+        // the doomed request instead of letting it fail with permission-denied.
+        if (!isPlatformBrowser(this.platformId)) {
+            return of([]);
+        }
         const ref = collection(this.firestore, 'DripCampaigns');
-        return collectionData(query(ref, orderBy('name')), { idField: 'id' }) as Observable<DripCampaign[]>;
+        return (collectionData(query(ref, orderBy('name')), { idField: 'id' }) as Observable<DripCampaign[]>).pipe(
+            catchError((err) => {
+                console.error('Error fetching drip campaigns:', err);
+                return of([]);
+            }),
+        );
     }
 
     watchTemplates(): Observable<TemplateOption[]> {
+        if (!isPlatformBrowser(this.platformId)) {
+            return of([]);
+        }
         const ref = collection(this.firestore, 'EmailTemplate');
         return new Observable<TemplateOption[]>((sub) => {
-            const inner = collectionData(ref, { idField: 'id' }).subscribe((docs: any[]) => {
-                sub.next(docs.map((d) => ({ id: d.id, label: d.title || d.type || d.id })));
+            const inner = collectionData(ref, { idField: 'id' }).subscribe({
+                next: (docs: any[]) => {
+                    sub.next(docs.map((d) => ({ id: d.id, label: d.title || d.type || d.id })));
+                },
+                error: (err) => {
+                    console.error('Error fetching email templates:', err);
+                    sub.next([]);
+                },
             });
             return () => inner.unsubscribe();
         });

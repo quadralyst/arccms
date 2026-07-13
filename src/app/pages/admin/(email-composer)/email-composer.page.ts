@@ -1,10 +1,11 @@
 import { RouteMeta } from '@analogjs/router';
-import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Component, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
     Firestore, collection, collectionData, doc, updateDoc, serverTimestamp, query, orderBy,
 } from '@angular/fire/firestore';
+import { catchError, of } from 'rxjs';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -46,6 +47,7 @@ export default class EmailComposerPageComponent implements OnInit {
     private functions = inject(Functions);
     private brandKitService = inject(BrandKitService);
     private toast = inject(ToastService);
+    private platformId = inject(PLATFORM_ID);
 
     templates = signal<TemplateDoc[]>([]);
     selectedId = signal<string>('');
@@ -57,8 +59,18 @@ export default class EmailComposerPageComponent implements OnInit {
 
     ngOnInit(): void {
         this.brandKitService.getBrandKit().subscribe((k) => this.brandKit.set(k));
+        // Admin-only Firestore rules; SSR has no authenticated user, so skip
+        // the doomed request instead of letting it fail with permission-denied.
+        if (!isPlatformBrowser(this.platformId)) {
+            return;
+        }
         const ref = collection(this.firestore, 'EmailTemplate');
-        collectionData(query(ref, orderBy('type')), { idField: 'id' }).subscribe((docs) => {
+        collectionData(query(ref, orderBy('type')), { idField: 'id' }).pipe(
+            catchError((err) => {
+                console.error('Error fetching email templates:', err);
+                return of([]);
+            }),
+        ).subscribe((docs) => {
             this.templates.set(docs as TemplateDoc[]);
         });
     }

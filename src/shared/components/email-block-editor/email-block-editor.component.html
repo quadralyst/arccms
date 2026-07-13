@@ -45,7 +45,7 @@
                 @switch (block.type) {
                 @case ('heading') {
                 <input class="form-control mb-1" [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" placeholder="Heading text" />
-                <select class="form-select form-select-sm" [ngModel]="block.level" (ngModelChange)="patch(i, { level: +$event })">
+                <select class="form-select form-select-sm" [ngModel]="block.level" (ngModelChange)="setHeadingLevel(i, $event)">
                     <option [value]="1">H1</option><option [value]="2">H2</option><option [value]="3">H3</option>
                 </select>
                 }
