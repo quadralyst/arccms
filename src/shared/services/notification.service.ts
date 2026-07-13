@@ -3,7 +3,7 @@ import {
     Firestore, collection, collectionData, doc, updateDoc, getDocs, query, where, orderBy, limit, serverTimestamp, getDoc,
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Observable, of } from 'rxjs';
+import { Observable, of, catchError } from 'rxjs';
 import { INotification, INotificationTypeConfig } from './notification.model';
 
 /**
@@ -20,10 +20,18 @@ export class NotificationService {
     watch(uid: string, max = 30): Observable<INotification[]> {
         if (!uid) return of([]);
         const ref = collection(this.firestore, 'Notifications');
-        return collectionData(
+        return (collectionData(
             query(ref, where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(max)),
             { idField: 'id' },
-        ) as Observable<INotification[]>;
+        ) as Observable<INotification[]>).pipe(
+            // Never let a transient query failure (missing index, permission blip)
+            // silently render an empty "all caught up" state with no trace — log it
+            // and fall back to empty so the stream stays alive.
+            catchError((err) => {
+                console.error('NotificationService.watch failed:', err);
+                return of([]);
+            }),
+        );
     }
 
     async markRead(id: string): Promise<void> {

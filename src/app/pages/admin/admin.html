@@ -10,15 +10,17 @@
           <button class="btn btn-link text-decoration-none mob_menu" (click)="drawer.toggle()">Menu</button>
         </div> -->
 
-            <mat-toolbar class="mob_menu d-flex justify-content-between align-items-center"
-                [ngClass]="drawerMode === 'side' ? 'd-none' : ''">
-                <div class="d-flex align-items-center">
+            <!-- Always-visible top bar. On desktop (side mode) the sidebar already
+                 supplies branding/nav, so only the notification bell shows; on
+                 mobile (over mode) the hamburger + app name appear as well. -->
+            <mat-toolbar class="mob_menu d-flex align-items-center">
+                <div class="d-flex align-items-center" [ngClass]="drawerMode === 'side' ? 'd-none' : ''">
                     <div class="btn d-flex border-0" (click)="drawer.toggle()">
                         <mat-icon class="">menu</mat-icon>
                     </div>
                     <span>{{ constantVariables.APPLICATION_NAME }}</span>
                 </div>
-                <arc-notification-bell></arc-notification-bell>
+                <arc-notification-bell class="ms-auto"></arc-notification-bell>
             </mat-toolbar>
             <router-outlet></router-outlet>
             <!-- <arc-footer></arc-footer> -->

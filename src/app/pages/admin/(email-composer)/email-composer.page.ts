@@ -16,6 +16,7 @@ import { ToastService } from '../../../../shared/services/toast.service';
 import { BrandKitService } from '../(email-brand)/brand-kit.service';
 import { EmailBlockEditorComponent, BlockEditorSaveEvent } from '../../../../shared/components/email-block-editor/email-block-editor.component';
 import { EmailDesign, IEmailBrandKit, DEFAULT_BRAND_KIT } from '../../../../shared/email-compiler/email-design.model';
+import { dedupeTemplatesByType } from '../../../../shared/utils/template-dedupe';
 
 export const routeMeta: RouteMeta = {
     title: 'Email Composer | Arc CMS',
@@ -71,7 +72,7 @@ export default class EmailComposerPageComponent implements OnInit {
                 return of([]);
             }),
         ).subscribe((docs) => {
-            this.templates.set(docs as TemplateDoc[]);
+            this.templates.set(dedupeTemplatesByType(docs as TemplateDoc[]));
         });
     }
 
