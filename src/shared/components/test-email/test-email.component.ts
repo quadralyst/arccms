@@ -16,6 +16,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ToastService } from '../../services/toast.service';
 import { TestEmailStore } from './test-email.store';
 import { ITestEmail } from './test-email.model';
+import { HashtagAutocompleteDirective } from '../../directives/hashtag-autocomplete/hashtag-autocomplete.directive';
 
 interface DialogData {
     formValue: {
@@ -33,7 +34,7 @@ interface DialogData {
 @Component({
     selector: 'arc-test-email',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
+    imports: [CommonModule, ReactiveFormsModule, HashtagAutocompleteDirective],
     templateUrl: './test-email.component.html',
     styleUrls: ['./test-email.component.scss'],
 })
@@ -69,6 +70,14 @@ export class TestEmailComponent {
 
     get variables(): FormArray {
         return this.testEmailForm.get('variables') as FormArray;
+    }
+
+    /** Merge tags detected in the template, offered by the subject `#` autocomplete. */
+    get mergeTags(): string[] {
+        return this.variables.controls
+            .map((c) => c.get('name')?.value)
+            .filter((name): name is string => !!name)
+            .map((name) => `##${name}##`);
     }
 
     /**

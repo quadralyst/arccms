@@ -33,6 +33,8 @@ import { SendBroadcastEmailComponent } from './send-broadcast-email/send-broadca
 import { IBroadcastRecipient } from './send-broadcast-email/send-broadcast-email.model';
 import { TestEmailComponent } from '../test-email/test-email.component';
 import { EmailSettingService } from '../../../app/pages/admin/(settings)/email-setting/email-setting.service';
+import { HashtagAutocompleteDirective } from '../../directives/hashtag-autocomplete/hashtag-autocomplete.directive';
+import { getEmailTags } from '../../constants/email-tags';
 
 type SendToOption = 'all' | 'some' | 'new' | '';
 
@@ -52,6 +54,7 @@ type SendToOption = 'all' | 'some' | 'new' | '';
         MatDialogModule,
         TiptapEditorComponent,
         HtmlCodeEditorComponent,
+        HashtagAutocompleteDirective,
     ],
     templateUrl: './broadcast-email-editor.component.html',
     styleUrls: ['./broadcast-email-editor.component.scss'],
@@ -88,13 +91,8 @@ export class BroadcastEmailEditorComponent {
     sendToValue = signal<SendToOption>('');
     showEmailInput = signal(false);
 
-    // Broadcast email placeholders
-    readonly emailPlaceholders = [
-        '##NAME##',
-        '##EMAIL##',
-        '##SUBJECT##',
-        '##UNSUBSCRIBE_LINK##',
-    ];
+    // Broadcast email placeholders / merge tags
+    readonly emailPlaceholders = getEmailTags('broadcast');
 
     ngOnInit(): void {
         this.initForm();

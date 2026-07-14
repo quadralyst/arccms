@@ -167,13 +167,15 @@
                                     }
                                 </select>
                             </div>
-                            <input type="text" formControlName="subject" placeholder="Email subject line">
+                            <input type="text" formControlName="subject" placeholder="Email subject line"
+                                [arcHashtagAutocomplete]="getPlaceholders()">
                         </div>
 
                         <div class="form-group">
                             <label>Preview Text</label>
                             <input type="text" formControlName="previewText"
-                                placeholder="Preview text shown in email clients">
+                                placeholder="Preview text shown in email clients"
+                                [arcHashtagAutocomplete]="getPlaceholders()">
                         </div>
 
                         <div class="form-group checkbox-group">
@@ -207,7 +209,8 @@
                             </div>
 
                             <!-- WYSIWYG Email Template Editor -->
-                            <arc-email-template-editor [placeholders]="[]" [value]="templateForm.get('template')?.value"
+                            <arc-email-template-editor [placeholders]="getPlaceholders()"
+                                [value]="templateForm.get('template')?.value"
                                 (contentChange)="onTemplateContentChange($event)">
                             </arc-email-template-editor>
                         </div>

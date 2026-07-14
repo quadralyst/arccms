@@ -15,6 +15,8 @@ import { BrandKitService } from './brand-kit.service';
 import { IEmailBrandKit, DEFAULT_BRAND_KIT, SAFE_FONTS, SocialLink } from '../../../../shared/email-compiler/email-design.model';
 import { compileEmailDesign } from '../../../../shared/email-compiler/compiler';
 import { EmailDesign } from '../../../../shared/email-compiler/email-design.model';
+import { HashtagAutocompleteDirective } from '../../../../shared/directives/hashtag-autocomplete/hashtag-autocomplete.directive';
+import { getEmailTags } from '../../../../shared/constants/email-tags';
 
 export const routeMeta: RouteMeta = {
     title: 'Email Brand Kit | Arc CMS',
@@ -35,7 +37,7 @@ const SOCIAL_PLATFORMS: SocialLink['platform'][] = ['x', 'linkedin', 'github', '
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent, HashtagAutocompleteDirective],
     templateUrl: './brand-kit.page.html',
 })
 export default class BrandKitPageComponent implements OnInit {
@@ -46,6 +48,9 @@ export default class BrandKitPageComponent implements OnInit {
     fonts = SAFE_FONTS;
     platforms = SOCIAL_PLATFORMS;
     saving = signal(false);
+
+    /** Merge tags offered by the `#` autocomplete in the footer field. */
+    footerTags = getEmailTags('brand_kit_footer');
 
     kit = signal<IEmailBrandKit>({ ...DEFAULT_BRAND_KIT });
 

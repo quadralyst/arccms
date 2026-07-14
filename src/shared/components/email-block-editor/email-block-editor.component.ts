@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { EmailBlock, EmailBlockType, EmailDesign, IEmailBrandKit, DEFAULT_BRAND_KIT } from '../../email-compiler/email-design.model';
 import { compileEmailDesign, compiledHtmlHasUnsubscribe } from '../../email-compiler/compiler';
 import { createBlock, moveBlock, removeBlock, appendTag } from './block-ops';
+import { HashtagAutocompleteDirective } from '../../directives/hashtag-autocomplete/hashtag-autocomplete.directive';
 
 export interface BlockEditorSaveEvent {
     design: EmailDesign;
@@ -27,7 +28,7 @@ export interface BlockEditorSaveEvent {
     standalone: true,
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatMenuModule,
-        MatFormFieldModule, MatInputModule, MatSelectModule,
+        MatFormFieldModule, MatInputModule, MatSelectModule, HashtagAutocompleteDirective,
     ],
     templateUrl: './email-block-editor.component.html',
 })
