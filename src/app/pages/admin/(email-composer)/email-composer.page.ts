@@ -1,7 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { Component, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import {
     Firestore, collection, collectionData, doc, updateDoc, serverTimestamp, query, orderBy,
 } from '@angular/fire/firestore';
@@ -9,8 +8,6 @@ import { catchError, of } from 'rxjs';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { firstValueFrom } from 'rxjs';
 import { roleGuard } from '../../../guards/role.guard';
@@ -20,6 +17,8 @@ import { EmailBlockEditorComponent, BlockEditorSaveEvent } from '../../../../sha
 import { TestSendDialogComponent } from '../../../../shared/components/test-send-dialog/test-send-dialog.component';
 import { EmailDesign, IEmailBrandKit, DEFAULT_BRAND_KIT } from '../../../../shared/email-compiler/email-design.model';
 import { dedupeTemplatesByType } from '../../../../shared/utils/template-dedupe';
+import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { EmailPreviewDialogComponent } from './email-preview-dialog.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Email Composer | Arc CMS',
@@ -41,8 +40,9 @@ interface TemplateDoc {
 @Component({
     standalone: true,
     imports: [
-        CommonModule, FormsModule, MatButtonModule, MatIconModule,
-        MatFormFieldModule, MatSelectModule, MatDialogModule, EmailBlockEditorComponent,
+        CommonModule, MatButtonModule, MatIconModule,
+        MatDialogModule, EmailBlockEditorComponent,
+        GlobalTableComponent,
     ],
     templateUrl: './email-composer.page.html',
 })
@@ -62,11 +62,15 @@ export default class EmailComposerPageComponent implements OnInit {
     /** True once a legacy (html) template has been upgraded to a starter block design. */
     upgraded = signal(false);
 
+    loading = signal(true);
+    tableColumns: TableColumn[] = this.buildColumns();
+
     ngOnInit(): void {
         this.brandKitService.getBrandKit().subscribe((k) => this.brandKit.set(k));
         // Admin-only Firestore rules; SSR has no authenticated user, so skip
         // the doomed request instead of letting it fail with permission-denied.
         if (!isPlatformBrowser(this.platformId)) {
+            this.loading.set(false);
             return;
         }
         const ref = collection(this.firestore, 'EmailTemplate');
@@ -77,7 +81,88 @@ export default class EmailComposerPageComponent implements OnInit {
             }),
         ).subscribe((docs) => {
             this.templates.set(dedupeTemplatesByType(docs as TemplateDoc[]));
+            this.loading.set(false);
         });
+    }
+
+    private buildColumns(): TableColumn[] {
+        return [
+            { key: 'index', header: '#', type: 'index' },
+            {
+                key: 'title',
+                header: 'Template',
+                clickable: true,
+                classFn: () => 'fw-bold cursor-pointer text-primary',
+                transformFn: (row: TemplateDoc) => row.title || row.type,
+            },
+            {
+                key: 'type',
+                header: 'Type',
+                type: 'text',
+                transformFn: (row: TemplateDoc) =>
+                    (row.type || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            },
+            {
+                key: 'subject',
+                header: 'Subject',
+                type: 'text',
+                transformFn: (row: TemplateDoc) => row.subject || '(no subject)',
+            },
+            {
+                key: 'category',
+                header: 'Category',
+                type: 'text',
+                transformFn: (row: TemplateDoc) => row.category || 'transactional',
+            },
+            {
+                key: 'editorVersion',
+                header: 'Editor',
+                type: 'badge',
+                badgeConfig: { trueText: 'Blocks', falseText: 'HTML' },
+                transformFn: (row: TemplateDoc) => row.editorVersion === 'blocks',
+            },
+            {
+                key: 'actions',
+                header: '',
+                type: 'actions',
+                actions: [
+                    {
+                        action: 'edit',
+                        icon: 'fas fa-pen text-secondary',
+                        label: 'Edit',
+                        class: 'edit',
+                        isRowClick: true,
+                        onAction: (row: TemplateDoc) => this.onSelect(row.id),
+                    },
+                    {
+                        action: 'preview',
+                        icon: 'fas fa-eye text-secondary',
+                        label: 'Preview',
+                        class: 'view',
+                        onAction: (row: TemplateDoc) => this.onPreview(row),
+                    },
+                ],
+            },
+        ];
+    }
+
+    onCellClick(event: { key: string; row: TemplateDoc }): void {
+        if (event.key === 'title') {
+            this.onSelect(event.row.id);
+        }
+    }
+
+    onPreview(row: TemplateDoc): void {
+        this.dialog.open(EmailPreviewDialogComponent, {
+            width: '820px',
+            data: { title: row.title || row.type, subject: row.subject, html: row.template },
+        });
+    }
+
+    clearSelection(): void {
+        this.selectedId.set('');
+        this.selected.set(null);
+        this.upgraded.set(false);
     }
 
     get isBlocks(): boolean {
