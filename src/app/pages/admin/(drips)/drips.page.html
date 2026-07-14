@@ -10,15 +10,12 @@
 
     <mat-drawer-content>
         <div class="page-container">
-            <div class="page-header">
-                <div class="header-content">
-                    <h1>Drip Campaigns</h1>
-                    <p class="subtitle">Linear sequences per list. Joining a list enrolls a contact; leaving or unsubscribing exits them.</p>
-                </div>
+            <arc-page-header title="Drip Campaigns"
+                subtitle="Linear sequences per list. Joining a list enrolls a contact; leaving or unsubscribing exits them.">
                 <button mat-flat-button color="primary" (click)="openAdd()">
                     <mat-icon>add</mat-icon> New campaign
                 </button>
-            </div>
+            </arc-page-header>
 
             <app-global-table [data]="campaigns()" [columns]="columns" [loading]="loading()"
                 emptyIcon="fas fa-droplet" emptyTitle="No campaigns yet"

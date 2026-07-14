@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { NotificationService } from '../../../shared/services/notification.service';
 import { INotification } from '../../../shared/services/notification.model';
+import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { AuthState } from '../(auth)/auth.store';
 import { ToastService } from '../../../shared/services/toast.service';
 
@@ -18,7 +19,7 @@ interface PrefRow { key: string; label: string; description: string; email: bool
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatSlideToggleModule],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatSlideToggleModule, PageHeaderComponent],
     templateUrl: './notifications.page.html',
 })
 export default class NotificationsPageComponent implements OnInit {

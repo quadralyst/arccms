@@ -5,6 +5,7 @@ import { Firestore, collection, query, where, getCountFromServer } from '@angula
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AnalyticsConnectionStatusService } from '../../../../shared/services/analytics-connection-status.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { GoogleOAuthService } from '../../../../shared/services/google-oauth.service';
@@ -26,7 +27,7 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'arc-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, PageHeaderComponent],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
 })

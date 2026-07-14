@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { headerTestProviders } from '../../../../test/header-test-providers';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
@@ -16,6 +17,7 @@ describe('SettingsPageComponent', () => {
                 NoopAnimationsModule,
             ],
             providers: [
+                ...headerTestProviders(),
                 provideRouter([]),
                 { provide: Firestore, useValue: {} },
             ],
@@ -30,8 +32,8 @@ describe('SettingsPageComponent', () => {
         expect(component).toBeTruthy();
     });
 
-    it('should have eight setting categories', () => {
-        expect(component.settingCategories().length).toBe(8);
+    it('should have nine setting categories', () => {
+        expect(component.settingCategories().length).toBe(9);
     });
 
     it('should have about as first category', () => {
@@ -54,9 +56,14 @@ describe('SettingsPageComponent', () => {
         expect(component.settingCategories()[3].label).toBe('Analytics');
     });
 
-    it('should have user settings as fifth category', () => {
-        expect(component.settingCategories()[4].id).toBe('user');
-        expect(component.settingCategories()[4].label).toBe('User Settings');
+    it('should have payments as fifth category', () => {
+        expect(component.settingCategories()[4].id).toBe('payments');
+        expect(component.settingCategories()[4].label).toBe('Payments');
+    });
+
+    it('should have user settings as sixth category', () => {
+        expect(component.settingCategories()[5].id).toBe('user');
+        expect(component.settingCategories()[5].label).toBe('User Settings');
     });
 
     it('should have correct routes for all categories', () => {
@@ -65,9 +72,10 @@ describe('SettingsPageComponent', () => {
         expect(categories[1].route).toBe('/admin/settings/email');
         expect(categories[2].route).toBe('/admin/settings/integrations');
         expect(categories[3].route).toBe('/admin/settings/analytics');
-        expect(categories[4].route).toBe('/admin/settings/user');
-        expect(categories[5].route).toBe('/admin/settings/message');
-        expect(categories[6].route).toBe('/admin/settings/site-usage');
-        expect(categories[7].route).toBe('/admin/settings/misc');
+        expect(categories[4].route).toBe('/admin/settings/payments');
+        expect(categories[5].route).toBe('/admin/settings/user');
+        expect(categories[6].route).toBe('/admin/settings/message');
+        expect(categories[7].route).toBe('/admin/settings/site-usage');
+        expect(categories[8].route).toBe('/admin/settings/misc');
     });
 });

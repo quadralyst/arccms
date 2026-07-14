@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { RouterModule, RouterOutlet } from '@angular/router';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
@@ -31,13 +32,11 @@ interface DataCategory {
         MatCardModule,
         MatIconModule,
         MatListModule,
+        PageHeaderComponent,
     ],
     template: `
         <div class="data-container">
-            <div class="data-header">
-                <h1 class="m-0">Data Management</h1>
-                <p class="text-muted mb-0">Import and export data and files</p>
-            </div>
+            <arc-page-header title="Data Management" subtitle="Import and export data and files"></arc-page-header>
 
             <div class="data-layout">
                 <aside class="data-sidebar">

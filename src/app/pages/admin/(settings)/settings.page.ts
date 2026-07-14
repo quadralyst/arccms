@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { RouterModule, RouterOutlet } from '@angular/router';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
@@ -31,14 +32,12 @@ interface SettingCategory {
         MatCardModule,
         MatIconModule,
         MatListModule,
+        PageHeaderComponent,
     ],
     template: `
         <div class="settings-container">
             <!-- Settings Header -->
-            <div class="settings-header">
-                <h1 class="m-0">Settings</h1>
-                <p class="text-muted mb-0">Manage your application settings</p>
-            </div>
+            <arc-page-header title="Settings" subtitle="Manage your application settings"></arc-page-header>
 
             <div class="settings-layout">
                 <!-- Left Panel: Settings Navigation -->

@@ -14,6 +14,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { roleGuard } from '../../../guards/role.guard';
 import { WaitlistEditDrawerComponent, WaitlistFormData } from './edit-drawer/waitlist-edit-drawer.component';
@@ -49,7 +50,8 @@ interface IWaitlist {
         MatIconModule,
         GlobalTableComponent,
         RouterLink,
-        WaitlistEditDrawerComponent
+        WaitlistEditDrawerComponent,
+        PageHeaderComponent
     ],
 })
 export default class WaitlistsComponent implements OnInit, OnDestroy {

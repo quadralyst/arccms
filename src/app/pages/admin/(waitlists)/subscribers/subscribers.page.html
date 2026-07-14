@@ -1,19 +1,11 @@
 <div class="page-wrapper">
     <!-- Header -->
-    <div class="page-header">
-        <div class="header-left">
-            <button class="btn-back" (click)="goBack()">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-            <div>
-                <h1>Subscribers</h1>
-                <p class="subtitle">All users across all waitlists</p>
-            </div>
-        </div>
+    <arc-page-header title="Subscribers" subtitle="All users across all waitlists"
+        [showBack]="true" (back)="goBack()">
         <button class="btn btn-primary" (click)="exportSubscribers()" [disabled]="subscribers().length === 0">
             <i class="fas fa-download"></i> Export CSV
         </button>
-    </div>
+    </arc-page-header>
 
     <!-- Stats -->
     <div class="stats-grid">

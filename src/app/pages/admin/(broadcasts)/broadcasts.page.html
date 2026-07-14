@@ -1,15 +1,12 @@
 <div class="page-container">
     @if (mode() === 'list') {
     <!-- ── List view ── -->
-    <div class="page-header">
-        <div class="header-content">
-            <h1>Broadcasts</h1>
-            <p class="subtitle">One-off emails to a list. Past and scheduled broadcasts appear below.</p>
-        </div>
+    <arc-page-header title="Broadcasts"
+        subtitle="One-off emails to a list. Past and scheduled broadcasts appear below.">
         <button mat-flat-button color="primary" (click)="startCompose()">
             <mat-icon>add</mat-icon> New broadcast
         </button>
-    </div>
+    </arc-page-header>
 
     <app-global-table [data]="recent()" [columns]="columns" [loading]="loading()"
         emptyIcon="fas fa-tower-broadcast" emptyTitle="No broadcasts yet"
@@ -21,14 +18,12 @@
 
     @if (mode() === 'compose') {
     <!-- ── Compose view ── -->
-    <div class="page-header">
-        <div class="header-content">
-            <button mat-stroked-button class="mb-2" (click)="backToList()">
-                <mat-icon>arrow_back</mat-icon> Back to broadcasts
-            </button>
-            <h1>New broadcast</h1>
-        </div>
+    <div class="mb-2">
+        <button mat-stroked-button (click)="backToList()">
+            <mat-icon>arrow_back</mat-icon> Back to broadcasts
+        </button>
     </div>
+    <arc-page-header title="New broadcast"></arc-page-header>
 
     <mat-form-field appearance="outline" class="w-100">
         <mat-label>Subject</mat-label>

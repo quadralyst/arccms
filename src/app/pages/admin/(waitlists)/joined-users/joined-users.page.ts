@@ -19,6 +19,7 @@ import { ViewUserDetailComponent } from './view-user-detail/view-user-detail.com
 import { IWaitlistUserTag } from './waitlist-user-tags.model';
 import { WaitlistUserTagsStore } from './waitlist-user-tags.store';
 import { GlobalTableComponent, TableColumn } from '../../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
@@ -57,7 +58,8 @@ interface WaitlistUser {
         MatButtonModule,
         MatPaginatorModule,
         ViewUserDetailComponent,
-        GlobalTableComponent
+        GlobalTableComponent,
+        PageHeaderComponent
     ],
 })
 export default class JoinedUsersComponent implements OnInit {

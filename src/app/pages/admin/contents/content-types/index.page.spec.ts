@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { headerTestProviders } from '../../../../../test/header-test-providers';
 import ContentTypesPage from './index.page';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -34,6 +35,7 @@ describe('ContentTypesPage', () => {
         await TestBed.configureTestingModule({
             imports: [ContentTypesPage, NoopAnimationsModule],
             providers: [
+                ...headerTestProviders(),
                 { provide: ContentTypesStore, useValue: mockStore },
                 { provide: MatDialog, useValue: {} },
                 { provide: Router, useValue: mockRouter },

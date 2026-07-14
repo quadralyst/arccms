@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Firestore, collection, getDocs, orderBy, query, doc, getDoc, getCountFromServer, updateDoc } from '@angular/fire/firestore';
 import { WaitlistEditDrawerComponent, WaitlistEditInput, WaitlistFormData } from '../edit-drawer/waitlist-edit-drawer.component';
+import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 
 interface WaitlistUser {
     id: string;
@@ -40,7 +41,7 @@ interface WaitlistInfo {
     templateUrl: './waitlist-dashboard.component.html',
     styleUrls: ['./waitlist-dashboard.component.scss'],
     standalone: true,
-    imports: [CommonModule, RouterLink, WaitlistEditDrawerComponent],
+    imports: [CommonModule, RouterLink, WaitlistEditDrawerComponent, PageHeaderComponent],
 })
 export default class WaitlistDashboardComponent implements OnInit {
     private route = inject(ActivatedRoute);

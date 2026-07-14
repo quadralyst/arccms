@@ -18,6 +18,7 @@ import { TestSendDialogComponent } from '../../../../shared/components/test-send
 import { EmailDesign, IEmailBrandKit, DEFAULT_BRAND_KIT } from '../../../../shared/email-compiler/email-design.model';
 import { dedupeTemplatesByType } from '../../../../shared/utils/template-dedupe';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { EmailPreviewDialogComponent } from './email-preview-dialog.component';
 
 export const routeMeta: RouteMeta = {
@@ -42,7 +43,7 @@ interface TemplateDoc {
     imports: [
         CommonModule, MatButtonModule, MatIconModule,
         MatDialogModule, EmailBlockEditorComponent,
-        GlobalTableComponent,
+        GlobalTableComponent, PageHeaderComponent,
     ],
     templateUrl: './email-composer.page.html',
 })

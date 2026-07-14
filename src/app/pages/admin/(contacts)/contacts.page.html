@@ -10,23 +10,18 @@
     <mat-drawer-content>
         <div class="page-container">
             <!-- Header -->
-            <div class="page-header">
-                <div class="header-content">
-                    <h1>Contacts</h1>
-                    <p class="subtitle">The unified audience. Contacts sync automatically from signups, waitlists and customers.</p>
-                </div>
-                <div class="d-flex gap-2 flex-wrap">
-                    <button mat-stroked-button [disabled]="busy()" (click)="runBackfill()">
-                        <mat-icon>sync</mat-icon> Backfill
-                    </button>
-                    <button mat-stroked-button (click)="openImport()">
-                        <mat-icon>upload_file</mat-icon> Import CSV
-                    </button>
-                    <button mat-flat-button color="primary" (click)="openAdd()">
-                        <mat-icon>person_add</mat-icon> Add contact
-                    </button>
-                </div>
-            </div>
+            <arc-page-header title="Contacts"
+                subtitle="The unified audience. Contacts sync automatically from signups, waitlists and customers.">
+                <button mat-stroked-button [disabled]="busy()" (click)="runBackfill()">
+                    <mat-icon>sync</mat-icon> Backfill
+                </button>
+                <button mat-stroked-button (click)="openImport()">
+                    <mat-icon>upload_file</mat-icon> Import CSV
+                </button>
+                <button mat-flat-button color="primary" (click)="openAdd()">
+                    <mat-icon>person_add</mat-icon> Add contact
+                </button>
+            </arc-page-header>
 
             <!-- Search -->
             <mat-form-field appearance="outline" style="width: 320px;">

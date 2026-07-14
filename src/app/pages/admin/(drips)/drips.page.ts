@@ -8,6 +8,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { statusBadgeClass } from '../../../../shared/utils/status-badge';
 import { DripService, DripCampaign, TemplateOption } from './drip.service';
 import { AudienceService } from '../(audience)/audience.service';
@@ -24,7 +25,7 @@ export const routeMeta: RouteMeta = {
     standalone: true,
     imports: [
         CommonModule, MatButtonModule, MatIconModule, MatSidenavModule,
-        GlobalTableComponent, DripDrawerComponent,
+        GlobalTableComponent, DripDrawerComponent, PageHeaderComponent,
     ],
     templateUrl: './drips.page.html',
     changeDetection: ChangeDetectionStrategy.OnPush,

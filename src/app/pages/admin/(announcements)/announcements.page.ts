@@ -13,6 +13,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTabsModule } from '@angular/material/tabs';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Announcements & Notifications | Arc CMS',
@@ -27,7 +28,7 @@ interface MappingRow { key: string; enabled: boolean; }
     standalone: true,
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule,
-        MatFormFieldModule, MatSelectModule, MatSlideToggleModule, MatTabsModule,
+        MatFormFieldModule, MatSelectModule, MatSlideToggleModule, MatTabsModule, PageHeaderComponent,
     ],
     templateUrl: './announcements.page.html',
     styleUrl: './announcements.page.scss',

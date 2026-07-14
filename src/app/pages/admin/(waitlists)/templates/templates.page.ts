@@ -22,6 +22,7 @@ import { BroadcastEmailEditorComponent } from '../../../../../shared/components/
 import { IBroadcastEmail } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.model';
 import { BroadcastEmailStore } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.store';
 import { EmailTemplateEditorComponent } from '../../../../../shared/components/email-template-editor/email-template-editor.component';
+import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { MatChipsModule } from '@angular/material/chips';
 import { EmailConfigStatusService } from '../../../../../shared/services/email-config-status.service';
 import { ToastService } from '../../../../../shared/services/toast.service';
@@ -42,7 +43,7 @@ type TemplateType = 'waitlist_verify_otp_email' | 'waitlist_welcome_email' | 'wa
     templateUrl: './templates.page.html',
     styleUrls: ['./templates.page.scss'],
     standalone: true,
-    imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, MatDialogModule, EmailTemplateEditorComponent, MatChipsModule, BroadcastEmailEditorComponent],
+    imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, MatDialogModule, EmailTemplateEditorComponent, MatChipsModule, BroadcastEmailEditorComponent, PageHeaderComponent],
 })
 export default class TemplatesComponent implements OnInit {
     private readonly route = inject(ActivatedRoute);

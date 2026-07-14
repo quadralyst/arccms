@@ -19,32 +19,21 @@
     <mat-drawer-content>
         <div class="arc">
             <div class="flex-grow-1">
-                <!-- Top Bar -->
-                <div class="d-flex justify-content-between align-items-center top-bar">
-                    <h5 class="mb-0">Users Management</h5>
-                </div>
-
                 <!-- Content Area -->
                 <div class="content-area">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <h6 class="mb-0">All Users</h6>
-                            <small class="text-muted">Manage your users</small>
-                        </div>
-                        <div class="justify-content-end">
-                            <button mat-raised-button color="primary" (click)="openAdd()">
-                                <mat-icon>add</mat-icon>
-                                @for (roles of constantVariables.roles; track roles.userType) {
-                                @if(roles.userType === role) {
-                                Add {{roles.userTypeLabel}}
-                                }
-                                }
-                                @if(!role) {
-                                Add User
-                                }
-                            </button>
-                        </div>
-                    </div>
+                    <arc-page-header title="Users Management" subtitle="Manage your users">
+                        <button mat-raised-button color="primary" (click)="openAdd()">
+                            <mat-icon>add</mat-icon>
+                            @for (roles of constantVariables.roles; track roles.userType) {
+                            @if(roles.userType === role) {
+                            Add {{roles.userTypeLabel}}
+                            }
+                            }
+                            @if(!role) {
+                            Add User
+                            }
+                        </button>
+                    </arc-page-header>
 
                     <!-- <div class="card mb-4 mt-3">
                         <div class="card-body p-0"> -->

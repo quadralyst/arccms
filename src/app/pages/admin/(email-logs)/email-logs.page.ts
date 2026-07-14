@@ -22,6 +22,7 @@ import { EmailLogStore } from './email-log.store';
 import { IEmailLog } from './email-log.model';
 import ViewEmailLogComponent from './(view-email-log)/view-email-log.component';
 import { EmailHealthCardComponent } from '../../../../shared/components/email-health-card/email-health-card.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 
 interface ActiveBroadcast {
     id: string;
@@ -48,6 +49,7 @@ interface ActiveBroadcast {
         GlobalTableComponent,
         ViewEmailLogComponent,
         EmailHealthCardComponent,
+        PageHeaderComponent,
     ],
     providers: [DatePipe],
     templateUrl: './email-logs.html',

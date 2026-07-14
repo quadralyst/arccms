@@ -19,6 +19,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { ConstantVariables } from '../../../../shared/constants';
 import { ToastService } from '../../../../shared/services/toast.service';
 
@@ -51,7 +52,8 @@ export const routeMeta: RouteMeta = {
         AddUserComponent,
         EditUserComponent,
         ViewUserComponent,
-        GlobalTableComponent
+        GlobalTableComponent,
+        PageHeaderComponent
     ],
     providers: [DatePipe, ConstantVariables],
     templateUrl: './users.html',

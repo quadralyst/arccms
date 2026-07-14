@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { Firestore, collection, getDocs, orderBy, query } from '@angular/fire/firestore';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { GlobalTableComponent, TableColumn } from '../../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { WaitlistAdminStore } from '../waitlist.store';
 
 interface Subscriber {
@@ -28,6 +29,7 @@ interface Subscriber {
         RouterLink,
         MatPaginatorModule,
         GlobalTableComponent,
+        PageHeaderComponent,
     ],
 })
 export default class SubscribersComponent implements OnInit {

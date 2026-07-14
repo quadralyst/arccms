@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { headerTestProviders } from '../../../../../test/header-test-providers';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ContentsPage from './index.page';
 import { ActivatedRoute } from '@angular/router';
@@ -85,6 +86,7 @@ describe('ContentsPage', () => {
         await TestBed.configureTestingModule({
             imports: [ContentsPage, NoopAnimationsModule],
             providers: [
+                ...headerTestProviders(),
                 { provide: DraftContentsStore, useValue: mockDraftContentsStore },
                 { provide: ContentsStore, useValue: mockContentsStore },
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },

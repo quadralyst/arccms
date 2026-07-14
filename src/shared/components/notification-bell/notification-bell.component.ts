@@ -53,4 +53,8 @@ export class NotificationBellComponent {
         const uid = this.authStore.currentUser()?.uid;
         if (uid) await this.service.markAllRead(uid).catch(() => {});
     }
+
+    viewAll(): void {
+        this.router.navigate(['/notifications']);
+    }
 }

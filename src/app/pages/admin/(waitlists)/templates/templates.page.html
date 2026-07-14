@@ -1,17 +1,9 @@
 <!-- Email Templates Page -->
 <div class="page-container">
     <!-- Header -->
-    <div class="page-header">
-        <div class="header-left">
-            <button class="btn-back" (click)="goBack()">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-            <div>
-                <h1>Email Templates</h1>
-                <p class="subtitle">{{ waitlistName() }}</p>
-            </div>
-        </div>
-    </div>
+    <arc-page-header title="Email Templates" [subtitle]="waitlistName()"
+        [showBack]="true" (back)="goBack()">
+    </arc-page-header>
 
     <!-- Tabs -->
     <div class="tabs">
