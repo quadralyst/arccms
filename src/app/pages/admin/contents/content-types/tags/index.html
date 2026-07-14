@@ -16,18 +16,11 @@
     </mat-drawer>
 
     <mat-drawer-content>
-        <div class="d-flex justify-content-between align-items-center top-bar">
-            <div>
-                <h5 class="mb-0">Tags Management</h5>
-                @if(contentTypeName) {
-                <small class="text-muted">for {{ contentTypeName }}</small>
-                }
-            </div>
-        </div>
         <div class="arc">
             <div class="flex-grow-1">
 
                 <div class="content-area">
+                    <arc-page-header title="Tags Management" [subtitle]="contentTypeName ? ('for ' + contentTypeName) : ''"></arc-page-header>
                     <!-- Quick Add Tag -->
                     <div class="quick-add-bar mb-3">
                         <div class="input-group">

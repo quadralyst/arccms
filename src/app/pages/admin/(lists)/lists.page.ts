@@ -11,6 +11,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { AudienceService } from '../(audience)/audience.service';
 import { IList } from '../(audience)/audience.model';
@@ -26,7 +27,7 @@ export const routeMeta: RouteMeta = {
     standalone: true,
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatDialogModule,
-        MatSidenavModule, GlobalTableComponent, ListDrawerComponent,
+        MatSidenavModule, GlobalTableComponent, ListDrawerComponent, PageHeaderComponent,
     ],
     templateUrl: './lists.page.html',
     changeDetection: ChangeDetectionStrategy.OnPush,

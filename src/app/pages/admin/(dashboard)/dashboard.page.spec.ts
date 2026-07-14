@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { headerTestProviders } from '../../../../test/header-test-providers';
 import DashboardComponent from './dashboard.page';
 import { GlobalService } from '../../../../shared/services/global.service';
 import { ToastService } from '../../../../shared/services/toast.service';
@@ -105,6 +106,7 @@ describe('DashboardComponent', () => {
         await TestBed.configureTestingModule({
             imports: [DashboardComponent],
             providers: [
+                ...headerTestProviders(),
                 { provide: GlobalService, useValue: mockGlobal },
                 { provide: ToastService, useValue: mockToast },
                 { provide: Location, useValue: mockLocation },

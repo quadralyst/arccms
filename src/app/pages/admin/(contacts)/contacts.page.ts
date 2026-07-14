@@ -13,6 +13,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AudienceService } from '../(audience)/audience.service';
 import { IContact, IList } from '../(audience)/audience.model';
 import { statusBadgeClass } from '../../../../shared/utils/status-badge';
@@ -29,7 +30,7 @@ export const routeMeta: RouteMeta = {
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule,
         MatInputModule, MatFormFieldModule, MatPaginatorModule, MatSidenavModule,
-        GlobalTableComponent, ContactDrawerComponent,
+        GlobalTableComponent, ContactDrawerComponent, PageHeaderComponent,
     ],
     templateUrl: './contacts.page.html',
     changeDetection: ChangeDetectionStrategy.OnPush,

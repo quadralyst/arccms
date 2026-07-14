@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { EntitlementService } from '../entitlement.service';
 import { UserShellComponent } from '../user-shell.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 
 /**
  * Members-only page. The route is protected by `entitledGuard` (non-members are
@@ -13,13 +14,13 @@ import { UserShellComponent } from '../user-shell.component';
  */
 @Component({
     standalone: true,
-    imports: [CommonModule, RouterLink, MatButtonModule, MatCardModule, UserShellComponent],
+    imports: [CommonModule, RouterLink, MatButtonModule, MatCardModule, UserShellComponent, PageHeaderComponent],
     template: `
         <app-user-shell>
             <div class="premium">
+                <arc-page-header title="Premium area"></arc-page-header>
                 <div class="hero">
                     <i class="fa-solid fa-star"></i>
-                    <h1>Premium area</h1>
                     <p class="text-muted">
                         You're on the <strong>{{ entitlements.premiumType() || 'Pro' }}</strong> plan
                         ({{ entitlements.premiumStatus() || 'active' }}). This page is only reachable by members —
@@ -38,7 +39,7 @@ import { UserShellComponent } from '../user-shell.component';
         </app-user-shell>
     `,
     styles: [`
-        .premium { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+        .premium { max-width: 900px; margin: 0 auto; padding: 24px; }
         .hero { text-align: center; padding: 24px 0; }
         .hero > i { font-size: 2.4rem; color: #1b98e0; }
         .hero h1 { margin: 8px 0 4px; }

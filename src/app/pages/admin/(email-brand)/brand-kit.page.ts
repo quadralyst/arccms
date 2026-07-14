@@ -10,6 +10,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { BrandKitService } from './brand-kit.service';
 import { IEmailBrandKit, DEFAULT_BRAND_KIT, SAFE_FONTS, SocialLink } from '../../../../shared/email-compiler/email-design.model';
 import { compileEmailDesign } from '../../../../shared/email-compiler/compiler';
@@ -34,7 +35,7 @@ const SOCIAL_PLATFORMS: SocialLink['platform'][] = ['x', 'linkedin', 'github', '
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent],
     templateUrl: './brand-kit.page.html',
 })
 export default class BrandKitPageComponent implements OnInit {

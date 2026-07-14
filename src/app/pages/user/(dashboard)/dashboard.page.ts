@@ -9,6 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthState } from '../../(auth)/auth.store';
 import { EntitlementService } from '../entitlement.service';
 import { UserShellComponent } from '../user-shell.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { IfEntitledDirective } from '../if-entitled.directive';
 import { userGuard } from '../user.guards';
 import { TransactionsService } from '../../admin/(transactions)/transactions.service';
@@ -49,12 +50,12 @@ interface ActivityItem {
         MatProgressSpinnerModule,
         UserShellComponent,
         IfEntitledDirective,
+        PageHeaderComponent,
     ],
     template: `
         <app-user-shell>
             <div class="dash">
-                <h1>Welcome back, {{ firstName() }}</h1>
-                <p class="text-muted">Here's your account at a glance.</p>
+                <arc-page-header [title]="'Welcome back, ' + firstName()" subtitle="Here's your account at a glance."></arc-page-header>
 
                 <!-- Onboarding empty state: brand-new free user with nothing yet -->
                 @if (isNewUser()) {
@@ -160,7 +161,7 @@ interface ActivityItem {
         </app-user-shell>
     `,
     styles: [`
-        .dash { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+        .dash { max-width: 960px; margin: 0 auto; padding: 24px; }
         h1 { margin-bottom: 2px; }
         .welcome { border: 1px solid #1b98e0; background: #eaf6fd; margin: 16px 0; }
         .w-body { display: flex; align-items: center; gap: 16px; padding: 8px; }

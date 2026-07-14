@@ -15,6 +15,7 @@ import { firstValueFrom } from 'rxjs';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { statusBadgeClass } from '../../../../shared/utils/status-badge';
 import { BroadcastService, BroadcastAudience, BroadcastRow } from './broadcast.service';
@@ -37,7 +38,7 @@ export const routeMeta: RouteMeta = {
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule,
         MatFormFieldModule, MatSelectModule, MatSlideToggleModule, MatDialogModule,
-        GlobalTableComponent, EmailBlockEditorComponent,
+        GlobalTableComponent, EmailBlockEditorComponent, PageHeaderComponent,
     ],
     templateUrl: './broadcasts.page.html',
     changeDetection: ChangeDetectionStrategy.OnPush,

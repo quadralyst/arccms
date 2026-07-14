@@ -1,8 +1,7 @@
 <div class="container py-4" style="max-width: 760px;">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="mb-0">Notifications</h1>
+    <arc-page-header title="Notifications" [showBell]="false">
         <button mat-stroked-button (click)="markAllRead()"><mat-icon>done_all</mat-icon> Mark all read</button>
-    </div>
+    </arc-page-header>
 
     <div class="list-group mb-5">
         @for (n of notifications(); track n.id) {

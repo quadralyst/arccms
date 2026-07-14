@@ -10,6 +10,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { AuthState } from '../(auth)/auth.store';
 import { MembershipService } from '../payments-ui/membership.service';
 import { UserShellComponent } from '../user/user-shell.component';
+import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { IUser } from '../admin/users/user.model';
 import { TransactionsService } from '../admin/(transactions)/transactions.service';
 import { ITransaction } from '../admin/(transactions)/transaction.model';
@@ -33,6 +34,7 @@ import { toJsDate } from '../payments-ui/date-utils';
         MatTableModule,
         MatChipsModule,
         UserShellComponent,
+        PageHeaderComponent,
     ],
     template: `
         <app-user-shell>
@@ -45,12 +47,11 @@ import { toJsDate } from '../payments-ui/date-utils';
                     </mat-card-content>
                 </mat-card>
             } @else {
-                <div class="header">
-                    <h1>My Membership</h1>
+                <arc-page-header title="My Membership">
                     <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loadingEntitlement()">
                         <i class="fa-solid fa-rotate-right me-2"></i>Refresh
                     </button>
-                </div>
+                </arc-page-header>
 
                 <!-- Entitlement -->
                 <mat-card class="entitlement-card">
@@ -160,7 +161,7 @@ import { toJsDate } from '../payments-ui/date-utils';
         </app-user-shell>
     `,
     styles: [`
-        .account { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+        .account { max-width: 900px; margin: 0 auto; padding: 24px; }
         .signin-card { max-width: 420px; margin: 48px auto; }
         .header { display: flex; align-items: center; justify-content: space-between; }
         .entitlement-card { border: 1px solid #dee2e6; }

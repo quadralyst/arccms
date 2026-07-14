@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { headerTestProviders } from '../../../../../test/header-test-providers';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
@@ -31,6 +32,7 @@ describe('UserSettingPageComponent', () => {
                 NoopAnimationsModule,
             ],
             providers: [
+                ...headerTestProviders(),
                 provideRouter([]),
                 { provide: UserSettingService, useValue: mockUserSettingService },
                 { provide: Firestore, useValue: {} },

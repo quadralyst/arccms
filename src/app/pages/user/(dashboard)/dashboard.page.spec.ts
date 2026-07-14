@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { headerTestProviders } from '../../../../test/header-test-providers';
 import { provideRouter } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Functions } from '@angular/fire/functions';
@@ -25,6 +26,7 @@ describe('UsersDashboardComponent', () => {
         await TestBed.configureTestingModule({
             imports: [UsersDashboardComponent],
             providers: [
+                ...headerTestProviders(),
                 provideRouter([]),
                 provideNoopAnimations(),
                 { provide: AuthState, useValue: mockAuth },

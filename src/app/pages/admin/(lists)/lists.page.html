@@ -9,15 +9,12 @@
 
     <mat-drawer-content>
         <div class="page-container">
-            <div class="page-header">
-                <div class="header-content">
-                    <h1>Lists</h1>
-                    <p class="subtitle">Audience lists drive broadcasts and drip campaigns. System lists sync automatically.</p>
-                </div>
+            <arc-page-header title="Lists"
+                subtitle="Audience lists drive broadcasts and drip campaigns. System lists sync automatically.">
                 <button mat-flat-button color="primary" (click)="openAdd()">
                     <mat-icon>add</mat-icon> Create list
                 </button>
-            </div>
+            </arc-page-header>
 
             <app-global-table [data]="lists()" [columns]="columns" [loading]="loading()"
                 emptyIcon="fas fa-list-ul" emptyTitle="No lists yet"

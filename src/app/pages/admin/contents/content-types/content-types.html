@@ -17,20 +17,13 @@
     <mat-drawer-content>
         <div class="arc">
             <div class="flex-grow-1">
-                <div class="d-flex justify-content-between align-items-center top-bar">
-                    <h5 class="mb-0">Content Types Management</h5>
-                </div>
-
                 <div class="content-area">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <h6 class="mb-0">All Content Types</h6>
-                            <small class="text-muted">Define and manage content type structures</small>
-                        </div>
+                    <arc-page-header title="Content Types Management"
+                        subtitle="Define and manage content type structures">
                         <button mat-raised-button color="primary" (click)="openAdd()">
                             <mat-icon>add</mat-icon> Add Content Type
                         </button>
-                    </div>
+                    </arc-page-header>
 
                     <!-- Filter Bar -->
                     <!-- <div class="filter-bar mb-3">

@@ -34,6 +34,7 @@ import {
   TableColumn,
 } from '../../../../../shared/components/global-table/global-table.component';
 import { BulkImportDialogComponent } from '../bulk-import/bulk-import-dialog.component';
+import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 
 import { PreviewContentComponent } from './preview-content/preview-content.component';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
@@ -53,7 +54,8 @@ import { PublishQueueService } from '../publish-queue/publish-queue.service';
     FormsModule,
     RouterLink,
     GlobalTableComponent,
-    PreviewContentComponent
+    PreviewContentComponent,
+    PageHeaderComponent
   ],
   providers: [DatePipe],
   templateUrl: './draft-contents-table.component.html',

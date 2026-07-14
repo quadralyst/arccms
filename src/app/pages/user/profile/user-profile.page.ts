@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { UserShellComponent } from '../user-shell.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import ProfileComponent from '../../(auth)/(profile)/profile.page';
 
 /**
@@ -9,18 +10,17 @@ import ProfileComponent from '../../(auth)/(profile)/profile.page';
  */
 @Component({
     standalone: true,
-    imports: [UserShellComponent, ProfileComponent],
+    imports: [UserShellComponent, ProfileComponent, PageHeaderComponent],
     template: `
         <app-user-shell>
             <div class="profile-wrap">
-                <h1>Profile</h1>
-                <p class="text-muted">Manage your name, email, password and photo.</p>
+                <arc-page-header title="Profile" subtitle="Manage your name, email, password and photo."></arc-page-header>
                 <arc-profile></arc-profile>
             </div>
         </app-user-shell>
     `,
     styles: [`
-        .profile-wrap { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+        .profile-wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
         .profile-wrap h1 { margin-bottom: 2px; }
     `],
 })
