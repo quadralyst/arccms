@@ -1,44 +1,55 @@
+<!-- Broadcast Email Editor -->
 <div class="email-block-editor">
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <button mat-flat-button color="primary" [matMenuTriggerFor]="addMenu">
-            <mat-icon>add</mat-icon> Add block
-        </button>
-        <mat-menu #addMenu>
-            @for (t of blockTypes; track t) {
-            <button mat-menu-item (click)="add(t)"><span class="text-capitalize">{{ t }}</span></button>
-            }
-        </mat-menu>
+    <!-- Toolbar -->
+    <div class="editor-toolbar">
+        <div class="toolbar-group">
+            <button mat-flat-button color="primary" [matMenuTriggerFor]="addMenu">
+                <mat-icon>add</mat-icon> Add block
+            </button>
+            <mat-menu #addMenu>
+                @for (t of blockTypes; track t) {
+                <button mat-menu-item (click)="add(t)"><span class="text-capitalize">{{ t }}</span></button>
+                }
+            </mat-menu>
 
-        <div class="btn-group">
-            <button mat-stroked-button [class.active]="previewMode() === 'desktop'" (click)="previewMode.set('desktop')">
-                <mat-icon>desktop_windows</mat-icon> Desktop
-            </button>
-            <button mat-stroked-button [class.active]="previewMode() === 'mobile'" (click)="previewMode.set('mobile')">
-                <mat-icon>smartphone</mat-icon> Mobile
-            </button>
+            <div class="device-toggle" role="group" aria-label="Preview device">
+                <button type="button" [class.active]="previewMode() === 'desktop'"
+                    (click)="previewMode.set('desktop')">
+                    <mat-icon>desktop_windows</mat-icon> Desktop
+                </button>
+                <button type="button" [class.active]="previewMode() === 'mobile'"
+                    (click)="previewMode.set('mobile')">
+                    <mat-icon>smartphone</mat-icon> Mobile
+                </button>
+            </div>
         </div>
 
-        <div class="d-flex gap-2">
+        <div class="toolbar-group">
             <button mat-stroked-button (click)="sendTest()"><mat-icon>send</mat-icon> Send test</button>
             <button mat-flat-button color="primary" (click)="save()"><mat-icon>save</mat-icon> Save</button>
         </div>
     </div>
 
     @if (error()) {
-    <div class="alert alert-danger">{{ error() }}</div>
+    <div class="alert alert-danger m-3">{{ error() }}</div>
     }
 
-    <div class="row">
+    <div class="editor-split">
         <!-- Block list -->
-        <div class="col-lg-6">
+        <div class="blocks-pane">
             @for (block of blocks(); track block.id; let i = $index) {
-            <div class="border rounded p-2 mb-2">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <strong class="text-capitalize small">{{ block.type }}</strong>
-                    <div>
-                        <button mat-icon-button (click)="move(i, -1)" [disabled]="i === 0"><mat-icon>arrow_upward</mat-icon></button>
-                        <button mat-icon-button (click)="move(i, 1)" [disabled]="i === blocks().length - 1"><mat-icon>arrow_downward</mat-icon></button>
-                        <button mat-icon-button color="warn" (click)="remove(i)"><mat-icon>delete</mat-icon></button>
+            <div class="block-card">
+                <div class="block-head">
+                    <span class="block-tag">
+                        <span class="block-index">{{ i + 1 }}</span>{{ block.type }}
+                    </span>
+                    <div class="block-controls">
+                        <button mat-icon-button (click)="move(i, -1)" [disabled]="i === 0"
+                            aria-label="Move up"><mat-icon>arrow_upward</mat-icon></button>
+                        <button mat-icon-button (click)="move(i, 1)" [disabled]="i === blocks().length - 1"
+                            aria-label="Move down"><mat-icon>arrow_downward</mat-icon></button>
+                        <button mat-icon-button color="warn" (click)="remove(i)"
+                            aria-label="Delete block"><mat-icon>delete</mat-icon></button>
                     </div>
                 </div>
 
@@ -111,14 +122,29 @@
                 }
             </div>
             } @empty {
-            <p class="text-muted">No blocks yet — add one to start.</p>
+            <div class="blocks-empty">
+                <mat-icon>dashboard_customize</mat-icon>
+                <p class="mb-0">No blocks yet — click <strong>Add block</strong> to start building your email.</p>
+            </div>
             }
         </div>
 
         <!-- Preview -->
-        <div class="col-lg-6">
-            <div class="email-preview-canvas">
-                <div [style.max-width.px]="previewWidth()" style="margin:0 auto;" [innerHTML]="previewHtml()"></div>
+        <div class="preview-pane">
+            <div class="preview-sticky">
+                <div class="preview-frame" [class.is-desktop]="previewMode() === 'desktop'"
+                    [class.is-mobile]="previewMode() === 'mobile'">
+                    @if (previewMode() === 'desktop') {
+                    <div class="preview-chrome">
+                        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                    </div>
+                    } @else {
+                    <div class="preview-chrome"><span class="notch"></span></div>
+                    }
+                    <div class="preview-scroll">
+                        <div [innerHTML]="previewHtml()"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

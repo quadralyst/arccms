@@ -60,8 +60,6 @@ export class EmailBlockEditorComponent {
 
     previewHtml = computed<SafeHtml>(() => this.sanitizer.bypassSecurityTrustHtml(this.compiledHtml()));
 
-    previewWidth = computed<number>(() => (this.previewMode() === 'mobile' ? 375 : 640));
-
     add(type: EmailBlockType): void {
         this.blocks.update((b) => [...b, createBlock(type)]);
     }
