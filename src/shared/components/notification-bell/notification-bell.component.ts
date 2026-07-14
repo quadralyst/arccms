@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, Injector, computed, effect, inject, runInInjectionContext, signal } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatBadgeModule } from '@angular/material/badge';
@@ -22,6 +22,7 @@ export class NotificationBellComponent {
     private authStore = inject(AuthState);
     private router = inject(Router);
     private destroyRef = inject(DestroyRef);
+    private injector = inject(Injector);
 
     notifications = signal<INotification[]>([]);
     unreadCount = computed(() => this.notifications().filter((n) => !n.read).length);
@@ -36,7 +37,8 @@ export class NotificationBellComponent {
             const uid = this.authStore.currentUser()?.uid;
             this.sub?.unsubscribe();
             if (uid) {
-                this.sub = this.service.watch(uid).subscribe((n) => this.notifications.set(n));
+                this.sub = runInInjectionContext(this.injector, () => this.service.watch(uid))
+                    .subscribe((n) => this.notifications.set(n));
             } else {
                 this.notifications.set([]);
             }

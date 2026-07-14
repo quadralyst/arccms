@@ -6,7 +6,7 @@
  * (SHA-256 hashed emails — no PII exposed to unauthenticated reads).
  */
 
-import { Injectable } from '@angular/core';
+import { Injectable, runInInjectionContext } from '@angular/core';
 import { updateEmail } from '@angular/fire/auth';
 import { collection, doc, getDocs, getDoc, setDoc, deleteDoc } from '@angular/fire/firestore';
 import { catchError, firstValueFrom, from, switchMap, map, Observable } from 'rxjs';
@@ -34,8 +34,10 @@ export class AuthService extends GlobalAuthService<IAuth> {
     public checkAlreadyExist(value: string): Observable<any> {
         return from(hashEmail(value)).pipe(
             switchMap((hash) => {
-                const docRef = doc(this.firestore, EMAIL_LOOKUP_COLLECTION, hash);
-                return from(getDoc(docRef));
+                return from(runInInjectionContext(this.injector, () => {
+                    const docRef = doc(this.firestore, EMAIL_LOOKUP_COLLECTION, hash);
+                    return getDoc(docRef);
+                }));
             }),
             map((snapshot) => {
                 if (snapshot.exists()) {
@@ -56,8 +58,10 @@ export class AuthService extends GlobalAuthService<IAuth> {
      */
     public async addEmailLookup(email: string): Promise<void> {
         const hash = await hashEmail(email);
-        const docRef = doc(this.firestore, EMAIL_LOOKUP_COLLECTION, hash);
-        await setDoc(docRef, { exists: true });
+        await runInInjectionContext(this.injector, () => {
+            const docRef = doc(this.firestore, EMAIL_LOOKUP_COLLECTION, hash);
+            return setDoc(docRef, { exists: true });
+        });
     }
 
     /**
@@ -65,8 +69,11 @@ export class AuthService extends GlobalAuthService<IAuth> {
      * Used to detect whether the onboarding wizard should be shown.
      */
     public isFirstRun(): Observable<boolean> {
-        const colRef = collection(this.firestore, EMAIL_LOOKUP_COLLECTION);
-        return from(getDocs(colRef)).pipe(
+        const docsPromise = runInInjectionContext(this.injector, () => {
+            const colRef = collection(this.firestore, EMAIL_LOOKUP_COLLECTION);
+            return getDocs(colRef);
+        });
+        return from(docsPromise).pipe(
             map((snapshot) => snapshot.empty),
             catchError((error) => {
                 console.error('Error checking first run status:', error);
@@ -81,8 +88,10 @@ export class AuthService extends GlobalAuthService<IAuth> {
      */
     public async removeEmailLookup(email: string): Promise<void> {
         const hash = await hashEmail(email);
-        const docRef = doc(this.firestore, EMAIL_LOOKUP_COLLECTION, hash);
-        await deleteDoc(docRef);
+        await runInInjectionContext(this.injector, () => {
+            const docRef = doc(this.firestore, EMAIL_LOOKUP_COLLECTION, hash);
+            return deleteDoc(docRef);
+        });
     }
 
     /**

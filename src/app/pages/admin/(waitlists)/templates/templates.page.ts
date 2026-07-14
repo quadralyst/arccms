@@ -7,7 +7,7 @@
 
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal, ViewChild } from '@angular/core';
+import { Component, OnInit, Injector, inject, runInInjectionContext, signal, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import { Firestore, collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where, orderBy } from '@angular/fire/firestore';
@@ -51,6 +51,7 @@ export default class TemplatesComponent implements OnInit {
     private readonly fb = inject(FormBuilder);
     private readonly firestore = inject(Firestore);
     private readonly dialog = inject(MatDialog);
+    private readonly injector = inject(Injector);
     private readonly broadcastStore = inject(BroadcastEmailStore);
     private readonly toastService = inject(ToastService);
     private emailSettingService = inject(EmailSettingService);
@@ -116,7 +117,7 @@ export default class TemplatesComponent implements OnInit {
 
     async loadWaitlist(waitlistId: string): Promise<void> {
         try {
-            const waitlistDoc = await getDoc(doc(this.firestore, 'Waitlists', waitlistId));
+            const waitlistDoc = await runInInjectionContext(this.injector, () => getDoc(doc(this.firestore, 'Waitlists', waitlistId)));
             if (waitlistDoc.exists()) {
                 this.waitlistName.set(waitlistDoc.data()?.['name'] || 'Unknown Waitlist');
             }
@@ -128,9 +129,9 @@ export default class TemplatesComponent implements OnInit {
     async loadTemplates(waitlistId: string): Promise<void> {
         this.loading.set(true);
         try {
-            const templatesRef = collection(this.firestore, 'EmailTemplate');
-            const q = query(templatesRef, where('waitlistId', '==', waitlistId));
-            const snapshot = await getDocs(q);
+            const templatesRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'EmailTemplate'));
+            const q = runInInjectionContext(this.injector, () => query(templatesRef, where('waitlistId', '==', waitlistId)));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             snapshot.forEach((doc) => {
                 const data = doc.data() as IEmailTemplate;
@@ -151,13 +152,13 @@ export default class TemplatesComponent implements OnInit {
     async loadBroadcastHistory(waitlistId: string): Promise<void> {
         this.loadingBroadcasts.set(true);
         try {
-            const broadcastsRef = collection(this.firestore, 'BroadcastEmails');
-            const q = query(
+            const broadcastsRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'BroadcastEmails'));
+            const q = runInInjectionContext(this.injector, () => query(
                 broadcastsRef,
                 where('waitlistId', '==', waitlistId),
                 orderBy('createdAt', 'desc')
-            );
-            const snapshot = await getDocs(q);
+            ));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             const broadcasts: IBroadcastEmail[] = [];
             snapshot.forEach((doc) => {
@@ -174,9 +175,9 @@ export default class TemplatesComponent implements OnInit {
 
     async loadWaitlistUsers(waitlistId: string): Promise<void> {
         try {
-            const usersRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-            const q = query(usersRef, orderBy('signupTimestamp', 'desc'));
-            const snapshot = await getDocs(q);
+            const usersRef = runInInjectionContext(this.injector, () => collection(this.firestore, `Waitlists/${waitlistId}/users`));
+            const q = runInInjectionContext(this.injector, () => query(usersRef, orderBy('signupTimestamp', 'desc')));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             const users: any[] = [];
             snapshot.forEach((doc) => {

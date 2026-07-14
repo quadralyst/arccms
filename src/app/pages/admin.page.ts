@@ -13,7 +13,6 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { RouterOutlet } from '@angular/router';
 import { BaseComponent } from '../../shared/components/base/base.component';
 import SideNavbarComponent from '../../shared/components/side-navbar/side-navbar.component';
-import { NotificationBellComponent } from '../../shared/components/notification-bell/notification-bell.component';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -24,12 +23,10 @@ import { CommonModule } from '@angular/common';
         MatDrawerContainer,
         MatDrawerContent,
         SideNavbarComponent,
-        NotificationBellComponent,
         MatIconModule,
         MatSidenavModule,
         MatToolbarModule,
         MatButtonModule,
-        MatIconModule,
         CommonModule
     ],
     templateUrl: './admin/admin.html',

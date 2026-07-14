@@ -5,7 +5,7 @@
  */
 
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, Injector, runInInjectionContext } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { doc, updateDoc } from '@angular/fire/firestore';
@@ -153,9 +153,11 @@ import { GaTrackingService } from '../../../../shared/services/ga-tracking.servi
     `],
 })
 export class UnsubscribeHandlingComponent extends BaseComponent implements OnInit {
+    private route = inject(ActivatedRoute);
     private firestore = inject(Firestore);
     private cdr = inject(ChangeDetectorRef);
     private gaTracking = inject(GaTrackingService);
+    private injector = inject(Injector);
 
     userId = '';
     waitlistId = '';
@@ -186,13 +188,13 @@ export class UnsubscribeHandlingComponent extends BaseComponent implements OnIni
 
         try {
             // Update WaitlistedUsers collection
-            const waitlistedUserRef = doc(this.firestore, 'WaitlistedUsers', this.userId);
-            await updateDoc(waitlistedUserRef, { isSubscribed: false });
+            const waitlistedUserRef = runInInjectionContext(this.injector, () => doc(this.firestore, 'WaitlistedUsers', this.userId));
+            await runInInjectionContext(this.injector, () => updateDoc(waitlistedUserRef, { isSubscribed: false }));
 
             // Update waitlist subcollection if waitlistId is provided
             if (this.waitlistId) {
-                const userRef = doc(this.firestore, `Waitlists/${this.waitlistId}/users`, this.userId);
-                await updateDoc(userRef, { isSubscribed: false });
+                const userRef = runInInjectionContext(this.injector, () => doc(this.firestore, `Waitlists/${this.waitlistId}/users`, this.userId));
+                await runInInjectionContext(this.injector, () => updateDoc(userRef, { isSubscribed: false }));
             }
 
             this.success = true;

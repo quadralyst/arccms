@@ -6,7 +6,7 @@
 
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, Injector, inject, runInInjectionContext, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Firestore, collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy, setDoc, getCountFromServer } from '@angular/fire/firestore';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -59,6 +59,7 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
     private firestore = inject(Firestore);
     private dialog = inject(MatDialog);
     private sanitizer = inject(DomSanitizer);
+    private injector = inject(Injector);
 
     // Email configuration status
     emailConfigService = inject(EmailConfigStatusService);
@@ -175,18 +176,18 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
     }
 
     async loadWaitlists(): Promise<void> {
-        const collectionRef = collection(this.firestore, 'Waitlists');
-        const q = query(collectionRef, orderBy('createdAt', 'desc'));
+        const collectionRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'Waitlists'));
+        const q = runInInjectionContext(this.injector, () => query(collectionRef, orderBy('createdAt', 'desc')));
 
-        this.unsubscribe = onSnapshot(q, async (snapshot) => {
+        this.unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(q, async (snapshot) => {
             const promises = snapshot.docs.map(async (docSnap) => {
                 const data = docSnap.data();
                 const id = docSnap.id;
 
                 // Fetch total count of users (verified + unverified)
                 try {
-                    const usersRef = collection(this.firestore, 'Waitlists', id, 'users');
-                    const countSnap = await getCountFromServer(usersRef);
+                    const usersRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'Waitlists', id, 'users'));
+                    const countSnap = await runInInjectionContext(this.injector, () => getCountFromServer(usersRef));
                     return {
                         id,
                         ...data,
@@ -204,7 +205,7 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
         }, (error) => {
             console.error('Error loading waitlists:', error);
             this.loading.set(false);
-        });
+        }));
     }
 
     openAddDrawer(): void {
@@ -264,8 +265,8 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
         dialogRef.afterClosed().subscribe(async (result: any) => {
             if (!!result) {
                 try {
-                    const docRef = doc(this.firestore, 'Waitlists', waitlist.id);
-                    await deleteDoc(docRef);
+                    const docRef = runInInjectionContext(this.injector, () => doc(this.firestore, 'Waitlists', waitlist.id));
+                    await runInInjectionContext(this.injector, () => deleteDoc(docRef));
                 } catch (error) {
                     console.error('Error deleting waitlist:', error);
                 }

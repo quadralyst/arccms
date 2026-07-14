@@ -456,6 +456,13 @@ arc-content-partials {
   overflow: auto;
 }
 
+/* Page-level side-drawer containers fill the viewport so the right-side
+   drawer opens full height even when the page content is short. Excludes the
+   admin shell's own nav drawer (.arc-main-page). */
+.arc-admin mat-drawer-container:not(.arc-main-page) {
+  min-height: 100vh;
+}
+
 /* ============================================================
    ADMIN MOBILE RESPONSIVE STYLES
    Global responsive utilities for all admin pages

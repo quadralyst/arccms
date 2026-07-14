@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, runInInjectionContext } from '@angular/core';
 import { collection, CollectionReference, Firestore } from '@angular/fire/firestore';
 import { DbService } from '../../../../../../shared/services/db.service';
 import { ITag, getTagsCollectionName } from './tags.model';
@@ -27,7 +27,7 @@ export class TagsService extends DbService<ITag> {
         this.currentContentTypeSlug.set(slug);
         const collName = getTagsCollectionName(slug);
         // Update the dbCollection reference to point to the new collection
-        this.dbCollection = collection(this.tagFirestore, collName) as CollectionReference<ITag>;
+        this.dbCollection = runInInjectionContext(this.injector, () => collection(this.tagFirestore, collName)) as CollectionReference<ITag>;
     }
 
     /**

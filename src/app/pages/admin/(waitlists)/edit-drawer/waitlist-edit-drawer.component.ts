@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, Injector, inject, runInInjectionContext, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Firestore, collection, getDocs } from '@angular/fire/firestore';
 import { MatDialog } from '@angular/material/dialog';
@@ -38,6 +38,7 @@ export class WaitlistEditDrawerComponent implements OnChanges {
     private fb = inject(FormBuilder);
     private firestore = inject(Firestore);
     private dialog = inject(MatDialog);
+    private injector = inject(Injector);
 
     @Input() isOpen = false;
     @Input() action: 'add' | 'edit' = 'add';
@@ -100,8 +101,8 @@ export class WaitlistEditDrawerComponent implements OnChanges {
     async loadTagsForWaitlist(waitlistId: string): Promise<void> {
         try {
             const collName = getWaitlistUserTagsCollectionName(waitlistId);
-            const tagsRef = collection(this.firestore, collName);
-            const snapshot = await getDocs(tagsRef);
+            const tagsRef = runInInjectionContext(this.injector, () => collection(this.firestore, collName));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(tagsRef));
             const tags = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as IWaitlistUserTag));
             this.availableTags.set(tags);
         } catch {

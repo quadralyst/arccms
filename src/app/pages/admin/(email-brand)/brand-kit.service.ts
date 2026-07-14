@@ -1,4 +1,4 @@
-import { inject, Injectable, PLATFORM_ID } from '@angular/core';
+import { inject, Injectable, Injector, PLATFORM_ID, runInInjectionContext } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Firestore, doc, getDoc, setDoc, serverTimestamp } from '@angular/fire/firestore';
 import { from, map, Observable, of, catchError } from 'rxjs';
@@ -12,6 +12,7 @@ const BRAND_DOC = 'email_brand';
 export class BrandKitService {
     private firestore = inject(Firestore);
     private platformId = inject(PLATFORM_ID);
+    private injector = inject(Injector);
 
     getBrandKit(): Observable<IEmailBrandKit> {
         // Reads require an authenticated admin (Firestore rules), which SSR never has —
@@ -19,8 +20,10 @@ export class BrandKitService {
         if (!isPlatformBrowser(this.platformId)) {
             return of({ ...DEFAULT_BRAND_KIT });
         }
-        const ref = doc(this.firestore, SETTINGS_COLLECTION, BRAND_DOC);
-        return from(getDoc(ref)).pipe(
+        return from(runInInjectionContext(this.injector, () => {
+            const ref = doc(this.firestore, SETTINGS_COLLECTION, BRAND_DOC);
+            return getDoc(ref);
+        })).pipe(
             map((snap) => (snap.exists() ? { ...DEFAULT_BRAND_KIT, ...(snap.data() as IEmailBrandKit) } : { ...DEFAULT_BRAND_KIT })),
             catchError((err) => {
                 console.error('Error fetching brand kit:', err);

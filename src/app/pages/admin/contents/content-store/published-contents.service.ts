@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, runInInjectionContext } from '@angular/core';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IContents } from './published-contents.model';
 import { CollectionReference, collection, doc, onSnapshot, query, orderBy, limit, getDocs } from '@angular/fire/firestore';
@@ -24,7 +24,7 @@ export class ContentsService extends DbService<IContents> {
 
     override getCollectionRef(collectionSuffix?: string): CollectionReference<IContents> {
         if (collectionSuffix) {
-            return collection(this.firestore, `arc_${collectionSuffix}`) as CollectionReference<IContents>;
+            return runInInjectionContext(this.injector, () => collection(this.firestore, `arc_${collectionSuffix}`)) as CollectionReference<IContents>;
         }
         return super.getCollectionRef();
     }
@@ -44,7 +44,7 @@ export class ContentsService extends DbService<IContents> {
     pollDeployStatus(docId: string, contentTypeSlug: string): Observable<DeployStatusUpdate> {
         return new Observable<DeployStatusUpdate>(subscriber => {
             const collectionName = `arc_${contentTypeSlug}`;
-            const docRef = doc(this.firestore, collectionName, docId);
+            const docRef = runInInjectionContext(this.injector, () => doc(this.firestore, collectionName, docId));
 
             // Timeout after 60 seconds
             const timeoutId = setTimeout(() => {
@@ -60,7 +60,7 @@ export class ContentsService extends DbService<IContents> {
                 unsubscribe();
             }, 60_000);
 
-            const unsubscribe = onSnapshot(docRef, (snap) => {
+            const unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(docRef, (snap) => {
                 if (!snap.exists()) return;
                 const data = snap.data() as Partial<IContents>;
 
@@ -84,7 +84,7 @@ export class ContentsService extends DbService<IContents> {
             }, (error) => {
                 clearTimeout(timeoutId);
                 subscriber.error(error);
-            });
+            }));
 
             // Cleanup on unsubscribe
             return () => {
@@ -106,10 +106,12 @@ export class ContentsService extends DbService<IContents> {
      */
     getPublishedHistory(docId: string, contentTypeSlug: string): Observable<any[]> {
         const collectionName = `arc_${contentTypeSlug}`;
-        const historyRef = collection(this.firestore, collectionName, docId, 'PublishedHistory');
-        const q = query(historyRef, orderBy('publishedOn', 'desc'), limit(20));
+        const q = runInInjectionContext(this.injector, () => {
+            const historyRef = collection(this.firestore, collectionName, docId, 'PublishedHistory');
+            return query(historyRef, orderBy('publishedOn', 'desc'), limit(20));
+        });
 
-        return from(getDocs(q)).pipe(
+        return from(runInInjectionContext(this.injector, () => getDocs(q))).pipe(
             map(snap => snap.docs.map((d, index) => ({
                 historyId: d.id,
                 versionNumber: snap.docs.length - index, // v1 = oldest, vN = newest

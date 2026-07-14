@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, Injector, runInInjectionContext, signal } from '@angular/core';
 import { Firestore, collection, query, where, getCountFromServer } from '@angular/fire/firestore';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
@@ -73,6 +73,7 @@ export default class DashboardComponent extends BaseComponent {
   userService = inject(UserService);
   private appRouter = inject(Router);
   private firestore = inject(Firestore);
+  private injector = inject(Injector);
 
   // Email configuration status
   emailConfigService = inject(EmailConfigStatusService);
@@ -190,16 +191,16 @@ export default class DashboardComponent extends BaseComponent {
     const counts: Record<string, { total: number; thisWeek: number }> = {};
 
     for (const wl of waitlists) {
-      const usersRef = collection(this.firestore, `Waitlists/${wl.id}/users`);
+      const usersRef = runInInjectionContext(this.injector, () => collection(this.firestore, `Waitlists/${wl.id}/users`));
 
       try {
         // Total users in this waitlist
-        const totalSnap = await getCountFromServer(usersRef);
+        const totalSnap = await runInInjectionContext(this.injector, () => getCountFromServer(usersRef));
         const total = totalSnap.data().count;
 
         // Users signed up in last 7 days
-        const weekQuery = query(usersRef, where('signupTimestamp', '>=', sevenDaysAgo));
-        const weekSnap = await getCountFromServer(weekQuery);
+        const weekQuery = runInInjectionContext(this.injector, () => query(usersRef, where('signupTimestamp', '>=', sevenDaysAgo)));
+        const weekSnap = await runInInjectionContext(this.injector, () => getCountFromServer(weekQuery));
         const thisWeek = weekSnap.data().count;
 
         counts[wl.id] = { total, thisWeek };

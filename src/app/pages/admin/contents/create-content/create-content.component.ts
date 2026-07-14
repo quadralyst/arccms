@@ -1,4 +1,4 @@
-import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked } from '@angular/core';
+import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { SafeHtml } from '@angular/platform-browser';
@@ -303,13 +303,13 @@ export class CreateContentComponent extends BaseComponent {
         try {
             // Fetch all draft items from the referenced collection's per-type collection
             const collectionRef = this.draftContentsService.getCollectionRef(field.collectionRef!.collectionSlug);
-            const q = query(
+            const q = runInInjectionContext(this.injector, () => query(
                 collectionRef,
                 orderBy(field.collectionRef!.displayField || 'title', 'asc'),
                 limit(1000)
-            );
+            ));
 
-            const snapshot = await getDocs(q);
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
             const data = snapshot.docs.map(doc => {
                 const docData = doc.data() as any;
                 // Exclude id from docData if it exists to avoid "id specified more than once" error

@@ -1,7 +1,7 @@
 <mat-drawer-container class="lists-drawer-container" hasBackdrop="true">
     <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 460px;">
         @if (currentAction()) {
-        <arc-list-drawer [mode]="currentAction()" [list]="currentList()"
+        <arc-list-drawer [mode]="currentAction() || 'add'" [list]="currentList()"
             (saved)="closeDrawer()" (close)="closeDrawer()">
         </arc-list-drawer>
         }

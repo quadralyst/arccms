@@ -5,7 +5,7 @@
  * Uses direct Firestore access for CRUD operations.
  */
 
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, Injector, runInInjectionContext, signal } from '@angular/core';
 import { Firestore, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, orderBy, onSnapshot } from '@angular/fire/firestore';
 import { IWaitlist } from '../../waitlist/waitlist.model';
 
@@ -18,6 +18,7 @@ interface WaitlistAdminState {
 @Injectable({ providedIn: 'root' })
 export class WaitlistAdminStore {
     private firestore = inject(Firestore);
+    private injector = inject(Injector);
     private collectionName = 'Waitlists';
 
     // State signals
@@ -39,25 +40,27 @@ export class WaitlistAdminStore {
     subscribe(): void {
         this._loading.set(true);
 
-        const collectionRef = collection(this.firestore, this.collectionName);
-        const q = query(collectionRef, orderBy('createdAt', 'desc'));
+        this.unsubscribe = runInInjectionContext(this.injector, () => {
+            const collectionRef = collection(this.firestore, this.collectionName);
+            const q = query(collectionRef, orderBy('createdAt', 'desc'));
 
-        this.unsubscribe = onSnapshot(q,
-            (snapshot) => {
-                const items: IWaitlist[] = [];
-                snapshot.forEach((doc) => {
-                    items.push({ id: doc.id, ...doc.data() } as IWaitlist);
-                });
-                this._items.set(items);
-                this._loading.set(false);
-                this._error.set(null);
-            },
-            (error) => {
-                console.error('Error fetching waitlists:', error);
-                this._error.set(error.message);
-                this._loading.set(false);
-            }
-        );
+            return onSnapshot(q,
+                (snapshot) => {
+                    const items: IWaitlist[] = [];
+                    snapshot.forEach((doc) => {
+                        items.push({ id: doc.id, ...doc.data() } as IWaitlist);
+                    });
+                    this._items.set(items);
+                    this._loading.set(false);
+                    this._error.set(null);
+                },
+                (error) => {
+                    console.error('Error fetching waitlists:', error);
+                    this._error.set(error.message);
+                    this._loading.set(false);
+                }
+            );
+        });
     }
 
     /**
@@ -66,11 +69,13 @@ export class WaitlistAdminStore {
     async add(data: Partial<IWaitlist>): Promise<string> {
         try {
             this._loading.set(true);
-            const collectionRef = collection(this.firestore, this.collectionName);
-            const docRef = await addDoc(collectionRef, {
-                ...data,
-                createdAt: new Date(),
-                updatedAt: new Date(),
+            const docRef = await runInInjectionContext(this.injector, () => {
+                const collectionRef = collection(this.firestore, this.collectionName);
+                return addDoc(collectionRef, {
+                    ...data,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                });
             });
             this._loading.set(false);
             return docRef.id;
@@ -88,10 +93,12 @@ export class WaitlistAdminStore {
     async update(id: string, data: Partial<IWaitlist>): Promise<void> {
         try {
             this._loading.set(true);
-            const docRef = doc(this.firestore, this.collectionName, id);
-            await updateDoc(docRef, {
-                ...data,
-                updatedAt: new Date(),
+            await runInInjectionContext(this.injector, () => {
+                const docRef = doc(this.firestore, this.collectionName, id);
+                return updateDoc(docRef, {
+                    ...data,
+                    updatedAt: new Date(),
+                });
             });
             this._loading.set(false);
         } catch (error: any) {
@@ -108,8 +115,10 @@ export class WaitlistAdminStore {
     async delete(id: string): Promise<void> {
         try {
             this._loading.set(true);
-            const docRef = doc(this.firestore, this.collectionName, id);
-            await deleteDoc(docRef);
+            await runInInjectionContext(this.injector, () => {
+                const docRef = doc(this.firestore, this.collectionName, id);
+                return deleteDoc(docRef);
+            });
             this._loading.set(false);
         } catch (error: any) {
             console.error('Error deleting waitlist:', error);
