@@ -11,10 +11,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { firstValueFrom } from 'rxjs';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { BrandKitService } from '../(email-brand)/brand-kit.service';
 import { EmailBlockEditorComponent, BlockEditorSaveEvent } from '../../../../shared/components/email-block-editor/email-block-editor.component';
+import { TestSendDialogComponent } from '../../../../shared/components/test-send-dialog/test-send-dialog.component';
 import { EmailDesign, IEmailBrandKit, DEFAULT_BRAND_KIT } from '../../../../shared/email-compiler/email-design.model';
 import { dedupeTemplatesByType } from '../../../../shared/utils/template-dedupe';
 
@@ -39,7 +42,7 @@ interface TemplateDoc {
     standalone: true,
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule,
-        MatFormFieldModule, MatSelectModule, EmailBlockEditorComponent,
+        MatFormFieldModule, MatSelectModule, MatDialogModule, EmailBlockEditorComponent,
     ],
     templateUrl: './email-composer.page.html',
 })
@@ -49,6 +52,7 @@ export default class EmailComposerPageComponent implements OnInit {
     private brandKitService = inject(BrandKitService);
     private toast = inject(ToastService);
     private platformId = inject(PLATFORM_ID);
+    private dialog = inject(MatDialog);
 
     templates = signal<TemplateDoc[]>([]);
     selectedId = signal<string>('');
@@ -129,11 +133,14 @@ export default class EmailComposerPageComponent implements OnInit {
     }
 
     async onTestSend(e: BlockEditorSaveEvent): Promise<void> {
-        const to = typeof window !== 'undefined' ? window.prompt('Send test email to:') : '';
+        const subject = this.selected()?.subject || 'Test';
+        const to = await firstValueFrom(
+            this.dialog.open(TestSendDialogComponent, { width: '420px', data: { subject } }).afterClosed(),
+        );
         if (!to) return;
         try {
             const callable = httpsCallable(this.functions, 'sendTestEmail');
-            await callable({ toEmail: to, subject: this.selected()?.subject || 'Test', html: e.html });
+            await callable({ toEmail: to, subject, html: e.html });
             this.toast.success('Test email queued');
         } catch (err) {
             console.error(err);

@@ -1,83 +1,92 @@
-<div class="p-4">
-    <h1 class="mb-3">Broadcasts</h1>
-
-    <div class="row">
-        <div class="col-lg-8">
-            <mat-form-field appearance="outline" class="w-100">
-                <mat-label>Subject</mat-label>
-                <input matInput [(ngModel)]="subject" />
-            </mat-form-field>
-
-            <!-- Audience -->
-            <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
-                <mat-form-field appearance="outline" style="width: 260px;">
-                    <mat-label>Send to list</mat-label>
-                    <mat-select [(ngModel)]="listId" (ngModelChange)="eligible.set(null)">
-                        @for (l of lists(); track l.id) {
-                        <mat-option [value]="l.id">{{ l.name }} ({{ l.memberCount || 0 }})</mat-option>
-                        }
-                    </mat-select>
-                </mat-form-field>
-                <mat-form-field appearance="outline" style="width: 200px;">
-                    <mat-label>Filter: premiumType (optional)</mat-label>
-                    <input matInput [(ngModel)]="premiumType" (ngModelChange)="eligible.set(null)" placeholder="e.g. pro" />
-                </mat-form-field>
-                <button mat-stroked-button [disabled]="previewing() || !listId" (click)="preview()">
-                    <mat-icon>groups</mat-icon> Preview count
-                </button>
-                @if (eligible() !== null) {
-                <span class="badge bg-info">{{ eligible() }} eligible (consented)</span>
-                }
-            </div>
-
-            <!-- Schedule -->
-            <div class="d-flex gap-3 align-items-center mb-3">
-                <mat-slide-toggle [(ngModel)]="schedule" color="primary">Schedule for later</mat-slide-toggle>
-                @if (schedule) {
-                <mat-form-field appearance="outline">
-                    <mat-label>Send at</mat-label>
-                    <input matInput type="datetime-local" [(ngModel)]="scheduledAt" />
-                </mat-form-field>
-                }
-            </div>
-
-            <!-- Content -->
-            <arc-email-block-editor
-                [design]="starterDesign"
-                [brandKit]="brandKit()"
-                category="marketing"
-                [placeholders]="['##NAME##','##EMAIL##','##UNSUBSCRIBE_LINK##','##PREFERENCES_LINK##']"
-                (saved)="onContentSaved($event)"
-                (testSend)="onTestSend($event)">
-            </arc-email-block-editor>
-
-            <div class="mt-3">
-                <button mat-flat-button color="primary" [disabled]="sending()" (click)="send()">
-                    <mat-icon>send</mat-icon> {{ schedule ? 'Schedule broadcast' : 'Send broadcast' }}
-                </button>
-                <span class="small text-muted ms-2">Click <strong>Save</strong> in the editor first to capture your content.</span>
-            </div>
+<div class="page-container">
+    @if (mode() === 'list') {
+    <!-- ── List view ── -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1>Broadcasts</h1>
+            <p class="subtitle">One-off emails to a list. Past and scheduled broadcasts appear below.</p>
         </div>
+        <button mat-flat-button color="primary" (click)="startCompose()">
+            <mat-icon>add</mat-icon> New broadcast
+        </button>
+    </div>
 
-        <!-- Recent -->
-        <div class="col-lg-4">
-            <h3 class="h6 text-uppercase text-muted mb-3">Recent broadcasts</h3>
-            @for (b of recent(); track b.id) {
-            <div class="border rounded p-2 mb-2">
-                <div class="fw-medium">{{ b.subject || '(no subject)' }}</div>
-                <div class="small">
-                    <span class="badge bg-secondary">{{ b.status }}</span>
-                    @if (b.status === 'completed') {
-                    <span class="ms-1">{{ b.sentCount || 0 }} sent · {{ b.skippedCount || 0 }} skipped · {{ b.failedCount || 0 }} failed</span>
-                    }
-                </div>
-                @if (b.status === 'scheduled') {
-                <button mat-button color="warn" (click)="cancel(b)">Cancel</button>
-                }
-            </div>
-            } @empty {
-            <p class="text-muted">No broadcasts yet.</p>
-            }
+    <app-global-table [data]="recent()" [columns]="columns" [loading]="loading()"
+        emptyIcon="fas fa-tower-broadcast" emptyTitle="No broadcasts yet"
+        emptyDescription="Send your first broadcast to a list of contacts."
+        emptyActionLabel="New broadcast" emptyActionIcon="fas fa-plus"
+        (emptyActionClick)="startCompose()">
+    </app-global-table>
+    }
+
+    @if (mode() === 'compose') {
+    <!-- ── Compose view ── -->
+    <div class="page-header">
+        <div class="header-content">
+            <button mat-stroked-button class="mb-2" (click)="backToList()">
+                <mat-icon>arrow_back</mat-icon> Back to broadcasts
+            </button>
+            <h1>New broadcast</h1>
         </div>
     </div>
+
+    <mat-form-field appearance="outline" class="w-100">
+        <mat-label>Subject</mat-label>
+        <input matInput [(ngModel)]="subject" />
+    </mat-form-field>
+
+    <!-- Audience -->
+    <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
+        <mat-form-field appearance="outline" style="width: 260px;">
+            <mat-label>Send to list</mat-label>
+            <mat-select [(ngModel)]="listId" (ngModelChange)="eligible.set(null)">
+                @for (l of lists(); track l.id) {
+                <mat-option [value]="l.id">{{ l.name }} ({{ l.memberCount || 0 }})</mat-option>
+                }
+            </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="width: 200px;">
+            <mat-label>Filter: premiumType (optional)</mat-label>
+            <input matInput [(ngModel)]="premiumType" (ngModelChange)="eligible.set(null)" placeholder="e.g. pro" />
+        </mat-form-field>
+        <button mat-stroked-button [disabled]="previewing() || !listId" (click)="preview()">
+            <mat-icon>groups</mat-icon> Preview count
+        </button>
+        @if (eligible() !== null) {
+        <span class="status-badge is-info">{{ eligible() }} eligible (consented)</span>
+        }
+    </div>
+
+    <!-- Schedule -->
+    <div class="d-flex gap-3 align-items-center mb-3">
+        <mat-slide-toggle [(ngModel)]="schedule" color="primary">Schedule for later</mat-slide-toggle>
+        @if (schedule) {
+        <mat-form-field appearance="outline">
+            <mat-label>Send at</mat-label>
+            <input matInput type="datetime-local" [(ngModel)]="scheduledAt" />
+        </mat-form-field>
+        }
+    </div>
+
+    <!-- Content -->
+    <arc-email-block-editor
+        [design]="starterDesign"
+        [brandKit]="brandKit()"
+        category="marketing"
+        [placeholders]="['##NAME##','##EMAIL##','##UNSUBSCRIBE_LINK##','##PREFERENCES_LINK##']"
+        (saved)="onContentSaved($event)"
+        (testSend)="onTestSend($event)">
+    </arc-email-block-editor>
+
+    <div class="mt-3 d-flex align-items-center gap-2">
+        <button mat-flat-button color="primary" [disabled]="sending() || !content()" (click)="send()">
+            <mat-icon>send</mat-icon> {{ schedule ? 'Schedule broadcast' : 'Send broadcast' }}
+        </button>
+        @if (!content()) {
+        <span class="small text-muted">Click <strong>Save</strong> in the editor to capture your content before sending.</span>
+        } @else {
+        <span class="small text-success"><mat-icon class="align-middle" style="font-size:1rem;height:1rem;width:1rem;">check</mat-icon> Content captured</span>
+        }
+    </div>
+    }
 </div>

@@ -79,6 +79,11 @@ export class DripService {
         await setDoc(doc(this.firestore, 'DripCampaigns', id), { steps, updatedAt: serverTimestamp() }, { merge: true });
     }
 
+    /** Edit campaign metadata (name, enroll-existing flag). List/trigger are immutable post-create. */
+    async updateCampaign(id: string, patch: { name?: string; enrollExistingOnActivate?: boolean }): Promise<void> {
+        await setDoc(doc(this.firestore, 'DripCampaigns', id), { ...patch, updatedAt: serverTimestamp() }, { merge: true });
+    }
+
     /** Pause/resume/draft — simple status writes (activate/archive go through callables). */
     async setStatus(id: string, status: 'draft' | 'paused' | 'active'): Promise<void> {
         await setDoc(doc(this.firestore, 'DripCampaigns', id), { status, updatedAt: serverTimestamp() }, { merge: true });

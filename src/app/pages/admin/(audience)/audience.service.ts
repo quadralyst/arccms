@@ -75,6 +75,15 @@ export class AudienceService {
         });
     }
 
+    /** Rename / re-describe a manual list (admins may write Lists directly). */
+    async updateList(id: string, patch: { name?: string; description?: string }): Promise<void> {
+        await setDoc(
+            doc(this.firestore, 'Lists', id),
+            { ...patch, updatedAt: serverTimestamp() },
+            { merge: true },
+        );
+    }
+
     /** Delete a manual list (system lists must not be deleted). */
     async deleteList(id: string): Promise<void> {
         await deleteDoc(doc(this.firestore, 'Lists', id));

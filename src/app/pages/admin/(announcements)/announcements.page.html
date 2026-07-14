@@ -1,10 +1,15 @@
-<div class="p-4">
-    <h1 class="mb-3">Announcements & Notifications</h1>
+<div class="page-container">
+    <div class="page-header">
+        <div class="header-content">
+            <h1>Announcements &amp; Notifications</h1>
+            <p class="subtitle">Publish in-app announcements and configure which events notify your users.</p>
+        </div>
+    </div>
 
     <mat-tab-group>
         <!-- Composer -->
         <mat-tab label="Send announcement">
-            <div class="pt-4" style="max-width: 640px;">
+            <div class="tab-body tab-form">
                 <mat-form-field appearance="outline" class="w-100">
                     <mat-label>Title</mat-label>
                     <input matInput [(ngModel)]="title" />
@@ -44,9 +49,9 @@
 
         <!-- Notification types -->
         <mat-tab label="Notification types">
-            <div class="pt-4">
+            <div class="tab-body">
                 @for (t of types(); track t.key) {
-                <div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="max-width: 640px;">
+                <div class="tab-form d-flex justify-content-between align-items-center py-2 border-bottom">
                     <div>
                         <div class="fw-medium">{{ t.label }}</div>
                         <div class="small text-muted">{{ t.key }}</div>
@@ -63,10 +68,10 @@
 
         <!-- Event mappings -->
         <mat-tab label="Event mappings">
-            <div class="pt-4">
+            <div class="tab-body">
                 <p class="text-muted">Built-in event hooks. Enabling a mapping runs its configured actions in addition to the direct behavior — enable with care to avoid duplicate sends.</p>
                 @for (m of mappings(); track m.key) {
-                <div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="max-width: 480px;">
+                <div class="mapping-row d-flex justify-content-between align-items-center py-2 border-bottom">
                     <code>{{ m.key }}</code>
                     <mat-slide-toggle [(ngModel)]="m.enabled" color="primary">Enabled</mat-slide-toggle>
                 </div>

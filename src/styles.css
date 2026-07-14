@@ -324,6 +324,139 @@ arc-content-partials {
 }
 
 /* ============================================================
+   SHARED ADMIN PAGE PRIMITIVES
+   Canonical page header, status badges, drawer panel chrome and
+   email preview canvas. Reused across admin pages so individual
+   pages don't re-declare these (see waitlists / users for the
+   original component-scoped versions this consolidates).
+   ============================================================ */
+
+/* Page shell — matches the waitlists/users header convention */
+.arc-admin .page-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.arc-admin .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  gap: 1rem;
+}
+
+.arc-admin .page-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.arc-admin .page-header .subtitle {
+  margin: 4px 0 0;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Status badges — one soft-pill family with semantic modifiers.
+   Pages map their domain status to a modifier via a small helper. */
+.arc-admin .status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  text-transform: capitalize;
+}
+
+.arc-admin .status-badge.is-success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.arc-admin .status-badge.is-warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.arc-admin .status-badge.is-danger {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.arc-admin .status-badge.is-info {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.arc-admin .status-badge.is-neutral {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.arc-admin .status-badge.is-dark {
+  background: #d6d8db;
+  color: #1b1e21;
+}
+
+/* Right-side drawer panel chrome — shared by add/edit/view children
+   hosted in a mat-drawer. Consolidates the users/(add-user) styles. */
+.arc-admin .side-panel {
+  padding: 20px;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.arc-admin .side-panel .panel-header {
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.arc-admin .side-panel .panel-header h5 {
+  margin: 0;
+  font-weight: 600;
+}
+
+.arc-admin .side-panel .close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: #6c757d;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.arc-admin .side-panel .close-btn:hover {
+  color: #dc3545;
+}
+
+/* Footer action row inside a drawer panel (Cancel + primary submit) */
+.arc-admin .side-panel .panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+/* Email preview canvas — the neutral backdrop behind rendered email HTML.
+   Consolidates the inline #e9ecef canvases in brand-kit + block editor. */
+.arc-admin .email-preview-canvas {
+  background: #e9ecef;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 0.5rem;
+  overflow: auto;
+}
+
+/* ============================================================
    ADMIN MOBILE RESPONSIVE STYLES
    Global responsive utilities for all admin pages
    ============================================================ */

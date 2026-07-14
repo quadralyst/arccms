@@ -1,47 +1,30 @@
-<div class="p-4">
-    <h1 class="mb-1">Lists</h1>
-    <p class="text-muted mb-4">Audience lists drive broadcasts and drip campaigns. System lists sync automatically.</p>
+<mat-drawer-container class="lists-drawer-container" hasBackdrop="true">
+    <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 460px;">
+        @if (currentAction()) {
+        <arc-list-drawer [mode]="currentAction()" [list]="currentList()"
+            (saved)="closeDrawer()" (close)="closeDrawer()">
+        </arc-list-drawer>
+        }
+    </mat-drawer>
 
-    <div class="d-flex gap-2 align-items-end mb-4" style="max-width: 480px;">
-        <mat-form-field appearance="outline" class="flex-grow-1">
-            <mat-label>New list name</mat-label>
-            <input matInput [(ngModel)]="newListName" (keyup.enter)="createList()" placeholder="e.g. Newsletter" />
-        </mat-form-field>
-        <button mat-flat-button color="primary" [disabled]="creating() || !newListName.trim()" (click)="createList()">
-            <mat-icon>add</mat-icon> Create
-        </button>
-    </div>
+    <mat-drawer-content>
+        <div class="page-container">
+            <div class="page-header">
+                <div class="header-content">
+                    <h1>Lists</h1>
+                    <p class="subtitle">Audience lists drive broadcasts and drip campaigns. System lists sync automatically.</p>
+                </div>
+                <button mat-flat-button color="primary" (click)="openAdd()">
+                    <mat-icon>add</mat-icon> Create list
+                </button>
+            </div>
 
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th class="text-end">Members</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @for (list of lists(); track list.id) {
-            <tr>
-                <td>{{ list.name }}</td>
-                <td>
-                    <span class="badge" [class.bg-secondary]="list.type === 'system'" [class.bg-info]="list.type === 'manual'">
-                        {{ list.type }}
-                    </span>
-                </td>
-                <td class="text-end">{{ list.memberCount || 0 }}</td>
-                <td class="text-end">
-                    @if (list.type === 'manual') {
-                    <button mat-icon-button color="warn" (click)="deleteList(list)" aria-label="Delete list">
-                        <mat-icon>delete</mat-icon>
-                    </button>
-                    }
-                </td>
-            </tr>
-            } @empty {
-            <tr><td colspan="4" class="text-center text-muted py-4">No lists yet.</td></tr>
-            }
-        </tbody>
-    </table>
-</div>
+            <app-global-table [data]="lists()" [columns]="columns" [loading]="loading()"
+                emptyIcon="fas fa-list-ul" emptyTitle="No lists yet"
+                emptyDescription="Create your first audience list to start sending broadcasts and drips."
+                emptyActionLabel="Create list" emptyActionIcon="fas fa-plus"
+                (emptyActionClick)="openAdd()">
+            </app-global-table>
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

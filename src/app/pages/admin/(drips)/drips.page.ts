@@ -1,19 +1,18 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
-import { DripService, DripCampaign, DripStep, TemplateOption } from './drip.service';
+import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { statusBadgeClass } from '../../../../shared/utils/status-badge';
+import { DripService, DripCampaign, TemplateOption } from './drip.service';
 import { AudienceService } from '../(audience)/audience.service';
 import { IList } from '../(audience)/audience.model';
+import { DripDrawerComponent, DripDrawerMode } from './(drip-drawer)/drip-drawer.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Drip Campaigns | Arc CMS',
@@ -24,12 +23,16 @@ export const routeMeta: RouteMeta = {
 @Component({
     standalone: true,
     imports: [
-        CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule,
-        MatFormFieldModule, MatSelectModule, MatSlideToggleModule,
+        CommonModule, MatButtonModule, MatIconModule, MatSidenavModule,
+        GlobalTableComponent, DripDrawerComponent,
     ],
     templateUrl: './drips.page.html',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    host: { ngSkipHydration: 'true' },
 })
 export default class DripsPageComponent implements OnInit {
+    @ViewChild('drawer') drawer!: MatDrawer;
+
     private service = inject(DripService);
     private audience = inject(AudienceService);
     private toast = inject(ToastService);
@@ -38,14 +41,55 @@ export default class DripsPageComponent implements OnInit {
     campaigns = signal<DripCampaign[]>([]);
     lists = signal<IList[]>([]);
     templates = signal<TemplateOption[]>([]);
+    loading = signal(true);
 
-    // New campaign form
-    newName = '';
-    newListId = '';
-    newEnrollExisting = false;
+    currentAction = signal<DripDrawerMode | ''>('');
+    currentCampaign = signal<DripCampaign | null>(null);
+
+    columns: TableColumn[] = [
+        { key: 'name', header: 'Campaign', type: 'text', classFn: () => 'fw-medium' },
+        {
+            key: 'status', header: 'Status', type: 'html',
+            transformFn: (r) => `<span class="${statusBadgeClass(r.status)}">${r.status}</span>`,
+        },
+        { key: 'listId', header: 'List', type: 'text', classFn: () => 'small', transformFn: (r) => this.listName(r.listId) },
+        {
+            key: 'counts', header: 'Enrollment', type: 'text', classFn: () => 'small',
+            transformFn: (r) => `${r.counts?.enrolled || 0} enrolled · ${r.counts?.completed || 0} completed · ${r.counts?.exited || 0} exited`,
+        },
+        { key: 'steps', header: 'Steps', type: 'text', transformFn: (r) => (r.steps || []).length },
+        {
+            key: 'actions', header: 'Actions', type: 'actions',
+            actions: [
+                {
+                    action: 'edit', icon: 'fas fa-pen text-primary', label: 'Edit', class: 'edit',
+                    isRowClick: true, onAction: (row) => this.openEdit(row),
+                },
+                {
+                    action: 'activate', icon: 'fas fa-play text-success', label: 'Activate', class: 'edit',
+                    hide: (row) => row.status !== 'draft', onAction: (row) => this.activate(row),
+                },
+                {
+                    action: 'resume', icon: 'fas fa-play text-success', label: 'Resume', class: 'edit',
+                    hide: (row) => row.status !== 'paused', onAction: (row) => this.resume(row),
+                },
+                {
+                    action: 'pause', icon: 'fas fa-pause', label: 'Pause', class: 'edit',
+                    hide: (row) => row.status !== 'active', onAction: (row) => this.pause(row),
+                },
+                {
+                    action: 'archive', icon: 'fas fa-box-archive text-danger', label: 'Archive', class: 'delete',
+                    hide: (row) => row.status === 'archived', onAction: (row) => this.archive(row),
+                },
+            ],
+        },
+    ];
 
     ngOnInit(): void {
-        this.service.watchCampaigns().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((c) => this.campaigns.set(c));
+        this.service.watchCampaigns().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((c) => {
+            this.campaigns.set(c);
+            this.loading.set(false);
+        });
         this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
         this.service.watchTemplates().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((t) => this.templates.set(t));
     }
@@ -54,30 +98,26 @@ export default class DripsPageComponent implements OnInit {
         return this.lists().find((l) => l.id === id)?.name || id;
     }
 
-    async create(): Promise<void> {
-        if (!this.newName.trim() || !this.newListId) { this.toast.error('Name and list are required'); return; }
-        try {
-            await this.service.createCampaign(this.newName.trim(), this.newListId, this.newEnrollExisting);
-            this.newName = ''; this.newListId = ''; this.newEnrollExisting = false;
-            this.toast.success('Campaign created (draft)');
-        } catch (e) { console.error(e); this.toast.error('Failed to create campaign'); }
+    // Drawer
+    openAdd(): void {
+        this.currentAction.set('add');
+        this.currentCampaign.set(null);
+        this.drawer?.open();
     }
 
-    addStep(c: DripCampaign): void {
-        const steps = [...(c.steps || []), { id: 'step_' + Date.now(), templateId: '', delayHours: 24 } as DripStep];
-        c.steps = steps;
+    openEdit(c: DripCampaign): void {
+        this.currentAction.set('edit');
+        this.currentCampaign.set(c);
+        this.drawer?.open();
     }
 
-    removeStep(c: DripCampaign, i: number): void {
-        c.steps = (c.steps || []).filter((_, idx) => idx !== i);
+    closeDrawer(): void {
+        this.drawer?.close();
+        this.currentAction.set('');
+        this.currentCampaign.set(null);
     }
 
-    async saveSteps(c: DripCampaign): Promise<void> {
-        if ((c.steps || []).some((s) => !s.templateId)) { this.toast.error('Every step needs a template'); return; }
-        try { await this.service.saveSteps(c.id, c.steps || []); this.toast.success('Steps saved'); }
-        catch (e) { console.error(e); this.toast.error('Failed to save steps'); }
-    }
-
+    // Status transitions (live-updated via watchCampaigns)
     async activate(c: DripCampaign): Promise<void> {
         try {
             const res: any = await this.service.activate(c.id);
