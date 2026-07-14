@@ -6,16 +6,12 @@
         </div>
     </div>
 
-    <mat-form-field appearance="outline" style="width: 360px;">
-        <mat-label>Template</mat-label>
-        <mat-select [ngModel]="selectedId()" (ngModelChange)="onSelect($event)">
-            @for (t of templates(); track t.id) {
-            <mat-option [value]="t.id">{{ t.title || t.type }} ({{ t.editorVersion || 'html' }})</mat-option>
-            }
-        </mat-select>
-    </mat-form-field>
-
     @if (selected(); as t) {
+        <div class="mb-3">
+            <button mat-stroked-button (click)="clearSelection()">
+                <mat-icon>arrow_back</mat-icon> Back to templates
+            </button>
+        </div>
         @if (isBlocks) {
         <arc-email-block-editor
             [design]="currentDesign"
@@ -39,6 +35,14 @@
         </div>
         }
     } @else {
-    <p class="text-muted">Select a template to start composing.</p>
+    <app-global-table
+        [data]="templates()"
+        [columns]="tableColumns"
+        [loading]="loading()"
+        (cellClick)="onCellClick($event)"
+        emptyTitle="No Templates"
+        emptyDescription="No email templates found."
+        [showEmptyAction]="false">
+    </app-global-table>
     }
 </div>
