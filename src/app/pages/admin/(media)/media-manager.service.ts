@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, runInInjectionContext } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { DbService } from '../../../../shared/services/db.service';
 import { IMediaManager } from './media-manager.model';
@@ -38,8 +38,10 @@ export class MediaManagerService extends DbService<IMediaManager> {
      */
     async isUnsplashConfigured(): Promise<boolean> {
         try {
-            const docRef = doc(this.db, 'Settings', 'integrations');
-            const snapshot = await getDoc(docRef);
+            const snapshot = await runInInjectionContext(this.injector, () => {
+                const docRef = doc(this.db, 'Settings', 'integrations');
+                return getDoc(docRef);
+            });
             if (!snapshot.exists()) return false;
             const data = snapshot.data();
             return !!data?.['unsplash']?.['accessKey'];
@@ -60,16 +62,16 @@ export class MediaManagerService extends DbService<IMediaManager> {
 
     getMediaListFromFirestore(pageSize: number, startAfterDoc?: DocumentSnapshot): Observable<any> {
         const db = this.db;
-        const mediaCollection = collection(db, 'media');
+        const mediaCollection = runInInjectionContext(this.injector, () => collection(db, 'media'));
 
-        let q = query(mediaCollection, orderBy('uploadTime', 'desc'), limit(pageSize));
+        let q = runInInjectionContext(this.injector, () => query(mediaCollection, orderBy('uploadTime', 'desc'), limit(pageSize)));
 
         if (startAfterDoc) {
-            q = query(q, startAfter(startAfterDoc));
+            q = runInInjectionContext(this.injector, () => query(q, startAfter(startAfterDoc)));
         }
 
         const changesObservable = new Observable<{ mediaList: any[], lastDoc: DocumentSnapshot | undefined }>(observer => {
-            const unsubscribe = onSnapshot(q, snapshot => {
+            const unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(q, snapshot => {
                 const mediaList = snapshot.docs.map((doc: any) => ({
                     id: doc.id,
                     url: doc.data().downloadURL,
@@ -78,12 +80,12 @@ export class MediaManagerService extends DbService<IMediaManager> {
                 }));
                 const lastDoc = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : undefined;
                 observer.next({ mediaList, lastDoc });
-            }, error => observer.error(error));
+            }, error => observer.error(error)));
 
             return { unsubscribe };
         });
 
-        const totalCountObservable = from(getCountFromServer(mediaCollection)).pipe(
+        const totalCountObservable = from(runInInjectionContext(this.injector, () => getCountFromServer(mediaCollection))).pipe(
             map(count => count.data().count)
         );
 

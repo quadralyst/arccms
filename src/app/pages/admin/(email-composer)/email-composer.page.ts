@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { Component, inject, Injector, OnInit, PLATFORM_ID, runInInjectionContext, signal } from '@angular/core';
 import {
     Firestore, collection, collectionData, doc, updateDoc, serverTimestamp, query, orderBy,
 } from '@angular/fire/firestore';
@@ -54,6 +54,7 @@ export default class EmailComposerPageComponent implements OnInit {
     private toast = inject(ToastService);
     private platformId = inject(PLATFORM_ID);
     private dialog = inject(MatDialog);
+    private injector = inject(Injector);
 
     templates = signal<TemplateDoc[]>([]);
     selectedId = signal<string>('');
@@ -74,15 +75,17 @@ export default class EmailComposerPageComponent implements OnInit {
             this.loading.set(false);
             return;
         }
-        const ref = collection(this.firestore, 'EmailTemplate');
-        collectionData(query(ref, orderBy('type')), { idField: 'id' }).pipe(
-            catchError((err) => {
-                console.error('Error fetching email templates:', err);
-                return of([]);
-            }),
-        ).subscribe((docs) => {
-            this.templates.set(dedupeTemplatesByType(docs as TemplateDoc[]));
-            this.loading.set(false);
+        runInInjectionContext(this.injector, () => {
+            const ref = collection(this.firestore, 'EmailTemplate');
+            collectionData(query(ref, orderBy('type')), { idField: 'id' }).pipe(
+                catchError((err) => {
+                    console.error('Error fetching email templates:', err);
+                    return of([]);
+                }),
+            ).subscribe((docs) => {
+                this.templates.set(dedupeTemplatesByType(docs as TemplateDoc[]));
+                this.loading.set(false);
+            });
         });
     }
 

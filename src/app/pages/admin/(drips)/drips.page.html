@@ -1,7 +1,7 @@
 <mat-drawer-container class="drips-drawer-container" hasBackdrop="true">
     <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 600px;">
         @if (currentAction()) {
-        <arc-drip-drawer [mode]="currentAction()" [campaign]="currentCampaign()"
+        <arc-drip-drawer [mode]="currentAction() || 'add'" [campaign]="currentCampaign()"
             [lists]="lists()" [templates]="templates()"
             (saved)="closeDrawer()" (close)="closeDrawer()">
         </arc-drip-drawer>

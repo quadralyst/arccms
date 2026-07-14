@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, Injector, runInInjectionContext, signal } from '@angular/core';
 import { Firestore, collection, query, where, getDocs, Timestamp } from '@angular/fire/firestore';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -40,13 +40,15 @@ interface HealthCounts {
 })
 export class EmailHealthCardComponent implements OnInit {
     private firestore = inject(Firestore);
+    private injector = inject(Injector);
     loading = signal(true);
     counts = signal<HealthCounts>({ success: 0, failed: 0, retrying: 0, deferred: 0, skipped: 0, suppressed: 0, pending: 0, total: 0 });
 
     async ngOnInit(): Promise<void> {
         try {
             const cutoff = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
-            const snap = await getDocs(query(collection(this.firestore, 'EmailLogs'), where('createdAt', '>=', cutoff)));
+            const snap = await runInInjectionContext(this.injector, () =>
+                getDocs(query(collection(this.firestore, 'EmailLogs'), where('createdAt', '>=', cutoff))));
             const c: HealthCounts = { success: 0, failed: 0, retrying: 0, deferred: 0, skipped: 0, suppressed: 0, pending: 0, total: 0 };
             snap.forEach((d) => {
                 const s = (d.data()['status'] as keyof HealthCounts) || 'pending';

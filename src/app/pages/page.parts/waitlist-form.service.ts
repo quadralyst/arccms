@@ -5,7 +5,7 @@
  * Extracted from PageContentComponent to be used in index.page.ts.
  */
 
-import { inject, Injectable, PLATFORM_ID } from '@angular/core';
+import { inject, Injectable, Injector, PLATFORM_ID, runInInjectionContext } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { WaitlistService } from '../waitlist/waitlist.service';
 import { IWaitlistFormData, IWaitlist } from '../waitlist/waitlist.model';
@@ -47,6 +47,7 @@ export class WaitlistFormService {
     private functions = inject(Functions);
     private globalService = inject(GlobalService);
     private metadataService = inject(SignupMetadataService);
+    private injector = inject(Injector);
 
     private formStates = new Map<HTMLFormElement, WaitlistFormState>();
     private defaultWaitlistId = 'default';
@@ -61,8 +62,10 @@ export class WaitlistFormService {
      */
     private async isOtpTemplateEnabled(waitlistId: string): Promise<boolean> {
         try {
-            const waitlistRef = doc(this.firestore, 'Waitlists', waitlistId);
-            const waitlistSnap = await getDoc(waitlistRef);
+            const waitlistSnap = await runInInjectionContext(this.injector, () => {
+                const waitlistRef = doc(this.firestore, 'Waitlists', waitlistId);
+                return getDoc(waitlistRef);
+            });
             if (waitlistSnap.exists()) {
                 // otpEnabled defaults to true when not explicitly set
                 return waitlistSnap.data()?.['otpEnabled'] !== false;
@@ -86,8 +89,10 @@ export class WaitlistFormService {
         if (!isPlatformBrowser(this.platformId)) return DEFAULT_INTEGRATIONS_SETTINGS.geo;
 
         try {
-            const docRef = doc(this.firestore, 'Settings', 'integrations');
-            const docSnap = await getDoc(docRef);
+            const docSnap = await runInInjectionContext(this.injector, () => {
+                const docRef = doc(this.firestore, 'Settings', 'integrations');
+                return getDoc(docRef);
+            });
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 return { ...DEFAULT_INTEGRATIONS_SETTINGS.geo, ...data?.['geo'] };
@@ -151,8 +156,10 @@ export class WaitlistFormService {
                     let count = countCache.get(waitlistId);
 
                     if (count === undefined) {
-                        const usersRef = collection(this.firestore, 'Waitlists', waitlistId, 'users');
-                        const snapshot = await getCountFromServer(usersRef);
+                        const snapshot = await runInInjectionContext(this.injector, () => {
+                            const usersRef = collection(this.firestore, 'Waitlists', waitlistId, 'users');
+                            return getCountFromServer(usersRef);
+                        });
                         count = snapshot.data().count;
                         countCache.set(waitlistId, count);
                     }

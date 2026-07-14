@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, OnInit, Injector, inject, runInInjectionContext, signal, computed, HostListener } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Firestore, collection, getDocs, orderBy, query } from '@angular/fire/firestore';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
@@ -36,6 +36,7 @@ export default class SubscribersComponent implements OnInit {
     private router = inject(Router);
     private firestore = inject(Firestore);
     private waitlistAdminStore = inject(WaitlistAdminStore);
+    private injector = inject(Injector);
 
     loading = signal(false);
     rawSubscribers = signal<Subscriber[]>([]);
@@ -134,9 +135,9 @@ export default class SubscribersComponent implements OnInit {
     private async loadSubscribers(): Promise<void> {
         this.loading.set(true);
         try {
-            const usersRef = collection(this.firestore, 'WaitlistedUsers');
-            const q = query(usersRef, orderBy('signupTimestamp', 'desc'));
-            const snapshot = await getDocs(q);
+            const usersRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'WaitlistedUsers'));
+            const q = runInInjectionContext(this.injector, () => query(usersRef, orderBy('signupTimestamp', 'desc')));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
             const list: Subscriber[] = [];
             snapshot.forEach((d) => {
                 const data = d.data();

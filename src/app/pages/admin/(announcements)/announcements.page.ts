@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, Injector, OnInit, runInInjectionContext, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
@@ -37,6 +37,7 @@ export default class AnnouncementsPageComponent implements OnInit {
     private firestore = inject(Firestore);
     private functions = inject(Functions);
     private toast = inject(ToastService);
+    private injector = inject(Injector);
 
     // Composer
     title = ''; body = ''; link = '';
@@ -63,14 +64,14 @@ export default class AnnouncementsPageComponent implements OnInit {
     }
 
     private async loadConfig(): Promise<void> {
-        const typesSnap = await getDoc(doc(this.firestore, 'Settings', 'notification_types'));
+        const typesSnap = await runInInjectionContext(this.injector, () => getDoc(doc(this.firestore, 'Settings', 'notification_types')));
         this.rawTypes = (typesSnap.data()?.['types'] as Record<string, any>) || {};
         this.types.set(Object.entries(this.rawTypes).map(([key, c]) => ({
             key, label: c.label || key, enabled: c.enabled !== false,
             email: c.defaultChannels?.email !== false, userConfigurable: !!c.userConfigurable,
         })));
 
-        const mapSnap = await getDoc(doc(this.firestore, 'Settings', 'event_mappings'));
+        const mapSnap = await runInInjectionContext(this.injector, () => getDoc(doc(this.firestore, 'Settings', 'event_mappings')));
         this.rawMappings = (mapSnap.data()?.['mappings'] as Record<string, any>) || {};
         this.mappings.set(Object.entries(this.rawMappings).map(([key, m]) => ({ key, enabled: !!m.enabled })));
     }

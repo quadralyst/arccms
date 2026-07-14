@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, Injector, runInInjectionContext } from '@angular/core';
 import { Firestore, collection, getDocs, query, where, writeBatch, doc } from '@angular/fire/firestore';
 import { ContentTypesStore } from '../content-types/content-types.store';
 import { ContentTypeField } from '../content-types/content-types.model';
@@ -7,6 +7,7 @@ import { ContentTypeField } from '../content-types/content-types.model';
 export class CollectionRefSyncService {
     private db = inject(Firestore);
     private contentTypesStore = inject(ContentTypesStore);
+    private injector = inject(Injector);
 
     // Guard against circular sync loops
     private activeSyncs = new Set<string>();
@@ -135,16 +136,15 @@ export class CollectionRefSyncService {
         sourceDocId: string,
         fullRefData: Record<string, any>
     ): Promise<void> {
-        const collectionRef = collection(this.db, collectionName);
+        const q = runInInjectionContext(this.injector, () => {
+            const collectionRef = collection(this.db, collectionName);
+            if (field.type === 'checkbox') {
+                return query(collectionRef, where(`customFields.${field.key}`, 'array-contains', sourceDocId));
+            }
+            return query(collectionRef, where(`customFields.${field.key}`, '==', sourceDocId));
+        });
 
-        let q;
-        if (field.type === 'checkbox') {
-            q = query(collectionRef, where(`customFields.${field.key}`, 'array-contains', sourceDocId));
-        } else {
-            q = query(collectionRef, where(`customFields.${field.key}`, '==', sourceDocId));
-        }
-
-        const snapshot = await getDocs(q);
+        const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
         if (snapshot.empty) {
             return;
         }
@@ -153,10 +153,10 @@ export class CollectionRefSyncService {
         const docs = snapshot.docs;
         for (let i = 0; i < docs.length; i += 400) {
             const chunk = docs.slice(i, i + 400);
-            const batch = writeBatch(this.db);
+            const batch = runInInjectionContext(this.injector, () => writeBatch(this.db));
 
             chunk.forEach(docSnap => {
-                const docRef = doc(this.db, collectionName, docSnap.id);
+                const docRef = runInInjectionContext(this.injector, () => doc(this.db, collectionName, docSnap.id));
                 const existingData = docSnap.data();
                 const refKey = `_ref_${field.key}`;
 

@@ -8,7 +8,7 @@
  * - Handle localStorage for referral tracking
  */
 
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { addDoc, arrayUnion, collection, doc, Firestore, getCountFromServer, getDoc, getDocs, increment, limit, orderBy, query, setDoc, updateDoc, where } from '@angular/fire/firestore';
 import { getWaitlistUserTagsCollectionName } from '../admin/(waitlists)/joined-users/waitlist-user-tags.model';
 import { Functions, httpsCallable } from '@angular/fire/functions';
@@ -32,6 +32,7 @@ export class WaitlistService {
     private firestore = inject(Firestore);
     private functions = inject(Functions);
     private route = inject(ActivatedRoute);
+    private injector = inject(Injector);
 
     private debounceTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly DEBOUNCE_DELAY = 500;
@@ -40,8 +41,10 @@ export class WaitlistService {
      * Get waitlist by ID
      */
     async getWaitlist(waitlistId: string): Promise<IWaitlist | null> {
-        const waitlistDocRef = doc(this.firestore, 'Waitlists', waitlistId);
-        const waitlistDoc = await getDoc(waitlistDocRef);
+        const waitlistDoc = await runInInjectionContext(this.injector, () => {
+            const waitlistDocRef = doc(this.firestore, 'Waitlists', waitlistId);
+            return getDoc(waitlistDocRef);
+        });
         return waitlistDoc.exists() ? { id: waitlistDoc.id, ...waitlistDoc.data() } as IWaitlist : null;
     }
 
@@ -63,9 +66,11 @@ export class WaitlistService {
      * Get waitlist by Slug
      */
     async getWaitlistBySlug(slug: string): Promise<IWaitlist | null> {
-        const waitlistsCollectionRef = collection(this.firestore, 'Waitlists');
-        const q = query(waitlistsCollectionRef, where('slug', '==', slug));
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await runInInjectionContext(this.injector, () => {
+            const waitlistsCollectionRef = collection(this.firestore, 'Waitlists');
+            const q = query(waitlistsCollectionRef, where('slug', '==', slug));
+            return getDocs(q);
+        });
 
         if (!querySnapshot.empty) {
             const docSnap = querySnapshot.docs[0];

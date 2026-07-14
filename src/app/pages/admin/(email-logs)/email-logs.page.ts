@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, Injector, OnDestroy, OnInit, runInInjectionContext, signal, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -65,6 +65,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
     private firestore = inject(Firestore);
     private route = inject(ActivatedRoute);
     private router = inject(Router);
+    private injector = inject(Injector);
     dialog = inject(MatDialog);
     sanitizer = inject(DomSanitizer);
     toastService = inject(ToastService);
@@ -107,7 +108,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
 
     /** Load retention days from Settings/email.autoPurge (Fix 9) */
     private loadRetentionDays(): void {
-        getDoc(doc(this.firestore, 'Settings', 'email')).then((snap) => {
+        runInInjectionContext(this.injector, () => getDoc(doc(this.firestore, 'Settings', 'email'))).then((snap) => {
             const data = snap.data() as Record<string, any> | undefined;
             if (data?.['autoPurge']?.retentionDays) {
                 this.retentionDays.set(data['autoPurge'].retentionDays);
@@ -123,12 +124,14 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
 
     /** Subscribe to active broadcasts for progress banner */
     private subscribeToActiveBroadcasts(): void {
-        const broadcastsRef = collection(this.firestore, 'BroadcastEmails');
-        const q = query(
-            broadcastsRef,
-            where('status', 'in', ['queued', 'processing', 'paused']),
-        );
-        this.broadcastSub = collectionData(q, { idField: 'id' }).subscribe({
+        const q = runInInjectionContext(this.injector, () => {
+            const broadcastsRef = collection(this.firestore, 'BroadcastEmails');
+            return query(
+                broadcastsRef,
+                where('status', 'in', ['queued', 'processing', 'paused']),
+            );
+        });
+        this.broadcastSub = runInInjectionContext(this.injector, () => collectionData(q, { idField: 'id' })).subscribe({
             next: (docs) => {
                 const typedDocs = docs as Record<string, any>[];
                 this.activeBroadcasts.set(

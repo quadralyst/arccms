@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, runInInjectionContext } from '@angular/core';
 import { CollectionReference, collection, getDocs, query, where, limit, doc, writeBatch, orderBy } from '@angular/fire/firestore';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IDraftContents, INextContentReference } from './draft-contents.model';
@@ -14,7 +14,7 @@ export class DraftContentsService extends DbService<IDraftContents> {
 
     override getCollectionRef(collectionSuffix?: string): CollectionReference<IDraftContents> {
         if (collectionSuffix) {
-            return collection(this.firestore, `arc_${collectionSuffix}_drafts`) as CollectionReference<IDraftContents>;
+            return runInInjectionContext(this.injector, () => collection(this.firestore, `arc_${collectionSuffix}_drafts`)) as CollectionReference<IDraftContents>;
         }
         return super.getCollectionRef();
     }
@@ -28,8 +28,8 @@ export class DraftContentsService extends DbService<IDraftContents> {
     async checkExistingSlugUrl(slug: string, contentType: string): Promise<{ exists: boolean; slug: string }> {
         try {
             const collectionRef = this.getCollectionRef(contentType);
-            const q = query(collectionRef, where('urlSlug', '==', slug), limit(1));
-            const querySnapshot = await getDocs(q);
+            const q = runInInjectionContext(this.injector, () => query(collectionRef, where('urlSlug', '==', slug), limit(1)));
+            const querySnapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             return {
                 exists: !querySnapshot.empty,
@@ -50,8 +50,8 @@ export class DraftContentsService extends DbService<IDraftContents> {
     async getBySlug(slug: string, contentType: string): Promise<IDraftContents | null> {
         try {
             const collectionRef = this.getCollectionRef(contentType);
-            const q = query(collectionRef, where('urlSlug', '==', slug), limit(1));
-            const querySnapshot = await getDocs(q);
+            const q = runInInjectionContext(this.injector, () => query(collectionRef, where('urlSlug', '==', slug), limit(1)));
+            const querySnapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             if (querySnapshot.empty) {
                 return null;
@@ -75,11 +75,11 @@ export class DraftContentsService extends DbService<IDraftContents> {
         try {
             // Now we just query the specific collection for that type
             const collectionRef = this.getCollectionRef(contentType);
-            const q = query(
+            const q = runInInjectionContext(this.injector, () => query(
                 collectionRef,
                 orderBy('title', 'asc')
-            );
-            const querySnapshot = await getDocs(q);
+            ));
+            const querySnapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             const contents: IDraftContents[] = [];
             querySnapshot.forEach((docSnap) => {
@@ -113,8 +113,8 @@ export class DraftContentsService extends DbService<IDraftContents> {
             // For now, assume nextContent links are within the same content type collection
             const collectionRef = this.getCollectionRef(contentType);
             // Query for all documents that have this content as their nextContent
-            const q = query(collectionRef, where('nextContent.id', '==', contentId));
-            const querySnapshot = await getDocs(q);
+            const q = runInInjectionContext(this.injector, () => query(collectionRef, where('nextContent.id', '==', contentId)));
+            const querySnapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             if (querySnapshot.empty) {
                 return;
@@ -125,10 +125,10 @@ export class DraftContentsService extends DbService<IDraftContents> {
             const docs = querySnapshot.docs;
             for (let i = 0; i < docs.length; i += MAX_BATCH_OPS) {
                 const chunk = docs.slice(i, i + MAX_BATCH_OPS);
-                const batch = writeBatch(this.firestore);
+                const batch = runInInjectionContext(this.injector, () => writeBatch(this.firestore));
 
                 for (const docSnap of chunk) {
-                    const docRef = doc(collectionRef, docSnap.id);
+                    const docRef = runInInjectionContext(this.injector, () => doc(collectionRef, docSnap.id));
                     const updatedNextContent: INextContentReference = {
                         id: contentId,
                         title: updatedData.title,

@@ -9,7 +9,7 @@
  */
 
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChanges, inject, signal, computed } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChanges, Injector, inject, runInInjectionContext, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Firestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, orderBy, query, Timestamp, where } from '@angular/fire/firestore';
 import { MatIconModule } from '@angular/material/icon';
@@ -69,6 +69,7 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
     private firestore = inject(Firestore);
     private tagsStore = inject(WaitlistUserTagsStore);
     public globalService = inject(GlobalService);
+    private injector = inject(Injector);
 
     // User signal for reactive computed properties
     private userSignal = signal<WaitlistUser | null>(null);
@@ -267,9 +268,9 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
         this.isLoadingNotes.set(true);
         try {
             const notesPath = getWaitlistUserNotesPath(this.waitlistId, this.user.id);
-            const notesRef = collection(this.firestore, notesPath);
-            const q = query(notesRef, orderBy('createdAt', 'desc'));
-            const snapshot = await getDocs(q);
+            const notesRef = runInInjectionContext(this.injector, () => collection(this.firestore, notesPath));
+            const q = runInInjectionContext(this.injector, () => query(notesRef, orderBy('createdAt', 'desc')));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             const notesList: IWaitlistUserNote[] = [];
             snapshot.forEach((doc) => {
@@ -463,11 +464,11 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
         this.referredByUser.set(null);
 
         try {
-            const referrerQuery = query(
+            const referrerQuery = runInInjectionContext(this.injector, () => query(
                 collection(this.firestore, 'WaitlistedUsers'),
-                where('referralCode', '==', this.user.referredBy)
-            );
-            const snapshot = await getDocs(referrerQuery);
+                where('referralCode', '==', this.user!.referredBy)
+            ));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(referrerQuery));
 
             if (!snapshot.empty) {
                 const data = snapshot.docs[0].data();
@@ -491,10 +492,10 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
 
         this.isLoadingReferredUsers.set(true);
         try {
-            const referralsRef = collection(
-                this.firestore, 'WaitlistedUsers', this.user.waitlistedUserId, 'referrals'
-            );
-            const snapshot = await getDocs(referralsRef);
+            const referralsRef = runInInjectionContext(this.injector, () => collection(
+                this.firestore, 'WaitlistedUsers', this.user!.waitlistedUserId!, 'referrals'
+            ));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(referralsRef));
 
             const records: ReferralRecord[] = snapshot.docs.map((docSnap) => {
                 const data = docSnap.data();

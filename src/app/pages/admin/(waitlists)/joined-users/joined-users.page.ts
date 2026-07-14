@@ -8,7 +8,7 @@
 
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal, computed, ViewChild } from '@angular/core';
+import { Component, OnInit, Injector, inject, runInInjectionContext, signal, computed, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Firestore, arrayRemove, collection, getDocs, orderBy, query, doc, getDoc, writeBatch, increment, where } from '@angular/fire/firestore';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
@@ -69,6 +69,7 @@ export default class JoinedUsersComponent implements OnInit {
     private router = inject(Router);
     private firestore = inject(Firestore);
     private tagsStore = inject(WaitlistUserTagsStore);
+    private injector = inject(Injector);
 
     waitlistId = signal<string>('');
     waitlistName = signal<string>('');
@@ -181,8 +182,8 @@ export default class JoinedUsersComponent implements OnInit {
 
     async loadWaitlistInfo(waitlistId: string): Promise<void> {
         try {
-            const waitlistRef = doc(this.firestore, 'Waitlists', waitlistId);
-            const waitlistSnap = await getDoc(waitlistRef);
+            const waitlistRef = runInInjectionContext(this.injector, () => doc(this.firestore, 'Waitlists', waitlistId));
+            const waitlistSnap = await runInInjectionContext(this.injector, () => getDoc(waitlistRef));
             if (waitlistSnap.exists()) {
                 const data = waitlistSnap.data();
                 this.waitlistName.set(data['name'] || '');
@@ -195,9 +196,9 @@ export default class JoinedUsersComponent implements OnInit {
     async loadUsers(waitlistId: string): Promise<void> {
         this.loading.set(true);
         try {
-            const usersRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-            const q = query(usersRef, orderBy('signupTimestamp', 'desc'));
-            const snapshot = await getDocs(q);
+            const usersRef = runInInjectionContext(this.injector, () => collection(this.firestore, `Waitlists/${waitlistId}/users`));
+            const q = runInInjectionContext(this.injector, () => query(usersRef, orderBy('signupTimestamp', 'desc')));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             const usersList: WaitlistUser[] = [];
             snapshot.forEach((doc) => {
@@ -275,24 +276,24 @@ export default class JoinedUsersComponent implements OnInit {
         this.isDeleting.set(true);
         try {
             const waitlistId = this.waitlistId();
-            const batch = writeBatch(this.firestore);
+            const batch = runInInjectionContext(this.injector, () => writeBatch(this.firestore));
 
             // 1. Delete the user from Waitlists/{waitlistId}/users
-            const userRef = doc(this.firestore, `Waitlists/${waitlistId}/users`, user.id);
+            const userRef = runInInjectionContext(this.injector, () => doc(this.firestore, `Waitlists/${waitlistId}/users`, user.id));
             batch.delete(userRef);
 
             // 2. If user was confirmed, decrement totalSignups on the waitlist
             if (user.isConfirmed) {
-                const waitlistRef = doc(this.firestore, 'Waitlists', waitlistId);
+                const waitlistRef = runInInjectionContext(this.injector, () => doc(this.firestore, 'Waitlists', waitlistId));
                 batch.update(waitlistRef, { totalSignups: increment(-1) });
             }
 
             // 3. If user was referred by someone, decrement referrer's counts
             if (user.referredBy) {
                 // Find the referrer by their referral code in WaitlistedUsers
-                const waitlistedUsersRef = collection(this.firestore, 'WaitlistedUsers');
-                const referrerQuery = query(waitlistedUsersRef, where('referralCode', '==', user.referredBy));
-                const referrerSnapshot = await getDocs(referrerQuery);
+                const waitlistedUsersRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'WaitlistedUsers'));
+                const referrerQuery = runInInjectionContext(this.injector, () => query(waitlistedUsersRef, where('referralCode', '==', user.referredBy)));
+                const referrerSnapshot = await runInInjectionContext(this.injector, () => getDocs(referrerQuery));
 
                 if (!referrerSnapshot.empty) {
                     const referrerDoc = referrerSnapshot.docs[0];
@@ -302,27 +303,27 @@ export default class JoinedUsersComponent implements OnInit {
                     batch.update(referrerDoc.ref, { totalReferrals: increment(-1) });
 
                     // Decrement referrer's totalReferrals in Waitlists/{waitlistId}/users
-                    const referrerWaitlistQuery = query(
+                    const referrerWaitlistQuery = runInInjectionContext(this.injector, () => query(
                         collection(this.firestore, `Waitlists/${waitlistId}/users`),
                         where('waitlistedUserId', '==', referrerId)
-                    );
-                    const referrerWaitlistSnapshot = await getDocs(referrerWaitlistQuery);
+                    ));
+                    const referrerWaitlistSnapshot = await runInInjectionContext(this.injector, () => getDocs(referrerWaitlistQuery));
                     if (!referrerWaitlistSnapshot.empty) {
                         batch.update(referrerWaitlistSnapshot.docs[0].ref, { totalReferrals: increment(-1) });
                     }
 
                     // Delete the referral doc in WaitlistedUsers/{referrerId}/referrals/
-                    const referralsRef = collection(this.firestore, `WaitlistedUsers/${referrerId}/referrals`);
-                    const referralQuery = query(referralsRef, where('referredUserId', '==', user.waitlistedUserId || user.id));
-                    const referralSnapshot = await getDocs(referralQuery);
+                    const referralsRef = runInInjectionContext(this.injector, () => collection(this.firestore, `WaitlistedUsers/${referrerId}/referrals`));
+                    const referralQuery = runInInjectionContext(this.injector, () => query(referralsRef, where('referredUserId', '==', user.waitlistedUserId || user.id)));
+                    const referralSnapshot = await runInInjectionContext(this.injector, () => getDocs(referralQuery));
                     referralSnapshot.forEach(referralDoc => batch.delete(referralDoc.ref));
                 }
             }
 
             // 4. If user exists in WaitlistedUsers, remove this waitlist from their list
             if (user.waitlistedUserId) {
-                const globalUserRef = doc(this.firestore, 'WaitlistedUsers', user.waitlistedUserId);
-                const globalUserSnap = await getDoc(globalUserRef);
+                const globalUserRef = runInInjectionContext(this.injector, () => doc(this.firestore, 'WaitlistedUsers', user.waitlistedUserId!));
+                const globalUserSnap = await runInInjectionContext(this.injector, () => getDoc(globalUserRef));
                 if (globalUserSnap.exists()) {
                     const globalData = globalUserSnap.data();
                     const waitlistIds = (globalData['waitlistIds'] as string[]) || [globalData['waitlistId']];

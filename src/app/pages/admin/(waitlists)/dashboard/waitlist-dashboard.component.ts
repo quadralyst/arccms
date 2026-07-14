@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, Injector, inject, runInInjectionContext, signal, computed } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Firestore, collection, getDocs, orderBy, query, doc, getDoc, getCountFromServer, updateDoc } from '@angular/fire/firestore';
 import { WaitlistEditDrawerComponent, WaitlistEditInput, WaitlistFormData } from '../edit-drawer/waitlist-edit-drawer.component';
@@ -46,6 +46,7 @@ interface WaitlistInfo {
 export default class WaitlistDashboardComponent implements OnInit {
     private route = inject(ActivatedRoute);
     private firestore = inject(Firestore);
+    private injector = inject(Injector);
 
     waitlistId = signal('');
     waitlist = signal<WaitlistInfo | null>(null);
@@ -162,8 +163,8 @@ export default class WaitlistDashboardComponent implements OnInit {
 
     private async loadWaitlistInfo(waitlistId: string): Promise<void> {
         try {
-            const waitlistRef = doc(this.firestore, 'Waitlists', waitlistId);
-            const snap = await getDoc(waitlistRef);
+            const waitlistRef = runInInjectionContext(this.injector, () => doc(this.firestore, 'Waitlists', waitlistId));
+            const snap = await runInInjectionContext(this.injector, () => getDoc(waitlistRef));
             if (snap.exists()) {
                 const data = snap.data();
                 this.waitlist.set({
@@ -186,12 +187,12 @@ export default class WaitlistDashboardComponent implements OnInit {
     private async loadUsers(waitlistId: string): Promise<void> {
         this.loading.set(true);
         try {
-            const usersRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-            const countSnap = await getCountFromServer(usersRef);
+            const usersRef = runInInjectionContext(this.injector, () => collection(this.firestore, `Waitlists/${waitlistId}/users`));
+            const countSnap = await runInInjectionContext(this.injector, () => getCountFromServer(usersRef));
             this.totalCount.set(countSnap.data().count);
 
-            const q = query(usersRef, orderBy('signupTimestamp', 'desc'));
-            const snapshot = await getDocs(q);
+            const q = runInInjectionContext(this.injector, () => query(usersRef, orderBy('signupTimestamp', 'desc')));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
             const usersList: WaitlistUser[] = [];
             snapshot.forEach((d) => {
                 usersList.push({ id: d.id, ...d.data() } as WaitlistUser);
