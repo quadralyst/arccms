@@ -57,7 +57,8 @@
                     <div class="settings-grid">
                         <mat-form-field appearance="outline" class="grid-full">
                             <mat-label>Subject</mat-label>
-                            <input matInput [(ngModel)]="subject" placeholder="Your subject line" />
+                            <input matInput [(ngModel)]="subject" placeholder="Your subject line"
+                                [arcHashtagAutocomplete]="broadcastTags" />
                         </mat-form-field>
 
                         <div class="grid-full field-label">Audience</div>
@@ -117,7 +118,7 @@
                         [design]="starterDesign"
                         [brandKit]="brandKit()"
                         category="marketing"
-                        [placeholders]="['##NAME##','##EMAIL##','##UNSUBSCRIBE_LINK##','##PREFERENCES_LINK##']"
+                        [placeholders]="broadcastTags"
                         (saved)="onContentSaved($event)"
                         (testSend)="onTestSend($event)">
                     </arc-email-block-editor>

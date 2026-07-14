@@ -109,12 +109,6 @@ export default class NavbarComponent extends BaseComponent {
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
-            icon: 'fa-solid fa-envelope-open-text',
-            label: 'Email Logs',
-            route: '/admin/email-logs',
-            allowRoles: [this.constantVariables.ADMIN],
-        },
-        {
             icon: 'fa-solid fa-address-book',
             label: 'Audience',
             allowRoles: [this.constantVariables.ADMIN],
@@ -133,6 +127,7 @@ export default class NavbarComponent extends BaseComponent {
                 { label: 'Broadcasts', route: '/admin/email/broadcasts', icon: 'fa-solid fa-tower-broadcast' },
                 { label: 'Drip Campaigns', route: '/admin/email/drip-campaigns', icon: 'fa-solid fa-droplet' },
                 { label: 'Announcements', route: '/admin/email/announcements', icon: 'fa-solid fa-bullhorn' },
+                { label: 'Email Logs', route: '/admin/email-logs', icon: 'fa-solid fa-envelope-open-text' },
             ],
         },
         {

@@ -40,7 +40,8 @@
         </div>
         } @else {
         <div class="visual-editor">
-            <app-tiptap-editor [productValue]="htmlContent" (textEditorContent)="onEditorChanges($event)">
+            <app-tiptap-editor [productValue]="htmlContent" [tags]="placeholders"
+                (textEditorContent)="onEditorChanges($event)">
             </app-tiptap-editor>
         </div>
         }

@@ -26,6 +26,8 @@ import { EmailBlockEditorComponent, BlockEditorSaveEvent } from '../../../../sha
 import { TestSendDialogComponent } from '../../../../shared/components/test-send-dialog/test-send-dialog.component';
 import { IEmailBrandKit, DEFAULT_BRAND_KIT, EmailDesign } from '../../../../shared/email-compiler/email-design.model';
 import { Functions, httpsCallable } from '@angular/fire/functions';
+import { HashtagAutocompleteDirective } from '../../../../shared/directives/hashtag-autocomplete/hashtag-autocomplete.directive';
+import { EMAIL_TAG } from '../../../../shared/constants/email-tags';
 
 export const routeMeta: RouteMeta = {
     title: 'Broadcasts | Arc CMS',
@@ -39,6 +41,7 @@ export const routeMeta: RouteMeta = {
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule,
         MatFormFieldModule, MatSelectModule, MatSlideToggleModule, MatDialogModule,
         GlobalTableComponent, EmailBlockEditorComponent, PageHeaderComponent,
+        HashtagAutocompleteDirective,
     ],
     templateUrl: './broadcasts.page.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -60,6 +63,9 @@ export default class BroadcastsPageComponent implements OnInit {
     recent = signal<BroadcastRow[]>([]);
     loading = signal(true);
     brandKit = signal<IEmailBrandKit>({ ...DEFAULT_BRAND_KIT });
+
+    /** Merge tags offered by the `#` autocomplete in the subject + block body. */
+    broadcastTags = [EMAIL_TAG.NAME, EMAIL_TAG.EMAIL, EMAIL_TAG.UNSUBSCRIBE_LINK, EMAIL_TAG.PREFERENCES_LINK];
 
     // Composer state
     subject = '';

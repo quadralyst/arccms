@@ -29,6 +29,8 @@ import { ToastService } from '../../../../../shared/services/toast.service';
 import { TestEmailComponent } from '../../../../../shared/components/test-email/test-email.component';
 import { roleGuard } from '../../../../guards/role.guard';
 import { EmailSettingService } from '../../(settings)/email-setting/email-setting.service';
+import { HashtagAutocompleteDirective } from '../../../../../shared/directives/hashtag-autocomplete/hashtag-autocomplete.directive';
+import { getEmailTags } from '../../../../../shared/constants/email-tags';
 
 export const routeMeta: RouteMeta = {
     title: 'Email Templates | Arc CMS',
@@ -43,7 +45,7 @@ type TemplateType = 'waitlist_verify_otp_email' | 'waitlist_welcome_email' | 'wa
     templateUrl: './templates.page.html',
     styleUrls: ['./templates.page.scss'],
     standalone: true,
-    imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, MatDialogModule, EmailTemplateEditorComponent, MatChipsModule, BroadcastEmailEditorComponent, PageHeaderComponent],
+    imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, MatDialogModule, EmailTemplateEditorComponent, MatChipsModule, BroadcastEmailEditorComponent, PageHeaderComponent, HashtagAutocompleteDirective],
 })
 export default class TemplatesComponent implements OnInit {
     private readonly route = inject(ActivatedRoute);
@@ -327,19 +329,7 @@ export default class TemplatesComponent implements OnInit {
     }
 
     getPlaceholders(): string[] {
-        const type = this.activeTab();
-        const common = ['##NAME##', '##EMAIL##'];
-
-        switch (type) {
-            case 'waitlist_verify_otp_email':
-                return [...common, '##OTP##'];
-            case 'waitlist_welcome_email':
-                return [...common, '##POSITION##', '##REFERRAL_CODE##', '##REFERRAL_LINK##'];
-            case 'waitlist_broadcast_email':
-                return [...common, '##SUBJECT##', '##CONTENT##', '##UNSUBSCRIBE_LINK##'];
-            default:
-                return common;
-        }
+        return getEmailTags(this.activeTab());
     }
 
     // Broadcast specific methods

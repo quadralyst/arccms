@@ -49,6 +49,7 @@ import { SlashCommands } from './service/slash-commands';
 import { UrlAddDialog } from './service/url-add-dialog/add-url.component';
 import { YouTubeExt } from './service/youtube-extension';
 import MediaManagerComponent from '../../../app/pages/admin/(media)/media.page';
+import { filterEmailTags, insertTagMention } from '../../constants/email-tags';
 
 declare global {
   interface Window {
@@ -141,6 +142,8 @@ export default class TiptapEditorComponent {
   @Input() indexEditor: any;
   @Input() parentEvent: string = '';
   @Input() productValue: any;
+  /** Available merge tags for the `#` autocomplete (`['##NAME##', ...]`). */
+  @Input() tags: string[] = [];
   editorContentValue: any = '';
 
   editorDefaultValue = ``;
@@ -349,31 +352,24 @@ export default class TiptapEditorComponent {
         Mention.configure({
           HTMLAttributes: { class: 'mention' },
           suggestion: {
-            items: ({ query }: any) => {
-              return [
-                'Lea Thompson',
-                'Cyndi Lauper',
-                'Tom Cruise',
-                'Madonna',
-                'Jerry Hall',
-                'Joan Collins',
-                'Winona Ryder',
-                'Christina Applegate',
-                'Alyssa Milano',
-                'Molly Ringwald',
-                'Ally Sheedy',
-                'Debbie Harry',
-                'Olivia Newton-John',
-              ]
-                .filter((item) => item.toLowerCase().startsWith(query.toLowerCase()))
-                .slice(0, 8);
-            },
+            // Trigger on '#' anywhere (mid-word included) and offer the merge tags.
+            char: '#',
+            allowedPrefixes: null,
+            items: ({ query }: any) => filterEmailTags(this.tags ?? [], query),
+            // Insert the plain `##TAG##` text (not a mention node) so the
+            // server-side resolver still sees the token. Trailing space keeps
+            // the inserted `##` from re-triggering the suggestion.
+            command: ({ editor, range, props }: any) => insertTagMention(editor, range, props?.id ?? ''),
             render: () => {
               let renderer: AngularRenderer<MenitonsList, MenitonsList>;
               let popup: Instance<Props>;
+              // Track the latest items so keyboard/visibility only engage when
+              // there are tags to show (non-email editors pass no tags).
+              let currentItems: string[] = [];
 
               return {
                 onStart: (props: any) => {
+                  currentItems = props.items ?? [];
                   renderer = new AngularRenderer(MenitonsList, this.injector, {
                     props,
                   });
@@ -383,24 +379,38 @@ export default class TiptapEditorComponent {
                     getReferenceClientRect: props.clientRect as () => ClientRect | DOMRect,
                     appendTo: () => document.body,
                     content: renderer.dom,
-                    showOnCreate: true,
+                    showOnCreate: currentItems.length > 0,
                     interactive: true,
                     trigger: 'manual',
                     placement: 'bottom-start',
                   });
                 },
                 onUpdate(props: any) {
+                  currentItems = props.items ?? [];
                   renderer.updateProps({ props });
                   popup.setProps({
                     getReferenceClientRect: props.clientRect as () => ClientRect | DOMRect,
                   });
+                  if (currentItems.length > 0) {
+                    popup.show();
+                  } else {
+                    popup.hide();
+                  }
                 },
                 onKeyDown(props: any) {
+                  // No tags → let the keystroke fall through to the editor.
+                  if (currentItems.length === 0) {
+                    return false;
+                  }
+                  if (props.event?.key === 'Escape') {
+                    popup.hide();
+                    return true;
+                  }
                   return renderer.instance.onKeyDown(props);
                 },
                 onExit() {
-                  popup.destroy();
-                  renderer.destroy();
+                  popup?.destroy();
+                  renderer?.destroy();
                 },
               };
             },

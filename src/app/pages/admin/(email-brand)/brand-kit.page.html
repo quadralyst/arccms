@@ -43,7 +43,7 @@
             <h3 class="h6 text-uppercase text-muted mb-2 mt-3">Footer</h3>
             <mat-form-field appearance="outline" class="w-100">
                 <mat-label>Footer text (HTML — supports ##UNSUBSCRIBE_LINK##, ##PREFERENCES_LINK##)</mat-label>
-                <textarea matInput rows="3" [ngModel]="kit().footerText" (ngModelChange)="update('footerText', $event)"></textarea>
+                <textarea matInput rows="3" [arcHashtagAutocomplete]="footerTags" [ngModel]="kit().footerText" (ngModelChange)="update('footerText', $event)"></textarea>
             </mat-form-field>
             <mat-form-field appearance="outline" class="w-100">
                 <mat-label>Physical address</mat-label>

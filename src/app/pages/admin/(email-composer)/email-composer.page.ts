@@ -20,6 +20,7 @@ import { dedupeTemplatesByType } from '../../../../shared/utils/template-dedupe'
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { EmailPreviewDialogComponent } from './email-preview-dialog.component';
+import { getComposerTags } from '../../../../shared/constants/email-tags';
 
 export const routeMeta: RouteMeta = {
     title: 'Email Composer | Arc CMS',
@@ -237,11 +238,8 @@ export default class EmailComposerPageComponent implements OnInit {
         }
     }
 
-    /** Placeholder palette per template type — reuse simple common tags. */
+    /** Placeholder palette per template type — sourced from the central registry. */
     placeholdersFor(type?: string): string[] {
-        const common = ['##NAME##', '##EMAIL##', '##COMPANY_NAME##', '##UNSUBSCRIBE_LINK##', '##PREFERENCES_LINK##'];
-        if (type?.includes('otp')) return [...common, '##OTP##'];
-        if (type?.includes('payment')) return [...common, '##PAYMENT_AMOUNT##', '##SUBSCRIPTION_PLAN##', '##RENEWAL_DATE##'];
-        return common;
+        return getComposerTags(type);
     }
 }

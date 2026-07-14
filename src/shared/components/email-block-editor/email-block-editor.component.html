@@ -57,7 +57,7 @@
                 @case ('heading') {
                 <mat-form-field appearance="outline" class="w-100">
                     <mat-label>Heading text</mat-label>
-                    <input matInput [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" />
+                    <input matInput [arcHashtagAutocomplete]="placeholders" [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" />
                 </mat-form-field>
                 <mat-form-field appearance="outline" style="width: 120px;">
                     <mat-label>Level</mat-label>
@@ -71,7 +71,7 @@
                 @case ('paragraph') {
                 <mat-form-field appearance="outline" class="w-100">
                     <mat-label>Paragraph text (basic HTML allowed)</mat-label>
-                    <textarea matInput rows="3" [ngModel]="block.html" (ngModelChange)="patch(i, { html: $event })"></textarea>
+                    <textarea matInput rows="3" [arcHashtagAutocomplete]="placeholders" [ngModel]="block.html" (ngModelChange)="patch(i, { html: $event })"></textarea>
                 </mat-form-field>
                 <button mat-button [matMenuTriggerFor]="tagMenu"><mat-icon>tag</mat-icon> Insert tag</button>
                 <mat-menu #tagMenu>
@@ -97,7 +97,7 @@
                 @case ('button') {
                 <mat-form-field appearance="outline" class="w-100">
                     <mat-label>Button label</mat-label>
-                    <input matInput [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" />
+                    <input matInput [arcHashtagAutocomplete]="placeholders" [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" />
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="w-100">
                     <mat-label>Button URL</mat-label>
@@ -113,7 +113,7 @@
                 @case ('raw') {
                 <mat-form-field appearance="outline" class="w-100">
                     <mat-label>Raw HTML</mat-label>
-                    <textarea matInput class="font-monospace" rows="4" [ngModel]="block.html" (ngModelChange)="patch(i, { html: $event })"></textarea>
+                    <textarea matInput class="font-monospace" rows="4" [arcHashtagAutocomplete]="placeholders" [ngModel]="block.html" (ngModelChange)="patch(i, { html: $event })"></textarea>
                 </mat-form-field>
                 }
                 @case ('social') { <p class="small text-muted mb-0">Uses the social links from your brand kit.</p> }
