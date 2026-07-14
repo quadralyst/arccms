@@ -1,6 +1,13 @@
-<div class="p-4">
-    <h1 class="mb-1">Email Brand Kit</h1>
-    <p class="text-muted mb-4">Set your logo, colors and footer once — every branded email uses them.</p>
+<div class="page-container">
+    <div class="page-header">
+        <div class="header-content">
+            <h1>Email Brand Kit</h1>
+            <p class="subtitle">Set your logo, colors and footer once — every branded email uses them.</p>
+        </div>
+        <button mat-flat-button color="primary" [disabled]="saving()" (click)="save()">
+            <mat-icon>save</mat-icon> Save brand kit
+        </button>
+    </div>
 
     <div class="row">
         <!-- Editor -->
@@ -62,18 +69,12 @@
             </div>
             }
             <button mat-stroked-button (click)="addSocial()"><mat-icon>add</mat-icon> Add social link</button>
-
-            <div class="mt-4">
-                <button mat-flat-button color="primary" [disabled]="saving()" (click)="save()">
-                    <mat-icon>save</mat-icon> Save brand kit
-                </button>
-            </div>
         </div>
 
         <!-- Live preview -->
         <div class="col-lg-7">
             <h3 class="h6 text-uppercase text-muted mb-3">Live preview</h3>
-            <div class="border rounded p-2" style="background:#e9ecef;">
+            <div class="email-preview-canvas">
                 <div [innerHTML]="previewHtml()"></div>
             </div>
             <p class="small text-muted mt-2">Merge tags like <code>##NAME##</code> and the unsubscribe/preferences links resolve when the email is actually sent.</p>

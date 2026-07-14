@@ -30,6 +30,7 @@ interface MappingRow { key: string; enabled: boolean; }
         MatFormFieldModule, MatSelectModule, MatSlideToggleModule, MatTabsModule,
     ],
     templateUrl: './announcements.page.html',
+    styleUrl: './announcements.page.scss',
 })
 export default class AnnouncementsPageComponent implements OnInit {
     private firestore = inject(Firestore);

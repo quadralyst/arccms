@@ -21,6 +21,7 @@ export interface BroadcastRow {
     skippedCount?: number;
     failedCount?: number;
     scheduledAt?: Timestamp;
+    createdAt?: Timestamp;
 }
 
 /** Broadcasts v2 admin data access (Phase 6). */
