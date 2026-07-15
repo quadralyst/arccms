@@ -341,6 +341,24 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Notifications Route (nests under the admin shell for the sidebar;
+  // the same page component also renders standalone at /notifications for
+  // signed-in members, self-wrapping in the user shell there).
+  {
+    path: 'admin/notifications',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/(notifications)/notifications.page').then((m) => m.default),
+      },
+    ],
+  },
+
   // Public Pricing Page (logged-in users purchase from here)
   {
     path: 'pricing',

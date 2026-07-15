@@ -10,6 +10,7 @@ import { INotification } from '../../../shared/services/notification.model';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { AuthState } from '../(auth)/auth.store';
 import { ToastService } from '../../../shared/services/toast.service';
+import { UserShellComponent } from '../user/user-shell.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Notifications | Arc CMS',
@@ -17,14 +18,44 @@ export const routeMeta: RouteMeta = {
 
 interface PrefRow { key: string; label: string; description: string; email: boolean; }
 
+/**
+ * Shared for two routes: /admin/notifications (nested under the admin shell,
+ * which supplies the sidebar) and /notifications (top-level, for signed-in
+ * members — self-wraps in the user shell here since there's no parent route
+ * to supply one).
+ */
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatSlideToggleModule, PageHeaderComponent],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatSlideToggleModule, PageHeaderComponent, UserShellComponent],
     templateUrl: './notifications.page.html',
+    styles: [`
+        /* Mirrors the global .arc-admin .page-container so this page lines up with
+           every other admin page. Repeated here (rather than relying on the global)
+           because the same component also renders in the user shell, outside .arc-admin. */
+        .page-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+        .notif-list { background: #fff; border: 1px solid #e9ecef; border-radius: 8px; overflow: hidden; }
+        .notif-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f3f5;
+        }
+        .notif-row:last-child { border-bottom: none; }
+        .notif-row.unread { background: #f0f7ff; }
+        .notif-main { min-width: 0; }
+        .notif-title { font-weight: 500; color: #1a1a1a; margin-bottom: 2px; }
+        .notif-row.unread .notif-title { font-weight: 600; }
+        .notif-body-text { color: #6c757d; font-size: 14px; line-height: 1.4; }
+        .notif-link { display: inline-block; margin-top: 6px; font-size: 14px; }
+        .notif-empty { text-align: center; color: #868e96; padding: 48px 20px; }
+    `],
 })
 export default class NotificationsPageComponent implements OnInit {
     private service = inject(NotificationService);
-    private authStore = inject(AuthState);
+    protected authStore = inject(AuthState);
     private toast = inject(ToastService);
     private destroyRef = inject(DestroyRef);
 

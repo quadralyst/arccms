@@ -1,0 +1,132 @@
+:host {
+    display: contents;
+}
+
+/* Sizing/position come from the CDK overlay pane; this just fills it.
+   Portal content keeps this component's encapsulation attributes, so these
+   scoped styles still apply even though the DOM lives under document.body. */
+.notif-panel {
+    height: 100%;
+    width: 100%;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+    animation: notif-slide-in 0.2s ease-out;
+}
+
+@keyframes notif-slide-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e9ecef;
+    flex-shrink: 0;
+}
+
+.panel-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-mark-all {
+    border: 1px solid #ced4da;
+    background: #fff;
+    color: #495057;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.btn-mark-all:hover { background: #f1f3f5; border-color: #adb5bd; }
+
+.close-icon-btn {
+    border: none;
+    background: transparent;
+    color: #6c757d;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.close-icon-btn:hover { background: #f1f3f5; color: #1a1a1a; }
+
+.panel-body {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.notif-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    border-bottom: 1px solid #f1f3f5;
+    background: #fff;
+    padding: 14px 20px;
+    cursor: pointer;
+}
+.notif-item:hover { background: #f8f9fa; }
+.notif-item.unread { background: #f0f7ff; }
+.notif-item.unread:hover { background: #e7f1ff; }
+
+.notif-title {
+    font-weight: 500;
+    font-size: 14px;
+    color: #1a1a1a;
+    margin-bottom: 2px;
+}
+.notif-item.unread .notif-title { font-weight: 600; }
+
+.notif-body-text {
+    font-size: 13px;
+    color: #6c757d;
+    line-height: 1.4;
+}
+
+.notif-empty {
+    text-align: center;
+    color: #868e96;
+    padding: 48px 20px;
+}
+
+.panel-footer {
+    flex-shrink: 0;
+    padding: 12px 20px;
+    border-top: 1px solid #e9ecef;
+}
+
+.btn-view-all {
+    width: 100%;
+    border: 1px solid #ced4da;
+    background: #fff;
+    color: #1b98e0;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 6px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.btn-view-all:hover { background: #f0f7ff; border-color: #1b98e0; }
