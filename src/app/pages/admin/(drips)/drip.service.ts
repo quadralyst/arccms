@@ -6,6 +6,7 @@ import {
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Observable, catchError, of } from 'rxjs';
 import { dedupeTemplatesByType } from '../../../../shared/utils/template-dedupe';
+import { buildNewEmailTemplate, NewEmailMeta } from '../../../../shared/email-compiler/new-template';
 
 export interface DripStep { id: string; templateId: string; delayHours: number; }
 
@@ -71,6 +72,23 @@ export class DripService {
             exit: { onListLeave: true, onUnsubscribe: true },
             counts: { enrolled: 0, completed: 0, exited: 0 },
             createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        });
+        return ref.id;
+    }
+
+    /**
+     * Create a new `EmailTemplate` from the drip drawer so an admin can author a
+     * step's email without leaving the campaign. Produces a starter template
+     * (compiled with the default brand kit) whose content can be refined later
+     * in the Email Composer. Returns the new doc id to assign to the step.
+     */
+    async createTemplate(meta: NewEmailMeta): Promise<string> {
+        const payload = buildNewEmailTemplate(meta, Date.now());
+        const ref = await addDoc(collection(this.firestore, 'EmailTemplate'), {
+            ...payload,
+            createdAt: serverTimestamp(),
+            modifiedAt: serverTimestamp(),
+            modifiedBy: 'admin',
         });
         return ref.id;
     }

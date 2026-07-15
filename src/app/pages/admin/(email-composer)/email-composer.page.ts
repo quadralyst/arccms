@@ -1,13 +1,17 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { Component, inject, Injector, OnInit, PLATFORM_ID, runInInjectionContext, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import {
-    Firestore, collection, collectionData, doc, updateDoc, serverTimestamp, query, orderBy,
+    Firestore, collection, collectionData, doc, addDoc, updateDoc, serverTimestamp, query, orderBy,
 } from '@angular/fire/firestore';
 import { catchError, of } from 'rxjs';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { firstValueFrom } from 'rxjs';
 import { roleGuard } from '../../../guards/role.guard';
@@ -16,6 +20,7 @@ import { BrandKitService } from '../(email-brand)/brand-kit.service';
 import { EmailBlockEditorComponent, BlockEditorSaveEvent } from '../../../../shared/components/email-block-editor/email-block-editor.component';
 import { TestSendDialogComponent } from '../../../../shared/components/test-send-dialog/test-send-dialog.component';
 import { EmailDesign, IEmailBrandKit, DEFAULT_BRAND_KIT } from '../../../../shared/email-compiler/email-design.model';
+import { buildNewEmailTemplate } from '../../../../shared/email-compiler/new-template';
 import { dedupeTemplatesByType } from '../../../../shared/utils/template-dedupe';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
@@ -42,7 +47,8 @@ interface TemplateDoc {
 @Component({
     standalone: true,
     imports: [
-        CommonModule, MatButtonModule, MatIconModule,
+        CommonModule, FormsModule, MatButtonModule, MatIconModule,
+        MatFormFieldModule, MatInputModule, MatSelectModule,
         MatDialogModule, EmailBlockEditorComponent,
         GlobalTableComponent, PageHeaderComponent,
     ],
@@ -64,6 +70,12 @@ export default class EmailComposerPageComponent implements OnInit {
     selected = signal<TemplateDoc | null>(null);
     /** True once a legacy (html) template has been upgraded to a starter block design. */
     upgraded = signal(false);
+
+    /** Editable metadata for the selected template (title/subject/category live at the doc level, not in the block design). */
+    titleDraft = signal('');
+    subjectDraft = signal('');
+    categoryDraft = signal<'transactional' | 'marketing'>('transactional');
+    creating = signal(false);
 
     loading = signal(true);
     tableColumns: TableColumn[] = this.buildColumns();
@@ -170,6 +182,49 @@ export default class EmailComposerPageComponent implements OnInit {
         this.upgraded.set(false);
     }
 
+    private syncDrafts(t: TemplateDoc | null): void {
+        this.titleDraft.set(t?.title || '');
+        this.subjectDraft.set(t?.subject || '');
+        this.categoryDraft.set(t?.category || 'transactional');
+    }
+
+    /**
+     * Create a brand-new email template and open it in the block editor.
+     * Writes a starter `EmailTemplate` doc up front (the block editor saves via
+     * `updateDoc`, which needs the doc to already exist) so the new email is
+     * immediately editable here and selectable as a drip step.
+     */
+    async createNew(): Promise<void> {
+        if (this.creating()) return;
+        this.creating.set(true);
+        try {
+            const payload = buildNewEmailTemplate(
+                { title: 'Untitled email', subject: '', category: 'marketing' },
+                Date.now(),
+                this.brandKit(),
+            );
+            const ref = await runInInjectionContext(this.injector, () =>
+                addDoc(collection(this.firestore, 'EmailTemplate'), {
+                    ...payload,
+                    createdAt: serverTimestamp(),
+                    modifiedAt: serverTimestamp(),
+                    modifiedBy: 'admin',
+                }),
+            );
+            const created: TemplateDoc = { id: ref.id, ...payload };
+            this.selectedId.set(ref.id);
+            this.upgraded.set(false);
+            this.selected.set(created);
+            this.syncDrafts(created);
+            this.toast.success('New email created — edit the details and save');
+        } catch (err) {
+            console.error(err);
+            this.toast.error('Failed to create email');
+        } finally {
+            this.creating.set(false);
+        }
+    }
+
     get isBlocks(): boolean {
         const t = this.selected();
         return !!t && (t.editorVersion === 'blocks' || this.upgraded());
@@ -182,7 +237,9 @@ export default class EmailComposerPageComponent implements OnInit {
     onSelect(id: string): void {
         this.selectedId.set(id);
         this.upgraded.set(false);
-        this.selected.set(this.templates().find((t) => t.id === id) || null);
+        const t = this.templates().find((tpl) => tpl.id === id) || null;
+        this.selected.set(t);
+        this.syncDrafts(t);
     }
 
     /** Legacy templates open read-only; upgrading starts a blank block design (no lossy auto-convert). */
@@ -205,15 +262,21 @@ export default class EmailComposerPageComponent implements OnInit {
     async onSaved(e: BlockEditorSaveEvent): Promise<void> {
         const t = this.selected();
         if (!t) return;
+        const title = this.titleDraft().trim() || 'Untitled email';
+        const subject = this.subjectDraft().trim();
+        const category = this.categoryDraft();
         try {
             await updateDoc(doc(this.firestore, 'EmailTemplate', t.id), {
+                title,
+                subject,
+                category,
                 design: e.design as any,
                 template: e.html,
                 editorVersion: 'blocks',
                 modifiedAt: serverTimestamp(),
                 modifiedBy: 'admin',
             });
-            this.selected.set({ ...t, design: e.design, template: e.html, editorVersion: 'blocks' });
+            this.selected.set({ ...t, title, subject, category, design: e.design, template: e.html, editorVersion: 'blocks' });
             this.upgraded.set(false);
             this.toast.success('Template saved (design + compiled HTML)');
         } catch (err) {
@@ -223,7 +286,7 @@ export default class EmailComposerPageComponent implements OnInit {
     }
 
     async onTestSend(e: BlockEditorSaveEvent): Promise<void> {
-        const subject = this.selected()?.subject || 'Test';
+        const subject = this.subjectDraft().trim() || this.selected()?.subject || 'Test';
         const to = await firstValueFrom(
             this.dialog.open(TestSendDialogComponent, { width: '420px', data: { subject } }).afterClosed(),
         );
