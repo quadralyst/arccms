@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, Output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, Output, signal, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,7 +7,12 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { firstValueFrom } from 'rxjs';
 import { ToastService } from '../../../../../shared/services/toast.service';
+import { NewEmailDialogComponent } from '../../../../../shared/components/new-email-dialog/new-email-dialog.component';
+import { NewEmailMeta } from '../../../../../shared/email-compiler/new-template';
 import { DripService, DripCampaign, DripStep, TemplateOption } from '../drip.service';
 import { IList } from '../../(audience)/audience.model';
 
@@ -24,7 +29,8 @@ export type DripDrawerMode = 'add' | 'edit';
     standalone: true,
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule,
-        MatFormFieldModule, MatSelectModule, MatSlideToggleModule,
+        MatFormFieldModule, MatSelectModule, MatSlideToggleModule, MatTooltipModule,
+        MatDialogModule,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -66,6 +72,10 @@ export type DripDrawerMode = 'add' | 'edit';
                         @for (t of templates; track t.id) { <mat-option [value]="t.id">{{ t.label }}</mat-option> }
                     </mat-select>
                 </mat-form-field>
+                <button mat-icon-button color="primary" [disabled]="busy()"
+                    matTooltip="Create a new email for this step" (click)="newEmailForStep(i)">
+                    <mat-icon>note_add</mat-icon>
+                </button>
                 <mat-form-field appearance="outline" style="width: 110px;" class="mb-0">
                     <mat-label>Delay (h)</mat-label>
                     <input matInput type="number" [(ngModel)]="s.delayHours" />
@@ -76,6 +86,11 @@ export type DripDrawerMode = 'add' | 'edit';
             <p class="small text-muted">No steps yet — add the first email below.</p>
             }
             <button mat-stroked-button (click)="addStep()"><mat-icon>add</mat-icon> Add step</button>
+            <p class="small text-muted mt-2 mb-0">
+                Pick an existing template, or use
+                <mat-icon class="align-middle" style="font-size: 1rem; width: 1rem; height: 1rem;">note_add</mat-icon>
+                to create a new email inline (refine its content later in the Email Composer).
+            </p>
         </div>
 
         <div class="panel-actions">
@@ -98,6 +113,7 @@ export class DripDrawerComponent implements OnChanges {
 
     private service = inject(DripService);
     private toast = inject(ToastService);
+    private dialog = inject(MatDialog);
 
     busy = signal(false);
     name = '';
@@ -106,18 +122,50 @@ export class DripDrawerComponent implements OnChanges {
     enrollExisting = false;
     steps = signal<DripStep[]>([]);
 
-    ngOnChanges(): void {
-        const c = this.campaign;
-        this.name = c?.name ?? '';
-        this.listId = c?.listId ?? '';
-        this.listName = this.lists.find((l) => l.id === c?.listId)?.name || c?.listId || '';
-        this.enrollExisting = c?.enrollExistingOnActivate ?? false;
-        // clone steps so edits stay local until save
-        this.steps.set((c?.steps || []).map((s) => ({ ...s })));
+    ngOnChanges(changes: SimpleChanges): void {
+        // Re-seed local form state only when the campaign being edited changes —
+        // NOT on every input change. The realtime `templates` input updates when
+        // an inline "New email" is created, and a blanket reset here would wipe
+        // unsaved step edits (including the freshly created step's template).
+        if (changes['campaign']) {
+            const c = this.campaign;
+            this.name = c?.name ?? '';
+            this.listId = c?.listId ?? '';
+            this.enrollExisting = c?.enrollExistingOnActivate ?? false;
+            // clone steps so edits stay local until save
+            this.steps.set((c?.steps || []).map((s) => ({ ...s })));
+        }
+        if (changes['campaign'] || changes['lists']) {
+            const c = this.campaign;
+            this.listName = this.lists.find((l) => l.id === c?.listId)?.name || c?.listId || '';
+        }
     }
 
     addStep(): void {
         this.steps.update((arr) => [...arr, { id: 'step_' + arr.length + '_' + this.name.length, templateId: '', delayHours: 24 }]);
+    }
+
+    /**
+     * Create a new email inline and link it to the given step, so an admin can
+     * author a step's email without leaving the campaign. The realtime templates
+     * list picks up the new doc; we set the step's templateId to it immediately.
+     */
+    async newEmailForStep(index: number): Promise<void> {
+        const meta = (await firstValueFrom(
+            this.dialog.open(NewEmailDialogComponent, { width: '460px' }).afterClosed(),
+        )) as NewEmailMeta | undefined;
+        if (!meta) return;
+        this.busy.set(true);
+        try {
+            const id = await this.service.createTemplate(meta);
+            this.steps.update((arr) => arr.map((s, i) => (i === index ? { ...s, templateId: id } : s)));
+            this.toast.success('Email created and linked to this step');
+        } catch (e) {
+            console.error(e);
+            this.toast.error('Failed to create email');
+        } finally {
+            this.busy.set(false);
+        }
     }
 
     removeStep(i: number): void {
