@@ -1,41 +1,51 @@
-<div class="container py-4" style="max-width: 760px;">
-    <arc-page-header title="Notifications" [showBell]="false">
-        <button mat-stroked-button (click)="markAllRead()"><mat-icon>done_all</mat-icon> Mark all read</button>
-    </arc-page-header>
+<ng-template #body>
+    <div class="page-container">
+        <arc-page-header title="Notifications" subtitle="Everything that's happened on your account." [showBell]="false">
+            <button mat-stroked-button (click)="markAllRead()"><mat-icon>done_all</mat-icon> Mark all read</button>
+        </arc-page-header>
 
-    <div class="list-group mb-5">
-        @for (n of notifications(); track n.id) {
-        <div class="list-group-item d-flex justify-content-between align-items-start" [class.bg-light]="!n.read">
-            <div>
-                <div [style.font-weight]="n.read ? 'normal' : '600'">{{ n.title }}</div>
-                <div class="text-muted">{{ n.body }}</div>
-                @if (n.link) { <a [href]="n.link" (click)="open(n)">View</a> }
+        <div class="notif-list mb-5">
+            @for (n of notifications(); track n.id) {
+            <div class="notif-row" [class.unread]="!n.read">
+                <div class="notif-main">
+                    <div class="notif-title">{{ n.title }}</div>
+                    <div class="notif-body-text">{{ n.body }}</div>
+                    @if (n.link) { <a class="notif-link" [href]="n.link" (click)="open(n)">View</a> }
+                </div>
+                @if (!n.read) {
+                <button mat-stroked-button class="flex-shrink-0" (click)="open(n)">Mark read</button>
+                }
             </div>
-            @if (!n.read) {
-            <button mat-button (click)="open(n)">Mark read</button>
+            } @empty {
+            <div class="notif-empty">You're all caught up.</div>
             }
         </div>
-        } @empty {
-        <div class="text-center text-muted py-5">You're all caught up.</div>
-        }
-    </div>
 
-    @if (prefs().length) {
-    <h2 class="h5 mb-3">Email preferences</h2>
-    <p class="text-muted">Choose which notifications also reach you by email.</p>
-    <div class="mb-3">
-        @for (p of prefs(); track p.key) {
-        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-            <div>
-                <div class="fw-medium">{{ p.label }}</div>
-                <div class="small text-muted">{{ p.description }}</div>
+        @if (prefs().length) {
+        <h2 class="h5 mb-3">Email preferences</h2>
+        <p class="text-muted">Choose which notifications also reach you by email.</p>
+        <div class="mb-3">
+            @for (p of prefs(); track p.key) {
+            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                <div>
+                    <div class="fw-medium">{{ p.label }}</div>
+                    <div class="small text-muted">{{ p.description }}</div>
+                </div>
+                <mat-slide-toggle [(ngModel)]="p.email" color="primary"></mat-slide-toggle>
             </div>
-            <mat-slide-toggle [(ngModel)]="p.email" color="primary"></mat-slide-toggle>
+            }
         </div>
+        <button mat-flat-button color="primary" [disabled]="savingPrefs()" (click)="savePrefs()">
+            <mat-icon>save</mat-icon> Save preferences
+        </button>
         }
     </div>
-    <button mat-flat-button color="primary" [disabled]="savingPrefs()" (click)="savePrefs()">
-        <mat-icon>save</mat-icon> Save preferences
-    </button>
-    }
-</div>
+</ng-template>
+
+@if (authStore.isAdmin()) {
+    <ng-container [ngTemplateOutlet]="body"></ng-container>
+} @else {
+    <app-user-shell>
+        <ng-container [ngTemplateOutlet]="body"></ng-container>
+    </app-user-shell>
+}

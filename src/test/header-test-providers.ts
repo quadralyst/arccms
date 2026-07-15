@@ -26,6 +26,6 @@ export function headerTestProviders() {
                 markAllRead: () => Promise.resolve(),
             },
         },
-        { provide: AuthState, useValue: { currentUser: () => null } },
+        { provide: AuthState, useValue: { currentUser: () => null, isAdmin: () => false } },
     ];
 }

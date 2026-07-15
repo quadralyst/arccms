@@ -1,31 +1,36 @@
-<button mat-icon-button [matMenuTriggerFor]="menu" [attr.aria-label]="unreadCount() > 0 ? 'Notifications, ' + badgeText() + ' unread' : 'Notifications'">
+<button mat-icon-button (click)="togglePanel()" [attr.aria-label]="unreadCount() > 0 ? 'Notifications, ' + badgeText() + ' unread' : 'Notifications'">
     <mat-icon [matBadge]="badgeText()" [matBadgeHidden]="unreadCount() === 0" matBadgeColor="warn" matBadgeSize="small" aria-hidden="false">
         notifications
     </mat-icon>
 </button>
 
-<mat-menu #menu class="notification-menu">
-    <div style="min-width: 320px; max-width: 380px;" (click)="$event.stopPropagation()">
-        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
-            <strong>Notifications</strong>
-            @if (unreadCount() > 0) {
-            <button mat-button (click)="markAllRead()">Mark all read</button>
+<ng-template #panelTpl>
+    <aside class="notif-panel" role="dialog" aria-modal="true" aria-label="Notifications">
+        <div class="panel-header">
+            <h2>Notifications</h2>
+            <div class="header-actions">
+                @if (unreadCount() > 0) {
+                <button type="button" class="btn-mark-all" (click)="markAllRead()">Mark all read</button>
+                }
+                <button type="button" class="close-icon-btn" (click)="closePanel()" aria-label="Close notifications">
+                    <mat-icon>close</mat-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="panel-body">
+            @for (n of recent(); track n.id) {
+            <button type="button" class="notif-item" [class.unread]="!n.read" (click)="open(n)">
+                <div class="notif-title">{{ n.title }}</div>
+                <div class="notif-body-text">{{ n.body }}</div>
+            </button>
+            } @empty {
+            <div class="notif-empty">You're all caught up.</div>
             }
         </div>
 
-        @for (n of recent(); track n.id) {
-        <button mat-menu-item (click)="open(n)" [style.font-weight]="n.read ? 'normal' : '600'" style="white-space: normal; height: auto; line-height: 1.3; padding-top: 8px; padding-bottom: 8px;">
-            <div>
-                <div>{{ n.title }}</div>
-                <div class="small text-muted">{{ n.body }}</div>
-            </div>
-        </button>
-        } @empty {
-        <div class="px-3 py-4 text-center text-muted">No notifications</div>
-        }
-
-        <div class="border-top text-center py-1">
-            <button mat-button (click)="viewAll()">View all</button>
+        <div class="panel-footer">
+            <button type="button" class="btn-view-all" (click)="viewAll()">View all notifications</button>
         </div>
-    </div>
-</mat-menu>
+    </aside>
+</ng-template>
