@@ -164,7 +164,7 @@ export class UnsubscribeHandlingComponent extends BaseComponent implements OnIni
     error = '';
 
     ngOnInit(): void {
-        this.route.paramMap.subscribe(async (params) => {
+        this.activatedRoute.paramMap.subscribe(async (params) => {
             this.userId = params.get('userId') || '';
             this.waitlistId = params.get('waitlistId') || '';
 
