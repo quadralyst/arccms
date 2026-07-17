@@ -108,6 +108,36 @@ describe('processDripQueue', () => {
     expect(e.ref.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'exited', exitedReason: 'unsubscribed' }));
   });
 
+  it('holds a pending contact instead of exiting — they may still verify (U2)', async () => {
+    // queueEmail reports a pending (unconfirmed) address with skipReason
+    // 'unsubscribed', same as a real opt-out. Treating that as an opt-out would
+    // permanently drop a contact from the campaign at signup, before they ever
+    // had the chance to verify. Hold the step instead, exactly like the
+    // kill-switch path — nothing is lost, and it sends once they verify.
+    mockContactGet.mockResolvedValue({ data: () => ({ email: 'c1@x.com', listIds: ['l1'], consent: { marketing: 'pending' } }) });
+    mockQueueEmail.mockResolvedValue({ id: 'log', status: 'skipped', skipReason: 'unsubscribed' });
+    const e = enrollment({ currentStep: 0 });
+    mockEnrollmentsGet.mockResolvedValue({ docs: [e], size: 1 });
+
+    await handler();
+
+    expect(e.ref.update).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'exited' }));
+    // Held: retried later, step not advanced.
+    expect(e.ref.update).toHaveBeenCalledWith(expect.objectContaining({ nextSendAt: expect.anything() }));
+    expect(e.ref.update).not.toHaveBeenCalledWith(expect.objectContaining({ currentStep: 1 }));
+  });
+
+  it('still exits a genuinely suppressed contact', async () => {
+    mockContactGet.mockResolvedValue({ data: () => ({ email: 'c1@x.com', listIds: ['l1'], consent: { marketing: 'subscribed' } }) });
+    mockQueueEmail.mockResolvedValue({ id: 'log', status: 'skipped', skipReason: 'suppressed' });
+    const e = enrollment();
+    mockEnrollmentsGet.mockResolvedValue({ docs: [e], size: 1 });
+
+    await handler();
+
+    expect(e.ref.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'exited', exitedReason: 'unsubscribed' }));
+  });
+
   it('holds (does not advance) when drips feature is off — step is not lost', async () => {
     mockSettingsGet.mockResolvedValue({ data: () => ({ isEnabled: true, activeProvider: 'smtp', features: { drips: false } }) });
     mockQueueEmail.mockResolvedValue({ id: 'log', status: 'skipped', skipReason: 'feature_disabled' });

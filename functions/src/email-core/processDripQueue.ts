@@ -90,9 +90,22 @@ export const processDripQueue = onSchedule({ schedule: 'every 15 minutes', timeZ
         await doc.ref.update({ currentStep: nextIndex, nextSendAt: Timestamp.fromMillis(Date.now() + delayMs), lastSentAt: now });
         sent++;
       }
-    } else if (result.skipReason === 'unsubscribed' || result.skipReason === 'suppressed') {
+    } else if (result.skipReason === 'suppressed') {
       await exit(doc.ref, campaign.id, 'unsubscribed');
       exited++;
+    } else if (result.skipReason === 'unsubscribed') {
+      // queueEmail reports an unconfirmed (`pending`) address and a real opt-out
+      // with the same skipReason. The genuine opt-out already exited above from
+      // the contact's own consent, so a skip reaching here is a U2 pending
+      // contact: hold the step rather than exiting, or signing up would enroll
+      // them in a list's drip and then drop them before they ever verified.
+      if ((contact['consent'] as { marketing?: string })?.marketing === 'pending') {
+        await hold(doc.ref);
+        held++;
+      } else {
+        await exit(doc.ref, campaign.id, 'unsubscribed');
+        exited++;
+      }
     } else {
       // Kill-switch / feature disabled / template inactive → hold, retry later.
       await hold(doc.ref);
