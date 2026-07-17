@@ -1,4 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { PLATFORM_ID } from '@angular/core';
+
+const { mockOnSnapshot } = vi.hoisted(() => ({ mockOnSnapshot: vi.fn() }));
+
+vi.mock('@angular/fire/firestore', () => ({
+    Firestore: class Firestore { },
+    collection: vi.fn(() => ({})),
+    doc: vi.fn(() => ({})),
+    getDocs: vi.fn(),
+    query: vi.fn(() => ({})),
+    orderBy: vi.fn(() => ({})),
+    limit: vi.fn(() => ({})),
+    onSnapshot: (...args: any[]) => mockOnSnapshot(...args),
+}));
+
+vi.mock('../../../../../shared/services/db.service', () => ({
+    DbService: class MockDbService {
+        constructor(_collectionName: string) { }
+    },
+}));
+
 import { ContentsService } from './published-contents.service';
 
 describe('ContentsService', () => {
@@ -68,6 +90,50 @@ describe('ContentsService', () => {
 
         it('should have delete method', () => {
             expect(service.delete).toBeDefined();
+        });
+    });
+
+    describe('pollDeployStatus during SSR', () => {
+        beforeEach(() => {
+            TestBed.resetTestingModule();
+            mockOnSnapshot.mockClear();
+            mockOnSnapshot.mockReturnValue(vi.fn());
+        });
+
+        function makeService(platform: 'browser' | 'server'): ContentsService {
+            TestBed.configureTestingModule({
+                providers: [
+                    ContentsService,
+                    { provide: PLATFORM_ID, useValue: platform },
+                ],
+            });
+            return TestBed.inject(ContentsService);
+        }
+
+        it('does not register a Firestore listener during SSR', async () => {
+            // Publishing is user-triggered, so this is not reachable on the
+            // server today — but a listener registered there would outlive the
+            // request injector @angular/fire captured, and the next snapshot
+            // would fire its callback against a destroyed injector (NG0205) on
+            // a Firestore timer where nothing catches it.
+            const service = makeService('server');
+
+            await new Promise<void>((resolve, reject) => {
+                service.pollDeployStatus('doc1', 'posts').subscribe({
+                    complete: resolve,
+                    error: reject,
+                });
+            });
+
+            expect(mockOnSnapshot).not.toHaveBeenCalled();
+        });
+
+        it('registers a listener in the browser', () => {
+            const service = makeService('browser');
+
+            service.pollDeployStatus('doc1', 'posts').subscribe();
+
+            expect(mockOnSnapshot).toHaveBeenCalledTimes(1);
         });
     });
 });

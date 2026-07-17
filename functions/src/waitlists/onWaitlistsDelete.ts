@@ -1,6 +1,8 @@
 import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
+import { logger } from 'firebase-functions/v2';
 
 import { db } from '../init.js';
+import { deleteFormList } from '../email-core/contacts.js';
 
 const BATCH_LIMIT = 500;
 
@@ -8,6 +10,15 @@ export const onWaitlistsDelete = onDocumentDeleted('Waitlists/{WaitlistsId}', as
   const docId = event.params.WaitlistsId;
 
   await deleteSubCollections(docId);
+
+  // Drop the mirrored audience list too, or its members keep a listId pointing
+  // at a form that no longer exists (and the list lingers under Audience → Lists).
+  try {
+    const { removed } = await deleteFormList(docId);
+    logger.info(`Removed list for Waitlist ${docId} (detached ${removed} contacts)`);
+  } catch (error) {
+    logger.error(`Failed to remove list for Waitlist ${docId}`, error);
+  }
 });
 
 /**

@@ -5,7 +5,8 @@
  * Uses direct Firestore access for CRUD operations.
  */
 
-import { computed, inject, Injectable, Injector, runInInjectionContext, signal } from '@angular/core';
+import { computed, inject, Injectable, Injector, OnDestroy, PLATFORM_ID, runInInjectionContext, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Firestore, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, orderBy, onSnapshot } from '@angular/fire/firestore';
 import { IWaitlist } from '../../waitlist/waitlist.model';
 
@@ -16,9 +17,10 @@ interface WaitlistAdminState {
 }
 
 @Injectable({ providedIn: 'root' })
-export class WaitlistAdminStore {
+export class WaitlistAdminStore implements OnDestroy {
     private firestore = inject(Firestore);
     private injector = inject(Injector);
+    private platformId = inject(PLATFORM_ID);
     private collectionName = 'Waitlists';
 
     // State signals
@@ -35,9 +37,25 @@ export class WaitlistAdminStore {
     private unsubscribe: (() => void) | null = null;
 
     /**
-     * Subscribe to real-time updates from Firestore
+     * Subscribe to real-time updates from Firestore.
+     *
+     * Never listens during SSR. @angular/fire captures the injector at
+     * `onSnapshot` time and runs the callback inside it; the server tears the
+     * request injector down once the response is rendered, but the listener
+     * outlives it. The next snapshot — e.g. an admin adding or editing a
+     * waitlist — then fires against a destroyed injector, and the resulting
+     * NG0205 surfaces on a Firestore timer where nothing can catch it, killing
+     * the server process. Admin data is behind roleGuard and SSR has no auth
+     * context, so there is nothing to render from it anyway.
      */
     subscribe(): void {
+        if (!isPlatformBrowser(this.platformId)) return;
+
+        // Several surfaces subscribe independently (side-navbar, dashboard,
+        // subscribers). Share the one listener: re-subscribing used to overwrite
+        // `unsubscribe`, orphaning the previous listener for the app's lifetime.
+        if (this.unsubscribe) return;
+
         this._loading.set(true);
 
         this.unsubscribe = runInInjectionContext(this.injector, () => {
@@ -136,5 +154,10 @@ export class WaitlistAdminStore {
             this.unsubscribe();
             this.unsubscribe = null;
         }
+    }
+
+    /** Drop the listener when the injector goes away (app teardown, HMR reload). */
+    ngOnDestroy(): void {
+        this.destroy();
     }
 }

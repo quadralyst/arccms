@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
+import { PLATFORM_ID } from '@angular/core';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { firstValueFrom } from 'rxjs';
 import { UserSettingService } from './user-setting.service';
 import { DEFAULT_USER_SETTINGS } from './user-setting.model';
-import { Firestore } from '@angular/fire/firestore';
+import { Firestore, onSnapshot } from '@angular/fire/firestore';
 
 // Mock Firestore functions
 vi.mock('@angular/fire/firestore', async () => {
@@ -83,6 +84,55 @@ describe('UserSettingService', () => {
         it('should default to user if not set', () => {
             const result = service.getDefaultRole();
             expect(result).toBe('user');
+        });
+    });
+
+    describe('SSR', () => {
+        function makeService(platform: 'browser' | 'server'): UserSettingService {
+            TestBed.resetTestingModule();
+            TestBed.configureTestingModule({
+                providers: [
+                    UserSettingService,
+                    { provide: Firestore, useValue: {} },
+                    { provide: PLATFORM_ID, useValue: platform },
+                ],
+            });
+            return TestBed.inject(UserSettingService);
+        }
+
+        beforeEach(() => {
+            vi.mocked(onSnapshot).mockClear();
+        });
+
+        it('does not register a Firestore listener during SSR', () => {
+            // A listener registered on the server outlives the request injector
+            // it captured; the next settings edit then fires @angular/fire's
+            // callback against a destroyed injector (NG0205) and kills the
+            // process. Both call sites (signup and the settings page) inject
+            // this service in a field initializer, so the constructor runs as
+            // soon as either route is server-rendered.
+            makeService('server');
+
+            expect(onSnapshot).not.toHaveBeenCalled();
+        });
+
+        it('falls back to the default role and signup flag during SSR', () => {
+            const service = makeService('server');
+
+            expect(service.getDefaultRole()).toBe(DEFAULT_USER_SETTINGS.defaultRole || 'user');
+            expect(service.isSignupEnabled()).toBe(DEFAULT_USER_SETTINGS.isSignupEnabled);
+        });
+
+        it('registers a listener in the browser', () => {
+            makeService('browser');
+
+            expect(onSnapshot).toHaveBeenCalledTimes(1);
+        });
+
+        it('ngOnDestroy is safe on the server, where no listener was registered', () => {
+            const service = makeService('server');
+
+            expect(() => service.ngOnDestroy()).not.toThrow();
         });
     });
 });

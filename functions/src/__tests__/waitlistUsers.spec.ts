@@ -307,8 +307,28 @@ describe('Waitlist Create Function', () => {
       );
 
       expect(fileContent).toContain("collection('EmailTemplate')");
-      expect(fileContent).toContain('waitlist_welcome_email');
-      expect(fileContent).toContain('waitlist_verify_otp_email');
+      // The bodies/types live in the shared defaults module (U1) — the trigger
+      // seeds from it rather than carrying its own copy of the HTML.
+      expect(fileContent).toContain('buildWaitlistTemplateDefs');
+
+      const defaults = fs.readFileSync(
+        path.resolve(__dirname, '../email-core/defaultTemplates.ts'),
+        'utf-8'
+      );
+      expect(defaults).toContain('waitlist_welcome_email');
+      expect(defaults).toContain('waitlist_verify_otp_email');
+    });
+
+    it('should create the mirrored audience list eagerly', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const fileContent = fs.readFileSync(
+        path.resolve(__dirname, '../waitlists/onWaitlistsCreate.ts'),
+        'utf-8'
+      );
+
+      // A form must appear under Audience → Lists before its first signup (U1).
+      expect(fileContent).toContain('ensureFormList');
     });
   });
 });

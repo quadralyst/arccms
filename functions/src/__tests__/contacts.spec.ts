@@ -44,9 +44,39 @@ function mergeMock(target: any, patch: any): any {
   return target;
 }
 
+// Enough query surface for the helpers that page over Contacts.
+function makeCollection(col: string) {
+  return {
+    doc: (id: string) => docRef(`${col}/${id}`),
+    where: (field: string, op: string, value: any) => makeQuery(col, [{ field, op, value }]),
+  };
+}
+
+function makeQuery(col: string, filters: any[], max?: number): any {
+  return {
+    where: (field: string, op: string, value: any) => makeQuery(col, [...filters, { field, op, value }], max),
+    limit: (n: number) => makeQuery(col, filters, n),
+    get: async () => {
+      let docs = [...store.entries()]
+        .filter(([path]) => path.startsWith(`${col}/`))
+        .filter(([, data]) => filters.every((f) => matchesFilter(data, f)))
+        .map(([path, data]) => ({ id: path.slice(col.length + 1), data: () => data, ref: docRef(path) }));
+      if (max !== undefined) docs = docs.slice(0, max);
+      return { empty: docs.length === 0, size: docs.length, docs };
+    },
+  };
+}
+
+function matchesFilter(data: any, f: any): boolean {
+  const v = data?.[f.field];
+  if (f.op === 'array-contains') return Array.isArray(v) && v.includes(f.value);
+  if (f.op === '==') return v === f.value;
+  return true;
+}
+
 vi.mock('../init', () => ({
   db: {
-    collection: vi.fn((col: string) => ({ doc: (id: string) => docRef(`${col}/${id}`) })),
+    collection: vi.fn((col: string) => makeCollection(col)),
     runTransaction: (fn: any) => mockRunTransaction(fn),
   },
 }));
@@ -76,6 +106,8 @@ import {
   getContactConsent,
   setContactConsent,
   ensureList,
+  ensureFormList,
+  deleteFormList,
   SYSTEM_LISTS,
   waitlistListId,
 } from '../email-core/contacts.js';
@@ -173,5 +205,69 @@ describe('contacts helpers', () => {
 
   it('waitlistListId is deterministic', () => {
     expect(waitlistListId('abc')).toBe('waitlist-abc');
+  });
+
+  describe('ensureFormList', () => {
+    it('creates the mirrored list with the form back-pointer', async () => {
+      const listId = await ensureFormList('wl-1', 'Beta Waitlist');
+
+      expect(listId).toBe('waitlist-wl-1');
+      expect(store.get('Lists/waitlist-wl-1')).toMatchObject({
+        name: 'Beta Waitlist',
+        formId: 'wl-1',
+        type: 'system',
+        memberCount: 0,
+      });
+    });
+
+    it('repairs a list created by the old lazy path (no formId, placeholder name)', async () => {
+      // What contactSync's ensureList left behind before U1.
+      await ensureList('waitlist-wl-1', { name: 'Waitlist wl-1', type: 'system' });
+      store.set('Lists/waitlist-wl-1', { ...store.get('Lists/waitlist-wl-1'), memberCount: 7 });
+
+      await ensureFormList('wl-1', 'Beta Waitlist');
+
+      const list = store.get('Lists/waitlist-wl-1');
+      expect(list.formId).toBe('wl-1');
+      expect(list.name).toBe('Beta Waitlist');
+      // Repair must never disturb membership counts.
+      expect(list.memberCount).toBe(7);
+    });
+
+    it('is idempotent', async () => {
+      await ensureFormList('wl-1', 'Beta');
+      await ensureFormList('wl-1', 'Beta');
+      expect(store.get('Lists/waitlist-wl-1').memberCount).toBe(0);
+    });
+  });
+
+  describe('deleteFormList', () => {
+    it('detaches every member and deletes the list doc', async () => {
+      await ensureFormList('wl-1', 'Beta');
+      await upsertContact({ email: 'a@x.com', source: 'waitlist', addLists: ['waitlist-wl-1'] });
+      await upsertContact({ email: 'b@x.com', source: 'waitlist', addLists: ['waitlist-wl-1', 'newsletter'] });
+      expect(store.get('Lists/waitlist-wl-1').memberCount).toBe(2);
+
+      const res = await deleteFormList('wl-1');
+
+      expect(res.removed).toBe(2);
+      expect(store.has('Lists/waitlist-wl-1')).toBe(false);
+      // No contact keeps a listId pointing at the deleted form...
+      for (const [path, data] of store.entries()) {
+        if (path.startsWith('Contacts/')) expect(data.listIds).not.toContain('waitlist-wl-1');
+      }
+      // ...but their other memberships survive.
+      const b = store.get(`Contacts/${computeEmailHash('b@x.com')}`);
+      expect(b.listIds).toEqual(['newsletter']);
+    });
+
+    it('handles a form list with no members', async () => {
+      await ensureFormList('wl-1', 'Beta');
+
+      const res = await deleteFormList('wl-1');
+
+      expect(res.removed).toBe(0);
+      expect(store.has('Lists/waitlist-wl-1')).toBe(false);
+    });
   });
 });
