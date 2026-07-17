@@ -14,7 +14,7 @@ import {
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Observable, catchError, of } from 'rxjs';
-import { IContact, IList, ICsvPreview, MarketingConsent } from './audience.model';
+import { IContact, IList, ITag, ICsvPreview, MarketingConsent, tagIdFromLabel } from './audience.model';
 
 /**
  * Admin data access for the unified audience layer (Phase 3).
@@ -89,10 +89,85 @@ export class AudienceService {
         await deleteDoc(doc(this.firestore, 'Lists', id));
     }
 
+    // ── Global contact tags (`ContactTags`) ──
+
+    /** Live list of audience tags. */
+    getTags(): Observable<ITag[]> {
+        if (!isPlatformBrowser(this.platformId)) {
+            return of([]);
+        }
+        const ref = collection(this.firestore, 'ContactTags');
+        return (collectionData(query(ref, orderBy('label')), { idField: 'id' }) as Observable<ITag[]>).pipe(
+            catchError((err) => {
+                console.error('Error fetching tags:', err);
+                return of([]);
+            }),
+        );
+    }
+
+    /**
+     * Create a tag. The doc id is a slug of the label — the same rule the
+     * backend uses — so two admins adding "VIP" get one tag, not two.
+     * Returns null when the label has nothing sluggable (e.g. "!!!").
+     */
+    async createTag(label: string, color: string): Promise<string | null> {
+        const id = tagIdFromLabel(label);
+        if (!id) return null;
+        await setDoc(
+            doc(this.firestore, 'ContactTags', id),
+            {
+                id,
+                label: label.trim(),
+                color,
+                usageCount: 0,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            },
+            // merge so re-adding an existing label edits it rather than
+            // resetting its usageCount to 0.
+            { merge: true },
+        );
+        return id;
+    }
+
+    /** Edit a tag's label/color. The id (slug) stays put so assignments survive. */
+    async updateTag(id: string, patch: { label?: string; color?: string }): Promise<void> {
+        await setDoc(
+            doc(this.firestore, 'ContactTags', id),
+            { ...patch, updatedAt: serverTimestamp() },
+            { merge: true },
+        );
+    }
+
+    async deleteTag(id: string): Promise<void> {
+        await deleteDoc(doc(this.firestore, 'ContactTags', id));
+    }
+
+    /** Replace a contact's tags (Contacts are functions-only writes). */
+    setContactTags(emailHash: string, tagIds: string[]) {
+        return httpsCallable(this.functions, 'adminSetContactTags')({ emailHash, tagIds });
+    }
+
+    /** Lift per-waitlist tags into the global layer (U2 runbook step 5). */
+    migrateTagsToContacts(dryRun = false) {
+        return httpsCallable(this.functions, 'migrateTagsToContacts')({ dryRun });
+    }
+
     // ── Cloud Function mutations ──
 
     backfillContacts() {
         return httpsCallable(this.functions, 'backfillContacts')({});
+    }
+
+    /**
+     * Give historical unverified form signups a `pending` contact (U2 runbook
+     * step 4). Always run after {@link backfillContacts}, which owns the
+     * verified members and app users.
+     */
+    backfillPendingContacts(dryRun = false) {
+        return httpsCallable<unknown, { forms: number; scanned: number; created: number; existing: number }>(
+            this.functions, 'backfillPendingContacts',
+        )({ dryRun });
     }
 
     /** Give every existing signup form its mirrored list (U1 runbook step 2). */

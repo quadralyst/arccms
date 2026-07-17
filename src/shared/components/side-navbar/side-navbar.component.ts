@@ -115,6 +115,7 @@ export default class NavbarComponent extends BaseComponent {
             subItems: [
                 { label: 'Contacts', route: '/admin/contacts', icon: 'fa-solid fa-user-group' },
                 { label: 'Lists', route: '/admin/lists', icon: 'fa-solid fa-rectangle-list' },
+                { label: 'Tags', route: '/admin/contact-tags', icon: 'fa-solid fa-tags' },
             ],
         },
         {

@@ -11,6 +11,7 @@ const {
   mockWaitlistGet,
   mockGetContactConsent,
   mockSetContactConsent,
+  mockAddTagsToContact,
 } = vi.hoisted(() => ({
   mockUpsertContact: vi.fn().mockResolvedValue({ emailHash: 'h', created: true }),
   mockUnlinkUserContact: vi.fn().mockResolvedValue(undefined),
@@ -19,6 +20,11 @@ const {
   mockWaitlistGet: vi.fn().mockResolvedValue({ exists: false, data: () => ({}) }),
   mockGetContactConsent: vi.fn().mockResolvedValue('pending'),
   mockSetContactConsent: vi.fn().mockResolvedValue(undefined),
+  mockAddTagsToContact: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../email-core/contactTags', () => ({
+  addTagsToContact: mockAddTagsToContact,
 }));
 
 vi.mock('../email-core/contacts', () => ({
@@ -188,6 +194,32 @@ describe('contactSync triggers', () => {
       mockUpsertContact.mockRejectedValueOnce(new Error('boom'));
 
       await expect(signupH(signupEvent({ email: 'a@b.com' }))).resolves.toBeUndefined();
+    });
+
+    it("applies the form's default tag to the new contact (U2)", async () => {
+      mockWaitlistGet.mockResolvedValueOnce({
+        exists: true, data: () => ({ name: 'Alpha', defaultTagId: 'early-bird' }),
+      });
+
+      await signupH(signupEvent({ email: 'a@b.com' }));
+
+      expect(mockAddTagsToContact).toHaveBeenCalledWith('h', ['early-bird']);
+    });
+
+    it('no default tag configured → no tagging call', async () => {
+      mockWaitlistGet.mockResolvedValueOnce({ exists: true, data: () => ({ name: 'Alpha' }) });
+
+      await signupH(signupEvent({ email: 'a@b.com' }));
+
+      expect(mockAddTagsToContact).not.toHaveBeenCalled();
+    });
+
+    it('names the form list from the form doc', async () => {
+      mockWaitlistGet.mockResolvedValueOnce({ exists: true, data: () => ({ name: 'Alpha' }) });
+
+      await signupH(signupEvent({ email: 'a@b.com' }));
+
+      expect(mockEnsureList).toHaveBeenCalledWith('waitlist-wl1', { name: 'Alpha', type: 'system' });
     });
   });
 

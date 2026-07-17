@@ -25,6 +25,10 @@ export * from './email-core/adminContacts.js';
 export * from './email-core/backfillFormLists.js';
 export * from './email-core/normalizeWaitlistTemplateIds.js';
 
+// Audience unification (U2): global contact tags + migration off per-waitlist tags.
+export * from './email-core/migrateTagsToContacts.js';
+export * from './email-core/contactTagSync.js';
+
 // Audience unification (U2): pending contacts at signup.
 export * from './email-core/backfillPendingContacts.js';
 
