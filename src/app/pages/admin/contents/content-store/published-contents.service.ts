@@ -1,8 +1,9 @@
-import { Injectable, runInInjectionContext } from '@angular/core';
+import { inject, Injectable, PLATFORM_ID, runInInjectionContext } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IContents } from './published-contents.model';
 import { CollectionReference, collection, doc, onSnapshot, query, orderBy, limit, getDocs } from '@angular/fire/firestore';
-import { Observable, from, map } from 'rxjs';
+import { EMPTY, Observable, from, map } from 'rxjs';
 
 export interface DeployStatusUpdate {
     deployStatus: 'deployed' | 'failed' | 'pending' | null;
@@ -17,6 +18,7 @@ export interface DeployStatusUpdate {
     providedIn: 'root'
 })
 export class ContentsService extends DbService<IContents> {
+    private platform = inject(PLATFORM_ID);
 
     constructor() {
         super('Contents');
@@ -37,11 +39,21 @@ export class ContentsService extends DbService<IContents> {
      *  - deployStatus changes to 'deployed' or 'failed'
      *  - 60 seconds timeout (emits { deployStatus: null } as timeout signal)
      *
+     * Never polls during SSR. Publishing is user-triggered, so this is not
+     * reachable on the server today, but the listener would outlive the request
+     * injector that @angular/fire captures for its callback — the next snapshot
+     * would fire against a destroyed injector and the NG0205 would land on a
+     * Firestore timer where nothing catches it. The 60s timeout below is a
+     * second reason to stay off the server: a pending macrotask can hold up
+     * prerender completion.
+     *
      * @param docId - The document ID to watch
      * @param contentTypeSlug - The content type slug (determines the collection)
      * @returns Observable that emits DeployStatusUpdate on each change
      */
     pollDeployStatus(docId: string, contentTypeSlug: string): Observable<DeployStatusUpdate> {
+        if (!isPlatformBrowser(this.platform)) return EMPTY;
+
         return new Observable<DeployStatusUpdate>(subscriber => {
             const collectionName = `arc_${contentTypeSlug}`;
             const docRef = runInInjectionContext(this.injector, () => doc(this.firestore, collectionName, docId));

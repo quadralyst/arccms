@@ -21,6 +21,10 @@ export * from './email-core/handleEmailPreferences.js';
 export * from './email-core/csvImport.js';
 export * from './email-core/adminContacts.js';
 
+// Audience unification (U1): form→list backfill + template id normalization.
+export * from './email-core/backfillFormLists.js';
+export * from './email-core/normalizeWaitlistTemplateIds.js';
+
 // Email-core (Phase 4): test-send for the block editor.
 export * from './email-core/sendTestEmail.js';
 
@@ -56,6 +60,7 @@ export * from './waitlists/waitlistedUsers/onWaitlistedUsersCreate.js';
 export * from './waitlists/waitlistedUsers/onWaitlistedUsersUpdate.js';
 
 export * from './waitlists/onWaitlistsCreate.js';
+export * from './waitlists/onWaitlistsUpdate.js';
 export * from './waitlists/onWaitlistsDelete.js';
 export * from './waitlists/ensureWaitlistExists.js';
 

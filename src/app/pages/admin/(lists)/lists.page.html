@@ -11,6 +11,10 @@
         <div class="page-container">
             <arc-page-header title="Lists"
                 subtitle="Audience lists drive broadcasts and drip campaigns. System lists sync automatically.">
+                <button mat-stroked-button (click)="syncFormLists()" [disabled]="busy()"
+                    matTooltip="Create the missing list for any signup form that doesn't have one yet">
+                    <mat-icon>sync</mat-icon> Sync form lists
+                </button>
                 <button mat-flat-button color="primary" (click)="openAdd()">
                     <mat-icon>add</mat-icon> Create list
                 </button>

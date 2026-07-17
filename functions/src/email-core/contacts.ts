@@ -56,6 +56,62 @@ export async function ensureSystemLists(): Promise<void> {
   await ensureList(SYSTEM_LISTS.ALL_CUSTOMERS, { name: 'All Customers', type: 'system' });
 }
 
+/**
+ * Ensure the system list mirroring a signup form's (waitlist's) members exists,
+ * and keep its name + `formId` back-pointer current.
+ *
+ * `ensureList` only creates, so the merge below is what repairs lists made
+ * before the form→list link existed (they carry no `formId` and may hold a
+ * placeholder name from the lazy create path). Name is safe to overwrite:
+ * form-fed lists are system lists, which admins cannot rename. `memberCount` is
+ * never touched — only addContactToLists/removeContactFromLists maintain it.
+ */
+export async function ensureFormList(formId: string, name: string): Promise<string> {
+  const listId = waitlistListId(formId);
+  await ensureList(listId, { name, type: 'system' });
+  await db
+    .collection('Lists')
+    .doc(listId)
+    .set({ name, formId, type: 'system', updatedAt: Timestamp.now() }, { merge: true });
+  return listId;
+}
+
+/**
+ * Remove a form's mirrored list: drop the membership from every contact (via the
+ * sanctioned leave path, so drip enrollments exit too), then delete the list doc.
+ * Pages by re-querying — each processed contact stops matching — with a cap so a
+ * pathological loop can never run away.
+ */
+export async function deleteFormList(formId: string): Promise<{ removed: number }> {
+  const listId = waitlistListId(formId);
+  const PAGE = 500;
+  const MAX_PAGES = 200; // 100k members; far beyond any real form
+  let removed = 0;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const snap = await db
+      .collection('Contacts')
+      .where('listIds', 'array-contains', listId)
+      .limit(PAGE)
+      .get();
+    if (snap.empty) break;
+
+    let progressed = false;
+    for (const doc of snap.docs) {
+      const left = await removeContactFromLists(doc.id, [listId]);
+      if (left.length) {
+        removed++;
+        progressed = true;
+      }
+    }
+    // Nothing left the list this page ⇒ re-querying would return the same docs.
+    if (!progressed) break;
+  }
+
+  await db.collection('Lists').doc(listId).delete();
+  return { removed };
+}
+
 export interface UpsertContactParams {
   email: string;
   name?: string;

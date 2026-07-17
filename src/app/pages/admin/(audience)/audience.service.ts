@@ -95,6 +95,13 @@ export class AudienceService {
         return httpsCallable(this.functions, 'backfillContacts')({});
     }
 
+    /** Give every existing signup form its mirrored list (U1 runbook step 2). */
+    backfillFormLists() {
+        return httpsCallable<unknown, { forms: number; created: number; repaired: number; errors: string[] }>(
+            this.functions, 'backfillFormLists',
+        )({});
+    }
+
     previewCsv(csvText: string) {
         return httpsCallable<{ csvText: string }, ICsvPreview>(this.functions, 'previewContactImport')({ csvText });
     }

@@ -20,6 +20,8 @@ export interface IList {
     description?: string;
     type: 'manual' | 'system';
     memberCount?: number;
+    /** Set on lists fed by a signup form — the owning form's (waitlist's) id. */
+    formId?: string;
 }
 
 export interface ICsvPreview {

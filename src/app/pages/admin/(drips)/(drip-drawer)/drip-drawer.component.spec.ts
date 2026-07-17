@@ -78,7 +78,14 @@ describe('DripDrawerComponent', () => {
         };
         component.mode = 'edit';
         component.campaign = campaign;
-        component.ngOnChanges();
+        component.ngOnChanges({
+            campaign: {
+                currentValue: campaign,
+                previousValue: null,
+                firstChange: true,
+                isFirstChange: () => true,
+            },
+        });
         component.steps()[0].delayHours = 48;
         // original campaign object must be untouched
         expect(campaign.steps![0].delayHours).toBe(24);
@@ -92,7 +99,14 @@ describe('DripDrawerComponent', () => {
         };
         component.mode = 'edit';
         component.campaign = campaign;
-        component.ngOnChanges();
+        component.ngOnChanges({
+            campaign: {
+                currentValue: campaign,
+                previousValue: null,
+                firstChange: true,
+                isFirstChange: () => true,
+            },
+        });
         component.name = 'Welcome v2';
         await component.submit();
         expect(service.updateCampaign).toHaveBeenCalledWith('c1', { name: 'Welcome v2', enrollExistingOnActivate: false });
