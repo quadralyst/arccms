@@ -198,6 +198,36 @@ describe('queueEmail', () => {
     expect(res.status).toBe('pending');
   });
 
+  it('gate 4: pending consent blocks marketing even when isSubscribed says true (U2)', async () => {
+    // A pending contact signed up but never confirmed their address. U2 makes
+    // this the normal state between signup and verification, so the marketing
+    // gate must treat it as not-mailable rather than trusting the legacy
+    // isSubscribed flag the signup wrote.
+    mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+    mockGetContactConsent.mockResolvedValue('pending');
+
+    const res = await queueEmail({
+      ...baseParams,
+      category: 'marketing',
+      type: 'waitlist_welcome_email',
+      isSubscribed: true,
+    });
+
+    expect(res.status).toBe('skipped');
+    expect(res.skipReason).toBe('unsubscribed');
+  });
+
+  it('gate 4: pending consent still lets transactional mail through (U2)', async () => {
+    // Verification OTPs are transactional — a pending contact must still be able
+    // to receive the very email that lets them verify.
+    mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+    mockGetContactConsent.mockResolvedValue('pending');
+
+    const res = await queueEmail({ ...baseParams, category: 'transactional' });
+
+    expect(res.status).toBe('pending');
+  });
+
   it('gate 4: transactional ignores consent', async () => {
     mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
 

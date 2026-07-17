@@ -25,6 +25,9 @@ export * from './email-core/adminContacts.js';
 export * from './email-core/backfillFormLists.js';
 export * from './email-core/normalizeWaitlistTemplateIds.js';
 
+// Audience unification (U2): pending contacts at signup.
+export * from './email-core/backfillPendingContacts.js';
+
 // Email-core (Phase 4): test-send for the block editor.
 export * from './email-core/sendTestEmail.js';
 

@@ -9,12 +9,16 @@ const {
   mockEnsureSystemLists,
   mockEnsureList,
   mockWaitlistGet,
+  mockGetContactConsent,
+  mockSetContactConsent,
 } = vi.hoisted(() => ({
   mockUpsertContact: vi.fn().mockResolvedValue({ emailHash: 'h', created: true }),
   mockUnlinkUserContact: vi.fn().mockResolvedValue(undefined),
   mockEnsureSystemLists: vi.fn().mockResolvedValue(undefined),
   mockEnsureList: vi.fn().mockResolvedValue(undefined),
   mockWaitlistGet: vi.fn().mockResolvedValue({ exists: false, data: () => ({}) }),
+  mockGetContactConsent: vi.fn().mockResolvedValue('pending'),
+  mockSetContactConsent: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../email-core/contacts', () => ({
@@ -22,6 +26,8 @@ vi.mock('../email-core/contacts', () => ({
   unlinkUserContact: mockUnlinkUserContact,
   ensureSystemLists: mockEnsureSystemLists,
   ensureList: mockEnsureList,
+  getContactConsent: mockGetContactConsent,
+  setContactConsent: mockSetContactConsent,
   SYSTEM_LISTS: { ALL_USERS: 'all-users', ALL_CUSTOMERS: 'all-customers' },
   waitlistListId: (id: string) => `waitlist-${id}`,
 }));
@@ -38,14 +44,36 @@ vi.mock('firebase-functions/v2/firestore', () => ({
   onDocumentUpdated: vi.fn((_p: string, h: any) => h),
 }));
 
-import { onUserCreateContact, onUserDeleteContact, onWaitlistVerifiedContact } from '../email-core/contactSync.js';
+import {
+  onUserCreateContact,
+  onUserDeleteContact,
+  onWaitlistUserCreateContact,
+  onWaitlistVerifiedContact,
+} from '../email-core/contactSync.js';
 
 const createH = onUserCreateContact as unknown as (e: any) => Promise<void>;
 const deleteH = onUserDeleteContact as unknown as (e: any) => Promise<void>;
 const wlH = onWaitlistVerifiedContact as unknown as (e: any) => Promise<void>;
+const signupH = onWaitlistUserCreateContact as unknown as (e: any) => Promise<void>;
+
+/** A form signup event (member doc just created under Waitlists/{id}/users). */
+const signupEvent = (member: Record<string, unknown>, waitlistId = 'wl1') => ({
+  params: { waitlistId },
+  data: { data: () => member },
+});
+
+/** A member-doc update event (before → after). */
+const updateEvent = (before: Record<string, unknown>, after: Record<string, unknown>, waitlistId = 'wl1') => ({
+  params: { waitlistId },
+  data: { before: { data: () => before }, after: { data: () => after } },
+});
 
 describe('contactSync triggers', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUpsertContact.mockResolvedValue({ emailHash: 'h', created: true });
+    mockGetContactConsent.mockResolvedValue('pending');
+  });
 
   it('user create → contact (signup) joining all-users', async () => {
     await createH({ data: { data: () => ({ email: 'a@b.com', name: 'A', uid: 'u1' }) } });
@@ -61,6 +89,17 @@ describe('contactSync triggers', () => {
   it('user create with no email is a no-op', async () => {
     await createH({ data: { data: () => ({ name: 'A' }) } });
     expect(mockUpsertContact).not.toHaveBeenCalled();
+  });
+
+  it('app-user signup keeps its existing consent — pending is form-signups only (U2 scope guard)', async () => {
+    // U2 makes *form* signups pending. Registering an app account must keep the
+    // pre-U2 behavior: no consent override, so upsertContact's 'subscribed'
+    // default stands.
+    await createH({ data: { data: () => ({ email: 'a@b.com', name: 'A', uid: 'u1' }) } });
+
+    const params = mockUpsertContact.mock.calls[0][0];
+    expect(params.consent).toBeUndefined();
+    expect(params.source).toBe('signup');
   });
 
   it('user delete → unlink contact', async () => {
@@ -103,5 +142,92 @@ describe('contactSync triggers', () => {
       },
     });
     expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({ consent: 'unsubscribed' }));
+  });
+
+  // --- U2: contact exists from the moment of signup ---
+
+  describe('U2 pending contact at signup', () => {
+    it('unverified signup → pending contact on the form list', async () => {
+      await signupH(signupEvent({ email: 'a@b.com', name: 'A', emailVerified: false }));
+
+      expect(mockEnsureList).toHaveBeenCalledWith('waitlist-wl1', expect.anything());
+      expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({
+        email: 'a@b.com',
+        source: 'waitlist',
+        addLists: ['waitlist-wl1'],
+        consent: 'pending',
+      }));
+    });
+
+    it('signup with no emailVerified field yet is still pending', async () => {
+      await signupH(signupEvent({ email: 'a@b.com' }));
+
+      expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({ consent: 'pending' }));
+    });
+
+    it('direct-join signup (verified at creation) starts subscribed', async () => {
+      // Direct-join forms skip OTP, so there is no later verify edge to promote on.
+      await signupH(signupEvent({ email: 'a@b.com', emailVerified: true, isDirectJoined: true }));
+
+      expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({ consent: 'subscribed' }));
+    });
+
+    it('explicit isSubscribed:false at signup beats pending', async () => {
+      await signupH(signupEvent({ email: 'a@b.com', emailVerified: false, isSubscribed: false }));
+
+      expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({ consent: 'unsubscribed' }));
+    });
+
+    it('signup with no email is a no-op', async () => {
+      await signupH(signupEvent({ name: 'A' }));
+
+      expect(mockUpsertContact).not.toHaveBeenCalled();
+    });
+
+    it('a failing upsert is swallowed so the signup write still stands', async () => {
+      mockUpsertContact.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(signupH(signupEvent({ email: 'a@b.com' }))).resolves.toBeUndefined();
+    });
+  });
+
+  describe('U2 verification promotes pending → subscribed', () => {
+    it('promotes a pending contact on the verify edge', async () => {
+      // upsertContact ignores `consent` on an existing doc, so without this
+      // explicit set the contact would stay pending forever and never be mailable.
+      mockGetContactConsent.mockResolvedValue('pending');
+
+      await wlH(updateEvent({ email: 'a@b.com', emailVerified: false }, { email: 'a@b.com', emailVerified: true }));
+
+      expect(mockSetContactConsent).toHaveBeenCalledWith('h', 'subscribed', 'a@b.com');
+    });
+
+    it('leaves an already-subscribed contact alone (no downgrade)', async () => {
+      // A returning subscriber joining a second form must not be touched.
+      mockGetContactConsent.mockResolvedValue('subscribed');
+
+      await wlH(updateEvent({ email: 'a@b.com', emailVerified: false }, { email: 'a@b.com', emailVerified: true }));
+
+      expect(mockSetContactConsent).not.toHaveBeenCalled();
+    });
+
+    it('never resurrects an unsubscribed contact by verifying an address', async () => {
+      mockGetContactConsent.mockResolvedValue('unsubscribed');
+
+      await wlH(updateEvent({ email: 'a@b.com', emailVerified: false }, { email: 'a@b.com', emailVerified: true }));
+
+      expect(mockSetContactConsent).not.toHaveBeenCalled();
+    });
+
+    it('honours an explicit opt-out recorded on the member doc', async () => {
+      mockGetContactConsent.mockResolvedValue('subscribed');
+
+      await wlH(updateEvent(
+        { email: 'a@b.com', emailVerified: false },
+        { email: 'a@b.com', emailVerified: true, isSubscribed: false },
+      ));
+
+      expect(mockSetContactConsent).toHaveBeenCalledWith('h', 'unsubscribed', 'a@b.com');
+    });
   });
 });

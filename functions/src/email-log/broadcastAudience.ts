@@ -99,7 +99,12 @@ export async function countEligible(audience: BroadcastAudience, maxScan = 5000)
     const page = await fetchContactPage(listId, startAfter, PAGE_SIZE);
     for (const c of page.contacts) {
       scanned++;
-      if (c.consent?.marketing === 'unsubscribed') continue;
+      // Mirror queueEmail's marketing gate exactly: only an explicitly
+      // `subscribed` contact is mailable. Testing `!== 'unsubscribed'` used to
+      // count `pending` members (U2) and legacy contacts carrying no consent
+      // object as recipients, both of which queueEmail then skips — so the
+      // preview promised reach the send could never deliver.
+      if (c.consent?.marketing !== 'subscribed') continue;
       if (!passesSimpleFilters(c, audience)) continue;
       if (!(await passesPremiumFilter(c, audience))) continue;
       count++;

@@ -57,6 +57,26 @@ describe('broadcast audience', () => {
       expect(res.scanned).toBe(3);
     });
 
+    it('excludes pending contacts — the preview must not promise reach the send cannot deliver (U2)', async () => {
+      // A pending member has not confirmed their address, so queueEmail skips
+      // them. Counting them here would overstate the audience.
+      contactsRef.docs = [contact('a'), contact('b', { consent: { marketing: 'pending' } }), contact('c')];
+
+      const res = await countEligible({ kind: 'list', listId: 'l1' });
+
+      expect(res.count).toBe(2);
+      expect(res.scanned).toBe(3);
+    });
+
+    it('excludes legacy contacts carrying no consent object', async () => {
+      // getContactConsent reports these as 'pending', so queueEmail skips them.
+      contactsRef.docs = [contact('a'), contact('b', { consent: undefined })];
+
+      const res = await countEligible({ kind: 'list', listId: 'l1' });
+
+      expect(res.count).toBe(1);
+    });
+
     it('applies the source filter', async () => {
       contactsRef.docs = [contact('a', { sources: ['import'] }), contact('b', { sources: ['signup'] })];
       const res = await countEligible({ kind: 'list', listId: 'l1', filters: [{ field: 'source', op: '==', value: 'signup' }] });
