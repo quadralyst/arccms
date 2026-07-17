@@ -199,10 +199,15 @@ a characterization test of its current behavior in the same phase.**
 
 # 3. PHASES
 
-> Conventions: every phase ends with **Manual verification** (run against the Firebase
-> emulator suite; steps marked **[live]** need a real provider) and **What to expect
-> next**. `npm run test` from repo root (Vitest) must be green at every phase boundary.
+> Conventions: every phase ends with **Deploy first**, **Manual verification** (steps
+> marked **[live]** need a real email provider) and **What to expect next**.
+> `npm run test` from repo root (Vitest) must be green at every phase boundary.
 > Every backfill is an admin-only callable, idempotent, and logged.
+>
+> **Read the deploy note first (§2.1): there is no emulator.** `npm run dev` runs the
+> frontend against the real Firebase project, so any phase touching `functions/**` or
+> `firestore.rules` is invisible in the browser until deployed. Testing before deploying
+> produces convincing false negatives — this already happened once in U1.
 > Every phase consults the **impact map (§2.1)** — surfaces it owns are part of its
 > verification. Before refactoring a surface with no existing spec file, write a
 > characterization test of current behavior first (same phase).
@@ -225,13 +230,26 @@ moment it exists; known data-hygiene defects fixed before anything builds on top
 5. **List UI affordance:** Lists page shows form-fed lists with a "Form" badge and a link to the owning form.
 6. **Delete-path cleanup (orphan fix):** `onWaitlistsDelete` additionally removes the mirrored `waitlist-{id}` list and pulls the listId from member contacts (via `removeContactFromLists`) — today it leaves orphaned lists/membership.
 
+### 🚀 Deploy first (nothing below is testable until this runs)
+
+```
+cd functions && npm run build
+firebase deploy --project default --only "functions:onWaitlistsCreate,functions:onWaitlistsUpdate,functions:onWaitlistsDelete,functions:backfillFormLists,functions:normalizeWaitlistTemplateIds"
+```
+No rules or index changes in U1. *(Deployed and verified end-to-end on 2026-07-17.)*
+
 ### ✅ Manual verification
-1. `npm run test` green.
-2. Emulator: create a new waitlist in the admin → **without any signup**, Audience → Lists shows it (memberCount 0, system/form badge). Rename the waitlist → list name follows.
-3. Emulator with pre-seeded old-style data: run `backfillFormLists` → every existing waitlist has a list; run it twice → no duplicates, counts unchanged.
-4. Run `normalizeWaitlistTemplateIds` on seeded data containing both id schemes for the same waitlist+type → one doc remains per (waitlist, type), content = the admin-edited version; re-run → no-op.
-5. Create another new waitlist → exactly 2 template docs seeded, ids `${waitlistId}_${type}`, no duplicates on trigger retry.
-6. Delete a waitlist that has verified members → its `waitlist-{id}` list is removed and the listId disappears from every member contact's `listIds` (no orphaned lists or membership).
+1. **The reported bug:** create a new waitlist → **without any signup**, Audience → Lists
+   shows it immediately (memberCount 0, **Form** badge, "View form" action). Rename the
+   waitlist → the list name follows.
+2. Audience → Lists → **Sync form lists** (`backfillFormLists`): every pre-existing
+   waitlist gets its list. Press twice → no duplicates, counts unchanged.
+3. `normalizeWaitlistTemplateIds` with `{dryRun:true}` first → inspect the keep/remove
+   plan; then run for real → one template doc per (waitlist, type), the admin-edited copy
+   kept; re-run → no-op. **Export `EmailTemplate` before the real run.**
+4. Create another waitlist → exactly 2 template docs, ids `${waitlistId}_${type}`.
+5. Delete a waitlist that has verified members → its list is removed and the listId
+   disappears from every member contact's `listIds` (no orphaned lists or membership).
 
 ### What to expect next (U2)
 Lists exist but only show **verified** members. U2 makes every signup visible immediately
@@ -241,6 +259,26 @@ the complete, truthful picture of everyone who ever signed up.
 ---
 
 ## Phase U2 — Pending contacts at signup + global tags
+
+**Status:** built 2026-07-17 (`feat/audience-unification`) — awaiting the manual
+verification below. Unit tests green.
+
+**Deviations from the original scope, decided during the build:**
+1. **The tag collection is `ContactTags`, not `Tags`.** The CMS already owns
+   `Tags_{slug}` content-taxonomy collections with a *public-read* wildcard rule; a bare
+   `Tags` beside them is a rules mistake waiting to happen. Tag doc ids are a slug of the
+   label, which is what merges the per-form duplicates on migration.
+2. **No composite indexes were added (scope item 8 dropped).** An audit of every
+   `Contacts` query found only `doc()` gets and `where('listIds','array-contains',…)` —
+   all served by automatic single-field indexes. Consent/source/premium filtering is
+   in-memory (`broadcastAudience.passesSimpleFilters`), and the admin Contacts page loads
+   a capped 500 and filters client-side. The item assumed query-level filtering that does
+   not exist; indexes would cost write latency for nothing. Revisit in U4/U6, when
+   multi-list audiences and a Contacts-based leaderboard introduce real composite queries.
+3. **Retiring the `WaitlistUserTags_*` rules moved to U6/U7** (scope item 7). Those
+   collections still back the per-waitlist tags page and the joined-users member UI, which
+   retire with the member docs. The migration is deliberately **non-destructive**: legacy
+   tags and member `tags[]` stay put, so both UIs keep working during the transition.
 
 **Objective:** the audience layer reflects reality: a contact exists from the moment of
 signup (`pending`), becomes mailable on verification (`subscribed`); tags are global on
@@ -257,22 +295,83 @@ the contact.
 8. **Indexes:** add source-controlled composite indexes to `firestore.indexes.json` for the new `Contacts` queries (`listIds array-contains` + `consent.marketing`; tag filters as needed) — `Contacts` currently has none.
 9. **Data export/import:** add `Contacts`, `Lists`, `Tags` to `(data)/data-constants.ts` so the export/import module covers the new audience collections.
 
+### 🚀 Deploy first (nothing below is testable until this runs)
+
+```
+cd functions && npm run build
+firebase deploy --project default --only "functions:migrateTagsToContacts,functions:adminSetContactTags,functions:onContactTagDelete,functions:backfillPendingContacts,functions:onWaitlistUserCreateContact,functions:onWaitlistVerifiedContact"
+firebase deploy --project default --only firestore:rules
+```
+Rules are **required**: `ContactTags` is unreadable without them and the Tags page renders
+empty. No index deploy (deviation 2). Then rebuild/serve the frontend.
+
 ### ✅ Manual verification
-1. `npm run test` green (new consent-matrix and never-downgrade tests).
-2. Emulator: join a waitlist, **don't verify** → contact appears instantly (Pending badge), list memberCount includes them, header shows `0 subscribed · 1 pending`.
-3. Send a broadcast to that list → summary `0 sent / 1 skipped`, EmailLogs skip doc `skipReason:'unsubscribed'` (pending ⇒ not mailable).
-4. Verify the OTP → contact flips to Subscribed; broadcast again → delivered (emulator: `pending` EmailLog created).
-5. Returning already-subscribed contact joins a second waitlist → consent stays `subscribed` (no downgrade); they're now on both lists.
-6. Run `migrateTagsToContacts` on seeded data → tags visible on contacts, filterable; re-run → idempotent. New signup on a form with `defaultTagId` → contact carries the tag.
-7. Run `backfillPendingContacts` → historical unverified signups appear as pending; re-run → no dupes.
-8. App-user regression: register a normal app account → its contact is created with the **existing** consent behavior (not `pending`) — the pending rule applies to form signups only.
-9. Deploy `firestore.indexes.json` to the emulator → the Contacts consent-filtered queries (list + consent) run without missing-index errors.
-10. Data export page lists `Contacts`, `Lists`, `Tags`; export → import round-trip on the emulator preserves consent and list membership.
+
+**A. Migrate your existing data** (runbook steps 1, 4, 5)
+1. Audience → Contacts → **Backfill**. One button runs both passes in order: app users +
+   verified members, then the unverified backlog as `pending`. The toast reports all three
+   counts. Press it twice → counts stable (both passes are idempotent).
+2. Audience → Tags → **Import waitlist tags**. Toast reports tags imported + assignments
+   copied. Press again → `0 new`, counts unchanged.
+
+**B. The bug this phase fixes — the audience was under-reporting**
+3. Join one of your waitlists from its public page and **stop at the OTP screen, don't
+   verify**. Audience → Contacts: they appear *immediately* with a **Pending** badge and
+   are counted in the form's list. Before U2 they were invisible until they verified.
+4. Now enter the OTP → the contact flips to **Subscribed** and the count chips move.
+
+**C. Pending contacts are counted but never mailable (the safety property)**
+5. With a pending contact on a list, send a broadcast to that list → the summary counts
+   them as **skipped**, and their `EmailLogs` doc carries `skipReason:'unsubscribed'`.
+   Verify them, re-send → now delivered.
+
+**D. Global tags — targeting "a type of user" across forms**
+6. If the same label existed on two waitlists, Audience → Tags now shows **one** tag whose
+   usage count spans both. Click **View contacts** → the Contacts page opens filtered to
+   that tag, listing people from both forms. That cross-form targeting is the whole point.
+7. Contacts page: the **subscribed / pending / unsubscribed** chips filter the table; the
+   **Consent** and **Tag** dropdowns filter; **Clear** resets.
+8. Open a contact → toggle a tag: saves immediately, drawer stays open, and the usage count
+   on the Tags page follows.
+9. Set a form's default tag (waitlist edit drawer) → sign up through that form → the new
+   contact carries the tag automatically.
+10. Delete a tag that is on N contacts → it disappears from those contacts too, not just
+    from the Tags page (`onContactTagDelete`; allow a few seconds).
+
+**E. Regressions worth confirming**
+11. Register a **normal app account** → its contact is **not** pending. The pending rule is
+    form-signups only.
+12. A contact who unsubscribed, then signs up to a form again → stays **unsubscribed**.
+    Verifying an address must never resurrect an opt-out.
+13. Data → Export shows the new **Audience** group (Contacts, Lists, Contact Tags,
+    Suppression). These carry consent state — treat exports as sensitive.
 
 ### What to expect next (U3)
-Contacts and lists are truthful, but each form is still hard-wired 1:1 to its own list.
-U3 breaks that coupling: forms declare which list(s) they feed, enabling several forms
-into one list and setting up the per-list email surfaces of U4.
+
+Contacts and lists are truthful now, but each form is still hard-wired 1:1 to its own
+list — so two forms can't feed one audience, and "waitlist" is still a special thing
+rather than "a form with gamification on". U3 breaks that coupling.
+
+**Tasks, in build order:**
+1. `Waitlists/{id}.targetListIds: string[]` + `stampFormTargetLists` callable to set
+   `[waitlist-{id}]` on existing forms.
+2. Route every membership write (signup + verify, in `contactSync`) through
+   `targetListIds` instead of the hard-coded `waitlistListId(waitlistId)`.
+3. `gamificationEnabled: boolean` on the form; gate the referral/leaderboard/queue UI on
+   the public page behind it.
+4. Form edit drawer: a "Feeds lists" multi-select (own system list preselected and locked,
+   per open item 1) + the gamification toggle.
+5. Admin nav/labels reframe to **Signup Forms** (UI copy only — no Firestore rename).
+6. Tests: membership routing to several lists, dedup when one person uses both forms,
+   `stampFormTargetLists` idempotency.
+
+**Deploy for U3:** `contactSync` triggers + the new `stampFormTargetLists` callable; no
+rules or index changes expected.
+
+**What you'll be able to do afterwards:** create a manual list ("Beta users"), point two
+different forms at it, and have both forms' signups land in one audience you can broadcast
+to once — while each form still keeps its own list. That's the groundwork for U4's list
+hub, where each list gets its own Broadcasts and Sequence tabs.
 
 ---
 
@@ -433,7 +532,7 @@ summary (`processed / created / skipped / errors`).
 | 2 | `backfillFormLists` | U1 | A `Lists` doc per existing waitlist | additive |
 | 3 | `normalizeWaitlistTemplateIds` | U1 | Merge dual-id template docs (admin edits win). Supports `{dryRun:true}` — returns the exact keep/remove plan without writing; run it first | pre-run export of `EmailTemplate` |
 | 4 | `backfillPendingContacts` | U2 | Unverified signups → `pending` contacts | additive; pending are unmailable by design |
-| 5 | `migrateTagsToContacts` | U2 | Per-waitlist tags → global tags on contacts | additive |
+| 5 | `migrateTagsToContacts` | U2 | Per-waitlist `WaitlistUserTags_{id}` → global `ContactTags` (merged by label-slug), member `tags[]` → `Contacts.tags[]`, remaps each form's `defaultTagId`. Supports `{dryRun:true}`. Run **after** step 4 — it skips members with no contact yet and reports them as `membersWithoutContact`; re-run to pick them up | additive + non-destructive (legacy tags untouched) |
 | 6 | `stampFormTargetLists` | U3 | `targetListIds:[waitlist-{id}]` on every waitlist doc | additive field |
 | 7 | `migrateWelcomeToSequences` | U5 | Welcome sequence per form-fed list from existing templates; flips the per-list `welcomeMigrated` guard | unset the guard ⇒ direct trigger resumes |
 | 8 | `migrateWaitlistedUsers` | U6 | Referral/leaderboard/identity state → Contacts + funnel docs | dual-read window is the rollback; collection frozen, not deleted |

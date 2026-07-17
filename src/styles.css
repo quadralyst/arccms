@@ -401,6 +401,45 @@ arc-content-partials {
   color: #1b1e21;
 }
 
+/* Audience headline counts (Contacts / Lists) — clickable, each filters the
+   table below to that consent state. */
+.arc-admin .count-chip {
+  background: #f8f9fa;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.arc-admin .count-chip:hover {
+  background: #eef2f7;
+  border-color: #cbd5e1;
+}
+
+.arc-admin .count-chip strong {
+  color: #111827;
+}
+
+/* Tag chips in the contact drawer — click to add/remove the tag. Colour comes
+   from the tag itself via inline bindings. */
+.arc-admin .tag-toggle {
+  border: 1.5px solid;
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.arc-admin .tag-toggle:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* Right-side drawer panel chrome — shared by add/edit/view children
    hosted in a mat-drawer. Consolidates the users/(add-user) styles. */
 .arc-admin .side-panel {

@@ -12,6 +12,7 @@ import {
   waitlistListId,
   type MarketingConsent,
 } from './contacts.js';
+import { addTagsToContact } from './contactTags.js';
 import type { WaitlistUserData } from '../types.js';
 import { emitAppEvent } from './appEvents.js';
 
@@ -34,13 +35,21 @@ function signupConsent(member: WaitlistUserData): MarketingConsent {
   return member.emailVerified === true ? 'subscribed' : 'pending';
 }
 
-/** Display name for a form's mirrored list, falling back when the form doc is unreadable. */
-async function resolveFormListName(waitlistId: string): Promise<string> {
+/** A form's display name + default tag, in one read. */
+async function readFormMeta(waitlistId: string): Promise<{ name: string; defaultTagId?: string }> {
   try {
     const wl = await db.collection('Waitlists').doc(waitlistId).get();
-    if (wl.exists && wl.data()?.['name']) return wl.data()!['name'];
+    if (wl.exists) {
+      const data = wl.data()!;
+      return { name: data['name'] || `Waitlist ${waitlistId}`, defaultTagId: data['defaultTagId'] };
+    }
   } catch { /* use fallback name */ }
-  return `Waitlist ${waitlistId}`;
+  return { name: `Waitlist ${waitlistId}` };
+}
+
+/** Display name for a form's mirrored list, falling back when the form doc is unreadable. */
+async function resolveFormListName(waitlistId: string): Promise<string> {
+  return (await readFormMeta(waitlistId)).name;
 }
 
 /** New user → contact (source `signup`), joins the `all-users` system list. */
@@ -97,8 +106,9 @@ export const onWaitlistUserCreateContact = onDocumentCreated(
     const listId = waitlistListId(waitlistId);
 
     try {
-      await ensureList(listId, { name: await resolveFormListName(waitlistId), type: 'system' });
-      await upsertContact({
+      const form = await readFormMeta(waitlistId);
+      await ensureList(listId, { name: form.name, type: 'system' });
+      const { emailHash } = await upsertContact({
         email: member.email,
         name: member.name,
         firstName: member.firstName,
@@ -106,6 +116,13 @@ export const onWaitlistUserCreateContact = onDocumentCreated(
         addLists: [listId],
         consent: signupConsent(member),
       });
+
+      // A form's default tag applies to everyone it captures (U2). Tags are
+      // global, so this is how "came in through the beta form" stays queryable
+      // across lists.
+      if (form.defaultTagId) {
+        await addTagsToContact(emailHash, [form.defaultTagId]);
+      }
     } catch (err) {
       logger.error('onWaitlistUserCreateContact failed', err);
     }

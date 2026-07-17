@@ -229,6 +229,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Global audience tags (U2). Distinct from the CMS `Tags_{slug}` content
+    // taxonomy below, which is public-read — these label contacts and are
+    // admin-only. Doc id is a slug of the label; `usageCount` is maintained by
+    // functions but admin writes are allowed for label/colour management.
+    match /ContactTags/{tagId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
     // Notifications (Phase 5): a user reads their own and may only flip `read`;
     // create/delete are functions/admin only.
     match /Notifications/{id} {

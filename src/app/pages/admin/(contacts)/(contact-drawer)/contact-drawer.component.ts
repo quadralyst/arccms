@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, Output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,7 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { AudienceService } from '../../(audience)/audience.service';
-import { IContact, IList, ICsvPreview, MarketingConsent } from '../../(audience)/audience.model';
+import { IContact, IList, ITag, ICsvPreview, MarketingConsent } from '../../(audience)/audience.model';
 
 export type ContactDrawerMode = 'add' | 'import' | 'view';
 
@@ -117,6 +117,30 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
                     <span [class]="consentBadge(contact)">{{ contact.consent?.marketing || 'pending' }}</span>
                 </dd>
             </dl>
+
+            @if (contact.consent?.marketing === 'pending') {
+            <p class="small text-muted mb-3">
+                <i class="fas fa-circle-info me-1"></i>
+                Signed up but hasn't confirmed their email. They're excluded from marketing sends until they verify.
+            </p>
+            }
+
+            <label class="form-label small text-muted d-block">Tags</label>
+            @if (allTags.length) {
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                @for (t of allTags; track t.id) {
+                    <button type="button" class="tag-toggle" [class.is-on]="selectedTags.includes(t.id)"
+                        [style.background]="selectedTags.includes(t.id) ? t.color : 'transparent'"
+                        [style.border-color]="t.color"
+                        [style.color]="selectedTags.includes(t.id) ? '#fff' : t.color"
+                        [disabled]="busy()" (click)="toggleTag(t.id)">
+                        {{ t.label }}
+                    </button>
+                }
+            </div>
+            } @else {
+            <p class="small text-muted mb-3">No tags yet — create them under Audience → Tags.</p>
+            }
         </div>
         <div class="panel-actions">
             @if (contact.consent?.marketing !== 'subscribed') {
@@ -130,9 +154,10 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
     </div>
     `,
 })
-export class ContactDrawerComponent {
+export class ContactDrawerComponent implements OnChanges {
     @Input() mode: ContactDrawerMode = 'add';
     @Input() lists: IList[] = [];
+    @Input() allTags: ITag[] = [];
     @Input() contact: IContact | null = null;
     @Output() close = new EventEmitter<void>();
     @Output() saved = new EventEmitter<void>();
@@ -141,6 +166,35 @@ export class ContactDrawerComponent {
     private toast = inject(ToastService);
 
     busy = signal(false);
+
+    /** Local copy so a failed save doesn't leave the chips lying about state. */
+    selectedTags: string[] = [];
+
+    ngOnChanges(): void {
+        this.selectedTags = [...(this.contact?.tags || [])];
+    }
+
+    /** Tag changes save immediately — there is no Save button in view mode. */
+    async toggleTag(tagId: string): Promise<void> {
+        if (!this.contact?.id) return;
+        const previous = [...this.selectedTags];
+        this.selectedTags = this.selectedTags.includes(tagId)
+            ? this.selectedTags.filter((t) => t !== tagId)
+            : [...this.selectedTags, tagId];
+
+        this.busy.set(true);
+        try {
+            await this.audience.setContactTags(this.contact.id, this.selectedTags);
+            // Deliberately no `saved` emit: the host closes the drawer on it, and
+            // the contacts table is realtime, so it already reflects the change.
+        } catch (e) {
+            console.error(e);
+            this.selectedTags = previous;
+            this.toast.error('Failed to update tags');
+        } finally {
+            this.busy.set(false);
+        }
+    }
 
     // add form
     newEmail = '';
