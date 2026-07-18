@@ -75,15 +75,15 @@ export function createGenericStore<T extends IBaseModel>(
 ) {
     const defaultState = getDefaultInitialState<T>();
     const mergedState = { ...defaultState, ...initialState };
-    let activeSubscription: any = null;
-
     @Injectable({ providedIn: 'root' })
     class GenericStore extends signalStore(
         withState<GenericState<T>>(mergedState),
         withComputed((state) => ({
             totalItems: computed(() => state.items().length),
         })),
-        withMethods((store, service = inject(ServiceType), authStore = inject(AuthState), pendingTasks = inject(PendingTasks)) => ({
+        withMethods((store, service = inject(ServiceType), authStore = inject(AuthState), pendingTasks = inject(PendingTasks)) => {
+            let activeSubscription: any = null;
+            return {
             /**
              * Clear current item
              */
@@ -405,7 +405,7 @@ export function createGenericStore<T extends IBaseModel>(
 
                 patchState(store, mergedState);
             },
-        })),
+        } }),
     ) { }
 
     return GenericStore;
