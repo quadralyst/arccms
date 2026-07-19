@@ -74,6 +74,11 @@ export default class NavbarComponent extends BaseComponent {
     @Output() toggleMenu = new EventEmitter();
     activaUrl: string = '';
 
+    /** Current router URL, kept in sync on NavigationEnd so OnPush change detection re-evaluates active state. */
+    readonly currentUrl = signal<string>(this.router.url);
+    /** Explicit user expand/collapse choices, keyed by group label. Overrides route-based auto-expand. */
+    private readonly manualToggles = signal<Record<string, boolean>>({});
+
     readonly contentTypesStore = inject(ContentTypesStore);
     readonly waitlistAdminStore = inject(WaitlistAdminStore);
 
@@ -88,12 +93,6 @@ export default class NavbarComponent extends BaseComponent {
             icon: 'fa-solid fa-list-alt',
             label: 'Waitlists',
             route: '/admin/waitlists',
-            allowRoles: [this.constantVariables.ADMIN],
-        },
-        {
-            icon: 'fa-solid fa-newspaper',
-            label: 'Contents Type',
-            route: '/admin/contents/content-types',
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
@@ -191,15 +190,21 @@ export default class NavbarComponent extends BaseComponent {
             return true;
         });
 
-        const dynamicContentItems: MenuItem[] = validTypes.map((t: ContentType) => ({
+        const contentTypeLinks: MenuItem[] = validTypes.map((t: ContentType) => ({
             icon: t.icon || 'fa-solid fa-folder',
             label: t.name,
+            route: `/admin/contents/${t.slug}`,
+        })).sort((a: MenuItem, b: MenuItem) => (a.label || '').localeCompare(b.label || ''));
+
+        const contentGroup: MenuItem = {
+            icon: 'fa-solid fa-layer-group',
+            label: 'Content',
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
-                { label: `List ${t.name}`, route: `/admin/contents/${t.slug}`, icon: 'fa-solid fa-list' },
-                { label: `Add ${t.singularName || t.name}`, route: `/admin/contents/${t.slug}/add`, icon: 'fa-solid fa-plus' }
-            ]
-        })).sort((a: MenuItem, b: MenuItem) => (a.label || '').localeCompare(b.label || ''));
+                { label: 'Content types', route: '/admin/contents/content-types', icon: 'fa-solid fa-newspaper' },
+                ...contentTypeLinks,
+            ],
+        };
 
         // Dynamic waitlist items
         const waitlists = this.waitlistAdminStore.items();
@@ -227,15 +232,25 @@ export default class NavbarComponent extends BaseComponent {
         // Add separator after waitlist section
         const waitlistSectionEnd = 3 + dynamicWaitlistItems.length;
         items.splice(waitlistSectionEnd, 0, { label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
-        // Insert content type items after the separator
-        items.splice(waitlistSectionEnd + 1, 0, ...dynamicContentItems);
-        // Add separator after content types section (before Users)
-        const contentSectionEnd = waitlistSectionEnd + 1 + dynamicContentItems.length + 1; // +1 for Contents Type static item
-        items.splice(contentSectionEnd, 0, { label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
+        // Insert the Content group after the separator
+        items.splice(waitlistSectionEnd + 1, 0, contentGroup);
+        // Add separator after the Content group (before Media Manager)
+        items.splice(waitlistSectionEnd + 2, 0, { label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
         // Add separator before Profile (find its index)
         const profileIndex = items.findIndex(i => i.label === 'Profile');
         if (profileIndex > -1) {
             items.splice(profileIndex, 0, { label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
+        }
+
+        // Resolve each group's open state: honour explicit user toggles, otherwise
+        // auto-expand the group whose child matches the current route so the active
+        // item stays visible after the page loads.
+        const url = this.currentUrl();
+        const toggles = this.manualToggles();
+        for (const item of items) {
+            if (!item.subItems?.length) continue;
+            const containsActiveRoute = item.subItems.some(sub => this.isUrlUnder(url, sub.route));
+            item.isOpen = item.label in toggles ? toggles[item.label] : containsActiveRoute;
         }
         return items;
     });
@@ -245,13 +260,18 @@ export default class NavbarComponent extends BaseComponent {
         this.waitlistAdminStore.subscribe();
         this.router.events
             .pipe(filter((event: any): event is NavigationEnd => event instanceof NavigationEnd))
-            .subscribe((event) => { });
+            .subscribe((event: NavigationEnd) => {
+                this.currentUrl.set(event.urlAfterRedirects);
+            });
     }
 
     toggleDropdown(item: MenuItem) {
         this.selectedMenu.emit(item);
         if (item.subItems) {
-            item.isOpen = !item.isOpen;
+            const nextOpen = !item.isOpen;
+            item.isOpen = nextOpen;
+            // Remember the explicit choice so a route-driven recompute doesn't override it.
+            this.manualToggles.update(toggles => ({ ...toggles, [item.label]: nextOpen }));
         } else if (item.label === 'Logout') {
             this.confirmLogout();
         }
@@ -309,11 +329,21 @@ export default class NavbarComponent extends BaseComponent {
     }
 
     isRouteActive(route: string): boolean {
+        // Read the signal so this binding re-evaluates under OnPush whenever navigation occurs.
+        this.currentUrl();
+        if (!route) return false;
         return this.router.isActive(route, {
             paths: 'exact',
-            queryParams: 'exact',
+            queryParams: 'ignored',
             matrixParams: 'ignored',
             fragment: 'ignored',
         });
+    }
+
+    /** True when `url` targets `route` or a descendant of it (path-only, ignoring query string). */
+    private isUrlUnder(url: string, route?: string): boolean {
+        if (!route) return false;
+        const path = url.split('?')[0].split('#')[0];
+        return path === route || path.startsWith(route + '/');
     }
 }

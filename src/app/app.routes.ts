@@ -223,6 +223,25 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Audience Route (Tags). Declared explicitly like every other admin
+  // feature route rather than relying on file-based routing, which resolves
+  // server-side but does not reliably reach the client route table here — the
+  // page then falls through to the public `:contentTypeSlug/:urlSlug` route and
+  // renders "Content Not Found" in the public shell.
+  {
+    path: 'admin/contact-tags',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(contact-tags)/contact-tags.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin Email Logs Route
   {
     path: 'admin/email-logs',
