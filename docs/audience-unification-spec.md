@@ -172,6 +172,26 @@ credentials exactly as `functions/scripts/call-seed.cjs` does, imports the **com
 helper from `functions/lib/**`, and asserts Firestore state — this exercises real product
 code against the real project without needing an admin browser session.
 
+### Convention: admin routes go in `app.routes.ts`, explicitly
+
+`app.config.ts` uses `provideFileRouter(withExtraRoutes(routes))`, so Analog file-based
+routes and `app.routes.ts` coexist — but **every admin feature route is declared
+explicitly** (`admin/settings`, `admin/data`, `admin/waitlists`, `admin/email/*`,
+`admin/users`, `admin/products`, `admin/transactions`, `admin/notifications`), each
+loading `admin.page.ts` as the shell with the page as a child and `roleGuard` on the
+parent. A handful of older pages (`(dashboard)`, `(contacts)`, `(lists)`, `(media)`) rely
+on file-based routing instead.
+
+**New admin pages must add an explicit route.** A file-based-only admin page resolves
+server-side (correct SSR `<title>`) but does not reliably reach the client route table;
+after hydration it falls through to the public `:contentTypeSlug/:urlSlug` route and
+renders **"Content Not Found" in the public shell** — which is what happened to
+`/admin/contact-tags` in U2 (fixed 2026-07-17).
+
+**Verify rendered content, not HTTP status:** that public not-found page returns **200**,
+so a `curl -o /dev/null -w %{http_code}` check passes on a completely broken route. Assert
+on the page text (a working guarded admin route shows the 403 page when unauthenticated).
+
 ### Known defect class: SSR realtime listeners (NG0205)
 
 `@angular/fire` captures the injector when `onSnapshot` is called and runs the
