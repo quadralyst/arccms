@@ -71,7 +71,10 @@ export default class BroadcastsPageComponent implements OnInit {
 
     // Composer state
     subject = '';
-    listId = '';
+    /** Lists to send to (U4). Union, de-duplicated per contact server-side. */
+    includeListIds: string[] = [];
+    /** Lists to subtract from that union. */
+    excludeListIds: string[] = [];
     premiumType = '';
     schedule = false;
     scheduledAt = '';
@@ -125,7 +128,10 @@ export default class BroadcastsPageComponent implements OnInit {
     }
 
     startCompose(presetListId = ''): void {
-        this.subject = ''; this.listId = presetListId; this.premiumType = '';
+        this.subject = '';
+        this.includeListIds = presetListId ? [presetListId] : [];
+        this.excludeListIds = [];
+        this.premiumType = '';
         this.schedule = false; this.scheduledAt = '';
         this.content.set(null); this.eligible.set(null);
         this.mode.set('compose');
@@ -136,7 +142,12 @@ export default class BroadcastsPageComponent implements OnInit {
     }
 
     private buildAudience(): BroadcastAudience {
-        const audience: BroadcastAudience = { kind: 'list', listId: this.listId };
+        const audience: BroadcastAudience = { include: [...this.includeListIds] };
+        if (this.excludeListIds.length) {
+            // Only meaningful against the union; a list in both would cancel itself
+            // out, which the picker prevents.
+            audience.exclude = [...this.excludeListIds];
+        }
         if (this.premiumType.trim()) {
             audience.filters = [{ field: 'premiumType', op: '==', value: this.premiumType.trim() }];
         }
@@ -144,7 +155,7 @@ export default class BroadcastsPageComponent implements OnInit {
     }
 
     async preview(): Promise<void> {
-        if (!this.listId) { this.toast.error('Pick a list first'); return; }
+        if (!this.includeListIds.length) { this.toast.error('Pick at least one list first'); return; }
         this.previewing.set(true);
         try {
             const res = await this.service.previewAudience(this.buildAudience());
@@ -179,7 +190,7 @@ export default class BroadcastsPageComponent implements OnInit {
 
     async send(): Promise<void> {
         if (!this.subject.trim()) { this.toast.error('Add a subject'); return; }
-        if (!this.listId) { this.toast.error('Pick a list'); return; }
+        if (!this.includeListIds.length) { this.toast.error('Pick at least one list'); return; }
         const content = this.content();
         if (!content) { this.toast.error('Click Save in the editor to capture content first'); return; }
         this.sending.set(true);

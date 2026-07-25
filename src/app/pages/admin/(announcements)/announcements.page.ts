@@ -14,6 +14,8 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { AudienceService } from '../(audience)/audience.service';
+import { IList } from '../(audience)/audience.model';
 
 export const routeMeta: RouteMeta = {
     title: 'Announcements & Notifications | Arc CMS',
@@ -38,13 +40,27 @@ export default class AnnouncementsPageComponent implements OnInit {
     private functions = inject(Functions);
     private toast = inject(ToastService);
     private injector = inject(Injector);
+    private audience = inject(AudienceService);
 
     // Composer
     title = ''; body = ''; link = '';
     audienceKind: 'all' | 'role' | 'list' = 'all';
     audienceRole = 'user';
+    /** Lists to announce to (U4) — same include/exclude shape broadcasts use. */
+    includeListIds: string[] = [];
+    excludeListIds: string[] = [];
     sendEmail = false;
     sending = signal(false);
+    lists = signal<IList[]>([]);
+
+    /**
+     * Guards the case that previously fell through to "everyone": picking
+     * "By list" and sending with no list selected resolved to all users.
+     */
+    canPublish(): boolean {
+        if (!this.title.trim() || !this.body.trim()) return false;
+        return this.audienceKind !== 'list' || this.includeListIds.length > 0;
+    }
 
     types = signal<TypeRow[]>([]);
     mappings = signal<MappingRow[]>([]);
@@ -54,6 +70,7 @@ export default class AnnouncementsPageComponent implements OnInit {
 
     ngOnInit(): void {
         void this.seed();
+        this.audience.getLists().subscribe((l) => this.lists.set(l));
     }
 
     private async seed(): Promise<void> {
@@ -82,7 +99,10 @@ export default class AnnouncementsPageComponent implements OnInit {
         try {
             const audience: any = this.audienceKind === 'role'
                 ? { kind: 'role', role: this.audienceRole }
-                : { kind: this.audienceKind };
+                : this.audienceKind === 'list'
+                    ? { kind: 'list', include: [...this.includeListIds] }
+                    : { kind: 'all' };
+            if (this.excludeListIds.length) audience.exclude = [...this.excludeListIds];
             const res: any = await httpsCallable(this.functions, 'sendAnnouncement')({
                 title: this.title, body: this.body, link: this.link || undefined, audience, sendEmail: this.sendEmail,
             });

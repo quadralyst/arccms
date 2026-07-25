@@ -64,12 +64,25 @@
                         <div class="grid-full field-label">Audience</div>
 
                         <mat-form-field appearance="outline">
-                            <mat-label>Send to list</mat-label>
-                            <mat-select [(ngModel)]="listId" (ngModelChange)="eligible.set(null)">
+                            <mat-label>Send to lists</mat-label>
+                            <mat-select multiple [(ngModel)]="includeListIds" (ngModelChange)="eligible.set(null)">
                                 @for (l of lists(); track l.id) {
                                 <mat-option [value]="l.id">{{ l.name }} ({{ l.memberCount || 0 }})</mat-option>
                                 }
                             </mat-select>
+                            <mat-hint>Pick several to reach everyone across them — nobody is emailed twice.</mat-hint>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline">
+                            <mat-label>Exclude lists (optional)</mat-label>
+                            <mat-select multiple [(ngModel)]="excludeListIds" (ngModelChange)="eligible.set(null)">
+                                @for (l of lists(); track l.id) {
+                                <mat-option [value]="l.id" [disabled]="includeListIds.includes(l.id)">
+                                    {{ l.name }} ({{ l.memberCount || 0 }})
+                                </mat-option>
+                                }
+                            </mat-select>
+                            <mat-hint>Anyone on these is skipped, even if an included list has them.</mat-hint>
                         </mat-form-field>
 
                         <mat-form-field appearance="outline">
@@ -79,7 +92,7 @@
                         </mat-form-field>
 
                         <div class="grid-full audience-actions">
-                            <button mat-stroked-button [disabled]="previewing() || !listId" (click)="preview()">
+                            <button mat-stroked-button [disabled]="previewing() || !includeListIds.length" (click)="preview()">
                                 <mat-icon>groups</mat-icon> Preview count
                             </button>
                             @if (eligible() !== null) {

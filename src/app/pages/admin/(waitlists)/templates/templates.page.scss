@@ -895,3 +895,29 @@
         }
     }
 }
+/* U4: the Broadcast tab now points at the list hub instead of composing here. */
+.broadcast-moved {
+    text-align: center;
+    padding: 48px 24px;
+    max-width: 560px;
+    margin: 0 auto;
+
+    .moved-icon {
+        font-size: 34px;
+        color: #94a3b8;
+        margin-bottom: 14px;
+    }
+
+    h3 {
+        font-size: 18px;
+        color: #1f2937;
+        margin: 0 0 10px;
+    }
+
+    p {
+        color: #64748b;
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 0 0 20px;
+    }
+}

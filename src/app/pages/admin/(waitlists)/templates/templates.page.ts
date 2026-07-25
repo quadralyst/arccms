@@ -223,6 +223,14 @@ export default class TemplatesComponent implements OnInit {
         }
     }
 
+    /**
+     * Send the admin to this form's list hub, which owns broadcasts now (U4).
+     * The list id mirrors the form id — see `waitlistListId()` on the server.
+     */
+    goToListHub(): void {
+        this.router.navigate(['/admin/lists', `waitlist-${this.waitlistId()}`]);
+    }
+
     loadTemplateIntoForm(type: TemplateType): void {
         if (type === 'waitlist_broadcast_email') return; // Broadcast tab shows history, not form
 

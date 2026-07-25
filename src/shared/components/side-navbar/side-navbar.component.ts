@@ -217,6 +217,9 @@ export default class NavbarComponent extends BaseComponent {
             subItems: [
                 { label: 'Dashboard', route: `/admin/waitlists/dashboard/${w.id}`, icon: 'fa-solid fa-gauge-high' } as MenuItem,
                 { label: 'Users', route: `/admin/waitlists/users/${w.id}`, icon: 'fa-solid fa-users', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
+                // The form's list hub (U4): its audience, broadcast history and
+                // sequence. The list id mirrors the form id (`waitlistListId()`).
+                { label: 'Audience & emails', route: `/admin/lists/waitlist-${w.id}`, icon: 'fa-solid fa-paper-plane' } as MenuItem,
                 { label: 'Tags', route: `/admin/waitlists/tags`, icon: 'fa-solid fa-tags', queryParams: { waitlistId: w.id, waitlistName: w.name, returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
                 { label: 'Email Templates', route: `/admin/waitlists/templates/${w.id}`, icon: 'fa-solid fa-envelope', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
             ]
@@ -224,9 +227,12 @@ export default class NavbarComponent extends BaseComponent {
 
         const items = [...this.baseMenuItems];
         // Insert waitlist items after Waitlists (index 2), with Subscribers link first
+        // Deprecated (U4): this page is a `WaitlistedUsers` viewer, and that
+        // collection retires in U6. Audience → Contacts supersedes it; the label
+        // says so rather than the link disappearing under anyone mid-migration.
         const subscribersItem: MenuItem = {
             icon: 'fa-solid fa-address-book',
-            label: 'Subscribers',
+            label: 'Subscribers (legacy)',
             route: '/admin/waitlists/subscribers',
             allowRoles: [this.constantVariables.ADMIN],
         };

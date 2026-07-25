@@ -26,7 +26,7 @@
                         <mat-select [(ngModel)]="audienceKind">
                             <mat-option value="all">All users</mat-option>
                             <mat-option value="role">By role</mat-option>
-                            <mat-option value="list">By list (system)</mat-option>
+                            <mat-option value="list">By list</mat-option>
                         </mat-select>
                     </mat-form-field>
                     @if (audienceKind === 'role') {
@@ -35,10 +35,35 @@
                         <input matInput [(ngModel)]="audienceRole" />
                     </mat-form-field>
                     }
+                    @if (audienceKind === 'list') {
+                    <mat-form-field appearance="outline" style="width: 280px;">
+                        <mat-label>Lists</mat-label>
+                        <mat-select multiple [(ngModel)]="includeListIds">
+                            @for (l of lists(); track l.id) {
+                            <mat-option [value]="l.id">{{ l.name }} ({{ l.memberCount || 0 }})</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                    }
+                    <mat-form-field appearance="outline" style="width: 240px;">
+                        <mat-label>Exclude lists (optional)</mat-label>
+                        <mat-select multiple [(ngModel)]="excludeListIds">
+                            @for (l of lists(); track l.id) {
+                            <mat-option [value]="l.id" [disabled]="includeListIds.includes(l.id)">
+                                {{ l.name }}
+                            </mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
                     <mat-slide-toggle [(ngModel)]="sendEmail" color="primary">Also send email</mat-slide-toggle>
                 </div>
 
-                <button mat-flat-button color="primary" [disabled]="sending()" (click)="publish()">
+                <p class="small text-muted mb-3">
+                    Announcements create an in-app notification, so only people with an account
+                    receive them — contacts on a list without a linked account are skipped.
+                </p>
+
+                <button mat-flat-button color="primary" [disabled]="sending() || !canPublish()" (click)="publish()">
                     <mat-icon>campaign</mat-icon> Publish announcement
                 </button>
             </div>

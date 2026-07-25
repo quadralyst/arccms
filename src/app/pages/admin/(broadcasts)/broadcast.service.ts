@@ -38,6 +38,11 @@ export interface BroadcastRow {
     createdAt?: Timestamp;
     /** Needed to filter history to a single list in the List hub (U4). */
     audience?: BroadcastAudience;
+    /**
+     * Legacy per-waitlist broadcasts carry only this — no `audience`. The List hub
+     * matches on it too so history survives the composer's retirement.
+     */
+    waitlistId?: string;
 }
 
 /** Broadcasts v2 admin data access (Phase 6). */
