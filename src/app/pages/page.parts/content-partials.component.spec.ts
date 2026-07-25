@@ -68,7 +68,18 @@ describe('ContentPartialsComponent', () => {
                     }
                 },
             ]
-        }).compileComponents();
+        })
+            // ContentPartialsComponent declares `providers: [ContentsStore]`, which shadows the
+            // root-level mock above. Override the component-level provider so the component
+            // resolves the mock instead of constructing a real store (which needs Firestore).
+            .overrideComponent(ContentPartialsComponent, {
+                set: {
+                    providers: [
+                        { provide: ContentsStore, useValue: mockContentsStore },
+                    ]
+                }
+            })
+            .compileComponents();
 
         fixture = TestBed.createComponent(ContentPartialsComponent);
         component = fixture.componentInstance;
