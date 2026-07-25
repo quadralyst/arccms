@@ -6,15 +6,25 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockAdd, mockSettingsGet, mockSuppressionGet, mockGetContactConsent } = vi.hoisted(() => ({
+const { mockAdd, mockSettingsGet, mockSuppressionGet, mockGetContactConsent, mockDisabled } = vi.hoisted(() => ({
   mockAdd: vi.fn().mockResolvedValue({ id: 'log-1' }),
   mockSettingsGet: vi.fn(),
   mockSuppressionGet: vi.fn(),
   mockGetContactConsent: vi.fn().mockResolvedValue(null),
+  // Box so tests can flip the admin disable flag (U4) without re-mocking.
+  mockDisabled: { value: false },
 }));
 
 // Phase 3: the marketing gate consults Contacts consent (fallback to isSubscribed).
-vi.mock('../email-core/contacts', () => ({ getContactConsent: mockGetContactConsent }));
+// U4: consent + the admin `disabled` flag are read together in getContactGateState,
+// derived here from the same consent mock so existing consent tests are unchanged.
+vi.mock('../email-core/contacts', () => ({
+  getContactConsent: mockGetContactConsent,
+  getContactGateState: async (emailHash: string) => {
+    const consent = await mockGetContactConsent(emailHash);
+    return { exists: consent !== null, consent, disabled: mockDisabled.value };
+  },
+}));
 
 vi.mock('../init', () => ({
   db: {
@@ -82,6 +92,64 @@ describe('queueEmail', () => {
     mockAdd.mockResolvedValue({ id: 'log-1' });
     mockSuppressionGet.mockResolvedValue({ exists: false, data: () => undefined });
     mockGetContactConsent.mockResolvedValue(null); // no contact → fall back to isSubscribed
+    mockDisabled.value = false;
+  });
+
+  describe('admin-disabled contacts (U4 / U-D12)', () => {
+    it('blocks a marketing email with skipReason contact_disabled', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      mockGetContactConsent.mockResolvedValue('subscribed');
+      mockDisabled.value = true;
+
+      const res = await queueEmail({ ...baseParams, category: 'marketing' });
+
+      expect(res.status).toBe('skipped');
+      expect(res.skipReason).toBe('contact_disabled');
+    });
+
+    it('blocks transactional email too — the switch is absolute', async () => {
+      // Stronger than consent by design: an admin-disabled contact receives
+      // nothing, including a signup OTP, until they are re-enabled.
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      mockGetContactConsent.mockResolvedValue('subscribed');
+      mockDisabled.value = true;
+
+      const res = await queueEmail({ ...baseParams, category: 'transactional' });
+
+      expect(res.status).toBe('skipped');
+      expect(res.skipReason).toBe('contact_disabled');
+    });
+
+    it('writes an auditable log rather than dropping the send silently', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      mockDisabled.value = true;
+
+      await queueEmail({ ...baseParams, category: 'marketing' });
+
+      expect(lastAddArg()).toMatchObject({ status: 'skipped', skipReason: 'contact_disabled' });
+    });
+
+    it('re-enabling restores delivery', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      mockGetContactConsent.mockResolvedValue('subscribed');
+      mockDisabled.value = false;
+
+      const res = await queueEmail({ ...baseParams, category: 'marketing' });
+
+      expect(res.status).toBe('pending');
+    });
+
+    it('takes precedence over the consent gate', async () => {
+      // Both would block; the reason must be the admin action, so the audit
+      // trail shows why it was really stopped.
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      mockGetContactConsent.mockResolvedValue('unsubscribed');
+      mockDisabled.value = true;
+
+      const res = await queueEmail({ ...baseParams, category: 'marketing' });
+
+      expect(res.skipReason).toBe('contact_disabled');
+    });
   });
 
   it('writes a pending log when all gates pass', async () => {

@@ -258,6 +258,50 @@ export async function getContactConsent(emailHash: string): Promise<MarketingCon
   return consent?.marketing || 'pending';
 }
 
+export interface ContactGateState {
+  exists: boolean;
+  consent: MarketingConsent | null;
+  /** Admin kill-switch for this contact (U-D12) — blocks every email category. */
+  disabled: boolean;
+}
+
+/**
+ * Everything `queueEmail` needs about a contact, in ONE read.
+ *
+ * Consent and the disabled flag live on the same doc, and queueEmail runs per
+ * recipient — a broadcast to 10k contacts would otherwise pay 10k extra reads
+ * just to check `disabled`.
+ */
+export async function getContactGateState(emailHash: string): Promise<ContactGateState> {
+  const snap = await db.collection('Contacts').doc(emailHash).get();
+  if (!snap.exists) return { exists: false, consent: null, disabled: false };
+  const data = snap.data()!;
+  const consent = (data['consent'] as { marketing?: MarketingConsent } | undefined)?.marketing;
+  return {
+    exists: true,
+    consent: consent || 'pending',
+    disabled: data['disabled'] === true,
+  };
+}
+
+/**
+ * Turn a contact's email off (or back on) — an **admin** action, deliberately
+ * distinct from `consent.marketing:'unsubscribed'`, which represents the
+ * contact's own choice. Disabling is reversible and keeps the contact visible
+ * and counted; it just stops mail.
+ *
+ * Used by the List hub, where membership of a form-fed list is read-only
+ * (removing it would desync the audience from the form's member docs), so
+ * disabling is the sanctioned way to stop emailing someone who came in via a
+ * form.
+ */
+export async function setContactDisabled(emailHash: string, disabled: boolean): Promise<void> {
+  await db.collection('Contacts').doc(emailHash).set(
+    { disabled, disabledChangedAt: Timestamp.now(), updatedAt: Timestamp.now() },
+    { merge: true },
+  );
+}
+
 /** Clear a user link + system-list membership when a user is deleted. */
 export async function unlinkUserContact(email: string): Promise<void> {
   const emailHash = computeEmailHash(email);

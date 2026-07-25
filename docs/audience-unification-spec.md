@@ -23,7 +23,8 @@ waitlist email surfaces** onto the unified system.
 | U-D8 | Tags | Per-waitlist tags migrate to **global `Contacts.tags[]`**. Saved dynamic **Segments are deferred** (post-U7); multi-list + filter broadcast audiences cover the near-term targeting cases. |
 | U-D9 | `WaitlistedUsers` | Retired — it pre-dates `Contacts` and duplicates its dedup job. Replaced by Contact (audience truth) + per-form funnel state. Highest-risk migration ⇒ isolated in its own late phase (U6) with a dual-read window. |
 | U-D10 | Person records target state | Two per person: `Contacts/{emailHash}` (consent, lists, tags, identity) + the form-member doc (`Waitlists/{id}/users`, kept as **funnel state**: verification, queuePosition, referrals, formData). |
-| U-D11 | Migration style | Every phase ships with an **idempotent admin callable** for backfill (precedent: `backfillContacts`). Additive first → dual-write/dual-read → cutover → delete. Emulator-verified before running on live data. |
+| U-D12 | Form-fed membership is read-only; admins **disable** instead | A contact's membership of a `waitlist-{id}` list is **not** editable in the List hub — it is derived from the funnel doc, so hand-removing it would desync the audience from the form's own member list. Manual-list membership stays fully editable. Instead the admin can **disable a contact** (`Contacts.disabled: true`), which stops **all** email to them (checked in `queueEmail`, `skipReason:'disabled'`) while leaving them counted and visible. Distinct from `consent.marketing:'unsubscribed'`, which is the contact's *own* choice — disabling is an admin action and is reversible. **Consequence to accept:** because it blocks transactional mail too, a disabled person cannot receive a signup/verification OTP — see U4 scope note. |
+| U-D11 | Migration style | Every phase ships with an **idempotent admin callable** for backfill (precedent: `backfillContacts`). Additive first → dual-write/dual-read → cutover → delete. Dry-run first (callables support `{dryRun:true}`), and export Firestore before any id-rewriting step. |
 
 ### Explicit non-goals (deferred)
 Saved segments UI · renaming the `Waitlists` Firestore collection · double opt-in for
@@ -76,6 +77,7 @@ queueEmail gates). Risk is concentrated in exactly one place:
 | U2 Pending contacts + global tags | M | Low-Med | New sync point at signup; consent gate already handles `pending` |
 | U3 Form → List decoupling | S-M | Low | Additive field + membership routing |
 | U4 List hub + unified audience picker | M | Low-Med | Mostly UI; one audience type change |
+| U4.5 Contact custom fields | M | Low-Med | Additive field store + tag resolver change; backfill has a conflict case |
 | U5 Welcome→day-0 + server-side OTP | M-L | Med | Behavioral cutover of two live email flows; fixes the double-OTP bug |
 | U6 Retire `WaitlistedUsers` | L | **High** | Data migration; leaderboard/referral queries move |
 | U7 Template/editor consolidation + cleanup | M | Low | Deletion + one id-normalization migration |
@@ -149,28 +151,53 @@ phase** = where the surface is updated; verification for that phase must include
   removals — safe, but the runbook must sequence data migration **before** the deploy that
   removes them.
 
-### Testing reality: there is no emulator wiring
+### THE TESTING MODEL (read before writing or running any verification step)
 
-The app has **no `connectFirestoreEmulator`/`connectFunctionsEmulator` calls** — `npm run dev`
-serves the frontend locally but talks to the **real** Firebase project (`xlm-project-864ff`
-by default, per `.firebaserc`). Cloud Functions therefore run **only from the last deploy**:
-editing `functions/src/**` has no effect on local browser testing until
+**There is no emulator. This project is tested against the live dev Firebase project.**
 
-```
-cd functions && npm run build
-firebase deploy --project default --only "functions:<name>,..."
-```
+- **Frontend:** runs **locally** — `npm run dev` at `http://localhost:5173`.
+- **Backend:** Cloud Functions, Firestore data, rules and indexes all live in the **dev
+  Firebase project** (`xlm-project-864ff`, the `default` alias in `.firebaserc`). The app has
+  **no `connectFirestoreEmulator`/`connectFunctionsEmulator` calls anywhere in `src/`**.
 
-This caused a false "the fix doesn't work" during U1 (2026-07-17) — new waitlists showed no
-list because the *old* `onWaitlistsCreate` was still live in the cloud. **Every phase that
-changes functions must deploy before browser testing**, and each phase's manual checklist
-assumes a deploy has happened. (Wiring up the emulator suite, so phases can be verified
-without touching a shared project, is worth considering as a separate task.)
+Consequences that shape every phase:
 
-Useful verification pattern (used in U1): a node script that reuses the Firebase CLI
-credentials exactly as `functions/scripts/call-seed.cjs` does, imports the **compiled**
-helper from `functions/lib/**`, and asserts Firestore state — this exercises real product
-code against the real project without needing an admin browser session.
+1. **Functions run only from the last deploy.** Editing `functions/src/**` changes nothing in
+   the browser until you build and deploy:
+   ```
+   cd functions && npm run build
+   firebase deploy --project default --only "functions:<name>,functions:<name>"
+   ```
+2. **Rules and indexes likewise need deploying:**
+   `firebase deploy --project default --only firestore:rules,firestore:indexes`
+3. **Verify the deploy landed — do not trust the exit code.** A U3-era deploy reported
+   `exit 0` while pushing **none** of the requested functions. Always confirm:
+   ```
+   firebase functions:list --project default | grep <functionName>
+   ```
+4. **The data is shared and real.** Test data (forms, contacts, tags) persists and is visible
+   to anyone else on the project. Migration callables run against real records — take a
+   Firestore export before any destructive or id-rewriting step.
+5. **`firebase` may be missing from PATH** — it is installed per-Node-version under nvm. Use
+   `npx firebase-tools …` (note: `npx firebase` is the wrong package name) or
+   `nvm use 22.17.0`.
+
+Because of all this, phase verification steps below say **"Dev project:"**, never
+"Emulator:" — they assume the phase's functions/rules are already deployed. Wiring up the
+emulator suite so phases can be verified without touching a shared project remains a
+worthwhile separate task, but it is **not** how this work is currently validated.
+
+**Verifying without an admin browser session** (used from U1 onward): a node script that
+reuses the Firebase CLI credentials exactly as `functions/scripts/call-seed.cjs` does
+(refresh token from `~/.config/configstore/firebase-tools.json` → temp ADC file →
+`GOOGLE_APPLICATION_CREDENTIALS`), imports the **compiled** helper from `functions/lib/**`,
+and asserts Firestore state. This exercises real product code against the real project.
+Note `createCustomToken` does **not** work on CLI credentials (no service-account signer),
+so admin-guarded callables can't be invoked this way — test their underlying helper, or
+click the button in the admin UI.
+
+**Verify rendered content, not HTTP status.** The public not-found page returns **200**, so a
+status-code check passes on a completely broken admin route (see the routing note below).
 
 ### Convention: admin routes go in `app.routes.ts`, explicitly
 
@@ -224,7 +251,7 @@ a characterization test of its current behavior in the same phase.**
 > `npm run test` from repo root (Vitest) must be green at every phase boundary.
 > Every backfill is an admin-only callable, idempotent, and logged.
 >
-> **Read the deploy note first (§2.1): there is no emulator.** `npm run dev` runs the
+> **Read the testing model first (§2.1): no emulator — deploy to the dev project.** `npm run dev` runs the
 > frontend against the real Firebase project, so any phase touching `functions/**` or
 > `firestore.rules` is invisible in the browser until deployed. Testing before deploying
 > produces convincing false negatives — this already happened once in U1.
@@ -236,7 +263,7 @@ a characterization test of its current behavior in the same phase.**
 
 ## Phase U1 — Lists become real: eager creation + data hygiene
 
-**Status:** built 2026-07-15 (`feat/audience-unification`) — awaiting the emulator/manual
+**Status:** built 2026-07-15 (`feat/audience-unification`) — awaiting the manual
 verification below. Unit tests green.
 
 **Objective:** every waitlist (existing and new) is visible in Audience → Lists from the
@@ -421,7 +448,7 @@ just a form with gamification on.
 
 ### ✅ Manual verification
 > Requires deploy first (see below): `stampFormTargetLists` + the two changed contact-sync
-> triggers. There is no emulator (see §"Testing reality") — test against the dev project.
+> triggers. See §2.1 — test against the dev project after deploying.
 1. **Feeds lists:** Audience → Lists, create a manual list "Beta users". Signup Forms → edit Form A and Form B, tick "Beta users" under Feeds lists, save. Sign up + verify on each → in Audience → Contacts, both people are on "Beta users" **and** each form's own `waitlist-{id}` list.
 2. **Union, no double-count:** the same email signs up via both forms → one contact, member of the union of lists; "Beta users" memberCount counts them once.
 3. **Gamification off:** edit a form, untick Gamification, save. Open its public page, sign up → success screen shows "Thanks for signing up" with **no** referral code / leaderboard / queue position. Signup still records the contact + list membership.
@@ -452,17 +479,76 @@ one audience shape everywhere; legacy waitlist broadcast path retired.
 
 ### ✅ Manual verification
 1. `npm run test` green (multi-list resolution: include ∪, exclude minus, dedup; announcement audience parity).
-2. Emulator: list hub for a form-fed list → Members shows subscribed+pending correctly; Broadcasts tab empty; Sequence tab shows existing campaigns.
+2. Dev project: list hub for a form-fed list → Members shows subscribed+pending correctly; Broadcasts tab empty; Sequence tab shows existing campaigns.
 3. Compose from the Broadcasts tab → audience preselected; preview count matches subscribed members; send → summary sent/skipped correct.
 4. Multi-list: broadcast to include [waitlist-A, waitlist-B], exclude [all-customers] → a contact on both A and B gets **one** email; a customer on A gets none.
 5. Announcement targeting a list via the shared picker → same preview count as a broadcast to that list.
-6. Old waitlist Broadcast tab → lands on the list hub. Attempt to write a legacy inline-recipients broadcast doc (emulator script) → rejected/parked with a clear error, not silently processed.
-7. Main admin dashboard: total / 7-day / verified counts and recent signups now match the Contacts data (cross-check against a seeded dataset with known counts); per-waitlist cards show `Lists.memberCount` + pending. **Zero reads of `WaitlistedUsers` from the dashboard** (verify via emulator request log).
+6. Old waitlist Broadcast tab → lands on the list hub. Attempt to write a legacy inline-recipients broadcast doc (script against the dev project) → rejected/parked with a clear error, not silently processed.
+7. Main admin dashboard: total / 7-day / verified counts and recent signups now match the Contacts data (cross-check against a seeded dataset with known counts); per-waitlist cards show `Lists.memberCount` + pending. **Zero reads of `WaitlistedUsers` from the dashboard** (verify via the browser network panel).
 8. Side-navbar per-waitlist submenu links land on the list hub; Subscribers item shows its deprecation state.
 
+### What to expect next (U4.5)
+The audience is unified and targetable, but a form's **arbitrary fields never reach the
+contact** — so no send can personalise beyond name/email. U4.5 introduces the account-level
+custom-field layer that makes merge tags and field-based targeting possible, and it must land
+before U5 builds drip merge-tag plumbing.
+
+---
+
+## Phase U4.5 — Contact custom fields (form fields become audience data)
+
+**Objective:** an arbitrary field collected by any form becomes durable, queryable data on
+the **contact**, usable as a merge tag in any send to any list.
+
+### Why this is a phase, not a nice-to-have
+
+Audited 2026-07-17: `formData` lives **only** on the funnel doc
+(`Waitlists/{id}/users/{userId}.formData`). `upsertContact` writes just
+`email · name · firstName · userId · source · listIds · consent · tags` — there is **no
+reference to `formData` anywhere in `email-core` or `email-log`**, and the broadcast engine's
+`AudienceContact` shape is `{id, email, name, userId, sources, createdAt, consent}`.
+
+Consequences today:
+
+| Surface | Sees custom form fields? |
+|---|---|
+| Form's Joined Users page / per-form dashboard | ✅ (reads the funnel doc) |
+| Audience → Contacts | ❌ |
+| Broadcast — even to that form's own list | ❌ |
+| Multi-list broadcast (U4) / Sequence (U5) | ❌ |
+| Filter or segment by a field value | ❌ |
+
+U3 sharpens it: two forms can now feed one list with **disjoint** field sets, so a template
+using `##COMPANY##` renders blank for half the recipients. The industry model (Kit,
+MailerLite) puts custom fields on the **subscriber** and has forms *map into* a shared
+account-level schema — which is what makes cross-form merge tags and targeting safe.
+
+### Scope
+1. **Field registry — `Settings/contact_fields`:** `{ fields: Record<key, { label, type: 'text'|'number'|'date'|'boolean'|'select', options?, createdAt }> }`. Admin-managed under Audience → Fields. `key` is a slug (same rule as tags); reserved keys (`email`, `name`, `firstName`) rejected.
+2. **`Contacts.fields: Record<string, unknown>`** — values on the contact, so they survive across every list and every form.
+3. **Form → field mapping:** each form maps its inputs to registry keys (`Waitlists/{id}.fieldMap: Record<formField, contactFieldKey>`). Signup sync copies mapped values onto the contact. **Write policy: fill-if-empty by default**, with an explicit "overwrite on re-submit" per-field option — never silently clobber a value the contact gave earlier through another form.
+4. **Merge tags with fallbacks:** `##FIELD:company##` (or registry-driven `##COMPANY##`) resolved from `Contacts.fields` by the tag resolver, with required default syntax so a missing value never renders empty — e.g. `##COMPANY|your company##`. The compiler warns when a marketing template references a field with no default.
+5. **Admin surfaces:** field values shown/editable on the contact drawer; a Fields registry page; the Contacts table can add a field as a column.
+6. **Backfill `migrateFormDataToContactFields`:** walk every form's members, map `formData` → `Contacts.fields` via each form's `fieldMap`. Idempotent, `dryRun` support, and **logs conflicts** (same key, different values from different forms) rather than silently picking a winner.
+
+### Out of scope (deferred)
+Saved segments UI (still post-U7) · field-based drip branching · per-field consent.
+
+### ✅ Manual verification (dev project — deploy functions first)
+1. `npm run test` green, including: slug/reserved-key validation, fill-if-empty vs overwrite policy, merge-tag fallback rendering, backfill idempotency + conflict logging.
+2. Audience → Fields: create `company` (text) and `role` (select). Reserved key `email` is rejected with a clear error.
+3. Map a form's `company` input to the `company` field. Sign up with a fresh email + a company value → Audience → Contacts → that contact shows `company` populated.
+4. Second form, no `company` mapping, same email → the existing value **survives** (fill-if-empty).
+5. Set that field to "overwrite on re-submit", re-submit with a different value → value updates.
+6. Broadcast to a multi-list audience where only *some* contacts have `company`: those with it render the value; those without render the **default**, never an empty gap.
+7. Save a marketing template referencing a field with no default → save warns.
+8. Run `migrateFormDataToContactFields` with `{dryRun:true}` → reports counts + any conflicts; run for real → historical signups' fields appear on contacts; re-run → no changes.
+9. Contacts table: add `company` as a column and sort/read it.
+
 ### What to expect next (U5)
-The surfaces are unified; U5 unifies the *behavior*: welcome becomes the sequence's day-0
-step (instant), and the per-form OTP becomes a true server-side double-opt-in email. After
+With fields on the contact, U5 can unify the *behavior*: welcome becomes the sequence's day-0
+step (instant), and the per-form OTP becomes a true server-side double-opt-in email — with
+drip templates able to merge both waitlist context (`##POSITION##`) and custom fields. After
 U5, the old direct welcome trigger and client-side OTP generation are gone.
 
 ---
@@ -482,15 +568,15 @@ first sequence step; OTP = the form's double-opt-in email, generated server-side
 
 ### ✅ Manual verification
 1. `npm run test` green (fast-path idempotency, tag-context resolution, OTP hash/expiry/attempts/throttle, welcome-guard matrix).
-2. Emulator: verify a new signup → welcome EmailLog appears **within seconds** (day-0 fast path), `source:'drip'`; exactly **one** welcome (direct trigger no-ops); scheduler run 15 min later sends nothing extra.
+2. Dev project: verify a new signup → welcome EmailLog appears **within seconds** (day-0 fast path), `source:'drip'`; exactly **one** welcome (direct trigger no-ops); scheduler run 15 min later sends nothing extra.
 3. Welcome content: `##POSITION##`/`##REFERRAL_LINK##`/`##LEADERBOARD_LINK##` resolved correctly for the specific member.
 4. Add a day-3 step to the same sequence → verify a signup → welcome now, enrollment `nextSendAt` = +3 days. Pause the sequence → new verifications get no welcome until resume (expected: welcome is now campaign-governed).
 5. OTP: join a form → **one** OTP email; resend within 60s → throttled; wrong code ×5 → locked; correct code → verified. Join the same email from the returning-user path → still exactly one OTP (double-OTP bug gone).
 6. Per-form OTP content: customize Form A's OTP template, leave Form B default → each form's OTP email shows its own content/layout.
 7. **[live]** Full journey on a real provider: signup → branded OTP arrives → verify → welcome arrives instantly → unsubscribe link in welcome works and exits the sequence.
 8. Kill-switch: master email off → OTP skipped-logged, signup does **not** block, verification path still completes (`confirmWithoutOtp` parity).
-9. **Rules lockdown:** emulator rules test — an unauthenticated client attempting to write `emailVerified`, `verificationCode`, or `totalReferrals` on `Waitlists/{id}/users/{uid}` is **denied**; the legitimate signup create path still succeeds.
-10. Unsubscribe: open the public unsubscribe route from an email link → confirmation completes via the `handleUnsubscribe` HTTP function; emulator log shows **no client-side writes** to `WaitlistedUsers` or the member subcollection; Contact consent + Suppression doc updated.
+9. **Rules lockdown:** rules test against the dev project — an unauthenticated client attempting to write `emailVerified`, `verificationCode`, or `totalReferrals` on `Waitlists/{id}/users/{uid}` is **denied**; the legitimate signup create path still succeeds.
+10. Unsubscribe: open the public unsubscribe route from an email link → confirmation completes via the `handleUnsubscribe` HTTP function; the Firestore console shows **no client-side writes** to `WaitlistedUsers` or the member subcollection; Contact consent + Suppression doc updated.
 
 ### What to expect next (U6)
 All email behavior is now unified. U6 is pure data-layer consolidation: retiring the
@@ -516,8 +602,8 @@ verification/queue/referral state.
 
 ### ✅ Manual verification
 1. `npm run test` green (leaderboard/referral logic against the new source; join-flow matrix: new / returning-verified / returning-unverified / cross-form).
-2. Emulator seeded with legacy `WaitlistedUsers` data: run `migrateWaitlistedUsers` → leaderboard identical before/after (snapshot compare), referral counts identical; re-run → idempotent.
-3. New signup with a referral link → referrer's count increments, leaderboard order updates — with zero `WaitlistedUsers` writes (verify via emulator firestore log).
+2. Dev project seeded with legacy `WaitlistedUsers` data: run `migrateWaitlistedUsers` → leaderboard identical before/after (snapshot compare), referral counts identical; re-run → idempotent.
+3. New signup with a referral link → referrer's count increments, leaderboard order updates — with zero `WaitlistedUsers` writes (verify via the Firestore console / a read-only inspection script).
 4. Returning verified user joins a second form → recognized (no OTP re-ask where policy says so), added to the second list — via Contacts lookup only.
 5. Unsubscribe an old contact who exists only in legacy data (pre-backfill) → dual-read fallback resolves them; post-cutover: backfilled contact resolves.
 6. Subscribers admin page shows the same population as before, sourced from Contacts.
@@ -547,9 +633,9 @@ email-spec Phase 8; do them together.)
 ### ✅ Manual verification
 1. `npm run test` green, including all new source-scan audits.
 2. Grep audit: zero references to deleted components/collections outside migration code.
-3. Fresh-project run (emulator, no data): onboarding → create a form → signup → OTP → verify → welcome → broadcast from list hub → sequence step 2 — every step works from a clean slate (the boilerplate story).
+3. Fresh-project run (a clean Firebase project, no data): onboarding → create a form → signup → OTP → verify → welcome → broadcast from list hub → sequence step 2 — every step works from a clean slate (the boilerplate story).
 4. **[live]** One full journey on a real provider as a final smoke test.
-5. Run the migration runbook end-to-end on an emulator project seeded with a **copy of realistic legacy data** — the runbook alone, no tribal knowledge.
+5. Run the migration runbook end-to-end on a scratch Firebase project seeded with a **copy of realistic legacy data** — the runbook alone, no tribal knowledge.
 
 ---
 
