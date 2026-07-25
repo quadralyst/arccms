@@ -1,4 +1,5 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import type { BroadcastEmailDoc, ProviderRateLimits, EmailSettings } from '../types.js';
@@ -12,6 +13,28 @@ import { resolveProviderLimits, legacyToProviderLimits, checkQuota } from '../ma
  * Leave 60s buffer for setup/teardown.
  */
 const PROCESSING_BUDGET_MS = (540 - 60) * 1000;
+
+/**
+ * When the inline-`recipients[]` broadcast format was retired (U4).
+ *
+ * Broadcasts created at or before this point still drain through the legacy path
+ * so nothing queued is lost; anything created after it must use an `audience`,
+ * which resolves recipients — and their consent — at send time.
+ */
+const INLINE_RECIPIENTS_RETIRED_AT = Date.UTC(2026, 6, 17); // 2026-07-17
+
+/**
+ * True when a legacy-shaped broadcast is too new to be legitimate.
+ *
+ * Undated docs and part-sent docs are treated as legacy on purpose: refusing to
+ * finish a send that is already half-delivered would be worse than completing it.
+ */
+function isPostU4Broadcast(data: BroadcastEmailDoc): boolean {
+  if ((data.processedIndex || 0) > 0) return false; // already mid-flight
+  const createdMs = (data as { createdAt?: { toMillis?: () => number } }).createdAt?.toMillis?.() ?? 0;
+  if (!createdMs) return false; // cannot date it ⇒ don't block it
+  return createdMs > INLINE_RECIPIENTS_RETIRED_AT;
+}
 
 /**
  * Triggers when a new BroadcastEmails document is created.
@@ -85,6 +108,22 @@ export const processBroadcast = onDocumentCreated(
             // Phase 6: audience broadcasts resolve recipients from Contacts at send time.
             if (broadcastData.audience) {
                 await runAudienceBroadcast(broadcastRef, broadcastData, broadcastId, providerLimits, quotaChecker, PROCESSING_BUDGET_MS);
+                return;
+            }
+
+            // U4: the legacy path froze an inline `recipients[]` at compose time, so
+            // consent and membership were whatever they were when the admin clicked.
+            // Docs created before U4 still drain through it, but nothing new may use
+            // it — park those instead of sending from a stale snapshot.
+            if (isPostU4Broadcast(broadcastData)) {
+                logger.warn(`Broadcast ${broadcastId}: inline recipients are no longer accepted — parking.`);
+                await broadcastRef.update({
+                    status: 'failed',
+                    failureReason: 'inline_recipients_retired',
+                    error: 'This broadcast used the retired inline-recipients format. '
+                        + 'Compose it from the list hub so recipients resolve at send time.',
+                    completedAt: Timestamp.now(),
+                });
                 return;
             }
 

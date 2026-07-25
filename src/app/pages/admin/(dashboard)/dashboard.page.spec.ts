@@ -16,7 +16,7 @@ import { GoogleOAuthService } from '../../../../shared/services/google-oauth.ser
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
 import { DraftContentsService } from '../contents/draft-content-store/draft-contents.service';
 import { MediaManagerService } from '../(media)/media-manager.service';
-import { WaitlistedUsersService } from '../(waitlists)/waitlisted-users.service';
+import { AudienceService } from '../(audience)/audience.service';
 import { UserService } from '../users/user.service';
 import { WaitlistAdminStore } from '../(waitlists)/waitlist.store';
 import { Firestore } from '@angular/fire/firestore';
@@ -64,9 +64,12 @@ describe('DashboardComponent', () => {
     const mockMediaService = {
         getCollectionTotalCount: vi.fn().mockReturnValue(of(0))
     };
-    const mockWaitlistedUsersService = {
-        getCollectionTotalCount: vi.fn().mockReturnValue(of(0)),
-        getAll: vi.fn().mockReturnValue(of({ collectionData: [], totalCount: 0 }))
+    // U4: growth widgets read the unified Contacts audience, not WaitlistedUsers.
+    const mockAudienceService = {
+        countContacts: vi.fn().mockResolvedValue(0),
+        countContactsSince: vi.fn().mockResolvedValue(0),
+        countContactsByConsent: vi.fn().mockResolvedValue(0),
+        getRecentContacts: vi.fn().mockReturnValue(of([])),
     };
     const mockUserService = {
         getCollectionTotalCount: vi.fn().mockReturnValue(of(0))
@@ -117,7 +120,7 @@ describe('DashboardComponent', () => {
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: DraftContentsService, useValue: mockDraftContentsService },
                 { provide: MediaManagerService, useValue: mockMediaService },
-                { provide: WaitlistedUsersService, useValue: mockWaitlistedUsersService },
+                { provide: AudienceService, useValue: mockAudienceService },
                 { provide: UserService, useValue: mockUserService },
                 { provide: EmailConfigStatusService, useValue: mockEmailConfigService },
                 { provide: AnalyticsConnectionStatusService, useValue: mockAnalyticsConnectionStatus },

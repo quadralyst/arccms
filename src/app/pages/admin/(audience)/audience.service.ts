@@ -13,6 +13,7 @@ import {
     orderBy,
     where,
     limit,
+    getCountFromServer,
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Observable, catchError, of } from 'rxjs';
@@ -42,6 +43,47 @@ export class AudienceService {
         return (collectionData(query(ref, orderBy('name')), { idField: 'id' }) as Observable<IList[]>).pipe(
             catchError((err) => {
                 console.error('Error fetching lists:', err);
+                return of([]);
+            }),
+        );
+    }
+
+    // ── Dashboard counts (U4) ──
+    // Server-side aggregates so the dashboard never pages documents just to count
+    // them. All are single-field queries, served by automatic indexes.
+
+    /** Total contacts — the whole audience, whatever its source. */
+    async countContacts(): Promise<number> {
+        if (!isPlatformBrowser(this.platformId)) return 0;
+        const snap = await getCountFromServer(collection(this.firestore, 'Contacts'));
+        return snap.data().count;
+    }
+
+    /** Contacts created on/after `since`. */
+    async countContactsSince(since: Date): Promise<number> {
+        if (!isPlatformBrowser(this.platformId)) return 0;
+        const q = query(collection(this.firestore, 'Contacts'), where('createdAt', '>=', since));
+        const snap = await getCountFromServer(q);
+        return snap.data().count;
+    }
+
+    /** Contacts in a given consent state — `subscribed` is the mailable audience. */
+    async countContactsByConsent(consent: MarketingConsent): Promise<number> {
+        if (!isPlatformBrowser(this.platformId)) return 0;
+        const q = query(collection(this.firestore, 'Contacts'), where('consent.marketing', '==', consent));
+        const snap = await getCountFromServer(q);
+        return snap.data().count;
+    }
+
+    /** Most recently created contacts, for the dashboard's recent-signups table. */
+    getRecentContacts(max = 7): Observable<IContact[]> {
+        if (!isPlatformBrowser(this.platformId)) {
+            return of([]);
+        }
+        const ref = collection(this.firestore, 'Contacts');
+        return (collectionData(query(ref, orderBy('createdAt', 'desc'), limit(max)), { idField: 'id' }) as Observable<IContact[]>).pipe(
+            catchError((err) => {
+                console.error('Error fetching recent contacts:', err);
                 return of([]);
             }),
         );

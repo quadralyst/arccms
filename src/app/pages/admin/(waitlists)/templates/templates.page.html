@@ -40,70 +40,20 @@
 
         <!-- Broadcast Tab - Show History Table -->
         @if (activeTab() === 'waitlist_broadcast_email') {
-        <div class="broadcast-section" [class.editor-active]="isComposingBroadcast()">
-            <!-- Broadcast Header with Create Button -->
-            <div class="broadcast-header">
-                <h3>Broadcast History</h3>
-                <button class="btn btn-primary" (click)="openBroadcastEditor()" [disabled]="isComposingBroadcast()">
-                    <i class="fas fa-plus"></i> Create Broadcast
-                </button>
-            </div>
-
-            <!-- Inline Broadcast Editor -->
-            @if (isComposingBroadcast()) {
-            <div class="broadcast-editor-overlay">
-                <arc-broadcast-email-editor [waitlistId]="waitlistId()" [allUsers]="waitlistUsers()"
-                    (close)="closeBroadcastEditor()" (broadcastSent)="onBroadcastSent()">
-                </arc-broadcast-email-editor>
-            </div>
-            }
-
-            <!-- Broadcast History Table -->
-            @if (loadingBroadcasts()) {
-            <div class="loading-state small">
-                <div class="spinner"></div>
-                <p>Loading broadcasts...</p>
-            </div>
-            } @else if (broadcastHistory().length === 0) {
-            <div class="empty-state">
-                <i class="fas fa-bullhorn"></i>
-                <h4>No broadcasts yet</h4>
-                <p>Create your first broadcast email to reach all waitlist subscribers.</p>
-                <button class="btn btn-primary" (click)="openBroadcastEditor()">
-                    <i class="fas fa-plus"></i> Create First Broadcast
-                </button>
-            </div>
-            } @else {
-            <div class="broadcast-table-container">
-                <table class="broadcast-table">
-                    <thead>
-                        <tr>
-                            <th>Subject</th>
-                            <th>Status</th>
-                            <th>Recipients</th>
-                            <th>Sent Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (broadcast of broadcastHistory(); track broadcast.id) {
-                        <tr>
-                            <td class="subject-cell">
-                                <span class="subject">{{ broadcast.subject }}</span>
-                                <span class="preview-text">{{ broadcast.previewText || '-' }}</span>
-                            </td>
-                            <td>
-                                <span class="status-badge" [class]="getStatusClass(broadcast.status)">
-                                    {{ broadcast.status | titlecase }}
-                                </span>
-                            </td>
-                            <td>{{ broadcast.totalCount || broadcast.recipientCount }} users</td>
-                            <td>{{ formatDate(broadcast.sentAt || broadcast.createdAt) }}</td>
-                        </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-            }
+        <!-- U4: broadcasts moved to the list hub, where recipients (and their
+             consent) resolve at send time from the audience instead of being
+             frozen into the document at compose time. -->
+        <div class="broadcast-moved">
+            <div class="moved-icon"><i class="fa-solid fa-tower-broadcast"></i></div>
+            <h3>Broadcasts have moved</h3>
+            <p>
+                This form's audience now lives in its list, alongside its broadcast history
+                and any automated sequence. Sending from there means recipients and their
+                consent are resolved at send time, not frozen when you write the email.
+            </p>
+            <button type="button" class="btn btn-primary" (click)="goToListHub()">
+                <i class="fa-solid fa-arrow-right me-2"></i> Open this form's audience
+            </button>
         </div>
         } @else {
         <!-- OTP and Welcome Tabs - Show Template Editor with WYSIWYG -->

@@ -75,10 +75,18 @@ export default class ListHubPageComponent implements OnInit {
         };
     });
 
-    /** Broadcasts whose audience includes this list. */
+    /**
+     * Broadcasts targeting this list — by audience, or (for pre-U4 per-waitlist
+     * sends, which have no `audience`) by the waitlist this list mirrors. Without
+     * the second clause, retiring the old composer would hide all past sends.
+     */
     listBroadcasts = computed(() => {
         const id = this.listId();
-        return this.allBroadcasts().filter((b) => audienceListIds(b.audience).includes(id));
+        const formId = this.list()?.formId;
+        return this.allBroadcasts().filter((b) =>
+            audienceListIds(b.audience).includes(id)
+            || (!!b.waitlistId && !!formId && b.waitlistId === formId),
+        );
     });
 
     /** Drip campaigns bound to this list. */

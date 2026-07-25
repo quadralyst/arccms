@@ -19,26 +19,74 @@ const MAX_TARGETS = 2000;
 interface Audience {
   kind: 'all' | 'role' | 'list' | 'users';
   role?: string;
+  /** Legacy single list. `include` supersedes it (U4). */
   listId?: string;
   userIds?: string[];
+  /**
+   * Lists to target, unioned and de-duplicated per person (U4) — the same shape
+   * broadcasts use, so "everyone across these forms" means the same thing in both.
+   */
+  include?: string[];
+  /** Lists to subtract, applied to whichever kind produced the recipients. */
+  exclude?: string[];
 }
 
-/** Resolve the audience to a list of {userId, email} recipients. */
+/** Lists an announcement targets — `include`, falling back to the legacy `listId`. */
+function announcementListIds(audience: Audience): string[] {
+  const ids = [...(audience.include || [])];
+  if (audience.kind === 'list' && audience.listId) ids.push(audience.listId);
+  return [...new Set(ids.filter(Boolean))];
+}
+
+/**
+ * Emails on any excluded list. Resolved once up front so exclusion applies
+ * uniformly to every audience kind — including `all`/`role`, which read `users`
+ * rather than `Contacts` and so cannot test membership directly.
+ */
+async function excludedEmails(audience: Audience): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (const listId of audience.exclude || []) {
+    const snap = await db.collection('Contacts').where('listIds', 'array-contains', listId).limit(MAX_TARGETS).get();
+    snap.docs.forEach((d) => {
+      const email = d.data()['email'];
+      if (email) out.add(String(email).toLowerCase());
+    });
+  }
+  return out;
+}
+
+/**
+ * Resolve the audience to {userId, email} recipients.
+ *
+ * Note announcements target **app users**, not contacts: each one creates an
+ * in-app Notification keyed by `userId`, so a contact with no linked account is
+ * skipped even when they are on the list — there is no inbox to show it in.
+ */
 async function resolveAudience(audience: Audience): Promise<Array<{ userId: string; email: string }>> {
   const out: Array<{ userId: string; email: string }> = [];
+  const skip = await excludedEmails(audience);
+  const seen = new Set<string>();
+
+  const push = (userId?: string, email?: string): void => {
+    if (!userId || !email) return;
+    if (skip.has(String(email).toLowerCase())) return;
+    if (seen.has(userId)) return; // one notification per person across lists
+    seen.add(userId);
+    out.push({ userId, email });
+  };
 
   if (audience.kind === 'users' && audience.userIds?.length) {
     const snap = await db.collection('users').where('uid', 'in', audience.userIds.slice(0, 10)).get();
-    snap.docs.forEach((d) => out.push({ userId: d.data()['uid'], email: d.data()['email'] }));
+    snap.docs.forEach((d) => push(d.data()['uid'], d.data()['email']));
     return out;
   }
 
-  if (audience.kind === 'list' && audience.listId) {
-    const snap = await db.collection('Contacts').where('listIds', 'array-contains', audience.listId).limit(MAX_TARGETS).get();
-    snap.docs.forEach((d) => {
-      const c = d.data();
-      if (c['userId'] && c['email']) out.push({ userId: c['userId'], email: c['email'] });
-    });
+  const listIds = announcementListIds(audience);
+  if (listIds.length) {
+    for (const listId of listIds) {
+      const snap = await db.collection('Contacts').where('listIds', 'array-contains', listId).limit(MAX_TARGETS).get();
+      snap.docs.forEach((d) => push(d.data()['userId'], d.data()['email']));
+    }
     return out;
   }
 
@@ -48,10 +96,7 @@ async function resolveAudience(audience: Audience): Promise<Array<{ userId: stri
     q = db.collection('users').where('role', '==', audience.role).limit(MAX_TARGETS);
   }
   const snap = await q.get();
-  snap.docs.forEach((d) => {
-    const u = d.data();
-    if (u['uid'] && u['email']) out.push({ userId: u['uid'], email: u['email'] });
-  });
+  snap.docs.forEach((d) => push(d.data()['uid'], d.data()['email']));
   return out;
 }
 
