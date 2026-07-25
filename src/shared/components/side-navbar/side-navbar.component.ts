@@ -90,8 +90,10 @@ export default class NavbarComponent extends BaseComponent {
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
+            // Reframed as "Signup Forms" (U3): a waitlist is a signup form with
+            // gamification on. Route + collection unchanged — label only.
             icon: 'fa-solid fa-list-alt',
-            label: 'Waitlists',
+            label: 'Signup Forms',
             route: '/admin/waitlists',
             allowRoles: [this.constantVariables.ADMIN],
         },

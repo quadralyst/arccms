@@ -4,7 +4,7 @@ import { db } from '../init.js';
 import {
   upsertContact,
   unlinkUserContact,
-  ensureList,
+  ensureFormList,
   ensureSystemLists,
   getContactConsent,
   setContactConsent,
@@ -35,21 +35,36 @@ function signupConsent(member: WaitlistUserData): MarketingConsent {
   return member.emailVerified === true ? 'subscribed' : 'pending';
 }
 
-/** A form's display name + default tag, in one read. */
-async function readFormMeta(waitlistId: string): Promise<{ name: string; defaultTagId?: string }> {
+interface FormMeta {
+  name: string;
+  defaultTagId?: string;
+  /** Every list this form feeds. Always includes its own system list (U3). */
+  targetListIds: string[];
+}
+
+/**
+ * A form's display name, default tag, and the lists it feeds, in one read (U3).
+ *
+ * A form is a capture surface that can feed any list(s) — its own mirrored
+ * `waitlist-{id}` system list plus any manual lists the admin picked. The own
+ * system list is always a target (v1 decision, spec open item #1), so it is
+ * unioned in even if a stored `targetListIds` omits it.
+ */
+async function readFormMeta(waitlistId: string): Promise<FormMeta> {
+  const ownListId = waitlistListId(waitlistId);
   try {
     const wl = await db.collection('Waitlists').doc(waitlistId).get();
     if (wl.exists) {
       const data = wl.data()!;
-      return { name: data['name'] || `Waitlist ${waitlistId}`, defaultTagId: data['defaultTagId'] };
+      const stored: string[] = Array.isArray(data['targetListIds']) ? data['targetListIds'] : [];
+      return {
+        name: data['name'] || `Waitlist ${waitlistId}`,
+        defaultTagId: data['defaultTagId'],
+        targetListIds: [...new Set([ownListId, ...stored.filter(Boolean)])],
+      };
     }
-  } catch { /* use fallback name */ }
-  return { name: `Waitlist ${waitlistId}` };
-}
-
-/** Display name for a form's mirrored list, falling back when the form doc is unreadable. */
-async function resolveFormListName(waitlistId: string): Promise<string> {
-  return (await readFormMeta(waitlistId)).name;
+  } catch { /* fall through to defaults */ }
+  return { name: `Waitlist ${waitlistId}`, targetListIds: [ownListId] };
 }
 
 /** New user → contact (source `signup`), joins the `all-users` system list. */
@@ -103,17 +118,17 @@ export const onWaitlistUserCreateContact = onDocumentCreated(
     if (!member?.email) return;
 
     const waitlistId = event.params.waitlistId;
-    const listId = waitlistListId(waitlistId);
 
     try {
       const form = await readFormMeta(waitlistId);
-      await ensureList(listId, { name: form.name, type: 'system' });
+      // Own system list gets its formId back-pointer; the rest already exist.
+      await ensureFormList(waitlistId, form.name);
       const { emailHash } = await upsertContact({
         email: member.email,
         name: member.name,
         firstName: member.firstName,
         source: 'waitlist',
-        addLists: [listId],
+        addLists: form.targetListIds,
         consent: signupConsent(member),
       });
 
@@ -141,10 +156,10 @@ export const onWaitlistVerifiedContact = onDocumentUpdated(
     if (!justVerified || !after.email) return;
 
     const waitlistId = event.params.waitlistId;
-    const listId = waitlistListId(waitlistId);
 
     try {
-      await ensureList(listId, { name: await resolveFormListName(waitlistId), type: 'system' });
+      const form = await readFormMeta(waitlistId);
+      await ensureFormList(waitlistId, form.name);
       // Still upsert: the contact normally exists already (created pending at
       // signup), but this repairs members who predate U2's create trigger or
       // whose create-time write failed. `consent` here only lands on creation.
@@ -153,7 +168,7 @@ export const onWaitlistVerifiedContact = onDocumentUpdated(
         name: after.name,
         firstName: after.firstName,
         source: 'waitlist',
-        addLists: [listId],
+        addLists: form.targetListIds,
         consent: signupConsent(after),
       });
 

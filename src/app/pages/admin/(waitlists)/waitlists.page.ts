@@ -37,6 +37,8 @@ interface IWaitlist {
     startingPoint?: number;
     allUsersCount?: number;
     defaultTagId?: string;
+    targetListIds?: string[];
+    gamificationEnabled?: boolean;
 }
 
 @Component({
@@ -230,13 +232,18 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
         try {
             if (this.currentAction() === 'edit') {
                 const docRef = doc(this.firestore, 'Waitlists', this.currentId());
-                await updateDoc(docRef, { ...formData, updatedAt: new Date() });
+                // Canonical targetListIds always includes the form's own system
+                // list (U3); the drawer only tracks the additional manual picks.
+                const targetListIds = this.withOwnList(this.currentId(), formData.targetListIds);
+                await updateDoc(docRef, { ...formData, targetListIds, updatedAt: new Date() });
             } else {
                 const collectionRef = collection(this.firestore, 'Waitlists');
                 const docRef = doc(collectionRef, formData.slug);
+                const targetListIds = this.withOwnList(formData.slug, formData.targetListIds);
 
                 await setDoc(docRef, {
                     ...formData,
+                    targetListIds,
                     createdAt: new Date(),
                     totalSignups: 0,
                 });
@@ -245,6 +252,11 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
         } catch (error) {
             console.error('Error saving waitlist:', error);
         }
+    }
+
+    /** Prepend a form's own `waitlist-{id}` system list to its manual list picks. */
+    private withOwnList(formId: string, manualPicks: string[] = []): string[] {
+        return [...new Set([`waitlist-${formId}`, ...manualPicks.filter(Boolean)])];
     }
 
     async deleteWaitlist(waitlist: IWaitlist): Promise<void> {

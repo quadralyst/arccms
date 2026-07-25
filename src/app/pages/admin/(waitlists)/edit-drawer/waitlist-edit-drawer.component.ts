@@ -14,6 +14,8 @@ export interface WaitlistFormData {
     isActive: boolean;
     disabledMessage: string;
     defaultTagId: string;
+    gamificationEnabled: boolean;
+    targetListIds: string[];
 }
 
 export interface WaitlistEditInput {
@@ -25,6 +27,8 @@ export interface WaitlistEditInput {
     isActive: boolean;
     disabledMessage?: string;
     defaultTagId?: string;
+    gamificationEnabled?: boolean;
+    targetListIds?: string[];
 }
 
 @Component({
@@ -50,6 +54,8 @@ export class WaitlistEditDrawerComponent implements OnChanges {
     waitlistForm!: FormGroup;
     coverImage = signal('');
     availableTags = signal<IWaitlistUserTag[]>([]);
+    /** Manual lists this form can additionally feed (own system list is implicit). */
+    availableLists = signal<{ id: string; name: string }[]>([]);
     isSlugEditable = signal(false);
     private originalSlug = '';
 
@@ -72,11 +78,20 @@ export class WaitlistEditDrawerComponent implements OnChanges {
             isActive: [true],
             disabledMessage: ['This waitlist is currently full. Please check back later for updates.'],
             defaultTagId: [''],
+            // Gamification on by default keeps existing waitlists behaving as before.
+            gamificationEnabled: [true],
+            // Manual lists this form additionally feeds; own system list is implicit.
+            targetListIds: [[] as string[]],
         });
     }
 
     private onDrawerOpen(): void {
+        this.loadManualLists();
         if (this.action === 'edit' && this.waitlist) {
+            // Stored targetListIds includes the own system list; the picker only
+            // offers manual lists, so drop the own one from the initial value.
+            const ownListId = `waitlist-${this.waitlist.id}`;
+            const manualPicks = (this.waitlist.targetListIds || []).filter((id) => id !== ownListId);
             this.waitlistForm.patchValue({
                 name: this.waitlist.name || '',
                 slug: this.waitlist.slug || '',
@@ -85,17 +100,52 @@ export class WaitlistEditDrawerComponent implements OnChanges {
                 isActive: this.waitlist.isActive ?? true,
                 disabledMessage: this.waitlist.disabledMessage || '',
                 defaultTagId: this.waitlist.defaultTagId || '',
+                gamificationEnabled: this.waitlist.gamificationEnabled ?? true,
+                targetListIds: manualPicks,
             });
             this.coverImage.set(this.waitlist.coverImage || '');
             this.originalSlug = this.waitlist.slug || '';
             this.isSlugEditable.set(false);
             this.loadTagsForWaitlist(this.waitlist.id);
         } else {
-            this.waitlistForm.reset({ isActive: true, disabledMessage: 'This waitlist is currently full. Please check back later for updates.' });
+            this.waitlistForm.reset({
+                isActive: true,
+                disabledMessage: 'This waitlist is currently full. Please check back later for updates.',
+                gamificationEnabled: true,
+                targetListIds: [],
+            });
             this.coverImage.set('');
             this.isSlugEditable.set(true);
             this.availableTags.set([]);
         }
+    }
+
+    /** Manual lists an admin can point this form at (system lists excluded). */
+    async loadManualLists(): Promise<void> {
+        try {
+            const listsRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'Lists'));
+            const snap = await runInInjectionContext(this.injector, () => getDocs(listsRef));
+            const lists = snap.docs
+                .map((d) => ({ id: d.id, ...(d.data() as { name?: string; type?: string }) }))
+                .filter((l) => l.type === 'manual')
+                .map((l) => ({ id: l.id, name: l.name || l.id }));
+            this.availableLists.set(lists);
+        } catch {
+            this.availableLists.set([]);
+        }
+    }
+
+    /** Checkbox toggle for a manual list in the "Feeds lists" picker. */
+    toggleTargetList(listId: string): void {
+        const ctrl = this.waitlistForm.get('targetListIds');
+        const current: string[] = ctrl?.value || [];
+        ctrl?.setValue(
+            current.includes(listId) ? current.filter((id) => id !== listId) : [...current, listId],
+        );
+    }
+
+    isTargetListSelected(listId: string): boolean {
+        return (this.waitlistForm.get('targetListIds')?.value || []).includes(listId);
     }
 
     async loadTagsForWaitlist(waitlistId: string): Promise<void> {

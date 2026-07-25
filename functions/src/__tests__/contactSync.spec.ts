@@ -7,7 +7,7 @@ const {
   mockUpsertContact,
   mockUnlinkUserContact,
   mockEnsureSystemLists,
-  mockEnsureList,
+  mockEnsureFormList,
   mockWaitlistGet,
   mockGetContactConsent,
   mockSetContactConsent,
@@ -16,7 +16,7 @@ const {
   mockUpsertContact: vi.fn().mockResolvedValue({ emailHash: 'h', created: true }),
   mockUnlinkUserContact: vi.fn().mockResolvedValue(undefined),
   mockEnsureSystemLists: vi.fn().mockResolvedValue(undefined),
-  mockEnsureList: vi.fn().mockResolvedValue(undefined),
+  mockEnsureFormList: vi.fn().mockResolvedValue('waitlist-wl1'),
   mockWaitlistGet: vi.fn().mockResolvedValue({ exists: false, data: () => ({}) }),
   mockGetContactConsent: vi.fn().mockResolvedValue('pending'),
   mockSetContactConsent: vi.fn().mockResolvedValue(undefined),
@@ -31,7 +31,7 @@ vi.mock('../email-core/contacts', () => ({
   upsertContact: mockUpsertContact,
   unlinkUserContact: mockUnlinkUserContact,
   ensureSystemLists: mockEnsureSystemLists,
-  ensureList: mockEnsureList,
+  ensureFormList: mockEnsureFormList,
   getContactConsent: mockGetContactConsent,
   setContactConsent: mockSetContactConsent,
   SYSTEM_LISTS: { ALL_USERS: 'all-users', ALL_CUSTOMERS: 'all-customers' },
@@ -121,7 +121,7 @@ describe('contactSync triggers', () => {
         after: { data: () => ({ email: 'a@b.com', emailVerified: true }) },
       },
     });
-    expect(mockEnsureList).toHaveBeenCalledWith('waitlist-wl1', expect.anything());
+    expect(mockEnsureFormList).toHaveBeenCalledWith('wl1', expect.anything());
     expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({
       source: 'waitlist',
       addLists: ['waitlist-wl1'],
@@ -156,7 +156,7 @@ describe('contactSync triggers', () => {
     it('unverified signup → pending contact on the form list', async () => {
       await signupH(signupEvent({ email: 'a@b.com', name: 'A', emailVerified: false }));
 
-      expect(mockEnsureList).toHaveBeenCalledWith('waitlist-wl1', expect.anything());
+      expect(mockEnsureFormList).toHaveBeenCalledWith('wl1', expect.anything());
       expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({
         email: 'a@b.com',
         source: 'waitlist',
@@ -219,7 +219,58 @@ describe('contactSync triggers', () => {
 
       await signupH(signupEvent({ email: 'a@b.com' }));
 
-      expect(mockEnsureList).toHaveBeenCalledWith('waitlist-wl1', { name: 'Alpha', type: 'system' });
+      expect(mockEnsureFormList).toHaveBeenCalledWith('wl1', 'Alpha');
+    });
+  });
+
+  // --- U3: a form feeds its own list plus any configured manual lists ---
+
+  describe('U3 membership routing via targetListIds', () => {
+    it('adds the member to every target list, own list always included', async () => {
+      mockWaitlistGet.mockResolvedValueOnce({
+        exists: true, data: () => ({ name: 'Alpha', targetListIds: ['waitlist-wl1', 'newsletter', 'beta'] }),
+      });
+
+      await signupH(signupEvent({ email: 'a@b.com' }));
+
+      expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({
+        addLists: ['waitlist-wl1', 'newsletter', 'beta'],
+      }));
+    });
+
+    it("unions the own list in when a stored targetListIds omits it", async () => {
+      // The own system list is a target even if an admin somehow saved without it.
+      mockWaitlistGet.mockResolvedValueOnce({
+        exists: true, data: () => ({ name: 'Alpha', targetListIds: ['newsletter'] }),
+      });
+
+      await signupH(signupEvent({ email: 'a@b.com' }));
+
+      expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({
+        addLists: ['waitlist-wl1', 'newsletter'],
+      }));
+    });
+
+    it('falls back to just the own list when no targetListIds field exists', async () => {
+      mockWaitlistGet.mockResolvedValueOnce({ exists: true, data: () => ({ name: 'Alpha' }) });
+
+      await signupH(signupEvent({ email: 'a@b.com' }));
+
+      expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({
+        addLists: ['waitlist-wl1'],
+      }));
+    });
+
+    it('routes verified members through targetListIds too', async () => {
+      mockWaitlistGet.mockResolvedValueOnce({
+        exists: true, data: () => ({ name: 'Alpha', targetListIds: ['waitlist-wl1', 'newsletter'] }),
+      });
+
+      await wlH(updateEvent({ email: 'a@b.com', emailVerified: false }, { email: 'a@b.com', emailVerified: true }));
+
+      expect(mockUpsertContact).toHaveBeenCalledWith(expect.objectContaining({
+        addLists: ['waitlist-wl1', 'newsletter'],
+      }));
     });
   });
 
