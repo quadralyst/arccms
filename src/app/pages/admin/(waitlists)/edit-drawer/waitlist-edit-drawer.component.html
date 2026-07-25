@@ -90,6 +90,36 @@
             <small style="display: block; color: #64748b; margin-top: 5px;">This tag will be automatically assigned to all new subscribers</small>
         </div>
         }
+        <div class="form-group">
+            <label class="toggle-label">
+                <input type="checkbox" formControlName="gamificationEnabled">
+                <span class="toggle-text">Gamification (referrals &amp; leaderboard)</span>
+            </label>
+            <small style="display: block; color: #64748b; margin-top: 5px;">
+                When off, this is a plain signup form — no referral link, leaderboard, or queue position.
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label>Feeds lists</label>
+            <small style="display: block; color: #64748b; margin: 2px 0 8px;">
+                Members always join this form's own list. Tick any additional lists they should join.
+            </small>
+            @if (availableLists().length) {
+                <div class="feeds-lists">
+                    @for (list of availableLists(); track list.id) {
+                        <label class="toggle-label">
+                            <input type="checkbox" [checked]="isTargetListSelected(list.id)"
+                                (change)="toggleTargetList(list.id)">
+                            <span class="toggle-text">{{ list.name }}</span>
+                        </label>
+                    }
+                </div>
+            } @else {
+                <small style="color: #94a3b8;">No manual lists yet — create one under Audience → Lists.</small>
+            }
+        </div>
+
         <div class="drawer-actions">
             <button type="button" class="btn btn-secondary" (click)="onClose()">Cancel</button>
             <button type="submit" class="btn btn-primary" [disabled]="waitlistForm.invalid">

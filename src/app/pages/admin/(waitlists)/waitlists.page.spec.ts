@@ -178,11 +178,30 @@ describe('WaitlistsComponent', () => {
                 coverImage: '',
                 isActive: true,
                 disabledMessage: '',
-                defaultTagId: ''
+                defaultTagId: '',
+                gamificationEnabled: true,
+                targetListIds: []
             });
 
             expect(FirestoreSDK.setDoc).toHaveBeenCalled();
             expect(component.isDrawerOpen()).toBe(false);
+        });
+
+        it('stamps the own system list into targetListIds on save (U3)', async () => {
+            vi.mocked(FirestoreSDK.setDoc).mockClear();
+            component.currentAction.set('add');
+
+            await component.onDrawerSaved({
+                name: 'Beta', slug: 'beta', description: '', coverImage: '',
+                isActive: true, disabledMessage: '', defaultTagId: '',
+                gamificationEnabled: false,
+                targetListIds: ['newsletter'],
+            });
+
+            const data = vi.mocked(FirestoreSDK.setDoc).mock.calls[0][1] as Record<string, unknown>;
+            // Own list is always present and leads; manual picks follow.
+            expect(data['targetListIds']).toEqual(['waitlist-beta', 'newsletter']);
+            expect(data['gamificationEnabled']).toBe(false);
         });
 
         it('should update existing waitlist via updateDoc', async () => {
@@ -197,7 +216,9 @@ describe('WaitlistsComponent', () => {
                 coverImage: '',
                 isActive: true,
                 disabledMessage: '',
-                defaultTagId: ''
+                defaultTagId: '',
+                gamificationEnabled: true,
+                targetListIds: []
             });
 
             expect(FirestoreSDK.doc).toHaveBeenCalledWith(mockFirestore, 'Waitlists', '123');
@@ -216,7 +237,9 @@ describe('WaitlistsComponent', () => {
                 coverImage: '',
                 isActive: true,
                 disabledMessage: '',
-                defaultTagId: 'tag-xyz'
+                defaultTagId: 'tag-xyz',
+                gamificationEnabled: true,
+                targetListIds: []
             });
 
             const updateCall = vi.mocked(FirestoreSDK.updateDoc).mock.calls[0];

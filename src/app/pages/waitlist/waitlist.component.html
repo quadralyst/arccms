@@ -51,6 +51,7 @@
     <div class="success-step">
         <div class="success-icon">✓</div>
         <h3>You're on the list!</h3>
+        @if(showGamification) {
         <div class="stats">
             <div class="stat">
                 <div class="stat-number">#{{ $any(successData)['queuePosition'] }}</div>
@@ -69,6 +70,9 @@
             </div>
         </div>
         <a [href]="$any(successData)['leaderboardLink']" class="btn-leaderboard">View Leaderboard</a>
+        } @else {
+        <p>Thanks for signing up — we'll be in touch.</p>
+        }
     </div>
     }
     @if(currentStep === 'existing-user') {
@@ -76,7 +80,9 @@
         <div class="info-icon">ℹ</div>
         <h3>Welcome back!</h3>
         <p>You're already on the waitlist.</p>
+        @if(showGamification) {
         <a [href]="$any(existingUserData)['leaderboardLink']" class="btn-leaderboard">View Leaderboard</a>
+        }
     </div>
     }
     @if(currentStep === 'error') {
@@ -190,6 +196,7 @@
             <div class="success-step">
                 <div class="success-icon">✓</div>
                 <h3>You're on the list!</h3>
+                @if(showGamification) {
                 <div class="stats">
                     <div class="stat">
                         <div class="stat-number">#{{ successData['queuePosition'] }}</div>
@@ -214,6 +221,9 @@
                     </div>
                 </div>
                 <a [href]="successData['leaderboardLink']" class="btn-leaderboard">🏆 View Leaderboard</a>
+                } @else {
+                <p>Thanks for signing up — we'll be in touch.</p>
+                }
             </div>
             }
             @if(currentStep === 'existing-user') {
@@ -221,6 +231,7 @@
                 <div class="info-icon">ℹ</div>
                 <h3>Welcome back!</h3>
                 <p>You're already on the waitlist.</p>
+                @if(showGamification) {
                 <div class="stats">
                     <div class="stat">
                         <div class="stat-number">#{{ existingUserData['queuePosition'] }}</div>
@@ -232,6 +243,7 @@
                     </div>
                 </div>
                 <a [href]="existingUserData['leaderboardLink']" class="btn-leaderboard">🏆 View Leaderboard</a>
+                }
             </div>
             }
             @if(currentStep === 'error') {

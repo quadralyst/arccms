@@ -397,6 +397,19 @@ hub, where each list gets its own Broadcasts and Sequence tabs.
 
 ## Phase U3 — Form → List decoupling
 
+**Status:** built + deployed 2026-07-17 (`feat/audience-unification`) — awaiting the manual
+verification below. Full suite green (233 files / 4054 tests).
+
+Functions live in the dev project: `stampFormTargetLists`, `onWaitlistUserCreateContact`,
+`onWaitlistVerifiedContact` (updated), plus the U2 set that had never actually shipped
+(`migrateTagsToContacts`, `adminSetContactTags`, `onContactTagDelete`,
+`backfillPendingContacts`). **A prior deploy reported exit 0 while pushing none of these** —
+always confirm with `firebase functions:list` rather than trusting the deploy's exit code.
+
+The ~51 suite failures seen during U3 (`index.page`, `content-partials`) were pre-existing
+from commits `5a445ea`/`f5543bd` — `HomeComponent` transitively injects `Firestore` with no
+test provider — and were fixed separately, not by U3.
+
 **Objective:** a form is a capture surface that feeds configurable list(s); "waitlist" is
 just a form with gamification on.
 
@@ -407,11 +420,14 @@ just a form with gamification on.
 4. **Drip/broadcast interplay:** joining via a form enrolls the contact in sequences of **every** target list (already the semantics of `addContactToLists`).
 
 ### ✅ Manual verification
-1. `npm run test` green (membership-routing tests).
-2. Emulator: create manual list "Beta users"; point Form A and Form B both at it (plus their own lists). Sign up + verify on each → both contacts on "Beta users", memberCount 2; each also on their form's own list.
-3. Same person signs up via both forms → one contact, member of the union of lists, no double-count.
-4. Toggle gamification off on a form → public page shows no referral/leaderboard step; signup still works; contact/list behavior unchanged.
-5. Run `stampFormTargetLists` → every existing waitlist doc has `targetListIds:[waitlist-{id}]`; re-run → no-op.
+> Requires deploy first (see below): `stampFormTargetLists` + the two changed contact-sync
+> triggers. There is no emulator (see §"Testing reality") — test against the dev project.
+1. **Feeds lists:** Audience → Lists, create a manual list "Beta users". Signup Forms → edit Form A and Form B, tick "Beta users" under Feeds lists, save. Sign up + verify on each → in Audience → Contacts, both people are on "Beta users" **and** each form's own `waitlist-{id}` list.
+2. **Union, no double-count:** the same email signs up via both forms → one contact, member of the union of lists; "Beta users" memberCount counts them once.
+3. **Gamification off:** edit a form, untick Gamification, save. Open its public page, sign up → success screen shows "Thanks for signing up" with **no** referral code / leaderboard / queue position. Signup still records the contact + list membership.
+4. **Gamification on (regression):** an untouched form still shows referral link, leaderboard button, and position — unchanged.
+5. Run `stampFormTargetLists` (dry-run first): every form gets `targetListIds` with its own list leading; re-run → all `alreadyOk`, nothing changed.
+6. Nav reads **Signup Forms** (label only; the route is still `/admin/waitlists`).
 
 ### What to expect next (U4)
 Every list — manual or form-fed — is now a first-class audience. U4 gives each list the
