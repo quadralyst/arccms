@@ -1,0 +1,100 @@
+<div class="page-container">
+    <arc-page-header [title]="list()?.name || 'List'"
+        [subtitle]="isFormFed()
+            ? 'Fed by a signup form — membership syncs automatically'
+            : 'Manual list — add or remove members freely'">
+        @if (isFormFed()) {
+            <button mat-stroked-button (click)="viewForm()">
+                <mat-icon>open_in_new</mat-icon> View form
+            </button>
+        }
+        <a mat-stroked-button routerLink="/admin/lists">
+            <mat-icon>arrow_back</mat-icon> All lists
+        </a>
+    </arc-page-header>
+
+    @if (loading()) {
+        <p class="text-muted">Loading…</p>
+    } @else if (!list()) {
+        <div class="empty-state">
+            <h5>List not found</h5>
+            <p class="text-muted">It may have been deleted, or the form that fed it was removed.</p>
+            <a mat-flat-button color="primary" routerLink="/admin/lists">Back to Lists</a>
+        </div>
+    } @else {
+        <!-- Headline counts: pending members exist but are never mailable -->
+        <div class="hub-counts">
+            <span class="count-chip"><strong>{{ counts().subscribed }}</strong> subscribed</span>
+            <span class="count-chip"
+                matTooltip="Signed up but haven't confirmed their email — excluded from marketing sends">
+                <strong>{{ counts().pending }}</strong> pending
+            </span>
+            <span class="count-chip"><strong>{{ counts().unsubscribed }}</strong> unsubscribed</span>
+            @if (counts().disabled) {
+                <span class="count-chip" matTooltip="Admin-disabled — these receive no email at all">
+                    <strong>{{ counts().disabled }}</strong> disabled
+                </span>
+            }
+        </div>
+
+        <mat-tab-group animationDuration="0ms" class="hub-tabs">
+            <!-- ── Members ─────────────────────────────────────────── -->
+            <mat-tab label="Members">
+                <div class="tab-body">
+                    @if (isFormFed()) {
+                        <p class="hub-note">
+                            <i class="fas fa-circle-info"></i>
+                            Membership comes from the signup form, so it can't be edited here.
+                            To stop emailing someone, <strong>disable</strong> them — they keep their
+                            place in the funnel and can be re-enabled at any time.
+                        </p>
+                    }
+                    <app-global-table [data]="members()" [columns]="memberColumns" [loading]="loading()"
+                        emptyIcon="fas fa-user-group" emptyTitle="No members yet"
+                        [emptyDescription]="isFormFed()
+                            ? 'Members appear here as soon as someone signs up through the form.'
+                            : 'Add contacts to this list from Audience → Contacts.'">
+                    </app-global-table>
+                </div>
+            </mat-tab>
+
+            <!-- ── Broadcasts ──────────────────────────────────────── -->
+            <mat-tab label="Broadcasts">
+                <div class="tab-body">
+                    <div class="tab-actions">
+                        <button mat-flat-button color="primary" (click)="newBroadcast()">
+                            <mat-icon>send</mat-icon> New broadcast to this list
+                        </button>
+                    </div>
+                    <app-global-table [data]="listBroadcasts()" [columns]="broadcastColumns"
+                        emptyIcon="fas fa-tower-broadcast" emptyTitle="No broadcasts to this list yet"
+                        emptyDescription="One-off sends to this list will appear here."
+                        emptyActionLabel="New broadcast" emptyActionIcon="fas fa-plus"
+                        (emptyActionClick)="newBroadcast()">
+                    </app-global-table>
+                </div>
+            </mat-tab>
+
+            <!-- ── Sequence ────────────────────────────────────────── -->
+            <mat-tab label="Sequence">
+                <div class="tab-body">
+                    <p class="hub-note">
+                        <i class="fas fa-circle-info"></i>
+                        A sequence sends automatically when someone joins this list. Day 0 fires on join.
+                    </p>
+                    <div class="tab-actions">
+                        <button mat-flat-button color="primary" (click)="newSequence()">
+                            <mat-icon>add</mat-icon> New sequence for this list
+                        </button>
+                    </div>
+                    <app-global-table [data]="listCampaigns()" [columns]="campaignColumns"
+                        emptyIcon="fas fa-droplet" emptyTitle="No sequence yet"
+                        emptyDescription="Add a sequence to email people automatically after they join."
+                        emptyActionLabel="New sequence" emptyActionIcon="fas fa-plus"
+                        (emptyActionClick)="newSequence()">
+                    </app-global-table>
+                </div>
+            </mat-tab>
+        </mat-tab-group>
+    }
+</div>

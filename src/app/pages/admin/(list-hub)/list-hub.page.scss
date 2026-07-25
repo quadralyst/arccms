@@ -1,0 +1,60 @@
+.hub-counts {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+/* Non-clickable variant of the Contacts page chips — this page is already
+   scoped to one list, so there is nothing to filter down to. */
+.hub-counts .count-chip {
+    background: #f8f9fa;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 13px;
+    color: #475569;
+    cursor: default;
+}
+
+.hub-counts .count-chip strong {
+    color: #111827;
+}
+
+.hub-tabs {
+    background: #fff;
+    border-radius: 8px;
+}
+
+.tab-body {
+    padding: 20px 4px 4px;
+}
+
+.tab-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+/* Explains a constraint or behaviour rather than warning about it. */
+.hub-note {
+    background: #f1f5f9;
+    border-left: 3px solid #94a3b8;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 16px;
+
+    i {
+        margin-right: 6px;
+        color: #64748b;
+    }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 48px 20px;
+}

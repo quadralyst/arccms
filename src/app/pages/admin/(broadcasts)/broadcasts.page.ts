@@ -10,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { roleGuard } from '../../../guards/role.guard';
@@ -54,6 +55,7 @@ export default class BroadcastsPageComponent implements OnInit {
     private toast = inject(ToastService);
     private dialog = inject(MatDialog);
     private sanitizer = inject(DomSanitizer);
+    private route = inject(ActivatedRoute);
     private destroyRef = inject(DestroyRef);
 
     /** 'list' shows past/scheduled broadcasts; 'compose' shows the editor. */
@@ -115,10 +117,15 @@ export default class BroadcastsPageComponent implements OnInit {
             this.loading.set(false);
         });
         this.brandKitService.getBrandKit().subscribe((k) => this.brandKit.set(k));
+
+        // Arriving from a list hub's "New broadcast to this list" (U4): open the
+        // composer with that list already targeted.
+        const listId = this.route.snapshot.queryParamMap.get('listId');
+        if (listId) this.startCompose(listId);
     }
 
-    startCompose(): void {
-        this.subject = ''; this.listId = ''; this.premiumType = '';
+    startCompose(presetListId = ''): void {
+        this.subject = ''; this.listId = presetListId; this.premiumType = '';
         this.schedule = false; this.scheduledAt = '';
         this.content.set(null); this.eligible.set(null);
         this.mode.set('compose');

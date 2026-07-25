@@ -14,6 +14,12 @@ export interface IContact {
     /** Global tag ids (`ContactTags` doc ids). */
     tags?: string[];
     consent?: { marketing: MarketingConsent; marketingChangedAt?: unknown };
+    /**
+     * Admin kill-switch (U-D12) — blocks every email, including transactional.
+     * Distinct from `consent.marketing:'unsubscribed'`, which is the contact's
+     * own choice.
+     */
+    disabled?: boolean;
 }
 
 /**

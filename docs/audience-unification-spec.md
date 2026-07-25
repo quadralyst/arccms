@@ -466,6 +466,31 @@ legacy per-waitlist broadcast composer is retired here.
 
 ## Phase U4 — List hub (Members | Broadcasts | Sequence) + one audience model
 
+**Status:** built 2026-07-17 (`feat/audience-unification`). Full suite green
+(234 files / 4075 tests). **Partially deployed — verify before manual testing.**
+
+Delivered in this pass:
+- `Contacts.disabled` admin kill-switch + `queueEmail` gate (`skipReason:'contact_disabled'`).
+- Multi-list audiences: `include[]`/`exclude[]`, stateless send-once across lists, compound
+  resume cursor, preview == send by construction.
+- List hub page at `/admin/lists/:listId` with Members | Broadcasts | Sequence, read-only
+  membership for form-fed lists (U-D12), and "New broadcast/sequence for this list" wired
+  through `?listId=` on the broadcasts and drips pages.
+
+**Deferred out of this pass** (still open U4 scope): announcements adopting the shared
+audience shape (scope item 2, second half); retiring the legacy per-waitlist broadcast
+composer + the inline-`recipients[]` guard (item 3); the main-dashboard re-point off
+`WaitlistedUsers` (item 5); the multi-list picker UI — the composer still selects a single
+list, so `include[]` is currently exercised via the hub and the API rather than a
+multi-select.
+
+**Deploy note:** the function deploy reported **exit 0 while every function errored**
+("Failed to create/update …" with no stated reason), yet `adminSetContactDisabled` was
+live afterwards — a partial, silently-misreported deploy. Confirm with
+`firebase functions:list --project default` and re-run the deploy until it reports clean;
+`functions:list` only proves a function *exists*, not that an **updated** one carries the
+new code, so for the broadcast functions re-deploy until success is reported explicitly.
+
 **Objective:** one place per list for "who's in it, what we sent, what runs automatically";
 one audience shape everywhere; legacy waitlist broadcast path retired.
 
@@ -478,14 +503,20 @@ one audience shape everywhere; legacy waitlist broadcast path retired.
 6. **Nav restructure:** side-navbar per-waitlist submenus point at the list hub; the standalone Subscribers nav item is marked deprecated (removed in U6).
 
 ### ✅ Manual verification
-1. `npm run test` green (multi-list resolution: include ∪, exclude minus, dedup; announcement audience parity).
-2. Dev project: list hub for a form-fed list → Members shows subscribed+pending correctly; Broadcasts tab empty; Sequence tab shows existing campaigns.
-3. Compose from the Broadcasts tab → audience preselected; preview count matches subscribed members; send → summary sent/skipped correct.
-4. Multi-list: broadcast to include [waitlist-A, waitlist-B], exclude [all-customers] → a contact on both A and B gets **one** email; a customer on A gets none.
-5. Announcement targeting a list via the shared picker → same preview count as a broadcast to that list.
-6. Old waitlist Broadcast tab → lands on the list hub. Attempt to write a legacy inline-recipients broadcast doc (script against the dev project) → rejected/parked with a clear error, not silently processed.
-7. Main admin dashboard: total / 7-day / verified counts and recent signups now match the Contacts data (cross-check against a seeded dataset with known counts); per-waitlist cards show `Lists.memberCount` + pending. **Zero reads of `WaitlistedUsers` from the dashboard** (verify via the browser network panel).
-8. Side-navbar per-waitlist submenu links land on the list hub; Subscribers item shows its deprecation state.
+
+**Covered by this pass:**
+1. `npm run test` green — multi-list resolution (include ∪, exclude minus, send-once dedup, compound-cursor resume, legacy-shape back-compat) and the `contact_disabled` gate matrix.
+2. Dev project: open **Audience → Lists → {list}** (row click). Members shows subscribed + pending with the right counts; Broadcasts tab lists only sends targeting this list; Sequence tab lists only campaigns bound to it.
+3. Form-fed list → Members has **no "Remove from list"** action and shows the explanatory note; a manual list **does** offer removal.
+4. **Disable:** disable a member → status badge reads `disabled`; a broadcast to that list logs `skipReason:'contact_disabled'` for them and does not deliver; re-enable → they receive again. Confirm the dialog warns that verification email is blocked too.
+5. "New broadcast to this list" opens the composer with that list already selected; "New sequence for this list" opens the drip drawer with the list preselected.
+6. Multi-list (via the hub/API until the picker lands): audience `{include:[waitlist-A, waitlist-B], exclude:[all-customers]}` → a contact on **both** A and B receives **one** email; a customer on A receives none; the preview count equals delivered + skipped-for-consent.
+
+**Deferred with the remaining scope (not testable yet):**
+7. Announcement targeting a list via the shared picker → same preview count as a broadcast to that list.
+8. Old waitlist Broadcast tab → lands on the list hub. A legacy inline-recipients broadcast doc → rejected/parked with a clear error, not silently processed.
+9. Main admin dashboard: counts match `Contacts`/`Lists` with **zero reads of `WaitlistedUsers`** (verify via the browser network panel).
+10. Side-navbar per-waitlist submenu links land on the list hub; Subscribers item shows its deprecation state.
 
 ### What to expect next (U4.5)
 The audience is unified and targetable, but a form's **arbitrary fields never reach the
