@@ -1,9 +1,10 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
+import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
@@ -31,13 +32,14 @@ export const routeMeta: RouteMeta = {
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { ngSkipHydration: 'true' },
 })
-export default class DripsPageComponent implements OnInit {
+export default class DripsPageComponent implements OnInit, AfterViewInit {
     @ViewChild('drawer') drawer!: MatDrawer;
 
     private service = inject(DripService);
     private audience = inject(AudienceService);
     private toast = inject(ToastService);
     private destroyRef = inject(DestroyRef);
+    private route = inject(ActivatedRoute);
 
     campaigns = signal<DripCampaign[]>([]);
     lists = signal<IList[]>([]);
@@ -86,6 +88,9 @@ export default class DripsPageComponent implements OnInit {
         },
     ];
 
+    /** Set when arriving from a list hub's "New sequence for this list" (U4). */
+    private presetListId = '';
+
     ngOnInit(): void {
         this.service.watchCampaigns().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((c) => {
             this.campaigns.set(c);
@@ -93,6 +98,17 @@ export default class DripsPageComponent implements OnInit {
         });
         this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
         this.service.watchTemplates().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((t) => this.templates.set(t));
+
+        this.presetListId = this.route.snapshot.queryParamMap.get('listId') || '';
+    }
+
+    ngAfterViewInit(): void {
+        // Deferred to here because @ViewChild('drawer') is not resolved during
+        // ngOnInit, so opening it there would silently do nothing.
+        if (this.presetListId) {
+            this.openAdd(this.presetListId);
+            this.presetListId = '';
+        }
     }
 
     listName(id: string): string {
@@ -100,9 +116,11 @@ export default class DripsPageComponent implements OnInit {
     }
 
     // Drawer
-    openAdd(): void {
+    openAdd(presetListId = ''): void {
         this.currentAction.set('add');
-        this.currentCampaign.set(null);
+        // A partial campaign is enough to preselect the list — the drawer seeds
+        // its form from `campaign.listId`.
+        this.currentCampaign.set(presetListId ? ({ listId: presetListId } as DripCampaign) : null);
         this.drawer?.open();
     }
 

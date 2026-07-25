@@ -223,6 +223,23 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin List hub (U4): one workspace per list — Members / Broadcasts / Sequence.
+  // Declared before nothing in particular, but note `/admin/lists` itself is
+  // file-based; this adds the detail route only.
+  {
+    path: 'admin/lists/:listId',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(list-hub)/list-hub.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin Audience Route (Tags). Declared explicitly like every other admin
   // feature route rather than relying on file-based routing, which resolves
   // server-side but does not reliably reach the client route table here — the

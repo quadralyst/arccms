@@ -7,10 +7,24 @@ import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Observable, catchError, of } from 'rxjs';
 
 export interface BroadcastAudience {
-    kind: 'list' | 'waitlist';
+    /** Legacy single-target shape, still present on pre-U4 docs. */
+    kind?: 'list' | 'waitlist';
     listId?: string;
     waitlistId?: string;
+    /** Lists to send to (U4). Unioned, then de-duplicated per contact. */
+    include?: string[];
+    /** Lists to subtract from that union. */
+    exclude?: string[];
     filters?: Array<{ field: 'premiumType' | 'source' | 'createdAfter'; op: '==' | '>='; value: any }>;
+}
+
+/** Every list an audience targets — mirrors `audienceListIds` on the server. */
+export function audienceListIds(audience?: BroadcastAudience): string[] {
+    if (!audience) return [];
+    const ids = [...(audience.include || [])];
+    if (audience.kind === 'list' && audience.listId) ids.push(audience.listId);
+    if (audience.kind === 'waitlist' && audience.waitlistId) ids.push(`waitlist-${audience.waitlistId}`);
+    return [...new Set(ids.filter(Boolean))];
 }
 
 export interface BroadcastRow {
@@ -22,6 +36,8 @@ export interface BroadcastRow {
     failedCount?: number;
     scheduledAt?: Timestamp;
     createdAt?: Timestamp;
+    /** Needed to filter history to a single list in the List hub (U4). */
+    audience?: BroadcastAudience;
 }
 
 /** Broadcasts v2 admin data access (Phase 6). */

@@ -67,12 +67,19 @@ export default class ListsPageComponent implements OnInit {
             key: 'actions', header: 'Actions', type: 'actions',
             actions: [
                 {
+                    action: 'open', icon: 'fas fa-arrow-right text-primary', label: 'Open', class: 'edit',
+                    // Row click opens the hub for every list — including system
+                    // lists, which have no editable settings but do have members,
+                    // broadcasts and sequences worth seeing.
+                    isRowClick: true, onAction: (row) => this.openHub(row),
+                },
+                {
                     action: 'view-form', icon: 'fas fa-arrow-up-right-from-square text-primary', label: 'View form', class: 'edit',
                     hide: (row) => !row.formId, onAction: (row) => this.viewForm(row),
                 },
                 {
                     action: 'edit', icon: 'fas fa-pen text-primary', label: 'Edit', class: 'edit',
-                    isRowClick: true, hide: (row) => row.type === 'system', onAction: (row) => this.openEdit(row),
+                    hide: (row) => row.type === 'system', onAction: (row) => this.openEdit(row),
                 },
                 {
                     action: 'delete', icon: 'fas fa-trash text-danger', label: 'Delete', class: 'delete',
@@ -117,6 +124,11 @@ export default class ListsPageComponent implements OnInit {
         } finally {
             this.busy.set(false);
         }
+    }
+
+    /** Open the list's workspace: members, broadcasts and sequence (U4). */
+    openHub(list: IList): void {
+        this.router.navigate(['/admin/lists', list.id]);
     }
 
     /** Jump from a form-fed list to the signup form that feeds it. */

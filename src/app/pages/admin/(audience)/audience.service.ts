@@ -5,11 +5,13 @@ import {
     collection,
     collectionData,
     doc,
+    docData,
     setDoc,
     deleteDoc,
     serverTimestamp,
     query,
     orderBy,
+    where,
     limit,
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
@@ -43,6 +45,48 @@ export class AudienceService {
                 return of([]);
             }),
         );
+    }
+
+    /** Live single list (for the List hub). */
+    getList(listId: string): Observable<IList | null> {
+        if (!isPlatformBrowser(this.platformId)) {
+            return of(null);
+        }
+        return (docData(doc(this.firestore, 'Lists', listId), { idField: 'id' }) as Observable<IList>).pipe(
+            catchError((err) => {
+                console.error('Error fetching list:', err);
+                return of(null);
+            }),
+        );
+    }
+
+    /**
+     * Live members of one list. Served by the automatic single-field index on
+     * `listIds` — no composite index needed.
+     */
+    getContactsInList(listId: string, max = 500): Observable<IContact[]> {
+        if (!isPlatformBrowser(this.platformId)) {
+            return of([]);
+        }
+        const ref = collection(this.firestore, 'Contacts');
+        return (collectionData(
+            query(ref, where('listIds', 'array-contains', listId), limit(max)),
+            { idField: 'id' },
+        ) as Observable<IContact[]>).pipe(
+            catchError((err) => {
+                console.error('Error fetching list members:', err);
+                return of([]);
+            }),
+        );
+    }
+
+    /**
+     * Switch a contact's email off or back on (U-D12). The sanctioned way to stop
+     * emailing someone whose list membership is form-derived and therefore
+     * read-only.
+     */
+    setContactDisabled(emailHash: string, disabled: boolean) {
+        return httpsCallable(this.functions, 'adminSetContactDisabled')({ emailHash, disabled });
     }
 
     /** Live (capped) list of Contacts for the admin table. */
