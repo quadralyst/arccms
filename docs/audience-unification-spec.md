@@ -534,6 +534,27 @@ before U5 builds drip merge-tag plumbing.
 
 ## Phase U4.5 — Contact custom fields (form fields become audience data)
 
+**Status:** ✅ built + deployed 2026-07-18 (`feat/audience-unification`). Full suite green
+(235 files / 4099 tests). Functions live: `adminUpsertContactField`,
+`adminDeleteContactField`, `adminSetContactFields`, `migrateFormDataToContactFields`, plus
+redeploys of `onWaitlistUserCreateContact`, `onWaitlistVerifiedContact`, `onEmailLogCreate`
+and `processDripQueue` (they carry the new sync + tag-resolver code).
+
+**Implementation notes worth knowing:**
+- **Merge tags are `##FIELD:key##`**, not bare `##KEY##`. An explicit prefix avoids
+  colliding with built-ins — a field named `company` next to `##COMPANY_NAME##` would
+  otherwise be ambiguous. Fallbacks are inline: `##FIELD:company|your company##`.
+- **Field values ride on the `EmailLogs` doc.** `queueEmail` already reads the contact for
+  the consent/disabled gates, so it returns `fields` from that same read — no extra read per
+  recipient on a broadcast — and the log then records exactly what was merged.
+- **The registry `defaultValue` is a suggestion for composing**, not a send-time lookup.
+  Resolving it at send time would mean reading the registry per email; the inline `|fallback`
+  covers the same need with no extra reads.
+- **No new security rule was added.** The `Settings/{settingId}` catch-all already grants
+  admins read/write on `contact_fields`; a `write:if false` block would have been misleading
+  since rules OR together.
+- Deleting a field definition **keeps** collected values, so re-adding it restores them.
+
 **Objective:** an arbitrary field collected by any form becomes durable, queryable data on
 the **contact**, usable as a merge tag in any send to any list.
 
@@ -571,16 +592,16 @@ account-level schema — which is what makes cross-form merge tags and targeting
 ### Out of scope (deferred)
 Saved segments UI (still post-U7) · field-based drip branching · per-field consent.
 
-### ✅ Manual verification (dev project — deploy functions first)
-1. `npm run test` green, including: slug/reserved-key validation, fill-if-empty vs overwrite policy, merge-tag fallback rendering, backfill idempotency + conflict logging.
-2. Audience → Fields: create `company` (text) and `role` (select). Reserved key `email` is rejected with a clear error.
-3. Map a form's `company` input to the `company` field. Sign up with a fresh email + a company value → Audience → Contacts → that contact shows `company` populated.
-4. Second form, no `company` mapping, same email → the existing value **survives** (fill-if-empty).
-5. Set that field to "overwrite on re-submit", re-submit with a different value → value updates.
-6. Broadcast to a multi-list audience where only *some* contacts have `company`: those with it render the value; those without render the **default**, never an empty gap.
-7. Save a marketing template referencing a field with no default → save warns.
-8. Run `migrateFormDataToContactFields` with `{dryRun:true}` → reports counts + any conflicts; run for real → historical signups' fields appear on contacts; re-run → no changes.
-9. Contacts table: add `company` as a column and sort/read it.
+### ✅ Manual verification (dev project — functions already deployed)
+1. `npm run test` green — 17 registry/write-policy tests + 7 merge-tag fallback tests.
+2. **Audience → Fields** → **New field**: create `Company` (text). The drawer shows the merge tag it produces (`##FIELD:company##`). Try label `Email` → rejected as reserved, with the reason.
+3. **Map it:** Signup Forms → edit a form → **"Save form answers as"** lists the form's inputs; point `company` at the Company field → Update. (The section only appears in edit mode, once fields exist.)
+4. Sign up on that form with a fresh email **and** a company value → Audience → Contacts → open that contact → **Fields** shows Company populated.
+5. **Fill policy:** submit the same email again through any form with a *different* company → the original value **survives**. Then set the field to "Overwrite with the newer value", re-submit → it updates.
+6. **Merge tag + fallback:** compose a broadcast whose body includes `Hi ##NAME##, how is ##FIELD:company|your company##?` and send to a list where only some contacts have a value → Email Logs shows the real company for those who have one and *your company* for those who don't — never a blank gap.
+7. **Admin edit wins:** edit a field value on the contact drawer → saved even for a `fill` field (the policy stops forms clobbering each other, not people).
+8. **Backfill:** Audience → Fields → **Import past form data** → reports values written, contacts updated, and any conflicts (same key, different values across forms) or forms with no mapping. Re-run → nothing new (idempotent, because `fill` skips existing values).
+9. Delete a field → confirm the dialog explains values are kept; re-create it with the same label → the old values are visible again.
 
 ### What to expect next (U5)
 With fields on the contact, U5 can unify the *behavior*: welcome becomes the sequence's day-0
