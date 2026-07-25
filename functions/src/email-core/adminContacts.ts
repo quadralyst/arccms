@@ -4,6 +4,7 @@ import { db } from '../init.js';
 import {
   upsertContact,
   setContactConsent,
+  setContactDisabled,
   addContactToLists,
   removeContactFromLists,
   type MarketingConsent,
@@ -61,6 +62,24 @@ export const adminSetContactConsent = onCall(async (request) => {
     }
   }
   return { ok: true };
+});
+
+/**
+ * Admin: switch a contact's email off or back on (U-D12).
+ *
+ * The escape hatch for form-fed lists, whose membership is read-only in the List
+ * hub — you cannot remove someone from a `waitlist-{id}` list without desyncing
+ * it from the form's member docs, so you disable them instead. Blocks every
+ * category in `queueEmail`, and is reversible.
+ */
+export const adminSetContactDisabled = onCall(async (request) => {
+  requireAdmin(request);
+  const emailHash = String(request.data?.emailHash || '');
+  if (!emailHash) throw new HttpsError('invalid-argument', 'emailHash is required.');
+  const disabled = request.data?.disabled === true;
+
+  await setContactDisabled(emailHash, disabled);
+  return { ok: true, disabled };
 });
 
 /** Admin: add/remove a contact from lists. */

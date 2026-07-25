@@ -22,18 +22,96 @@ export interface AudienceContact {
   name?: string;
   userId?: string;
   sources?: string[];
+  /** Needed to evaluate `exclude` without extra reads (U4). */
+  listIds?: string[];
   createdAt?: Timestamp;
   consent?: { marketing?: string };
 }
 
-/** The `listIds` value a broadcast audience targets. */
-export function audienceListId(audience: BroadcastAudience): string | null {
-  if (audience.kind === 'list' && audience.listId) return audience.listId;
-  if (audience.kind === 'waitlist' && audience.waitlistId) return waitlistListId(audience.waitlistId);
-  return null;
+/**
+ * Every list a broadcast targets, newest shape first (U4).
+ *
+ * Normalises the legacy single-target shape (`kind`/`listId`/`waitlistId`) into
+ * the same array as `include`, so docs written before U4 keep sending correctly.
+ */
+export function audienceListIds(audience: BroadcastAudience): string[] {
+  const ids: string[] = [];
+  if (Array.isArray(audience.include)) ids.push(...audience.include.filter(Boolean));
+  // Legacy fields — a pre-U4 doc has these and no `include`.
+  if (audience.kind === 'list' && audience.listId) ids.push(audience.listId);
+  if (audience.kind === 'waitlist' && audience.waitlistId) ids.push(waitlistListId(audience.waitlistId));
+  return [...new Set(ids)];
 }
 
-/** Fetch one page of contacts in the audience's list, ordered by doc id. */
+/** Lists whose members must be skipped even if an included list contains them. */
+export function audienceExcludeListIds(audience: BroadcastAudience): string[] {
+  return [...new Set((audience.exclude || []).filter(Boolean))];
+}
+
+/**
+ * Back-compat shim: the single list a broadcast targets, or null.
+ * Returns the first included list — callers that only need "which list is this
+ * broadcast about" (labels, history filters) keep working.
+ */
+export function audienceListId(audience: BroadcastAudience): string | null {
+  return audienceListIds(audience)[0] ?? null;
+}
+
+/**
+ * True when the contact belongs to any excluded list.
+ *
+ * Evaluated from the contact's own `listIds`, so exclusion costs no extra reads
+ * no matter how many lists are excluded.
+ */
+function isExcluded(contact: AudienceContact, excludeIds: string[]): boolean {
+  if (!excludeIds.length) return false;
+  const memberOf = contact.listIds || [];
+  return excludeIds.some((id) => memberOf.includes(id));
+}
+
+/**
+ * Send-once rule for multi-list audiences: a contact is handled by the **first**
+ * included list it belongs to, and skipped by every later one.
+ *
+ * Deliberately stateless — derived from the contact's own `listIds` rather than a
+ * set of already-sent ids. A Set would not survive the pause/resume boundary
+ * (each chunk is a fresh invocation), so someone on two included lists could be
+ * emailed twice. This rule gives the same answer in every chunk, and makes the
+ * preview count and the send agree by construction.
+ */
+function claimedByEarlierList(
+  contact: AudienceContact,
+  listIds: string[],
+  currentIndex: number,
+): boolean {
+  if (currentIndex <= 0) return false;
+  const memberOf = contact.listIds || [];
+  for (let i = 0; i < currentIndex; i++) {
+    if (memberOf.includes(listIds[i])) return true;
+  }
+  return false;
+}
+
+/**
+ * Resume cursor for a multi-list audience: `"<listIndex>|<contactId>"`.
+ * A pre-U4 paused broadcast stored a bare contact id, which parses to list 0 —
+ * the only list it could have had.
+ */
+function makeCursor(listIndex: number, contactId?: string): string | undefined {
+  return contactId === undefined ? undefined : `${listIndex}|${contactId}`;
+}
+
+function parseCursor(raw: string | undefined, listCount: number): { index: number; contactId?: string } {
+  if (!raw) return { index: 0 };
+  const sep = raw.indexOf('|');
+  if (sep === -1) return { index: 0, contactId: raw };
+  const index = Number(raw.slice(0, sep));
+  const contactId = raw.slice(sep + 1);
+  if (!Number.isInteger(index) || index < 0 || index >= listCount) return { index: 0, contactId };
+  return { index, contactId: contactId || undefined };
+}
+
+/** Fetch one page of contacts in a single list, ordered by doc id. */
 async function fetchContactPage(
   listId: string,
   startAfterId: string | undefined,
@@ -88,31 +166,39 @@ async function passesPremiumFilter(contact: AudienceContact, audience: Broadcast
  * `maxScan` to keep the preview cheap on very large lists.
  */
 export async function countEligible(audience: BroadcastAudience, maxScan = 5000): Promise<{ count: number; scanned: number; capped: boolean }> {
-  const listId = audienceListId(audience);
-  if (!listId) return { count: 0, scanned: 0, capped: false };
+  const listIds = audienceListIds(audience);
+  if (!listIds.length) return { count: 0, scanned: 0, capped: false };
+  const excludeIds = audienceExcludeListIds(audience);
 
   let count = 0;
   let scanned = 0;
-  let startAfter: string | undefined;
 
-  while (scanned < maxScan) {
-    const page = await fetchContactPage(listId, startAfter, PAGE_SIZE);
-    for (const c of page.contacts) {
-      scanned++;
-      // Mirror queueEmail's marketing gate exactly: only an explicitly
-      // `subscribed` contact is mailable. Testing `!== 'unsubscribed'` used to
-      // count `pending` members (U2) and legacy contacts carrying no consent
-      // object as recipients, both of which queueEmail then skips — so the
-      // preview promised reach the send could never deliver.
-      if (c.consent?.marketing !== 'subscribed') continue;
-      if (!passesSimpleFilters(c, audience)) continue;
-      if (!(await passesPremiumFilter(c, audience))) continue;
-      count++;
+  for (let listIndex = 0; listIndex < listIds.length; listIndex++) {
+    const listId = listIds[listIndex];
+    let startAfter: string | undefined;
+    while (scanned < maxScan) {
+      const page = await fetchContactPage(listId, startAfter, PAGE_SIZE);
+      for (const c of page.contacts) {
+        scanned++;
+        // Same send-once rule the send path uses, so preview == delivery.
+        if (claimedByEarlierList(c, listIds, listIndex)) continue;
+        if (isExcluded(c, excludeIds)) continue;
+        // Mirror queueEmail's marketing gate exactly: only an explicitly
+        // `subscribed` contact is mailable. Testing `!== 'unsubscribed'` used to
+        // count `pending` members (U2) and legacy contacts carrying no consent
+        // object as recipients, both of which queueEmail then skips — so the
+        // preview promised reach the send could never deliver.
+        if (c.consent?.marketing !== 'subscribed') continue;
+        if (!passesSimpleFilters(c, audience)) continue;
+        if (!(await passesPremiumFilter(c, audience))) continue;
+        count++;
+      }
+      startAfter = page.lastId;
+      if (page.done || !startAfter) break;
     }
-    startAfter = page.lastId;
-    if (page.done || !startAfter) return { count, scanned, capped: false };
+    if (scanned >= maxScan) return { count, scanned, capped: true };
   }
-  return { count, scanned, capped: true };
+  return { count, scanned, capped: false };
 }
 
 export interface AudienceChunkResult {
@@ -143,71 +229,99 @@ export async function processAudienceChunk(params: {
 }): Promise<AudienceChunkResult> {
   const { broadcastData, broadcastId, providerLimits, timeBudgetMs, quotaChecker } = params;
   const audience = broadcastData.audience!;
-  const listId = audienceListId(audience);
+  const listIds = audienceListIds(audience);
+  const excludeIds = audienceExcludeListIds(audience);
   const delayMs = getDelayFromLimits(providerLimits);
 
   let sentCount = params.initialSent;
   let skippedCount = params.initialSkipped;
   let failedCount = params.initialFailed;
-  let startAfter = params.startAfterId;
   let processedInChunk = 0;
   const startTime = Date.now();
 
-  if (!listId) return { sentCount, skippedCount, failedCount, timedOut: false, quotaExhausted: false, done: true, lastContactId: startAfter };
+  const finish = (
+    extra: { timedOut?: boolean; quotaExhausted?: boolean; done?: boolean },
+    cursor?: string,
+  ): AudienceChunkResult => ({
+    sentCount,
+    skippedCount,
+    failedCount,
+    timedOut: extra.timedOut ?? false,
+    quotaExhausted: extra.quotaExhausted ?? false,
+    done: extra.done ?? false,
+    lastContactId: cursor,
+  });
 
-  for (;;) {
-    const page = await fetchContactPage(listId, startAfter, PAGE_SIZE);
-    if (!page.contacts.length) {
-      return { sentCount, skippedCount, failedCount, timedOut: false, quotaExhausted: false, done: true, lastContactId: startAfter };
-    }
+  if (!listIds.length) return finish({ done: true }, params.startAfterId);
 
-    for (const contact of page.contacts) {
-      if (Date.now() - startTime > timeBudgetMs) {
-        return { sentCount, skippedCount, failedCount, timedOut: true, quotaExhausted: false, done: false, lastContactId: startAfter };
-      }
-      if (quotaChecker && processedInChunk > 0 && processedInChunk % 25 === 0) {
-        const ok = await quotaChecker();
-        if (!ok) {
-          return { sentCount, skippedCount, failedCount, timedOut: false, quotaExhausted: true, done: false, lastContactId: startAfter };
+  // Walk the included lists in order, resuming mid-list where we left off.
+  const resume = parseCursor(params.startAfterId, listIds.length);
+  let startAfter = resume.contactId;
+
+  for (let listIndex = resume.index; listIndex < listIds.length; listIndex++) {
+    const listId = listIds[listIndex];
+
+    for (;;) {
+      const page = await fetchContactPage(listId, startAfter, PAGE_SIZE);
+      if (!page.contacts.length) break;
+
+      for (const contact of page.contacts) {
+        if (Date.now() - startTime > timeBudgetMs) {
+          return finish({ timedOut: true }, makeCursor(listIndex, startAfter));
         }
-      }
+        if (quotaChecker && processedInChunk > 0 && processedInChunk % 25 === 0) {
+          const ok = await quotaChecker();
+          if (!ok) {
+            return finish({ quotaExhausted: true }, makeCursor(listIndex, startAfter));
+          }
+        }
 
-      // Apply filters (cheap first, then the user lookup).
-      if (!passesSimpleFilters(contact, audience) || !(await passesPremiumFilter(contact, audience))) {
+        // Someone on several included lists is emailed once, by the first list.
+        if (claimedByEarlierList(contact, listIds, listIndex) || isExcluded(contact, excludeIds)) {
+          startAfter = contact.id;
+          continue;
+        }
+
+        // Apply filters (cheap first, then the user lookup).
+        if (!passesSimpleFilters(contact, audience) || !(await passesPremiumFilter(contact, audience))) {
+          startAfter = contact.id;
+          continue;
+        }
+
+        try {
+          const res = await queueEmail({
+            source: 'broadcast',
+            category: 'marketing',
+            toEmail: contact.email,
+            toName: contact.name,
+            senderEmail: broadcastData.senderEmail,
+            senderName: broadcastData.senderName,
+            subject: broadcastData.subject,
+            template: broadcastData.template,
+            text: broadcastData.previewText || '',
+            type: 'broadcast',
+            data: { broadcastId, waitlistId: broadcastData.waitlistId },
+          });
+          if (res.status === 'pending') sentCount++;
+          else skippedCount++; // skipped / suppressed by the consent gate
+        } catch (err) {
+          failedCount++;
+          console.error(`processAudienceChunk: queueEmail failed for ${contact.email}:`, err);
+        }
+
         startAfter = contact.id;
-        continue;
+        processedInChunk++;
+        await sleep(delayMs);
       }
 
-      try {
-        const res = await queueEmail({
-          source: 'broadcast',
-          category: 'marketing',
-          toEmail: contact.email,
-          toName: contact.name,
-          senderEmail: broadcastData.senderEmail,
-          senderName: broadcastData.senderName,
-          subject: broadcastData.subject,
-          template: broadcastData.template,
-          text: broadcastData.previewText || '',
-          type: 'broadcast',
-          data: { broadcastId, waitlistId: broadcastData.waitlistId },
-        });
-        if (res.status === 'pending') sentCount++;
-        else skippedCount++; // skipped / suppressed by the consent gate
-      } catch (err) {
-        failedCount++;
-        console.error(`processAudienceChunk: queueEmail failed for ${contact.email}:`, err);
-      }
-
-      startAfter = contact.id;
-      processedInChunk++;
-      await sleep(delayMs);
+      if (page.done) break;
     }
 
-    if (page.done) {
-      return { sentCount, skippedCount, failedCount, timedOut: false, quotaExhausted: false, done: true, lastContactId: startAfter };
-    }
+    // Next list starts from its own beginning.
+    startAfter = undefined;
   }
+
+  return finish({ done: true }, makeCursor(listIds.length - 1, startAfter));
 }
 
 /**

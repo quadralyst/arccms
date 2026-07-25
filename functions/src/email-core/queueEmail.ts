@@ -7,7 +7,7 @@ import type {
   EmailSettings,
 } from '../types.js';
 import { computeEmailHash } from './unsubscribeToken.js';
-import { getContactConsent } from './contacts.js';
+import { getContactGateState } from './contacts.js';
 
 /** Default max delivery attempts before an email is marked `failed`. */
 export const DEFAULT_MAX_ATTEMPTS = 3;
@@ -131,18 +131,31 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     return blocked('skipped', 'template_inactive');
   }
 
-  // 4. Category / consent check (marketing only).
+  // Single read of the contact for the next two gates (consent + disabled).
+  const contact = await getContactGateState(emailHash);
+
+  // 4. Admin disabled this contact (U-D12) — an absolute block, both categories.
+  //    Deliberately stronger than consent: a disabled contact receives nothing,
+  //    including transactional mail such as a signup OTP. That is the intended
+  //    semantics of the admin switch ("disabled users do not get emails"); it
+  //    does mean a disabled person cannot verify a new signup until re-enabled.
+  if (contact.disabled) {
+    return blocked('skipped', 'contact_disabled');
+  }
+
+  // 5. Category / consent check (marketing only).
   //    Prefer the unified Contacts consent (Phase 3); fall back to the caller's
   //    legacy `isSubscribed` signal when no contact exists yet.
   if (params.category === 'marketing') {
-    const consent = await getContactConsent(emailHash);
-    const subscribed = consent !== null ? consent === 'subscribed' : params.isSubscribed !== false;
+    const subscribed = contact.consent !== null
+      ? contact.consent === 'subscribed'
+      : params.isSubscribed !== false;
     if (!subscribed) {
       return blocked('skipped', 'unsubscribed');
     }
   }
 
-  // 5. Suppression check.
+  // 6. Suppression check.
   //    marketing ⇒ any suppression reason blocks;
   //    transactional ⇒ only hard bounce/complaint block (protect reputation).
   const suppression = await getSuppression(emailHash);
@@ -153,7 +166,7 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     }
   }
 
-  // 6. Passed all gates — enqueue for delivery.
+  // 7. Passed all gates — enqueue for delivery.
   const id = await writeLog({ ...base, status: 'pending' });
   return { id, status: 'pending' };
 }

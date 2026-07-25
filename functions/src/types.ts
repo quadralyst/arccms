@@ -57,7 +57,9 @@ export type EmailSkipReason =
   | 'template_inactive'
   | 'unsubscribed'
   | 'suppressed'
-  | 'quota';
+  | 'quota'
+  /** Admin switched this contact off (U-D12) — blocks every category. */
+  | 'contact_disabled';
 
 export interface EmailLogData {
   id?: string;
@@ -229,9 +231,21 @@ export interface EmailSettings {
  * server-side at send time from `Contacts` (not a frozen inline array).
  */
 export interface BroadcastAudience {
-  kind: 'list' | 'waitlist';
+  /**
+   * Legacy single-target shape. Still read for docs written before U4; new docs
+   * use `include`/`exclude`. `audienceListIds()` normalises both.
+   */
+  kind?: 'list' | 'waitlist';
   listId?: string;
   waitlistId?: string;
+  /**
+   * Lists to send to, unioned then de-duplicated per contact (U4) — this is what
+   * "everyone across these forms" targets. Membership lives on the contact, so a
+   * person on three of the included lists still receives exactly one email.
+   */
+  include?: string[];
+  /** Lists to subtract from the union — e.g. send to leads but not customers. */
+  exclude?: string[];
   filters?: Array<{ field: 'premiumType' | 'source' | 'createdAfter'; op: '==' | '>='; value: any }>;
 }
 
