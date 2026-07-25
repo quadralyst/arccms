@@ -13,6 +13,7 @@ import {
   type MarketingConsent,
 } from './contacts.js';
 import { addTagsToContact } from './contactTags.js';
+import { setContactFields } from './contactFields.js';
 import type { WaitlistUserData } from '../types.js';
 import { emitAppEvent } from './appEvents.js';
 
@@ -40,6 +41,8 @@ interface FormMeta {
   defaultTagId?: string;
   /** Every list this form feeds. Always includes its own system list (U3). */
   targetListIds: string[];
+  /** form input name → contact field key (U4.5). */
+  fieldMap?: Record<string, string>;
 }
 
 /**
@@ -61,10 +64,40 @@ async function readFormMeta(waitlistId: string): Promise<FormMeta> {
         name: data['name'] || `Waitlist ${waitlistId}`,
         defaultTagId: data['defaultTagId'],
         targetListIds: [...new Set([ownListId, ...stored.filter(Boolean)])],
+        fieldMap: (data['fieldMap'] as Record<string, string>) || undefined,
       };
     }
   } catch { /* fall through to defaults */ }
   return { name: `Waitlist ${waitlistId}`, targetListIds: [ownListId] };
+}
+
+/**
+ * Copy a member's mapped `formData` onto the contact's custom fields (U4.5).
+ *
+ * Never throws into the caller: losing a custom field is not a reason to fail the
+ * contact sync that carries consent and list membership.
+ */
+async function applyFormFields(
+  emailHash: string,
+  form: FormMeta,
+  member: WaitlistUserData & { formData?: Record<string, unknown> },
+): Promise<void> {
+  const fieldMap = form.fieldMap;
+  const formData = member.formData;
+  if (!fieldMap || !formData) return;
+
+  const values: Record<string, unknown> = {};
+  for (const [formField, fieldKey] of Object.entries(fieldMap)) {
+    const v = formData[formField];
+    if (v !== undefined && v !== null && v !== '') values[fieldKey] = v;
+  }
+  if (!Object.keys(values).length) return;
+
+  try {
+    await setContactFields(emailHash, values);
+  } catch (err) {
+    logger.error('applyFormFields failed', err);
+  }
 }
 
 /** New user → contact (source `signup`), joins the `all-users` system list. */
@@ -138,6 +171,11 @@ export const onWaitlistUserCreateContact = onDocumentCreated(
       if (form.defaultTagId) {
         await addTagsToContact(emailHash, [form.defaultTagId]);
       }
+
+      // Arbitrary form inputs become durable contact data (U4.5), so any send to
+      // any list can merge them. The default `fill` policy means a second form
+      // never overwrites what this person told us first.
+      await applyFormFields(emailHash, form, member);
     } catch (err) {
       logger.error('onWaitlistUserCreateContact failed', err);
     }

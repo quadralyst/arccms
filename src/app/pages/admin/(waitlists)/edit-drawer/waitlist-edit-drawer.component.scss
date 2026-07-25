@@ -233,3 +233,39 @@
         }
     }
 }
+
+/* U4.5: maps a form input to a contact field, so answers become audience data. */
+.field-map {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.field-map-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .form-control {
+        flex: 1 1 auto;
+    }
+}
+
+.field-map-input {
+    flex: 0 0 auto;
+    max-width: 40%;
+    background: #eef2f7;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #334155;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.field-map-arrow {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #94a3b8;
+}

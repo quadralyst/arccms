@@ -263,6 +263,8 @@ export interface ContactGateState {
   consent: MarketingConsent | null;
   /** Admin kill-switch for this contact (U-D12) — blocks every email category. */
   disabled: boolean;
+  /** Custom field values (U4.5), for ##FIELD:key## merge tags. */
+  fields?: Record<string, unknown>;
 }
 
 /**
@@ -281,6 +283,7 @@ export async function getContactGateState(emailHash: string): Promise<ContactGat
     exists: true,
     consent: consent || 'pending',
     disabled: data['disabled'] === true,
+    fields: (data['fields'] as Record<string, unknown>) || undefined,
   };
 }
 

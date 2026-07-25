@@ -120,6 +120,36 @@
             }
         </div>
 
+        @if (action === 'edit' && formInputNames().length) {
+        <div class="form-group">
+            <label>Save form answers as</label>
+            <small style="display: block; color: #64748b; margin: 2px 0 8px;">
+                Store an input's answer on the contact so emails to any list can use it.
+            </small>
+            @if (availableFields().length) {
+                <div class="field-map">
+                    @for (input of formInputNames(); track input) {
+                        <div class="field-map-row">
+                            <code class="field-map-input">{{ input }}</code>
+                            <i class="fa-solid fa-arrow-right field-map-arrow"></i>
+                            <select class="form-control" [value]="mappedFieldFor(input)"
+                                (change)="setFieldMapping(input, $any($event.target).value)">
+                                <option value="">Don't save</option>
+                                @for (f of availableFields(); track f.key) {
+                                    <option [value]="f.key">{{ f.label }}</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                </div>
+            } @else {
+                <small style="color: #94a3b8;">
+                    No contact fields defined yet — create them under Audience → Fields.
+                </small>
+            }
+        </div>
+        }
+
         <div class="drawer-actions">
             <button type="button" class="btn btn-secondary" (click)="onClose()">Cancel</button>
             <button type="submit" class="btn btn-primary" [disabled]="waitlistForm.invalid">

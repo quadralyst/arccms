@@ -39,6 +39,9 @@ interface IWaitlist {
     defaultTagId?: string;
     targetListIds?: string[];
     gamificationEnabled?: boolean;
+    /** Parsed form input names + their mapping to contact fields (U4.5). */
+    fields?: string[];
+    fieldMap?: Record<string, string>;
 }
 
 @Component({

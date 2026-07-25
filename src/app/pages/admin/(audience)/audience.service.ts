@@ -16,8 +16,8 @@ import {
     getCountFromServer,
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Observable, catchError, of } from 'rxjs';
-import { IContact, IList, ITag, ICsvPreview, MarketingConsent, tagIdFromLabel } from './audience.model';
+import { Observable, catchError, map, of } from 'rxjs';
+import { IContact, IList, ITag, IContactField, ICsvPreview, MarketingConsent, tagIdFromLabel } from './audience.model';
 
 /**
  * Admin data access for the unified audience layer (Phase 3).
@@ -46,6 +46,44 @@ export class AudienceService {
                 return of([]);
             }),
         );
+    }
+
+    // ── Custom contact fields (U4.5) ──
+
+    /** Live field registry, as an array for tables and pickers. */
+    getFields(): Observable<IContactField[]> {
+        if (!isPlatformBrowser(this.platformId)) {
+            return of([]);
+        }
+        return (docData(doc(this.firestore, 'Settings', 'contact_fields')) as Observable<{ fields?: Record<string, IContactField> }>).pipe(
+            map((d) => Object.values(d?.fields || {})),
+            catchError((err) => {
+                console.error('Error fetching contact fields:', err);
+                return of([] as IContactField[]);
+            }),
+        );
+    }
+
+    upsertField(def: Partial<IContactField> & { label: string }) {
+        return httpsCallable<unknown, { ok: boolean; key: string }>(this.functions, 'adminUpsertContactField')(def);
+    }
+
+    deleteField(key: string) {
+        return httpsCallable(this.functions, 'adminDeleteContactField')({ key });
+    }
+
+    /** Set field values on one contact (admin edits bypass the fill policy). */
+    setContactFields(emailHash: string, values: Record<string, unknown>) {
+        return httpsCallable(this.functions, 'adminSetContactFields')({ emailHash, values });
+    }
+
+    /** Lift historical formData onto contact fields (U4.5 runbook step 9). */
+    migrateFormDataToContactFields(dryRun = false) {
+        return httpsCallable<unknown, {
+            forms: number; membersScanned: number; contactsUpdated: number;
+            valuesWritten: number; membersWithoutContact: number;
+            conflicts: string[]; unmappedForms: string[];
+        }>(this.functions, 'migrateFormDataToContactFields')({ dryRun });
     }
 
     // ── Dashboard counts (U4) ──
