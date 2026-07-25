@@ -29,6 +29,9 @@ export * from './email-core/normalizeWaitlistTemplateIds.js';
 export * from './email-core/migrateTagsToContacts.js';
 export * from './email-core/contactTagSync.js';
 
+// Audience unification (U4.5): contact custom fields + formData backfill.
+export * from './email-core/adminContactFields.js';
+
 // Audience unification (U3): form → list decoupling backfill.
 export * from './email-core/stampFormTargetLists.js';
 

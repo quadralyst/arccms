@@ -1,7 +1,7 @@
 <mat-drawer-container class="contacts-drawer-container" hasBackdrop="true">
     <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 500px;">
         @if (currentAction()) {
-        <arc-contact-drawer [mode]="currentAction() || 'add'" [lists]="lists()" [allTags]="tags()"
+        <arc-contact-drawer [mode]="currentAction() || 'add'" [lists]="lists()" [allTags]="tags()" [allFields]="fields()"
             [contact]="currentContact()" (saved)="closeDrawer()" (close)="closeDrawer()">
         </arc-contact-drawer>
         }

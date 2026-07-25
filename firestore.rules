@@ -224,6 +224,12 @@ service cloud.firestore {
       allow read, write: if false; // Cloud Functions only (never client-readable)
     }
 
+    // NOTE (U4.5): `Settings/contact_fields` needs no rule of its own — the
+    // `Settings/{settingId}` catch-all above already grants admins read/write, and
+    // admin read is all the Fields page, the form mapping picker and the contact
+    // drawer require. A `write: if false` block here would be misleading: rules
+    // OR together, so the catch-all would still permit the write.
+
     match /Lists/{listId} {
       allow read: if isAdmin();
       allow write: if isAdmin();

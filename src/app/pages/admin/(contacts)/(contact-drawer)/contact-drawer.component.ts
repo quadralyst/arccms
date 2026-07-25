@@ -9,7 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { AudienceService } from '../../(audience)/audience.service';
-import { IContact, IList, ITag, ICsvPreview, MarketingConsent } from '../../(audience)/audience.model';
+import { IContact, IList, ITag, IContactField, ICsvPreview, MarketingConsent } from '../../(audience)/audience.model';
 
 export type ContactDrawerMode = 'add' | 'import' | 'view';
 
@@ -125,6 +125,22 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
             </p>
             }
 
+            @if (allFields.length) {
+            <label class="form-label small text-muted d-block">Fields</label>
+            <div class="mb-3">
+                @for (f of allFields; track f.key) {
+                    <mat-form-field appearance="outline" class="w-100">
+                        <mat-label>{{ f.label }}</mat-label>
+                        <input matInput [ngModel]="fieldValues[f.key]"
+                            (ngModelChange)="fieldValues[f.key] = $event" [disabled]="busy()" />
+                    </mat-form-field>
+                }
+                <button mat-stroked-button color="primary" [disabled]="busy()" (click)="saveFields()">
+                    <mat-icon>save</mat-icon> Save fields
+                </button>
+            </div>
+            }
+
             <label class="form-label small text-muted d-block">Tags</label>
             @if (allTags.length) {
             <div class="d-flex flex-wrap gap-2 mb-3">
@@ -158,6 +174,7 @@ export class ContactDrawerComponent implements OnChanges {
     @Input() mode: ContactDrawerMode = 'add';
     @Input() lists: IList[] = [];
     @Input() allTags: ITag[] = [];
+    @Input() allFields: IContactField[] = [];
     @Input() contact: IContact | null = null;
     @Output() close = new EventEmitter<void>();
     @Output() saved = new EventEmitter<void>();
@@ -169,9 +186,34 @@ export class ContactDrawerComponent implements OnChanges {
 
     /** Local copy so a failed save doesn't leave the chips lying about state. */
     selectedTags: string[] = [];
+    /** Editable copy of the contact's custom field values (U4.5). */
+    fieldValues: Record<string, string> = {};
 
     ngOnChanges(): void {
         this.selectedTags = [...(this.contact?.tags || [])];
+        const stored = (this.contact?.fields || {}) as Record<string, unknown>;
+        this.fieldValues = Object.fromEntries(
+            this.allFields.map((f) => [f.key, stored[f.key] === undefined ? '' : String(stored[f.key])]),
+        );
+    }
+
+    /**
+     * Save all field values at once. Admin edits use the force path server-side, so
+     * they win over the per-field fill policy — that policy exists to stop *forms*
+     * overwriting each other, not people.
+     */
+    async saveFields(): Promise<void> {
+        if (!this.contact?.id) return;
+        this.busy.set(true);
+        try {
+            await this.audience.setContactFields(this.contact.id, { ...this.fieldValues });
+            this.toast.success('Fields saved');
+        } catch (e) {
+            console.error(e);
+            this.toast.error('Failed to save fields');
+        } finally {
+            this.busy.set(false);
+        }
     }
 
     /** Tag changes save immediately — there is no Save button in view mode. */

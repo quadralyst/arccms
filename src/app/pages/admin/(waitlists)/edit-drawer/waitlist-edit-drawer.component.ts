@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, Injector, inject, runInInjectionContext, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Firestore, collection, getDocs } from '@angular/fire/firestore';
+import { Firestore, collection, doc, getDoc, getDocs } from '@angular/fire/firestore';
 import { MatDialog } from '@angular/material/dialog';
 import MediaManagerComponent from '../../(media)/media.page';
 import { getWaitlistUserTagsCollectionName, IWaitlistUserTag } from '../joined-users/waitlist-user-tags.model';
@@ -16,6 +16,8 @@ export interface WaitlistFormData {
     defaultTagId: string;
     gamificationEnabled: boolean;
     targetListIds: string[];
+    /** form input name → contact field key (U4.5). */
+    fieldMap: Record<string, string>;
 }
 
 export interface WaitlistEditInput {
@@ -29,6 +31,9 @@ export interface WaitlistEditInput {
     defaultTagId?: string;
     gamificationEnabled?: boolean;
     targetListIds?: string[];
+    /** Parsed input names from the form's HTML, used to build the field mapping. */
+    fields?: string[];
+    fieldMap?: Record<string, string>;
 }
 
 @Component({
@@ -56,6 +61,8 @@ export class WaitlistEditDrawerComponent implements OnChanges {
     availableTags = signal<IWaitlistUserTag[]>([]);
     /** Manual lists this form can additionally feed (own system list is implicit). */
     availableLists = signal<{ id: string; name: string }[]>([]);
+    /** Contact fields an input can be mapped to (U4.5). */
+    availableFields = signal<{ key: string; label: string }[]>([]);
     isSlugEditable = signal(false);
     private originalSlug = '';
 
@@ -82,11 +89,14 @@ export class WaitlistEditDrawerComponent implements OnChanges {
             gamificationEnabled: [true],
             // Manual lists this form additionally feeds; own system list is implicit.
             targetListIds: [[] as string[]],
+            // form input name → contact field key (U4.5).
+            fieldMap: [{} as Record<string, string>],
         });
     }
 
     private onDrawerOpen(): void {
         this.loadManualLists();
+        void this.loadContactFields();
         if (this.action === 'edit' && this.waitlist) {
             // Stored targetListIds includes the own system list; the picker only
             // offers manual lists, so drop the own one from the initial value.
@@ -102,6 +112,7 @@ export class WaitlistEditDrawerComponent implements OnChanges {
                 defaultTagId: this.waitlist.defaultTagId || '',
                 gamificationEnabled: this.waitlist.gamificationEnabled ?? true,
                 targetListIds: manualPicks,
+                fieldMap: this.waitlist.fieldMap || {},
             });
             this.coverImage.set(this.waitlist.coverImage || '');
             this.originalSlug = this.waitlist.slug || '';
@@ -146,6 +157,38 @@ export class WaitlistEditDrawerComponent implements OnChanges {
 
     isTargetListSelected(listId: string): boolean {
         return (this.waitlistForm.get('targetListIds')?.value || []).includes(listId);
+    }
+
+    /**
+     * Contact fields available to map onto (U4.5). Read straight from the registry
+     * doc so a field created a moment ago is offered immediately.
+     */
+    async loadContactFields(): Promise<void> {
+        try {
+            const ref = runInInjectionContext(this.injector, () => doc(this.firestore, 'Settings', 'contact_fields'));
+            const snap = await runInInjectionContext(this.injector, () => getDoc(ref));
+            const registry = (snap.data()?.['fields'] as Record<string, { key: string; label: string }>) || {};
+            this.availableFields.set(Object.values(registry).map((f) => ({ key: f.key, label: f.label })));
+        } catch {
+            this.availableFields.set([]);
+        }
+    }
+
+    /** The form's own input names, which are what a mapping maps *from*. */
+    formInputNames(): string[] {
+        return (this.waitlist?.fields || []).filter((f) => !!f && f !== 'email');
+    }
+
+    mappedFieldFor(inputName: string): string {
+        return (this.waitlistForm.get('fieldMap')?.value || {})[inputName] || '';
+    }
+
+    setFieldMapping(inputName: string, fieldKey: string): void {
+        const ctrl = this.waitlistForm.get('fieldMap');
+        const next = { ...(ctrl?.value || {}) };
+        if (fieldKey) next[inputName] = fieldKey;
+        else delete next[inputName];
+        ctrl?.setValue(next);
     }
 
     async loadTagsForWaitlist(waitlistId: string): Promise<void> {

@@ -14,6 +14,8 @@ export interface IContact {
     /** Global tag ids (`ContactTags` doc ids). */
     tags?: string[];
     consent?: { marketing: MarketingConsent; marketingChangedAt?: unknown };
+    /** Custom field values (U4.5), keyed by registry field key. */
+    fields?: Record<string, unknown>;
     /**
      * Admin kill-switch (U-D12) — blocks every email, including transactional.
      * Distinct from `consent.marketing:'unsubscribed'`, which is the contact's
@@ -32,6 +34,31 @@ export interface ITag {
     label: string;
     color: string;
     usageCount?: number;
+}
+
+/** A custom contact field definition (`Settings/contact_fields`, U4.5). */
+export interface IContactField {
+    key: string;
+    label: string;
+    type: 'text' | 'number' | 'date' | 'boolean' | 'select';
+    options?: string[];
+    /** `fill` keeps an existing value; `overwrite` replaces it on re-submit. */
+    writePolicy?: 'fill' | 'overwrite';
+    /** Suggested inline fallback for `##FIELD:key|default##`. */
+    defaultValue?: string;
+}
+
+/**
+ * MUST match `fieldKeyFromLabel` in `functions/src/email-core/contactFields.ts`
+ * (underscores, unlike tags which use dashes).
+ */
+export function fieldKeyFromLabel(label: string): string {
+    return (label || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 40);
 }
 
 /**

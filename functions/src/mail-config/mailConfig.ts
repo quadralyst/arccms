@@ -16,6 +16,16 @@ const QUOTA_DEFER_MS = 15 * 60 * 1000;
 const DEFAULT_MAX_ATTEMPTS = 3;
 
 /**
+ * Custom contact-field merge tag (U4.5): `##FIELD:key##`, optionally with a
+ * fallback — `##FIELD:company|your company##`.
+ *
+ * The fallback is why this exists: two forms feeding one list collect different
+ * fields, so a template referencing a field only some recipients have would
+ * otherwise render a blank gap for the rest.
+ */
+const FIELD_TAG_PATTERN = /##FIELD:([a-zA-Z0-9_]+)(?:\|([^#]*))?##/g;
+
+/**
  * Build a 1x1 tracking-pixel <img> tag.
  * Returns an empty string when TRACKING_PIXEL_URL is not configured.
  */
@@ -309,8 +319,22 @@ export async function processEmailTemplate(
     };
 
     // Auto-detect tags from template and subject
-    const template = emailLogsData.template || '';
-    const subject = emailLogsData.subject || '';
+    let template = emailLogsData.template || '';
+    let subject = emailLogsData.subject || '';
+
+    // Custom contact fields (U4.5): ##FIELD:key## or ##FIELD:key|fallback##.
+    // Resolved before the ##TAG## pass because the colon/pipe syntax is outside
+    // that pattern's alphabet. An explicit FIELD: prefix keeps custom fields from
+    // colliding with built-in tags (a field named `company` vs ##COMPANY_NAME##).
+    const fieldValues = (emailLogsData as unknown as { contactFields?: Record<string, unknown> }).contactFields || {};
+    const resolveField = (_full: string, key: string, fallback?: string): string => {
+        const raw = fieldValues[key];
+        if (raw === undefined || raw === null || raw === '') return fallback ?? '';
+        return String(raw);
+    };
+    template = template.replace(FIELD_TAG_PATTERN, (m, key, fb) => resolveField(m, key, fb));
+    subject = subject.replace(FIELD_TAG_PATTERN, (m, key, fb) => resolveField(m, key, fb));
+
     const combinedText = `${template} ${subject}`;
 
     // Extract all unique tags (e.g., ##TAG_NAME##)

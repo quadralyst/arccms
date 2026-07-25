@@ -240,6 +240,21 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Audience Route (custom Fields, U4.5).
+  {
+    path: 'admin/contact-fields',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(contact-fields)/contact-fields.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin Audience Route (Tags). Declared explicitly like every other admin
   // feature route rather than relying on file-based routing, which resolves
   // server-side but does not reliably reach the client route table here — the

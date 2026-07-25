@@ -167,7 +167,14 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
   }
 
   // 7. Passed all gates — enqueue for delivery.
-  const id = await writeLog({ ...base, status: 'pending' });
+  //    Custom field values ride along on the log (U4.5) so ##FIELD:key## tags
+  //    resolve without a second read at send time, and the log records exactly
+  //    what was merged into the message.
+  const id = await writeLog({
+    ...base,
+    status: 'pending',
+    ...(contact.fields ? { contactFields: contact.fields } : {}),
+  });
   return { id, status: 'pending' };
 }
 

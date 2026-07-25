@@ -117,6 +117,7 @@ export default class NavbarComponent extends BaseComponent {
                 { label: 'Contacts', route: '/admin/contacts', icon: 'fa-solid fa-user-group' },
                 { label: 'Lists', route: '/admin/lists', icon: 'fa-solid fa-rectangle-list' },
                 { label: 'Tags', route: '/admin/contact-tags', icon: 'fa-solid fa-tags' },
+                { label: 'Fields', route: '/admin/contact-fields', icon: 'fa-solid fa-table-columns' },
             ],
         },
         {
