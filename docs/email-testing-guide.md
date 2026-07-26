@@ -17,24 +17,71 @@ Legend:
 
 ## 0. Setup (do this first)
 
-1. **Deploy** to the test Firebase project:
-   ```
-   firebase deploy --only functions,firestore:rules,firestore:indexes
-   ```
-   > Indexes matter — this project uses composite indexes (`firestore.indexes.json`).
-   > Wait until the console shows all indexes **Enabled** before testing queries.
-2. **Build & serve** the frontend against that project.
-3. **Seed** the system: sign in as admin → **Email → Announcements** (opens and
+### Which starting state are you in?
+
+- **Fresh project** (no data): follow this section, then work top-to-bottom.
+- **Existing deployment** (real signups): do **not** start here. Follow
+  `docs/audience-migration-runbook.md` first — it covers the deploy order and the twelve
+  migration callables — then come back and use this guide to verify.
+
+### Deploy, in this order
+
+The order is not interchangeable:
+
+```bash
+npx firebase-tools deploy --only functions          # 1
+npx firebase-tools deploy --only firestore:indexes  # 2
+#                                                     3. frontend build
+npx firebase-tools deploy --only firestore:rules    # 4  ← last
+```
+
+- **Functions before rules**, or the U5 lockdown returns `permission-denied` on every
+  signup: the rules forbid the client writes that `finalizeFormSignup` has to make instead.
+- **Frontend before rules**, or the tightened member-doc read rule breaks the public
+  leaderboard and user-details pages on the older bundle.
+- **Indexes are asynchronous.** Wait for the Firebase console to show every index
+  **Enabled**, not Building. A drip flush query failed silently on this project because a
+  `FAILED_PRECONDITION` was swallowed by a `try/catch`.
+
+Never trust a deploy's exit code — require an explicit `Successful create/update operation`
+per function and confirm with `firebase functions:list`.
+
+Then confirm the public callables are reachable:
+
+```bash
+bash functions/scripts/check-callable-access.sh joinForm requestFormOtp verifyFormOtp \
+  finalizeFormSignup creditReferral getPublicLeaderboard getPublicMemberView
+```
+
+All seven must show `✅ reachable`. A newly created callable does not always receive
+`allUsers → roles/run.invoker` automatically; the script prints the fix.
+
+### Two serving origins
+
+Public-facing behaviour must be tested from an origin that has **never** held an admin
+session. Firebase Auth persistence is per-origin, so on a logged-in origin `isAdmin()`
+satisfies the very client reads the rules deny, and a broken build looks healthy. This has
+already caused one false pass.
+
+Run two dev servers — one for admin work, one strictly public — and **assert** the public
+one has no session before trusting any result on it (read IndexedDB
+`firebaseLocalStorageDb` → `firebaseLocalStorage`; there must be no
+`stsTokenManager.accessToken`).
+1. **Seed** the system: sign in as admin → **Email → Announcements** (opens and
    runs `seedEmailTemplates`), or call the `seedEmailTemplates` callable. This
    seeds email templates, the notification-type registry, event mappings and the
    system lists.
-4. **Configure a provider** for all **[logs]** tests: admin → **Settings → Email**
+2. **Configure a provider** for all **[logs]** tests: admin → **Settings → Email**
    → select **Debug Provider (Log Only)** → enable email. It needs no
    credentials and no connection test — every email is composed and recorded in
    `EmailLogs` but never actually sent. A prominent banner appears on the admin
    dashboard while it's active, so it's never mistaken for a live setup. Switch
    to SMTP/Gmail/Resend (and **Test connection**) only for **[live]** tests.
-5. Create two accounts: one **admin**, one ordinary **user**.
+3. Create two accounts: one **admin**, one ordinary **user**.
+
+> Per-form OTP and welcome templates no longer need seeding. They are created on demand:
+> any path that needs one calls `ensureWaitlistTemplates`, so a form that missed the create
+> trigger — or whose template was deleted — heals itself the moment a signup arrives.
 
 ### How to verify email without an inbox
 Every send writes an `EmailLogs` doc. Open admin → **Email Logs** (or Firestore
@@ -161,7 +208,98 @@ exact composed HTML — no provider is called and no quota is consumed.
 
 ---
 
-## 9. Full-suite gate
+---
+
+## 9. Unified audience — signup, forms, lists (U1–U7)
+
+Everything here is **[logs]** unless marked. Run the public steps on the session-free
+origin from §0; on a logged-in origin these tests can pass while the build is broken.
+
+### 9.1 Signup is server-authoritative
+
+| # | Steps | Expected |
+|---|---|---|
+| 1 | Submit the public form with a new address | Member doc created under `Waitlists/{formId}/users`. `EmailLogs` shows the OTP email, `status: success`. |
+| 2 | Submit the **same** address again | **No** duplicate member doc. Exactly one `joinForm: created member` line in `firebase functions:log` across both submits. |
+| 3 | Submit again within 60s | `Please wait Ns before requesting another code` — the resend throttle, not a fault. |
+| 4 | Add a new input to the form's HTML (e.g. `name="company"`) and sign up | The value appears in `Contacts.fields.company` with no code change. |
+
+**Why step 2 matters:** the duplicate check is server-side (`joinForm` does find-or-create in
+one transaction). The old client-side check was a read-then-write race, and it required
+public read on member documents.
+
+### 9.2 The exposure is closed — [security]
+
+Unauthenticated, using only the web API key from the deployed bundle:
+
+```bash
+curl -s "https://firestore.googleapis.com/v1/projects/<project>/databases/(default)/documents/WaitlistedUsers?key=<web-api-key>&pageSize=3&mask.fieldPaths=email"
+```
+
+Expected `PERMISSION_DENIED`. Repeat for `Waitlists/{formId}/users`, that member's
+`referrals` subcollection, and `WaitlistedUsers/{id}/referrals`. **If any returns documents,
+stop** — subscriber emails are readable by anyone with the bundle's API key.
+
+### 9.3 Verification and queue position
+
+| # | Steps | Expected |
+|---|---|---|
+| 1 | Enter the wrong code 5× | Locked out; member stays `isConfirmed: false`. |
+| 2 | Enter the correct code | `isConfirmed: true`, `emailVerified: true`, `queuePosition` assigned by the server. |
+| 3 | Try to set `emailVerified`/`queuePosition` by unauthenticated REST PATCH | `PERMISSION_DENIED`. These are functions-only. |
+| 4 | Turn the form's OTP template **Active** off, then sign up | Confirms with `emailVerified: false` — never claimed as verified. |
+| 5 | Delete the form's OTP template, then sign up | The default is recreated and the OTP still sends. Deleting is not the off switch; deactivating is. |
+
+### 9.4 Referrals
+
+| # | Steps | Expected |
+|---|---|---|
+| 1 | Sign up via `?ref=CODE`, then verify | Referrer's `totalReferrals` +1 exactly. Record lands under `Waitlists/{formId}/users/{referrerId}/referrals`. |
+| 2 | Refer the same address twice | One record only. |
+| 3 | Use your own code | Nothing recorded. |
+| 4 | Delete a referred member (admin) | Referrer's count −1 **once**, not twice. |
+
+Steps 2–4 are enforced server-side in `creditReferral`; in the browser they were advisory.
+
+### 9.5 Templates work out of the box
+
+| # | Steps | Expected |
+|---|---|---|
+| 1 | Create a new form | Its OTP + welcome templates exist immediately. |
+| 2 | Check the welcome subject | `Welcome to ##WAITLIST##` — resolves to the form's name on a **sent** email. |
+| 3 | Open Templates → uncheck **Active** | A confirmation dialog naming the consequence. Declining changes nothing. |
+| 4 | Confirm it | Template inactive **and** `Waitlists/{id}.otpEnabled` false — the flag the public form reads. |
+
+> A **skipped** email shows raw `##TAGS##` in the log. Skipped emails never reach a
+> provider, so `processedSubject` is never computed. Correct, not a merge-tag failure.
+
+### 9.6 Public pages — [logs]
+
+| # | Check | Expected |
+|---|---|---|
+| 1 | Public leaderboard | Renders; **masked** addresses only (`ab***@example.com`). No raw address anywhere in the payload. |
+| 2 | User-details page | Position and referral stats correct. |
+| 3 | A leaderboard link from an **already-sent** email (legacy `waitlistedUserId`) | Still resolves. |
+| 4 | Member count on the form | Renders from the form doc's `totalSignups` (confirmed members — deliberately not the raw member count). |
+
+### 9.7 Lists, disable, and audits
+
+| # | Steps | Expected |
+|---|---|---|
+| 1 | List hub → Members / Broadcasts / Sequence | Counts match the form's members. |
+| 2 | Disable a contact, then trigger any send | `EmailLogs` shows `skipped` / `contact_disabled`. Re-enable → sends resume. |
+| 3 | Email Logs table | A gated email reads **Skipped** (neutral), not a green "Success". |
+| 4 | `npm run test` | Includes `waitlistedUsersRetired.spec.ts` and `listMembershipChokepoint.spec.ts` — the source-scan audits that catch a reader left pointed at a moved collection. |
+
+### 9.8 Retired surfaces
+
+| # | Check | Expected |
+|---|---|---|
+| 1 | `/admin/waitlists/subscribers` | Gone. The route was removed; Audience → Contacts supersedes it. |
+| 2 | `WaitlistedUsers` | Frozen — unauthenticated write returns `PERMISSION_DENIED`; a signup creates no registry record. |
+| 3 | Admin → Data → Export | Still offers `WaitlistedUsers`, deliberately, so legacy data can be backed up before an operator deletes it. |
+
+## 10. Full-suite gate
 
 Run the automated suite before sign-off:
 
