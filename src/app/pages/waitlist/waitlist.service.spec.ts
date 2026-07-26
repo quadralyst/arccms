@@ -95,6 +95,80 @@ describe('WaitlistService', () => {
         expect(service).toBeTruthy();
     });
 
+    describe('joinWaitlist — server-authoritative find-or-create (#51)', () => {
+        // The browser used to query member docs by email to avoid a duplicate, then
+        // create both the member and registry documents itself. Those reads are why the
+        // rules had to allow public reads on collections holding raw email addresses,
+        // and no rule could narrow them: rules cannot scope a query to the caller's own
+        // address without auth. What used to be asserted here — one setDoc, maskedEmail
+        // present, no follow-up updateDoc — now lives in functions joinForm.spec.ts.
+        let joinSpy: ReturnType<typeof vi.fn>;
+
+        beforeEach(() => {
+            joinSpy = vi.fn(async () => ({
+                data: {
+                    memberId: 'member-1',
+                    referralCode: 'ABCD2345',
+                    referralLink: 'https://site.example/?ref=ABCD2345',
+                    leaderboardLink: 'https://site.example/leaderboard/waitlist-1/registry-1',
+                    waitlistedUserId: 'registry-1',
+                },
+            }));
+            vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(joinSpy as any);
+        });
+
+        it('delegates to the joinForm callable', async () => {
+            await service.joinWaitlist('waitlist-1', { email: 'new@example.com', firstName: 'New' });
+
+            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'joinForm');
+            expect(joinSpy).toHaveBeenCalledWith(expect.objectContaining({
+                waitlistId: 'waitlist-1', email: 'new@example.com', firstName: 'New',
+            }));
+        });
+
+        it('writes no member or registry document from the client', async () => {
+            const setDoc = vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
+            const addDoc = vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'x' } as any);
+            const updateDoc = vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
+
+            await service.joinWaitlist('waitlist-1', { email: 'new@example.com' });
+
+            expect(setDoc).not.toHaveBeenCalled();
+            expect(addDoc).not.toHaveBeenCalled();
+            expect(updateDoc).not.toHaveBeenCalled();
+        });
+
+        it('reads no member documents from the client', async () => {
+            const getDocs = vi.spyOn(FirestoreSDK, 'getDocs');
+
+            await service.joinWaitlist('waitlist-1', { email: 'new@example.com' });
+
+            // The whole point: this is the read the rules can now deny.
+            expect(getDocs).not.toHaveBeenCalled();
+        });
+
+        it('returns the ids and links the form needs to continue', async () => {
+            const res = await service.joinWaitlist('waitlist-1', { email: 'new@example.com' });
+
+            expect(res.userId).toBe('member-1');
+            expect(res['waitlistedUserId']).toBe('registry-1');
+            expect(res['referralCode']).toBe('ABCD2345');
+        });
+
+        it('asks the server to send the code after joining', async () => {
+            await service.joinWaitlist('waitlist-1', { email: 'new@example.com' });
+
+            const called = vi.mocked(FunctionsSDK.httpsCallable).mock.calls.map((c) => c[1]);
+            expect(called).toContain('joinForm');
+            expect(called).toContain('requestFormOtp');
+        });
+
+        it('rejects a call with no email before touching the network', async () => {
+            await expect(service.joinWaitlist('waitlist-1', {})).rejects.toThrow(/Missing required parameters/);
+            expect(joinSpy).not.toHaveBeenCalled();
+        });
+    });
+
     describe('getWaitlistBySlug', () => {
         it('should return waitlist data if found by slug', async () => {
             const mockData = { id: 'test-id', slug: 'test-slug', name: 'Test' };
@@ -142,135 +216,8 @@ describe('WaitlistService', () => {
             expect(FirestoreSDK.setDoc).toHaveBeenCalled();
         });
     });
-    describe('joinWaitlist (new user path)', () => {
-        beforeEach(() => {
-            // Waitlist exists
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({ name: 'Test Waitlist' }),
-                id: 'waitlist-1',
-            } as any);
 
-            // No existing user in subcollection
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ empty: true, docs: [] } as any);
 
-            // doc() returns a ref with a pre-generated id
-            vi.spyOn(FirestoreSDK, 'doc').mockReturnValue({ id: 'pre-generated-id' } as any);
-
-            // setDoc and addDoc succeed
-            vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
-            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'subcoll-user-id' } as any);
-        });
-
-        it('should use setDoc (not addDoc) for the WaitlistedUsers root document to prevent a duplicate OTP email (regression)', async () => {
-            // Regression: previously addDoc + updateDoc was used, causing onWaitlistedUsersCreate
-            // AND onWaitlistedUserUpdate to both fire — sending 2 OTP emails. Now setDoc with
-            // a pre-generated ID is used so leaderboardLink is included in the single initial
-            // write, eliminating the follow-up updateDoc that triggered the duplicate.
-            await service.joinWaitlist('waitlist-1', { email: 'new@example.com', firstName: 'New' });
-
-            expect(FirestoreSDK.setDoc).toHaveBeenCalledTimes(1);
-        });
-
-        it('should NOT call updateDoc on WaitlistedUsers during new user signup (regression: duplicate OTP)', async () => {
-            // The follow-up updateDoc for leaderboardLink was the second trigger causing
-            // a duplicate OTP email. It must NOT be called anymore.
-            const updateDocSpy = vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
-
-            await service.joinWaitlist('waitlist-1', { email: 'new@example.com', firstName: 'New' });
-
-            // updateDoc should not be called on WaitlistedUsers (only setDoc is used now)
-            // It may still be called for other purposes (e.g. referrals), but the key is
-            // that setDoc handles the WaitlistedUsers creation in one atomic write.
-            expect(FirestoreSDK.setDoc).toHaveBeenCalledTimes(1);
-        });
-
-        it('should include leaderboardLink in the initial setDoc write for WaitlistedUsers', async () => {
-            await service.joinWaitlist('waitlist-1', { email: 'new@example.com', firstName: 'New' });
-
-            const setDocCall = vi.mocked(FirestoreSDK.setDoc).mock.calls[0];
-            const writtenData = setDocCall[1] as Record<string, unknown>;
-
-            // leaderboardLink must be a non-empty string in the initial write
-            expect(typeof writtenData['leaderboardLink']).toBe('string');
-            expect(writtenData['leaderboardLink']).not.toBe('');
-            // Should reference the pre-generated doc ID
-            expect(writtenData['leaderboardLink']).toContain('pre-generated-id');
-        });
-    });
-
-    describe('joinWaitlist — maskedEmail', () => {
-        beforeEach(() => {
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({ name: 'Test Waitlist' }),
-                id: 'waitlist-1',
-            } as any);
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ empty: true, docs: [] } as any);
-            vi.spyOn(FirestoreSDK, 'doc').mockReturnValue({ id: 'pre-generated-id' } as any);
-            vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
-            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'subcoll-user-id' } as any);
-        });
-
-        it('should include maskedEmail in the WaitlistedUsers document', async () => {
-            await service.joinWaitlist('waitlist-1', { email: 'alice@example.com', firstName: 'Alice' });
-
-            const setDocCall = vi.mocked(FirestoreSDK.setDoc).mock.calls[0];
-            const writtenData = setDocCall[1] as Record<string, unknown>;
-
-            expect(writtenData['maskedEmail']).toBe('al***@exa***.com');
-        });
-
-        it('should include maskedEmail in the waitlist subcollection document', async () => {
-            await service.joinWaitlist('waitlist-1', { email: 'bob@test.org', firstName: 'Bob' });
-
-            const addDocCall = vi.mocked(FirestoreSDK.addDoc).mock.calls[0];
-            const writtenData = addDocCall[1] as Record<string, unknown>;
-
-            expect(writtenData['maskedEmail']).toBe('bo***@tes***.org');
-        });
-    });
-
-    describe('joinWaitlist — maskedEmail for existing unverified user re-join', () => {
-        it('should include maskedEmail when creating subcollection entry for existing user', async () => {
-            // Waitlist exists
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({ name: 'Test Waitlist' }),
-                id: 'waitlist-1',
-            } as any);
-
-            // Step 1: no user in subcollection
-            // Step 2: user exists in WaitlistedUsers (unverified, same waitlist)
-            vi.spyOn(FirestoreSDK, 'getDocs')
-                .mockResolvedValueOnce({ empty: true, docs: [] } as any) // subcollection check
-                .mockResolvedValueOnce({
-                    empty: false,
-                    docs: [{
-                        id: 'existing-wl-user',
-                        data: () => ({
-                            email: 'existing@test.com',
-                            firstName: 'Existing',
-                            waitlistId: 'waitlist-1',
-                            emailVerified: false,
-                            // No maskedEmail field (pre-existing user)
-                        }),
-                    }],
-                } as any);
-
-            vi.spyOn(FirestoreSDK, 'doc').mockReturnValue({ id: 'existing-wl-user' } as any);
-            vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
-            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'subcoll-id' } as any);
-
-            await service.joinWaitlist('waitlist-1', { email: 'existing@test.com', firstName: 'Existing' });
-
-            const addDocCall = vi.mocked(FirestoreSDK.addDoc).mock.calls[0];
-            const writtenData = addDocCall[1] as Record<string, unknown>;
-
-            // maskedEmail should be computed even if the original WaitlistedUsers doc didn't have it
-            expect(writtenData['maskedEmail']).toBe('ex***@tes***.com');
-        });
-    });
 
     describe('processReferral — self-referral guard', () => {
         // These drive processReferral through confirmWithoutOtp. Since U5 that path
@@ -371,141 +318,7 @@ describe('WaitlistService', () => {
     // Regression: emailVerified vs isConfirmed field correctness
     // -----------------------------------------------------------------------
 
-    describe('joinWaitlist — new user should start with emailVerified=false and isConfirmed=false', () => {
-        beforeEach(() => {
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({ name: 'Test Waitlist' }),
-                id: 'waitlist-1',
-            } as any);
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ empty: true, docs: [] } as any);
-            vi.spyOn(FirestoreSDK, 'doc').mockReturnValue({ id: 'pre-generated-id' } as any);
-            vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
-            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'subcoll-user-id' } as any);
-        });
 
-        it('should set emailVerified=false in WaitlistedUsers doc', async () => {
-            await service.joinWaitlist('waitlist-1', { email: 'new@test.com', firstName: 'New' });
-
-            const setDocCall = vi.mocked(FirestoreSDK.setDoc).mock.calls[0];
-            const data = setDocCall[1] as Record<string, unknown>;
-            expect(data['emailVerified']).toBe(false);
-        });
-
-        it('should set isConfirmed=false in WaitlistedUsers doc', async () => {
-            await service.joinWaitlist('waitlist-1', { email: 'new@test.com', firstName: 'New' });
-
-            const setDocCall = vi.mocked(FirestoreSDK.setDoc).mock.calls[0];
-            const data = setDocCall[1] as Record<string, unknown>;
-            expect(data['isConfirmed']).toBe(false);
-        });
-
-        it('should set isConfirmed=false in subcollection doc', async () => {
-            await service.joinWaitlist('waitlist-1', { email: 'new@test.com', firstName: 'New' });
-
-            const addDocCall = vi.mocked(FirestoreSDK.addDoc).mock.calls[0];
-            const data = addDocCall[1] as Record<string, unknown>;
-            expect(data['isConfirmed']).toBe(false);
-        });
-    });
-
-    describe('joinWaitlist — default tag assignment', () => {
-        it('should call updateDoc with tags array when waitlist has a defaultTagId (new user)', async () => {
-            // Waitlist with defaultTagId
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({ name: 'Test Waitlist', defaultTagId: 'tag-123' }),
-                id: 'waitlist-1',
-            } as any);
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ empty: true, docs: [] } as any);
-            vi.spyOn(FirestoreSDK, 'doc').mockReturnValue({ id: 'pre-generated-id' } as any);
-            vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
-            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'subcoll-user-id' } as any);
-            const updateDocSpy = vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
-
-            await service.joinWaitlist('waitlist-1', { email: 'new@test.com', firstName: 'New' });
-
-            // applyDefaultTag should have called updateDoc twice:
-            // 1. to set tags on the user doc
-            // 2. to increment usageCount on the tag doc
-            const updateCalls = updateDocSpy.mock.calls;
-            const tagsUpdate = updateCalls.find(call => {
-                const data = call[1] as Record<string, unknown>;
-                return Array.isArray(data['tags']);
-            });
-            expect(tagsUpdate).toBeDefined();
-            expect((tagsUpdate![1] as any)['tags']).toEqual(['tag-123']);
-
-            // usageCount increment (now uses setDoc with merge instead of updateDoc)
-            const setDocCalls = vi.mocked(FirestoreSDK.setDoc).mock.calls;
-            const usageUpdate = setDocCalls.find(call => {
-                const data = call[1] as Record<string, unknown>;
-                return 'usageCount' in data;
-            });
-            expect(usageUpdate).toBeDefined();
-        });
-
-        it('should NOT call updateDoc for tags when waitlist has no defaultTagId', async () => {
-            // Waitlist without defaultTagId
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({ name: 'Test Waitlist' }),
-                id: 'waitlist-1',
-            } as any);
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ empty: true, docs: [] } as any);
-            vi.spyOn(FirestoreSDK, 'doc').mockReturnValue({ id: 'pre-generated-id' } as any);
-            vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
-            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'subcoll-user-id' } as any);
-            const updateDocSpy = vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
-
-            await service.joinWaitlist('waitlist-1', { email: 'new@test.com', firstName: 'New' });
-
-            // No updateDoc call should set a tags array
-            const tagsUpdate = updateDocSpy.mock.calls.find(call => {
-                const data = call[1] as Record<string, unknown>;
-                return Array.isArray(data['tags']);
-            });
-            expect(tagsUpdate).toBeUndefined();
-        });
-
-        it('should apply default tag when existing unverified user creates subcollection entry', async () => {
-            // Waitlist with defaultTagId
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({ name: 'Test Waitlist', defaultTagId: 'tag-abc' }),
-                id: 'waitlist-1',
-            } as any);
-
-            // Step 1: no user in subcollection; Step 2: user exists in WaitlistedUsers
-            vi.spyOn(FirestoreSDK, 'getDocs')
-                .mockResolvedValueOnce({ empty: true, docs: [] } as any)
-                .mockResolvedValueOnce({
-                    empty: false,
-                    docs: [{
-                        id: 'existing-wl-user',
-                        data: () => ({
-                            email: 'existing@test.com',
-                            firstName: 'Existing',
-                            waitlistId: 'waitlist-1',
-                            emailVerified: false,
-                        }),
-                    }],
-                } as any);
-
-            vi.spyOn(FirestoreSDK, 'doc').mockReturnValue({ id: 'existing-wl-user' } as any);
-            const updateDocSpy = vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
-            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'subcoll-id' } as any);
-
-            await service.joinWaitlist('waitlist-1', { email: 'existing@test.com', firstName: 'Existing' });
-
-            const tagsUpdate = updateDocSpy.mock.calls.find(call => {
-                const data = call[1] as Record<string, unknown>;
-                return Array.isArray(data['tags']);
-            });
-            expect(tagsUpdate).toBeDefined();
-            expect((tagsUpdate![1] as any)['tags']).toEqual(['tag-abc']);
-        });
-    });
 
     describe('verifyOtpAndProcessUser — rejected codes (U5: server-authoritative)', () => {
         /**

@@ -101,6 +101,10 @@ export * from './email-core/migrateWaitlistedUsers.js';
 // email addresses.
 export * from './waitlists/publicWaitlistViews.js';
 
+// #51: find-or-create the member record server-side, so the browser never queries
+// member documents to avoid a duplicate.
+export * from './waitlists/joinForm.js';
+
 //For increase total referrals
 export * from './waitlists/leaderboard/getLeaderBoardData.js';
 export * from './waitlists/referral/onReferralCreate.js';

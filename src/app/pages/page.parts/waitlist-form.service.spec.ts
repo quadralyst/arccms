@@ -344,9 +344,14 @@ describe('WaitlistFormService', () => {
     });
 
     describe('updateWaitlistCounts', () => {
-        it('should fetch and update counts for elements with data-waitlist-count', async () => {
-            mockGetCountFromServer.mockResolvedValue({
-                data: () => ({ count: 123 })
+        it('reads the count off the form document, not by aggregating member docs', async () => {
+            // #51: this used getCountFromServer over Waitlists/{id}/users, which needed
+            // public read on a collection holding raw email addresses — the exposure
+            // being closed. `totalSignups` on the form doc is public by design, since
+            // the form doc is what renders the page.
+            mockGetDoc.mockResolvedValue({
+                exists: () => true,
+                data: () => ({ totalSignups: 123 }),
             });
 
             const container = document.createElement('div');
@@ -358,19 +363,28 @@ describe('WaitlistFormService', () => {
             `;
 
             await service.initWaitlistForms(container);
-
-            expect(mockCollection).toHaveBeenCalledWith(expect.anything(), 'Waitlists', 'test-list', 'users');
-            expect(mockGetCountFromServer).toHaveBeenCalled();
-            
             await flushPromises();
 
-            const countEl = container.querySelector('[data-waitlist-count]');
-            expect(countEl?.textContent).toBe('123');
+            expect(mockGetCountFromServer).not.toHaveBeenCalled();
+            expect(container.querySelector('[data-waitlist-count]')?.textContent).toBe('123');
+        });
+
+        it('shows zero rather than breaking when the form has no counter yet', async () => {
+            mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({}) });
+
+            const container = document.createElement('div');
+            container.innerHTML = `<span data-waitlist-count="test-list">0</span>`;
+
+            await service.initWaitlistForms(container);
+            await flushPromises();
+
+            expect(container.querySelector('[data-waitlist-count]')?.textContent).toBe('0');
         });
 
         it('should use global waitlist id if specific one not provided', async () => {
-            mockGetCountFromServer.mockResolvedValue({
-                data: () => ({ count: 456 })
+            mockGetDoc.mockResolvedValue({
+                exists: () => true,
+                data: () => ({ totalSignups: 456 }),
             });
 
             const container = document.createElement('div');
@@ -380,8 +394,9 @@ describe('WaitlistFormService', () => {
             `;
 
             await service.initWaitlistForms(container);
+            await flushPromises();
 
-            expect(mockCollection).toHaveBeenCalledWith(expect.anything(), 'Waitlists', 'global-list', 'users');
+            expect(container.querySelector('[data-waitlist-count]')?.textContent).toBe('456');
         });
     });
 

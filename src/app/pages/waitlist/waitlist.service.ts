@@ -124,199 +124,61 @@ export class WaitlistService {
     /**
      * Join a waitlist - returns user data for OTP verification
      */
+    /**
+     * Join a waitlist. Server-authoritative find-or-create (#51).
+     *
+     * The browser used to do this itself: query `Waitlists/{id}/users` by email to
+     * avoid a duplicate, then fall back to a second query on the global
+     * `WaitlistedUsers` registry, then create both documents. Those two reads are why
+     * `firestore.rules` had to allow public reads on collections holding raw email
+     * addresses, and no rule could narrow them — rules cannot scope a query to the
+     * caller's own address without auth.
+     *
+     * `joinForm` now does the find-or-create, which also makes deduplication atomic;
+     * the client-side version was a read-then-write race between concurrent submits.
+     *
+     * The cross-form "already verified on another form" branch is gone rather than
+     * moved (U6 option C): its outcome — a member document plus a verification code —
+     * was identical to the new-member path, and cross-form identity is deduplicated by
+     * `Contacts/{emailHash}` server-side regardless of what the form believes.
+     */
     async joinWaitlist(waitlistId: string, userData: Partial<IWaitlistUser>): Promise<IJoinWaitlistResult & Record<string, unknown>> {
+        if (!waitlistId || !userData?.email) {
+            throw new Error('Missing required parameters: waitlistId, email');
+        }
+
         try {
-            // Validate inputs
-            if (!waitlistId || !userData?.email) {
-                throw new Error('Missing required parameters: waitlistId, email');
-            }
+            const callable = runInInjectionContext(this.injector, () =>
+                httpsCallable<Record<string, unknown>, {
+                    memberId: string; referralCode: string; referralLink: string;
+                    leaderboardLink: string; waitlistedUserId: string;
+                }>(this.functions, 'joinForm'));
 
-            // Check if waitlist exists
-            const waitlistDocRef = doc(this.firestore, 'Waitlists', waitlistId);
-            const waitlistDoc = await getDoc(waitlistDocRef);
-            if (!waitlistDoc.exists()) {
-                throw new Error(`Waitlist with ID ${waitlistId} does not exist`);
-            }
-            const waitlistData = waitlistDoc.data();
-            const defaultTagId = (waitlistData?.['defaultTagId'] as string) || '';
-
-            // Step 1: Check if user exists in waitlist subcollection
-            const waitlistUsersRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-            const waitlistUserQuery = query(waitlistUsersRef, where('email', '==', userData.email));
-            const waitlistUserSnapshot = await getDocs(waitlistUserQuery);
-
-            if (!waitlistUserSnapshot.empty) {
-                // User exists in subcollection
-                const subCollectionUser = waitlistUserSnapshot.docs[0];
-                const subCollectionUserData = subCollectionUser.data();
-
-                // U5: the code is generated, stored hashed and emailed server-side.
-                const userDocRef = doc(this.firestore, `Waitlists/${waitlistId}/users`, subCollectionUser.id);
-                await updateDoc(userDocRef, {
-                    firstName: subCollectionUserData['isConfirmed']
-                        ? subCollectionUserData['firstName']
-                        : userData?.firstName || '',
-                });
-
-                // Update WaitlistedUsers if user is NOT confirmed
-                if (!subCollectionUserData['isConfirmed'] && subCollectionUserData['waitlistedUserId']) {
-                    const waitlistedUserDocRef = doc(
-                        this.firestore,
-                        'WaitlistedUsers',
-                        subCollectionUserData['waitlistedUserId'],
-                    );
-                    await updateDoc(waitlistedUserDocRef, {
-                        firstName: userData?.firstName || '',
-                    });
-                }
-
-                await this.sendFormOtp(waitlistId, subCollectionUserData['email'] as string, userData?.firstName);
-
-                return {
-                    exists: true,
-                    verified: subCollectionUserData['isConfirmed'] || false,
-                    userId: subCollectionUser.id,
-                    email: subCollectionUserData['email'],
-                    ...subCollectionUserData,
-                    isExisting: true,
-                };
-            }
-
-            // Step 2: Check if user exists in WaitlistedUsers collection (global check)
-            const waitlistedUsersRef = collection(this.firestore, 'WaitlistedUsers');
-            const existingUserQuery = query(waitlistedUsersRef, where('email', '==', userData.email));
-            const existingUserSnapshot = await getDocs(existingUserQuery);
-
-            if (!existingUserSnapshot.empty) {
-                const existingUser = existingUserSnapshot.docs[0];
-                const existingUserData = existingUser.data();
-
-                // If confirmed user joining a new waitlist
-                if (existingUserData['isConfirmed']) {
-                    const waitlistedUserDocRef = doc(this.firestore, 'WaitlistedUsers', existingUser.id);
-                    await updateDoc(waitlistedUserDocRef, {
-                        firstName: userData?.firstName || '',
-                    });
-
-                    await this.sendFormOtp(waitlistId, existingUserData['email'] as string, userData?.firstName);
-
-                    return {
-                        exists: true,
-                        verified: true,
-                        userId: existingUser.id,
-                        email: existingUserData['email'],
-                        ...existingUserData,
-                        isExisting: true,
-                        requiresOtpForNewWaitlist: true,
-                        targetWaitlistId: waitlistId,
-                    };
-                }
-
-                // Unverified user trying to join different waitlist
-                const existingWaitlistIds = (existingUserData['waitlistIds'] as string[]) || [existingUserData['waitlistId']];
-                if (!existingWaitlistIds.includes(waitlistId)) {
-                    return {
-                        exists: true,
-                        verified: false,
-                        error: true,
-                        message: `This email is already registered in another waitlist. Please verify your email in the original waitlist first.`,
-                        existingWaitlistId: existingUserData['waitlistId'],
-                    } as IJoinWaitlistResult & Record<string, unknown>;
-                }
-
-                // Create subcollection entry for existing user
-                const userDataToCreate = {
-                    ...existingUserData,
-                    maskedEmail: existingUserData['maskedEmail'] || this.maskEmail((existingUserData['email'] as string) || ''),
-                };
-                const userRef = await addDoc(collection(this.firestore, `Waitlists/${waitlistId}/users`), {
-                    ...userDataToCreate,
-                    waitlistedUserId: existingUser.id,
-                });
-
-                // Apply default tag if configured
-                if (defaultTagId) {
-                    await this.applyDefaultTag(waitlistId, userRef.id, defaultTagId);
-                }
-
-                await this.sendFormOtp(waitlistId, existingUserData['email'] as string, userData?.firstName);
-
-                return {
-                    exists: true,
-                    verified: false,
-                    userId: userRef.id,
-                    email: existingUserData['email'],
-                    ...userDataToCreate,
-                    isExisting: true,
-                };
-            }
-
-            // Step 3: New user - create entries in both collections
-            const referralCode = this.generateReferralCode();
-            const referralLink = this.generateUrl(this.getCurrentPath(), { ref: referralCode });
-
-            // Pre-generate the WaitlistedUsers doc ID so leaderboardLink can be included
-            // in the initial setDoc — avoiding a separate updateDoc that would trigger
-            // onWaitlistedUserUpdate and cause a duplicate OTP email.
-            const waitlistedUserDocRef = doc(collection(this.firestore, 'WaitlistedUsers'));
-            const leaderboardLink = typeof window !== 'undefined'
-                ? `${window.location.origin}/leaderboard/${waitlistId}/${waitlistedUserDocRef.id}`
-                : `/leaderboard/${waitlistId}/${waitlistedUserDocRef.id}`;
-
-            const newUser = {
-                ...userData,
-                referralCode: referralCode,
-                referralLink: referralLink,
-                maskedEmail: this.maskEmail(userData.email || ''),
-                queuePosition: 0,
-                totalReferrals: 0,
-                signupTimestamp: new Date(),
-                emailVerified: false,
-                isConfirmed: false,
-                ipAddress: '',
-                leaderboardLink: leaderboardLink,
-                createdAt: new Date(),
-                isSubscribed: true,
-            };
-
-            // Create in root WaitlistedUsers collection (single write — no follow-up updateDoc
-            // needed, which previously caused a duplicate OTP email via onWaitlistedUserUpdate)
-            await setDoc(waitlistedUserDocRef, {
-                ...newUser,
-                waitlistId: waitlistId,
-                waitlistIds: [waitlistId],
+            const res = await callable({
+                waitlistId,
+                email: userData.email,
+                firstName: userData.firstName || '',
+                source: userData.source || '',
+                referredBy: userData.referredBy || '',
+                formData: userData.formData || {},
+                signupMetadata: userData.signupMetadata || {},
+                origin: typeof window !== 'undefined' ? window.location.origin : '',
             });
+            const joined = res.data;
 
-            // Create in waitlist subcollection
-            const userRef = await addDoc(collection(this.firestore, `Waitlists/${waitlistId}/users`), {
-                ...newUser,
-                leaderboardLink,
-                waitlistedUserId: waitlistedUserDocRef.id,
-                waitlistId: waitlistId,
-            });
-
-            // Apply default tag if configured
-            if (defaultTagId) {
-                await this.applyDefaultTag(waitlistId, userRef.id, defaultTagId);
-            }
-
-            // Handle referral if provided
-            if (userData.referredBy) {
-                await this.createPendingReferral(userData.referredBy, userData.email || '', waitlistId, userRef.id);
-            }
-
-            // U5: request the code. Previously the OTP email rode on the
-            // `verificationCode` write via onWaitlistedUsersCreate; that field is
-            // gone, so the send has to be asked for explicitly — and this is the
-            // most-travelled path, a brand-new signup.
-            await this.sendFormOtp(waitlistId, newUser.email || '', newUser.firstName);
+            // Ask for the code. The server owns generation, expiry and the resend
+            // throttle, and decides whether this form verifies at all.
+            await this.sendFormOtp(waitlistId, userData.email, userData.firstName);
 
             return {
                 exists: false,
                 verified: false,
-                userId: userRef.id,
-                email: newUser.email,
-                ...newUser,
+                userId: joined.memberId,
+                email: userData.email,
+                referralCode: joined.referralCode,
+                referralLink: joined.referralLink,
+                leaderboardLink: joined.leaderboardLink,
+                waitlistedUserId: joined.waitlistedUserId,
                 isExisting: false,
             };
         } catch (error) {
