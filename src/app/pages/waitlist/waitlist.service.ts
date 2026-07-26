@@ -151,18 +151,12 @@ export class WaitlistService {
                 const subCollectionUser = waitlistUserSnapshot.docs[0];
                 const subCollectionUserData = subCollectionUser.data();
 
-                // Regenerate OTP for verification
-                const newVerificationCode = this.generateOtp();
-                const newVerificationExpires = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
-
-                // Update subcollection with new OTP
+                // U5: the code is generated, stored hashed and emailed server-side.
                 const userDocRef = doc(this.firestore, `Waitlists/${waitlistId}/users`, subCollectionUser.id);
                 await updateDoc(userDocRef, {
                     firstName: subCollectionUserData['isConfirmed']
                         ? subCollectionUserData['firstName']
                         : userData?.firstName || '',
-                    verificationCode: newVerificationCode,
-                    verificationExpires: newVerificationExpires,
                 });
 
                 // Update WaitlistedUsers if user is NOT confirmed
@@ -174,10 +168,10 @@ export class WaitlistService {
                     );
                     await updateDoc(waitlistedUserDocRef, {
                         firstName: userData?.firstName || '',
-                        verificationCode: newVerificationCode,
-                        verificationExpires: newVerificationExpires,
                     });
                 }
+
+                await this.sendFormOtp(waitlistId, subCollectionUserData['email'] as string, userData?.firstName);
 
                 return {
                     exists: true,
@@ -185,8 +179,6 @@ export class WaitlistService {
                     userId: subCollectionUser.id,
                     email: subCollectionUserData['email'],
                     ...subCollectionUserData,
-                    verificationCode: newVerificationCode,
-                    verificationExpires: newVerificationExpires,
                     isExisting: true,
                 };
             }
@@ -202,16 +194,12 @@ export class WaitlistService {
 
                 // If confirmed user joining a new waitlist
                 if (existingUserData['isConfirmed']) {
-                    const newVerificationCode = this.generateOtp();
-                    const newVerificationExpires = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
-
-                    // Update root collection with new OTP
                     const waitlistedUserDocRef = doc(this.firestore, 'WaitlistedUsers', existingUser.id);
                     await updateDoc(waitlistedUserDocRef, {
                         firstName: userData?.firstName || '',
-                        verificationCode: newVerificationCode,
-                        verificationExpires: newVerificationExpires,
                     });
+
+                    await this.sendFormOtp(waitlistId, existingUserData['email'] as string, userData?.firstName);
 
                     return {
                         exists: true,
@@ -219,8 +207,6 @@ export class WaitlistService {
                         userId: existingUser.id,
                         email: existingUserData['email'],
                         ...existingUserData,
-                        verificationCode: newVerificationCode,
-                        verificationExpires: newVerificationExpires,
                         isExisting: true,
                         requiresOtpForNewWaitlist: true,
                         targetWaitlistId: waitlistId,
@@ -244,19 +230,8 @@ export class WaitlistService {
                     ...existingUserData,
                     maskedEmail: existingUserData['maskedEmail'] || this.maskEmail((existingUserData['email'] as string) || ''),
                 };
-                const newVerificationCode = this.generateOtp();
-                const newVerificationExpires = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
-
-                const waitlistedUserDocRef = doc(this.firestore, 'WaitlistedUsers', existingUser.id);
-                await updateDoc(waitlistedUserDocRef, {
-                    verificationCode: newVerificationCode,
-                    verificationExpires: newVerificationExpires,
-                });
-
                 const userRef = await addDoc(collection(this.firestore, `Waitlists/${waitlistId}/users`), {
                     ...userDataToCreate,
-                    verificationCode: newVerificationCode,
-                    verificationExpires: newVerificationExpires,
                     waitlistedUserId: existingUser.id,
                 });
 
@@ -265,14 +240,14 @@ export class WaitlistService {
                     await this.applyDefaultTag(waitlistId, userRef.id, defaultTagId);
                 }
 
+                await this.sendFormOtp(waitlistId, existingUserData['email'] as string, userData?.firstName);
+
                 return {
                     exists: true,
                     verified: false,
                     userId: userRef.id,
                     email: existingUserData['email'],
                     ...userDataToCreate,
-                    verificationCode: newVerificationCode,
-                    verificationExpires: newVerificationExpires,
                     isExisting: true,
                 };
             }
@@ -299,8 +274,6 @@ export class WaitlistService {
                 signupTimestamp: new Date(),
                 emailVerified: false,
                 isConfirmed: false,
-                verificationCode: this.generateOtp(),
-                verificationExpires: new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000),
                 ipAddress: '',
                 leaderboardLink: leaderboardLink,
                 createdAt: new Date(),
@@ -357,6 +330,13 @@ export class WaitlistService {
         userData: Partial<IWaitlistUser>,
     ): Promise<{ success: boolean; message?: string; data?: IVerifyOtpResult & Record<string, unknown>; isExistingVerifiedUser?: boolean }> {
         try {
+            // U5: the code is checked server-side (expiry, attempt cap, hash), so the
+            // browser can neither read the code off a doc nor skip the check. The
+            // check sits exactly where the old plaintext comparison did, and takes
+            // the address from whichever record we already loaded — callers do not
+            // always pass one.
+            let otpVerified = false;
+
             // Check if this is a verified user from WaitlistedUsers trying to join a new waitlist
             const waitlistedUserDocRef = doc(this.firestore, 'WaitlistedUsers', userId);
             const waitlistedUserDoc = await getDoc(waitlistedUserDocRef);
@@ -364,14 +344,15 @@ export class WaitlistService {
             if (waitlistedUserDoc.exists()) {
                 const waitlistedUserData = waitlistedUserDoc.data();
 
-                // Verify OTP from WaitlistedUsers collection
-                if (
-                    waitlistedUserData['verificationCode'] !== otp ||
-                    !waitlistedUserData['verificationExpires'] ||
-                    new Date() > waitlistedUserData['verificationExpires'].toDate()
-                ) {
-                    return { success: false, message: 'Invalid or expired OTP' };
+                const check = await this.checkFormOtp(
+                    waitlistId,
+                    (userData?.email || waitlistedUserData['email'] || '') as string,
+                    otp,
+                );
+                if (!check.ok) {
+                    return { success: false, message: check.message || 'Invalid or expired OTP' };
                 }
+                otpVerified = true;
 
                 // If user is confirmed and trying to join a new waitlist
                 if (waitlistedUserData['isConfirmed']) {
@@ -394,9 +375,17 @@ export class WaitlistService {
 
             const user = userDoc.data();
 
-            // Verify OTP
-            if (user['verificationCode'] !== otp || !user['verificationExpires'] || new Date() > user['verificationExpires'].toDate()) {
-                return { success: false, message: 'Invalid or expired OTP' };
+            // Same server-side check for the subcollection path (skipped if the
+            // WaitlistedUsers branch above already verified this code).
+            if (!otpVerified) {
+                const check = await this.checkFormOtp(
+                    waitlistId,
+                    (userData?.email || user['email'] || '') as string,
+                    otp,
+                );
+                if (!check.ok) {
+                    return { success: false, message: check.message || 'Invalid or expired OTP' };
+                }
             }
 
             // If already confirmed, return existing data
@@ -832,30 +821,11 @@ export class WaitlistService {
 
             const userData = userDoc.data();
 
-            // Reuse the existing code if it hasn't expired yet; generate a new one only if expired
-            const existingExpires = userData['verificationExpires']?.toDate?.()
-                ?? (userData['verificationExpires'] ? new Date(userData['verificationExpires']) : null);
-            const isExpired = !existingExpires || new Date() > existingExpires;
-
-            const verificationCode = isExpired
-                ? this.generateOtp()
-                : userData['verificationCode'] as string;
-            // Always reset the expiry window from now
-            const verificationExpires = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
-
-            // Update subcollection
-            await updateDoc(userDocRef, {
-                verificationCode,
-                verificationExpires,
-            });
-
-            // Update root collection
-            if (userData['waitlistedUserId']) {
-                const waitlistedUserDocRef = doc(this.firestore, 'WaitlistedUsers', userData['waitlistedUserId']);
-                await updateDoc(waitlistedUserDocRef, {
-                    verificationCode,
-                    verificationExpires,
-                });
+            // U5: the server owns generation, expiry and the 60s resend throttle —
+            // it returns a clear error if asked again too soon.
+            const sent = await this.sendFormOtp(waitlistId, userData['email'] as string, userData['firstName'] as string);
+            if (!sent.ok) {
+                return { success: false, message: sent.message || 'Failed to resend verification code' };
             }
 
             return { success: true, message: 'Verification code sent successfully' };
@@ -1152,6 +1122,51 @@ export class WaitlistService {
     /**
      * Generate 6-digit OTP
      */
+    /**
+     * Ask the server to send this form's verification code (U5).
+     *
+     * The code is generated, stored hashed and emailed by `requestFormOtp` — the
+     * browser never sees or stores it. Errors are returned rather than thrown so
+     * callers can surface the server's message (e.g. the resend throttle).
+     */
+    private async sendFormOtp(
+        waitlistId: string,
+        email: string,
+        name?: string,
+    ): Promise<{ ok: boolean; message?: string }> {
+        try {
+            const call = httpsCallable<
+                { waitlistId: string; email: string; name?: string },
+                { sent: boolean; status: string }
+            >(this.functions, 'requestFormOtp');
+            const res = await call({ waitlistId, email, name });
+            return { ok: !!res.data?.sent, message: res.data?.sent ? undefined : `Email not sent (${res.data?.status}).` };
+        } catch (error: any) {
+            console.error('requestFormOtp failed:', error);
+            return { ok: false, message: error?.message || 'Could not send the verification code.' };
+        }
+    }
+
+    /** Server-authoritative code check (U5). Throws are converted to a result. */
+    private async checkFormOtp(
+        waitlistId: string,
+        email: string,
+        code: string,
+    ): Promise<{ ok: boolean; message?: string }> {
+        try {
+            const call = httpsCallable<
+                { waitlistId: string; email: string; code: string },
+                { verified: boolean }
+            >(this.functions, 'verifyFormOtp');
+            const res = await call({ waitlistId, email, code });
+            return { ok: !!res.data?.verified };
+        } catch (error: any) {
+            // The callable's HttpsError message is user-facing (expired, wrong
+            // code, too many attempts) — pass it through rather than flattening it.
+            return { ok: false, message: error?.message || 'Invalid or expired OTP' };
+        }
+    }
+
     private generateOtp(length: number = 6): string {
         const digits = '0123456789';
         let result = '';

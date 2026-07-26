@@ -44,11 +44,15 @@ vi.mock('@angular/fire/firestore', () => {
 vi.mock('@angular/fire/functions', () => {
     return {
         Functions: class { },
-        httpsCallable: vi.fn(() => vi.fn()),
+        // U5: the service asks the server to send and to verify OTPs. Default to a
+        // working server so unrelated tests exercise the happy path; individual
+        // tests override to simulate a rejected code.
+        httpsCallable: vi.fn(() => vi.fn(async () => ({ data: { sent: true, verified: true } }))),
     };
 });
 
 import * as FirestoreSDK from '@angular/fire/firestore';
+import * as FunctionsSDK from '@angular/fire/functions';
 
 describe('WaitlistService', () => {
     let service: WaitlistService;
@@ -74,6 +78,11 @@ describe('WaitlistService', () => {
 
         // Reset mocks
         vi.clearAllMocks();
+        // clearAllMocks clears calls but keeps implementation overrides, so a test
+        // that simulated a rejecting server would otherwise leak into later ones.
+        vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(
+            vi.fn(async () => ({ data: { sent: true, verified: true } })) as any,
+        );
     });
 
     it('should be created', () => {
@@ -569,51 +578,73 @@ describe('WaitlistService', () => {
         });
     });
 
-    describe('verifyOtpAndProcessUser — null verificationExpires regression', () => {
-        it('should return invalid OTP when WaitlistedUsers verificationExpires is null', async () => {
+    describe('verifyOtpAndProcessUser — rejected codes (U5: server-authoritative)', () => {
+        /**
+         * These replace the old null-`verificationExpires` regression tests. Expiry,
+         * the attempt cap and the code comparison all moved to `verifyFormOtp`
+         * (U5) — the client no longer holds the code or the expiry, so it cannot
+         * make that judgement. What must still hold is that a code the server
+         * rejects never verifies the user, whatever the reason.
+         */
+        function serverRejects(message: string): void {
+            vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(
+                vi.fn(async () => { throw new Error(message); }) as any,
+            );
+        }
+
+        it('returns the server message when the code has expired', async () => {
             vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
                 exists: () => true,
-                data: () => ({
-                    verificationCode: '123456',
-                    verificationExpires: null,
-                    isConfirmed: false,
-                }),
+                data: () => ({ email: 'a@b.com', isConfirmed: false }),
             } as any);
+            serverRejects('Your code has expired. Please request a new one.');
 
             const result = await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', {});
+
             expect(result.success).toBe(false);
-            expect(result.message).toBe('Invalid or expired OTP');
+            expect(result.message).toContain('expired');
         });
 
-        it('should return invalid OTP when subcollection user verificationExpires is null', async () => {
+        it('returns the server message on a wrong code, via the subcollection path', async () => {
             vi.spyOn(FirestoreSDK, 'getDoc')
                 .mockResolvedValueOnce({ exists: () => false } as any) // WaitlistedUsers lookup
                 .mockResolvedValueOnce({
                     exists: () => true,
-                    data: () => ({
-                        verificationCode: '123456',
-                        verificationExpires: null,
-                        isConfirmed: false,
-                    }),
+                    data: () => ({ email: 'a@b.com', isConfirmed: false }),
                 } as any); // subcollection lookup
+            serverRejects('Invalid verification code.');
 
-            const result = await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', {});
+            const result = await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '000000', {});
+
             expect(result.success).toBe(false);
-            expect(result.message).toBe('Invalid or expired OTP');
+            expect(result.message).toContain('Invalid verification code');
         });
 
-        it('should not throw when verificationExpires is undefined', async () => {
+        it('surfaces the attempt-cap lockout rather than verifying', async () => {
             vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
                 exists: () => true,
-                data: () => ({
-                    verificationCode: '123456',
-                    isConfirmed: false,
-                }),
+                data: () => ({ email: 'a@b.com', isConfirmed: false }),
             } as any);
+            serverRejects('Too many attempts. Please request a new code.');
 
             const result = await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', {});
+
             expect(result.success).toBe(false);
-            expect(result.message).toBe('Invalid or expired OTP');
+            expect(result.message).toContain('Too many attempts');
+        });
+
+        it('does not throw when the callable itself fails', async () => {
+            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
+                exists: () => true,
+                data: () => ({ email: 'a@b.com', isConfirmed: false }),
+            } as any);
+            vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(
+                vi.fn(async () => { throw new Error('network down'); }) as any,
+            );
+
+            const result = await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', {});
+
+            expect(result.success).toBe(false);
         });
     });
 
