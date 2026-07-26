@@ -60,7 +60,7 @@ describe('WaitlistAdminStore', () => {
     });
 
     it('shares one listener across repeated subscribers', () => {
-        // side-navbar, dashboard and the subscribers page each call subscribe().
+        // side-navbar and dashboard each call subscribe().
         const store = makeStore('browser');
 
         store.subscribe();

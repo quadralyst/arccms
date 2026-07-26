@@ -216,11 +216,6 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/(waitlists)/tags/tags.page').then((m) => m.default),
       },
-      {
-        path: 'subscribers',
-        loadComponent: () =>
-          import('./pages/admin/(waitlists)/subscribers/subscribers.page').then((m) => m.default),
-      },
     ],
   },
   // Admin List hub (U4): one workspace per list — Members / Broadcasts / Sequence.
