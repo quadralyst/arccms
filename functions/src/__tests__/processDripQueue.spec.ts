@@ -36,7 +36,11 @@ vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn()
 vi.mock('firebase-functions/v2/scheduler', () => ({ onSchedule: vi.fn((_o: any, h: any) => h) }));
 vi.mock('firebase-admin/firestore', () => ({
   Timestamp: { now: vi.fn(() => ({ toMillis: () => 1_000_000 })), fromMillis: vi.fn((ms: number) => ({ __ms: ms })) },
-  FieldValue: { increment: (n: number) => ({ __inc: n }) },
+  FieldValue: {
+    increment: (n: number) => ({ __inc: n }),
+    // U5 clears `heldReason` on a successful send / a non-consent hold.
+    delete: () => ({ __delete: true }),
+  },
 }));
 
 import { processDripQueue } from '../email-core/processDripQueue.js';

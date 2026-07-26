@@ -306,6 +306,12 @@ export class WaitlistService {
                 await this.createPendingReferral(userData.referredBy, userData.email || '', waitlistId, userRef.id);
             }
 
+            // U5: request the code. Previously the OTP email rode on the
+            // `verificationCode` write via onWaitlistedUsersCreate; that field is
+            // gone, so the send has to be asked for explicitly — and this is the
+            // most-travelled path, a brand-new signup.
+            await this.sendFormOtp(waitlistId, newUser.email || '', newUser.firstName);
+
             return {
                 exists: false,
                 verified: false,
