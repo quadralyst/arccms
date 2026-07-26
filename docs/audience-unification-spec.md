@@ -891,6 +891,65 @@ why the resolved string has not been observed live.
 `Contacts/{emailHash}` takes over cross-form identity/dedup; funnel docs keep
 verification/queue/referral state.
 
+### Step 1 — Read/write inventory (✅ done; this gated the phase)
+
+**Headline finding: `WaitlistedUsers` is a near-exact duplicate of the funnel doc.**
+A live member doc under `Waitlists/{formId}/users/{memberId}` already carries every
+field the leaderboard reads and every field the referral flow increments:
+
+```
+createdAt, email, emailVerified, firstName, formData, ipAddress, isConfirmed,
+isSubscribed, leaderboardLink, maskedEmail, queuePosition, referralCode,
+referralLink, signupMetadata, signupTimestamp, source, totalReferrals,
+verificationCode, verificationExpires, verifiedAt, waitlistId, waitlistedUserId
+```
+
+Three consequences that shrink this phase substantially:
+
+- **The leaderboard needs no data migration.** `getOptimizedLeaderboard` already
+  accepts a `Waitlists/{id}/users` path (validated against a regex + a parent-exists
+  check), and the composite index it needs — `users` collection group, `isConfirmed
+  ASC, totalReferrals DESC, signupTimestamp ASC` — is **already deployed**. The
+  re-point is a caller change, not a rewrite, and no new index is required.
+- **`totalReferrals` is already dual-written.** `incrementReferralCounts()` updates
+  the `WaitlistedUsers` doc *and* the form-member doc in the same batch. Referral
+  aggregates therefore need no backfill; only the `referrals` subcollection moves.
+- **Cross-form identity already moved.** U2 created `Contacts/{emailHash}` at signup
+  and U3 moved membership onto Lists, so the join flow's "does this person exist
+  anywhere?" check has a home that is already populated.
+
+What genuinely lives **only** on `WaitlistedUsers`:
+
+| Thing | Replacement |
+|---|---|
+| `referrals` subcollection + its two triggers bound to `WaitlistedUsers/{uid}/referrals/{id}` | needs a new home — the one open decision |
+| cross-form existence/dedup lookups | `Contacts/{emailHash}` |
+| `waitlistIds` array (multi-form membership) | `Lists` membership (U3) |
+
+#### Callers
+
+**Functions (12 files).** Writers: `referralHelper.incrementReferralCounts` /
+`decrement…` (dual-writes, so already safe), `finalizeFormSignup` (mirror block —
+delete outright), `onWaitlistedUsersCreate` / `onWaitlistedUsersUpdate` (triggers to
+delete after migration). Readers: `getLeaderBoardData` (default path), `backfillContacts`
+(`where('emailVerified','==',true)` — a one-shot historical importer, keep as legacy
+reader), `handleUnsubscribe` + `unsubscribeLegacyLink` (resolve a recipient; dual-read
+then Contacts-only), `onReferralCreate` / `onReferralUpdate` (bound to the referrals
+path — move with it).
+
+**Frontend (8 files, 41 references).** `waitlist.service.ts` holds 24 of them:
+`joinWaitlist` (cross-form check + create + unverified update), `verifyOtpAndProcessUser`
+(cross-form join branch + referral writes), `getOverallLeaderboard`, `getWaitlistedUser`,
+`getAllReferralsData`, `getUserDetails`, `checkReferralCodeExists`. Then
+`waitlisted-users.service.ts`, `subscribers/subscribers.page.ts`,
+`joined-users.page.ts` (delete-user referral batch), `view-user-detail.component.ts`,
+`(dashboard)/dashboard.page.ts` (already re-pointed in U4 — verify), `(data)/data-constants.ts`
+(export/import offering), `side-navbar.component.ts`.
+
+**Rules:** the `WaitlistedUsers/{userId}` block (and its referrals sub-block) at
+`firestore.rules:320`, plus the unauthenticated `totalSignups` increment carve-out on
+`Waitlists/{id}`.
+
 ### Scope
 1. **Read inventory first:** enumerate every reader/writer of `WaitlistedUsers` (join flow cross-waitlist checks, `getOptimizedLeaderboard`, referrals subcollection, `onWaitlistedUsersCreate/Update` triggers, subscriber admin page, unsubscribe path). This inventory gates the phase.
 2. **Re-point reads:** cross-form existence checks → `Contacts/{emailHash}`; leaderboard + referrals → keyed on form-member docs (referrals move to `Waitlists/{id}/users/{uid}/referrals` or a flat `Referrals` collection keyed by form+contact — decide from the inventory); subscriber admin page → Contacts filtered by `source:'waitlist'`.
