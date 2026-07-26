@@ -297,12 +297,17 @@ service cloud.firestore {
                       && request.resource.data.email is string
                       && request.resource.data.email.size() > 0
                       && request.resource.data.email.size() < 255;
+        // U5 item 5: verification, queue position and referral counts are written ONLY by
+        // Cloud Functions (finalizeFormSignup / verifyFormOtp / the referral triggers).
+        // Until U5 these were client-writable, so anyone could mark themselves
+        // verified, jump the queue, or inflate their referral count with a single
+        // Firestore write. Removed from the whitelist: emailVerified, isConfirmed,
+        // verificationCode, verificationExpires, verifiedAt, queuePosition,
+        // totalReferrals. Creates are unaffected — a signup still creates its own doc.
         allow update: if isAdmin() || request.resource.data.diff(resource.data)
                          .affectedKeys()
-                         .hasOnly(['emailVerified', 'isConfirmed', 'verificationCode',
-                                   'verificationExpires', 'verifiedAt', 'queuePosition',
-                                   'isSubscribed', 'firstName', 'leaderboardLink',
-                                   'totalReferrals', 'tags', 'referredBy']);
+                         .hasOnly(['isSubscribed', 'firstName', 'leaderboardLink',
+                                   'tags', 'referredBy']);
         allow delete: if isAdmin();
 
         // Notes subcollection - admin-only internal annotations on subscribers
@@ -319,12 +324,12 @@ service cloud.firestore {
                     && request.resource.data.email is string
                     && request.resource.data.email.size() > 0
                     && request.resource.data.email.size() < 255;
+      // U5 item 5: same lockdown as the members subcollection above — verification,
+      // position and referral counts are functions-only.
       allow update: if isAdmin() || request.resource.data.diff(resource.data)
                        .affectedKeys()
-                       .hasOnly(['emailVerified', 'isConfirmed', 'verificationCode',
-                                 'verificationExpires', 'verifiedAt', 'queuePosition',
-                                 'isSubscribed', 'firstName', 'leaderboardLink',
-                                 'totalReferrals', 'waitlistId', 'waitlistIds', 'referredBy']);
+                       .hasOnly(['isSubscribed', 'firstName', 'leaderboardLink',
+                                 'waitlistId', 'waitlistIds', 'referredBy']);
       allow delete: if isAdmin();
 
       // Referrals subcollection - leaderboard + signup flow

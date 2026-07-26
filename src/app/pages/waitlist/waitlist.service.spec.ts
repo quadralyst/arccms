@@ -76,10 +76,16 @@ describe('WaitlistService', () => {
         service = TestBed.inject(WaitlistService);
         firestore = TestBed.inject(Firestore);
 
-        // Reset mocks
-        vi.clearAllMocks();
-        // clearAllMocks clears calls but keeps implementation overrides, so a test
-        // that simulated a rejecting server would otherwise leak into later ones.
+        // resetAllMocks, not clearAllMocks: clear only wipes recorded calls, leaving
+        // both implementation overrides AND any unconsumed mockResolvedValueOnce
+        // entries in place. A test that queues three Once values but only makes two
+        // Firestore calls hands its leftover to the *next* test, which then gets the
+        // wrong snapshot — order-dependent failures that vanish when run in isolation.
+        vi.resetAllMocks();
+        // resetAllMocks also strips the implementations from the vi.mock factory, so
+        // re-establish the pure helpers and the default happy-path server here.
+        vi.mocked(FirestoreSDK.increment).mockImplementation((n: number) => ({ __increment: n }) as any);
+        vi.mocked(FirestoreSDK.arrayUnion).mockImplementation((...args: unknown[]) => ({ __arrayUnion: args }) as any);
         vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(
             vi.fn(async () => ({ data: { sent: true, verified: true } })) as any,
         );
@@ -267,111 +273,51 @@ describe('WaitlistService', () => {
     });
 
     describe('processReferral — self-referral guard', () => {
+        // These drive processReferral through confirmWithoutOtp. Since U5 that path
+        // makes exactly two reads of its own — the member doc, then the referrer
+        // lookup — because position/confirmation are written by finalizeFormSignup.
+        const memberDoc = (email: string) => ({
+            exists: () => true,
+            data: () => ({
+                emailVerified: false,
+                email,
+                firstName: 'Test',
+                waitlistedUserId: 'wl-user-1',
+            }),
+        });
+
         it('should not create a referral record when the referrer and referred have the same email', async () => {
-            // Mock: referrer found with same email as referred user
             const referrerEmail = 'same@example.com';
-            vi.spyOn(FirestoreSDK, 'getDocs')
-                .mockResolvedValueOnce({
-                    // First call: find referrer by code
-                    empty: false,
-                    docs: [{
-                        id: 'referrer-id',
-                        data: () => ({ email: referrerEmail, referralCode: 'REF123' }),
-                    }],
-                } as any);
-
-            // addDoc should NOT be called for a self-referral
-            const addDocSpy = vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'ref-id' } as any);
-
-            // Call processReferral indirectly through confirmWithoutOtp:
-            // We need the user doc to exist first
-            vi.spyOn(FirestoreSDK, 'getDoc')
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({
-                        emailVerified: false,
-                        email: referrerEmail,
-                        firstName: 'Same',
-                        waitlistedUserId: 'wl-user-1',
-                    }),
-                } as any)
-                .mockResolvedValueOnce({
-                    // verified users count query (getDocs is used, not getDoc)
-                    exists: () => false,
-                    data: () => ({}),
-                } as any)
-                .mockResolvedValueOnce({
-                    // WaitlistedUsers doc for update
-                    exists: () => true,
-                    data: () => ({}),
-                } as any);
-
-            // getDocs for verified users count
-            vi.spyOn(FirestoreSDK, 'getDocs')
-                .mockReset()
-                .mockResolvedValueOnce({ size: 5, docs: [] } as any) // verified users query
-                .mockResolvedValueOnce({
-                    // Find referrer by code
-                    empty: false,
-                    docs: [{
-                        id: 'referrer-id',
-                        data: () => ({ email: referrerEmail, referralCode: 'REF123' }),
-                    }],
-                } as any);
-
+            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue(memberDoc(referrerEmail) as any);
+            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({
+                // Referrer lookup by code resolves to the *same* address.
+                empty: false,
+                docs: [{ id: 'referrer-id', data: () => ({ email: referrerEmail, referralCode: 'REF123' }) }],
+            } as any);
             vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
+            const addDocSpy = vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'ref-id' } as any);
 
             await service.confirmWithoutOtp('waitlist-1', 'user-1', 'REF123');
 
-            // addDoc should have been called zero times for the referral
-            // (it's not called because the self-referral guard returns early)
-            const referralAddDocCalls = addDocSpy.mock.calls.filter(
-                (call) => typeof call[0] === 'object'
-            );
-            // No referral doc should be created since referrer email === referred email
-            expect(referralAddDocCalls).toHaveLength(0);
+            // The guard returns before any Referrals doc is written.
+            expect(addDocSpy).not.toHaveBeenCalled();
         });
 
         it('should create a referral record when referrer and referred have different emails', async () => {
-            vi.spyOn(FirestoreSDK, 'getDoc')
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({
-                        emailVerified: false,
-                        email: 'referred@example.com',
-                        firstName: 'Referred',
-                        waitlistedUserId: 'wl-user-1',
-                    }),
-                } as any)
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({}),
-                } as any);
-
+            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue(memberDoc('referred@example.com') as any);
             vi.spyOn(FirestoreSDK, 'getDocs')
-                .mockResolvedValueOnce({ size: 5, docs: [] } as any) // verified users
                 .mockResolvedValueOnce({
-                    // Find referrer by code
                     empty: false,
-                    docs: [{
-                        id: 'referrer-id',
-                        data: () => ({ email: 'referrer@example.com', referralCode: 'REF456' }),
-                    }],
+                    docs: [{ id: 'referrer-id', data: () => ({ email: 'referrer@example.com', referralCode: 'REF456' }) }],
                 } as any)
-                .mockResolvedValueOnce({ empty: true, docs: [] } as any); // No duplicate referral
-
+                .mockResolvedValue({ empty: true, docs: [] } as any); // no duplicate referral
             vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
             const addDocSpy = vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'new-ref' } as any);
 
             await service.confirmWithoutOtp('waitlist-1', 'user-1', 'REF456');
 
-            // addDoc should have been called for the referral record
-            const addDocCalls = addDocSpy.mock.calls;
-            const referralCall = addDocCalls.find(
-                (call) => {
-                    const data = call[1] as Record<string, unknown>;
-                    return data['referrerCode'] === 'REF456';
-                }
+            const referralCall = addDocSpy.mock.calls.find(
+                (call) => (call[1] as Record<string, unknown>)['referrerCode'] === 'REF456',
             );
             expect(referralCall).toBeDefined();
             const referralData = referralCall![1] as Record<string, unknown>;
@@ -648,155 +594,127 @@ describe('WaitlistService', () => {
         });
     });
 
-    describe('processNewVerification — applyDefaultTag regression', () => {
-        it('should apply default tag during OTP verification of new user', async () => {
-            const futureDate = new Date(Date.now() + 600000);
+    // ── U5 item 5: signup completion moved server-side ───────────────────────────
+    // These three used to assert that the *browser* wrote emailVerified, isConfirmed,
+    // queuePosition and the default tag. It no longer does, and that is the point:
+    // those fields have been removed from the unauthenticated-update whitelist in
+    // firestore.rules, so a client write would now be rejected outright. What the
+    // client must do instead is delegate to finalizeFormSignup, which derives whether
+    // an OTP was required rather than taking the caller's word for it.
 
-            // Mock: WaitlistedUsers lookup returns not found
-            // Mock: subcollection user lookup returns unverified user
-            // Mock: waitlist doc returns with defaultTagId
-            // Mock: confirmed users query
-            // Mock: WaitlistedUsers update lookup
-            vi.spyOn(FirestoreSDK, 'getDoc')
-                .mockResolvedValueOnce({ exists: () => false } as any) // WaitlistedUsers
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({
-                        verificationCode: '123456',
-                        verificationExpires: { toDate: () => futureDate },
-                        isConfirmed: false,
-                        referralCode: 'ref-abc',
-                        waitlistedUserId: 'wl-user-1',
-                    }),
-                } as any) // subcollection user
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({ defaultTagId: 'tag-xyz', name: 'Test Waitlist' }),
-                } as any) // waitlist doc
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({}),
-                } as any); // WaitlistedUsers update lookup
+    describe('confirmWithoutOtp — delegates protected writes to finalizeFormSignup (U5)', () => {
+        let callableSpy: ReturnType<typeof vi.fn>;
 
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ size: 5, docs: [] } as any);
-            const updateDocSpy = vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
-            const setDocSpy = vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
-
-            const result = await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', {});
-            expect(result.success).toBe(true);
-
-            // applyDefaultTag should set tags on user doc via updateDoc
-            const tagsUpdate = updateDocSpy.mock.calls.find(call => {
-                const data = call[1] as Record<string, unknown>;
-                return Array.isArray(data['tags']);
-            });
-            expect(tagsUpdate).toBeDefined();
-            expect((tagsUpdate![1] as any)['tags']).toEqual(['tag-xyz']);
-
-            // applyDefaultTag should increment usageCount via setDoc with merge
-            const usageUpdate = setDocSpy.mock.calls.find(call => {
-                const data = call[1] as Record<string, unknown>;
-                return 'usageCount' in data;
-            });
-            expect(usageUpdate).toBeDefined();
-        });
-    });
-
-    describe('confirmWithoutOtp — applyDefaultTag regression', () => {
-        it('should apply default tag when waitlist has a defaultTagId', async () => {
-            vi.spyOn(FirestoreSDK, 'getDoc')
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({
-                        emailVerified: false,
-                        isConfirmed: false,
-                        email: 'test@test.com',
-                        firstName: 'Test',
-                        waitlistedUserId: 'wl-user-1',
-                    }),
-                } as any) // subcollection user
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({ defaultTagId: 'tag-def', name: 'Test Waitlist' }),
-                } as any) // waitlist doc
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({}),
-                } as any); // WaitlistedUsers doc
-
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ size: 3, docs: [] } as any);
-            const updateDocSpy = vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
-            const setDocSpy = vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
-
-            await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
-
-            // applyDefaultTag should set tags on user doc
-            const tagsUpdate = updateDocSpy.mock.calls.find(call => {
-                const data = call[1] as Record<string, unknown>;
-                return Array.isArray(data['tags']);
-            });
-            expect(tagsUpdate).toBeDefined();
-            expect((tagsUpdate![1] as any)['tags']).toEqual(['tag-def']);
-
-            // applyDefaultTag should increment usageCount via setDoc with merge
-            const usageUpdate = setDocSpy.mock.calls.find(call => {
-                const data = call[1] as Record<string, unknown>;
-                return 'usageCount' in data;
-            });
-            expect(usageUpdate).toBeDefined();
-        });
-    });
-
-    describe('confirmWithoutOtp — should set isConfirmed=true but emailVerified=false (regression)', () => {
         beforeEach(() => {
-            vi.spyOn(FirestoreSDK, 'getDoc')
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({
-                        emailVerified: false,
-                        isConfirmed: false,
-                        email: 'test@test.com',
-                        firstName: 'Test',
-                        waitlistedUserId: 'wl-user-1',
-                    }),
-                } as any)
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({}),
-                } as any);
+            callableSpy = vi.fn(async () => ({
+                data: { queuePosition: 7, totalSignups: 7, emailVerified: false, alreadyConfirmed: false },
+            }));
+            vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(callableSpy as any);
 
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ size: 3, docs: [] } as any);
+            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
+                exists: () => true,
+                data: () => ({
+                    email: 'nootp@example.com',
+                    firstName: 'NoOtp',
+                    emailVerified: false,
+                    isConfirmed: false,
+                    waitlistedUserId: 'wl-user-1',
+                }),
+            } as any);
+            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ empty: true, docs: [] } as any);
             vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
+            vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
+            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'x' } as any);
         });
 
-        it('should set emailVerified=false (no OTP was verified)', async () => {
+        it('should call finalizeFormSignup with the waitlist and member ids', async () => {
             await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
 
-            const updateCalls = vi.mocked(FirestoreSDK.updateDoc).mock.calls;
-            // First updateDoc call is for the subcollection user doc
-            const subcollUpdate = updateCalls[0][1] as Record<string, unknown>;
-            expect(subcollUpdate['emailVerified']).toBe(false);
+            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'finalizeFormSignup');
+            expect(callableSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ waitlistId: 'waitlist-1', userId: 'user-1' }),
+            );
         });
 
-        it('should set isConfirmed=true for queue management', async () => {
-            await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
+        it('should return the position the server assigned, not one it counted itself', async () => {
+            const result = await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
 
-            const updateCalls = vi.mocked(FirestoreSDK.updateDoc).mock.calls;
-            const subcollUpdate = updateCalls[0][1] as Record<string, unknown>;
-            expect(subcollUpdate['isConfirmed']).toBe(true);
+            expect(result.queuePosition).toBe(7);
+            expect(result.totalSignups).toBe(7);
         });
 
-        it('should NOT set emailVerified=true when email is disabled (regression)', async () => {
+        it('should not write emailVerified, isConfirmed, queuePosition or verifiedAt from the client', async () => {
             await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
 
-            // Check ALL updateDoc calls to ensure none set emailVerified=true
-            const updateCalls = vi.mocked(FirestoreSDK.updateDoc).mock.calls;
-            for (const call of updateCalls) {
-                const data = call[1] as Record<string, unknown>;
-                if ('emailVerified' in data) {
-                    expect(data['emailVerified']).toBe(false);
-                }
-            }
+            const protectedKeys = ['emailVerified', 'isConfirmed', 'queuePosition', 'verifiedAt',
+                                   'verificationCode', 'verificationExpires', 'totalReferrals'];
+            const written = [
+                ...vi.mocked(FirestoreSDK.updateDoc).mock.calls,
+                ...vi.mocked(FirestoreSDK.setDoc).mock.calls,
+            ].flatMap((call) => Object.keys((call[1] as Record<string, unknown>) || {}));
+
+            expect(written.filter((k) => protectedKeys.includes(k))).toEqual([]);
+        });
+
+        it('should not apply the default tag from the client — finalizeFormSignup owns it', async () => {
+            // The tag write targeted the same member doc, so it had to be moved too;
+            // `tags` stays whitelisted only for the preference-centre paths.
+            await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
+
+            const tagWrites = vi.mocked(FirestoreSDK.updateDoc).mock.calls.filter(
+                (call) => 'tags' in ((call[1] as Record<string, unknown>) || {}),
+            );
+            expect(tagWrites).toEqual([]);
+        });
+
+        it('should skip the server call entirely when the member is already confirmed', async () => {
+            vi.mocked(FirestoreSDK.getDoc).mockResolvedValue({
+                exists: () => true,
+                data: () => ({ email: 'a@b.c', isConfirmed: true, queuePosition: 3 }),
+            } as any);
+
+            const result = await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
+
+            expect(callableSpy).not.toHaveBeenCalled();
+            expect(result.queuePosition).toBe(3);
+        });
+    });
+
+    describe('processNewVerification — delegates protected writes to finalizeFormSignup (U5)', () => {
+        it('should complete the signup through the server rather than writing the fields itself', async () => {
+            // One spy stands in for both callables this path uses, so the payload
+            // carries verifyFormOtp's `verified` as well as finalizeFormSignup's result.
+            const callableSpy = vi.fn(async () => ({
+                data: {
+                    verified: true,
+                    queuePosition: 2, totalSignups: 2, emailVerified: true, alreadyConfirmed: false,
+                },
+            }));
+            vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(callableSpy as any);
+
+            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
+                exists: () => true,
+                data: () => ({
+                    email: 'verified@example.com',
+                    firstName: 'Verified',
+                    waitlistedUserId: 'wl-user-1',
+                }),
+            } as any);
+            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ empty: true, docs: [] } as any);
+            vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
+            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'x' } as any);
+
+            await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', '');
+
+            const calledFns = vi.mocked(FunctionsSDK.httpsCallable).mock.calls.map((c) => c[1]);
+            expect(calledFns).toContain('verifyFormOtp');
+            expect(calledFns).toContain('finalizeFormSignup');
+
+            const written = vi.mocked(FirestoreSDK.updateDoc).mock.calls
+                .flatMap((call) => Object.keys((call[1] as Record<string, unknown>) || {}));
+            expect(written).not.toContain('emailVerified');
+            expect(written).not.toContain('queuePosition');
+            expect(written).not.toContain('tags');
         });
     });
 });

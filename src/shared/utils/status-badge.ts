@@ -15,12 +15,15 @@ const TONE_BY_STATUS: Record<string, BadgeTone> = {
     completed: 'is-success',
     delivered: 'is-success',
     subscribed: 'is-success',
+    success: 'is-success',
 
     // in-progress / pending / paused
     paused: 'is-warning',
     scheduled: 'is-warning',
     pending: 'is-warning',
     processing: 'is-warning',
+    retrying: 'is-warning',
+    deferred: 'is-warning',
 
     // queued / transient
     queued: 'is-info',
@@ -34,14 +37,31 @@ const TONE_BY_STATUS: Record<string, BadgeTone> = {
     unsubscribed: 'is-danger',
     cancelled: 'is-danger',
     canceled: 'is-danger',
+    suppressed: 'is-danger',
 
     // ended / inactive
     archived: 'is-dark',
     inactive: 'is-neutral',
+    // Deliberately withheld by a queueEmail gate — not a delivery failure, but
+    // emphatically not a success either.
+    skipped: 'is-neutral',
 };
 
 /** Full class string, e.g. `status-badge is-success`. */
 export function statusBadgeClass(status: string | null | undefined): string {
     const tone = TONE_BY_STATUS[(status || '').toLowerCase()] ?? 'is-neutral';
     return `status-badge ${tone}`;
+}
+
+/**
+ * Human label for a raw status value — `'skipped'` → `'Skipped'`.
+ *
+ * Statuses are single lowercase words, so capitalising is enough; the point of
+ * routing through here is that a caller cannot quietly relabel one state as
+ * another (which is how a gated `skipped` email came to be shown as "Success").
+ */
+export function statusBadgeLabel(status: string | null | undefined): string {
+    const raw = (status || '').trim();
+    if (!raw) return 'Unknown';
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
 }

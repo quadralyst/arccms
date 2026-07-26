@@ -670,14 +670,64 @@ Done:
 - `requestFormOtp` / `verifyFormOtp`, and the public flow swapped onto them: five
   client generation sites and both plaintext comparisons are gone.
 
-**⚠️ Item 5 (rules lockdown) is NOT done, on purpose.** Removing `emailVerified`,
-`verificationCode`, `verificationExpires`, `verifiedAt` and `totalReferrals` from
-the `Waitlists/{id}/users` unauth-update whitelist is only safe once a real signup
-has been confirmed end-to-end against the new callables. Locking first breaks every
-signup with `permission-denied`, and that is not recoverable by a refresh. Sequence:
-verify a live signup → then lock → then re-verify.
+**✅ Item 5 (rules lockdown) is done and verified live.** Two pieces:
+
+- `finalizeFormSignup` — server-authoritative completion of a signup. It writes
+  `emailVerified`, `isConfirmed`, `queuePosition` and `verifiedAt`, counts the queue
+  position itself, applies the form's default tag, and mirrors onto
+  `WaitlistedUsers`. **Authorization is derived, never supplied:** the caller cannot
+  claim "no OTP was needed" — the function re-reads `Settings/email` plus the form's
+  OTP template to decide, and when a code *is* required it demands a `verified`
+  `form_otps` record for that address. Trusting a client flag would have moved the
+  hole rather than closed it.
+- `firestore.rules` — `emailVerified`, `isConfirmed`, `verificationCode`,
+  `verificationExpires`, `verifiedAt`, `queuePosition` and `totalReferrals` are out
+  of the unauth-update whitelist on **both** `Waitlists/{id}/users` and
+  `WaitlistedUsers`. Still whitelisted: `firstName`, `isSubscribed`,
+  `leaderboardLink`, `tags`, `referredBy`, `waitlistId`, `waitlistIds`. Creates are
+  untouched — a signup still creates its own doc.
+
+Order mattered and was followed: build the callable → deploy it → switch the client
+→ prove a live signup → *then* lock. Locking first returns `permission-denied` on
+every signup, which no refresh recovers from.
+
+**How the lockdown was proven** (an unauthenticated Firestore REST `PATCH`, i.e.
+exactly what an attacker has — no SDK, no app code in the way):
+
+| | before deploy | after deploy |
+|---|---|---|
+| `emailVerified := true` | **HTTP 200, accepted** | `PERMISSION_DENIED` |
+| `queuePosition := 1` | **HTTP 200, accepted** | `PERMISSION_DENIED` |
+| `isConfirmed`, `totalReferrals`, `verificationCode`, `verifiedAt` | — | `PERMISSION_DENIED` |
+| `firstName`, `isSubscribed`, `waitlistIds` | accepted | still accepted |
+
+Before the deploy an anonymous request marked itself email-verified and took queue
+position 1. That is the vulnerability, reproduced rather than assumed, and then
+closed. A post-lockdown signup still creates its member doc, captures its custom
+`company` field, and gets its OTP queued (`requestFormOtp`, `auth: MISSING`).
+
+**Not verifiable locally:** the OTP plaintext. It is hashed in `form_otps` and
+deliberately never logged, so completing the happy path in a browser needs the
+rendered email from the admin UI. The OTP-required *rejection* branch and the
+happy-path writes are covered by `finalizeFormSignup.spec.ts` (17 tests) instead.
 
 **Item 6 (unsubscribe via token flow) is not started.**
+
+**Found while verifying — email log statuses were mislabelled.** The logs table
+showed a green **"Success"** for messages whose status was `skipped`, i.e. the ones a
+`queueEmail` gate deliberately withheld. The detail drawer said "Skipped" and the
+health strip counted the skips, so the same page contradicted itself. Two causes:
+
+- `global-table` was the only column type that ignored `transformFn` and read
+  `row[col.key]` directly. `'skipped'` is a truthy string, so a boolean badge read it
+  as true. Fixed, plus an optional `badgeConfig.textFn` for columns with more than
+  two states.
+- `status-badge.ts` had no tone for `success`, `retrying`, `deferred`, `suppressed`
+  or `skipped`, so they all fell back to neutral. Added — with `skipped` neutral on
+  purpose: withheld is neither a success nor a delivery failure.
+
+This matters beyond cosmetics: anyone following the testing guide would have read
+"Success" and concluded an email was delivered when a gate had stopped it.
 
 **Objective:** the two built-in waitlist emails converge on the unified system: welcome =
 first sequence step; OTP = the form's double-opt-in email, generated server-side.

@@ -31,6 +31,14 @@ export interface TableColumn {
         falseClass?: string;
         trueText?: string;
         falseText?: string;
+        /**
+         * Multi-state badges. When set, the label comes from here instead of the
+         * true/false pair and the boolean `active`/`inactive` classes are left off,
+         * so `classFn` alone decides the tone. Needed for anything with more than
+         * two states — an email log is sent, failed, retrying, deferred, skipped,
+         * suppressed or pending, and collapsing that to a green/red pair is a lie.
+         */
+        textFn?: (row: any) => string;
     };
     tagConfig?: {
         labelKey?: string;
@@ -47,6 +55,26 @@ export interface TableColumn {
     imports: [CommonModule]
 })
 export class GlobalTableComponent {
+    /**
+     * Truthiness behind a `badge` column.
+     *
+     * Badge was the only column type that read `row[col.key]` directly and ignored
+     * `transformFn`. That silently inverted any column whose raw field is a non-boolean:
+     * an email log with `status: 'skipped'` is a truthy string, so the table showed a
+     * green "Success" for a message that had in fact been gated and never sent.
+     */
+    badgeValue(col: TableColumn, row: any): boolean {
+        return !!(col.transformFn ? col.transformFn(row) : row[col.key]);
+    }
+
+    /** Label for a `badge` column, honouring a multi-state `textFn` when present. */
+    badgeText(col: TableColumn, row: any): string {
+        if (col.badgeConfig?.textFn) return col.badgeConfig.textFn(row);
+        return this.badgeValue(col, row)
+            ? (col.badgeConfig?.trueText || 'Active')
+            : (col.badgeConfig?.falseText || 'Inactive');
+    }
+
     @Input() data: any[] = [];
     @Input() columns: TableColumn[] = [];
     @Input() loading = false;
