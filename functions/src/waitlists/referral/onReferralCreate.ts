@@ -4,6 +4,7 @@ import { incrementReferralCounts } from '../../utils/referralHelper.js';
 
 interface ReferralData {
   status?: string;
+  migratedAt?: unknown;
 }
 
 /**
@@ -20,6 +21,12 @@ export const onReferralCreate = onDocumentCreated(
   async (event) => {
     const referral = event.data?.data() as ReferralData | undefined;
     if (referral?.status !== constant.REFERRAL_STATUS.COMPLETED) return;
+
+    // A record copied here by migrateWaitlistedUsers was already counted when it was
+    // first created under the old path — `totalReferrals` was dual-written onto the
+    // member doc back then. Without this guard the migration would fire this trigger
+    // for every historical referral and silently double every member's count.
+    if (referral.migratedAt) return;
 
     await incrementReferralCounts(event.params.waitlistId, event.params.memberId);
   },
