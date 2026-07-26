@@ -7,13 +7,14 @@
 
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, Injector, inject, runInInjectionContext, signal, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, Injector, inject, runInInjectionContext, signal, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import { Firestore, collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where, orderBy } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { IEmailTemplate } from '../email-template.model';
+import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { BroadcastEmailEditorComponent } from '../../../../../shared/components/broadcast-email-editor/broadcast-email-editor.component';
 import { IBroadcastEmail } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.model';
 import { BroadcastEmailStore } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.store';
@@ -50,6 +51,7 @@ export default class TemplatesComponent implements OnInit {
     private readonly firestore = inject(Firestore);
     private readonly functions = inject(Functions);
     private readonly dialog = inject(MatDialog);
+    private readonly cdr = inject(ChangeDetectorRef);
     private readonly injector = inject(Injector);
     private readonly broadcastStore = inject(BroadcastEmailStore);
     private readonly toastService = inject(ToastService);
@@ -508,15 +510,48 @@ export default class TemplatesComponent implements OnInit {
     }
 
     /**
-     * Handle checkbox change for template active status
-     * Auto-saves when the template is disabled to persist the state
+     * Handle the active/inactive checkbox.
+     *
+     * Unchecking persists immediately — there is no Save step — and it is a
+     * consequential change: turning the OTP template off stops every new signup on
+     * this form from being verified, and turning the welcome off stops new signups
+     * being greeted. It also writes `otpEnabled` on the form, which is what the
+     * public page reads. So it asks first, and puts the checkbox back if the answer
+     * is no.
      */
-    async onTemplateActiveChange(event: Event): Promise<void> {
+    onTemplateActiveChange(event: Event): void {
         const checkbox = event.target as HTMLInputElement;
-        if (!checkbox.checked) {
-            // When unchecking, save immediately to persist the disabled state
+        if (checkbox.checked) return; // enabling still needs an explicit Save
+
+        const isOtp = this.activeTab() === 'waitlist_verify_otp_email';
+        const dialogMessage = isOtp
+            ? 'Turn off email verification for this form? New signups will not be sent a '
+              + 'code, and their email status will stay "Pending". This takes effect '
+              + 'immediately — you do not need to save.'
+            : 'Turn off the welcome email for this form? New signups will no longer be '
+              + 'greeted. This takes effect immediately — you do not need to save.';
+
+        this.dialog.open(ConfirmationPopupComponent, {
+            width: '350px',
+            data: {
+                dialogType: 'Confirm',
+                dialogMessage,
+                btnText: isOtp ? 'Turn off verification' : 'Turn off welcome email',
+                panelType: 'warn',
+            },
+        }).afterClosed().subscribe(async (confirmed: boolean) => {
+            if (!confirmed) {
+                // Put the control back — the change event already flipped it, and the
+                // template swaps in a "disabled" panel the moment isActive goes false,
+                // so leaving it would show this form as off when nothing was written.
+                // detectChanges because the dialog result arrives outside the click's
+                // change-detection pass.
+                this.templateForm.get('isActive')?.setValue(true, { emitEvent: false });
+                this.cdr.detectChanges();
+                return;
+            }
             await this.saveTemplate();
-        }
+        });
     }
 
     /**
