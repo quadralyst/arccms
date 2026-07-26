@@ -14,16 +14,22 @@ export const onWaitlistUserCreate = onDocumentCreated(
 
     if (waitlistedUsersData?.isDirectJoined && waitlistedUsersData.emailVerified === true) {
       try {
-        const templateData = await getEmailTemplate(
-          waitlistedUsersData.waitlistId,
-          'waitlist_welcome_email'
-        );
-
-        // Get waitlist name for template
+        // Get waitlist name for template (and the U5 migration guard).
         const waitlistDoc = await db.collection('Waitlists').doc(waitlistedUsersData.waitlistId).get();
         const waitlistName = waitlistDoc.exists ? waitlistDoc.data()?.name || '' : '';
 
-        await createWelcomeEmailLog(waitlistedUsersData, templateData, waitlistName);
+        // U5: the day-0 sequence owns the welcome once migrated. A direct-join
+        // signup is created already verified, so its contact starts `subscribed`
+        // and the fast path sends the step at enrollment — no second send here.
+        if (waitlistDoc.data()?.['welcomeMigrated'] === true) {
+          console.log(`onWaitlistUserCreate: welcome for ${waitlistedUsersData.waitlistId} is sequence-owned; skipping direct send.`);
+        } else {
+          const templateData = await getEmailTemplate(
+            waitlistedUsersData.waitlistId,
+            'waitlist_welcome_email'
+          );
+          await createWelcomeEmailLog(waitlistedUsersData, templateData, waitlistName);
+        }
       } catch (error) {
         console.error('Error sending welcome email:', error);
       }

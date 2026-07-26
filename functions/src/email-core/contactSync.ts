@@ -14,6 +14,7 @@ import {
 } from './contacts.js';
 import { addTagsToContact } from './contactTags.js';
 import { setContactFields } from './contactFields.js';
+import { flushDueEnrollments } from './dripSend.js';
 import type { WaitlistUserData } from '../types.js';
 import { emitAppEvent } from './appEvents.js';
 
@@ -217,8 +218,24 @@ export const onWaitlistVerifiedContact = onDocumentUpdated(
       // where it needs to be. An explicit isSubscribed:false still suppresses.
       const desired = signupConsent(after);
       const current = await getContactConsent(emailHash);
+      const promoted = current === 'pending' && desired === 'subscribed';
       if (current === 'pending' || (current === 'subscribed' && desired === 'unsubscribed')) {
         await setContactConsent(emailHash, desired, after.email);
+      }
+
+      // Verification is when a held day-0 step becomes sendable (U5).
+      //
+      // The enrollment itself happened at signup, when the contact was still
+      // `pending` — so the welcome step was held by the marketing gate. Flushing
+      // here is what makes the welcome arrive in seconds; without it the contact
+      // would wait for the next 15-minute scheduler tick, and a "you're in!"
+      // email that late reads as broken.
+      if (promoted) {
+        try {
+          await flushDueEnrollments(emailHash);
+        } catch (err) {
+          logger.error('onWaitlistVerifiedContact: day-0 flush failed', err);
+        }
       }
 
       await emitAppEvent('waitlist.joined', { contactEmail: after.email, data: { waitlistId } });

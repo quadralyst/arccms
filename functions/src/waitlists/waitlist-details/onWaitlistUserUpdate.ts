@@ -18,16 +18,22 @@ export const onWaitlistUserUpdate = onDocumentUpdated(
     // Send welcome email if email just became verified
     if (oldValue.emailVerified !== newValue.emailVerified && newValue.emailVerified === true) {
       try {
-        const templateData = await getEmailTemplate(
-          newValue.waitlistId,
-          'waitlist_welcome_email'
-        );
-
-        // Get waitlist name for template
+        // Get waitlist name for template (and the U5 migration guard).
         const waitlistDoc = await db.collection('Waitlists').doc(newValue.waitlistId).get();
         const waitlistName = waitlistDoc.exists ? waitlistDoc.data()?.name || '' : '';
 
-        await createWelcomeEmailLog(newValue, templateData, waitlistName);
+        // U5: once this form's welcome is a day-0 sequence step, the sequence owns
+        // it — sending here too would deliver two welcomes. Deleted entirely in U7;
+        // kept as a guarded no-op so unsetting the flag restores the old behaviour.
+        if (waitlistDoc.data()?.['welcomeMigrated'] === true) {
+          console.log(`onWaitlistUserUpdate: welcome for ${newValue.waitlistId} is sequence-owned; skipping direct send.`);
+        } else {
+          const templateData = await getEmailTemplate(
+            newValue.waitlistId,
+            'waitlist_welcome_email'
+          );
+          await createWelcomeEmailLog(newValue, templateData, waitlistName);
+        }
       } catch (error) {
         console.error('Error sending welcome email:', error);
       }

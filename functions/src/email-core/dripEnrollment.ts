@@ -63,6 +63,7 @@ export async function enrollInCampaign(campaign: DripCampaignDoc, contactId: str
 /** Enroll a contact into every active campaign on the given lists. */
 export async function enrollInListCampaigns(contactId: string, listIds: string[]): Promise<void> {
   if (!listIds.length) return;
+  let enrolledAny = false;
   // Firestore 'in' supports up to 10 values.
   for (let i = 0; i < listIds.length; i += 10) {
     const chunk = listIds.slice(i, i + 10);
@@ -72,7 +73,24 @@ export async function enrollInListCampaigns(contactId: string, listIds: string[]
       .where('listId', 'in', chunk)
       .get();
     for (const doc of snap.docs) {
-      await enrollInCampaign({ id: doc.id, ...(doc.data() as Omit<DripCampaignDoc, 'id'>) }, contactId);
+      if (await enrollInCampaign({ id: doc.id, ...(doc.data() as Omit<DripCampaignDoc, 'id'>) }, contactId)) {
+        enrolledAny = true;
+      }
+    }
+  }
+
+  // Day-0 fast path (U5): a step with delayHours 0 is due the moment it is
+  // enrolled, so send it now rather than waiting up to 15 minutes for the
+  // scheduler. Dynamically imported to keep this module free of the send path
+  // (contacts.ts imports it, and the sender imports contacts).
+  if (enrolledAny) {
+    try {
+      const { flushDueEnrollments } = await import('./dripSend.js');
+      await flushDueEnrollments(contactId);
+    } catch (err) {
+      // The scheduler remains the safety net — a failed flush only costs latency.
+      const { logger } = await import('firebase-functions/v2');
+      logger.error('enrollInListCampaigns: day-0 flush failed', err);
     }
   }
 }
