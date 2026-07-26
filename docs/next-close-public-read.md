@@ -1,16 +1,21 @@
-# Next task: close the public read of waitlist member emails
+# Closing the public read of waitlist member emails
 
-**Status:** in progress. Two of three blockers removed. The exposure is still open.
+**Status: ✅ DONE** — `f750740`. All four rules now read `allow read: if isAdmin()`, and
+an unauthenticated REST probe returns `PERMISSION_DENIED` on every path. Verified on a
+dev server at `:5175`, an origin that has never held an admin session.
 
-This file is the handoff for the next session. It exists because the working task list
-is session-scoped (it lives under `/tmp` keyed to a session id), so anything recorded
-only there is unreachable from a new conversation.
+**Not yet on your live instances.** The rules are deployed to the dev project only.
+Deploy order per instance is **callables → frontend build → rules**; rules alone breaks
+any deployed frontend still reading client-side.
+
+Kept as a record of what the change involved and — more usefully — the verification
+protocol, which is reusable for any public-facing rules change here.
 
 ---
 
 ## The problem
 
-`firestore.rules` carries `allow read: if true` on:
+`firestore.rules` carried `allow read: if true` on:
 
 - `Waitlists/{waitlistId}/users/{userId}` and its `referrals` subcollection
 - `WaitlistedUsers/{userId}` and its `referrals` subcollection
@@ -26,8 +31,8 @@ That returns raw subscriber email addresses. It ships in the product's rules fil
 it affects every ArcCMS deployment, and the user has confirmed live instances with real
 signups.
 
-The rules are permissive because the pages read these documents from the browser. The
-fix is to move those reads server-side, then deny client reads. **There is no
+The rules were permissive because the pages read these documents from the browser. The
+fix was to move those reads server-side, then deny client reads. **There is no
 rule-level alternative:** the signup flow needs `where('email','==',X)` on member docs,
 and Firestore rules cannot scope a *query* to the caller's own address without auth, so
 any rule permitting that query also permits listing everyone.
@@ -45,12 +50,13 @@ All deployed and verified from a session-free origin.
 
 ---
 
-## Remaining blocker: six client reads on the confirm/verify path
+## The six reads that had to move (all done in `f750740`)
 
-In `src/app/pages/waitlist/waitlist.service.ts` (line numbers as of `591799c`).
-Tightening the rules before these move **will break OTP verification**.
+In `src/app/pages/waitlist/waitlist.service.ts`. The service now has **zero** client
+reads of member docs or the registry; what remains reads the form document, which is
+public by design because it renders the page.
 
-| line | read | likely fix |
+| line | read | what it became |
 |---|---|---|
 | `:209` | `getDoc` on `WaitlistedUsers` — `verifyOtpAndProcessUser` cross-waitlist branch | probably deletable, same reasoning as the `joinWaitlist` branch removed in `591799c` (U6 option C). Check what still depends on it. |
 | `:237` | `getDoc` on the member doc — `verifyOtpAndProcessUser` | `finalizeFormSignup` already loads this record. Consider returning what the client needs from `verifyFormOtp`/`finalizeFormSignup`. |
@@ -59,9 +65,9 @@ Tightening the rules before these move **will break OTP verification**.
 | `:456` | `getDocs` on the referrals subcollection — duplicate-referral guard | moves with `:428`. |
 | `:540`, `:583` | `getDoc` on the member doc — `confirmWithoutOtp`, `resendVerificationCode` | `resendVerificationCode` only needs the address, which `requestFormOtp` already has. `confirmWithoutOtp`'s read may be avoidable since `finalizeFormSignup` re-reads the doc anyway. |
 
-## Then the rules change
+## The rules change (applied)
 
-Set `allow read: if isAdmin()` on all four paths listed at the top. Leave `create`
+`allow read: if isAdmin()` on all four paths listed at the top. Leave `create`
 alone — a signup writes its own member doc, and the U5 lockdown already restricts which
 fields an update may touch.
 
