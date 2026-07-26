@@ -128,10 +128,14 @@ export class LeaderboardComponent extends BaseComponent implements OnInit {
                     this.displayLeaderboard = [];
                 }
             } else {
-                // For overall leaderboard, attempt cloud function or fallback
+                // Point the callable at this form's members. It was passed an empty
+                // string, which is falsy, so it fell back to its default of reading
+                // `WaitlistedUsers` — and that copy of `totalReferrals` went stale when
+                // U6 moved referral crediting onto the member doc alone, so the rank
+                // came from counts that stopped updating.
                 const response = await this.waitlistService.fetchLeaderboard(
                     this.personalUserData?.email || '',
-                    '',
+                    this.waitlistId ? `Waitlists/${this.waitlistId}/users` : '',
                 );
 
                 if (response?.displayLeaderboard?.length > 0) {
