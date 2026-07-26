@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import type { EmailSettings, EmailTemplateData } from '../types.js';
 import { queueEmail } from './queueEmail.js';
@@ -102,6 +102,7 @@ export async function sendDueEnrollment(
       currentStep: nextIndex,
       nextSendAt: Timestamp.fromMillis(Date.now() + delayMs),
       lastSentAt: Timestamp.now(),
+      heldReason: FieldValue.delete(),
     });
     return 'sent';
   }
@@ -118,7 +119,10 @@ export async function sendDueEnrollment(
     // hold the step rather than exiting, or signing up would enroll them in a
     // list's drip and then drop them before they ever verified.
     if ((contact['consent'] as { marketing?: string })?.marketing === 'pending') {
-      await holdEnrollment(ref);
+      // Record WHY it was held. `holdEnrollment` pushes nextSendAt 15 minutes out,
+      // which would otherwise hide this enrollment from the promotion flush — the
+      // exact moment it becomes sendable. The marker lets that flush find it.
+      await holdEnrollment(ref, 'pending_consent');
       return 'held';
     }
     await exitEnrollment(ref, campaign.id, 'unsubscribed');
@@ -141,16 +145,34 @@ export async function sendDueEnrollment(
  */
 export async function flushDueEnrollments(contactId: string): Promise<EnrollmentOutcome[]> {
   const now = Timestamp.now();
-  const snap = await db
-    .collection('DripEnrollments')
+  const seen = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+
+  const collect = async (q: FirebaseFirestore.Query): Promise<void> => {
+    try {
+      const snap = await q.get();
+      snap.docs.forEach((d) => seen.set(d.id, d));
+    } catch (err) {
+      // A missing composite index used to fail silently here and quietly downgrade
+      // the whole feature to the 15-minute scheduler. Log loudly; the scheduler is
+      // still the safety net, so this costs latency rather than delivery.
+      const { logger } = await import('firebase-functions/v2');
+      logger.error('flushDueEnrollments: query failed (missing index?)', err);
+    }
+  };
+
+  const base = db.collection('DripEnrollments')
     .where('contactId', '==', contactId)
-    .where('status', '==', 'active')
-    .where('nextSendAt', '<=', now)
-    .get();
+    .where('status', '==', 'active');
+
+  // Steps that are simply due.
+  await collect(base.where('nextSendAt', '<=', now));
+  // Steps held only because the contact had not verified yet — this call IS the
+  // verification, so their nextSendAt (pushed 15 min out by the hold) is stale.
+  await collect(base.where('heldReason', '==', 'pending_consent'));
 
   const outcomes: EnrollmentOutcome[] = [];
   const cache = new Map<string, DripCampaignDoc | null>();
-  for (const doc of snap.docs) {
+  for (const doc of seen.values()) {
     outcomes.push(await sendDueEnrollment(doc.ref, doc.data(), { campaignCache: cache }));
   }
   return outcomes;
@@ -189,9 +211,21 @@ export async function completeEnrollment(
   await bump(campaignId, 'completed');
 }
 
-/** Push nextSendAt out so we retry next cycle without advancing the step. */
-export async function holdEnrollment(ref: FirebaseFirestore.DocumentReference): Promise<void> {
-  await ref.update({ nextSendAt: Timestamp.fromMillis(Date.now() + HOLD_RETRY_MS) });
+/**
+ * Push nextSendAt out so we retry next cycle without advancing the step.
+ *
+ * `reason` records why, which matters for `pending_consent`: that hold clears the
+ * instant the contact verifies, and the promotion flush needs to find the
+ * enrollment even though its nextSendAt now sits in the future.
+ */
+export async function holdEnrollment(
+  ref: FirebaseFirestore.DocumentReference,
+  reason?: 'pending_consent',
+): Promise<void> {
+  await ref.update({
+    nextSendAt: Timestamp.fromMillis(Date.now() + HOLD_RETRY_MS),
+    heldReason: reason ?? FieldValue.delete(),
+  });
 }
 
 async function bump(campaignId: string, field: 'completed' | 'exited'): Promise<void> {
