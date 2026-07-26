@@ -105,6 +105,10 @@ export * from './waitlists/publicWaitlistViews.js';
 // member documents to avoid a duplicate.
 export * from './waitlists/joinForm.js';
 
+// #51: referral records written server-side, so the referrer lookup and the
+// self-referral / duplicate guards are no longer client-side and skippable.
+export * from './waitlists/creditReferral.js';
+
 //For increase total referrals
 export * from './waitlists/leaderboard/getLeaderBoardData.js';
 export * from './waitlists/referral/onReferralCreate.js';

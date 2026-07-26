@@ -292,7 +292,19 @@ service cloud.firestore {
 
       // Users subcollection - signup flow (unauthenticated)
       match /users/{userId} {
-        allow read: if true;
+        // #51: NO public read. This carried `allow read: if true`, verified exploitable —
+        // an unauthenticated request using only the web API key (which ships in the
+        // frontend bundle) could page every signup, raw email addresses included.
+        //
+        // The rule existed because the browser read these documents: the leaderboard and
+        // user-detail pages, the signup duplicate check, the OTP confirm path, the
+        // referrer lookup and the member count. All of those now go through callables —
+        // getPublicLeaderboard, getPublicMemberView, joinForm, creditReferral — which
+        // return an explicit field allowlist and masked addresses.
+        //
+        // Creates stay open: a signup writes its own member doc, and the U5 lockdown
+        // already restricts which fields an update may touch.
+        allow read: if isAdmin();
         allow create: if request.resource.data.keys().hasAll(['email', 'waitlistId'])
                       && request.resource.data.email is string
                       && request.resource.data.email.size() > 0
@@ -323,7 +335,9 @@ service cloud.firestore {
         // functions-only (see the member update rule above), so a forged referral
         // record still cannot inflate a count directly.
         match /referrals/{referralId} {
-          allow read: if true;
+          // #51: read through getPublicMemberView, which masks the referred addresses.
+          // Public read here handed out the email of everyone a member ever referred.
+          allow read: if isAdmin();
           allow create: if request.resource.data.keys().hasAll(['referredEmail'])
                         && request.resource.data.referredEmail is string
                         && request.resource.data.referredEmail.size() > 0
@@ -338,7 +352,11 @@ service cloud.firestore {
 
     // WaitlistedUsers - global user registry for signup + leaderboard
     match /WaitlistedUsers/{userId} {
-      allow read: if true;
+      // #51: NO public read — the worst of the four, since it exposed every signup
+      // across every form in one collection. Nothing public reads it now:
+      // getPublicMemberView resolves a legacy `waitlistedUserId` through the member
+      // doc's back-reference, so leaderboard links already sent by email still work.
+      allow read: if isAdmin();
       allow create: if request.resource.data.keys().hasAll(['email', 'waitlistId'])
                     && request.resource.data.email is string
                     && request.resource.data.email.size() > 0
@@ -353,7 +371,9 @@ service cloud.firestore {
 
       // Referrals subcollection - leaderboard + signup flow
       match /referrals/{referralId} {
-        allow read: if true;
+        // #51: same reasoning as the parent. U6 moved referrals under the member doc;
+        // these are the pre-migration records.
+        allow read: if isAdmin();
         allow create: if request.resource.data.keys().hasAll(['referredEmail'])
                       && request.resource.data.referredEmail is string
                       && request.resource.data.referredEmail.size() > 0
