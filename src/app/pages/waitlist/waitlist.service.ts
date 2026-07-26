@@ -34,7 +34,6 @@ export class WaitlistService {
     private route = inject(ActivatedRoute);
     private injector = inject(Injector);
 
-    private debounceTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly DEBOUNCE_DELAY = 500;
 
     /**
@@ -784,44 +783,6 @@ export class WaitlistService {
     }
 
     /**
-     * Get overall leaderboard across all waitlists
-     */
-    async getOverallLeaderboard(): Promise<{ leaderboard: unknown[]; totalUsers: number; isOverall: boolean }> {
-        const waitlistedUsersRef = collection(this.firestore, 'WaitlistedUsers');
-        const q = query(waitlistedUsersRef, where('isConfirmed', '==', true));
-        const querySnapshot = await getDocs(q);
-
-        const allUsers = querySnapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            firstName: docSnap.data()['firstName'],
-            maskedEmail: this.maskEmail(docSnap.data()['email']),
-            totalReferrals: docSnap.data()['totalReferrals'] || 0,
-            signupTimestamp: docSnap.data()['signupTimestamp'],
-            waitlistId: docSnap.data()['waitlistId'],
-        }));
-
-        const leaderboard = allUsers.sort((a, b) => {
-            if (b.totalReferrals !== a.totalReferrals) {
-                return b.totalReferrals - a.totalReferrals;
-            }
-            const aTime = a.signupTimestamp?.toMillis?.() ?? 0;
-            const bTime = b.signupTimestamp?.toMillis?.() ?? 0;
-            return aTime - bTime;
-        });
-
-        const leaderboardWithRanks = leaderboard.map((user, index) => ({
-            ...user,
-            overallRank: index + 1,
-        }));
-
-        return {
-            leaderboard: leaderboardWithRanks.slice(0, 50),
-            totalUsers: leaderboardWithRanks.length,
-            isOverall: true,
-        };
-    }
-
-    /**
      * Fetch leaderboard via Cloud Function
      */
     fetchLeaderboard(userEmail: string, collectionName?: string): Promise<ILeaderboardResponse> {
@@ -937,35 +898,6 @@ export class WaitlistService {
             console.error('Error getting user details:', error);
             throw error;
         }
-    }
-
-    /**
-     * Check if referral code exists
-     */
-    async checkReferralCodeExists(referralCode: string, debounceMs: number = 500): Promise<unknown[] | null> {
-        return new Promise((resolve, reject) => {
-            if (this.debounceTimer) {
-                clearTimeout(this.debounceTimer);
-            }
-
-            this.debounceTimer = setTimeout(() => {
-                const usersRef = collection(this.firestore, 'WaitlistedUsers');
-                const queryRef = query(usersRef, where('referralCode', '==', referralCode));
-                getDocs(queryRef)
-                    .then((snapshot) => {
-                        if (!snapshot.empty) {
-                            // Only return non-sensitive fields — never expose email or verification data
-                            resolve(snapshot.docs.map((docSnap) => ({
-                                referralCode: docSnap.data()['referralCode'],
-                                firstName: docSnap.data()['firstName'],
-                            })));
-                        } else {
-                            resolve(null);
-                        }
-                    })
-                    .catch((error) => reject(error));
-            }, debounceMs);
-        });
     }
 
     /**
