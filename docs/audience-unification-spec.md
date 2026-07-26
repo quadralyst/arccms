@@ -845,14 +845,45 @@ created:
    - `requestFormOtp` on a real form → `{sent: true, status: 'pending'}`.
    - All new callables reachable per `check-callable-access.sh` — no manual invoker step
      was needed this time.
-3. **Still to do in the admin UI** (needs an admin session):
-   - Run `backfillWaitlistTemplates` (dry run first) — expect existing forms reported under
-     `subjectsUpgraded`, then a new signup's welcome subject reads "Welcome to <Form name>".
-   - Open a form's Templates page, uncheck **Active** on the OTP template, and confirm
-     `Waitlists/{id}.otpEnabled` flips to `false` and the public form stops showing the
-     code step.
-   - Delete a form's template row directly in the Firebase console, then sign up — the
-     default should reappear and the OTP still send.
+3. Verified in the admin UI against real data:
+   - **Healing after deletion**, on a throwaway form so no customised template was at
+     risk: create form → delete both templates → `requestFormOtp` returns
+     `{sent: true}` → both templates exist again. The core promise, end to end.
+   - **The flag mirror**: patching `EmailTemplate.isActive` (a path that is *not* the
+     admin page) moved `Waitlists.otpEnabled` false → true, logged by
+     `syncOtpEnabledFlag`. Both directions exercised.
+   - **The backfill**: dry run reported exactly one change
+     (`Waitlist welcome email` → `Welcome to ##WAITLIST##`) and nothing else; the real
+     run applied it.
+   - **The logs table** now renders `skipped` as a neutral "Skipped" rather than a green
+     "Success" — confirmed against live rows.
+
+### Two bugs this round of live testing caught
+
+Both were in *my* U5.5 code, and the dry run is what surfaced them before any write:
+
+1. **Presence was keyed on the canonical doc id.** Real data holds three id schemes at
+   once: random auto-ids from the admin page's early `addDoc` path
+   (`4jU1REsCPv1hrXPHr1Ut`), legacy `${type}_${formId}`, and canonical
+   `${formId}_${type}`. The first dry run therefore claimed the live form was missing
+   **both** templates when it had a customised welcome (block-editor `design` and all) —
+   the real run would have written a duplicate, after which the senders' `limit(1)` picks
+   between two templates by document key and the admin page edits whichever one it did not
+   send. Presence is now decided by the same `(waitlistId, type)` query the senders use,
+   in `formTemplateExists()`, and the same fix was needed in the backfill's dry-run check
+   and in `migrateWelcomeToSequences`.
+2. **The subject upgrade was gated too tightly.** Requiring the template to be wholly
+   untouched (`modifiedBy` still `system`) sounded safer but skipped exactly the case it
+   exists for: the admin had reworked the body while the subject was still byte-identical
+   to `'Waitlist welcome email'` — which is what recipients saw. The guard now checks only
+   that *we* seeded it (`createdBy === 'system'`), and still only replaces an exact-match
+   superseded subject. Bodies are never rewritten.
+
+**Note for the testing guide:** a `skipped` email never reaches the provider, so its
+`processedSubject` is never computed and the log shows the raw `Welcome to ##WAITLIST##`.
+That is correct, not a merge-tag failure — the resolved subject only appears on a sent
+email. Every welcome on the dev project is currently skipped (`pending_consent`), which is
+why the resolved string has not been observed live.
 
 ## Phase U6 — Retire `WaitlistedUsers` (high-risk data migration)
 
