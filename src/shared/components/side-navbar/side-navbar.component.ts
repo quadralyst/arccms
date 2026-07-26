@@ -227,17 +227,10 @@ export default class NavbarComponent extends BaseComponent {
         })).sort((a: MenuItem, b: MenuItem) => (a.label || '').localeCompare(b.label || ''));
 
         const items = [...this.baseMenuItems];
-        // Insert waitlist items after Waitlists (index 2), with Subscribers link first
-        // Deprecated (U4): this page is a `WaitlistedUsers` viewer, and that
-        // collection retires in U6. Audience → Contacts supersedes it; the label
-        // says so rather than the link disappearing under anyone mid-migration.
-        const subscribersItem: MenuItem = {
-            icon: 'fa-solid fa-address-book',
-            label: 'Subscribers (legacy)',
-            route: '/admin/waitlists/subscribers',
-            allowRoles: [this.constantVariables.ADMIN],
-        };
-        items.splice(2, 0, subscribersItem, ...dynamicWaitlistItems);
+        // Insert the per-form items after Waitlists (index 2). The legacy
+        // Subscribers link is gone (U6): it viewed the frozen `WaitlistedUsers`
+        // collection, and Audience → Contacts supersedes it.
+        items.splice(2, 0, ...dynamicWaitlistItems);
         // Add separator after waitlist section
         const waitlistSectionEnd = 3 + dynamicWaitlistItems.length;
         items.splice(waitlistSectionEnd, 0, { label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
