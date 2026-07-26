@@ -19,8 +19,14 @@ export const backfillContacts = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 
+  // `dryRun` counts what would be written without writing, so a migration runbook can
+  // preview this step like every other one. It reads `WaitlistedUsers`, whose data is
+  // messy by definition on an upgraded install, and a surprise here is worth seeing
+  // before it becomes contacts and list memberships.
+  const dryRun = request.data?.dryRun === true;
+
   try {
-    await ensureSystemLists();
+    if (!dryRun) await ensureSystemLists();
 
     let users = 0;
     let customers = 0;
@@ -37,14 +43,16 @@ export const backfillContacts = onCall(async (request) => {
         lists.push(SYSTEM_LISTS.ALL_CUSTOMERS);
         customers++;
       }
-      await upsertContact({
-        email: u['email'],
-        name: u['name'],
-        firstName: u['firstName'],
-        userId: u['uid'],
-        source: isCustomer ? 'customer' : 'signup',
-        addLists: lists,
-      });
+      if (!dryRun) {
+        await upsertContact({
+          email: u['email'],
+          name: u['name'],
+          firstName: u['firstName'],
+          userId: u['uid'],
+          source: isCustomer ? 'customer' : 'signup',
+          addLists: lists,
+        });
+      }
       users++;
     }
 
@@ -54,20 +62,22 @@ export const backfillContacts = onCall(async (request) => {
       const w = doc.data();
       if (!w['email'] || !w['waitlistId']) continue;
       const listId = waitlistListId(w['waitlistId']);
-      await ensureList(listId, { name: `Waitlist ${w['waitlistId']}`, type: 'system' });
-      await upsertContact({
-        email: w['email'],
-        name: w['name'],
-        firstName: w['firstName'],
-        source: 'waitlist',
-        addLists: [listId],
-        consent: w['isSubscribed'] === false ? 'unsubscribed' : 'subscribed',
-      });
+      if (!dryRun) {
+        await ensureList(listId, { name: `Waitlist ${w['waitlistId']}`, type: 'system' });
+        await upsertContact({
+          email: w['email'],
+          name: w['name'],
+          firstName: w['firstName'],
+          source: 'waitlist',
+          addLists: [listId],
+          consent: w['isSubscribed'] === false ? 'unsubscribed' : 'subscribed',
+        });
+      }
       waitlistMembers++;
     }
 
-    const result = { users, customers, waitlistMembers };
-    logger.info('backfillContacts complete', result);
+    const result = { dryRun, users, customers, waitlistMembers };
+    logger.info(`backfillContacts${dryRun ? ' (dry run)' : ''} complete`, result);
     return result;
   } catch (err) {
     logger.error('backfillContacts failed', err);
