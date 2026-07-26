@@ -241,6 +241,35 @@ demands `confirm: true` so a direct call cannot erase by accident.
   `email_lookup` / Firebase Auth. If the request is "delete my account", delete the
   user (which runs `onUserDeleted` and `onUserDeleteContact`) and erase the contact.
 
+### Deleting one form member is not an erasure
+
+Deleting a member doc under `Waitlists/{id}/users` (the joined-users admin page,
+or cleaning up test signups) is a *membership* change, not a deletion request.
+`onWaitlistUserDeleted` (`functions/src/email-core/contactSync.ts`) mirrors it
+into the audience: the contact leaves `waitlist-{id}` through
+`removeContactFromLists`, so the list's `memberCount` drops and the person exits
+that list's drip campaigns. Without it they kept receiving the form's sequence
+after they were no longer a member of the form.
+
+What that trigger deliberately does **not** do:
+
+- **It does not touch the manual lists the form feeds.** A form *feeds*
+  `targetListIds`; it only *owns* its own `waitlist-{id}` mirror. The same person
+  may have joined `newsletter` via another form or an import, and one form's
+  member-doc delete must not revoke it. To remove someone from a manual list, do
+  it on the list.
+- **It does not delete the contact**, even if that form's list was its only
+  membership. The contact keeps its address, consent history, tags and fields,
+  and stays visible under Audience → Contacts. Erasing an address is an explicit,
+  confirmed act — `adminDeleteContact` (**Erase**, above) — and never a
+  side effect of tidying up a form. If you want both, delete the member doc *or*
+  erase the contact (erase removes the member docs for you).
+- **It stands down when the whole form is being deleted.** `onWaitlistsDelete`
+  owns that path: it deletes the member docs, then `deleteFormList` drops every
+  membership and the list doc itself. So the trigger first checks that the parent
+  `Waitlists` doc still exists — a decrement landing after the list doc was
+  deleted would recreate it as an orphan with a negative `memberCount`.
+
 ## 10. Known limitations / follow-ups
 
 - **Template-delete guard for drips**: deleting an `EmailTemplate` still
