@@ -147,16 +147,10 @@ export const finalizeFormSignup = onCall(async (request) => {
     await memberRef.update(update);
     await db.collection('Waitlists').doc(waitlistId).update({ totalSignups });
 
-    // Mirror onto the global registry while it still exists (retired in U6).
-    const globalId = member['waitlistedUserId'] as string | undefined;
-    if (globalId) {
-      try {
-        const globalRef = db.collection('WaitlistedUsers').doc(globalId);
-        if ((await globalRef.get()).exists) await globalRef.update(update);
-      } catch (err) {
-        logger.warn(`finalizeFormSignup: could not mirror to WaitlistedUsers/${globalId}`, err);
-      }
-    }
+    // The mirror onto `WaitlistedUsers` is gone (U6). `joinForm` no longer creates a
+    // registry record, so for anyone signing up now there was nothing to mirror to —
+    // the block was already a guarded no-op. Members created before the cutover keep
+    // their registry doc; it is simply no longer written to.
 
     // The form's default tag, applied server-side like every other tag write.
     try {

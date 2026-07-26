@@ -293,7 +293,11 @@ describe('finalizeFormSignup', () => {
       expect(store.get('Waitlists/w1/users/u1').tags).toContain('tag-vip');
     });
 
-    it('should mirror the confirmation onto the global registry doc', async () => {
+    it('no longer mirrors onto the global registry (U6)', async () => {
+      // joinForm stopped creating registry records, so for anyone signing up now there
+      // is nothing to mirror to. Members created before the cutover keep their registry
+      // doc; it is simply no longer written to, which is what lets the collection be
+      // frozen and then retired.
       store.set('Settings/email', { isEnabled: false });
       store.set('Waitlists/w1/users/u1', {
         email: 'new@example.com', isConfirmed: false, waitlistedUserId: 'g1',
@@ -302,7 +306,8 @@ describe('finalizeFormSignup', () => {
 
       await call({ waitlistId: 'w1', userId: 'u1' });
 
-      expect(store.get('WaitlistedUsers/g1').isConfirmed).toBe(true);
+      expect(store.get('Waitlists/w1/users/u1').isConfirmed).toBe(true);
+      expect(store.get('WaitlistedUsers/g1').isConfirmed).toBe(false); // untouched
     });
 
     it('should record referredBy when the signup came through a referral link', async () => {

@@ -98,12 +98,18 @@ export const joinForm = onCall(async (request): Promise<JoinResult> => {
     const referralCode = generateReferralCode();
     const base = origin.startsWith('http') ? origin.replace(/\/$/, '') : '';
 
-    // The registry doc id is pre-generated so `leaderboardLink` can go into the first
-    // write. A follow-up update here used to fire onWaitlistedUserUpdate and send a
-    // second OTP email. The registry itself retires in U6; getPublicMemberView already
-    // resolves this id through the member doc, so links already sent keep working.
-    const registryRef = db.collection('WaitlistedUsers').doc();
-    const leaderboardLink = `${base}/leaderboard/${waitlistId}/${registryRef.id}`;
+    // U6: no `WaitlistedUsers` record is created any more. The member doc id is
+    // pre-generated instead, so it can go into `leaderboardLink` in the first write —
+    // a follow-up update here used to fire onWaitlistedUserUpdate and send a second
+    // OTP email.
+    //
+    // `waitlistedUserId` is still written, now carrying the member's own id. That field
+    // is what public links key on and it has ~40 consumers; populating it keeps every
+    // one of them working, and getPublicMemberView resolves either shape — a legacy
+    // registry id for members created before this, or a member id after. Links already
+    // sent by email therefore keep resolving.
+    const memberRef = members.doc();
+    const leaderboardLink = `${base}/leaderboard/${waitlistId}/${memberRef.id}`;
     const referralLink = `${base}/?ref=${referralCode}`;
 
     const now = Timestamp.now();
@@ -128,8 +134,7 @@ export const joinForm = onCall(async (request): Promise<JoinResult> => {
       ...(referredBy ? { referredBy } : {}),
     };
 
-    await registryRef.set({ ...record, waitlistId, waitlistIds: [waitlistId] });
-    const memberRef = await members.add({ ...record, waitlistId, waitlistedUserId: registryRef.id });
+    await memberRef.set({ ...record, waitlistId, waitlistedUserId: memberRef.id });
 
     // The form's default tag, applied here rather than by the client — `tags` is not a
     // field an unauthenticated caller should be able to choose.
@@ -148,7 +153,7 @@ export const joinForm = onCall(async (request): Promise<JoinResult> => {
       referralCode,
       referralLink,
       leaderboardLink,
-      waitlistedUserId: registryRef.id,
+      waitlistedUserId: memberRef.id,
     };
   } catch (err) {
     if (err instanceof HttpsError) throw err;

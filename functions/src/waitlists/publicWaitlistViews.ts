@@ -79,7 +79,9 @@ export const getPublicLeaderboard = onCall(async (request) => {
         maskedEmail: (d['maskedEmail'] as string) || maskEmail(d['email'] as string),
         totalReferrals: (d['totalReferrals'] as number) || 0,
         queuePosition: (d['queuePosition'] as number) || 0,
-        waitlistedUserId: (d['waitlistedUserId'] as string) || '',
+        // Falls back to the doc id so link-building still works for a member
+        // that predates the field or was written without it.
+        waitlistedUserId: (d['waitlistedUserId'] as string) || doc.id,
       };
     });
 
