@@ -1,9 +1,8 @@
 // waitlists/onWaitlistsCreate.ts
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
-import { db } from '../init.js';
 import { ensureFormList } from '../email-core/contacts.js';
-import { buildWaitlistTemplateDefs, waitlistTemplateDocId } from '../email-core/defaultTemplates.js';
+import { ensureWaitlistTemplates } from '../email-core/defaultTemplates.js';
 
 /**
  * A new signup form (waitlist) gets:
@@ -27,49 +26,17 @@ export const onWaitlistsCreate = onDocumentCreated('Waitlists/{waitlistsId}', as
     logger.error(`Failed to ensure list for Waitlist ${waitlistsId}`, error);
   }
 
-  // Fetch email settings
-  const settingsRef = db.collection('Settings').doc('email');
-  const settingsSnap = await settingsRef.get();
-  const settings = settingsSnap.exists ? settingsSnap.data() : {};
-
-  const senderName = settings?.senderName || '';
-  const senderEmail = settings?.senderEmail || '';
-
-  // Deterministic per-waitlist doc ids (`<waitlistId>_<type>`) so a retried or
-  // re-fired create trigger upserts the same two docs instead of adding a
-  // second copy each run. Existing docs are left untouched to preserve any
-  // admin edits.
-  let created = 0;
-  const batch = db.batch();
-  const defs = buildWaitlistTemplateDefs();
-
-  for (const def of defs) {
-    const docId = waitlistTemplateDocId(waitlistsId, def.type);
-    const docRef = db.collection('EmailTemplate').doc(docId);
-    const existing = await docRef.get();
-    if (existing.exists) continue;
-    const now = new Date();
-    batch.set(docRef, {
-      id: docId,
-      waitlistId: waitlistsId,
-      type: def.type,
-      category: def.category,
-      subject: def.subject,
-      title: def.title,
-      previewText: def.previewText,
-      template: def.body,
-      senderName,
-      senderEmail,
-      isActive: true,
-      createdAt: now,
-      createdBy: 'system',
-      modifiedAt: now,
-      modifiedBy: 'system',
-    });
-    created++;
+  // Eager warm path only. The same helper runs lazily at every point of use, so
+  // a form whose trigger never fired (imported, restored, migrated) still gets
+  // its templates the first time one is needed — this call just means the admin
+  // Templates page is populated before anyone looks at it.
+  try {
+    const { created, skipped } = await ensureWaitlistTemplates(waitlistsId);
+    logger.info(
+      `Waitlist ${waitlistsId}: templates created=[${created.join(', ')}] `
+      + `already-present=[${skipped.join(', ')}].`,
+    );
+  } catch (error) {
+    logger.error(`Failed to ensure email templates for Waitlist ${waitlistsId}`, error);
   }
-
-  if (created > 0) await batch.commit();
-
-  console.log(`Ensured ${defs.length} EmailTemplate docs for Waitlist ${waitlistsId} (created ${created}).`);
 });

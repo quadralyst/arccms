@@ -306,10 +306,13 @@ describe('Waitlist Create Function', () => {
         'utf-8'
       );
 
-      expect(fileContent).toContain("collection('EmailTemplate')");
-      // The bodies/types live in the shared defaults module (U1) — the trigger
-      // seeds from it rather than carrying its own copy of the HTML.
-      expect(fileContent).toContain('buildWaitlistTemplateDefs');
+      // U5.5: the trigger is only the *eager* path now — it delegates to the same
+      // helper that every send path calls lazily, so a form whose trigger never
+      // fired still gets its templates the first time one is needed. The trigger
+      // must therefore hold no seeding logic of its own.
+      expect(fileContent).toContain('ensureWaitlistTemplates');
+      expect(fileContent).not.toContain("collection('EmailTemplate')");
+      expect(fileContent).not.toContain('buildWaitlistTemplateDefs');
 
       const defaults = fs.readFileSync(
         path.resolve(__dirname, '../email-core/defaultTemplates.ts'),
@@ -317,6 +320,7 @@ describe('Waitlist Create Function', () => {
       );
       expect(defaults).toContain('waitlist_welcome_email');
       expect(defaults).toContain('waitlist_verify_otp_email');
+      expect(defaults).toContain("collection('EmailTemplate')");
     });
 
     it('should create the mirrored audience list eagerly', async () => {

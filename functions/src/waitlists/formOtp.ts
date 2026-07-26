@@ -76,8 +76,10 @@ export const requestFormOtp = onCall(async (request) => {
     }
   }
 
-  // Per-form template, falling back to the global default (U-D5 keeps each form's
-  // own content and layout).
+  // Per-form template (U-D5 keeps each form's own content and layout). If the
+  // form has none, getEmailTemplate seeds this form's defaults and re-reads —
+  // so a form that never got its templates verifies out of the box instead of
+  // dead-ending every signup here.
   let template;
   try {
     template = await getEmailTemplate(waitlistId, 'waitlist_verify_otp_email');

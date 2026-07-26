@@ -141,6 +141,54 @@ describe('finalizeFormSignup', () => {
     });
   });
 
+  describe('fails closed when the OTP template cannot be resolved (U5.5)', () => {
+    it('should refuse the signup rather than confirm it unverified', async () => {
+      // Email is ON, so a code should exist. The old code caught this and returned
+      // "OTP not required", which confirmed the contact as unverified and let an
+      // unproven address through — the wrong direction to fail in.
+      requireOtp();
+      mockGetTemplate.mockRejectedValue(new Error('No email template found'));
+
+      await expect(call({ waitlistId: 'w1', userId: 'u1' })).rejects.toMatchObject({
+        code: 'failed-precondition',
+      });
+      expect(store.get('Waitlists/w1/users/u1').isConfirmed).toBe(false);
+    });
+
+    it('should still fail closed when a verified OTP record happens to exist', async () => {
+      requireOtp();
+      mockGetTemplate.mockRejectedValue(new Error('No email template found'));
+      store.set('form_otps/w1_hash_new@example.com', { verified: true });
+
+      await expect(call({ waitlistId: 'w1', userId: 'u1' })).rejects.toMatchObject({
+        code: 'failed-precondition',
+      });
+    });
+
+    it('should NOT fail closed when email is switched off entirely', async () => {
+      // Nothing could have been sent, so demanding a code would strand every
+      // signup. This is the one sanctioned fail-open.
+      store.set('Settings/email', { isEnabled: false });
+      mockGetTemplate.mockRejectedValue(new Error('No email template found'));
+
+      await expect(call({ waitlistId: 'w1', userId: 'u1' })).resolves.toMatchObject({
+        emailVerified: false,
+        alreadyConfirmed: false,
+      });
+    });
+
+    it('should NOT fail closed when waitlist emails are off by feature toggle', async () => {
+      store.set('Settings/email', {
+        isEnabled: true, activeProvider: 'log', features: { waitlistEmails: false },
+      });
+      mockGetTemplate.mockRejectedValue(new Error('No email template found'));
+
+      await expect(call({ waitlistId: 'w1', userId: 'u1' })).resolves.toMatchObject({
+        emailVerified: false,
+      });
+    });
+  });
+
   describe('when the form does not require an OTP', () => {
     it('should confirm but record emailVerified=false, because the address was never proven', async () => {
       store.set('Settings/email', { isEnabled: false });

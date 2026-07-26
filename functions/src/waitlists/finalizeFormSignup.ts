@@ -30,25 +30,37 @@ interface FinalizeResult {
   alreadyConfirmed: boolean;
 }
 
-/** Does this form still gate signup behind a verification code? */
+/**
+ * Does this form gate signup behind a verification code?
+ *
+ * Fails **closed**. The earlier version returned `false` whenever the template
+ * lookup threw, so a form with no OTP template — the out-of-the-box state for any
+ * form that missed the create trigger — was treated as "verification not required"
+ * and confirmed signups as unverified. That is the wrong direction to fail in: it
+ * lets unproven addresses into marketing sends while the form looks healthy.
+ *
+ * The only fail-open cases are the ones where no code *could* have been sent, so
+ * demanding one would strand every signup.
+ */
 async function otpRequired(waitlistId: string): Promise<boolean> {
   let settings: EmailSettings | undefined;
   try {
     settings = (await db.collection('Settings').doc('email').get()).data() as EmailSettings | undefined;
   } catch { /* treat as not configured */ }
 
-  // Email switched off (or no provider) ⇒ no code could ever have been sent, so
-  // requiring one would strand every signup.
+  // Email switched off entirely (or no provider) ⇒ nothing was ever sent.
   if (!settings?.isEnabled || !settings?.activeProvider) return false;
   if (settings.features?.waitlistEmails === false) return false;
 
-  // An admin can also deactivate the form's OTP template to skip verification.
-  try {
-    const template = await getEmailTemplate(waitlistId, 'waitlist_verify_otp_email');
-    return template.isActive !== false;
-  } catch {
-    return false; // no template ⇒ nothing to verify against
-  }
+  // Email IS on, so a code should exist. getEmailTemplate seeds this form's
+  // defaults when they are missing, so reaching the catch means we could neither
+  // find nor create one — a real misconfiguration, not a reason to skip
+  // verification.
+  const template = await getEmailTemplate(waitlistId, 'waitlist_verify_otp_email');
+
+  // Deactivating the template is the supported way to turn a form's OTP off
+  // (deleting it is not — the default is recreated on demand by design).
+  return template.isActive !== false;
 }
 
 export const finalizeFormSignup = onCall(async (request) => {
@@ -82,7 +94,20 @@ export const finalizeFormSignup = onCall(async (request) => {
   }
 
   // ── Authorization ───────────────────────────────────────────────────────────
-  const needsOtp = await otpRequired(waitlistId);
+  let needsOtp: boolean;
+  try {
+    needsOtp = await otpRequired(waitlistId);
+  } catch (err) {
+    // Fail closed with a message an admin can act on, rather than a bare
+    // `internal` — or worse, silently confirming the signup unverified.
+    logger.error(`finalizeFormSignup: cannot resolve the OTP template for ${waitlistId}`, err);
+    throw new HttpsError(
+      'failed-precondition',
+      'This form has no verification email template, so signups cannot be confirmed. '
+      + 'Open the form\'s Templates page to restore the default.',
+    );
+  }
+
   if (needsOtp) {
     const otpSnap = await db
       .collection('form_otps')

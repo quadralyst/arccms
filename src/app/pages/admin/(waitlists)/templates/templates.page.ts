@@ -11,13 +11,9 @@ import { Component, OnInit, Injector, inject, runInInjectionContext, signal, Vie
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import { Firestore, collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where, orderBy } from '@angular/fire/firestore';
+import { Functions, httpsCallable } from '@angular/fire/functions';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import {
-    IEmailTemplate,
-    DEFAULT_OTP_TEMPLATE,
-    DEFAULT_WELCOME_TEMPLATE,
-    DEFAULT_BROADCAST_TEMPLATE
-} from '../email-template.model';
+import { IEmailTemplate } from '../email-template.model';
 import { BroadcastEmailEditorComponent } from '../../../../../shared/components/broadcast-email-editor/broadcast-email-editor.component';
 import { IBroadcastEmail } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.model';
 import { BroadcastEmailStore } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.store';
@@ -52,6 +48,7 @@ export default class TemplatesComponent implements OnInit {
     private readonly router = inject(Router);
     private readonly fb = inject(FormBuilder);
     private readonly firestore = inject(Firestore);
+    private readonly functions = inject(Functions);
     private readonly dialog = inject(MatDialog);
     private readonly injector = inject(Injector);
     private readonly broadcastStore = inject(BroadcastEmailStore);
@@ -128,9 +125,36 @@ export default class TemplatesComponent implements OnInit {
         }
     }
 
+    /**
+     * The server's current defaults, fetched once per visit.
+     *
+     * This page used to carry its own `DEFAULT_OTP_TEMPLATE` /
+     * `DEFAULT_WELCOME_TEMPLATE`, which had drifted into a different document
+     * altogether — so "Reset to default" produced an email the system would never
+     * send. There is now one definition, on the server.
+     */
+    private serverDefaults: Record<string, { subject: string; template: string }> = {};
+
+    private async loadServerDefaults(): Promise<void> {
+        try {
+            const callable = runInInjectionContext(this.injector, () =>
+                httpsCallable<unknown, { defaults: { type: string; subject: string; template: string }[] }>(
+                    this.functions, 'getWaitlistTemplateDefaults'));
+            const res = await callable({});
+            for (const def of res.data?.defaults || []) {
+                this.serverDefaults[def.type] = { subject: def.subject, template: def.template };
+            }
+        } catch (error) {
+            // Non-fatal: a stored template still loads. Only the blank-tab
+            // placeholder and "Reset to default" depend on this.
+            console.error('Could not load the default templates from the server:', error);
+        }
+    }
+
     async loadTemplates(waitlistId: string): Promise<void> {
         this.loading.set(true);
         try {
+            await this.loadServerDefaults();
             const templatesRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'EmailTemplate'));
             const q = runInInjectionContext(this.injector, () => query(templatesRef, where('waitlistId', '==', waitlistId)));
             const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
@@ -141,6 +165,14 @@ export default class TemplatesComponent implements OnInit {
                     this.templates[data.type as TemplateType] = { id: doc.id, ...data };
                 }
             });
+
+            // An upgraded install can have forms whose templates were never seeded
+            // (they predate the create trigger). The server heals them on the first
+            // send, but the admin would see empty tabs until then — so seed now and
+            // re-read. Idempotent, and it never overwrites an existing template.
+            const missing = (['waitlist_verify_otp_email', 'waitlist_welcome_email'] as TemplateType[])
+                .filter((t) => !this.templates[t]);
+            if (missing.length) await this.seedMissingTemplates(waitlistId);
 
             // Load the active tab's template
             this.loadTemplateIntoForm(this.activeTab());
@@ -259,15 +291,34 @@ export default class TemplatesComponent implements OnInit {
         }
     }
 
-    getDefaultTemplate(type: TemplateType): { subject: string; template: string } {
-        switch (type) {
-            case 'waitlist_verify_otp_email':
-                return { subject: 'Verify your email', template: DEFAULT_OTP_TEMPLATE };
-            case 'waitlist_welcome_email':
-                return { subject: 'Welcome to the waitlist!', template: DEFAULT_WELCOME_TEMPLATE };
-            case 'waitlist_broadcast_email':
-                return { subject: 'Update from the team', template: DEFAULT_BROADCAST_TEMPLATE };
+    /**
+     * Ask the server to create this form's missing defaults, then re-read them.
+     * `backfillWaitlistTemplates` is idempotent and leaves existing docs alone.
+     */
+    private async seedMissingTemplates(waitlistId: string): Promise<void> {
+        try {
+            const callable = runInInjectionContext(this.injector, () =>
+                httpsCallable(this.functions, 'backfillWaitlistTemplates'));
+            await callable({});
+
+            const templatesRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'EmailTemplate'));
+            const q = runInInjectionContext(this.injector, () => query(templatesRef, where('waitlistId', '==', waitlistId)));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
+            snapshot.forEach((d) => {
+                const data = d.data() as IEmailTemplate;
+                if (data.type && this.templates.hasOwnProperty(data.type)) {
+                    this.templates[data.type as TemplateType] = { id: d.id, ...data };
+                }
+            });
+        } catch (error) {
+            console.error('Could not seed the default templates:', error);
         }
+    }
+
+    getDefaultTemplate(type: TemplateType): { subject: string; template: string } {
+        // One definition, fetched from the server. The empty fallback only shows if
+        // that call failed, and is preferable to pasting in a stale local copy.
+        return this.serverDefaults[type] || { subject: '', template: '' };
     }
 
     async saveTemplate(): Promise<void> {
