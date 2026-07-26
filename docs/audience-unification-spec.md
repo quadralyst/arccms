@@ -959,6 +959,57 @@ path — move with it).
 6. **Rules & indexes:** delete the `WaitlistedUsers` + referrals rule blocks; remove the unauth `totalSignups` increment carve-out on `Waitlists/{id}` (counts move server-side); add the `Contacts` composite index for leaderboard ordering to `firestore.indexes.json`.
 7. **Callable contract:** `getOptimizedLeaderboard` keeps its name and accepts (ignores) the legacy `collectionName` param so already-deployed clients keep working; trigger deletions deploy **after** `migrateWaitlistedUsers` has run (runbook ordering).
 
+### Progress
+
+**✅ Step 2 — referrals re-homed** to `Waitlists/{waitlistId}/users/{memberId}/referrals`.
+Removed a silent-failure class as well as moving data: the old triggers trusted
+`referredBy`/`waitlistId` *fields* and resolved the member with
+`where('waitlistedUserId','==',…).limit(1)`, so a referral scored nothing at all — with
+no error — when that query missed. Both ids now come from the document path. Triggers,
+frontend writes and rules shipped together, since any one alone stops referrals being
+credited. Deployed; the live `eventFilter` was confirmed on the new path.
+
+**✅ Step 3 — `migrateWaitlistedUsers`** copies historical referral records over.
+Required a *trigger* fix, not just care in the migration: a copy is a create on the new
+path, which is what `onReferralCreate` fires on, so a naive copy would have silently
+doubled every historical count. Copies are stamped `migratedAt` and the trigger skips
+them. Verified live — the dry run showed 9 registry docs and **zero** referral records,
+so a real run would have proven nothing; a planted legacy referral was migrated and
+`totalReferrals` stayed put (it would have read 1 without the guard).
+
+### ⚠️ Step 4 needs a design change: the identity lookup must move server-side
+
+The plan said cross-form existence checks move from `WaitlistedUsers` to
+`Contacts/{emailHash}`. **The public form cannot read `Contacts`** — `firestore.rules`
+has `allow read: if isAdmin()` on that collection, and a signup visitor is
+unauthenticated. Widening that rule is not an option: contacts carry consent state and
+custom fields across every form, so public read would expose the whole audience.
+
+So the check has to become a callable — the same shape as U5's `requestFormOtp`, which
+already runs unauthenticated and already receives the address. Options worth weighing
+before implementing:
+
+- extend `requestFormOtp`'s response with the "known/verified elsewhere" facts the join
+  flow branches on, since it is already called at exactly that moment; or
+- a dedicated `lookupSignupIdentity` callable, which keeps responsibilities separate but
+  adds a second public endpoint and a round trip.
+
+Either way it must not become an email-enumeration oracle: the response has to be
+shaped so an attacker cannot use it to test whether an address is on a list. That is a
+deliberate design step on the most critical path in the product, not a re-point.
+
+Also unresolved by this phase: the signup flow uses the registry doc's id inside
+`leaderboardLink` (`/leaderboard/{waitlistId}/{registryDocId}`). Dropping the registry
+write means re-keying that link to the member-doc id, which the public leaderboard
+route and any already-sent email links depend on.
+
+### ⚠️ Step 5 ordering correction: keep `WaitlistedUsers` exportable until cutover
+
+The plan removes `WaitlistedUsers` from `(data)/data-constants.ts` in step 5. It should
+move to **step 6**, after the collection is frozen. Until then the export page is an
+admin's only way to back up the legacy data *before* it is retired — removing it first
+takes that away at precisely the moment it matters.
+
 ### ✅ Manual verification
 1. `npm run test` green (leaderboard/referral logic against the new source; join-flow matrix: new / returning-verified / returning-unverified / cross-form).
 2. Dev project seeded with legacy `WaitlistedUsers` data: run `migrateWaitlistedUsers` → leaderboard identical before/after (snapshot compare), referral counts identical; re-run → idempotent.
