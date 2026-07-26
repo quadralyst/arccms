@@ -109,13 +109,22 @@ describe('joinForm', () => {
   });
 
   describe('a new member', () => {
-    it('creates the member and the registry record, and returns the ids', async () => {
+    it('creates the member and returns its ids', async () => {
       const res = await call({ waitlistId: FORM, email: 'new@example.com', firstName: 'New' });
 
       expect(memberCount()).toBe(1);
       expect(res.memberId).toBeTruthy();
-      expect(res.waitlistedUserId).toBeTruthy();
       expect(res.referralCode).toMatch(/^[A-Z2-9]{8}$/);
+    });
+
+    it('sets waitlistedUserId to the member id rather than a registry id (U6)', async () => {
+      // The field is kept and populated because ~40 places build public links from it.
+      // getPublicMemberView resolves either shape, so links already sent by email — which
+      // carry a legacy registry id — keep working.
+      const res = await call({ waitlistId: FORM, email: 'new@example.com' });
+
+      expect(res.waitlistedUserId).toBe(res.memberId);
+      expect(store.get(`Waitlists/${FORM}/users/${res.memberId}`).waitlistedUserId).toBe(res.memberId);
     });
 
     it('starts unconfirmed and unverified', async () => {
@@ -135,13 +144,14 @@ describe('joinForm', () => {
       expect(memberCount()).toBe(1);
     });
 
-    it('embeds the registry id in leaderboardLink, matching the links already sent', async () => {
+    it('keys leaderboardLink on the member id', async () => {
       const res = await call({
         waitlistId: FORM, email: 'new@example.com', origin: 'https://site.example',
       });
 
+      // Keyed on the member id now that no registry record is created.
       expect(res.leaderboardLink).toBe(
-        `https://site.example/leaderboard/${FORM}/${res.waitlistedUserId}`,
+        `https://site.example/leaderboard/${FORM}/${res.memberId}`,
       );
     });
 
@@ -213,11 +223,11 @@ describe('joinForm', () => {
       expect(store.get(`Waitlists/${FORM}/users/${first.memberId}`).firstName).toBe('Verified');
     });
 
-    it('does not create a second registry record', async () => {
+    it('creates no registry record at all (U6)', async () => {
       await call({ waitlistId: FORM, email: 'dup@example.com' });
       await call({ waitlistId: FORM, email: 'dup@example.com' });
 
-      expect(childrenOf('WaitlistedUsers')).toHaveLength(1);
+      expect(childrenOf('WaitlistedUsers')).toHaveLength(0);
     });
   });
 
