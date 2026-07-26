@@ -51,7 +51,6 @@ export class WaitlistFormService {
 
     private formStates = new Map<HTMLFormElement, WaitlistFormState>();
     private defaultWaitlistId = 'default';
-    private templOtp: string | null = null;
 
     /**
      * Check if OTP verification template is enabled for a waitlist.
@@ -532,7 +531,6 @@ export class WaitlistFormService {
                 signupMetadata,
             });
 
-            this.templOtp = result.verificationCode || null;
 
             if ((result as Record<string, unknown>)['error']) {
                 state.error = (result as Record<string, unknown>)['message'] as string;
