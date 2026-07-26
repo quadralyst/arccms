@@ -350,23 +350,24 @@ service cloud.firestore {
       }
     }
 
-    // WaitlistedUsers - global user registry for signup + leaderboard
+    // WaitlistedUsers - retired global registry (U6). Read-only for admins; see the
+    // frozen-write note below.
     match /WaitlistedUsers/{userId} {
       // #51: NO public read — the worst of the four, since it exposed every signup
       // across every form in one collection. Nothing public reads it now:
       // getPublicMemberView resolves a legacy `waitlistedUserId` through the member
       // doc's back-reference, so leaderboard links already sent by email still work.
       allow read: if isAdmin();
-      allow create: if request.resource.data.keys().hasAll(['email', 'waitlistId'])
-                    && request.resource.data.email is string
-                    && request.resource.data.email.size() > 0
-                    && request.resource.data.email.size() < 255;
-      // U5 item 5: same lockdown as the members subcollection above — verification,
-      // position and referral counts are functions-only.
-      allow update: if isAdmin() || request.resource.data.diff(resource.data)
-                       .affectedKeys()
-                       .hasOnly(['isSubscribed', 'firstName', 'leaderboardLink',
-                                 'waitlistId', 'waitlistIds', 'referredBy']);
+      // U6 cutover: FROZEN. Nothing writes this collection any more — joinForm creates
+      // only a member doc, finalizeFormSignup's mirror is gone, and the two OTP triggers
+      // that fired on it are deleted. Records written before the cutover are kept so
+      // already-sent links and the historical importers still resolve, but they are now
+      // read-only.
+      //
+      // Admin writes stay permitted so the export/import tooling and any manual repair
+      // still work. Physical deletion of the collection is a deliberate admin step after
+      // verification, not something these rules do.
+      allow create, update: if isAdmin();
       allow delete: if isAdmin();
 
       // Referrals subcollection - leaderboard + signup flow

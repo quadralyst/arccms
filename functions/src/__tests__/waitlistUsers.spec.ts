@@ -258,29 +258,25 @@ describe('Waitlist User Functions', () => {
     });
   });
 
-  describe('onWaitlistedUsersCreate', () => {
-    it('should use shared emailTemplateHelper', async () => {
+  describe('the retired WaitlistedUsers triggers (U6 cutover)', () => {
+    it('no longer exist', async () => {
+      // onWaitlistedUsersCreate / onWaitlistedUserUpdate emailed an OTP when
+      // `verificationCode` was written to a registry doc. U5 stopped writing that field
+      // — requestFormOtp sends the code directly — so both had been dormant since, and
+      // joinForm no longer creates registry docs at all. Asserting their absence keeps a
+      // future change from resurrecting a path that would email from frozen data.
       const fs = await import('fs');
       const path = await import('path');
-      const fileContent = fs.readFileSync(
-        path.resolve(__dirname, '../waitlists/waitlistedUsers/onWaitlistedUsersCreate.ts'),
-        'utf-8'
-      );
 
-      expect(fileContent).toContain("import { getEmailTemplate, createOtpEmailLog }");
+      expect(fs.existsSync(path.resolve(__dirname, '../waitlists/waitlistedUsers'))).toBe(false);
     });
-  });
 
-  describe('onWaitlistedUsersUpdate', () => {
-    it('should use shared emailTemplateHelper', async () => {
+    it('are not exported from the functions entrypoint', async () => {
       const fs = await import('fs');
       const path = await import('path');
-      const fileContent = fs.readFileSync(
-        path.resolve(__dirname, '../waitlists/waitlistedUsers/onWaitlistedUsersUpdate.ts'),
-        'utf-8'
-      );
+      const index = fs.readFileSync(path.resolve(__dirname, '../index.ts'), 'utf-8');
 
-      expect(fileContent).toContain("import { getEmailTemplate, createOtpEmailLog }");
+      expect(index).not.toContain("export * from './waitlists/waitlistedUsers/");
     });
   });
 });

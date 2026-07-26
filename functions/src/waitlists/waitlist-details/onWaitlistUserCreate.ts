@@ -9,7 +9,8 @@ export const onWaitlistUserCreate = onDocumentCreated(
     const waitlistedUsersData = event.data?.data() as WaitlistUserData | undefined;
     if (!waitlistedUsersData) return;
 
-    // OTP email is sent by onWaitlistedUsersCreate (global collection trigger) — not here.
+    // The OTP email is sent by requestFormOtp, which the signup flow calls directly
+    // (U5). It used to ride on a registry-collection trigger; that trigger is gone.
     // This function only handles the welcome email for direct-joined (already-verified) users.
 
     if (waitlistedUsersData?.isDirectJoined && waitlistedUsersData.emailVerified === true) {
