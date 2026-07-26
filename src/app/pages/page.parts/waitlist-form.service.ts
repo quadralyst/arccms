@@ -12,7 +12,7 @@ import { IWaitlistFormData, IWaitlist } from '../waitlist/waitlist.model';
 import { SignupMetadataService } from '../waitlist/signup-metadata.service';
 import { EmailConfigStatusService } from '../../../shared/services/email-config-status.service';
 import { GlobalService } from '../../../shared/services/global.service';
-import { Firestore, doc, getDoc, collection, getCountFromServer } from '@angular/fire/firestore';
+import { Firestore, doc, getDoc, collection } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { DEFAULT_INTEGRATIONS_SETTINGS, IGeoConfig } from '../admin/(settings)/integrations-setting/integrations-setting.model';
 
@@ -155,11 +155,19 @@ export class WaitlistFormService {
                     let count = countCache.get(waitlistId);
 
                     if (count === undefined) {
-                        const snapshot = await runInInjectionContext(this.injector, () => {
-                            const usersRef = collection(this.firestore, 'Waitlists', waitlistId, 'users');
-                            return getCountFromServer(usersRef);
-                        });
-                        count = snapshot.data().count;
+                        // #51: read the denormalised counter off the form document
+                        // instead of aggregating over member docs. The aggregate query
+                        // needed public read on a collection holding raw email
+                        // addresses, and that is the exposure this closes. The form doc
+                        // is public by design — it is what renders the page.
+                        const formSnap = await runInInjectionContext(this.injector, () =>
+                            getDoc(doc(this.firestore, 'Waitlists', waitlistId)));
+                        const data = formSnap.exists() ? formSnap.data() : null;
+                        // Note the small semantic shift: the aggregate counted every
+                        // member document, `totalSignups` counts confirmed ones. For a
+                        // "N people have joined" label that is the more honest number,
+                        // and it no longer requires reading anyone's record.
+                        count = Number(data?.['totalSignups'] ?? 0);
                         countCache.set(waitlistId, count);
                     }
 
