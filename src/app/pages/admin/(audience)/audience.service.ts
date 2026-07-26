@@ -169,6 +169,23 @@ export class AudienceService {
         return httpsCallable(this.functions, 'adminSetContactDisabled')({ emailHash, disabled });
     }
 
+    /**
+     * Erase a contact: delete the address from the audience record, the form
+     * member doc, the legacy registry and any in-flight OTP, leaving a hash-only
+     * receipt in `ErasureLog`. Irreversible — for honouring a deletion request,
+     * not for pausing sends (that is {@link setContactDisabled}).
+     */
+    deleteContact(emailHash: string) {
+        return httpsCallable<unknown, {
+            existed: boolean;
+            listsRemoved: string[];
+            memberDocsDeleted: number;
+            legacyRegistryDocsDeleted: number;
+            otpDocsDeleted: number;
+            suppressionDeleted: boolean;
+        }>(this.functions, 'adminDeleteContact')({ emailHash, confirm: true });
+    }
+
     /** Live (capped) list of Contacts for the admin table. */
     getContacts(max = 500): Observable<IContact[]> {
         if (!isPlatformBrowser(this.platformId)) {

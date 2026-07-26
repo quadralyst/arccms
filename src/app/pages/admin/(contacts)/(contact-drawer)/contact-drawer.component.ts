@@ -7,6 +7,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { AudienceService } from '../../(audience)/audience.service';
 import { IContact, IList, ITag, IContactField, ICsvPreview, MarketingConsent } from '../../(audience)/audience.model';
@@ -25,6 +28,7 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule,
         MatInputModule, MatFormFieldModule, MatSelectModule, MatCheckboxModule,
+        MatDialogModule,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -157,6 +161,17 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
             } @else {
             <p class="small text-muted mb-3">No tags yet — create them under Audience → Tags.</p>
             }
+
+            <hr class="my-3" />
+            <label class="form-label small text-muted d-block">Erase</label>
+            <p class="small text-muted mb-2">
+                Deletes this address from the audience, the signup form's member list and any
+                pending verification. Use this to honour a deletion request — to just stop
+                emailing someone, suppress them instead.
+            </p>
+            <button mat-stroked-button color="warn" [disabled]="busy()" (click)="confirmErase()">
+                <mat-icon>delete_forever</mat-icon> Erase contact
+            </button>
         </div>
         <div class="panel-actions">
             @if (contact.consent?.marketing !== 'subscribed') {
@@ -181,6 +196,8 @@ export class ContactDrawerComponent implements OnChanges {
 
     private audience = inject(AudienceService);
     private toast = inject(ToastService);
+    private dialog = inject(MatDialog);
+    private sanitizer = inject(DomSanitizer);
 
     busy = signal(false);
 
@@ -298,6 +315,52 @@ export class ContactDrawerComponent implements OnChanges {
         } catch (e) {
             console.error(e);
             this.toast.error('Import failed');
+        } finally {
+            this.busy.set(false);
+        }
+    }
+
+    /**
+     * Confirm, then erase. The dialog spells out what disappears because the
+     * action reaches past the contact into the form's member list — an admin who
+     * expects "remove from this table" would otherwise lose signup records too.
+     */
+    confirmErase(): void {
+        const c = this.contact;
+        if (!c?.id) return;
+        // The address is user-supplied and goes into trusted HTML, so it takes the
+        // same escape as the tag label in the Tags page.
+        const email = (c.email || '').replace(/[&<>"']/g, (ch) => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] as string
+        ));
+        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
+            `Permanently erase <strong>${email}</strong>?<br><br>`
+            + 'This deletes the contact, its signup form member record and any pending '
+            + 'verification. It cannot be undone, and it is not the same as suppressing '
+            + 'them — an erased person can sign up again later.',
+        );
+
+        this.dialog.open(ConfirmationPopupComponent, {
+            width: '400px',
+            data: { dialogType: 'Erase contact', dialogMessage: msg, btnText: 'Erase', panelType: 'warn' },
+        }).afterClosed().subscribe(async (confirmed: boolean) => {
+            if (!confirmed) return;
+            await this.erase();
+        });
+    }
+
+    private async erase(): Promise<void> {
+        const c = this.contact;
+        if (!c?.id) return;
+        this.busy.set(true);
+        try {
+            await this.audience.deleteContact(c.id);
+            this.toast.success('Contact erased');
+            this.saved.emit();
+            this.close.emit();
+        } catch (e) {
+            console.error(e);
+            this.toast.error('Failed to erase contact');
         } finally {
             this.busy.set(false);
         }

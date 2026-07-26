@@ -39,6 +39,9 @@ const ALLOWED: Record<string, string> = {
     'legacy importer — builds Contacts from pre-unification signups',
   'email-core/handleUnsubscribe.ts':
     'keeps pre-cutover records consistent when someone unsubscribes',
+  'email-core/eraseContact.ts':
+    'right-to-erasure sweep — a frozen collection still holds readable addresses on an '
+    + 'upgraded deployment, and leaving them would make the erasure incomplete',
   'email-core/unsubscribeLegacyLink.ts':
     'resolves /unsubscribe/:waitlistId/:userId links already sent by email',
   'waitlists/leaderboard/getLeaderBoardData.ts':

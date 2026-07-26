@@ -9,8 +9,9 @@ import {
   removeContactFromLists,
   type MarketingConsent,
 } from './contacts.js';
+import { eraseContact } from './eraseContact.js';
 
-function requireAdmin(request: { auth?: { token?: Record<string, unknown> } }): void {
+function requireAdmin(request: { auth?: { uid?: string; token?: Record<string, unknown> } }): void {
   if (request.auth?.token?.['role'] !== 'admin') {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
@@ -80,6 +81,29 @@ export const adminSetContactDisabled = onCall(async (request) => {
 
   await setContactDisabled(emailHash, disabled);
   return { ok: true, disabled };
+});
+
+/**
+ * Admin: erase a contact — the right-to-erasure path (U-D12 companion).
+ *
+ * Distinct from `adminSetContactDisabled`, which retains the address, and from
+ * `adminSetContactConsent('unsubscribed')`, which deliberately *records* it in
+ * `Suppression`. This deletes the address everywhere one person's copy of it
+ * lives, including the form member doc, and leaves a hash-only receipt in
+ * `ErasureLog`.
+ *
+ * Irreversible, so it demands `confirm: true` rather than trusting a UI dialog —
+ * the callable is reachable by any admin token, not just through the drawer.
+ */
+export const adminDeleteContact = onCall(async (request) => {
+  requireAdmin(request);
+  const emailHash = String(request.data?.emailHash || '');
+  if (!emailHash) throw new HttpsError('invalid-argument', 'emailHash is required.');
+  if (request.data?.confirm !== true) {
+    throw new HttpsError('failed-precondition', 'Erasure is irreversible; pass confirm: true.');
+  }
+
+  return eraseContact(emailHash, request.auth?.uid || 'unknown');
 });
 
 /** Admin: add/remove a contact from lists. */
