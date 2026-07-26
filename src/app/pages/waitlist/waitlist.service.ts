@@ -550,6 +550,32 @@ export class WaitlistService {
     /**
      * Process a referral when user verifies
      */
+    /**
+     * Resolve a referral code to the member that owns it, within one form.
+     *
+     * U6: referral codes are looked up among the form's members rather than in the
+     * retired global `WaitlistedUsers` registry, and referral records now hang off the
+     * member that earned them — `Waitlists/{waitlistId}/users/{memberId}/referrals` —
+     * so the crediting trigger reads both ids straight from the path.
+     */
+    private async findReferrerMember(
+        waitlistId: string,
+        referrerCode: string,
+        referredEmail: string,
+    ): Promise<{ id: string; refPath: string } | null> {
+        const membersRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
+        const snapshot = await getDocs(query(membersRef, where('referralCode', '==', referrerCode)));
+        if (snapshot.empty) return null;
+
+        const referrer = snapshot.docs[0];
+        const referrerEmail = referrer.data()['email'] as string | undefined;
+        if (referrerEmail && referrerEmail.toLowerCase() === referredEmail.toLowerCase()) {
+            console.warn('Self-referral blocked:', referredEmail);
+            return null;
+        }
+        return { id: referrer.id, refPath: `Waitlists/${waitlistId}/users/${referrer.id}/referrals` };
+    }
+
     private async processReferral(
         waitlistId: string,
         referrerCode: string,
@@ -557,28 +583,12 @@ export class WaitlistService {
         referredName: string,
         referredUserId: string,
     ): Promise<void> {
-        // Find referrer by code
-        const referrerQuery = query(
-            collection(this.firestore, 'WaitlistedUsers'),
-            where('referralCode', '==', referrerCode),
-        );
-        const referrerSnapshot = await getDocs(referrerQuery);
-
-        if (referrerSnapshot.empty) return;
-
-        const referrerDoc = referrerSnapshot.docs[0];
-        const referrerUserId = referrerDoc.id;
-
-        // Guard: prevent self-referral
-        const referrerEmail = referrerDoc.data()['email'] as string | undefined;
-        if (referrerEmail && referrerEmail.toLowerCase() === referredEmail.toLowerCase()) {
-            console.warn('Self-referral blocked:', referredEmail);
-            return;
-        }
+        const referrer = await this.findReferrerMember(waitlistId, referrerCode, referredEmail);
+        if (!referrer) return;
 
         // Check for duplicate referral
         const existingReferralQuery = query(
-            collection(this.firestore, `WaitlistedUsers/${referrerUserId}/referrals`),
+            collection(this.firestore, referrer.refPath),
             where('referredEmail', '==', referredEmail),
             where('referrerCode', '==', referrerCode),
         );
@@ -587,7 +597,7 @@ export class WaitlistService {
         if (!existingReferralSnapshot.empty) return;
 
         // Create referral record
-        await addDoc(collection(this.firestore, `WaitlistedUsers/${referrerUserId}/referrals`), {
+        await addDoc(collection(this.firestore, referrer.refPath), {
             referrerCode,
             referredEmail,
             referredMaskedEmail: this.maskEmail(referredEmail),
@@ -595,7 +605,7 @@ export class WaitlistService {
             referredUserId,
             waitlistId,
             status: 'completed',
-            referredBy: referrerUserId,
+            referredBy: referrer.id,
             createdAt: new Date(),
             completedAt: new Date(),
         });
@@ -615,31 +625,16 @@ export class WaitlistService {
         waitlistId: string,
         referredUserId: string,
     ): Promise<void> {
-        const referrerQuery = query(
-            collection(this.firestore, 'WaitlistedUsers'),
-            where('referralCode', '==', referrerCode),
-        );
-        const referrerSnapshot = await getDocs(referrerQuery);
+        const referrer = await this.findReferrerMember(waitlistId, referrerCode, referredEmail);
+        if (!referrer) return;
 
-        if (referrerSnapshot.empty) return;
-
-        const referrerDoc = referrerSnapshot.docs[0];
-        const referrerUserId = referrerDoc.id;
-
-        // Guard: prevent self-referral
-        const referrerEmail = referrerDoc.data()['email'] as string | undefined;
-        if (referrerEmail && referrerEmail.toLowerCase() === referredEmail.toLowerCase()) {
-            console.warn('Self-referral blocked:', referredEmail);
-            return;
-        }
-
-        await addDoc(collection(this.firestore, `WaitlistedUsers/${referrerUserId}/referrals`), {
+        await addDoc(collection(this.firestore, referrer.refPath), {
             referrerCode,
             referredEmail,
             referredMaskedEmail: this.maskEmail(referredEmail),
             referredUserId,
             waitlistId,
-            referredBy: referrerUserId,
+            referredBy: referrer.id,
             status: 'pending',
             createdAt: new Date(),
         });
