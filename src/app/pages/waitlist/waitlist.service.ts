@@ -744,42 +744,15 @@ export class WaitlistService {
      * Get leaderboard for a waitlist
      */
     async getLeaderboard(waitlistId: string): Promise<{ leaderboard: unknown[]; totalUsers: number; unverifiedUsers: number; waitlistId: string }> {
-        const usersCollectionRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-
-        // Use server-side ordering + limit (requires composite index: isConfirmed + totalReferrals + signupTimestamp)
-        const leaderboardQuery = query(
-            usersCollectionRef,
-            where('isConfirmed', '==', true),
-            orderBy('totalReferrals', 'desc'),
-            orderBy('signupTimestamp', 'asc'),
-            limit(50),
-        );
-
-        // Count queries — only fetch counts, not full documents
-        const confirmedCountQuery = query(usersCollectionRef, where('isConfirmed', '==', true));
-        const unconfirmedCountQuery = query(usersCollectionRef, where('isConfirmed', '==', false));
-
-        const [leaderboardSnapshot, confirmedCount, unconfirmedCount] = await Promise.all([
-            getDocs(leaderboardQuery),
-            getCountFromServer(confirmedCountQuery),
-            getCountFromServer(unconfirmedCountQuery),
-        ]);
-
-        const leaderboard = leaderboardSnapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            firstName: docSnap.data()['firstName'],
-            maskedEmail: this.maskEmail(docSnap.data()['email']),
-            totalReferrals: docSnap.data()['totalReferrals'] || 0,
-            queuePosition: docSnap.data()['queuePosition'] || 0,
-            waitlistedUserId: docSnap.data()['waitlistedUserId'],
-        }));
-
-        return {
-            leaderboard,
-            totalUsers: confirmedCount.data().count,
-            unverifiedUsers: unconfirmedCount.data().count,
-            waitlistId,
-        };
+        // Server-side (#51). This used to query `Waitlists/{id}/users` from the browser,
+        // which is why the rules had to allow public reads on a collection holding raw
+        // email addresses. The callable returns masked addresses and an explicit
+        // allowlist of fields.
+        const callable = runInInjectionContext(this.injector, () =>
+            httpsCallable<{ waitlistId: string }, { leaderboard: unknown[]; totalUsers: number; unverifiedUsers: number; waitlistId: string }>(
+                this.functions, 'getPublicLeaderboard'));
+        const res = await callable({ waitlistId });
+        return res.data;
     }
 
     /**
@@ -796,102 +769,68 @@ export class WaitlistService {
     }
 
     /**
-     * Get waitlisted user by ID
+     * A member's own view: their record, referral history and stats, in one call.
+     *
+     * Server-side (#51). This replaces two client-side reads of `WaitlistedUsers` — the
+     * record and its referrals subcollection — which is why the rules had to allow
+     * public reads there. `memberRef` accepts a member-doc id or a legacy
+     * `waitlistedUserId`, so links already sent by email keep resolving after U6.
+     *
+     * Returns null for a stale or unknown link rather than throwing.
      */
-    async getWaitlistedUser(waitlistedUserId: string): Promise<IWaitlistUser | null> {
+    async getMemberView(
+        waitlistId: string,
+        memberRef: string,
+    ): Promise<{ member: Record<string, unknown>; referrals: unknown[]; stats: Record<string, number>; waitlist: unknown } | null> {
+        if (!waitlistId || !memberRef) return null;
+        const callable = runInInjectionContext(this.injector, () =>
+            httpsCallable<{ waitlistId: string; memberRef: string }, { member: Record<string, unknown>; referrals: unknown[]; stats: Record<string, number>; waitlist: unknown }>(
+                this.functions, 'getPublicMemberView'));
         try {
-            const userDocRef = doc(this.firestore, 'WaitlistedUsers', waitlistedUserId);
-            const userDoc = await getDoc(userDocRef);
-
-            if (userDoc.exists()) {
-                const data = userDoc.data();
-                // Strip sensitive fields before returning to component
-                const { verificationCode, verificationExpires, ipAddress, ...safeData } = data;
-                return { id: userDoc.id, ...safeData } as IWaitlistUser;
-            }
-            return null;
+            const res = await callable({ waitlistId, memberRef });
+            return res.data;
         } catch (error) {
-            console.error('Error getting waitlisted user:', error);
-            return null;
+            // `not-found` is a normal outcome for a stale link, not an error to shout about.
+            if ((error as { code?: string })?.code === 'functions/not-found') return null;
+            throw error;
         }
     }
 
     /**
      * Get all referrals for a user
      */
-    async getAllReferralsData(waitlistedUserId: string): Promise<unknown[]> {
-        try {
-            const referralsCollectionRef = collection(this.firestore, 'WaitlistedUsers', waitlistedUserId, 'referrals');
-            const referralsSnapshot = await getDocs(referralsCollectionRef);
-
-            if (!referralsSnapshot.empty) {
-                return referralsSnapshot.docs.map((docSnap) => {
-                    const data = docSnap.data();
-                    return {
-                        id: docSnap.id,
-                        referredName: data['referredName'] || '',
-                        referredMaskedEmail: data['referredMaskedEmail'] || this.maskEmail(data['referredEmail'] || ''),
-                        status: data['status'],
-                        createdAt: data['createdAt'],
-                        completedAt: data['completedAt'],
-                    };
-                });
-            }
-            return [];
-        } catch (error) {
-            console.error('Error getting all referrals data:', error);
-            return [];
-        }
-    }
-
     /**
      * Get user details for a specific waitlist
      */
-    async getUserDetails(waitlistId: string, userId: string): Promise<unknown | null> {
+    /**
+     * The public user-details page payload.
+     *
+     * Server-side (#51). This previously made three client-side reads — the member doc,
+     * the form doc, and the referrals subcollection under `WaitlistedUsers` — and spread
+     * the raw member document into its response. It now composes the callable's
+     * allowlisted view, so a field added to a member doc is not exposed by accident.
+     *
+     * The links stay client-side because they depend on the current origin.
+     */
+    async getUserDetails(waitlistId: string, memberRef: string): Promise<unknown | null> {
         try {
-            const usersRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-            const userQuery = query(usersRef, where('waitlistedUserId', '==', userId));
-            const userSnapshot = await getDocs(userQuery);
+            const view = await this.getMemberView(waitlistId, memberRef);
+            if (!view) return null;
 
-            if (userSnapshot.empty) {
-                return null;
-            }
-
-            const userDoc = userSnapshot.docs[0];
-            const userData = userDoc.data();
-
-            // Get waitlist data
-            const waitlistDocRef = doc(this.firestore, 'Waitlists', waitlistId);
-            const waitlistDoc = await getDoc(waitlistDocRef);
-            const waitlistData = waitlistDoc.exists() ? waitlistDoc.data() : null;
-
-            // Get user's referrals
-            const referralsRef = collection(this.firestore, `WaitlistedUsers/${userId}/referrals`);
-            const referralsQuery = query(referralsRef, where('waitlistId', '==', waitlistId));
-            const referralsSnapshot = await getDocs(referralsQuery);
-
-            const referrals = referralsSnapshot.docs.map((docSnap) => ({
-                id: docSnap.id,
-                ...docSnap.data(),
-            }));
-
-            const successfulReferrals = referrals.filter((r: Record<string, unknown>) => r['status'] === 'completed').length;
-            const pendingReferrals = referrals.filter((r: Record<string, unknown>) => r['status'] === 'pending').length;
-
+            const member = view.member;
             return {
                 user: {
-                    id: userDoc.id,
-                    ...userData,
-                    referralLink: this.generateUrl(this.getCurrentPath(), { ref: userData['referralCode'] }),
+                    ...member,
+                    referralLink: this.generateUrl(this.getCurrentPath(), { ref: String(member['referralCode'] ?? '') }),
                     leaderboardLink: this.generateUrl(`/leaderboard/${waitlistId}`),
-                    userDetailsLink: this.generateUrl(`/user/${waitlistId}/${userId}`),
+                    userDetailsLink: this.generateUrl(`/user/${waitlistId}/${memberRef}`),
                 },
-                waitlist: { id: waitlistId, ...waitlistData },
-                referrals,
+                waitlist: view.waitlist,
+                referrals: view.referrals,
                 stats: {
-                    totalReferrals: userData['totalReferrals'] || 0,
-                    successfulReferrals,
-                    pendingReferrals,
+                    totalReferrals: Number(member['totalReferrals'] ?? 0),
+                    successfulReferrals: view.stats['successfulReferrals'] || 0,
+                    pendingReferrals: view.stats['pendingReferrals'] || 0,
                 },
             };
         } catch (error) {

@@ -327,53 +327,36 @@ describe('WaitlistService', () => {
     });
 
     describe('getLeaderboard', () => {
-        it('should return server-sorted leaderboard with masked emails and count queries', async () => {
-            const waitlistId = 'test-waitlist';
-
-            // Docs returned by getDocs (already sorted by Firestore: totalReferrals desc, signupTimestamp asc)
-            const mockDocs = [
-                {
-                    id: 'user3',
-                    data: () => ({ email: 'test3@example.com', firstName: 'C', totalReferrals: 5, queuePosition: 3, waitlistedUserId: 'wu3' })
+        it('should read the leaderboard from the server, not from member documents', async () => {
+            // #51: this used to query Waitlists/{id}/users straight from the browser,
+            // which is why firestore.rules had to allow public reads on a collection
+            // holding raw email addresses. Anyone with the API key from the JS bundle
+            // could page every signup. The ordering, masking and counting all moved into
+            // getPublicLeaderboard.
+            const callableSpy = vi.fn(async () => ({
+                data: {
+                    leaderboard: [
+                        { id: 'user3', firstName: 'C', maskedEmail: 'te***@example.com', totalReferrals: 5, queuePosition: 3, waitlistedUserId: 'wu3' },
+                        { id: 'user1', firstName: 'A', maskedEmail: 'te***@example.com', totalReferrals: 0, queuePosition: 1, waitlistedUserId: 'wu1' },
+                    ],
+                    totalUsers: 3,
+                    unverifiedUsers: 2,
+                    waitlistId: 'test-waitlist',
                 },
-                {
-                    id: 'user1',
-                    data: () => ({ email: 'test1@example.com', firstName: 'A', totalReferrals: 0, queuePosition: 1, waitlistedUserId: 'wu1' })
-                },
-                {
-                    id: 'user2',
-                    data: () => ({ email: 'test2@example.com', firstName: 'B', totalReferrals: 0, queuePosition: 2, waitlistedUserId: 'wu2' })
-                }
-            ];
+            }));
+            vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(callableSpy as any);
+            const getDocsSpy = vi.spyOn(FirestoreSDK, 'getDocs');
 
-            const mockLeaderboardSnapshot = { docs: mockDocs };
-            const mockVerifiedCount = { data: () => ({ count: 3 }) };
-            const mockUnverifiedCount = { data: () => ({ count: 2 }) };
+            const result = await service.getLeaderboard('test-waitlist');
 
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue(mockLeaderboardSnapshot as any);
-            vi.spyOn(FirestoreSDK, 'getCountFromServer')
-                .mockResolvedValueOnce(mockVerifiedCount as any)
-                .mockResolvedValueOnce(mockUnverifiedCount as any);
+            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'getPublicLeaderboard');
+            expect(callableSpy).toHaveBeenCalledWith({ waitlistId: 'test-waitlist' });
+            // The point of the change: no client-side read of member documents.
+            expect(getDocsSpy).not.toHaveBeenCalled();
 
-            const result = await service.getLeaderboard(waitlistId);
-
-            // Verify query was called with orderBy + limit
-            expect(FirestoreSDK.query).toHaveBeenCalled();
-            expect(FirestoreSDK.orderBy).toHaveBeenCalledWith('totalReferrals', 'desc');
-            expect(FirestoreSDK.orderBy).toHaveBeenCalledWith('signupTimestamp', 'asc');
-            expect(FirestoreSDK.limit).toHaveBeenCalledWith(50);
-
-            // Server returns pre-sorted results
-            expect(result.leaderboard).toHaveLength(3);
+            expect(result.leaderboard).toHaveLength(2);
             expect((result.leaderboard[0] as any).id).toBe('user3');
-            expect((result.leaderboard[1] as any).id).toBe('user1');
-            expect((result.leaderboard[2] as any).id).toBe('user2');
-
-            // Emails are masked — no raw emails in result
-            expect((result.leaderboard[0] as any).maskedEmail).toBe('te***@exa***.com');
             expect((result.leaderboard[0] as any).email).toBeUndefined();
-
-            // Count queries used for totals
             expect(result.totalUsers).toBe(3);
             expect(result.unverifiedUsers).toBe(2);
         });
