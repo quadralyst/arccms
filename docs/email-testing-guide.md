@@ -246,7 +246,14 @@ stop** — subscriber emails are readable by anyone with the bundle's API key.
 |---|---|---|
 | 1 | Enter the wrong code 5× | Locked out; member stays `isConfirmed: false`. |
 | 2 | Enter the correct code | `isConfirmed: true`, `emailVerified: true`, `queuePosition` assigned by the server. |
-| 3 | Try to set `emailVerified`/`queuePosition` by unauthenticated REST PATCH | `PERMISSION_DENIED`. These are functions-only. |
+| 3 | Try to set `emailVerified`/`queuePosition` by unauthenticated REST PATCH, **using a value that differs from the stored one** | `PERMISSION_DENIED`. These are functions-only. |
+
+> **The "differs" part is load-bearing.** The rule is
+> `diff(resource.data).affectedKeys().hasOnly([...])`. Writing a field its *current*
+> value produces an empty diff, and `hasOnly` on an empty set is vacuously true — so the
+> write is allowed and the probe reports a leak that is not there. Executing this guide
+> produced exactly that false alarm on `emailVerified`, which was already `true`.
+
 | 4 | Turn the form's OTP template **Active** off, then sign up | Confirms with `emailVerified: false` — never claimed as verified. |
 | 5 | Delete the form's OTP template, then sign up | The default is recreated and the OTP still sends. Deleting is not the off switch; deactivating is. |
 
