@@ -391,6 +391,14 @@ export class WaitlistFormService {
                 waitlist = await this.waitlistService.getWaitlist(waitlistId);
             }
 
+            // Only ask the server to create the doc when it is actually missing — and
+            // wait for it. Firing this on every load meant the one useful case (a
+            // missing waitlist) raced the form binding, and the request was in flight
+            // during page teardown, where an aborted fetch surfaces as `internal`.
+            if (!waitlist) {
+                await this.ensureWaitlistExists(waitlistId);
+            }
+
             if (waitlist && !waitlist.isActive) {
                 this.renderDisabledOverlay(form as HTMLFormElement, waitlist);
                 continue;
@@ -408,7 +416,6 @@ export class WaitlistFormService {
             };
             this.formStates.set(form as HTMLFormElement, state);
 
-            this.ensureWaitlistExists(waitlistId);
             form.addEventListener('submit', (e: Event) => this.handleFormSubmit(e, form as HTMLFormElement));
 
             // Track form interaction for behavioral metadata
@@ -453,12 +460,39 @@ export class WaitlistFormService {
         form.appendChild(overlay);
     }
 
-    private async ensureWaitlistExists(waitlistId: string): Promise<void> {
+    /**
+     * Ask the server to create the waitlist doc if it is missing.
+     *
+     * Runs in the injection context like every other Firebase call in this service.
+     * Failures are reported with the callable's own code, because the SDK collapses
+     * every transport-level failure (aborted or blocked fetch) into a bare `internal`,
+     * which says nothing about what went wrong.
+     */
+    private async ensureWaitlistExists(waitlistId: string): Promise<boolean> {
         try {
-            const callable = httpsCallable(this.functions, 'ensureWaitlistExists');
-            await callable({ waitlistId });
+            const callable = runInInjectionContext(this.injector, () =>
+                httpsCallable<{ waitlistId: string }, { success: boolean; existed?: boolean; reason?: string }>(
+                    this.functions,
+                    'ensureWaitlistExists',
+                ),
+            );
+            const result = await callable({ waitlistId });
+            if (!result.data?.success) {
+                console.error(`Could not create waitlist "${waitlistId}": ${result.data?.reason || 'unknown reason'}`);
+                return false;
+            }
+            return true;
         } catch (error) {
-            console.error(`Error ensuring waitlist exists: ${waitlistId}`, error);
+            const code = (error as { code?: string })?.code;
+            const message = (error as { message?: string })?.message;
+            console.error(
+                `Could not create waitlist "${waitlistId}" (${code || 'no code'}: ${message || String(error)}).` +
+                (code === 'functions/internal'
+                    ? ' A bare "internal" means the request never completed — the page was torn down mid-call, or the request was blocked.'
+                    : ''),
+                error,
+            );
+            return false;
         }
     }
 

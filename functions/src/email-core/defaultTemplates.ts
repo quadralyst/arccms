@@ -195,7 +195,10 @@ export function buildWaitlistTemplateDefs(): WaitlistTemplateDef[] {
     {
       type: 'waitlist_welcome_email',
       category: 'marketing',
-      subject: 'Waitlist welcome email',
+      // Subjects go through the same ##TAG## pass as the body (mailConfig.ts), so
+      // this resolves to the form's own name. It used to be the literal string
+      // "Waitlist welcome email", which is what recipients actually saw.
+      subject: WELCOME_SUBJECT_DEFAULT,
       title: 'Waitlist welcome email',
       previewText: '',
       body: `<div class="container" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
@@ -345,5 +348,117 @@ export async function ensureDefaultTemplates(): Promise<SeedResult> {
     created.push(def.type);
   }
 
+  return { created, skipped };
+}
+
+/**
+ * Subjects that earlier versions shipped as the welcome default.
+ *
+ * The default is now `Welcome to ##WAITLIST##`, but `ensureWaitlistTemplates` never
+ * overwrites an existing doc — so on an upgraded install every form would keep the
+ * literal subject "Waitlist welcome email", which is what recipients were actually
+ * seeing. These are the values safe to replace, and only on a template no human has
+ * touched (see {@link isUntouchedSystemTemplate}).
+ */
+export const WELCOME_SUBJECT_DEFAULT = 'Welcome to ##WAITLIST##';
+
+export const SUPERSEDED_WELCOME_SUBJECTS = [
+  'Waitlist welcome email',
+  'Welcome to the waitlist!',
+];
+
+/**
+ * Was this template left exactly as the system seeded it?
+ *
+ * Guards the subject upgrade: an admin who wrote their own subject keeps it, even
+ * if it happens to match an old default.
+ */
+export function isUntouchedSystemTemplate(data: Record<string, unknown>): boolean {
+  const modifiedBy = data['modifiedBy'];
+  return (modifiedBy === undefined || modifiedBy === null || modifiedBy === 'system')
+    && (data['createdBy'] === undefined || data['createdBy'] === null || data['createdBy'] === 'system');
+}
+
+/**
+ * A form's display name, never blank.
+ *
+ * `##WAITLIST##` resolves to '' when unmapped, so a welcome subject of
+ * `Welcome to ##WAITLIST##` would ship reading "Welcome to ". Every path that
+ * feeds a form name into an email goes through here.
+ */
+export function waitlistDisplayName(name?: string | null): string {
+  return (name || '').trim() || 'our waitlist';
+}
+
+/**
+ * Idempotently ensure a signup form has its own OTP + welcome templates.
+ *
+ * Previously these were created *only* by the `onWaitlistsCreate` trigger, so a
+ * form that missed it — created before the trigger existed, imported, restored,
+ * or written by a migration where the trigger did not fire — had none, forever.
+ * `getEmailTemplate` then fell through to a global lookup that (until this
+ * change) could return a *different* form's customised template. Calling this at
+ * every point of use is what makes the defaults self-healing.
+ *
+ * Deliberately unconditional: a deleted template comes back. `isActive: false` is
+ * the off switch for a form's email, not deletion — `queueEmail` already gates on
+ * it, and a missing template is indistinguishable from a never-seeded one.
+ *
+ * Existing docs are never overwritten, so admin edits survive.
+ */
+export async function ensureWaitlistTemplates(formId: string): Promise<SeedResult> {
+  const created: string[] = [];
+  const skipped: string[] = [];
+  if (!formId) return { created, skipped };
+
+  // The form must exist. This runs from `requestFormOtp`, which is public by
+  // necessity (a visitor has no account), so without this check anyone could post
+  // arbitrary waitlistIds and have us write two EmailTemplate docs per id —
+  // unbounded orphan documents from an unauthenticated endpoint.
+  if (!(await db.collection('Waitlists').doc(formId).get()).exists) {
+    return { created, skipped };
+  }
+
+  let settings: EmailSettings | undefined;
+  try {
+    settings = (await db.collection('Settings').doc('email').get()).data() as EmailSettings | undefined;
+  } catch {
+    /* fall back to a blank sender identity */
+  }
+  const senderName = settings?.senderName || '';
+  const senderEmail = settings?.senderEmail || '';
+
+  const batch = db.batch();
+  for (const def of buildWaitlistTemplateDefs()) {
+    const docId = waitlistTemplateDocId(formId, def.type);
+    const docRef = db.collection('EmailTemplate').doc(docId);
+    if ((await docRef.get()).exists) {
+      skipped.push(def.type);
+      continue;
+    }
+    const now = Timestamp.now();
+    batch.set(docRef, {
+      id: docId,
+      waitlistId: formId,
+      type: def.type,
+      category: def.category,
+      subject: def.subject,
+      title: def.title,
+      previewText: def.previewText,
+      template: def.body,
+      senderName,
+      senderEmail,
+      isActive: true,
+      editorVersion: 'html',
+      scope: 'form',
+      createdBy: 'system',
+      createdAt: now,
+      modifiedBy: 'system',
+      modifiedAt: now,
+    });
+    created.push(def.type);
+  }
+
+  if (created.length > 0) await batch.commit();
   return { created, skipped };
 }

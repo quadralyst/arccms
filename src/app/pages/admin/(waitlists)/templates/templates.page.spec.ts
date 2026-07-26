@@ -15,6 +15,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { Firestore } from '@angular/fire/firestore';
+import { Functions } from '@angular/fire/functions';
 import { MatDialog } from '@angular/material/dialog';
 import TemplatesComponent from './templates.page';
 import { BroadcastEmailStore } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.store';
@@ -91,6 +92,9 @@ describe('TemplatesComponent', () => {
             ],
             providers: [
                 { provide: Firestore, useValue: mockFirestore },
+                // U5.5: the page fetches the default templates from the server
+                // (`getWaitlistTemplateDefaults`) instead of keeping its own copy.
+                { provide: Functions, useValue: {} },
                 { provide: MatDialog, useValue: mockDialog },
                 { provide: ActivatedRoute, useValue: mockActivatedRoute },
                 { provide: Router, useValue: mockRouter },

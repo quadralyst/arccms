@@ -23,6 +23,11 @@ vi.mock('../email-core/contacts.js', () => ({
     ensureFormList: vi.fn().mockResolvedValue('waitlist-wl-123'),
 }));
 
+/**
+ * The trigger delegates seeding to `ensureWaitlistTemplates` (U5.5), so these run
+ * as trigger+helper integration tests: they still pin the canonical doc ids, the
+ * body content and the idempotency skip, which is where the value is.
+ */
 describe('onWaitlistsCreate', () => {
     const mockDb = db as any;
     let batchSet: any;
@@ -43,6 +48,12 @@ describe('onWaitlistsCreate', () => {
         mockDb.collection.mockImplementation((name: string) => {
             if (name === 'Settings') {
                 return { doc: vi.fn(() => ({ get: vi.fn().mockResolvedValue(settings) })) };
+            }
+            if (name === 'Waitlists') {
+                // U5.5: seeding now runs through ensureWaitlistTemplates, which
+                // refuses to write templates for a form that does not exist —
+                // requestFormOtp is public, so an unknown id must not create docs.
+                return { doc: vi.fn(() => ({ get: vi.fn().mockResolvedValue({ exists: true }) })) };
             }
             if (name === 'EmailTemplate') {
                 return {

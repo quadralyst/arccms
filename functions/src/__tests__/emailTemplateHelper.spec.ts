@@ -47,33 +47,28 @@ describe('emailTemplateHelper', () => {
       expect(mockDb.collection).toHaveBeenCalledWith('EmailTemplate');
     });
 
-    it('should fallback to config template if waitlist template not found', async () => {
-      const mockConfigData = { template: 'config-template' };
-
-      // First query returns empty (waitlist specific)
-      // Second query returns data (config fallback)
-      const emptyQuery = {
-        empty: true,
-        docs: [],
-      };
-
-      const configQuery = {
-        empty: false,
-        docs: [{ data: () => mockConfigData }],
-      };
+    it('should fall back only to a template explicitly scoped global', async () => {
+      // The fallback used to be `where('type','==',type).limit(1)` with no scope
+      // filter. Per-form docs carry the same `type`, so a form with no template of
+      // its own silently borrowed whichever form sorted first by doc id — serving
+      // one form's customised content, and its branding, to another's subscribers.
+      const mockConfigData = { template: 'config-template', scope: 'global' };
 
       const queryChain = {
         where: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         get: vi.fn()
-          .mockResolvedValueOnce(emptyQuery) // Waitlist specific
-          .mockResolvedValueOnce(configQuery), // Global config
+          .mockResolvedValueOnce({ empty: true, docs: [] })                    // the form's own
+          .mockResolvedValueOnce({ empty: false, docs: [{ data: () => mockConfigData }] }), // global
       };
 
       mockDb.collection.mockReturnValue(queryChain);
 
-      const result = await getEmailTemplate('wl-123', 'waitlist_verify_otp_email');
+      // `ensure: false` isolates the fallback; the seeding path has its own spec.
+      const result = await getEmailTemplate('wl-123', 'waitlist_verify_otp_email', { ensure: false });
+
       expect(result).toEqual(mockConfigData);
+      expect(queryChain.where).toHaveBeenCalledWith('scope', '==', 'global');
     });
 
     it('should throw error if no template found', async () => {
@@ -90,7 +85,7 @@ describe('emailTemplateHelper', () => {
 
       mockDb.collection.mockReturnValue(queryChain);
 
-      await expect(getEmailTemplate('wl-123', 'waitlist_verify_otp_email'))
+      await expect(getEmailTemplate('wl-123', 'waitlist_verify_otp_email', { ensure: false }))
         .rejects.toThrow('No email template found for type: waitlist_verify_otp_email');
     });
   });

@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
-import { waitlistTemplateDocId } from './defaultTemplates.js';
+import { ensureWaitlistTemplates, waitlistTemplateDocId } from './defaultTemplates.js';
 
 /**
  * Admin callable: turn each form's welcome email into a day-0 sequence step
@@ -55,18 +55,20 @@ export const migrateWelcomeToSequences = onCall(async (request) => {
         continue;
       }
 
-      // Prefer the form's own welcome template; fall back to the global default.
+      // The form's own welcome template, created on the spot if absent. The old
+      // fallback here was `where('type','==','waitlist_welcome_email').limit(1)`
+      // with no scope filter — per-form docs share that type, so a form with no
+      // welcome of its own was migrated onto *another form's* template and would
+      // then send that form's content to these subscribers, permanently.
       const perForm = waitlistTemplateDocId(formId, 'waitlist_welcome_email');
       let templateId = '';
       if ((await db.collection('EmailTemplate').doc(perForm).get()).exists) {
         templateId = perForm;
-      } else {
-        const global = await db
-          .collection('EmailTemplate')
-          .where('type', '==', 'waitlist_welcome_email')
-          .limit(1)
-          .get();
-        if (!global.empty) templateId = global.docs[0].id;
+      } else if (!dryRun) {
+        await ensureWaitlistTemplates(formId);
+        if ((await db.collection('EmailTemplate').doc(perForm).get()).exists) {
+          templateId = perForm;
+        }
       }
 
       if (!templateId) {

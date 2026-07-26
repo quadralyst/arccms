@@ -76,9 +76,14 @@ describe('resolveListContext (U5)', () => {
     expect(await resolveListContext('', 'a@x.com')).toEqual({});
   });
 
-  it('returns empty rather than throwing when the form is gone', async () => {
+  it('degrades to a safe display name rather than throwing when the form is gone', async () => {
+    // waitlistName is always populated now: the day-0 welcome's subject is
+    // `Welcome to ##WAITLIST##`, and an unmapped tag renders as '' — so a missing
+    // form would ship a subject reading "Welcome to ".
     const ctx = await resolveListContext('waitlist-deleted', 'a@x.com');
-    expect(ctx).toEqual({});
+
+    expect(ctx).toEqual({ waitlistName: 'our waitlist' });
+    expect(ctx['position']).toBeUndefined();
   });
 
   it('matches the member by email, not by contact id', async () => {

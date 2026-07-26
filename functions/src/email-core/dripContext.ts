@@ -1,5 +1,6 @@
 import { db } from '../init.js';
 import { computeEmailHash } from './unsubscribeToken.js';
+import { waitlistDisplayName } from './defaultTemplates.js';
 
 /**
  * Per-list merge context for drip sends (U5).
@@ -43,7 +44,12 @@ const waitlistResolver: ContextResolver = {
       ]);
 
       const context: ListContext = {};
-      if (formSnap.exists) context['waitlistName'] = formSnap.data()?.['name'] || '';
+      // Always set, and never blank — the welcome sent as a day-0 drip step uses
+      // `Welcome to ##WAITLIST##` as its subject, and an unmapped or empty tag
+      // resolves to '' rather than being left alone.
+      context['waitlistName'] = waitlistDisplayName(
+        formSnap.exists ? (formSnap.data()?.['name'] as string | undefined) : undefined,
+      );
 
       if (!memberSnap.empty) {
         const m = memberSnap.docs[0].data();

@@ -87,6 +87,12 @@ export * from './waitlists/ensureWaitlistExists.js';
 export * from './waitlists/formOtp.js';
 export * from './waitlists/finalizeFormSignup.js';
 
+// Audience unification (U5.5): per-form default templates that heal themselves,
+// and the mirror that keeps the public form's OTP switch honest.
+export * from './email-core/syncOtpEnabledFlag.js';
+export * from './email-core/backfillWaitlistTemplates.js';
+export * from './email-core/getWaitlistTemplateDefaults.js';
+
 //For increase total referrals
 export * from './waitlists/leaderboard/getLeaderBoardData.js';
 export * from './waitlists/referral/onReferralCreate.js';

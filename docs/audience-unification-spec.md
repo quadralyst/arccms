@@ -759,6 +759,101 @@ verification for U6 is "everything still works."
 
 ---
 
+## Phase U5.5 — Defaults that work out of the box ✅
+
+**Objective:** every signup form has a working OTP email (carrying `##OTP##`) and a
+welcome email that names the form, created whenever needed if absent. No install
+should have a form that cannot verify or greet a subscriber.
+
+### What was actually wrong
+
+The default bodies already existed and were already correct — `buildWaitlistTemplateDefs()`
+has carried `##OTP##` and `##WAITLIST##` since U1. The failure was in *when* they were
+created:
+
+1. **One-shot creation.** Per-form templates were written only by the
+   `onWaitlistsCreate` trigger. Any form that missed it — created before the trigger
+   existed, imported, restored, or written where the trigger did not fire — had none,
+   permanently. Note the asymmetry: the *global* templates already self-healed via
+   `ensureDefaultTemplates()` at each point of use. The per-form ones had no equivalent.
+2. **The fallback served another form's email.** `getEmailTemplate` step 2 was
+   `where('type','==',templateType).limit(1)` with no scope filter. Per-form docs carry
+   that same `type`, so a form with no template of its own silently borrowed whichever
+   form sorted first by doc id — one form's customised content, and its branding, sent
+   to another form's subscribers. This also masked (1): nothing looked broken.
+   `migrateWelcomeToSequences` had the same unscoped fallback, which would have bound a
+   form's welcome *campaign* to a neighbour's template permanently.
+3. **The two ends disagreed, and one failed open.** `requestFormOtp` threw
+   `failed-precondition`, so the visitor was stuck; but `finalizeFormSignup.otpRequired()`
+   caught the same miss and returned `false` — meaning *no verification required* — so
+   the signup completed **unverified**. Introduced in U5 item 5.
+4. **The welcome never named the form.** The default subject was the literal string
+   `'Waitlist welcome email'` — which is what recipients saw. Subjects *are*
+   merge-processed (`mailConfig.ts`), so `Welcome to ##WAITLIST##` works; an unmapped tag
+   resolves to `''`, so the display name needs a fallback or the subject reads "Welcome to ".
+5. **Three copies of the defaults.** The functions per-form set, the functions global set
+   (which contains no waitlist types), and a third in the admin page's
+   `email-template.model.ts`. The third had drifted into a different document altogether —
+   a full `<!DOCTYPE html>` page rather than an embeddable body, with its own subjects — so
+   "Reset to default" handed the admin an email the system would never send.
+
+### Decisions
+
+| Question | Decision |
+|---|---|
+| Admin deletes a template | **Always recreate.** `isActive: false` is the off switch, which `queueEmail` already gates on. A missing template is indistinguishable from a never-seeded one. The Templates UI has no Delete — only Reset to default and the Active toggle. |
+| OTP template unresolvable | **Fail closed**, except where no code *could* have been sent: email disabled / no provider, or `features.waitlistEmails === false`. |
+| Existing installs | Lazy-on-demand for correctness, plus `backfillWaitlistTemplates` so an upgraded install looks right before the first send. |
+
+### Scope
+1. **`ensureWaitlistTemplates(formId)`** — lazy, idempotent, unconditional. Called from
+   `getEmailTemplate` (so every send path heals), `migrateWelcomeToSequences`, the admin
+   Templates page, and `onWaitlistsCreate` as the eager warm path. Never overwrites, so
+   admin edits and a deactivated template both survive. **Requires the form to exist**:
+   `requestFormOtp` is public by necessity, so without that check any invented
+   `waitlistId` would write two orphan docs from an unauthenticated endpoint.
+2. **Scoped fallback** — the last-resort lookup is restricted to `scope == 'global'`.
+   Per-form docs are written with `scope: 'form'`, and older ones have no `scope` at all,
+   which never matches an equality filter. Global waitlist types are deliberately *not*
+   seeded: step 2 makes the fallback near-unreachable, and seeding them would add
+   ownerless rows to the Templates list.
+3. **`otpRequired` fails closed** with a message an admin can act on, rather than a bare
+   `internal` — or worse, a silently unverified contact.
+4. **One OTP switch.** `EmailTemplate.isActive` is authoritative; the new
+   `syncOtpEnabledFlag` trigger mirrors it onto `Waitlists.otpEnabled`, which is what the
+   *public form* reads to decide whether to show the code step. Only the admin Templates
+   page ever wrote that field, so any other route to `isActive` left the form asking for a
+   code that would never arrive, or skipping a step the server still required.
+5. **Welcome subject** `Welcome to ##WAITLIST##`, with `waitlistDisplayName()` on every
+   path that feeds a form name into an email so it cannot render empty.
+6. **Subject upgrade for existing forms.** The ensure never overwrites, so on an upgraded
+   install every form would have kept the old literal subject and the change would only
+   have reached forms created afterwards. `backfillWaitlistTemplates` upgrades a welcome
+   subject only when it still matches a superseded default **and** the template is
+   untouched by a human (`createdBy`/`modifiedBy` still `system`).
+7. **One source of truth.** The three drifted frontend constants are deleted; the admin
+   page reads defaults through the read-only `getWaitlistTemplateDefaults` callable and
+   seeds missing ones on load so tabs are never blank.
+
+### ✅ Manual verification
+1. `npm run test` green — 4183 tests, +44 for this phase (`ensureWaitlistTemplates.spec.ts`
+   22, `syncOtpEnabledFlag.spec.ts` 8, fail-closed cases in `finalizeFormSignup.spec.ts` 4,
+   plus updated `emailTemplateHelper`/`dripContext`/`onWaitlistsCreate` contracts).
+2. Live, against the deployed functions:
+   - `requestFormOtp` with an invented `waitlistId` → `FAILED_PRECONDITION`, no docs
+     created (the public-endpoint abuse guard).
+   - `requestFormOtp` on a real form → `{sent: true, status: 'pending'}`.
+   - All new callables reachable per `check-callable-access.sh` — no manual invoker step
+     was needed this time.
+3. **Still to do in the admin UI** (needs an admin session):
+   - Run `backfillWaitlistTemplates` (dry run first) — expect existing forms reported under
+     `subjectsUpgraded`, then a new signup's welcome subject reads "Welcome to <Form name>".
+   - Open a form's Templates page, uncheck **Active** on the OTP template, and confirm
+     `Waitlists/{id}.otpEnabled` flips to `false` and the public form stops showing the
+     code step.
+   - Delete a form's template row directly in the Firebase console, then sign up — the
+     default should reappear and the OTP still send.
+
 ## Phase U6 — Retire `WaitlistedUsers` (high-risk data migration)
 
 **Objective:** two records per person (Contact + form-member funnel doc), not three.
