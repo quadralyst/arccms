@@ -18,8 +18,12 @@
 # Usage: ./check-callable-access.sh [projectId] [region]
 set -uo pipefail
 
-PROJECT="${1:-xlm-project-864ff}"
-REGION="${2:-us-central1}"
+# Project/region come from the environment, not positional args: any positional
+# argument is treated as a function name to check. (Reading them positionally meant
+# `check-callable-access.sh someFunction` silently used "someFunction" as the
+# project id and reported every function as 404 / NOT DEPLOYED.)
+PROJECT="${FIREBASE_PROJECT:-xlm-project-864ff}"
+REGION="${FIREBASE_REGION:-us-central1}"
 BASE="https://${REGION}-${PROJECT}.cloudfunctions.net"
 
 # Every onCall function the browser invokes. Keep in sync with functions/src/index.ts.
@@ -35,6 +39,9 @@ CALLABLES=(
 )
 
 blocked=()
+# Any positional arguments narrow the check to just those functions.
+if [ "$#" -gt 0 ]; then CALLABLES=("$@"); fi
+
 for fn in "${CALLABLES[@]}"; do
   resp=$(curl -s -m 20 -w '\n%{http_code}' -X POST "$BASE/$fn" -H "Content-Type: application/json" -d '{"data":{}}' 2>/dev/null)
   code=$(printf '%s' "$resp" | tail -n1)

@@ -12,6 +12,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Firestore, collection, collectionData, doc, getDoc, query, where } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
+import { statusBadgeClass, statusBadgeLabel } from '../../../../shared/utils/status-badge';
 import { Subscription } from 'rxjs';
 
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
@@ -308,17 +309,17 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
                         .replace(/\b\w/g, (c) => c.toUpperCase()),
             },
             {
+                // A delivery status is not a boolean. This column used to collapse all
+                // seven states into Success/Failed, and because the badge read the raw
+                // field it showed a green "Success" for `skipped` — the exact status a
+                // queueEmail gate writes when it deliberately withholds a message. The
+                // health strip above the table counted those skips correctly, so the
+                // two disagreed on the same page.
                 key: 'status',
                 header: 'Status',
                 type: 'badge',
-                badgeConfig: {
-                    trueClass: 'active',
-                    falseClass: 'inactive',
-                    trueText: 'Success',
-                    falseText: 'Failed',
-                },
-                transformFn: (row: IEmailLog) =>
-                    row.status === 'success' || row.status === 'delivered' || row.status === 'sent',
+                badgeConfig: { textFn: (row: IEmailLog) => statusBadgeLabel(row.status) },
+                classFn: (row: IEmailLog) => statusBadgeClass(row.status),
             },
             {
                 key: 'activeProvider',

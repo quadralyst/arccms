@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { statusBadgeClass } from './status-badge';
+import { statusBadgeClass, statusBadgeLabel } from './status-badge';
 
 describe('statusBadgeClass', () => {
     it('maps positive/delivered statuses to is-success', () => {
@@ -36,5 +36,30 @@ describe('statusBadgeClass', () => {
         expect(statusBadgeClass('')).toBe('status-badge is-neutral');
         expect(statusBadgeClass(null)).toBe('status-badge is-neutral');
         expect(statusBadgeClass(undefined)).toBe('status-badge is-neutral');
+    });
+
+    it('gives every email-log delivery status a distinct tone', () => {
+        // These were all falling through to is-neutral, so a failed send and a
+        // deliberately-gated one looked identical in the logs table.
+        expect(statusBadgeClass('success')).toBe('status-badge is-success');
+        expect(statusBadgeClass('retrying')).toBe('status-badge is-warning');
+        expect(statusBadgeClass('deferred')).toBe('status-badge is-warning');
+        expect(statusBadgeClass('suppressed')).toBe('status-badge is-danger');
+        // Withheld by a gate — neither a success nor a delivery failure.
+        expect(statusBadgeClass('skipped')).toBe('status-badge is-neutral');
+    });
+});
+
+describe('statusBadgeLabel', () => {
+    it('capitalises a raw status without renaming it', () => {
+        expect(statusBadgeLabel('skipped')).toBe('Skipped');
+        expect(statusBadgeLabel('sent')).toBe('Sent');
+        expect(statusBadgeLabel('SUPPRESSED')).toBe('Suppressed');
+    });
+
+    it('reports unknown rather than inventing a state', () => {
+        expect(statusBadgeLabel('')).toBe('Unknown');
+        expect(statusBadgeLabel(null)).toBe('Unknown');
+        expect(statusBadgeLabel(undefined)).toBe('Unknown');
     });
 });

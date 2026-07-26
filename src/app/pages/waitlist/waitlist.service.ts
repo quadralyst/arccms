@@ -480,11 +480,12 @@ export class WaitlistService {
         // Update waitlist total signups
         await updateDoc(waitlistDocRef, { totalSignups: newTotalSignups });
 
-        // Clear verification code from WaitlistedUsers and add new waitlist to array
+        // Record the new waitlist on the global registry. The verification fields
+        // are no longer touched here: the client never sets a code (U5), and
+        // verifyFormOtp/finalizeFormSignup clear the legacy ones server-side — which
+        // is what lets the security rules refuse client writes to them.
         const waitlistedUserDocRef = doc(this.firestore, 'WaitlistedUsers', userId);
         await updateDoc(waitlistedUserDocRef, {
-            verificationCode: null,
-            verificationExpires: null,
             waitlistId: waitlistId,
             waitlistIds: arrayUnion(waitlistId),
         });
@@ -518,60 +519,11 @@ export class WaitlistService {
         user: Record<string, unknown>,
         userData: Partial<IWaitlistUser>,
     ): Promise<{ success: boolean; message?: string; data?: IVerifyOtpResult & Record<string, unknown>; isExistingVerifiedUser?: boolean }> {
-        const waitlistDocRef = doc(this.firestore, 'Waitlists', waitlistId);
-        const waitlistDoc = await getDoc(waitlistDocRef);
-        const waitlistData = waitlistDoc.data();
-
-        // Calculate queue position
-        const usersCollectionRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-        const confirmedUsersQuery = query(usersCollectionRef, where('isConfirmed', '==', true));
-        const confirmedUsersSnapshot = await getDocs(confirmedUsersQuery);
-        const queuePosition = confirmedUsersSnapshot.size + 1;
-        const newTotalSignups = confirmedUsersSnapshot.size + 1;
-
-        // Update user document (persist referredBy so admin can see referral source)
-        const userDocRef = doc(this.firestore, `Waitlists/${waitlistId}/users`, userId);
-        const userUpdateData: Record<string, unknown> = {
-            emailVerified: true,
-            isConfirmed: true,
-            queuePosition: queuePosition,
-            verificationCode: null,
-            verificationExpires: null,
-            verifiedAt: new Date(),
-        };
-        if (userData.referredBy) {
-            userUpdateData['referredBy'] = userData.referredBy;
-        }
-        await updateDoc(userDocRef, userUpdateData);
-
-        // Update waitlist total signups
-        await updateDoc(waitlistDocRef, { totalSignups: newTotalSignups });
-
-        // Apply default tag if configured
-        const defaultTagId = (waitlistData?.['defaultTagId'] as string) || '';
-        if (defaultTagId) {
-            await this.applyDefaultTag(waitlistId, userId, defaultTagId);
-        }
-
-        // Update WaitlistedUsers collection
-        if (user['waitlistedUserId']) {
-            const waitlistedUserDocRef = doc(this.firestore, 'WaitlistedUsers', user['waitlistedUserId'] as string);
-            const waitlistedUserDoc = await getDoc(waitlistedUserDocRef);
-            if (waitlistedUserDoc.exists()) {
-                const globalUpdateData: Record<string, unknown> = {
-                    emailVerified: true,
-                    isConfirmed: true,
-                    queuePosition: queuePosition,
-                    verificationCode: null,
-                    verificationExpires: null,
-                    verifiedAt: new Date(),
-                };
-                if (userData.referredBy) {
-                    globalUpdateData['referredBy'] = userData.referredBy;
-                }
-                await updateDoc(waitlistedUserDocRef, globalUpdateData);
-            }
-        }
+        // U5 item 5: the verification/position writes moved to finalizeFormSignup,
+        // which re-checks the OTP record server-side before confirming anyone.
+        const finalized = await this.finalizeSignup(waitlistId, userId, userData.referredBy);
+        const queuePosition = finalized.queuePosition;
+        const newTotalSignups = finalized.totalSignups;
 
         // Handle referral if provided
         if (userData.referredBy) {
@@ -745,61 +697,14 @@ export class WaitlistService {
             };
         }
 
-        // Calculate queue position
-        const usersCollectionRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-        const confirmedUsersQuery = query(usersCollectionRef, where('isConfirmed', '==', true));
-        const confirmedUsersSnapshot = await getDocs(confirmedUsersQuery);
-        const queuePosition = confirmedUsersSnapshot.size + 1;
-        const newTotalSignups = confirmedUsersSnapshot.size + 1;
+        // U5 item 5: position, confirmation and verification state are written by
+        // finalizeFormSignup. The server also decides whether an OTP was required —
+        // this path exists precisely for when it was not (email off / template
+        // inactive), and letting the client assert that would reopen the hole.
+        const finalized = await this.finalizeSignup(waitlistId, userId, referralCode);
 
-        // Update subcollection user doc — emailVerified stays false (no OTP verified),
-        // isConfirmed: true for queue management. Persist referredBy for admin visibility.
-        const confirmUpdateData: Record<string, unknown> = {
-            emailVerified: false,
-            isConfirmed: true,
-            queuePosition,
-            verificationCode: null,
-            verificationExpires: null,
-            verifiedAt: new Date(),
-        };
-        if (referralCode) {
-            confirmUpdateData['referredBy'] = referralCode;
-        }
-        await updateDoc(userDocRef, confirmUpdateData);
-
-        // Update waitlist total signups
-        const waitlistDocRef = doc(this.firestore, 'Waitlists', waitlistId);
-        const waitlistDoc = await getDoc(waitlistDocRef);
-        const waitlistData = waitlistDoc.data();
-        await updateDoc(waitlistDocRef, { totalSignups: newTotalSignups });
-
-        // Apply default tag if configured
-        const defaultTagId = (waitlistData?.['defaultTagId'] as string) || '';
-        if (defaultTagId) {
-            await this.applyDefaultTag(waitlistId, userId, defaultTagId);
-        }
-
-        // Update WaitlistedUsers collection
-        if (user['waitlistedUserId']) {
-            const waitlistedUserDocRef = doc(this.firestore, 'WaitlistedUsers', user['waitlistedUserId'] as string);
-            const waitlistedUserDoc = await getDoc(waitlistedUserDocRef);
-            if (waitlistedUserDoc.exists()) {
-                const globalConfirmData: Record<string, unknown> = {
-                    emailVerified: false,
-                    isConfirmed: true,
-                    queuePosition,
-                    verificationCode: null,
-                    verificationExpires: null,
-                    verifiedAt: new Date(),
-                };
-                if (referralCode) {
-                    globalConfirmData['referredBy'] = referralCode;
-                }
-                await updateDoc(waitlistedUserDocRef, globalConfirmData);
-            }
-        }
-
-        // Process referral if provided
+        // Referral crediting still runs client-side; the counter itself is
+        // incremented atomically by onReferralCreate/onReferralUpdate.
         if (referralCode) {
             await this.processReferral(
                 waitlistId,
@@ -810,7 +715,7 @@ export class WaitlistService {
             );
         }
 
-        return { queuePosition, totalSignups: newTotalSignups };
+        return { queuePosition: finalized.queuePosition, totalSignups: finalized.totalSignups };
     }
 
     /**
@@ -1151,6 +1056,30 @@ export class WaitlistService {
             console.error('requestFormOtp failed:', error);
             return { ok: false, message: error?.message || 'Could not send the verification code.' };
         }
+    }
+
+    /**
+     * Complete a signup server-side (U5 item 5): queue position, confirmation and
+     * verification state. The browser used to write those fields itself, which is
+     * exactly why the rules had to allow unauthenticated updates to them.
+     *
+     * The server decides whether a verified OTP is required — it is not told.
+     */
+    private async finalizeSignup(
+        waitlistId: string,
+        userId: string,
+        referredBy?: string,
+    ): Promise<{ queuePosition: number; totalSignups: number; emailVerified: boolean }> {
+        const call = httpsCallable<
+            { waitlistId: string; userId: string; referredBy?: string },
+            { queuePosition: number; totalSignups: number; emailVerified: boolean; alreadyConfirmed: boolean }
+        >(this.functions, 'finalizeFormSignup');
+        const res = await call({ waitlistId, userId, referredBy: referredBy || undefined });
+        return {
+            queuePosition: res.data?.queuePosition ?? 0,
+            totalSignups: res.data?.totalSignups ?? 0,
+            emailVerified: !!res.data?.emailVerified,
+        };
     }
 
     /** Server-authoritative code check (U5). Throws are converted to a result. */

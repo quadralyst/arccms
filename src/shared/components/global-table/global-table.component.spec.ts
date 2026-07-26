@@ -320,6 +320,48 @@ describe('GlobalTableComponent', () => {
             expect(badge.textContent.trim()).toBe('Active');
         });
 
+        it('should render a badge from transformFn rather than the raw field', () => {
+            // Regression: badge was the only column type that ignored transformFn and
+            // read row[col.key] straight. An email log with status 'skipped' is a
+            // truthy string, so a gated message that was never sent rendered as a
+            // green "Success".
+            component.loading = false;
+            component.data = [{ status: 'skipped' }];
+            component.columns = [{
+                key: 'status',
+                header: 'Status',
+                type: 'badge',
+                badgeConfig: { trueText: 'Success', falseText: 'Failed' },
+                transformFn: (row: any) => row.status === 'sent',
+            }];
+            fixture.detectChanges();
+
+            const badge = fixture.nativeElement.querySelector('.status-badge');
+            expect(badge.textContent.trim()).toBe('Failed');
+            expect(badge.classList.contains('active')).toBe(false);
+        });
+
+        it('should render a multi-state badge label from badgeConfig.textFn', () => {
+            component.loading = false;
+            component.data = [{ status: 'skipped' }];
+            component.columns = [{
+                key: 'status',
+                header: 'Status',
+                type: 'badge',
+                badgeConfig: { textFn: (row: any) => row.status.toUpperCase() },
+                classFn: () => 'is-neutral',
+            }];
+            fixture.detectChanges();
+
+            const badge = fixture.nativeElement.querySelector('.status-badge');
+            expect(badge.textContent.trim()).toBe('SKIPPED');
+            expect(badge.classList.contains('is-neutral')).toBe(true);
+            // textFn means more than two states, so the boolean active/inactive
+            // classes must stay off and let classFn decide the tone alone.
+            expect(badge.classList.contains('active')).toBe(false);
+            expect(badge.classList.contains('inactive')).toBe(false);
+        });
+
         it('should apply transformFn to text columns', () => {
             component.loading = false;
             component.data = [{ firstName: 'John', lastName: 'Doe' }];

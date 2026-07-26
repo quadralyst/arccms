@@ -82,8 +82,10 @@ export * from './waitlists/onWaitlistsUpdate.js';
 export * from './waitlists/onWaitlistsDelete.js';
 export * from './waitlists/ensureWaitlistExists.js';
 
-// Audience unification (U5): server-authoritative form OTP (double opt-in).
+// Audience unification (U5): server-authoritative form OTP (double opt-in) and
+// signup completion — the two together are what allow the rules lockdown.
 export * from './waitlists/formOtp.js';
+export * from './waitlists/finalizeFormSignup.js';
 
 //For increase total referrals
 export * from './waitlists/leaderboard/getLeaderBoardData.js';
