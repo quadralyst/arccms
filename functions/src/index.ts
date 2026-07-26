@@ -4,6 +4,8 @@ export * from './email-log/createEmailLog.js';
 // Email-core (Phase 1): one-click unsubscribe endpoint + retry scheduler.
 // queueEmail() is a library helper (imported by senders), not an exported trigger.
 export * from './email-core/handleUnsubscribe.js';
+// U5: legacy /unsubscribe/:waitlistId/:userId links, server-side.
+export * from './email-core/unsubscribeLegacyLink.js';
 export * from './email-core/retryPendingEmails.js';
 
 // Email-core (Phase 2): default-template seeding callable + signup OTP callables

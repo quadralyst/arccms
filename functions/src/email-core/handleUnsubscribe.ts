@@ -59,8 +59,12 @@ export const handleUnsubscribe = onRequest(async (req, res) => {
 /**
  * Suppress future email for a recipient and flip legacy `isSubscribed` flags.
  * Idempotent: safe to call repeatedly.
+ *
+ * Exported so the legacy `/unsubscribe/:waitlistId/:userId` links (already sitting
+ * in inboxes, and unable to carry an HMAC token) can reach the identical logic via
+ * a callable instead of writing consent from the browser (U5).
  */
-async function unsubscribeByEmailHash(emailHash: string): Promise<void> {
+export async function unsubscribeByEmailHash(emailHash: string): Promise<void> {
   // Recover the raw email from the recipient's most recent EmailLogs doc.
   // Used to populate the Suppression record and to locate waitlist docs.
   let email = '';
