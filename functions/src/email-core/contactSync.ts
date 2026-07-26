@@ -4,6 +4,7 @@ import { db } from '../init.js';
 import {
   upsertContact,
   unlinkUserContact,
+  removeContactFromLists,
   ensureFormList,
   ensureSystemLists,
   getContactConsent,
@@ -12,6 +13,7 @@ import {
   waitlistListId,
   type MarketingConsent,
 } from './contacts.js';
+import { computeEmailHash } from './unsubscribeToken.js';
 import { addTagsToContact } from './contactTags.js';
 import { setContactFields } from './contactFields.js';
 import { flushDueEnrollments } from './dripSend.js';
@@ -241,6 +243,61 @@ export const onWaitlistVerifiedContact = onDocumentUpdated(
       await emitAppEvent('waitlist.joined', { contactEmail: after.email, data: { waitlistId } });
     } catch (err) {
       logger.error('onWaitlistVerifiedContact failed', err);
+    }
+  },
+);
+
+/**
+ * Member doc deleted → the contact leaves that form's mirrored list.
+ *
+ * `waitlist-{id}` mirrors a form's member docs, and every other edge of that
+ * mirror was already covered (create, verify, whole-form delete) — but deleting
+ * a single member doc, which is what the joined-users admin page does, left the
+ * contact holding the listId. The person stayed in the list's audience and in
+ * its drip campaigns despite no longer being a member of the form; on the dev
+ * project 13 test contacts still carried `waitlist-*` memberships this way.
+ *
+ * Two deliberate limits on what this removes:
+ *
+ * - **Only the form's OWN list**, never the manual lists in `targetListIds`. A
+ *   form *feeds* those lists; it does not own them. The same person may have
+ *   joined `newsletter` through a second form or an import, and a member-doc
+ *   delete must not silently revoke a membership this form did not create.
+ * - **The contact itself is never deleted**, even when this was its only list.
+ *   Erasure is a distinct, explicit act — `adminDeleteContact`
+ *   (`email-core/eraseContact.ts`), behind a confirmation — and it is the only
+ *   path that may destroy an address. Cleaning up a test signup, or pruning one
+ *   form's members, must not quietly erase someone who may still be reachable
+ *   through another list, or whose consent record we are obliged to keep.
+ */
+export const onWaitlistUserDeleted = onDocumentDeleted(
+  'Waitlists/{waitlistId}/users/{userId}',
+  async (event) => {
+    const member = event.data?.data() as WaitlistUserData | undefined;
+    if (!member?.email) return;
+
+    const waitlistId = event.params.waitlistId;
+
+    try {
+      // The whole form is going away, not one member: `onWaitlistsDelete` owns
+      // that cleanup (it deletes the member docs, then `deleteFormList` drops
+      // every membership AND the list doc). Racing it is actively harmful —
+      // `removeContactFromLists` writes `Lists/{id}` with merge, so a decrement
+      // landing after the list doc was deleted would resurrect it as an orphan
+      // with a negative `memberCount`, which is the exact defect U1 fixed.
+      const form = await db.collection('Waitlists').doc(waitlistId).get();
+      if (!form.exists) return;
+
+      const emailHash = computeEmailHash(member.email);
+      // The chokepoint, not a direct listIds write: it keeps `memberCount`
+      // correct in the same transaction and exits the contact from that list's
+      // drip campaigns, which is the half a manual write silently skips (U7).
+      const left = await removeContactFromLists(emailHash, [waitlistListId(waitlistId)]);
+      if (left.length) {
+        logger.info(`onWaitlistUserDeleted: ${emailHash} left ${left.join(', ')}`);
+      }
+    } catch (err) {
+      logger.error('onWaitlistUserDeleted failed', err);
     }
   },
 );

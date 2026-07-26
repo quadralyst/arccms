@@ -12,9 +12,11 @@ const {
   mockGetContactConsent,
   mockSetContactConsent,
   mockAddTagsToContact,
+  mockRemoveContactFromLists,
 } = vi.hoisted(() => ({
   mockUpsertContact: vi.fn().mockResolvedValue({ emailHash: 'h', created: true }),
   mockUnlinkUserContact: vi.fn().mockResolvedValue(undefined),
+  mockRemoveContactFromLists: vi.fn().mockResolvedValue([]),
   mockEnsureSystemLists: vi.fn().mockResolvedValue(undefined),
   mockEnsureFormList: vi.fn().mockResolvedValue('waitlist-wl1'),
   mockWaitlistGet: vi.fn().mockResolvedValue({ exists: false, data: () => ({}) }),
@@ -27,9 +29,14 @@ vi.mock('../email-core/contactTags', () => ({
   addTagsToContact: mockAddTagsToContact,
 }));
 
+vi.mock('../email-core/unsubscribeToken', () => ({
+  computeEmailHash: (email: string) => `hash(${(email || '').trim().toLowerCase()})`,
+}));
+
 vi.mock('../email-core/contacts', () => ({
   upsertContact: mockUpsertContact,
   unlinkUserContact: mockUnlinkUserContact,
+  removeContactFromLists: mockRemoveContactFromLists,
   ensureSystemLists: mockEnsureSystemLists,
   ensureFormList: mockEnsureFormList,
   getContactConsent: mockGetContactConsent,
@@ -54,6 +61,7 @@ import {
   onUserCreateContact,
   onUserDeleteContact,
   onWaitlistUserCreateContact,
+  onWaitlistUserDeleted,
   onWaitlistVerifiedContact,
 } from '../email-core/contactSync.js';
 
@@ -61,6 +69,7 @@ const createH = onUserCreateContact as unknown as (e: any) => Promise<void>;
 const deleteH = onUserDeleteContact as unknown as (e: any) => Promise<void>;
 const wlH = onWaitlistVerifiedContact as unknown as (e: any) => Promise<void>;
 const signupH = onWaitlistUserCreateContact as unknown as (e: any) => Promise<void>;
+const memberDeleteH = onWaitlistUserDeleted as unknown as (e: any) => Promise<void>;
 
 /** A form signup event (member doc just created under Waitlists/{id}/users). */
 const signupEvent = (member: Record<string, unknown>, waitlistId = 'wl1') => ({
@@ -79,6 +88,7 @@ describe('contactSync triggers', () => {
     vi.clearAllMocks();
     mockUpsertContact.mockResolvedValue({ emailHash: 'h', created: true });
     mockGetContactConsent.mockResolvedValue('pending');
+    mockRemoveContactFromLists.mockResolvedValue([]);
   });
 
   it('user create → contact (signup) joining all-users', async () => {
@@ -311,6 +321,91 @@ describe('contactSync triggers', () => {
       ));
 
       expect(mockSetContactConsent).toHaveBeenCalledWith('h', 'unsubscribed', 'a@b.com');
+    });
+  });
+
+  // --- member doc deleted → the contact leaves that form's mirrored list ---
+
+  describe('member-doc delete leaves the form list', () => {
+    /** A member-doc delete event. The form doc exists unless a test says otherwise. */
+    const memberDeleteEvent = (member: Record<string, unknown>, waitlistId = 'wl1') => ({
+      params: { waitlistId },
+      data: { data: () => member },
+    });
+
+    const formExists = (data: Record<string, unknown> = { name: 'Alpha' }) =>
+      mockWaitlistGet.mockResolvedValue({ exists: true, data: () => data });
+
+    it('removes the contact from waitlist-{id} via the membership chokepoint', async () => {
+      formExists();
+
+      await memberDeleteH(memberDeleteEvent({ email: 'a@b.com', emailVerified: true }));
+
+      expect(mockRemoveContactFromLists).toHaveBeenCalledWith('hash(a@b.com)', ['waitlist-wl1']);
+    });
+
+    it('normalizes the address before hashing, so casing cannot orphan the membership', async () => {
+      formExists();
+
+      await memberDeleteH(memberDeleteEvent({ email: '  A@B.com ' }));
+
+      expect(mockRemoveContactFromLists).toHaveBeenCalledWith('hash(a@b.com)', ['waitlist-wl1']);
+    });
+
+    it('removes an unverified member too — a pending contact is still on the list (U2)', async () => {
+      formExists();
+
+      await memberDeleteH(memberDeleteEvent({ email: 'a@b.com', emailVerified: false }));
+
+      expect(mockRemoveContactFromLists).toHaveBeenCalledWith('hash(a@b.com)', ['waitlist-wl1']);
+    });
+
+    it("leaves only the form's own list, never the manual lists it feeds", async () => {
+      // A form feeds `newsletter`; it does not own it. The contact may have joined
+      // it through another form or an import, so this delete must not revoke it.
+      formExists({ name: 'Alpha', targetListIds: ['waitlist-wl1', 'newsletter', 'beta'] });
+
+      await memberDeleteH(memberDeleteEvent({ email: 'a@b.com' }));
+
+      expect(mockRemoveContactFromLists).toHaveBeenCalledWith('hash(a@b.com)', ['waitlist-wl1']);
+    });
+
+    it('never deletes the contact — erasure is adminDeleteContact only', async () => {
+      // Even when this was the contact's last list. Pruning a form's members must
+      // not silently erase an address.
+      formExists();
+      mockRemoveContactFromLists.mockResolvedValue(['waitlist-wl1']);
+
+      await memberDeleteH(memberDeleteEvent({ email: 'a@b.com' }));
+
+      expect(mockUpsertContact).not.toHaveBeenCalled();
+      expect(mockUnlinkUserContact).not.toHaveBeenCalled();
+      expect(mockSetContactConsent).not.toHaveBeenCalled();
+    });
+
+    it('stands down when the whole form is gone — onWaitlistsDelete owns that cleanup', async () => {
+      // Racing it would let a memberCount decrement land after deleteFormList
+      // removed the list doc, resurrecting it as an orphan with a negative count.
+      mockWaitlistGet.mockResolvedValue({ exists: false, data: () => ({}) });
+
+      await memberDeleteH(memberDeleteEvent({ email: 'a@b.com' }));
+
+      expect(mockRemoveContactFromLists).not.toHaveBeenCalled();
+    });
+
+    it('a member doc with no email is a no-op', async () => {
+      formExists();
+
+      await memberDeleteH(memberDeleteEvent({ name: 'A' }));
+
+      expect(mockRemoveContactFromLists).not.toHaveBeenCalled();
+    });
+
+    it('a failing removal is swallowed so the member-doc delete still stands', async () => {
+      formExists();
+      mockRemoveContactFromLists.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(memberDeleteH(memberDeleteEvent({ email: 'a@b.com' }))).resolves.toBeUndefined();
     });
   });
 });
