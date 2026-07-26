@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ContactDrawerComponent } from './contact-drawer.component';
 import { AudienceService } from '../../(audience)/audience.service';
@@ -12,8 +14,12 @@ describe('ContactDrawerComponent', () => {
         previewCsv: ReturnType<typeof vi.fn>;
         importContacts: ReturnType<typeof vi.fn>;
         setConsent: ReturnType<typeof vi.fn>;
+        deleteContact: ReturnType<typeof vi.fn>;
     };
     let toast: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+    /** Answer of the erase confirmation dialog; flip per test. */
+    let dialogResult: boolean;
+    let dialogOpen: ReturnType<typeof vi.fn>;
 
     beforeEach(async () => {
         audience = {
@@ -23,8 +29,11 @@ describe('ContactDrawerComponent', () => {
             }),
             importContacts: vi.fn().mockResolvedValue({ data: { imported: 1 } }),
             setConsent: vi.fn().mockResolvedValue({}),
+            deleteContact: vi.fn().mockResolvedValue({ data: { existed: true } }),
         };
         toast = { success: vi.fn(), error: vi.fn() };
+        dialogResult = true;
+        dialogOpen = vi.fn(() => ({ afterClosed: () => of(dialogResult) }));
 
         await TestBed.configureTestingModule({
             imports: [ContactDrawerComponent, NoopAnimationsModule],
@@ -32,7 +41,11 @@ describe('ContactDrawerComponent', () => {
                 { provide: AudienceService, useValue: audience },
                 { provide: ToastService, useValue: toast },
             ],
-        }).compileComponents();
+        })
+            // MatDialogModule sits in the component's own imports (page idiom), so its
+            // MatDialog wins over a plain TestBed provider — override it explicitly.
+            .overrideProvider(MatDialog, { useValue: { open: dialogOpen } })
+            .compileComponents();
         component = TestBed.createComponent(ContactDrawerComponent).componentInstance;
     });
 
@@ -100,6 +113,65 @@ describe('ContactDrawerComponent', () => {
             component.contact = { id: undefined, email: 'a@b.com' };
             await component.setConsent('subscribed');
             expect(audience.setConsent).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('erase', () => {
+        it('erases after confirmation, then emits saved + close', async () => {
+            const events: string[] = [];
+            component.saved.subscribe(() => events.push('saved'));
+            component.close.subscribe(() => events.push('close'));
+            component.contact = { id: 'hash1', email: 'a@b.com' };
+
+            component.confirmErase();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(audience.deleteContact).toHaveBeenCalledWith('hash1');
+            expect(events).toEqual(['saved', 'close']);
+        });
+
+        it('does not erase when the dialog is dismissed', async () => {
+            // The guard that matters: the action is irreversible, so a stray click
+            // on Close must not reach the callable.
+            dialogResult = false;
+            component.contact = { id: 'hash1', email: 'a@b.com' };
+
+            component.confirmErase();
+            await Promise.resolve();
+
+            expect(audience.deleteContact).not.toHaveBeenCalled();
+        });
+
+        it('never opens the dialog without a contact id', async () => {
+            component.contact = { id: undefined, email: 'a@b.com' };
+            component.confirmErase();
+            expect(dialogOpen).not.toHaveBeenCalled();
+        });
+
+        it('escapes the address before it goes into the dialog HTML', () => {
+            component.contact = { id: 'hash1', email: 'a<script>@b.com' };
+            component.confirmErase();
+
+            const message = dialogOpen.mock.calls[0][1].data.dialogMessage;
+            // bypassSecurityTrustHtml wraps the string; assert on its rendered form.
+            expect(String(message.changingThisBreaksApplicationSecurity ?? message))
+                .toContain('a&lt;script&gt;@b.com');
+        });
+
+        it('reports a failed erasure instead of claiming success', async () => {
+            audience.deleteContact.mockRejectedValue(new Error('permission-denied'));
+            const events: string[] = [];
+            component.saved.subscribe(() => events.push('saved'));
+            component.contact = { id: 'hash1', email: 'a@b.com' };
+
+            component.confirmErase();
+            await Promise.resolve();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(toast.error).toHaveBeenCalled();
+            expect(events).toEqual([]);
         });
     });
 });

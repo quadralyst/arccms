@@ -193,7 +193,55 @@ compiler wraps every block design in the branded shell; the footer supplies
 
 ---
 
-## 9. Known limitations / follow-ups
+## 9. Erasing a contact (deletion requests)
+
+ArcCMS stores subscriber addresses, so an operator has to be able to honour a
+deletion request without Firebase console access.
+
+Three admin actions look similar and are not interchangeable:
+
+| Action | What it does to the address | Use when |
+|--------|-----------------------------|----------|
+| **Suppress** (`adminSetContactConsent('unsubscribed')`) | **Retains** it, and deliberately records it in `Suppression` so no later import can re-add them | They opted out of marketing |
+| **Disable** (`adminSetContactDisabled`) | **Retains** it; stops every send, reversible, contact stays visible and counted | You need to stop mail to someone on a read-only form-fed list |
+| **Erase** (`adminDeleteContact`) | **Deletes** it everywhere one person's copy lives | They asked to be deleted |
+
+Erase is in the contact drawer (Audience → Contacts → pick a contact → *Erase*)
+behind a confirmation dialog. It is irreversible, and the callable additionally
+demands `confirm: true` so a direct call cannot erase by accident.
+
+**What it deletes**, in retry-safe order (see `functions/src/email-core/eraseContact.ts`):
+
+1. Leaves every list via `removeContactFromLists`, so `memberCount` stays correct
+   and the contact exits that list's drip campaigns.
+2. Exits any remaining drip enrolment with reason `erased`.
+3. Deletes the satellite docs that hold the raw address — the form member doc
+   under `Waitlists/{id}/users`, any pre-cutover `WaitlistedUsers` record, and any
+   in-flight `form_otps` verification.
+4. Deletes `Contacts/{emailHash}` **last**, so a mid-way failure leaves a
+   still-visible contact you can safely re-run against.
+5. Writes a hash-keyed receipt to `ErasureLog/{emailHash}` — `erasedAt`,
+   `erasedByUid`, and counts of what was removed, with **no address in it**. To
+   match a later complaint, hash the address and look up that id.
+
+**Deliberate non-behaviours:**
+
+- **No suppression tombstone.** Erasure means gone: an erased person can sign up
+  again later. Any existing `Suppression` doc is removed too, both for that reason
+  and because it carries the address.
+- **The form member doc goes with the contact.** That address is the same address,
+  so a contact-only delete would not be an erasure. The consequence is that form
+  member counts and signup analytics shrink retroactively.
+- **`EmailLogs` are not scrubbed.** Delivery logs still hold the recipient address
+  until `purgeEmailLogs` clears them (60-day default, and the scheduled purge).
+  Erasing a contact does not shorten that window — if a request requires it, run
+  the purge with a shorter `daysOld`.
+- **A registered user's account is untouched.** Erasing the contact of someone who
+  also has a login removes them from the audience, not from `users` /
+  `email_lookup` / Firebase Auth. If the request is "delete my account", delete the
+  user (which runs `onUserDeleted` and `onUserDeleteContact`) and erase the contact.
+
+## 10. Known limitations / follow-ups
 
 - **Template-delete guard for drips**: deleting an `EmailTemplate` still
   referenced by a non-archived drip campaign is not blocked yet. Archive the

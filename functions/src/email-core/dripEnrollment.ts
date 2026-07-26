@@ -27,7 +27,7 @@ export interface DripCampaignDoc {
   counts?: { enrolled: number; completed: number; exited: number };
 }
 
-export type ExitReason = 'left_list' | 'unsubscribed' | 'archived';
+export type ExitReason = 'left_list' | 'unsubscribed' | 'archived' | 'erased';
 
 function enrollmentId(campaignId: string, contactId: string): string {
   return `${campaignId}_${contactId}`;
