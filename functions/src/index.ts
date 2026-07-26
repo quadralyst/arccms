@@ -80,6 +80,9 @@ export * from './waitlists/onWaitlistsUpdate.js';
 export * from './waitlists/onWaitlistsDelete.js';
 export * from './waitlists/ensureWaitlistExists.js';
 
+// Audience unification (U5): server-authoritative form OTP (double opt-in).
+export * from './waitlists/formOtp.js';
+
 //For increase total referrals
 export * from './waitlists/leaderboard/getLeaderBoardData.js';
 export * from './waitlists/referral/onReferralCreate.js';
