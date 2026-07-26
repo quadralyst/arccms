@@ -314,6 +314,25 @@ service cloud.firestore {
         match /notes/{noteId} {
           allow read, write: if isAdmin();
         }
+
+        // U6: referrals live under the member that earned them, so the crediting
+        // trigger takes the form and the member straight from the document path
+        // instead of trusting fields on the record. Same permissions the block under
+        // WaitlistedUsers had — public read for the leaderboard, unauthenticated
+        // create for the signup flow — but `totalReferrals` itself stays
+        // functions-only (see the member update rule above), so a forged referral
+        // record still cannot inflate a count directly.
+        match /referrals/{referralId} {
+          allow read: if true;
+          allow create: if request.resource.data.keys().hasAll(['referredEmail'])
+                        && request.resource.data.referredEmail is string
+                        && request.resource.data.referredEmail.size() > 0
+                        && request.resource.data.referredEmail.size() < 255;
+          allow update: if isAdmin() || request.resource.data.diff(resource.data)
+                           .affectedKeys()
+                           .hasOnly(['status', 'completedAt']);
+          allow delete: if isAdmin();
+        }
       }
     }
 

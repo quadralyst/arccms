@@ -4,29 +4,23 @@ import { incrementReferralCounts } from '../../utils/referralHelper.js';
 
 interface ReferralData {
   status?: string;
-  referredBy?: string;
-  waitlistId?: string;
 }
 
+/**
+ * A referral record created already-completed credits its member immediately.
+ *
+ * U6 moved referrals under the member that earned them, so `waitlistId` and the
+ * referrer's member id come straight from the path. The old trigger sat on
+ * `WaitlistedUsers/{uid}/referrals/{id}` and had to trust `referredBy` and
+ * `waitlistId` *fields* on the record, resolving the member with a query that
+ * silently credited nobody when it missed.
+ */
 export const onReferralCreate = onDocumentCreated(
-  'WaitlistedUsers/{WaitlistedUsersId}/referrals/{referralsId}',
+  'Waitlists/{waitlistId}/users/{memberId}/referrals/{referralsId}',
   async (event) => {
-    const referralData = event.data?.data() as ReferralData | undefined;
-    if (!referralData) return;
+    const referral = event.data?.data() as ReferralData | undefined;
+    if (referral?.status !== constant.REFERRAL_STATUS.COMPLETED) return;
 
-    const waitlistedUserId = event.params.WaitlistedUsersId;
-
-    // Only process completed referrals with a valid referrer
-    if (
-      referralData.status === constant.REFERRAL_STATUS.COMPLETED &&
-      referralData.referredBy &&
-      referralData.waitlistId
-    ) {
-      await incrementReferralCounts(
-        referralData.referredBy,
-        referralData.waitlistId,
-        waitlistedUserId
-      );
-    }
-  }
+    await incrementReferralCounts(event.params.waitlistId, event.params.memberId);
+  },
 );

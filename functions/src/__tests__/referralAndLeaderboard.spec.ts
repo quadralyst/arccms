@@ -51,7 +51,12 @@ describe('Referral Functions', () => {
       expect(fileContent).toContain('export async function incrementReferralCounts');
     });
 
-    it('should update both WaitlistedUsers and Waitlists/users collections', async () => {
+    it('should credit the form-member doc and no longer touch WaitlistedUsers', async () => {
+      // U6: referrals moved under the member that earned them, so the counter has a
+      // single owner. The old helper wrote totalReferrals twice — once on the global
+      // registry doc, once on the member — and had to resolve the member with a
+      // `where('waitlistedUserId','==',…).limit(1)` query that silently credited
+      // nobody when it missed. The member is now the record's own parent.
       const fs = await import('fs');
       const path = await import('path');
       const fileContent = fs.readFileSync(
@@ -59,9 +64,10 @@ describe('Referral Functions', () => {
         'utf-8'
       );
 
-      expect(fileContent).toContain("db.collection('WaitlistedUsers')");
       expect(fileContent).toContain("db.collection('Waitlists')");
       expect(fileContent).toContain(".collection('users')");
+      expect(fileContent).not.toContain("db.collection('WaitlistedUsers')");
+      expect(fileContent).not.toContain("where('waitlistedUserId'");
     });
 
     it('should use batched writes for atomicity', async () => {
@@ -217,7 +223,11 @@ describe('Referral Decrement on User Delete', () => {
 
       const decrementSection = fileContent.split('decrementReferralCounts')[1];
       expect(decrementSection).toContain("collection('referrals')");
-      expect(decrementSection).toContain("where('referredUserId', '==', deletedUserId)");
+      // U6: matched against several candidate ids, because records written before the
+      // move name the referred person by their WaitlistedUsers id and records written
+      // after name them by their member-doc id. A single-id match would leave stale
+      // records behind, with the counter decremented but the record still there.
+      expect(decrementSection).toContain("where('referredUserId', 'in', candidates");
       expect(decrementSection).toContain('batch.delete(');
     });
 
@@ -230,7 +240,7 @@ describe('Referral Decrement on User Delete', () => {
       );
 
       const decrementSection = fileContent.split('decrementReferralCounts')[1];
-      expect(decrementSection).toContain('if (referrerSnapshot.empty) return');
+      expect(decrementSection).toContain('if (referrer.empty) return');
     });
   });
 
