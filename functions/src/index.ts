@@ -93,6 +93,9 @@ export * from './email-core/syncOtpEnabledFlag.js';
 export * from './email-core/backfillWaitlistTemplates.js';
 export * from './email-core/getWaitlistTemplateDefaults.js';
 
+// Audience unification (U6): move historical referral records off WaitlistedUsers.
+export * from './email-core/migrateWaitlistedUsers.js';
+
 //For increase total referrals
 export * from './waitlists/leaderboard/getLeaderBoardData.js';
 export * from './waitlists/referral/onReferralCreate.js';
