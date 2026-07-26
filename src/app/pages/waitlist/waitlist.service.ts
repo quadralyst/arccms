@@ -202,57 +202,27 @@ export class WaitlistService {
             // check sits exactly where the old plaintext comparison did, and takes
             // the address from whichever record we already loaded — callers do not
             // always pass one.
-            let otpVerified = false;
-
-            // Check if this is a verified user from WaitlistedUsers trying to join a new waitlist
-            const waitlistedUserDocRef = doc(this.firestore, 'WaitlistedUsers', userId);
-            const waitlistedUserDoc = await getDoc(waitlistedUserDocRef);
-
-            if (waitlistedUserDoc.exists()) {
-                const waitlistedUserData = waitlistedUserDoc.data();
-
-                const check = await this.checkFormOtp(
-                    waitlistId,
-                    (userData?.email || waitlistedUserData['email'] || '') as string,
-                    otp,
-                );
-                if (!check.ok) {
-                    return { success: false, message: check.message || 'Invalid or expired OTP' };
-                }
-                otpVerified = true;
-
-                // If user is confirmed and trying to join a new waitlist
-                if (waitlistedUserData['isConfirmed']) {
-                    return await this.processVerifiedUserJoiningNewWaitlist(
-                        waitlistId,
-                        userId,
-                        waitlistedUserData,
-                        userData,
-                    );
-                }
-            }
-
-            // Check if user exists in waitlist subcollection
-            const userDocRef = doc(this.firestore, `Waitlists/${waitlistId}/users`, userId);
-            const userDoc = await getDoc(userDocRef);
-
-            if (!userDoc.exists()) {
+            // The member record, read server-side (#51). This was a client read of
+            // `Waitlists/{id}/users/{userId}`, preceded by a read of the global
+            // `WaitlistedUsers` registry to catch a verified person joining a second
+            // form. That registry branch is gone: since `joinForm`, `userId` is a
+            // member-doc id, so the lookup could never match — and its outcome was the
+            // same as the normal path anyway (U6 option C).
+            const view = await this.getMemberView(waitlistId, userId);
+            if (!view) {
                 return { success: false, message: 'User not found in waitlist' };
             }
+            const user = view.member;
 
-            const user = userDoc.data();
-
-            // Same server-side check for the subcollection path (skipped if the
-            // WaitlistedUsers branch above already verified this code).
-            if (!otpVerified) {
-                const check = await this.checkFormOtp(
-                    waitlistId,
-                    (userData?.email || user['email'] || '') as string,
-                    otp,
-                );
-                if (!check.ok) {
-                    return { success: false, message: check.message || 'Invalid or expired OTP' };
-                }
+            // The code is checked server-side — expiry, attempt cap and hash — so the
+            // browser can neither read a code off a document nor skip the check.
+            const check = await this.checkFormOtp(
+                waitlistId,
+                (userData?.email || user['email'] || '') as string,
+                otp,
+            );
+            if (!check.ok) {
+                return { success: false, message: check.message || 'Invalid or expired OTP' };
             }
 
             // If already confirmed, return existing data
@@ -281,97 +251,6 @@ export class WaitlistService {
     }
 
     /**
-     * Process verified user joining a new waitlist
-     */
-    private async processVerifiedUserJoiningNewWaitlist(
-        waitlistId: string,
-        userId: string,
-        waitlistedUserData: Record<string, unknown>,
-        userData: Partial<IWaitlistUser>,
-    ): Promise<{ success: boolean; message?: string; data?: IVerifyOtpResult & Record<string, unknown>; isExistingVerifiedUser?: boolean }> {
-        // Calculate queue position
-        const usersCollectionRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-        const confirmedUsersQuery = query(usersCollectionRef, where('isConfirmed', '==', true));
-        const confirmedUsersSnapshot = await getDocs(confirmedUsersQuery);
-        const queuePosition = confirmedUsersSnapshot.size + 1;
-
-        // Get waitlist data
-        const waitlistDocRef = doc(this.firestore, 'Waitlists', waitlistId);
-        const waitlistDoc = await getDoc(waitlistDocRef);
-        const waitlistData = waitlistDoc.data();
-        const newTotalSignups = confirmedUsersSnapshot.size + 1;
-        // const newTotalSignups = (waitlistData?.['startingPoint'] || 0) + confirmedUsersSnapshot.size + 1;
-
-        // Create entry in current waitlist
-        const referralCode = (waitlistedUserData['referralCode'] as string) || this.generateReferralCode();
-        const referralLink = this.generateUrl(this.getCurrentPath(), { ref: referralCode });
-
-        const leaderboardLink = typeof window !== 'undefined'
-            ? `${window.location.origin}/leaderboard/${waitlistId}/${userId}`
-            : `/leaderboard/${waitlistId}/${userId}`;
-
-        const newWaitlistEntry = {
-            ...waitlistedUserData,
-            waitlistId: waitlistId,
-            waitlistedUserId: userId,
-            maskedEmail: this.maskEmail((waitlistedUserData['email'] as string) || ''),
-            signupTimestamp: new Date(),
-            queuePosition: queuePosition,
-            totalReferrals: 0,
-            referralCode: referralCode,
-            referralLink: referralLink,
-            emailVerified: true,
-            isConfirmed: true,
-            verifiedAt: new Date(),
-            verificationCode: null,
-            verificationExpires: null,
-            leaderboardLink: userData.leaderboardLink || leaderboardLink || '',
-            createdAt: new Date(),
-            isDirectJoined: true
-        };
-
-        const userRef = await addDoc(collection(this.firestore, `Waitlists/${waitlistId}/users`), newWaitlistEntry);
-
-        // Apply default tag if configured
-        const defaultTagId = (waitlistData?.['defaultTagId'] as string) || '';
-        if (defaultTagId) {
-            await this.applyDefaultTag(waitlistId, userRef.id, defaultTagId);
-        }
-
-        // Update waitlist total signups
-        await updateDoc(waitlistDocRef, { totalSignups: newTotalSignups });
-
-        // Record the new waitlist on the global registry. The verification fields
-        // are no longer touched here: the client never sets a code (U5), and
-        // verifyFormOtp/finalizeFormSignup clear the legacy ones server-side — which
-        // is what lets the security rules refuse client writes to them.
-        const waitlistedUserDocRef = doc(this.firestore, 'WaitlistedUsers', userId);
-        await updateDoc(waitlistedUserDocRef, {
-            waitlistId: waitlistId,
-            waitlistIds: arrayUnion(waitlistId),
-        });
-
-        // Handle referral if provided
-        if (userData.referredBy) {
-            await this.processReferral(waitlistId, userData.referredBy, userData.email || '', userData.firstName || '', userRef.id);
-        }
-
-        return {
-            success: true,
-            isExistingVerifiedUser: true,
-            data: {
-                ...newWaitlistEntry,
-                queuePosition,
-                totalSignups: newTotalSignups,
-                referralCode: newWaitlistEntry.referralCode,
-                referralLink: this.generateUrl(this.getCurrentPath(), { ref: newWaitlistEntry.referralCode }),
-                leaderboardLink: this.generateUrl(`/leaderboard/${userId}`),
-                userId: userRef.id,
-            },
-        };
-    }
-
-    /**
      * Process new verification
      */
     private async processNewVerification(
@@ -388,7 +267,10 @@ export class WaitlistService {
 
         // Handle referral if provided
         if (userData.referredBy) {
-            await this.processReferral(waitlistId, userData.referredBy, userData.email || '', userData.firstName || '', userId);
+            await this.recordReferral(
+                waitlistId, userData.referredBy, userData.email || '', userId,
+                'completed', userData.firstName || '',
+            );
         }
 
         return {
@@ -409,96 +291,40 @@ export class WaitlistService {
     }
 
     /**
-     * Process a referral when user verifies
-     */
-    /**
-     * Resolve a referral code to the member that owns it, within one form.
+     * Record a referral. Server-side (#51).
      *
-     * U6: referral codes are looked up among the form's members rather than in the
-     * retired global `WaitlistedUsers` registry, and referral records now hang off the
-     * member that earned them — `Waitlists/{waitlistId}/users/{memberId}/referrals` —
-     * so the crediting trigger reads both ids straight from the path.
+     * This used to resolve the referral code by querying member documents, then read
+     * the referrer's `referrals` subcollection to check for a duplicate — the last two
+     * client reads that forced public read on collections holding raw email addresses.
+     *
+     * Two things improved besides the exposure. The self-referral and duplicate guards
+     * ran in the browser, so they were advisory: anyone could skip them and credit
+     * themselves repeatedly. And the old code read the referrer's whole member document
+     * to compare addresses, exposing the referrer's email to the referred person.
+     *
+     * `totalReferrals` is still incremented by onReferralCreate/onReferralUpdate from
+     * the record's own path, so there remains exactly one place that counts.
      */
-    private async findReferrerMember(
+    private async recordReferral(
         waitlistId: string,
         referrerCode: string,
         referredEmail: string,
-    ): Promise<{ id: string; refPath: string } | null> {
-        const membersRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-        const snapshot = await getDocs(query(membersRef, where('referralCode', '==', referrerCode)));
-        if (snapshot.empty) return null;
-
-        const referrer = snapshot.docs[0];
-        const referrerEmail = referrer.data()['email'] as string | undefined;
-        if (referrerEmail && referrerEmail.toLowerCase() === referredEmail.toLowerCase()) {
-            console.warn('Self-referral blocked:', referredEmail);
-            return null;
+        referredMemberId: string,
+        status: 'completed' | 'pending',
+        referredName = '',
+    ): Promise<void> {
+        if (!referrerCode || !referredEmail) return;
+        try {
+            const callable = runInInjectionContext(this.injector, () =>
+                httpsCallable<Record<string, unknown>, { recorded: boolean }>(
+                    this.functions, 'creditReferral'));
+            await callable({
+                waitlistId, referrerCode, referredEmail, referredName, referredMemberId, status,
+            });
+        } catch (error) {
+            // A referral that cannot be recorded must not fail the signup.
+            console.error('Could not record the referral:', error);
         }
-        return { id: referrer.id, refPath: `Waitlists/${waitlistId}/users/${referrer.id}/referrals` };
-    }
-
-    private async processReferral(
-        waitlistId: string,
-        referrerCode: string,
-        referredEmail: string,
-        referredName: string,
-        referredUserId: string,
-    ): Promise<void> {
-        const referrer = await this.findReferrerMember(waitlistId, referrerCode, referredEmail);
-        if (!referrer) return;
-
-        // Check for duplicate referral
-        const existingReferralQuery = query(
-            collection(this.firestore, referrer.refPath),
-            where('referredEmail', '==', referredEmail),
-            where('referrerCode', '==', referrerCode),
-        );
-        const existingReferralSnapshot = await getDocs(existingReferralQuery);
-
-        if (!existingReferralSnapshot.empty) return;
-
-        // Create referral record
-        await addDoc(collection(this.firestore, referrer.refPath), {
-            referrerCode,
-            referredEmail,
-            referredMaskedEmail: this.maskEmail(referredEmail),
-            referredName,
-            referredUserId,
-            waitlistId,
-            status: 'completed',
-            referredBy: referrer.id,
-            createdAt: new Date(),
-            completedAt: new Date(),
-        });
-
-        // NOTE: totalReferrals is incremented by the cloud function
-        // (onReferralCreate / onReferralUpdate → incrementReferralCounts)
-        // using FieldValue.increment(1) atomically. Do NOT increment here
-        // to avoid double-counting.
-    }
-
-    /**
-     * Create a pending referral for new user
-     */
-    private async createPendingReferral(
-        referrerCode: string,
-        referredEmail: string,
-        waitlistId: string,
-        referredUserId: string,
-    ): Promise<void> {
-        const referrer = await this.findReferrerMember(waitlistId, referrerCode, referredEmail);
-        if (!referrer) return;
-
-        await addDoc(collection(this.firestore, referrer.refPath), {
-            referrerCode,
-            referredEmail,
-            referredMaskedEmail: this.maskEmail(referredEmail),
-            referredUserId,
-            waitlistId,
-            referredBy: referrer.id,
-            status: 'pending',
-            createdAt: new Date(),
-        });
     }
 
     /**
@@ -535,15 +361,14 @@ export class WaitlistService {
         userId: string,
         referralCode: string,
     ): Promise<{ queuePosition: number; totalSignups: number }> {
-        // Read the subcollection user doc
-        const userDocRef = doc(this.firestore, `Waitlists/${waitlistId}/users`, userId);
-        const userDoc = await getDoc(userDocRef);
-
-        if (!userDoc.exists()) {
+        // The member record, read server-side (#51) rather than straight from
+        // `Waitlists/{id}/users` — that client read is why the rules had to allow
+        // public reads on a collection holding raw email addresses.
+        const view = await this.getMemberView(waitlistId, userId);
+        if (!view) {
             throw new Error('User not found in waitlist');
         }
-
-        const user = userDoc.data();
+        const user = view.member;
 
         // If already confirmed, return current data without re-processing
         if (user['isConfirmed']) {
@@ -559,15 +384,12 @@ export class WaitlistService {
         // inactive), and letting the client assert that would reopen the hole.
         const finalized = await this.finalizeSignup(waitlistId, userId, referralCode);
 
-        // Referral crediting still runs client-side; the counter itself is
-        // incremented atomically by onReferralCreate/onReferralUpdate.
+        // The counter itself is incremented atomically by
+        // onReferralCreate/onReferralUpdate from the record's own path.
         if (referralCode) {
-            await this.processReferral(
-                waitlistId,
-                referralCode,
-                (user['email'] as string) || '',
-                (user['firstName'] as string) || '',
-                userId,
+            await this.recordReferral(
+                waitlistId, referralCode, (user['email'] as string) || '', userId,
+                'completed', (user['firstName'] as string) || '',
             );
         }
 
@@ -579,14 +401,13 @@ export class WaitlistService {
      */
     async resendVerificationCode(waitlistId: string, userId: string): Promise<{ success: boolean; message: string }> {
         try {
-            const userDocRef = doc(this.firestore, `Waitlists/${waitlistId}/users`, userId);
-            const userDoc = await getDoc(userDocRef);
-
-            if (!userDoc.exists()) {
+            // Server-side (#51): the address comes back through the member view rather
+            // than a client read of the member document.
+            const view = await this.getMemberView(waitlistId, userId);
+            if (!view) {
                 return { success: false, message: 'User not found' };
             }
-
-            const userData = userDoc.data();
+            const userData = view.member;
 
             // U5: the server owns generation, expiry and the 60s resend throttle —
             // it returns a clear error if asked again too soon.
