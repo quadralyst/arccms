@@ -199,6 +199,44 @@ click the button in the admin UI.
 **Verify rendered content, not HTTP status.** The public not-found page returns **200**, so a
 status-code check passes on a completely broken admin route (see the routing note below).
 
+### ⚠️ BLOCKER: admin callables are unreachable from the UI (found 2026-07-26)
+
+**Every `onCall` admin function returns HTTP 403 at the Cloud Run layer**, before any
+of our code runs. The function log says *"The request was not authenticated … Empty
+Authorization header value"* — the underlying Cloud Run service is missing the
+`allUsers` → `roles/run.invoker` binding that the callable protocol needs (app-level
+auth still happens inside, via `request.auth`).
+
+This is **not specific to the audience work**: `backfillContacts` and
+`adminAddContact` (email-spec Phase 3) are affected too, so the Contacts page's
+Backfill and Add-contact buttons cannot ever have worked from the browser. Verified
+403: `backfillContacts`, `adminAddContact`, `adminSetContactDisabled`,
+`adminSetContactTags`, `adminUpsertContactField`, `adminDeleteContactField`,
+`adminSetContactFields`, `migrateTagsToContacts`, `migrateFormDataToContactFields`,
+`migrateWelcomeToSequences`, `backfillFormLists`, `backfillPendingContacts`,
+`normalizeWaitlistTemplateIds`, `stampFormTargetLists`.
+Not affected (return 400, i.e. reachable): `requestFormOtp`, `verifyFormOtp`.
+
+`firebase deploy` does **not** repair it — redeploying a single function was tried and
+the 403 persisted. The fix is a one-off IAM grant per service, which needs project
+IAM rights:
+
+```
+gcloud run services add-iam-policy-binding <lowercased-function-name> \
+  --region=us-central1 --member=allUsers --role=roles/run.invoker \
+  --project=xlm-project-864ff
+```
+(or Cloud Console → Cloud Run → service → Security → allow unauthenticated). If an
+org policy such as Domain Restricted Sharing blocks `allUsers`, that policy has to be
+exempted for these services instead.
+
+**Consequence for verification:** every admin *button* that calls a callable is
+untestable until this is fixed — disable/enable contact, field CRUD, all migration
+buttons. Admin surfaces that only *read* Firestore (List hub, Fields table, Contacts,
+dashboard counts) work fine and have been verified against real data. The migrations
+themselves were exercised by invoking the compiled helpers directly (see §2.1
+verification pattern), so the logic is proven even though the buttons are not.
+
 ### Convention: admin routes go in `app.routes.ts`, explicitly
 
 `app.config.ts` uses `provideFileRouter(withExtraRoutes(routes))`, so Analog file-based
