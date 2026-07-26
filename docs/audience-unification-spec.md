@@ -613,6 +613,34 @@ U5, the old direct welcome trigger and client-side OTP generation are gone.
 
 ## Phase U5 — Welcome as day-0 sequence + server-side per-form OTP
 
+**Status:** 🟡 items 1–4 built + deployed 2026-07-18. Full suite green
+(237 files / 4121 tests). **Items 5 and 6 deliberately not done — see below.**
+
+Done:
+- Day-0 fast path. The per-enrollment send was extracted to `dripSend.ts` so the
+  scheduler and the fast path share one set of eligibility rules.
+- **The trigger point that matters:** the flush runs both on list join *and* on
+  promotion to `subscribed`. At signup a contact is `pending`, so the day-0 step is
+  held; nothing re-enrolls at verification, so without a flush there the welcome
+  would wait for the next 15-minute tick.
+- Per-list merge context (`dripContext.ts`) as a list-kind → resolver registry, so
+  a welcome sent as a drip step still resolves `##POSITION##`, `##REFERRAL_LINK##`,
+  `##LEADERBOARD_LINK##`, `##WAITLIST##`.
+- `migrateWelcomeToSequences` + the per-form `welcomeMigrated` guard. The flag is
+  written only after the campaign exists, since it is all that separates one
+  welcome from two.
+- `requestFormOtp` / `verifyFormOtp`, and the public flow swapped onto them: five
+  client generation sites and both plaintext comparisons are gone.
+
+**⚠️ Item 5 (rules lockdown) is NOT done, on purpose.** Removing `emailVerified`,
+`verificationCode`, `verificationExpires`, `verifiedAt` and `totalReferrals` from
+the `Waitlists/{id}/users` unauth-update whitelist is only safe once a real signup
+has been confirmed end-to-end against the new callables. Locking first breaks every
+signup with `permission-denied`, and that is not recoverable by a refresh. Sequence:
+verify a live signup → then lock → then re-verify.
+
+**Item 6 (unsubscribe via token flow) is not started.**
+
 **Objective:** the two built-in waitlist emails converge on the unified system: welcome =
 first sequence step; OTP = the form's double-opt-in email, generated server-side.
 
