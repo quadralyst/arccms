@@ -49,7 +49,7 @@ vi.mock('../email-core/contacts.js', () => ({
 
 import { backfillFormLists } from '../email-core/backfillFormLists.js';
 
-const call = () => (backfillFormLists as any)({ auth: { token: { role: 'admin' } }, data: {} });
+const call = (data: any = {}) => (backfillFormLists as any)({ auth: { token: { role: 'admin' } }, data });
 
 describe('backfillFormLists', () => {
   beforeEach(() => {
@@ -102,6 +102,30 @@ describe('backfillFormLists', () => {
     const res = await call();
 
     expect(res).toMatchObject({ forms: 2, created: 1, errors: ['wl-1'] });
+  });
+
+  describe('dryRun', () => {
+    it('writes nothing and reports which lists would be created', async () => {
+      waitlists.set('wl-1', { name: 'Alpha' });
+      waitlists.set('wl-2', { name: 'Beta' });
+
+      const res = await call({ dryRun: true });
+
+      expect(mockEnsureFormList).not.toHaveBeenCalled();
+      expect(res).toMatchObject({ dryRun: true, forms: 2, created: 2, repaired: 0 });
+      expect(res.wouldCreate.sort()).toEqual(['wl-1', 'wl-2']);
+    });
+
+    it('agrees with the real run on the created/repaired split', async () => {
+      waitlists.set('wl-1', { name: 'Alpha' });
+      existingLists.add('waitlist-wl-1'); // this form already has its list
+
+      const dry = await call({ dryRun: true });
+      const real = await call();
+
+      expect(dry.created).toBe(real.created);
+      expect(dry.repaired).toBe(real.repaired);
+    });
   });
 
   it('handles a project with no waitlists', async () => {
