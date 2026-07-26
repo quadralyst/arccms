@@ -464,8 +464,11 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
         this.referredByUser.set(null);
 
         try {
+            // U6: referral codes are looked up among this form's members. The global
+            // `WaitlistedUsers` registry is frozen and no longer written at signup, so a
+            // code belonging to anyone who joined after the cutover was never in it.
             const referrerQuery = runInInjectionContext(this.injector, () => query(
-                collection(this.firestore, 'WaitlistedUsers'),
+                collection(this.firestore, `Waitlists/${this.waitlistId}/users`),
                 where('referralCode', '==', this.user!.referredBy)
             ));
             const snapshot = await runInInjectionContext(this.injector, () => getDocs(referrerQuery));
@@ -485,7 +488,11 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
     }
 
     async loadReferredUsers(): Promise<void> {
-        if (!this.user?.waitlistedUserId) {
+        // U6 moved referral records under the member that earned them. Reading the old
+        // registry path showed nothing for referrals recorded after that move, so this
+        // panel quietly went stale for exactly the newest data an admin looks for.
+        const memberId = this.user?.id;
+        if (!memberId || !this.waitlistId) {
             this.referredUsers.set([]);
             return;
         }
@@ -493,7 +500,7 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
         this.isLoadingReferredUsers.set(true);
         try {
             const referralsRef = runInInjectionContext(this.injector, () => collection(
-                this.firestore, 'WaitlistedUsers', this.user!.waitlistedUserId!, 'referrals'
+                this.firestore, `Waitlists/${this.waitlistId}/users/${memberId}/referrals`
             ));
             const snapshot = await runInInjectionContext(this.injector, () => getDocs(referralsRef));
 
