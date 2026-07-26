@@ -96,6 +96,11 @@ export * from './email-core/getWaitlistTemplateDefaults.js';
 // Audience unification (U6): move historical referral records off WaitlistedUsers.
 export * from './email-core/migrateWaitlistedUsers.js';
 
+// Public read models for the waitlist pages. These replace client-side queries on
+// member docs, which is what forced `allow read: if true` on collections holding raw
+// email addresses.
+export * from './waitlists/publicWaitlistViews.js';
+
 //For increase total referrals
 export * from './waitlists/leaderboard/getLeaderBoardData.js';
 export * from './waitlists/referral/onReferralCreate.js';
