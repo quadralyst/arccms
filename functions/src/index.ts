@@ -74,8 +74,10 @@ export * from './users/onUserDelete.js';
 export * from './waitlists/waitlist-details/onWaitlistUserCreate.js';
 export * from './waitlists/waitlist-details/onWaitlistUserUpdate.js';
 export * from './waitlists/waitlist-details/onWaitlistUserDelete.js';
-export * from './waitlists/waitlistedUsers/onWaitlistedUsersCreate.js';
-export * from './waitlists/waitlistedUsers/onWaitlistedUsersUpdate.js';
+// U6 cutover: onWaitlistedUsersCreate / onWaitlistedUserUpdate are deleted. Both
+// existed only to email an OTP when `verificationCode` was written to a registry doc.
+// U5 stopped writing that field entirely — requestFormOtp sends the code directly — so
+// both had been dormant since, and joinForm no longer creates registry docs at all.
 
 export * from './waitlists/onWaitlistsCreate.js';
 export * from './waitlists/onWaitlistsUpdate.js';
