@@ -344,84 +344,57 @@ describe('JoinedUsersComponent', () => {
     // deleteUser — user with referrer
     // -----------------------------------------------------------------------
 
-    describe('deleteUser() — user with referrer', () => {
-        beforeEach(() => {
-            const referrerGlobalDoc = {
-                id: 'referrer-id',
-                ref: { id: 'referrer-id' },
-                data: () => ({ referralCode: 'REFCODE1' }),
-            };
-            const referrerWaitlistDoc = { ref: { id: 'referrer-wl-user' } };
-            const referralDoc = { ref: { id: 'ref-doc' } };
+    describe('deleteUser() — referral reversal is the trigger\'s job (U6)', () => {
+        // This page used to reverse the referral itself: find the referrer in the global
+        // registry, decrement their count on BOTH the registry doc and the member doc, and
+        // delete the referral record. `onWaitlistUserDelete` already does that server-side
+        // via decrementReferralCounts — so the referrer's totalReferrals was decremented
+        // twice per deletion, and the extra work read a collection U6 has frozen.
+        it('deletes the member and leaves the referral counters alone', async () => {
+            const user = {
+                id: 'user-1', email: 'a@b.com', firstName: 'A', isConfirmed: true,
+                referredBy: 'REF123', waitlistedUserId: 'wl-1',
+            } as any;
+            component.users.set([user]);
+            component.waitlistId.set('waitlist-1');
 
-            vi.mocked(FirestoreSDK.getDocs)
-                .mockResolvedValueOnce({ empty: false, docs: [referrerGlobalDoc], forEach: vi.fn() } as any)
-                .mockResolvedValueOnce({ empty: false, docs: [referrerWaitlistDoc], forEach: vi.fn() } as any)
-                .mockResolvedValueOnce({
-                    empty: false,
-                    docs: [referralDoc],
-                    forEach: (fn: any) => fn(referralDoc),
-                } as any);
+            await component.deleteUser(user);
+
+            // The member doc is deleted and the form's signup count adjusted; nothing
+            // touches totalReferrals or the referrals subcollection.
+            expect(batchMock.delete).toHaveBeenCalled();
+            const updates = batchMock.update.mock.calls.map((c: any[]) => Object.keys(c[1] || {})).flat();
+            expect(updates).not.toContain('totalReferrals');
         });
 
-        it('should decrement referrer totalReferrals', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
-            await component.deleteUser(makeUser({ referredBy: 'REFCODE1', waitlistedUserId: 'wlu-1' }));
-            const decremented = batchMock.update.mock.calls.some(
-                ([, payload]: any[]) => payload?.totalReferrals === -1
-            );
-            expect(decremented).toBe(true);
+        it('no longer reads the global registry', async () => {
+            const user = {
+                id: 'user-1', email: 'a@b.com', isConfirmed: false,
+                referredBy: 'REF123', waitlistedUserId: 'wl-1',
+            } as any;
+            component.users.set([user]);
+            component.waitlistId.set('waitlist-1');
+
+            await component.deleteUser(user);
+
+            const paths = [
+                ...vi.mocked(FirestoreSDK.collection).mock.calls.map((c: any[]) => String(c[1])),
+                ...vi.mocked(FirestoreSDK.doc).mock.calls.map((c: any[]) => String(c[1])),
+            ];
+            expect(paths.some((p) => p.includes('WaitlistedUsers'))).toBe(false);
         });
 
-        it('should delete the referral doc', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
-            await component.deleteUser(makeUser({ referredBy: 'REFCODE1', waitlistedUserId: 'wlu-1' }));
-            expect(batchMock.delete.mock.calls.length).toBeGreaterThanOrEqual(2);
-        });
+        it('removes the user from the local list without a reload', async () => {
+            const user = { id: 'user-1', email: 'a@b.com', isConfirmed: false } as any;
+            component.users.set([user, { id: 'user-2', email: 'c@d.com' } as any]);
+            component.waitlistId.set('waitlist-1');
 
-        it('should commit exactly once', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
-            await component.deleteUser(makeUser({ referredBy: 'REFCODE1', waitlistedUserId: 'wlu-1' }));
-            expect(batchMock.commit).toHaveBeenCalledOnce();
+            await component.deleteUser(user);
+
+            expect(component.users().map((u: any) => u.id)).toEqual(['user-2']);
         });
     });
 
-    // -----------------------------------------------------------------------
-    // deleteUser — global WaitlistedUsers cleanup
-    // -----------------------------------------------------------------------
-
-    describe('deleteUser() — global WaitlistedUsers cleanup', () => {
-        it('should delete global doc when user is in only one waitlist', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
-            vi.mocked(FirestoreSDK.getDoc).mockResolvedValue({
-                exists: () => true,
-                data: () => ({ waitlistId: 'wl-1', waitlistIds: ['wl-1'] }),
-            } as any);
-            const user = makeUser({ waitlistedUserId: 'wlu-1', referredBy: undefined, emailVerified: false, isConfirmed: false });
-            await component.deleteUser(user);
-            expect(batchMock.delete).toHaveBeenCalledTimes(2);
-        });
-
-        it('should remove waitlistId from array when user is in multiple waitlists', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
-            vi.mocked(FirestoreSDK.getDoc).mockResolvedValue({
-                exists: () => true,
-                data: () => ({ waitlistId: 'wl-1', waitlistIds: ['wl-1', 'other-waitlist'] }),
-            } as any);
-            const user = makeUser({ waitlistedUserId: 'wlu-1', referredBy: undefined, emailVerified: false, isConfirmed: false });
-            await component.deleteUser(user);
-            // Should NOT delete global doc — only remove from array via batch.update
-            expect(batchMock.delete).toHaveBeenCalledTimes(1); // only subcollection user deleted
-            expect(batchMock.update).toHaveBeenCalled();
-        });
-
-        it('should NOT call getDoc when no waitlistedUserId', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
-            const user = makeUser({ waitlistedUserId: undefined, referredBy: undefined, emailVerified: false, isConfirmed: false });
-            await component.deleteUser(user);
-            expect(FirestoreSDK.getDoc).not.toHaveBeenCalled();
-        });
-    });
 
     // -----------------------------------------------------------------------
     // deleteUser — error handling

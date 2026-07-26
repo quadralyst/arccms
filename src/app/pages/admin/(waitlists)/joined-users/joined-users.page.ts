@@ -10,7 +10,7 @@ import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, Injector, inject, runInInjectionContext, signal, computed, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Firestore, arrayRemove, collection, getDocs, orderBy, query, doc, getDoc, writeBatch, increment, where } from '@angular/fire/firestore';
+import { Firestore, collection, getDocs, orderBy, query, doc, getDoc, writeBatch, increment } from '@angular/fire/firestore';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -288,54 +288,15 @@ export default class JoinedUsersComponent implements OnInit {
                 batch.update(waitlistRef, { totalSignups: increment(-1) });
             }
 
-            // 3. If user was referred by someone, decrement referrer's counts
-            if (user.referredBy) {
-                // Find the referrer by their referral code in WaitlistedUsers
-                const waitlistedUsersRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'WaitlistedUsers'));
-                const referrerQuery = runInInjectionContext(this.injector, () => query(waitlistedUsersRef, where('referralCode', '==', user.referredBy)));
-                const referrerSnapshot = await runInInjectionContext(this.injector, () => getDocs(referrerQuery));
-
-                if (!referrerSnapshot.empty) {
-                    const referrerDoc = referrerSnapshot.docs[0];
-                    const referrerId = referrerDoc.id;
-
-                    // Decrement referrer's totalReferrals in WaitlistedUsers
-                    batch.update(referrerDoc.ref, { totalReferrals: increment(-1) });
-
-                    // Decrement referrer's totalReferrals in Waitlists/{waitlistId}/users
-                    const referrerWaitlistQuery = runInInjectionContext(this.injector, () => query(
-                        collection(this.firestore, `Waitlists/${waitlistId}/users`),
-                        where('waitlistedUserId', '==', referrerId)
-                    ));
-                    const referrerWaitlistSnapshot = await runInInjectionContext(this.injector, () => getDocs(referrerWaitlistQuery));
-                    if (!referrerWaitlistSnapshot.empty) {
-                        batch.update(referrerWaitlistSnapshot.docs[0].ref, { totalReferrals: increment(-1) });
-                    }
-
-                    // Delete the referral doc in WaitlistedUsers/{referrerId}/referrals/
-                    const referralsRef = runInInjectionContext(this.injector, () => collection(this.firestore, `WaitlistedUsers/${referrerId}/referrals`));
-                    const referralQuery = runInInjectionContext(this.injector, () => query(referralsRef, where('referredUserId', '==', user.waitlistedUserId || user.id)));
-                    const referralSnapshot = await runInInjectionContext(this.injector, () => getDocs(referralQuery));
-                    referralSnapshot.forEach(referralDoc => batch.delete(referralDoc.ref));
-                }
-            }
-
-            // 4. If user exists in WaitlistedUsers, remove this waitlist from their list
-            if (user.waitlistedUserId) {
-                const globalUserRef = runInInjectionContext(this.injector, () => doc(this.firestore, 'WaitlistedUsers', user.waitlistedUserId!));
-                const globalUserSnap = await runInInjectionContext(this.injector, () => getDoc(globalUserRef));
-                if (globalUserSnap.exists()) {
-                    const globalData = globalUserSnap.data();
-                    const waitlistIds = (globalData['waitlistIds'] as string[]) || [globalData['waitlistId']];
-                    if (waitlistIds.length <= 1) {
-                        // Only in this waitlist — delete the global doc
-                        batch.delete(globalUserRef);
-                    } else {
-                        // In multiple waitlists — just remove this one from the array
-                        batch.update(globalUserRef, { waitlistIds: arrayRemove(waitlistId) });
-                    }
-                }
-            }
+            // Referral reversal is NOT done here. `onWaitlistUserDelete` fires on this
+            // delete and calls `decrementReferralCounts`, which finds the referrer within
+            // the form, decrements them once and removes the referral record.
+            //
+            // This used to do the same thing client-side, against the global registry and
+            // the member doc. That meant the referrer's `totalReferrals` was decremented
+            // TWICE per deletion — once here, once by the trigger — and the extra work
+            // read a collection U6 has frozen. Deleting it fixes the double-decrement and
+            // leaves one owner for the counter.
 
             await batch.commit();
 
