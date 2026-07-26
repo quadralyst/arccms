@@ -163,6 +163,62 @@ describe('ensureWaitlistTemplates', () => {
     expect(store.has(`EmailTemplate/not-a-real-form_${OTP}`)).toBe(false);
   });
 
+  describe('the three historical doc-id schemes', () => {
+    // Real data holds all three at once: random auto-ids from the admin page's early
+    // addDoc path, legacy `${type}_${formId}` from the old create trigger, and
+    // today's canonical `${formId}_${type}`. A presence check keyed on the canonical
+    // id alone declares those older forms empty and writes a duplicate — after which
+    // the senders' limit(1) picks between two templates by document key, and the
+    // admin page edits whichever one it did not send.
+
+    it('recognises a template stored under a random auto-id', async () => {
+      store.set('EmailTemplate/4jU1REsCPv1hrXPHr1Ut', {
+        type: WELCOME, waitlistId: 'form-a', subject: 'Hand-tuned welcome', isActive: true,
+      });
+
+      const result = await ensureWaitlistTemplates('form-a');
+
+      expect(result.skipped).toContain(WELCOME);
+      expect(result.created).toEqual([OTP]);
+      expect(store.has(`EmailTemplate/form-a_${WELCOME}`)).toBe(false);
+    });
+
+    it('recognises a template stored under the legacy ${type}_${formId} id', async () => {
+      store.set(`EmailTemplate/${OTP}_form-a`, {
+        type: OTP, waitlistId: 'form-a', subject: 'Legacy OTP', isActive: true,
+      });
+
+      const result = await ensureWaitlistTemplates('form-a');
+
+      expect(result.skipped).toContain(OTP);
+      expect(store.has(`EmailTemplate/form-a_${OTP}`)).toBe(false);
+    });
+
+    it('leaves a form with both templates under old ids completely alone', async () => {
+      store.set('EmailTemplate/randomWelcomeId', {
+        type: WELCOME, waitlistId: 'form-a', subject: 'Custom', isActive: true,
+      });
+      store.set(`EmailTemplate/${OTP}_form-a`, {
+        type: OTP, waitlistId: 'form-a', subject: 'Custom OTP', isActive: true,
+      });
+
+      const result = await ensureWaitlistTemplates('form-a');
+
+      expect(result.created).toEqual([]);
+      expect(result.skipped.sort()).toEqual([OTP, WELCOME].sort());
+    });
+
+    it('does not confuse another form\'s template for this one', async () => {
+      store.set('EmailTemplate/someRandomId', {
+        type: OTP, waitlistId: 'form-b', subject: "B's", isActive: true,
+      });
+
+      const result = await ensureWaitlistTemplates('form-a');
+
+      expect(result.created.sort()).toEqual([OTP, WELCOME].sort());
+    });
+  });
+
   it('marks per-form docs with scope "form" so a global lookup cannot match them', async () => {
     await ensureWaitlistTemplates('form-a');
     expect(store.get(`EmailTemplate/form-a_${OTP}`).scope).toBe('form');
@@ -278,16 +334,21 @@ describe('the welcome-subject upgrade for already-seeded forms', () => {
     expect(SUPERSEDED_WELCOME_SUBJECTS).not.toContain(WELCOME_SUBJECT_DEFAULT);
   });
 
-  it('treats a system-seeded template as safe to upgrade', () => {
+  it('treats a system-seeded template as eligible', () => {
     expect(isUntouchedSystemTemplate({ createdBy: 'system', modifiedBy: 'system' })).toBe(true);
     // Older docs predate the audit fields entirely.
     expect(isUntouchedSystemTemplate({})).toBe(true);
   });
 
-  it('refuses to upgrade anything a human has saved', () => {
-    // An admin who saved this template keeps their subject, even if it happens to
-    // match an old default.
-    expect(isUntouchedSystemTemplate({ createdBy: 'system', modifiedBy: 'admin@example.com' })).toBe(false);
+  it('stays eligible after an admin edits the body but not the subject', () => {
+    // The case this upgrade exists for, found on real data: the admin had reworked
+    // the body in the block editor while the subject was still byte-identical to
+    // 'Waitlist welcome email' — which is what recipients saw. Gating on modifiedBy
+    // would have skipped exactly the form that needed fixing.
+    expect(isUntouchedSystemTemplate({ createdBy: 'system', modifiedBy: 'admin' })).toBe(true);
+  });
+
+  it('leaves a template a human created outright completely alone', () => {
     expect(isUntouchedSystemTemplate({ createdBy: 'admin@example.com' })).toBe(false);
   });
 

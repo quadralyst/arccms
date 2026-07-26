@@ -368,15 +368,23 @@ export const SUPERSEDED_WELCOME_SUBJECTS = [
 ];
 
 /**
- * Was this template left exactly as the system seeded it?
+ * Did *we* seed this template, rather than a human creating it from scratch?
  *
- * Guards the subject upgrade: an admin who wrote their own subject keeps it, even
- * if it happens to match an old default.
+ * Guards the subject upgrade. Note what this deliberately does **not** check:
+ * `modifiedBy`. Requiring the template to be wholly untouched sounded safer, but on
+ * real data it blocked the very case the upgrade exists for — an admin had edited
+ * the body in the block editor (`modifiedBy: 'admin'`, plus a `design` field) while
+ * never touching the subject, which was still byte-identical to the old default
+ * `'Waitlist welcome email'`. That is what recipients saw.
+ *
+ * A subject that exactly matches a superseded default is strong evidence nobody
+ * chose it, so the upgrade is scoped to that exact-match case (see
+ * {@link SUPERSEDED_WELCOME_SUBJECTS}) and never rewrites a body. A template a human
+ * created outright is still left alone entirely.
  */
 export function isUntouchedSystemTemplate(data: Record<string, unknown>): boolean {
-  const modifiedBy = data['modifiedBy'];
-  return (modifiedBy === undefined || modifiedBy === null || modifiedBy === 'system')
-    && (data['createdBy'] === undefined || data['createdBy'] === null || data['createdBy'] === 'system');
+  const createdBy = data['createdBy'];
+  return createdBy === undefined || createdBy === null || createdBy === 'system';
 }
 
 /**
@@ -388,6 +396,26 @@ export function isUntouchedSystemTemplate(data: Record<string, unknown>): boolea
  */
 export function waitlistDisplayName(name?: string | null): string {
   return (name || '').trim() || 'our waitlist';
+}
+
+/**
+ * Does this form already have a template of this type, under **any** doc id?
+ *
+ * Deliberately the same query the senders run, because the collection holds three
+ * historical id schemes — random auto-ids (the admin page's early `addDoc` path),
+ * legacy `${type}_${formId}`, and canonical `${formId}_${type}`. Anything that
+ * decides presence by doc id alone will duplicate templates for the older forms.
+ *
+ * Exported so the backfill's dry run reports exactly what the real run would do.
+ */
+export async function formTemplateExists(formId: string, type: string): Promise<boolean> {
+  const snap = await db
+    .collection('EmailTemplate')
+    .where('waitlistId', '==', formId)
+    .where('type', '==', type)
+    .limit(1)
+    .get();
+  return !snap.empty;
 }
 
 /**
@@ -432,7 +460,19 @@ export async function ensureWaitlistTemplates(formId: string): Promise<SeedResul
   for (const def of buildWaitlistTemplateDefs()) {
     const docId = waitlistTemplateDocId(formId, def.type);
     const docRef = db.collection('EmailTemplate').doc(docId);
-    if ((await docRef.get()).exists) {
+
+    // Presence is decided by the same (waitlistId, type) query the senders use —
+    // NOT by whether the canonical doc id exists.
+    //
+    // Live data carries three id schemes: random auto-ids from the admin page's
+    // early `addDoc` path, the legacy `${type}_${formId}` the old create trigger
+    // wrote, and today's canonical `${formId}_${type}`. Keying the check on the
+    // canonical id alone would declare a form "missing" while it in fact has a
+    // customised template under one of the other ids, and then write a second one.
+    // The senders' `limit(1)` would pick between them by document key, and the
+    // admin page — which saves to the canonical id — would end up editing a
+    // different doc than the one actually being sent.
+    if (await formTemplateExists(formId, def.type)) {
       skipped.push(def.type);
       continue;
     }

@@ -56,11 +56,26 @@ describe('onWaitlistsCreate', () => {
                 return { doc: vi.fn(() => ({ get: vi.fn().mockResolvedValue({ exists: true }) })) };
             }
             if (name === 'EmailTemplate') {
+                // U5.5: presence is decided by a (waitlistId, type) query, not by the
+                // canonical doc id — real data holds three id schemes, and checking the
+                // id alone duplicates templates for the older forms. `existingIds` is
+                // still keyed by canonical id, so the query resolves through it.
+                const chain = (filters: Record<string, any>): any => ({
+                    where: (field: string, _op: string, value: any) =>
+                        chain({ ...filters, [field]: value }),
+                    limit: () => ({
+                        get: async () => {
+                            const id = `${filters['waitlistId']}_${filters['type']}`;
+                            return { empty: !existingIds.has(id), docs: [] };
+                        },
+                    }),
+                });
                 return {
                     doc: vi.fn((id: string) => ({
                         id,
                         get: vi.fn().mockResolvedValue({ exists: existingIds.has(id) }),
                     })),
+                    ...chain({}),
                 };
             }
             return { doc: vi.fn() };

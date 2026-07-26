@@ -4,6 +4,7 @@ import { db } from '../init.js';
 import { Timestamp } from 'firebase-admin/firestore';
 import {
   ensureWaitlistTemplates,
+  formTemplateExists,
   isUntouchedSystemTemplate,
   SUPERSEDED_WELCOME_SUBJECTS,
   WELCOME_SUBJECT_DEFAULT,
@@ -48,11 +49,19 @@ export const backfillWaitlistTemplates = onCall(async (request) => {
      * subject is never clobbered.
      */
     async function upgradeWelcomeSubject(formId: string): Promise<void> {
-      const ref = db.collection('EmailTemplate').doc(`${formId}_waitlist_welcome_email`);
-      const snap = await ref.get();
-      if (!snap.exists) return;
+      // Resolve by (waitlistId, type) rather than by doc id — an older form's
+      // welcome may live under a legacy or auto-generated id, and it is exactly
+      // those forms that still carry the superseded subject.
+      const found = await db
+        .collection('EmailTemplate')
+        .where('waitlistId', '==', formId)
+        .where('type', '==', 'waitlist_welcome_email')
+        .limit(1)
+        .get();
+      if (found.empty) return;
 
-      const data = snap.data() || {};
+      const ref = found.docs[0].ref;
+      const data = found.docs[0].data() || {};
       const current = String(data['subject'] || '');
       const target = WELCOME_SUBJECT_DEFAULT;
       if (current === target) return;
@@ -68,10 +77,13 @@ export const backfillWaitlistTemplates = onCall(async (request) => {
       if (dryRun) {
         // Report only — mirror the ensure's own existence check rather than
         // writing anything.
+        // Same presence check as the real run, so the dry run cannot under- or
+        // over-report. Checking the canonical doc id here would have claimed every
+        // older form was missing both templates when it had customised ones under a
+        // legacy or auto-generated id.
         const missing: string[] = [];
         for (const type of ['waitlist_welcome_email', 'waitlist_verify_otp_email']) {
-          const ref = db.collection('EmailTemplate').doc(`${form.id}_${type}`);
-          if (!(await ref.get()).exists) missing.push(type);
+          if (!(await formTemplateExists(form.id, type))) missing.push(type);
         }
         if (missing.length) {
           formsSeeded++;

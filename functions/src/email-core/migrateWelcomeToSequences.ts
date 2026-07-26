@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
-import { ensureWaitlistTemplates, waitlistTemplateDocId } from './defaultTemplates.js';
+import { ensureWaitlistTemplates } from './defaultTemplates.js';
 
 /**
  * Admin callable: turn each form's welcome email into a day-0 sequence step
@@ -60,15 +60,23 @@ export const migrateWelcomeToSequences = onCall(async (request) => {
       // with no scope filter — per-form docs share that type, so a form with no
       // welcome of its own was migrated onto *another form's* template and would
       // then send that form's content to these subscribers, permanently.
-      const perForm = waitlistTemplateDocId(formId, 'waitlist_welcome_email');
-      let templateId = '';
-      if ((await db.collection('EmailTemplate').doc(perForm).get()).exists) {
-        templateId = perForm;
-      } else if (!dryRun) {
+      // Resolve by (waitlistId, type), not by doc id: the collection holds three
+      // historical id schemes, and binding a campaign to the wrong one would make it
+      // send from a doc the admin is not editing.
+      const ownTemplate = async () => {
+        const snap = await db
+          .collection('EmailTemplate')
+          .where('waitlistId', '==', formId)
+          .where('type', '==', 'waitlist_welcome_email')
+          .limit(1)
+          .get();
+        return snap.empty ? '' : snap.docs[0].id;
+      };
+
+      let templateId = await ownTemplate();
+      if (!templateId && !dryRun) {
         await ensureWaitlistTemplates(formId);
-        if ((await db.collection('EmailTemplate').doc(perForm).get()).exists) {
-          templateId = perForm;
-        }
+        templateId = await ownTemplate();
       }
 
       if (!templateId) {
