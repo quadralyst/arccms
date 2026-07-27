@@ -15,6 +15,56 @@ interface QueueItem {
 }
 
 /**
+ * Mirrors the draft's language variants onto the published document, so the
+ * per-language deploy and the SPA fallback both read from the published side.
+ *
+ * Languages removed from the draft are deleted from the published copy —
+ * otherwise clearing a translation would leave its page deploying forever.
+ */
+async function syncTranslations(
+    draftCollection: string,
+    publishedCollection: string,
+    docId: string,
+): Promise<void> {
+    try {
+        const draftTranslations = await db
+            .collection(draftCollection).doc(docId).collection('translations').get();
+        const publishedRef = db.collection(publishedCollection).doc(docId).collection('translations');
+        const publishedTranslations = await publishedRef.get();
+
+        const draftLangs = new Set(draftTranslations.docs.map(d => d.id));
+        const batch = db.batch();
+
+        draftTranslations.docs.forEach(doc => {
+            batch.set(publishedRef.doc(doc.id), doc.data());
+        });
+        publishedTranslations.docs
+            .filter(doc => !draftLangs.has(doc.id))
+            .forEach(doc => batch.delete(doc.ref));
+
+        await batch.commit();
+    } catch (error) {
+        // A translation sync failure must not abort the publish — the default
+        // language still deploys, which is the pre-multilingual behaviour.
+        console.error(`Could not sync translations for ${publishedCollection}/${docId}:`, error);
+    }
+}
+
+/** Removes every language variant of a published document. */
+async function deleteTranslations(publishedCollection: string, docId: string): Promise<void> {
+    try {
+        const ref = db.collection(publishedCollection).doc(docId).collection('translations');
+        const snap = await ref.get();
+        if (snap.empty) return;
+        const batch = db.batch();
+        snap.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+    } catch (error) {
+        console.error(`Could not delete translations for ${publishedCollection}/${docId}:`, error);
+    }
+}
+
+/**
  * Records on the draft that it has just been published.
  *
  * The admin list distinguishes "Published" from "Edited" by comparing the
@@ -89,6 +139,7 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 publishBatch.set(publishedRef.collection('PublishedHistory').doc(), draftData);
                 await publishBatch.commit();
                 console.log(`Published: ${publishedCollection}/${docId}`);
+                await syncTranslations(draftCollection, publishedCollection, docId);
                 await stampLastPublishedAt(draftCollection, docId);
 
                 // Deploy static HTML (detail + list pages)
@@ -143,6 +194,7 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 // Add to published history
                 updateBatch.set(publishedRef.collection('PublishedHistory').doc(), draftFields);
                 await updateBatch.commit();
+                await syncTranslations(draftCollection, publishedCollection, docId);
                 await stampLastPublishedAt(draftCollection, docId);
 
                 // Deploy static HTML (detail + list pages)
@@ -163,6 +215,8 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 const doc = await publishedRef.get();
                 const urlSlug = doc.exists ? doc.data()?.urlSlug : null;
                 if (doc.exists) {
+                    // Subcollections are not deleted with their parent.
+                    await deleteTranslations(publishedCollection, docId);
                     await publishedRef.delete();
                     console.log(`Unpublished: ${publishedCollection}/${docId}`);
                 }
@@ -186,6 +240,8 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 const delDoc = await publishedRef.get();
                 const delUrlSlug = delDoc.exists ? delDoc.data()?.urlSlug : null;
                 if (delDoc.exists) {
+                    // Subcollections are not deleted with their parent.
+                    await deleteTranslations(publishedCollection, docId);
                     await publishedRef.delete();
                     console.log(`Deleted published: ${publishedCollection}/${docId}`);
                 }
