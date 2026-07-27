@@ -9,7 +9,7 @@ import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
-import { ContentType } from '../admin/contents/content-types/content-types.model';
+import { ContentType, contentTypeName } from '../admin/contents/content-types/content-types.model';
 import { IContents } from '../admin/contents/content-store/published-contents.model';
 import { TagsStore } from '../admin/contents/content-types/tags/tags.store';
 import { FooterComponent } from './footer.component';
@@ -61,7 +61,7 @@ import {
             <!-- Hero Section - Compact -->
             <section class="content-hero">
                 <div class="container">
-                    <h1 class="content-hero-title">{{ currentContentType()?.name }}</h1>
+                    <h1 class="content-hero-title">{{ typeName() }}</h1>
                     <p class="content-hero-subtitle">{{ currentContentType()?.description || 'Discover insights, tutorials, and updates.' }}</p>
                 </div>
             </section>
@@ -352,6 +352,12 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         const slug = this.contentTypeSlug();
         const types = this.contentTypesStore.items();
         return types.find((ct: ContentType) => ct.slug === slug) || null;
+    });
+
+    /** The content type's name in the page's language (M-D19). */
+    typeName = computed(() => {
+        const type = this.currentContentType();
+        return type ? contentTypeName(type, this.pageLang()) : '';
     });
 
     /** Language prefix of the current URL — '' on the default-language route. */

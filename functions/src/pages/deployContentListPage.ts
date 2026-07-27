@@ -8,6 +8,7 @@ import {
     mergeTranslation,
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
+import { contentTypeName } from '../shared/content-type-names.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -217,8 +218,9 @@ export async function generateAndDeployContentListPage(
         const lang = language.code;
         const prefix = langPrefix(lang, defaultLang);
 
+        const typeName = contentTypeName(contentType, lang);
         const templateData = {
-            contentType: contentType.name,
+            contentType: typeName,
             contentTypeSlug: contentType.slug,
             contentTypeDescription: contentType.description || '',
             description: contentType.description || '',
@@ -257,8 +259,8 @@ export async function generateAndDeployContentListPage(
                 tags: tagsData,
                 tagsHtml,
                 tagsDisplay: (localized.tags || []).slice(0, 3).join(', '),
-                contentType: contentType.name,
-                cat: contentType.name,
+                contentType: typeName,
+                cat: typeName,
                 ...((localized.customFields as Record<string, any>) || {}),
             };
         });
@@ -286,8 +288,8 @@ export async function generateAndDeployContentListPage(
         const { body, styles, scripts } = extractStylesAndScripts(hydratedHtml);
 
         const meta: PageMeta = {
-            title: contentType.name || 'Content',
-            metaDescription: contentType.description || `Browse all ${contentType.name?.toLowerCase() || 'content'}`,
+            title: typeName || 'Content',
+            metaDescription: contentType.description || `Browse all ${typeName?.toLowerCase() || 'content'}`,
             canonicalUrl: listUrl(baseUrl, lang, defaultLang, contentTypeSlug),
             ogImage: '',
             ogType: 'website',
@@ -296,7 +298,7 @@ export async function generateAndDeployContentListPage(
             // The feed stays default-language only — per-language RSS is a
             // deliberate non-goal until someone asks for it.
             rssUrl: `${baseUrl}/${contentTypeSlug}/feed.xml`,
-            rssTitle: `${siteConfig.siteName} - ${contentType.name || 'Content'} RSS Feed`,
+            rssTitle: `${siteConfig.siteName} - ${typeName || 'Content'} RSS Feed`,
             lang,
             rtl: language.rtl,
             alternates,

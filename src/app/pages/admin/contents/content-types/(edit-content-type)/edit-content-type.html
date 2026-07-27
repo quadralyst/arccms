@@ -34,6 +34,37 @@
             <small class="text-muted">Used for single items (e.g., "Add Article")</small>
         </div>
 
+        <!-- Per-language names. Only shown on a multilingual site; a blank
+             field means that language uses the default name above. -->
+        @if (extraLanguages().length > 0) {
+        <div class="form-group">
+            <label class="form-label">Translated names</label>
+            <small class="text-muted d-block mb-2">
+                Shown on translated pages — headings and "Back to&hellip;" links. Leave blank to use the
+                names above.
+            </small>
+            @for (language of extraLanguages(); track language.code) {
+            <div class="row g-2 mb-2 align-items-center">
+                <div class="col-auto">
+                    <span class="badge bg-light text-dark">{{ language.nativeLabel || language.label }}</span>
+                </div>
+                <div class="col">
+                    <input type="text" class="form-control form-control-sm"
+                        [placeholder]="editForm.get('name')?.value || 'Plural name'"
+                        [value]="translatedName(language.code, 'name')"
+                        (input)="setTranslatedName(language.code, 'name', $any($event.target).value)" />
+                </div>
+                <div class="col">
+                    <input type="text" class="form-control form-control-sm"
+                        [placeholder]="editForm.get('singularName')?.value || 'Singular name'"
+                        [value]="translatedName(language.code, 'singularName')"
+                        (input)="setTranslatedName(language.code, 'singularName', $any($event.target).value)" />
+                </div>
+            </div>
+            }
+        </div>
+        }
+
         <div class="form-group">
             <label class="form-label">
                 Description
