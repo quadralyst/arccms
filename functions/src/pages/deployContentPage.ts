@@ -256,6 +256,12 @@ export async function generateAndDeployContentDetailPage(
         lang: lang.code,
         url: detailUrl(siteConfig.baseUrl, lang.code, defaultLang, contentTypeSlug, content.urlSlug),
     }));
+    // Relative for the switcher — see buildLanguageSwitcher. The page must keep
+    // working on whatever host it is actually served from.
+    const switcherLinks = languages.map(lang => ({
+        lang: lang.code,
+        url: detailUrl('', lang.code, defaultLang, contentTypeSlug, content.urlSlug),
+    }));
 
     const poweredBy = miscSettings.showPoweredBy ? POWERED_BY_HTML : undefined;
     const languageLabels = Object.fromEntries(
@@ -292,7 +298,7 @@ export async function generateAndDeployContentDetailPage(
             hydratedHtml,
             partials.headerHtml,
             partials.footerHtml,
-            buildLanguageSwitcher(alternates, lang, languageLabels),
+            buildLanguageSwitcher(switcherLinks, lang, languageLabels),
         );
 
         // Extract inline styles/scripts from template
