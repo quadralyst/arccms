@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 export interface TableAction {
@@ -15,6 +16,15 @@ export interface TableAction {
 
 export interface TableColumn {
     key: string;
+    /**
+     * The column heading.
+     *
+     * A translation key is resolved by the table; anything else is rendered
+     * as-is. Callers build their columns in a field initialiser, which runs
+     * before the translation file has loaded — translating there yields the
+     * key itself. Resolving here also means a language switch updates the
+     * headings without every page rebuilding its columns.
+     */
     header: string;
     type?: 'text' | 'badge' | 'actions' | 'code' | 'index' | 'date' | 'tags' | 'html' | 'icon' | 'image'; // Added 'html', 'icon' and 'image'
     sortable?: boolean;
@@ -61,7 +71,7 @@ export interface TableColumn {
     templateUrl: './global-table.component.html',
     styleUrls: ['./global-table.component.scss'],
     standalone: true,
-    imports: [CommonModule]
+    imports: [CommonModule, TranslocoPipe]
 })
 export class GlobalTableComponent {
     /**

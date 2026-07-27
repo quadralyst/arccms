@@ -790,8 +790,12 @@ describe('DraftContentsTableComponent', () => {
         it('should render the Title heading only once when a custom title field shadows the built-in', () => {
             useArticleType([TITLE_FIELD, AUTHOR_FIELD]);
 
-            const titleColumns = component.tableColumns.filter((c) => c.header === 'Title');
+            // Headings are translation keys now — the table resolves them, so a
+            // custom field shadowing `title` shows up as a second column with the
+            // same key rather than the same literal text.
+            const titleColumns = component.tableColumns.filter((c) => c.key === 'title');
             expect(titleColumns).toHaveLength(1);
+            expect(titleColumns[0].header).toBe('admin.contents.list.col_title');
             expect(component.tableColumns.map((c) => c.key)).toContain('author');
         });
 

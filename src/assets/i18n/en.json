@@ -75,6 +75,12 @@
       "status": "Status:",
       "clear": "Clear Filters",
       "filtered": "filtered"
+    },
+    "dialog": {
+      "delete": "Delete",
+      "logout": "Logout",
+      "unpublish": "Unpublish",
+      "confirm": "Confirm"
     }
   },
   "admin": {
@@ -145,6 +151,50 @@
         "already_enabled": "{{ language }} is already enabled.",
         "saved": "Languages saved successfully",
         "save_failed": "Could not save languages. Please try again."
+      },
+      "hub": {
+        "title": "Settings",
+        "subtitle": "Manage your application settings",
+        "about": {
+          "label": "About",
+          "description": "Site name, URL & address"
+        },
+        "email": {
+          "label": "Email Settings",
+          "description": "SMTP configuration and sender info"
+        },
+        "integrations": {
+          "label": "Integrations",
+          "description": "Third-party API keys & services"
+        },
+        "analytics": {
+          "label": "Analytics",
+          "description": "Google Analytics OAuth connection"
+        },
+        "payments": {
+          "label": "Payments",
+          "description": "Dodo integration & payment emails"
+        },
+        "user": {
+          "label": "User Settings",
+          "description": "Signup & role settings"
+        },
+        "message": {
+          "label": "Global Messages",
+          "description": "System-wide notifications"
+        },
+        "site-usage": {
+          "label": "Site Usage",
+          "description": "Site usage banner message and style"
+        },
+        "localization": {
+          "label": "Localization",
+          "description": "Site languages & default language"
+        },
+        "misc": {
+          "label": "Miscellaneous",
+          "description": "Branding and media upload"
+        }
       }
     },
     "contents": {

@@ -67,6 +67,12 @@
       "status": "स्थिति:",
       "clear": "फ़िल्टर हटाएँ",
       "filtered": "फ़िल्टर किए गए"
+    },
+    "dialog": {
+      "delete": "हटाएँ",
+      "logout": "लॉग आउट",
+      "unpublish": "अप्रकाशित करें",
+      "confirm": "पुष्टि करें"
     }
   },
   "admin": {
@@ -137,6 +143,50 @@
         "already_enabled": "{{ language }} पहले से सक्षम है।",
         "saved": "भाषाएँ सफलतापूर्वक सहेजी गईं",
         "save_failed": "भाषाएँ सहेजी नहीं जा सकीं। कृपया दोबारा प्रयास करें।"
+      },
+      "hub": {
+        "title": "सेटिंग्स",
+        "subtitle": "अपने एप्लिकेशन की सेटिंग्स प्रबंधित करें",
+        "about": {
+          "label": "परिचय",
+          "description": "साइट का नाम, URL और पता"
+        },
+        "email": {
+          "label": "ईमेल सेटिंग्स",
+          "description": "SMTP कॉन्फ़िगरेशन और प्रेषक जानकारी"
+        },
+        "integrations": {
+          "label": "इंटीग्रेशन",
+          "description": "तृतीय-पक्ष API कुंजियाँ और सेवाएँ"
+        },
+        "analytics": {
+          "label": "एनालिटिक्स",
+          "description": "Google Analytics OAuth कनेक्शन"
+        },
+        "payments": {
+          "label": "भुगतान",
+          "description": "Dodo इंटीग्रेशन और भुगतान ईमेल"
+        },
+        "user": {
+          "label": "उपयोगकर्ता सेटिंग्स",
+          "description": "साइनअप और भूमिका सेटिंग्स"
+        },
+        "message": {
+          "label": "वैश्विक संदेश",
+          "description": "पूरे सिस्टम की सूचनाएँ"
+        },
+        "site-usage": {
+          "label": "साइट उपयोग",
+          "description": "साइट उपयोग बैनर का संदेश और शैली"
+        },
+        "localization": {
+          "label": "स्थानीयकरण",
+          "description": "साइट की भाषाएँ और डिफ़ॉल्ट भाषा"
+        },
+        "misc": {
+          "label": "विविध",
+          "description": "ब्रांडिंग और मीडिया अपलोड"
+        }
       }
     },
     "contents": {
