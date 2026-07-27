@@ -81,11 +81,14 @@ describe('DraftContentsTableComponent', () => {
             debugMode: false,
         };
 
+        // NotifyService translates a key and hands the finished text here, so
+        // these assertions still check what a person actually reads.
         mockToastService = {
             success: vi.fn(),
             error: vi.fn(),
             warning: vi.fn(),
             info: vi.fn(),
+            openCustomSnackbar: vi.fn(),
         };
 
         mockSanitizer = {
@@ -542,7 +545,8 @@ describe('DraftContentsTableComponent', () => {
             component.deleteItem(sampleContents[0]);
             await fixture.whenStable();
 
-            expect(mockToastService.success).toHaveBeenCalledWith('Content deleted successfully.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Content deleted successfully.', 'success', 'check_circle');
         });
 
         it('should not delete when cancelled', async () => {
@@ -582,7 +586,8 @@ describe('DraftContentsTableComponent', () => {
             component.contentTypeSlug = '';
             component.openContent('content-123');
 
-            expect(mockToastService.error).toHaveBeenCalledWith('Cannot determine content type for editing.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Cannot determine content type for editing.', 'error', 'error');
             expect(mockRouter.navigate).not.toHaveBeenCalled();
         });
 
@@ -621,7 +626,8 @@ describe('DraftContentsTableComponent', () => {
             component.confirmUnpublishContent('content-123');
             await fixture.whenStable();
 
-            expect(mockToastService.success).toHaveBeenCalledWith('Content unpublished.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Content unpublished.', 'success', 'check_circle');
         });
     });
 

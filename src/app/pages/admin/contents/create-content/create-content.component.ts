@@ -3,6 +3,7 @@ import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { SafeHtml } from '@angular/platform-browser';
 import { CommonModule, formatDate } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { IDraftContents, INextContentReference } from '../draft-content-store/draft-contents.model';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
@@ -56,6 +57,7 @@ interface TranslatableValues {
     ReactiveFormsModule,
     TiptapEditorComponent,
     VersionHistoryComponent,
+    TranslocoPipe,
   ],
   templateUrl: './create-content.component.html',
   styleUrl: './create-content.component.scss',
@@ -728,11 +730,9 @@ export class CreateContentComponent extends BaseComponent {
         this.dirtyTranslations.delete(lang);
       } catch (error) {
         console.error(`Error saving "${lang}" translation:`, error);
-        this.toastService.openCustomSnackbar(
-          `Could not save the ${this.localization.find(lang)?.label || lang} translation.`,
-          'error',
-          'error',
-        );
+        this.notify.error('admin.contents.editor.translation_save_failed', {
+          language: this.localization.find(lang)?.label || lang,
+        });
       }
     }
 
@@ -949,14 +949,12 @@ export class CreateContentComponent extends BaseComponent {
       this.loadedTranslations.delete(lang);
       this.applyTranslatableValues(this.emptyTranslatableValues());
       this.translationDirty.set(false);
-      this.toastService.openCustomSnackbar(
-        `${this.activeLanguageLabel()} translation cleared.`,
-        'success',
-        'success',
-      );
+      this.notify.success('admin.contents.editor.translation_cleared', {
+        language: this.activeLanguageLabel(),
+      });
     } catch (error) {
       console.error('Error clearing translation:', error);
-      this.toastService.openCustomSnackbar('Could not clear the translation.', 'error', 'error');
+      this.notify.error('admin.contents.editor.translation_clear_failed');
     } finally {
       this.isSavingTranslation.set(false);
       this.cdr.detectChanges();
@@ -1429,7 +1427,7 @@ export class CreateContentComponent extends BaseComponent {
       },
       error: (error) => {
         console.error('Error creating tag:', error);
-        this.toastService.error('Failed to create tag. Please try again.');
+        this.notify.error('admin.contents.editor.tag_create_failed');
       },
     });
   }
@@ -1661,9 +1659,7 @@ export class CreateContentComponent extends BaseComponent {
       this.saveStatusMessage = `URL slug "${urlSlug}" already exists.Please use a different slug.`;
       this.saveStatusType = 'error';
       this.errorSlug = true;
-      this.toastService.error(
-        `URL slug "${urlSlug}" already exists.Please use a different slug.`
-      );
+      this.notify.error('admin.contents.editor.slug_exists', { slug: urlSlug });
       this.cdr.detectChanges();
       return false;
     }
@@ -1921,17 +1917,11 @@ export class CreateContentComponent extends BaseComponent {
             this.deployError.set(status.deployError || '');
 
             if (status.deployStatus === 'deployed') {
-              this.toastService.openCustomSnackbar(
-                'Static page deployed successfully!',
-                'success',
-                'check_circle'
-              );
+              this.notify.success('admin.contents.editor.deployed_success');
             } else if (status.deployStatus === 'failed') {
-              this.toastService.openCustomSnackbar(
-                `Deployment failed: ${status.deployError || 'Unknown error'}`,
-                'error',
-                'error'
-              );
+              this.notify.error('admin.contents.editor.deploy_error', {
+                error: status.deployError || this.transloco.translate('admin.contents.editor.unknown_error'),
+              });
             }
 
             this.cdr.detectChanges();
@@ -2119,9 +2109,9 @@ export class CreateContentComponent extends BaseComponent {
 
     const success = await this.globalService.copyToClipboard(fullUrl);
     if (success) {
-      this.toastService.openCustomSnackbar('URL copied to clipboard', 'success', 'check_circle');
+      this.notify.success('admin.contents.editor.url_copied');
     } else {
-      this.toastService.openCustomSnackbar('Failed to copy URL', 'error', 'error');
+      this.notify.error('admin.contents.editor.url_copy_failed');
     }
   }
 
@@ -2205,11 +2195,7 @@ export class CreateContentComponent extends BaseComponent {
     this.previewingVersion.set(null);
     this.activeTab = 'basic';
 
-    this.toastService.openCustomSnackbar(
-      `Restored version v${version.versionNumber}. Review and save when ready.`,
-      'success',
-      'check_circle'
-    );
+    this.notify.success('admin.contents.editor.version_restored', { version: version.versionNumber });
 
     // Trigger auto-save for the restored content
     this.triggerAutoSave();
