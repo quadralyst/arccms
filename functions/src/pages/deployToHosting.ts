@@ -112,6 +112,9 @@ async function updateDeployStatus(
     docId: string,
     fields: Record<string, any>,
 ): Promise<void> {
+    // A site-wide release belongs to no single document — there is nothing to
+    // stamp, and `doc('')` would throw where the deploy itself succeeded.
+    if (!collectionName || !docId) return;
     await db.collection(collectionName).doc(docId).update(fields);
 }
 

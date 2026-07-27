@@ -199,7 +199,7 @@ describe('processPublishQueue', () => {
             expect(fileContent).not.toContain("'{collectionId}/{docId}'");
         });
 
-        it('should handle all four actions: publish, unpublish, update, delete', async () => {
+        it('should handle all five actions: publish, unpublish, update, delete, redeploy', async () => {
             const fs = await import('fs');
             const path = await import('path');
             const fileContent = fs.readFileSync(
@@ -210,6 +210,7 @@ describe('processPublishQueue', () => {
             expect(fileContent).toContain("case 'unpublish':");
             expect(fileContent).toContain("case 'update':");
             expect(fileContent).toContain("case 'delete':");
+            expect(fileContent).toContain("case 'redeploy':");
         });
 
         it('should import static HTML deployment functions', async () => {
@@ -287,6 +288,143 @@ describe('processPublishQueue', () => {
             expect(mockBatchCommit).toHaveBeenCalled();
             // Queue doc should still be cleaned up
             expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+    });
+
+    describe('redeploy-all action — repairing the whole site in one release', () => {
+        beforeEach(() => {
+            mockCollection.mockImplementation((name: string) => {
+                if (name === 'ContentTypes') {
+                    return {
+                        where: vi.fn().mockReturnValue({ limit: vi.fn().mockReturnValue({ get: mockContentTypeGet }) }),
+                        get: vi.fn().mockResolvedValue({
+                            docs: [
+                                { data: () => ({ slug: 'articles', hasPublicUrl: true }) },
+                                { data: () => ({ slug: 'notes', hasPublicUrl: false }) },
+                            ],
+                        }),
+                    };
+                }
+                return {
+                    doc: mockDoc,
+                    get: vi.fn().mockResolvedValue({
+                        empty: false,
+                        docs: [{ id: 'doc1' }, { id: 'doc2' }],
+                    }),
+                };
+            });
+        });
+
+        it('should rebuild every published page of every public content type', async () => {
+            await handler(createEvent('redeploy-all', '', ''));
+
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc2', expect.anything());
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
+        });
+
+        it('should skip content types without a public URL', async () => {
+            await handler(createEvent('redeploy-all', '', ''));
+
+            expect(mockGenerateDetailPage).not.toHaveBeenCalledWith('notes', expect.anything(), expect.anything());
+        });
+
+        it('should release everything as a single Hosting version', async () => {
+            mockGenerateDetailPage.mockImplementation(async (slug: string, id: string, batch: any) => {
+                batch.add(`/${slug}/${id}.html`, '<html></html>');
+            });
+
+            await handler(createEvent('redeploy-all', '', ''));
+
+            // Two releases would rebuild the second from a file list that does
+            // not yet contain the first, dropping it — the race this exists to
+            // avoid.
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+        });
+
+        it('should keep going when one page cannot be rebuilt', async () => {
+            mockGenerateDetailPage.mockImplementation(async (_slug: string, id: string) => {
+                if (id === 'doc1') throw new Error('template missing');
+            });
+
+            await handler(createEvent('redeploy-all', '', ''));
+
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc2', expect.anything());
+        });
+    });
+
+    describe('the Hosting release target', () => {
+        it('should release to the project site, not to the Firestore collection', async () => {
+            process.env.GCLOUD_PROJECT = 'my-site';
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Test', content: '<p>body</p>', urlSlug: 'test' }),
+            });
+            // An empty batch is never released, so the page generator has to
+            // put something in it for there to be a release to inspect.
+            mockGenerateDetailPage.mockImplementation(async (_slug: string, _id: string, batch: any) => {
+                batch.add('/articles/test.html', '<html></html>');
+            });
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            // Passing 'arc_articles' here aims the deploy at a site that does
+            // not exist, and nothing reaches the live site.
+            expect(mockDeployBatchToHosting).toHaveBeenCalledWith(
+                'my-site', expect.anything(), 'arc_articles', 'doc1',
+            );
+        });
+    });
+
+    describe('redeploy action — restoring pages a hosting deploy dropped', () => {
+        it('should regenerate the detail and list pages', async () => {
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Live', content: '<p>body</p>', urlSlug: 'test' }),
+            });
+
+            await handler(createEvent('redeploy', 'articles', 'doc1'));
+
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
+        });
+
+        it('should not touch the draft or the published document', async () => {
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Live', content: '<p>body</p>', urlSlug: 'test' }),
+            });
+
+            await handler(createEvent('redeploy', 'articles', 'doc1'));
+
+            // The whole point: a draft may hold unreviewed edits, so restoring
+            // the site must not publish them.
+            expect(mockSet).not.toHaveBeenCalled();
+            expect(mockUpdate).not.toHaveBeenCalled();
+            expect(mockBatchCommit).not.toHaveBeenCalled();
+        });
+
+        it('should do nothing when the document was never published', async () => {
+            mockGet.mockResolvedValue({ exists: false });
+
+            const event = createEvent('redeploy', 'articles', 'ghost');
+            await handler(event);
+
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('should skip deployment for content types without a public URL', async () => {
+            buildChain({ hasPublicUrl: false });
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Live', urlSlug: 'test' }),
+            });
+
+            await handler(createEvent('redeploy', 'internal-notes', 'doc1'));
+
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
         });
     });
 
