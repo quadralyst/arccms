@@ -8,6 +8,8 @@ import { ConstantVariables } from '../../constants';
 import { QueryParams } from '../../models';
 import { GlobalService } from '../../services/global.service';
 import { ToastService } from '../../services/toast.service';
+import { NotifyService } from '../../services/notify.service';
+import { TranslocoService } from '@jsverse/transloco';
 
 export enum IActionType {
     Add = 'add',
@@ -45,6 +47,9 @@ export class BaseComponent {
     location = inject(Location);
     globalService = inject(GlobalService);
     toastService = inject(ToastService);
+    /** Translated toasts; prefer this over toastService for our own messages. */
+    notify = inject(NotifyService);
+    transloco = inject(TranslocoService);
     sanitizer = inject(DomSanitizer);
 
     isDebugMode = this.globalService.debugMode;
@@ -87,24 +92,24 @@ export class BaseComponent {
         for (const name in controls) {
             if (controls[name].errors) {
                 for (const errorName in controls[name].errors) {
+                    // The frame is translated; the field name is the control's
+                    // own key humanised, which is developer-authored and stays as
+                    // it is. Translating it would mean naming every control in
+                    // every language for a message most users never see.
+                    const field = this.globalService.convertToNormalString(name);
+                    const length = controls[name].errors?.[errorName]?.requiredLength;
                     switch (errorName) {
                         case 'required':
-                            errors.push(`${this.globalService.convertToNormalString(name)} is required.`);
+                            errors.push(this.transloco.translate('common.validation.required', { field }));
                             break;
                         case 'minlength':
-                            errors.push(
-                                `${this.globalService.convertToNormalString(name)} must be at least ${controls[name].errors?.[errorName].requiredLength
-                                } characters long.`,
-                            );
+                            errors.push(this.transloco.translate('common.validation.minlength', { field, length }));
                             break;
                         case 'maxlength':
-                            errors.push(
-                                `${this.globalService.convertToNormalString(name)} cannot be more than ${controls[name].errors?.[errorName].requiredLength
-                                } characters long.`,
-                            );
+                            errors.push(this.transloco.translate('common.validation.maxlength', { field, length }));
                             break;
                         default:
-                            errors.push(`${this.globalService.convertToNormalString(name)} has an error: ${errorName}`);
+                            errors.push(this.transloco.translate('common.validation.generic', { field, error: errorName }));
                     }
                 }
             }

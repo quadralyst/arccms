@@ -17,6 +17,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { BaseComponent } from '../../../../../../shared/components/base/base.component';
 import { IconPickerComponent } from '../../../../../../shared/components/icon-picker/icon-picker.component';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { OmitCommonFields } from '../../../../../../shared/models/base-model';
 import { LocalizationService } from '../../../../../core/services/localization.service';
 import { ContentTypeNames, TranslatableTypeText, pruneNameTranslations, pruneFieldLabelTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
@@ -34,7 +35,7 @@ export const routeMeta: RouteMeta = {
 
 @Component({
     selector: 'arc-edit-content-type',
-    imports: [ReactiveFormsModule, MatIconModule, MatSelectModule, IconPickerComponent],
+    imports: [ReactiveFormsModule, MatIconModule, MatSelectModule, IconPickerComponent, TranslocoPipe],
     templateUrl: './edit-content-type.html',
     styleUrls: ['./edit-content-type.scss', '../(add-content-type)/add.page.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -322,7 +323,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         }
 
         if (this.errorSlug()) {
-            this.errorMessages = ['Please fix the slug error before submitting.'];
+            this.errorMessages = [this.transloco.translate('admin.contents.types.fix_slug')];
             return;
         }
 
@@ -366,12 +367,12 @@ export default class EditContentTypeComponent extends BaseComponent implements O
 
         this.contentTypesStore.update(this.id, updatedContentType).subscribe({
             next: () => {
-                this.toastService.openCustomSnackbar('Content type updated successfully', 'success', 'check_circle');
+                this.notify.success('admin.contents.types.updated');
                 this.editForm.reset();
                 this.close.emit();
             },
             error: (error) => {
-                this.toastService.openCustomSnackbar('Error updating content type', 'error', 'error');
+                this.notify.error('admin.contents.types.update_failed');
                 console.error('Error updating content type:', error);
             },
         });
@@ -407,7 +408,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
                 this.checkingSlug.set(false);
                 if (res && res.exists && newGeneratedSlug !== this.originalSlug) {
                     this.errorSlug.set(true);
-                    this.toastService.openCustomSnackbar(`Slug "${newGeneratedSlug}" already exists.`, 'error', 'error');
+                    this.notify.error('admin.contents.types.slug_exists', { slug: newGeneratedSlug });
                 } else {
                     this.editForm.get('slug')?.setValue(newGeneratedSlug);
                     this.isEditingSlug.set(false);

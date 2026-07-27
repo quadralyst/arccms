@@ -10,7 +10,7 @@
         <arc-view-content-type [id]="currentId()" [action]="currentAction()"
             (close)="closeDrawer()"></arc-view-content-type>
         } @else {
-        <div class="alert alert-danger">No action selected</div>
+        <div class="alert alert-danger">{{ 'admin.contents.types.no_action' | transloco }}</div>
         }
     </mat-drawer>
 
@@ -18,10 +18,10 @@
         <div class="arc">
             <div class="flex-grow-1">
                 <div class="content-area">
-                    <arc-page-header title="Content Types Management"
-                        subtitle="Define and manage content type structures">
+                    <arc-page-header [title]="'admin.contents.types.page_title' | transloco"
+                        [subtitle]="'admin.contents.types.page_subtitle' | transloco">
                         <button mat-raised-button color="primary" (click)="openAdd()">
-                            <mat-icon>add</mat-icon> Add Content Type
+                            <mat-icon>add</mat-icon> {{ 'admin.contents.types.add' | transloco }}
                         </button>
                     </arc-page-header>
 
@@ -48,8 +48,8 @@
                     <app-global-table [data]="contentTypesStore.items()" [columns]="tableColumns"
                         [loading]="contentTypesStore.isLoading()" [sortField]="sortField()" [sortOrder]="sortOrder()"
                         (sortChange)="setSortField($event)" [pageIndex]="currentPage()" [pageSize]="pageSize()"
-                        emptyTitle="No Content Types Found"
-                        emptyDescription="No content types found. Click 'Add Content Type' to create one."
+                        [emptyTitle]="'admin.contents.types.empty_title' | transloco"
+                        [emptyDescription]="'admin.contents.types.empty_description' | transloco"
                         [showEmptyAction]="false">
                     </app-global-table>
 
@@ -59,14 +59,13 @@
                         @if(!contentTypesStore.isLoading()) {
                         <div class="record-count text-muted">
                             @if(contentTypesStore.totalRecords() > 0) {
-                            Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
-                            <strong>{{ contentTypesStore.totalRecords() }}</strong>
                             @if(hasActiveFilters()) {
-                            <span class="text-primary">filtered</span>
-                            }
-                            records
+                            {{ 'common.table.showing_range_filtered' | transloco: { start: getStartRecord(), end: getEndRecord(), total: contentTypesStore.totalRecords() } }}
                             } @else {
-                            No records found
+                            {{ 'common.table.showing_range' | transloco: { start: getStartRecord(), end: getEndRecord(), total: contentTypesStore.totalRecords() } }}
+                            }
+                            } @else {
+                            {{ 'common.table.no_records' | transloco }}
                             }
                         </div>
                         <mat-paginator [length]="contentTypesStore.totalRecords()" [pageSize]="pageSize()"

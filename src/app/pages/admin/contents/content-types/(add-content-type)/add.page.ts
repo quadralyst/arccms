@@ -15,6 +15,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { BaseComponent } from '../../../../../../shared/components/base/base.component';
 import { IconPickerComponent } from '../../../../../../shared/components/icon-picker/icon-picker.component';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { roleGuard } from '../../../../../guards/role.guard';
 import { ContentTypesStore } from '../content-types.store';
 import { ContentType, ContentTypeField, CollectionReferenceConfig } from '../content-types.model';
@@ -32,7 +33,7 @@ export const routeMeta: RouteMeta = {
 
 @Component({
     selector: 'arc-add-content-type',
-    imports: [ReactiveFormsModule, MatIconModule, MatSelectModule, IconPickerComponent],
+    imports: [ReactiveFormsModule, MatIconModule, MatSelectModule, IconPickerComponent, TranslocoPipe],
     templateUrl: './add.page.html',
     styleUrl: './add.page.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -322,7 +323,7 @@ export default class AddContentTypeComponent extends BaseComponent {
         }
         
         if (this.errorSlug()) {
-            this.errorMessages = ['Please fix the slug error before submitting.'];
+            this.errorMessages = [this.transloco.translate('admin.contents.types.fix_slug')];
             return;
         }
 
@@ -359,11 +360,11 @@ export default class AddContentTypeComponent extends BaseComponent {
 
         this.contentTypesStore.add(newContentType).subscribe({
             next: () => {
-                this.toastService.openCustomSnackbar('Content type created successfully', 'success', 'check_circle');
+                this.notify.success('admin.contents.types.created');
                 this.closeAdd();
             },
             error: (error: any) => {
-                this.toastService.openCustomSnackbar('Error creating content type', 'error', 'error');
+                this.notify.error('admin.contents.types.create_failed');
                 console.error('Error creating content type:', error);
             },
         });

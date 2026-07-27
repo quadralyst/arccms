@@ -92,7 +92,6 @@ export default class NavbarComponent extends BaseComponent {
     /** Explicit user expand/collapse choices, keyed by group label. Overrides route-based auto-expand. */
     private readonly manualToggles = signal<Record<string, boolean>>({});
 
-    private transloco = inject(TranslocoService);
     private destroyRef = inject(DestroyRef);
     readonly contentTypesStore = inject(ContentTypesStore);
 

@@ -1,6 +1,6 @@
 <div class="side-panel">
   <div class="panel-header">
-    <h5 class="mb-0">Add Content Type</h5>
+    <h5 class="mb-0">{{ 'admin.contents.types.form.add_title' | transloco }}</h5>
     <button class="close-btn" (click)="closeAdd()">
       <i class="fas fa-times"></i>
     </button>
@@ -9,11 +9,11 @@
   <form [formGroup]="addForm" (ngSubmit)="onSubmit()">
     <div class="form-group">
       <label class="form-label">
-        Content Type Name (Plural) <span class="required">*</span>
+        {{ 'admin.contents.types.form.name_plural' | transloco }} <span class="required">*</span>
       </label>
       <input
         type="text"
-        placeholder="e.g., Articles"
+        [placeholder]="'admin.contents.types.form.name_placeholder' | transloco"
         formControlName="name"
         (input)="createSlug()"
         class="form-control"
@@ -22,11 +22,11 @@
         [class.is-invalid]="name?.invalid && (name?.dirty || name?.touched)"
         [class.is-valid]="name?.valid && (name?.dirty || name?.touched)"
       />
-      <small class="text-muted">Used for lists (e.g., "All Articles")</small>
+      <small class="text-muted">{{ 'admin.contents.types.form.name_hint' | transloco }}</small>
 
       <div class="invalid-feedback">
         @if(addForm.get('name')?.errors?.['required']){
-        <p>Name is required.</p>
+        <p>{{ 'admin.contents.types.form.name_required' | transloco }}</p>
         } @else if(addForm.get('name')?.errors?.['minlength']){
         <p>
           Name must be at least
@@ -38,22 +38,22 @@
     </div>
 
     <div class="form-group">
-      <label class="form-label">Singular Name</label>
+      <label class="form-label">{{ 'admin.contents.types.form.singular_name' | transloco }}</label>
       <input
         type="text"
-        placeholder="e.g., Article"
+        [placeholder]="'admin.contents.types.form.singular_placeholder' | transloco"
         formControlName="singularName"
         class="form-control"
         id="singularName"
       />
       <small class="text-muted"
-        >Used for single items (e.g., "Add Article")</small
+        >{{ 'admin.contents.types.form.singular_hint' | transloco }}</small
       >
     </div>
 
     <div class="mb-4 form-group">
       <label for="slug" class="form-label"
-        >Content Type Slug <span class="required">*</span></label
+        >{{ 'admin.contents.types.form.slug' | transloco }} <span class="required">*</span></label
       >
       <div class="input-group input-group-sm">
         <span class="input-group-text" id="domain-addon">{{ domain }}</span>
@@ -71,40 +71,40 @@
       @if ((slug?.invalid || errorSlug()) && (slug?.dirty || slug?.touched)) {
       <div class="invalid-feedback d-block">
         @if (addForm.get('slug')?.errors?.['required']) {
-        <p>Slug is required.</p>
+        <p>{{ 'admin.contents.types.form.slug_required' | transloco }}</p>
         } @else if (addForm.get('slug')?.errors?.['pattern']) {
-        <p>Slug must contain only lowercase letters, numbers, and hyphens.</p>
+        <p>{{ 'admin.contents.types.form.slug_pattern' | transloco }}</p>
         } @else if (errorSlug()) {
-        <p>This slug already exists. Please choose a different one.</p>
+        <p>{{ 'admin.contents.types.form.slug_taken' | transloco }}</p>
         }
       </div>
       }
     </div>
 
     <div class="form-group">
-      <label class="form-label"> Description </label>
+      <label class="form-label"> {{ 'admin.contents.types.form.description' | transloco }} </label>
       <textarea
         class="form-control"
         rows="3"
         formControlName="description"
-        placeholder="Enter content type description"
+        [placeholder]="'admin.contents.types.form.description_placeholder' | transloco"
       ></textarea>
     </div>
 
     <div class="form-group">
-      <label class="form-label">Icon (Font Awesome)</label>
+      <label class="form-label">{{ 'admin.contents.types.form.icon' | transloco }}</label>
       <arc-icon-picker formControlName="icon"></arc-icon-picker>
     </div>
 
     <div class="form-group">
-      <label class="form-label">Content Template</label>
+      <label class="form-label">{{ 'admin.contents.types.form.template' | transloco }}</label>
       @if(templatesLoading()) {
       <div class="d-flex align-items-center">
         <span
           class="spinner-border spinner-border-sm me-2"
           role="status"
         ></span>
-        <span>Loading templates...</span>
+        <span>{{ 'admin.contents.types.form.template_loading' | transloco }}</span>
       </div>
       } @else {
       <select formControlName="templateFolder" class="form-select">
@@ -116,15 +116,14 @@
         }
       </select>
       <small class="text-muted"
-        >Select a template for displaying this content type's list and detail
-        pages</small
+        >{{ 'admin.contents.types.form.template_hint' | transloco }}</small
       >
       }
     </div>
 
     <hr />
 
-    <div class="form-section-title">Custom fields</div>
+    <div class="form-section-title">{{ 'admin.contents.types.form.custom_fields' | transloco }}</div>
 
     <div formArrayName="fields">
       @for(field of fields.controls; track $index; let fieldIndex = $index) {
@@ -143,22 +142,22 @@
         <div class="row">
           <div class="col-md-6 form-group">
             <label class="form-label"
-              >Key <span class="required">*</span></label
+              >{{ 'admin.contents.types.form.field_key' | transloco }} <span class="required">*</span></label
             >
             <input
               type="text"
-              placeholder="field_key"
+              [placeholder]="'admin.contents.types.form.field_key_placeholder' | transloco"
               formControlName="key"
               class="form-control"
             />
           </div>
           <div class="col-md-6 form-group">
             <label class="form-label"
-              >Label <span class="required">*</span></label
+              >{{ 'admin.contents.types.form.field_label' | transloco }} <span class="required">*</span></label
             >
             <input
               type="text"
-              placeholder="Field Label"
+              [placeholder]="'admin.contents.types.form.field_label_placeholder' | transloco"
               formControlName="label"
               class="form-control"
             />
@@ -168,7 +167,7 @@
         <div class="row">
           <div class="col-md-8 form-group">
             <label class="form-label"
-              >Type <span class="required">*</span></label
+              >{{ 'admin.contents.types.form.field_type' | transloco }} <span class="required">*</span></label
             >
             <select formControlName="type" class="form-select">
               @for(type of fieldTypes; track type) {
@@ -177,7 +176,7 @@
             </select>
           </div>
           <div class="col-md-4 form-group">
-            <label class="form-label">Required</label>
+            <label class="form-label">{{ 'admin.contents.types.form.field_required' | transloco }}</label>
             <div class="form-check form-switch">
               <input
                 class="form-check-input"
@@ -205,7 +204,7 @@
                 class="form-check-label"
                 [for]="'useCollectionRef_' + $index"
               >
-                Use data from another collection
+                {{ 'admin.contents.types.form.use_collection' | transloco }}
               </label>
             </div>
           </div>
@@ -215,15 +214,15 @@
         <div class="row">
           <div class="col-12 form-group">
             <label class="form-label"
-              >Options <span class="required">*</span></label
+              >{{ 'admin.contents.types.form.options' | transloco }} <span class="required">*</span></label
             >
             <textarea
               formControlName="options"
               class="form-control"
               rows="2"
-              placeholder="Enter comma-separated options (e.g., Red, Green, Blue)"
+              [placeholder]="'admin.contents.types.form.options_placeholder' | transloco"
             ></textarea>
-            <small class="text-muted">Separate each option with a comma</small>
+            <small class="text-muted">{{ 'admin.contents.types.form.options_hint' | transloco }}</small>
           </div>
         </div>
         } @else {
@@ -233,10 +232,10 @@
           <div class="row">
             <div class="col-12 form-group">
               <label class="form-label"
-                >Source Collection <span class="required">*</span></label
+                >{{ 'admin.contents.types.form.source_collection' | transloco }} <span class="required">*</span></label
               >
               <select formControlName="collectionRefSlug" class="form-select">
-                <option value="">Select a collection...</option>
+                <option value="">{{ 'admin.contents.types.form.select_collection' | transloco }}</option>
                 @for(ct of availableCollections(); track ct.slug) {
                 <option [value]="ct.slug">{{ ct.name }}</option>
                 }
@@ -248,21 +247,21 @@
         <!-- Step 2: Select Display Field -->
         <div class="row">
           <div class="col-12 form-group">
-            <label class="form-label">Display Field <span class="required">*</span></label>
+            <label class="form-label">{{ 'admin.contents.types.form.display_field' | transloco }} <span class="required">*</span></label>
             <select formControlName="collectionRefDisplayField" class="form-select">
-              <option value="">Select field to display...</option>
+              <option value="">{{ 'admin.contents.types.form.select_display_field' | transloco }}</option>
               @for(f of getCollectionFields(field.get('collectionRefSlug')?.value); track f.key) {
               <option [value]="f.key">{{ f.label }} ({{ f.key }})</option>
               }
             </select>
-            <small class="text-muted">Field shown as the option label. This field and the logical ID are always saved.</small>
+            <small class="text-muted">{{ 'admin.contents.types.form.display_field_hint' | transloco }}</small>
           </div>
         </div>
 
         <!-- Step 3: Select Fields to Sync (denormalize) -->
         <div class="row">
           <div class="col-12 form-group">
-            <label class="form-label">Additional Fields to Save (Denormalize)</label>
+            <label class="form-label">{{ 'admin.contents.types.form.denormalize' | transloco }}</label>
             <small class="text-muted d-block mb-2">
               Select which fields from "{{ field.get('collectionRefSlug')?.value }}"
               to store in this collection. These will be kept in sync automatically.
@@ -277,7 +276,7 @@
                 <label class="form-check-label" [for]="'sync_' + fieldIndex + '_' + f.key">
                   {{ f.label }} <code>({{ f.key }})</code>
                   @if(f.key === 'id' || f.key === field.get('collectionRefDisplayField')?.value) {
-                    <span class="badge bg-secondary ms-2" style="font-size: 0.7em;">Required</span>
+                    <span class="badge bg-secondary ms-2" style="font-size: 0.7em;">{{ 'admin.contents.types.form.field_required' | transloco }}</span>
                   }
                 </label>
               </div>
@@ -306,7 +305,7 @@
       class="btn btn-outline-primary btn-sm mb-3"
       (click)="addField()"
     >
-      <i class="fas fa-plus me-1"></i> Add Field
+      <i class="fas fa-plus me-1"></i> {{ 'admin.contents.types.form.add_field' | transloco }}
     </button>
 
     <hr />
@@ -317,14 +316,14 @@
         class="btn btn-secondary me-md-2"
         (click)="closeAdd()"
       >
-        Cancel
+        {{ 'common.actions.cancel' | transloco }}
       </button>
       <button
         type="submit"
         class="btn btn-primary"
         [disabled]="!addForm.valid || contentTypesStore.isLoading()"
       >
-        Save Content Type
+        {{ 'admin.contents.types.form.save' | transloco }}
       </button>
     </div>
   </form>

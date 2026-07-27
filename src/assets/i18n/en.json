@@ -22,7 +22,8 @@
       "search": "Search",
       "reset": "Reset",
       "view": "View",
-      "logout": "Logout"
+      "logout": "Logout",
+      "delete_confirm": "Are you sure you want to delete \"{{ name }}\"?"
     },
     "state": {
       "loading": "Loading..."
@@ -39,6 +40,24 @@
       "last_page": "Last page",
       "range": "{{ start }} – {{ end }} of {{ total }}",
       "range_empty": "0 of {{ total }}"
+    },
+    "table": {
+      "showing_range": "Showing {{ start }} to {{ end }} of {{ total }} records",
+      "showing_range_filtered": "Showing {{ start }} to {{ end }} of {{ total }} filtered records",
+      "no_records": "No records found",
+      "name": "Name",
+      "slug": "Slug",
+      "actions": "Actions",
+      "last_updated": "Last Updated",
+      "status": "Status"
+    },
+    "yes": "Yes",
+    "no": "No",
+    "validation": {
+      "required": "{{ field }} is required.",
+      "minlength": "{{ field }} must be at least {{ length }} characters long.",
+      "maxlength": "{{ field }} cannot be more than {{ length }} characters long.",
+      "generic": "{{ field }} has an error: {{ error }}"
     }
   },
   "admin": {
@@ -109,6 +128,81 @@
         "already_enabled": "{{ language }} is already enabled.",
         "saved": "Languages saved successfully",
         "save_failed": "Could not save languages. Please try again."
+      }
+    },
+    "contents": {
+      "types": {
+        "page_title": "Content Types Management",
+        "page_subtitle": "Define and manage content type structures",
+        "add": "Add Content Type",
+        "no_action": "No action selected",
+        "empty_title": "No Content Types Found",
+        "empty_description": "No content types found. Click 'Add Content Type' to create one.",
+        "col_fields": "Fields",
+        "field_count": "{{ count }} field(s)",
+        "col_public_pages": "Public Pages",
+        "manage_tags": "Manage Tags",
+        "deleted": "Content type deleted successfully.",
+        "delete_failed": "Failed to delete content type. Please try again.",
+        "form": {
+          "add_title": "Add Content Type",
+          "edit_title": "Edit Content Type",
+          "name_plural": "Content Type Name (Plural)",
+          "name_plural_short": "Name (Plural)",
+          "name_hint": "Used for lists (e.g., \"All Articles\")",
+          "name_placeholder": "e.g., Articles",
+          "name_required": "Name is required.",
+          "name_minlength": "Name must be at least {{ length }} characters long.",
+          "singular_name": "Singular Name",
+          "singular_hint": "Used for single items (e.g., \"Add Article\")",
+          "singular_placeholder": "e.g., Article",
+          "slug": "Content Type Slug",
+          "slug_hint": "Slug is used as the content type identifier.",
+          "slug_required": "Slug is required.",
+          "slug_pattern": "Slug must contain only lowercase letters, numbers, and hyphens.",
+          "slug_taken": "This slug already exists. Please choose a different one.",
+          "slug_change_warning": "Changing the slug will break existing content links for this type!",
+          "description": "Description",
+          "description_placeholder": "Enter content type description",
+          "description_translation_hint": "Shown under the heading on the list page.",
+          "icon": "Icon (Font Awesome)",
+          "icon_search_placeholder": "Search icons... (e.g., folder, file, image)",
+          "public_pages": "Generate public pages",
+          "public_pages_off": "Content of this type will not have standalone web pages.",
+          "template": "Content Template",
+          "template_loading": "Loading templates...",
+          "template_hint": "Select a template for displaying this content type's list and detail pages",
+          "custom_fields": "Custom fields",
+          "custom_field_labels": "Custom field labels",
+          "no_custom_fields": "This content type has no custom fields yet.",
+          "field_key": "Key",
+          "field_key_placeholder": "field_key",
+          "field_label": "Label",
+          "field_label_placeholder": "Field Label",
+          "field_type": "Type",
+          "field_required": "Required",
+          "use_collection": "Use data from another collection",
+          "options": "Options",
+          "options_hint": "Separate each option with a comma",
+          "options_placeholder": "Enter comma-separated options (e.g., Red, Green, Blue)",
+          "source_collection": "Source Collection",
+          "select_collection": "Select a collection...",
+          "display_field": "Display Field",
+          "select_display_field": "Select field to display...",
+          "display_field_hint": "Field shown as the option label. This field and the logical ID are always saved.",
+          "denormalize": "Additional Fields to Save (Denormalize)",
+          "add_field": "Add Field",
+          "save": "Save Content Type",
+          "update": "Update Content Type",
+          "translating_into": "Translating into <strong>{{ lang }}</strong>. Blank fields fall back to the {{ defaultLang }} text. Keys, types and settings are shared across languages.",
+          "default_badge": "default"
+        },
+        "fix_slug": "Please fix the slug error before submitting.",
+        "created": "Content type created successfully",
+        "create_failed": "Error creating content type",
+        "updated": "Content type updated successfully",
+        "update_failed": "Error updating content type",
+        "slug_exists": "Slug \"{{ slug }}\" already exists."
       }
     }
   }
