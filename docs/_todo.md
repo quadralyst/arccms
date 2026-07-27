@@ -71,6 +71,37 @@ Closely related to item 4 below: the home page is the one page that *cannot* be
 pipeline-owned, because `/index.html` is a build artifact that hosting will always
 overwrite.
 
+### 3c. BUG: multi-file publishes silently lose pages (race in deployToHosting)
+
+**Observed on the dev project, 2026-07-27.** One publish of a two-language article
+deploys four files in sequence; the **second** was missing afterwards:
+
+| file | order | result |
+|---|---|---|
+| `/articles/test-page` | 1 | present |
+| `/hi/articles/test-page` | 2 | **lost** |
+| `/articles` (list) | 3 | present |
+| `/hi/articles` (list) | 4 | present |
+
+**Cause.** `deployFileToHosting` builds each new Hosting version by fetching
+`releases?pageSize=1` and copying that release's file manifest
+(`functions/src/pages/deployToHosting.ts`, steps 2–3). Calls seconds apart can read a
+release list that has not yet caught up, so a later call inherits a manifest missing an
+earlier call's file and drops it. Each call still succeeds, so `deployStatus` reports
+`deployed` and nothing surfaces — the page is simply gone, falling through to the SPA
+shell.
+
+Pre-existing, but M3 made it far more likely: a publish used to deploy 2 files
+(detail + list) and now deploys 2 x languages.
+
+**Fix: batch one publish into one Hosting version.** `deployFileToHosting` should take
+multiple files and run read-release → populate → finalize → release once. That removes
+the race by construction (one version from one snapshot), and also cuts releases per
+publish from N to 1 — the cost already flagged when M3 shipped.
+
+Until then, a publish may need repeating, and success cannot be trusted without
+checking the deployed pages by content.
+
 ### 4. Updating the pre-rendered home page after deployment
 The home page is pre-rendered at deploy time. Investigate whether it can be updated
 *after* deployment without a full redeploy — the suspected blocker is that a deploy
