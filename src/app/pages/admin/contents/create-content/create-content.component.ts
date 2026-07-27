@@ -23,6 +23,29 @@ import { FullscreenEditorDialogComponent } from './fullscreen-editor-dialog/full
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 import { VersionHistoryComponent, VersionHistoryItem } from './version-history/version-history.component';
+import { LocalizationService } from '../../../../core/services/localization.service';
+import { AuthState } from '../../../(auth)/auth.store';
+import { ILanguage } from '../../../../../shared/models/localization.model';
+import {
+  IContentTranslation,
+  TRANSLATABLE_BUILTIN_FIELDS,
+  isTranslatableField,
+  isTranslationEmpty,
+} from '../draft-content-store/content-translation.model';
+
+/**
+ * The subset of editor state that varies by language. Everything else on a
+ * content item (slug, cover image, tags, dates, references) is shared across
+ * languages — see docs/multilingual-spec.md decision M-D5.
+ */
+interface TranslatableValues {
+  title: string;
+  content: string;
+  summary: string;
+  seoTitle: string;
+  metaDescription: string;
+  customFields: { [key: string]: any };
+}
 
 @Component({
   selector: 'arc-create-content',
@@ -123,6 +146,41 @@ export class CreateContentComponent extends BaseComponent {
   // Custom fields support
   customFieldValues: { [key: string]: any } = {};
 
+  // ── Translations (M2) ────────────────────────────────────────────────────
+  // The editor edits one language at a time. The default language is the base
+  // document and its editing path is unchanged; any other language is held in
+  // the same forms but saved to arc_{slug}_drafts/{id}/translations/{lang}.
+  private localization = inject(LocalizationService);
+  private authState = inject(AuthState);
+
+  /** Language currently being edited. Empty until the language list loads. */
+  activeLang = signal<string>('');
+  /** Codes this item already has a stored translation for — badges the tabs. */
+  translatedLanguages = signal<string[]>([]);
+  /** Unsaved edits exist for the active translation. */
+  translationDirty = signal<boolean>(false);
+  isSavingTranslation = signal<boolean>(false);
+
+  /** Default-language values, stashed while a translation is being edited. */
+  private baseStash: TranslatableValues | null = null;
+  /** In-memory edits per language, so switching tabs never loses work. */
+  private translationEdits = new Map<string, TranslatableValues>();
+  /** Languages already fetched from Firestore this session. */
+  private loadedTranslations = new Set<string>();
+
+  enabledLanguages = computed<ILanguage[]>(() => this.localization.enabledLanguages());
+  defaultLang = computed<string>(() => this.localization.defaultLanguage());
+  /** The language bar only appears once a second language is configured. */
+  showLanguageBar = computed<boolean>(() => this.localization.isMultilingual());
+  /** True when the forms hold a translation rather than the base document. */
+  isTranslating = computed<boolean>(() => {
+    const active = this.activeLang();
+    return !!active && active !== this.defaultLang();
+  });
+  activeLanguageLabel = computed<string>(
+    () => this.localization.find(this.activeLang())?.label || this.activeLang(),
+  );
+
   // Signal for content type slug to enable reactivity in computed properties
   private contentTypeSlugSignal = signal<string>('');
 
@@ -139,6 +197,8 @@ export class CreateContentComponent extends BaseComponent {
     if (value && value !== this._contentId) {
       this._contentId = value;
       this.loadContentById(value);
+      // The item is known now, so its existing translations can be badged.
+      this.refreshTranslatedLanguages();
     }
   }
   get contentId(): string {
@@ -517,6 +577,9 @@ export class CreateContentComponent extends BaseComponent {
       debounceTime(30_000),
       filter(() => !!this.contentId),
       filter(() => !this.isSavingDraft && !this.isAutoSaving),
+      // Re-checked after the debounce, not just when the timer was armed —
+      // the active language can change while it is pending.
+      filter(() => !this.isTranslating()),
       filter(() => this.validateForDraft().valid),
     ).subscribe(() => {
       this.performAutoSave();
@@ -533,6 +596,281 @@ export class CreateContentComponent extends BaseComponent {
       this.domain = window.location.origin + '/';
     }
     this.fetchCurrentUrl();
+    this.initLanguages();
+  }
+
+  // ── Translation editing (M2) ─────────────────────────────────────────────
+
+  /**
+   * Loads the site's language list and starts the editor on the default
+   * language. On a single-language site this leaves every code path below
+   * dormant — `isTranslating()` can never become true.
+   */
+  private async initLanguages(): Promise<void> {
+    await this.localization.load();
+    this.activeLang.set(this.defaultLang());
+    await this.refreshTranslatedLanguages();
+    this.cdr.detectChanges();
+  }
+
+  private async refreshTranslatedLanguages(): Promise<void> {
+    if (!this.contentId || !this.contentTypeSlug) {
+      this.translatedLanguages.set([]);
+      return;
+    }
+    const languages = await this.draftContentsService.getTranslatedLanguages(
+      this.contentTypeSlug,
+      this.contentId,
+    );
+    this.translatedLanguages.set(languages);
+  }
+
+  hasTranslation(code: string): boolean {
+    return this.translatedLanguages().includes(code);
+  }
+
+  /** Reads the language-varying values out of the forms. */
+  private captureTranslatableValues(): TranslatableValues {
+    return {
+      title: this.pageTitle || '',
+      content: this.publishForm.get('content')?.value || '',
+      summary: this.publishForm.get('summary')?.value || '',
+      seoTitle: this.seoForm.get('seoTitle')?.value || '',
+      metaDescription: this.seoForm.get('metaDescription')?.value || '',
+      customFields: { ...this.customFieldValues },
+    };
+  }
+
+  /** Writes language-varying values back into the forms. */
+  private applyTranslatableValues(values: TranslatableValues): void {
+    this.appliedSignature = this.valuesSignature(values);
+    this.pageTitle = values.title;
+    // emitEvent:false — these writes are a language switch, not a user edit,
+    // and must not trip the summary→metaDescription sync or auto-save.
+    this.publishForm.get('title')?.setValue(values.title, { emitEvent: false });
+    this.publishForm.get('content')?.setValue(values.content, { emitEvent: false });
+    this.publishForm.get('summary')?.setValue(values.summary, { emitEvent: false });
+    this.seoForm.get('seoTitle')?.setValue(values.seoTitle, { emitEvent: false });
+    this.seoForm.get('metaDescription')?.setValue(values.metaDescription, { emitEvent: false });
+    this.customFieldValues = { ...values.customFields };
+    this.cdr.detectChanges();
+  }
+
+  /** The values a translation falls back to — shown as ghost placeholders. */
+  private baseValues(): TranslatableValues {
+    return this.baseStash ?? this.captureTranslatableValues();
+  }
+
+  basePlaceholder(field: 'title' | 'content' | 'summary' | 'seoTitle' | 'metaDescription'): string {
+    return this.baseValues()[field] || '';
+  }
+
+  baseCustomFieldValue(key: string): string {
+    const value = this.baseValues().customFields?.[key];
+    return value === null || value === undefined ? '' : String(value);
+  }
+
+  /** Only free-text custom fields are translatable — see M-D5. */
+  isFieldTranslatable(field: ContentTypeField): boolean {
+    return isTranslatableField(field);
+  }
+
+  /** A field is locked when we are translating and it is shared across languages. */
+  isFieldLocked(field: ContentTypeField): boolean {
+    return this.isTranslating() && !isTranslatableField(field);
+  }
+
+  /**
+   * Switches the editor to another language, stashing the current language's
+   * edits in memory first so tab-switching never discards work.
+   */
+  async switchLanguage(code: string): Promise<void> {
+    const current = this.activeLang();
+    if (!code || code === current) return;
+
+    // Stash what is currently in the forms.
+    const captured = this.captureTranslatableValues();
+    if (current === this.defaultLang()) {
+      this.baseStash = captured;
+    } else if (current) {
+      this.translationEdits.set(current, captured);
+    }
+
+    if (code === this.defaultLang()) {
+      if (this.baseStash) this.applyTranslatableValues(this.baseStash);
+      this.activeLang.set(code);
+      this.translationDirty.set(false);
+      return;
+    }
+
+    // Editing a translation: use in-memory edits, else the stored document,
+    // else start from blank fields that fall back to the base content.
+    let values = this.translationEdits.get(code);
+    if (!values && !this.loadedTranslations.has(code)) {
+      const stored = this.contentId
+        ? await this.draftContentsService.getTranslation(this.contentTypeSlug, this.contentId, code)
+        : null;
+      this.loadedTranslations.add(code);
+      values = this.toTranslatableValues(stored);
+      this.translationEdits.set(code, values);
+    }
+
+    this.activeLang.set(code);
+    this.translationDirty.set(false);
+    this.applyTranslatableValues(values ?? this.emptyTranslatableValues());
+  }
+
+  private emptyTranslatableValues(): TranslatableValues {
+    return { title: '', content: '', summary: '', seoTitle: '', metaDescription: '', customFields: {} };
+  }
+
+  private toTranslatableValues(stored: IContentTranslation | null): TranslatableValues {
+    const values = this.emptyTranslatableValues();
+    if (!stored) return values;
+    for (const field of TRANSLATABLE_BUILTIN_FIELDS) {
+      const value = stored[field];
+      if (typeof value === 'string') values[field] = value;
+    }
+    values.customFields = { ...(stored.customFields ?? {}) };
+    return values;
+  }
+
+  /**
+   * Normalized signature of the language-varying values, used to tell a real
+   * edit from editor noise. TipTap emits an update whenever its input changes
+   * — including the empty "<p></p>" it produces on a language switch — so a
+   * dirty flag driven purely by change events would always read "unsaved".
+   */
+  private valuesSignature(values: TranslatableValues): string {
+    const normalize = (value: unknown): string =>
+      typeof value === 'string'
+        ? value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+        : value === null || value === undefined
+          ? ''
+          : String(value);
+
+    const custom = Object.keys(values.customFields ?? {})
+      .sort()
+      .map((key) => `${key}=${normalize(values.customFields[key])}`)
+      .join('|');
+
+    return [
+      normalize(values.title),
+      normalize(values.content),
+      normalize(values.summary),
+      normalize(values.seoTitle),
+      normalize(values.metaDescription),
+      custom,
+    ].join(' ');
+  }
+
+  /** Signature of what is currently stored/applied for the active language. */
+  private appliedSignature = '';
+
+  /** Marks the active translation dirty; the base auto-save is not involved. */
+  markTranslationDirty(): void {
+    if (!this.isTranslating()) return;
+    const changed = this.valuesSignature(this.captureTranslatableValues()) !== this.appliedSignature;
+    this.translationDirty.set(changed);
+  }
+
+  /** Persists the active language variant. Never touches the base document. */
+  async saveTranslation(): Promise<void> {
+    if (!this.isTranslating()) return;
+    const lang = this.activeLang();
+
+    if (!this.contentId) {
+      this.toastService.openCustomSnackbar(
+        'Save the content once before adding translations.',
+        'error',
+        'error',
+      );
+      return;
+    }
+
+    const values = this.captureTranslatableValues();
+    this.translationEdits.set(lang, values);
+
+    const translation: IContentTranslation = {
+      lang,
+      ...values,
+      // Only translated custom fields are stored — the shared ones already
+      // live on the base document and must not be duplicated per language.
+      customFields: this.translatableCustomFields(values.customFields),
+      translatedAt: new Date(),
+      translatedBy: this.authState.currentUser()?.id || '',
+    };
+
+    this.isSavingTranslation.set(true);
+    this.saveStatusMessage = `Saving ${this.activeLanguageLabel()} translation...`;
+    this.saveStatusType = 'info';
+    this.cdr.detectChanges();
+
+    try {
+      if (isTranslationEmpty(translation)) {
+        // Nothing translated any more — remove the variant so the language
+        // falls back to the base content instead of publishing empty pages.
+        await this.draftContentsService.deleteTranslation(this.contentTypeSlug, this.contentId, lang);
+        this.translatedLanguages.update((langs) => langs.filter((l) => l !== lang));
+      } else {
+        await this.draftContentsService.saveTranslation(this.contentTypeSlug, this.contentId, translation);
+        this.translatedLanguages.update((langs) => (langs.includes(lang) ? langs : [...langs, lang]));
+      }
+      this.appliedSignature = this.valuesSignature(values);
+      this.translationDirty.set(false);
+      this.saveStatusMessage = `${this.activeLanguageLabel()} translation saved`;
+      this.saveStatusType = 'success';
+      setTimeout(() => {
+        if (this.saveStatusType === 'success') this.saveStatusMessage = '';
+        this.cdr.detectChanges();
+      }, 3000);
+    } catch (error) {
+      console.error('Error saving translation:', error);
+      this.saveStatusMessage = 'Error saving translation. Please try again.';
+      this.saveStatusType = 'error';
+      this.toastService.openCustomSnackbar('Could not save the translation.', 'error', 'error');
+    } finally {
+      this.isSavingTranslation.set(false);
+      this.cdr.detectChanges();
+    }
+  }
+
+  /** Keeps only the custom fields that are translatable for this content type. */
+  private translatableCustomFields(values: { [key: string]: any }): Record<string, unknown> {
+    const translatable: Record<string, unknown> = {};
+    for (const field of this.currentFields) {
+      if (isTranslatableField(field) && values[field.key] !== undefined) {
+        translatable[field.key] = values[field.key];
+      }
+    }
+    return translatable;
+  }
+
+  /** Deletes the active translation, reverting the language to base content. */
+  async clearTranslation(): Promise<void> {
+    if (!this.isTranslating() || !this.contentId) return;
+    const lang = this.activeLang();
+
+    this.isSavingTranslation.set(true);
+    try {
+      await this.draftContentsService.deleteTranslation(this.contentTypeSlug, this.contentId, lang);
+      this.translatedLanguages.update((langs) => langs.filter((l) => l !== lang));
+      this.translationEdits.delete(lang);
+      this.loadedTranslations.delete(lang);
+      this.applyTranslatableValues(this.emptyTranslatableValues());
+      this.translationDirty.set(false);
+      this.toastService.openCustomSnackbar(
+        `${this.activeLanguageLabel()} translation cleared.`,
+        'success',
+        'success',
+      );
+    } catch (error) {
+      console.error('Error clearing translation:', error);
+      this.toastService.openCustomSnackbar('Could not clear the translation.', 'error', 'error');
+    } finally {
+      this.isSavingTranslation.set(false);
+      this.cdr.detectChanges();
+    }
   }
 
   private fetchCurrentUrl() {
@@ -566,6 +904,21 @@ export class CreateContentComponent extends BaseComponent {
   }
 
   private patchForms(contentData: any) {
+    // While a translation is loaded, the forms hold translated text. Refresh
+    // the stashed base values instead of overwriting the translation — the
+    // store can emit at any time (e.g. after an unrelated save).
+    if (this.isTranslating()) {
+      this.baseStash = {
+        title: contentData?.title || '',
+        content: contentData?.content || '',
+        summary: contentData?.summary || '',
+        seoTitle: contentData?.seoTitle || '',
+        metaDescription: contentData?.metaDescription || '',
+        customFields: { ...(contentData?.customFields ?? {}) },
+      };
+      return;
+    }
+
     this.pageTitle = contentData?.title;
     this.coverImage =
       contentData?.coverImage !== '' ? contentData?.coverImage : null;
@@ -731,6 +1084,9 @@ export class CreateContentComponent extends BaseComponent {
 
   public createSlag(): void {
     if (this.contentId) return;
+    // The slug is shared across languages (M-D2), so a translated title must
+    // never regenerate it.
+    if (this.isTranslating()) return;
 
     this.seoForm.get('seoTitle')?.setValue(this.pageTitle);
 
@@ -1071,6 +1427,12 @@ export class CreateContentComponent extends BaseComponent {
   }
 
   public saveAsDraft(afterSave?: () => void) {
+    // Defensive: the UI swaps these buttons out while translating, but a stray
+    // call must never write translated text into the base document.
+    if (this.isTranslating()) {
+      this.saveTranslation();
+      return;
+    }
     this.publishForm.get('title')?.setValue(this.pageTitle);
     this.publishForm.get('coverImage')?.setValue(this.coverImage);
 
@@ -1130,6 +1492,16 @@ export class CreateContentComponent extends BaseComponent {
   }
 
   public directPublishContent() {
+    // Publishing acts on the whole item (all languages) and is only offered on
+    // the default-language tab — see saveAsDraft for why this guard exists.
+    if (this.isTranslating()) {
+      this.toastService.openCustomSnackbar(
+        'Switch to the default language to publish.',
+        'error',
+        'error',
+      );
+      return;
+    }
     this.publishForm.get('title')?.setValue(this.pageTitle);
     this.publishForm.get('coverImage')?.setValue(this.coverImage || null);
 
@@ -1342,6 +1714,12 @@ export class CreateContentComponent extends BaseComponent {
    */
   private performAutoSave(): void {
     if (!this.contentId || this.isSavingDraft || this.isAutoSaving) return;
+    // The debounce may have been armed on the default-language tab and only
+    // fire after the editor switched to a translation. Auto-save writes the
+    // *current* form values to the base document, so without this check a
+    // language switch mid-debounce silently overwrites the default-language
+    // content with the translation.
+    if (this.isTranslating()) return;
 
     const formValues = this.buildDraftFormValues();
     this.isAutoSaving = true;
@@ -1390,6 +1768,13 @@ export class CreateContentComponent extends BaseComponent {
    * Call this from any content change event (editor, form fields, tags, etc.)
    */
   public triggerAutoSave(): void {
+    // Auto-save writes the base document. While a translation is loaded the
+    // forms hold translated text, so auto-saving would overwrite the
+    // default-language content with it. Translations are saved explicitly.
+    if (this.isTranslating()) {
+      this.markTranslationDirty();
+      return;
+    }
     this.autoSaveTrigger$.next();
   }
 
