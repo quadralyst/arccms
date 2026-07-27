@@ -1,4 +1,4 @@
-import { CollectionReferenceConfig, ContentType, ContentTypeField, ContentTypeFieldType, contentTypeName, contentTypeSingularName, pruneNameTranslations } from './content-types.model';
+import { CollectionReferenceConfig, ContentType, ContentTypeField, ContentTypeFieldType, contentTypeName, contentTypeSingularName, pruneNameTranslations, contentTypeFieldLabel, pruneFieldLabelTranslations } from './content-types.model';
 
 describe('ContentTypes Model', () => {
     describe('ContentTypeFieldType', () => {
@@ -696,5 +696,61 @@ describe('pruneNameTranslations', () => {
     it('copes with null and undefined', () => {
         expect(pruneNameTranslations(null)).toEqual({});
         expect(pruneNameTranslations(undefined)).toEqual({});
+    });
+});
+
+// ── Custom field label translations ─────────────────────────────────────────
+
+describe('contentTypeFieldLabel', () => {
+    const type = { fieldLabelTranslations: { hi: { articles_title: 'शीर्षक' } } };
+
+    it('returns the translated label', () => {
+        expect(contentTypeFieldLabel(type, 'articles_title', 'Title', 'hi')).toBe('शीर्षक');
+    });
+
+    it('falls back to the authored label', () => {
+        expect(contentTypeFieldLabel(type, 'articles_body', 'Body', 'hi')).toBe('Body');
+        expect(contentTypeFieldLabel(type, 'articles_title', 'Title', 'fr')).toBe('Title');
+        expect(contentTypeFieldLabel(type, 'articles_title', 'Title')).toBe('Title');
+    });
+
+    it('treats a blank translation as absent', () => {
+        expect(contentTypeFieldLabel(
+            { fieldLabelTranslations: { hi: { articles_title: '   ' } } }, 'articles_title', 'Title', 'hi',
+        )).toBe('Title');
+    });
+
+    it('copes with a type that has no translations', () => {
+        expect(contentTypeFieldLabel(null, 'k', 'Fallback', 'hi')).toBe('Fallback');
+        expect(contentTypeFieldLabel({}, 'k', 'Fallback', 'hi')).toBe('Fallback');
+    });
+});
+
+describe('pruneFieldLabelTranslations', () => {
+    it('drops labels for fields that no longer exist', () => {
+        // The type's fields are the source of truth; a removed field must not
+        // leave a stale translation behind.
+        expect(pruneFieldLabelTranslations(
+            { hi: { kept: 'रखा', removed: 'हटाया' } },
+            ['kept'],
+        )).toEqual({ hi: { kept: 'रखा' } });
+    });
+
+    it('drops blank labels so they fall back', () => {
+        expect(pruneFieldLabelTranslations({ hi: { a: '  ', b: 'ख' } }, ['a', 'b']))
+            .toEqual({ hi: { b: 'ख' } });
+    });
+
+    it('drops a language left entirely empty', () => {
+        expect(pruneFieldLabelTranslations({ hi: { a: '' } }, ['a'])).toEqual({});
+    });
+
+    it('trims values', () => {
+        expect(pruneFieldLabelTranslations({ hi: { a: '  क  ' } }, ['a'])).toEqual({ hi: { a: 'क' } });
+    });
+
+    it('copes with null and undefined', () => {
+        expect(pruneFieldLabelTranslations(null, ['a'])).toEqual({});
+        expect(pruneFieldLabelTranslations(undefined, [])).toEqual({});
     });
 });

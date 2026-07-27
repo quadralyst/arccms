@@ -44,6 +44,17 @@ export interface ContentType extends IBaseModel {
      * Absent or blank for a language means the default `name`/`singularName`.
      */
     nameTranslations?: Record<string, ContentTypeNames>;
+    /**
+     * Per-language custom-field labels: `{ hi: { articles_title: 'शीर्षक' } }`,
+     * keyed by language then by `ContentTypeField.key`.
+     *
+     * Kept separate from `nameTranslations` so each field stays accurately
+     * named and neither needs migrating. Labels are derived from the live field
+     * list, so a field added or removed here appears or disappears in the
+     * translation tabs automatically; entries for keys that no longer exist are
+     * dropped on save.
+     */
+    fieldLabelTranslations?: Record<string, Record<string, string>>;
 }
 
 /** Display names for one language. */
@@ -84,6 +95,40 @@ export function pruneNameTranslations(
         const entry: ContentTypeNames = {};
         if (names?.name?.trim()) entry.name = names.name.trim();
         if (names?.singularName?.trim()) entry.singularName = names.singularName.trim();
+        if (Object.keys(entry).length > 0) pruned[lang] = entry;
+    }
+    return pruned;
+}
+
+/**
+ * A custom field's label in a language, falling back to the authored label.
+ */
+export function contentTypeFieldLabel(
+    type: Pick<ContentType, 'fieldLabelTranslations'> | null | undefined,
+    fieldKey: string,
+    fallback: string,
+    lang?: string,
+): string {
+    const translated = lang ? type?.fieldLabelTranslations?.[lang]?.[fieldKey] : '';
+    return translated?.trim() || fallback;
+}
+
+/**
+ * Drops blank labels and any key that is no longer a field on the type, so the
+ * stored translations cannot drift out of step with the field list.
+ */
+export function pruneFieldLabelTranslations(
+    raw: Record<string, Record<string, string>> | null | undefined,
+    fieldKeys: string[],
+): Record<string, Record<string, string>> {
+    const valid = new Set(fieldKeys);
+    const pruned: Record<string, Record<string, string>> = {};
+
+    for (const [lang, labels] of Object.entries(raw ?? {})) {
+        const entry: Record<string, string> = {};
+        for (const [key, label] of Object.entries(labels ?? {})) {
+            if (valid.has(key) && label?.trim()) entry[key] = label.trim();
+        }
         if (Object.keys(entry).length > 0) pruned[lang] = entry;
     }
     return pruned;

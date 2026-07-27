@@ -7,6 +7,71 @@
     </div>
 
     <form [formGroup]="editForm" (ngSubmit)="onSubmit()">
+        <!-- Language tabs. The default language edits the whole type; every
+             other shows only what can be translated. -->
+        @if (enabledLanguages().length > 1) {
+        <div class="ct-lang-tabs">
+            @for (language of enabledLanguages(); track language.code) {
+            <button type="button" class="ct-lang-tab" [class.active]="activeLang() === language.code"
+                (click)="activeLang.set(language.code)">
+                {{ language.label }}
+                @if (language.code === defaultLang()) {
+                <span class="ct-lang-badge">default</span>
+                }
+            </button>
+            }
+        </div>
+        }
+
+        @if (isTranslating()) {
+        <!-- Translation tab: names and field labels only. Everything else —
+             slug, type, template, required flags — is shared across languages
+             and stays on the default tab. -->
+        <p class="text-muted small">
+            Translating into <strong>{{ activeLang() }}</strong>. Blank fields fall back to the
+            {{ defaultLang() }} text. Keys, types and settings are shared across languages.
+        </p>
+
+        <div class="form-group">
+            <label class="form-label">Name (Plural)</label>
+            <input type="text" class="form-control"
+                [placeholder]="editForm.get('name')?.value || 'Plural name'"
+                [value]="translatedName(activeLang(), 'name')"
+                (input)="setTranslatedName(activeLang(), 'name', $any($event.target).value)" />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Singular Name</label>
+            <input type="text" class="form-control"
+                [placeholder]="editForm.get('singularName')?.value || 'Singular name'"
+                [value]="translatedName(activeLang(), 'singularName')"
+                (input)="setTranslatedName(activeLang(), 'singularName', $any($event.target).value)" />
+        </div>
+
+        @if (translatableFields().length > 0) {
+        <div class="form-section-title">Custom field labels</div>
+        @for (field of translatableFields(); track field.key) {
+        <div class="form-group">
+            <label class="form-label">{{ field.label }}</label>
+            <input type="text" class="form-control"
+                [placeholder]="field.label"
+                [value]="translatedFieldLabel(activeLang(), field.key)"
+                (input)="setTranslatedFieldLabel(activeLang(), field.key, $any($event.target).value)" />
+        </div>
+        }
+        } @else {
+        <p class="text-muted small">This content type has no custom fields yet.</p>
+        }
+
+        <hr />
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+            <button type="button" class="btn btn-secondary me-md-2" (click)="closeEdit()">Cancel</button>
+            <button type="submit" class="btn btn-primary"
+                [disabled]="!editForm.valid || contentTypesStore.isLoading()">Update
+                Content Type</button>
+        </div>
+        } @else {
         <div class="form-group">
             <label class="form-label">
                 Content Type Name (Plural) <span class="required">*</span>
@@ -33,37 +98,6 @@
                 id="singularName" />
             <small class="text-muted">Used for single items (e.g., "Add Article")</small>
         </div>
-
-        <!-- Per-language names. Only shown on a multilingual site; a blank
-             field means that language uses the default name above. -->
-        @if (extraLanguages().length > 0) {
-        <div class="form-group">
-            <label class="form-label">Translated names</label>
-            <small class="text-muted d-block mb-2">
-                Shown on translated pages — headings and "Back to&hellip;" links. Leave blank to use the
-                names above.
-            </small>
-            @for (language of extraLanguages(); track language.code) {
-            <div class="row g-2 mb-2 align-items-center">
-                <div class="col-auto">
-                    <span class="badge bg-light text-dark">{{ language.nativeLabel || language.label }}</span>
-                </div>
-                <div class="col">
-                    <input type="text" class="form-control form-control-sm"
-                        [placeholder]="editForm.get('name')?.value || 'Plural name'"
-                        [value]="translatedName(language.code, 'name')"
-                        (input)="setTranslatedName(language.code, 'name', $any($event.target).value)" />
-                </div>
-                <div class="col">
-                    <input type="text" class="form-control form-control-sm"
-                        [placeholder]="editForm.get('singularName')?.value || 'Singular name'"
-                        [value]="translatedName(language.code, 'singularName')"
-                        (input)="setTranslatedName(language.code, 'singularName', $any($event.target).value)" />
-                </div>
-            </div>
-            }
-        </div>
-        }
 
         <div class="form-group">
             <label class="form-label">
@@ -314,6 +348,7 @@
                 [disabled]="!editForm.valid || contentTypesStore.isLoading()">Update
                 Content Type</button>
         </div>
+        }
     </form>
 
     <div class="copyright">
