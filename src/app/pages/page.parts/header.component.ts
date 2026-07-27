@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { LanguageSwitcherComponent } from './language-switcher.component';
+import { ArcTranslateDirective } from '../../core/directives/arc-translate.directive';
 
 @Component({
     selector: 'arc-header',
@@ -7,7 +8,7 @@ import { LanguageSwitcherComponent } from './language-switcher.component';
     // The header partial carries <arc-language-switcher>. In statically
     // published pages the publish pipeline substitutes it; here it is a real
     // component. Both render nothing on a single-language site.
-    imports: [LanguageSwitcherComponent],
+    imports: [LanguageSwitcherComponent, ArcTranslateDirective],
     templateUrl: '../../../../public/_partials/_header.html',
     styleUrl: '../../../../public/assets/css/main.css',
     changeDetection: ChangeDetectionStrategy.OnPush,

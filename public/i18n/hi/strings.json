@@ -1,0 +1,19 @@
+{
+  "back_to": "वापस {{ contentType }} पर",
+  "all_of_type": "सभी {{ contentType }}",
+  "share_this_article": "यह लेख साझा करें",
+  "reading_time": "{{ readingTime }}",
+  "min_read": "{{ readTime }} मिनट का पठन",
+  "read_more": "लेख पढ़ें",
+  "empty_title": "अभी कोई लेख नहीं",
+  "empty_body": "नई सामग्री के लिए जल्द ही देखें।",
+  "previous": " पिछला",
+  "next": "अगला ",
+
+  "nav_features": "विशेषताएँ",
+  "nav_how_it_works": "यह कैसे काम करता है",
+  "nav_ownership": "स्वामित्व",
+  "nav_get_access": "एक्सेस प्राप्त करें",
+  "nav_articles": "लेख",
+  "nav_contact": "संपर्क"
+}

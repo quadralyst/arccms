@@ -17,7 +17,7 @@
         <header class="article-header">
             <div class="container">
                 <a class="article-back-link" href="{{ langPrefix }}/{{ contentTypeSlug }}">
-                    <i class="fas fa-arrow-left"></i> Back to {{ contentType }}
+                    <i class="fas fa-arrow-left"></i> <span data-arc-t="back_to">Back to {{ contentType }}</span>
                 </a>
                 <h1 class="article-title">{{ title }}</h1>
                 <div class="article-meta">
@@ -26,7 +26,7 @@
                     </span>
                     <span class="meta-divider">&#8226;</span>
                     <span class="article-read-time">
-                        <i class="far fa-clock"></i> {{ readingTime }}
+                        <i class="far fa-clock"></i> <span data-arc-t="reading_time">{{ readingTime }}</span>
                     </span>
                 </div>
             </div>
@@ -45,7 +45,7 @@
                 </div>
 
                 <div class="article-share">
-                    <span class="share-label">Share this article</span>
+                    <span class="share-label" data-arc-t="share_this_article">Share this article</span>
                     <div class="share-buttons">
                         <a class="share-btn share-twitter" href="{{ share.twitter }}" target="_blank" rel="noopener">
                             <i class="fab fa-twitter"></i>
@@ -65,7 +65,7 @@
                 <nav class="article-navigation">
                     <a href="{{ langPrefix }}/{{ contentTypeSlug }}" class="nav-back">
                         <i class="fas fa-th-large"></i>
-                        <span>All {{ contentType }}</span>
+                        <span data-arc-t="all_of_type">All {{ contentType }}</span>
                     </a>
                 </nav>
             </div>

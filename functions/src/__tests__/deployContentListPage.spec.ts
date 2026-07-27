@@ -12,6 +12,7 @@ const {
     mockGetSiteConfig,
     mockGetMiscSettings,
     mockGetLocalizationSettings,
+    mockGetUiStrings,
     mockTranslationsGet,
     mockDocGet,
     mockContentTypeWhere,
@@ -27,6 +28,7 @@ const {
     mockGetSiteConfig: vi.fn(),
     mockGetMiscSettings: vi.fn(),
     mockGetLocalizationSettings: vi.fn(),
+    mockGetUiStrings: vi.fn(),
     mockTranslationsGet: vi.fn(),
     mockDocGet: vi.fn(),
     mockContentTypeWhere: vi.fn(),
@@ -55,6 +57,7 @@ vi.mock('../shared/site-settings', () => ({
     getSiteConfig: mockGetSiteConfig,
     getMiscSettings: mockGetMiscSettings,
     getLocalizationSettings: mockGetLocalizationSettings,
+    getUiStrings: mockGetUiStrings,
 }));
 
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
@@ -132,6 +135,8 @@ function restoreMockImplementations() {
         enabledLanguages: [{ code: 'en', label: 'English', nativeLabel: 'English' }],
     });
     mockTranslationsGet.mockResolvedValue({ docs: [] });
+    // No translated chrome by default — the authored English stands.
+    mockGetUiStrings.mockResolvedValue({});
     mockDeployFileToHosting.mockResolvedValue(undefined);
 
     // ContentTypes query chain

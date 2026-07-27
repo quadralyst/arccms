@@ -1,5 +1,5 @@
 import { db } from '../init.js';
-import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings } from '../shared/site-settings.js';
+import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings } from '../shared/site-settings.js';
 import {
     ContentTranslation,
     TRANSLATABLE_BUILTIN_FIELDS,
@@ -288,7 +288,14 @@ export async function generateAndDeployContentDetailPage(
             (localizedContent.tags || []).map((t: string) => ({ name: t, color: '#6b7280' }));
 
         // Hydrate template: process loops first, then bindings
-        let hydratedHtml = TemplateHydrationService.processLoops(templateHtml, {
+        // Static chrome baked into the template ("Read Article", "min read").
+        // Applied before hydration so a translated value may carry its own
+        // interpolation — "Back to {{ contentType }}" — and before loops so a
+        // repeated item template is translated once rather than per item.
+        const uiStrings = lang === defaultLang ? {} : await getUiStrings(lang);
+        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, uiStrings);
+
+        let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, {
             tags: tagsData,
         });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
@@ -296,8 +303,8 @@ export async function generateAndDeployContentDetailPage(
         // Replace arc components (header, footer, admin buttons, partials)
         hydratedHtml = replaceArcComponents(
             hydratedHtml,
-            partials.headerHtml,
-            partials.footerHtml,
+            TemplateHydrationService.applyStrings(partials.headerHtml, uiStrings),
+            TemplateHydrationService.applyStrings(partials.footerHtml, uiStrings),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
         );
 
