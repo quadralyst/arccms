@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -43,6 +43,15 @@ export default class ImportFilesPageComponent extends BaseComponent {
     // Manifest mode
     manifestFile = signal<File | null>(null);
     manifestData = signal<Record<string, any> | null>(null);
+
+    /**
+     * How many entries the uploaded manifest holds.
+     *
+     * `Object` is not in scope in an Angular template — the template read
+     * `{{ Object.keys(...) }}`, which the compiler rejects under
+     * strictTemplates. Counting here is what the template meant to say.
+     */
+    manifestEntryCount = computed(() => Object.keys(this.manifestData() ?? {}).length);
 
     // Upload state
     isUploading = signal(false);

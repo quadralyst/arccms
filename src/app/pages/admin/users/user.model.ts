@@ -21,6 +21,11 @@ export interface IUser extends IBaseModel {
     uid: string;
     isOnBoardingComplete?: boolean;
     updatedAt?: Date;
+    /**
+     * The admin UI language this person reads (M-D11). Independent of the
+     * languages the site publishes in — see core/i18n/admin-language.service.ts.
+     */
+    preferredLanguage?: string;
 
     // ── Premium entitlement (written ONLY by Cloud Functions; clients cannot set these) ──
     /** Master gate — true when the user currently holds a paid entitlement. */
