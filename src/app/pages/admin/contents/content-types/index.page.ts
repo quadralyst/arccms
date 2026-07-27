@@ -71,8 +71,8 @@ export default class ContentTypeComponent {
   // Filters
   filters = signal<{ [key: string]: string }>({});
   filterableColumns = [
-    { label: this.transloco.translate('common.table.name'), field: 'name' },
-    { label: this.transloco.translate('common.table.slug'), field: 'slug' }
+    { label: 'common.table.name', field: 'name' },
+    { label: 'common.table.slug', field: 'slug' }
   ];
 
   // Table Config
@@ -164,6 +164,7 @@ export default class ContentTypeComponent {
       width: '350px',
       data: {
         dialogType: 'Delete',
+        titleKey: 'common.dialog.delete',
         dialogMessage: msg,
         btnText: this.transloco.translate('common.actions.delete'),
         panelType: 'warn',
@@ -346,25 +347,25 @@ export default class ContentTypeComponent {
       },
       {
         key: 'name',
-        header: this.transloco.translate('common.table.name'),
+        header: 'common.table.name',
         type: 'text',
         sortable: true
       },
       {
         key: 'slug',
-        header: this.transloco.translate('common.table.slug'),
+        header: 'common.table.slug',
         type: 'text',
         sortable: true
       },
       {
         key: 'fields',
-        header: this.transloco.translate('admin.contents.types.col_fields'),
+        header: 'admin.contents.types.col_fields',
         transformFn: (row: ContentType) =>
           this.transloco.translate('admin.contents.types.field_count', { count: row.fields?.length || 0 })
       },
       {
         key: 'hasPublicUrl',
-        header: this.transloco.translate('admin.contents.types.col_public_pages'),
+        header: 'admin.contents.types.col_public_pages',
         type: 'html',
         transformFn: (row: ContentType) => row.hasPublicUrl !== false
           ? `<span class="badge bg-success-subtle text-success"><i class="fas fa-globe me-1"></i>${this.transloco.translate('common.yes')}</span>`
@@ -372,40 +373,40 @@ export default class ContentTypeComponent {
       },
       {
         key: 'modifiedAt',
-        header: this.transloco.translate('common.table.last_updated'),
+        header: 'common.table.last_updated',
         sortable: true,
         transformFn: (row: ContentType) => this.formatDate(row.modifiedAt)
       },
       {
         key: 'actions',
-        header: this.transloco.translate('common.table.actions'),
+        header: 'common.table.actions',
         type: 'actions',
         actions: [
           {
             action: 'view',
             icon: 'fas fa-eye text-secondary',
-            label: this.transloco.translate('common.actions.view'),
+            label: 'common.actions.view',
             class: 'view',
             onAction: (row) => this.openView(row.id)
           },
           {
             action: 'edit',
             icon: 'fas fa-pen text-primary',
-            label: this.transloco.translate('common.actions.edit'),
+            label: 'common.actions.edit',
             class: 'edit',
             onAction: (row) => this.openEdit(row.id)
           },
           {
             action: 'tags',
             icon: 'fas fa-tags text-warning',
-            label: this.transloco.translate('admin.contents.types.manage_tags'),
+            label: 'admin.contents.types.manage_tags',
             class: 'edit',
             onAction: (row) => this.openTags(row)
           },
           {
             action: 'delete',
             icon: 'fas fa-trash text-danger',
-            label: this.transloco.translate('common.actions.delete'),
+            label: 'common.actions.delete',
             class: 'delete',
             onAction: (row) => this.deleteItem(row)
           }

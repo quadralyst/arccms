@@ -342,6 +342,7 @@ export default class NavbarComponent extends BaseComponent {
                 // dialogType is a discriminator the dialog switches on, not
                 // display text — it stays English.
                 dialogType: 'Logout',
+        titleKey: 'common.dialog.logout',
                 dialogMessage: msg,
                 btnText: this.transloco.translate('common.actions.logout'),
                 panelType: 'warn',

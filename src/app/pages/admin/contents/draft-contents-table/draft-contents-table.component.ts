@@ -98,7 +98,7 @@ export class DraftContentsTableComponent
   // Filters
   filters = signal<{ [key: string]: string }>({});
   statusFilter = signal<string>(''); // '', 'published', 'draft'
-  filterableColumns = [{ label: this.transloco.translate('admin.contents.list.col_title'), field: 'title' }];
+  filterableColumns = [{ label: 'admin.contents.list.col_title', field: 'title' }];
   
   // Preview
   previewItem = signal<any>(null);
@@ -227,7 +227,7 @@ export class DraftContentsTableComponent
   baseColumns: TableColumn[] = [
     {
       key: 'title',
-      header: this.transloco.translate('admin.contents.list.col_title'),
+      header: 'admin.contents.list.col_title',
       clickable: true,
       classFn: () => 'text-primary fw-bold cursor-pointer',
     },
@@ -237,7 +237,7 @@ export class DraftContentsTableComponent
   endColumns: TableColumn[] = [
     {
       key: 'publishedStatus',
-      header: this.transloco.translate('common.table.status'),
+      header: 'common.table.status',
       type: 'badge',
       // Three states rather than a published/draft boolean — a live page whose
       // draft has moved on is neither. `textFn` puts the badge in multi-state
@@ -250,27 +250,27 @@ export class DraftContentsTableComponent
     },
     {
       key: 'modifiedAt',
-      header: this.transloco.translate('common.table.last_updated'),
+      header: 'common.table.last_updated',
       type: 'date',
       sortable: true,
     },
     {
       key: 'actions',
-      header: this.transloco.translate('common.table.actions'),
+      header: 'common.table.actions',
       type: 'actions',
       sortable: false,
       actions: [
         {
           action: 'preview',
           icon: 'fa-solid fa-eye text-muted',
-          label: this.transloco.translate('admin.contents.list.preview'),
+          label: 'admin.contents.list.preview',
           class: 'preview',
           onAction: (row) => this.previewItem.set(row),
         },
         {
           action: 'edit',
           icon: 'fa-solid fa-pen text-primary',
-          label: this.transloco.translate('common.actions.edit'),
+          label: 'common.actions.edit',
           class: 'edit',
           isRowClick: true,
           onAction: (row) => this.openContent(row.id),
@@ -278,7 +278,7 @@ export class DraftContentsTableComponent
         {
           action: 'unpublish',
           icon: 'fa-solid fa-eye-slash text-warning',
-          label: this.transloco.translate('admin.contents.list.unpublish'),
+          label: 'admin.contents.list.unpublish',
           class: 'edit',
           hide: (row) => !row.publishedStatus,
           onAction: (row) => this.confirmUnpublishContent(row.id),
@@ -286,7 +286,7 @@ export class DraftContentsTableComponent
         {
           action: 'history',
           icon: 'fa-solid fa-clock-rotate-left text-info',
-          label: this.transloco.translate('admin.contents.list.view_history'),
+          label: 'admin.contents.list.view_history',
           class: 'edit',
           hide: (row) => !row.publishedStatus,
           onAction: (row) => this.openPublishHistory(row),
@@ -294,7 +294,7 @@ export class DraftContentsTableComponent
         {
           action: 'delete',
           icon: 'fa-solid fa-trash text-danger',
-          label: this.transloco.translate('common.actions.delete'),
+          label: 'common.actions.delete',
           class: 'delete',
           onAction: (row) => this.deleteItem(row),
         },
@@ -768,6 +768,7 @@ export class DraftContentsTableComponent
       width: '350px',
       data: {
         dialogType: 'Delete',
+        titleKey: 'common.dialog.delete',
         dialogMessage: msg,
         btnText: this.transloco.translate('common.actions.delete'),
         panelType: 'warn',
@@ -845,6 +846,7 @@ export class DraftContentsTableComponent
       width: '350px',
       data: {
         dialogType: 'Unpublish',
+        titleKey: 'common.dialog.unpublish',
         dialogMessage: msg,
         btnText: this.transloco.translate('admin.contents.list.unpublish'),
         panelType: 'warn',
