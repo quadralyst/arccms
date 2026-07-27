@@ -1,4 +1,9 @@
-import { CollectionReferenceConfig, ContentType, ContentTypeField, ContentTypeFieldType, contentTypeName, contentTypeSingularName, pruneNameTranslations, contentTypeFieldLabel, pruneFieldLabelTranslations } from './content-types.model';
+import { CollectionReferenceConfig, ContentType, ContentTypeField, ContentTypeFieldType, contentTypeDescription, contentTypeName, contentTypeSingularName, pruneNameTranslations, contentTypeFieldLabel, pruneFieldLabelTranslations } from './content-types.model';
+import {
+    contentTypeDescription as contentTypeDescriptionServer,
+    contentTypeName as contentTypeNameServer,
+    contentTypeSingularName as contentTypeSingularNameServer,
+} from '../../../../../../functions/src/shared/content-type-names';
 
 describe('ContentTypes Model', () => {
     describe('ContentTypeFieldType', () => {
@@ -681,6 +686,43 @@ describe('contentTypeSingularName', () => {
     });
 });
 
+describe('contentTypeDescription', () => {
+    const type = {
+        description: 'Blog posts, news, and announcements',
+        nameTranslations: { hi: { description: 'ब्लॉग पोस्ट, समाचार और घोषणाएँ' } },
+    };
+
+    it('returns the translated description', () => {
+        expect(contentTypeDescription(type, 'hi')).toBe('ब्लॉग पोस्ट, समाचार और घोषणाएँ');
+    });
+
+    it('falls back for a language with no translation', () => {
+        expect(contentTypeDescription(type, 'fr')).toBe('Blog posts, news, and announcements');
+    });
+
+    it('falls back with no language', () => {
+        expect(contentTypeDescription(type)).toBe('Blog posts, news, and announcements');
+        expect(contentTypeDescription(type, '')).toBe('Blog posts, news, and announcements');
+    });
+
+    it('treats a blank translation as absent', () => {
+        expect(contentTypeDescription({ ...type, nameTranslations: { hi: { description: '  ' } } }, 'hi'))
+            .toBe('Blog posts, news, and announcements');
+    });
+
+    it('copes with a type that has no description at all', () => {
+        expect(contentTypeDescription({}, 'hi')).toBe('');
+        expect(contentTypeDescription(null, 'hi')).toBe('');
+        expect(contentTypeDescription(undefined)).toBe('');
+    });
+
+    it('does not disturb the name when only the description is translated', () => {
+        // Both live in nameTranslations; a language may translate either.
+        expect(contentTypeName({ name: 'Articles', nameTranslations: type.nameTranslations }, 'hi'))
+            .toBe('Articles');
+    });
+});
+
 describe('pruneNameTranslations', () => {
     it('drops blank entries so they fall back to the default', () => {
         expect(pruneNameTranslations({
@@ -691,6 +733,11 @@ describe('pruneNameTranslations', () => {
 
     it('trims values', () => {
         expect(pruneNameTranslations({ hi: { name: '  लेख  ' } })).toEqual({ hi: { name: 'लेख' } });
+    });
+
+    it('keeps a language that translated only the description', () => {
+        expect(pruneNameTranslations({ hi: { name: '', description: '  विवरण  ' } }))
+            .toEqual({ hi: { description: 'विवरण' } });
     });
 
     it('copes with null and undefined', () => {
@@ -752,5 +799,33 @@ describe('pruneFieldLabelTranslations', () => {
     it('copes with null and undefined', () => {
         expect(pruneFieldLabelTranslations(null, ['a'])).toEqual({});
         expect(pruneFieldLabelTranslations(undefined, [])).toEqual({});
+    });
+});
+
+// ── Client/server mirror ────────────────────────────────────────────────────
+
+describe('content-type display text agrees with the publish pipeline', () => {
+    // A statically published page and its SPA fallback are the same page; a
+    // difference here means the two render different words for the same type.
+    const type = {
+        name: 'Articles',
+        singularName: 'Article',
+        description: 'Blog posts, news, and announcements',
+        nameTranslations: {
+            hi: { name: 'लेख', singularName: 'लेख', description: 'ब्लॉग पोस्ट' },
+            fr: { name: 'Articles FR' },
+        },
+    };
+
+    it.each(['hi', 'fr', 'de', '', undefined])('matches for %j', (lang) => {
+        expect(contentTypeName(type, lang)).toBe(contentTypeNameServer(type, lang));
+        expect(contentTypeSingularName(type, lang)).toBe(contentTypeSingularNameServer(type, lang));
+        expect(contentTypeDescription(type, lang)).toBe(contentTypeDescriptionServer(type, lang));
+    });
+
+    it('matches when the type has no translations at all', () => {
+        const plain = { name: 'Notes', description: 'Just notes' };
+        expect(contentTypeDescription(plain, 'hi')).toBe(contentTypeDescriptionServer(plain, 'hi'));
+        expect(contentTypeName(plain, 'hi')).toBe(contentTypeNameServer(plain, 'hi'));
     });
 });

@@ -8,7 +8,7 @@ import {
     mergeTranslation,
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
-import { contentTypeName } from '../shared/content-type-names.js';
+import { contentTypeDescription, contentTypeName } from '../shared/content-type-names.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -219,11 +219,12 @@ export async function generateAndDeployContentListPage(
         const prefix = langPrefix(lang, defaultLang);
 
         const typeName = contentTypeName(contentType, lang);
+        const typeDescription = contentTypeDescription(contentType, lang);
         const templateData = {
             contentType: typeName,
             contentTypeSlug: contentType.slug,
-            contentTypeDescription: contentType.description || '',
-            description: contentType.description || '',
+            contentTypeDescription: typeDescription,
+            description: typeDescription,
             lang,
             langPrefix: prefix,
         };
@@ -289,7 +290,7 @@ export async function generateAndDeployContentListPage(
 
         const meta: PageMeta = {
             title: typeName || 'Content',
-            metaDescription: contentType.description || `Browse all ${typeName?.toLowerCase() || 'content'}`,
+            metaDescription: typeDescription || `Browse all ${typeName?.toLowerCase() || 'content'}`,
             canonicalUrl: listUrl(baseUrl, lang, defaultLang, contentTypeSlug),
             ogImage: '',
             ogType: 'website',

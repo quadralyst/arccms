@@ -19,7 +19,7 @@ import { BaseComponent } from '../../../../../../shared/components/base/base.com
 import { IconPickerComponent } from '../../../../../../shared/components/icon-picker/icon-picker.component';
 import { OmitCommonFields } from '../../../../../../shared/models/base-model';
 import { LocalizationService } from '../../../../../core/services/localization.service';
-import { ContentTypeNames, pruneNameTranslations, pruneFieldLabelTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
+import { ContentTypeNames, TranslatableTypeText, pruneNameTranslations, pruneFieldLabelTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
 import { ContentTypesStore } from '../content-types.store';
 import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator } from '../collection-ref-helpers';
 import { roleGuard } from '../../../../../guards/role.guard';
@@ -238,13 +238,13 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     /** Languages other than the default — the ones needing a translated name. */
     extraLanguages = computed(() => this.localization.extraLanguages());
 
-    /** Current translated name for a language, for the template's two-way bind. */
-    translatedName(lang: string, key: 'name' | 'singularName'): string {
+    /** Current translated text for a language, for the template's two-way bind. */
+    translatedName(lang: string, key: TranslatableTypeText): string {
         const all = this.editForm.get('nameTranslations')?.value || {};
         return all[lang]?.[key] || '';
     }
 
-    setTranslatedName(lang: string, key: 'name' | 'singularName', value: string): void {
+    setTranslatedName(lang: string, key: TranslatableTypeText, value: string): void {
         const control = this.editForm.get('nameTranslations');
         const all = { ...(control?.value || {}) };
         all[lang] = { ...(all[lang] || {}), [key]: value };

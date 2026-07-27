@@ -11,11 +11,13 @@
 export interface ContentTypeNames {
     name?: string;
     singularName?: string;
+    description?: string;
 }
 
 interface NameSource {
     name?: string;
     singularName?: string;
+    description?: string;
     nameTranslations?: Record<string, ContentTypeNames>;
 }
 
@@ -29,4 +31,15 @@ export function contentTypeName(type: NameSource, lang?: string): string {
 export function contentTypeSingularName(type: NameSource, lang?: string): string {
     const translated = lang ? type.nameTranslations?.[lang]?.singularName : '';
     return translated?.trim() || type.singularName || type.name || '';
+}
+
+/**
+ * The type's description in a language, falling back to the default.
+ *
+ * It is the subtitle under the list page heading, so an untranslated one is
+ * the most visible English left on an otherwise translated page.
+ */
+export function contentTypeDescription(type: NameSource, lang?: string): string {
+    const translated = lang ? type.nameTranslations?.[lang]?.description : '';
+    return translated?.trim() || type.description || '';
 }
