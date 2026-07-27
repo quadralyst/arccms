@@ -32,8 +32,20 @@ export const LOCALIZATION_DOC = 'localization';
 
 @Injectable({ providedIn: 'root' })
 export class LocalizationService {
-    private firestore = inject(Firestore);
     private injector = inject(Injector);
+
+    /**
+     * Resolved on first use rather than injected in the constructor.
+     *
+     * The public language switcher lives in the site header, so this service
+     * is constructed by anything that renders a page. Requiring Firestore up
+     * front would make every one of those components — and every one of their
+     * specs — depend on it, for a read whose failure this service already
+     * treats as "single-language site".
+     */
+    private get firestore(): Firestore {
+        return this.injector.get(Firestore);
+    }
 
     private readonly settingsSignal = signal<ILocalizationSettings>(DEFAULT_LOCALIZATION_SETTINGS);
     private readonly loadedSignal = signal(false);
@@ -91,7 +103,9 @@ export class LocalizationService {
     /** Persists settings and refreshes the cached signals. */
     async save(settings: ILocalizationSettings): Promise<void> {
         const normalized = normalizeLocalizationSettings(settings);
-        const docRef = doc(this.firestore, SETTINGS_COLLECTION, LOCALIZATION_DOC);
+        const docRef = runInInjectionContext(this.injector, () =>
+            doc(this.firestore, SETTINGS_COLLECTION, LOCALIZATION_DOC),
+        );
         await setDoc(docRef, normalized, { merge: true });
         this.settingsSignal.set(normalized);
         this.loadedSignal.set(true);

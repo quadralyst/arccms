@@ -93,7 +93,11 @@ describe('ContentDetailComponent', () => {
                     useValue: {
                         snapshot: {
                             paramMap: {
-                                get: (key: string) => key === 'contentTypeSlug' ? 'articles' : 'my-article'
+                                get: (key: string) =>
+                                    key === 'contentTypeSlug' ? 'articles'
+                                        : key === 'urlSlug' ? 'my-article'
+                                            // No 'lang' on the default-language route.
+                                            : null
                             },
                             queryParamMap: {
                                 get: (key: string) => null
@@ -898,7 +902,11 @@ describe('ContentDetailComponent preview=true ngOnInit', () => {
                     useValue: {
                         snapshot: {
                             paramMap: {
-                                get: (key: string) => key === 'contentTypeSlug' ? 'articles' : 'my-article'
+                                get: (key: string) =>
+                                    key === 'contentTypeSlug' ? 'articles'
+                                        : key === 'urlSlug' ? 'my-article'
+                                            // No 'lang' on the default-language route.
+                                            : null
                             },
                             queryParamMap: {
                                 get: (key: string) => key === 'preview' ? 'true' : null

@@ -1,6 +1,6 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit, PLATFORM_ID, signal, ViewEncapsulation, effect, TransferState, makeStateKey } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, ViewEncapsulation, effect, TransferState, makeStateKey } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
@@ -18,6 +18,12 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FooterComponent } from './footer.component';
 import { HeaderComponent } from './header.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
+import { ContentsService } from '../admin/contents/content-store/published-contents.service';
+import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
+import {
+    IContentTranslation,
+    mergeTranslation,
+} from '../admin/contents/draft-content-store/content-translation.model';
 
 /**
  * Dynamic Content Detail Component
@@ -451,6 +457,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     contentTypesStore = inject(ContentTypesStore);
     contentsStore = inject(ContentsStore);
     draftContentsStore = inject(DraftContentsStore);
+    // Resolved lazily: these reach Firestore through DbService, and only the
+    // /{lang}/ routes ever need them. Injecting eagerly would make every page
+    // that renders content — and its spec — depend on Firestore.
+    private injector = inject(Injector);
     private auth = inject(Auth);
     private gaTracking = inject(GaTrackingService);
     private trackedContent = false;
@@ -476,29 +486,69 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         return types.find((ct: ContentType) => ct.slug === slug) || null;
     });
 
+    /** Language prefix of the current URL — '' on the default-language routes. */
+    pageLang = signal<string>('');
+    /** Translation for `pageLang`, once loaded. */
+    private translation = signal<IContentTranslation | null>(null);
+
     currentContent = computed(() => {
         // If we have a draft content loaded and we are in preview mode, use it
         if (this.isPreview() && this.draftContent()) {
           const draft = this.draftContent();
-          return {
+          return this.localize({
             ...draft,
             // Map draft properties to IContents interface if needed
             // Ensure compatibility between IDraftContents and IContents
             publishedStatus: false, // It's a draft
             publishedOn: draft?.publishedOn || draft?.createdAt,
-          } as any;
+          } as any);
         }
 
         const contentType = this.currentContentType();
         const slug = this.urlSlug();
         if (!contentType || !slug) return null;
 
-        return this.contentsStore.items().find((content: IContents) =>
+        const content = this.contentsStore.items().find((content: IContents) =>
             content.urlSlug === slug &&
             content.type === contentType.slug &&
             content.publishedStatus
         ) || null;
+
+        return content ? this.localize(content) : null;
     });
+
+    /**
+     * Overlays the loaded translation. Untranslated fields keep their
+     * default-language values, matching what the publish pipeline deploys —
+     * both sides call the same merge.
+     */
+    private localize<T extends Record<string, any>>(content: T): T {
+        if (!this.pageLang()) return content;
+        return mergeTranslation(content, this.translation());
+    }
+
+    /** Guards against re-reading the translation on every store emission. */
+    private translationRequested = false;
+
+    /**
+     * Reads the language variant for this page. Published content first; a
+     * preview falls back to the draft variant, so an unpublished translation
+     * can still be previewed.
+     *
+     * Driven by an effect rather than ngOnInit because the document id is only
+     * known once the content store has loaded.
+     */
+    private async loadTranslation(lang: string, typeSlug: string, docId: string): Promise<void> {
+        try {
+            const translation = this.isPreview()
+                ? await this.injector.get(DraftContentsService).getTranslation(typeSlug, docId, lang)
+                : await this.injector.get(ContentsService).getTranslation(typeSlug, docId, lang);
+            this.translation.set(translation);
+        } catch (error) {
+            // Rendering in the default language is the correct degradation.
+            console.error('Error loading translation:', error);
+        }
+    }
 
     // Flag to track if we are currently checking for a draft
     isCheckingDraft = signal<boolean>(false);
@@ -516,6 +566,22 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         }
 
         // Watch for content loading to trigger template loading and SEO updates
+        // Load this page's translation once the content store has filled — the
+        // document id is not known before then. Reads only the store and the
+        // language, so writing `translation` below cannot re-trigger it.
+        effect(() => {
+            const lang = this.pageLang();
+            const items = this.contentsStore.items();
+            if (!lang || this.translationRequested) return;
+
+            const match = items.find((content: IContents) =>
+                content.urlSlug === this.urlSlug() && content.type === this.contentTypeSlug());
+            if (!match?.id) return;
+
+            this.translationRequested = true;
+            untracked(() => this.loadTranslation(lang, this.contentTypeSlug(), match.id));
+        });
+
         effect(() => {
             const contentType = this.currentContentType();
             const content = this.currentContent();
@@ -584,10 +650,13 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         const typeSlug = this.route.snapshot.paramMap.get('contentTypeSlug') || '';
         const contentSlug = this.route.snapshot.paramMap.get('urlSlug') || '';
         const isPreview = this.route.snapshot.queryParamMap.get('preview') === 'true';
+        // Present only on the /{lang}/... routes; absent means default language.
+        const lang = this.route.snapshot.paramMap.get('lang') || '';
 
         this.contentTypeSlug.set(typeSlug);
         this.urlSlug.set(contentSlug);
         this.isPreview.set(isPreview);
+        this.pageLang.set(lang);
 
         // Eagerly set isCheckingDraft to prevent 404 flash before the effect fires
         if (isPreview) {
@@ -602,6 +671,19 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         this.subscribeToData(this.contentTypesStore);
         // Load published contents from the per-type collection
         this.contentsStore.getAll(undefined, typeSlug || undefined);
+    }
+
+    /**
+     * Open Graph locale for the current page. Open Graph wants
+     * `language_TERRITORY`; a bare language subtag is emitted when the
+     * configured code carries no region. Mirrors toOgLocale() in
+     * functions/src/shared/html-document.ts.
+     */
+    ogLocale(): string {
+        const lang = this.pageLang();
+        if (!lang) return 'en_US';
+        const [language, region] = lang.toLowerCase().split('-');
+        return region ? `${language}_${region.toUpperCase()}` : language;
     }
 
     ngOnDestroy(): void {
@@ -692,7 +774,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         }
         this.metaService.updateTag({ property: 'og:type', content: 'article' });
         this.metaService.updateTag({ property: 'og:site_name', content: 'Arc CMS' });
-        this.metaService.updateTag({ property: 'og:locale', content: 'en_US' });
+        // Reflects the language prefix in the URL; the default language
+        // keeps en_US, matching what the publish pipeline emits.
+        this.metaService.updateTag({ property: 'og:locale', content: this.ogLocale() });
 
         // Robots — allow indexing of all published content pages
         this.metaService.updateTag({ name: 'robots', content: 'index, follow' });

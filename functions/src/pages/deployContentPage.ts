@@ -10,6 +10,7 @@ import {
 import { calculateReadingTime } from '../shared/reading-time.js';
 import {
     buildHtmlDocument,
+    buildLanguageSwitcher,
     replaceArcComponents,
     extractStylesAndScripts,
     PageMeta,
@@ -257,6 +258,9 @@ export async function generateAndDeployContentDetailPage(
     }));
 
     const poweredBy = miscSettings.showPoweredBy ? POWERED_BY_HTML : undefined;
+    const languageLabels = Object.fromEntries(
+        localization.enabledLanguages.map(l => [l.code, l.nativeLabel || l.label]),
+    );
 
     for (const language of languages) {
         const lang = language.code;
@@ -284,7 +288,12 @@ export async function generateAndDeployContentDetailPage(
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
         // Replace arc components (header, footer, admin buttons, partials)
-        hydratedHtml = replaceArcComponents(hydratedHtml, partials.headerHtml, partials.footerHtml);
+        hydratedHtml = replaceArcComponents(
+            hydratedHtml,
+            partials.headerHtml,
+            partials.footerHtml,
+            buildLanguageSwitcher(alternates, lang, languageLabels),
+        );
 
         // Extract inline styles/scripts from template
         const { body, styles, scripts } = extractStylesAndScripts(hydratedHtml);
