@@ -1,6 +1,6 @@
 # ArcCMS Multi-lingual Content & Admin UI — Build Spec
 
-**Status:** M1–M4 built and deployed to the dev project (2026-07-27). M6–M7 outstanding.
+**Status:** M1–M4 built and deployed to the dev project (2026-07-27). M5–M7 outstanding.
 Approved for phased build (discussion completed 2026-07-26)
 **Branch:** `feat/multilingual` (cut from `feat/audience-unification` — that branch stack
 already touched the content editor and content services vs `main`, so building on it
@@ -29,6 +29,9 @@ they stay in one language (English).** `docs/email-system-spec.md` is untouched 
 | M-D14 | Saving is per *item*, not per language | Revised during M2/M4: **Save as draft** and **Publish** persist the default-language document and every pending translation together, from whichever language tab is open. The original per-language save button proved confusing. `Clear translation` remains, being the one action genuinely scoped to a language. |
 | M-D15 | `templateFolder: 'default'` is a real folder | Discovered in M3: the SPA drew a full built-in layout for 'default' while the server emitted a bare skeleton, so a page looked different deployed vs. previewed. That layout now lives in `public/templates/default/{detail,list}.html` and both renderers resolve it through the same chain. |
 | M-D16 | Switcher links relative, hreflang absolute | hreflang must be absolute for search engines; the switcher must not be, or it throws visitors off any host that is not the configured `baseUrl` (preview channels, `*.web.app`). |
+| M-D17 | Static text uses two mechanisms, split by surface | `data-arc-t` keys for templates/partials; whole per-language files for the home page. Prose carries inline markup and word order that per-node keys cannot express, while templates carry hydration wiring that must not be duplicated — a forgotten binding costs a *feature*, not just wording. Each mechanism is used where its trade-offs fit. |
+| M-D18 | Static strings are committed JSON, not Firestore | `public/i18n/{lang}/strings.json`. They ship with the templates and must exist at publish and prerender time. Content translations stay in Firestore (M-D1) — that is authored data; this is developer-authored chrome. |
+| M-D19 | Content-type names are translatable | `ContentType.nameTranslations`. Admin-entered data, so it belongs beside the type in Firestore rather than in the strings JSON. Without it, translated pages read "Back to Articles" in every language. |
 | M-D13 | Tags / categories | Tag names & colors stay shared (untranslated) in v1 — they're cross-cutting labels stored per content type (`Tags_{slug}`). Deferred, listed in non-goals. |
 
 ### Explicit non-goals (deferred or permanently out)
@@ -224,6 +227,88 @@ draft-preview of the Hindi variant renders via the SPA fallback.
 **Exit criteria:** button works end-to-end on static pages; SPA preview renders
 translations; no route shadowing regressions (`/admin`, `/pricing`, etc. still resolve).
 
+### Phase M5 — Static text: templates, partials, home page (M)
+
+**Goal:** close the "half-English page" gap. After M4 a Hindi article still reads
+"Back to Articles", "Share this article", "Read Article" — every string that is baked
+into hand-authored HTML rather than stored as content.
+
+Three surfaces, and deliberately **two mechanisms**, because the trade-offs genuinely
+differ (decisions M-D17/M-D18):
+
+| Surface | Mechanism | Why |
+|---|---|---|
+| `public/templates/*` (~30 strings) | `data-arc-t` keys | These files are machinery — `data-arc-loop`/`data-arc-bind` wiring that must stay identical across languages. Duplicating them risks a translated page silently losing a *feature*, not just drifting in wording. The text itself is short chrome. |
+| `public/_partials/*` (~15 strings) | `data-arc-t` keys | Nav labels; also shared by both render engines, so one annotation covers static pages and the SPA. |
+| Home page (~167 nodes, ~950 words) | **Per-language file** | Structure *is* the content. Prose carries inline markup and word order that per-node keys cannot express, and marketing pages legitimately diverge per market. |
+
+#### M5.1 — `data-arc-t` for templates and partials
+
+1. Annotate translatable text in place, English left as the fallback:
+   `<span data-arc-t="read_more">Read Article</span>`. The element's existing content
+   *is* the default, so an untranslated key renders English and the templates stay
+   valid, previewable English documents.
+2. Strings live in **committed JSON**: `public/i18n/{lang}/strings.json`, flat
+   `{ "read_more": "..." }`. Non-default languages only — English is the HTML itself.
+   They ship with the templates and must exist at publish/prerender time, which rules
+   out Firestore.
+3. Both render engines learn the attribute, mirrored like `mergeTranslation`:
+   - `functions/src/shared/template-hydration.ts` (static publish), strings fetched from
+     hosting `/i18n/{lang}/strings.json` and cached like `getPartials`;
+   - `src/app/core/services/template-hydration.service.ts` (SPA);
+   - a small Angular directive matching `[data-arc-t]` for component templates, so the
+     default layouts in `content-detail/list.component.ts` — which duplicate the same
+     strings as `templates/default/*` — translate from the same keys.
+4. Add `data-arc-t-attr="placeholder:key"` only if an annotated attribute actually
+   turns up; do not build it speculatively.
+
+**Manual test:** publish an article → `/hi/articles/{slug}` shows Hindi chrome; delete a
+key from `strings.json` → that one string falls back to English, page still fine.
+
+#### M5.2 — Content-type names per language
+
+Without this, "Back to **Articles**" stays half-English however well the chrome is
+translated, because the noun comes from the `ContentTypes` document.
+
+1. `ContentType` gains `nameTranslations?: Record<string, string>` (and the same for
+   `singularName`). Admin-entered data, so it lives next to the type in Firestore, not
+   in the strings JSON.
+2. Content-type editor: per-language name fields, shown only when the site is
+   multilingual.
+3. Readers use the translated name where one exists, English otherwise:
+   `buildTemplateData` (`contentType`, `cat`), the list/detail SPA components, and page
+   titles.
+
+#### M5.3 — Per-language home page
+
+1. `public/i18n/{lang}/index.html` — a full translated copy of `public/index.html`.
+   Same directory as that language's `strings.json`, so a language is one folder.
+2. `templateUrl` is resolved at build time, so each translated home page needs its own
+   thin component (`templateUrl` pointing at its file) over a shared base class holding
+   the existing waitlist-form wiring, onboarding redirect and `<arc-content-partials>`
+   behaviour. Clunky at ten languages, correct at two, and it preserves behaviour
+   exactly — the alternative (fetching and injecting HTML) would stop Angular compiling
+   `<arc-content-partials>` and break the article cards.
+3. Route `/{lang}` → that component, plus the language added to `prerender.routes` in
+   `vite.config.ts` so it is crawlable like `/`.
+4. **Drift guard:** each translated page carries `<!-- arc-source-version: N -->`
+   matching a marker in `public/index.html`. The build (or a check script) warns when a
+   translation lags. Whole-file translation trades single-source structure for
+   translator freedom; the marker makes that trade *visible* rather than silent.
+
+#### M5.4 — Switcher honesty
+
+`LocalizationService.hasLanguageVariants` becomes `languageVariants: string[] | null` —
+the languages *this page* actually exists in, not merely those enabled site-wide. The
+home page reports the languages it has a file for; a content page reports the default
+plus its stored translations. This closes two gaps at once: the home page can offer a
+switcher again (M4 hid it because `/hi` did not exist), and a detail page stops offering
+a language whose page was never deployed.
+
+**Deploy:** hosting (new i18n assets, annotated templates/partials) + functions.
+**Exit criteria:** a Hindi article page contains no English chrome; `/hi` serves a
+translated home page; the switcher offers exactly the languages a page exists in.
+
 ### Phase M6 — Admin UI i18n foundation (M)
 
 **Goal:** the mechanism, proven on a slice — not the full extraction.
@@ -280,8 +365,8 @@ batches land:
 ## 4. Sequencing & dependencies
 
 ```
-M1 ──▶ M2 ──▶ M3 ──▶ M4          (content track: each phase depends on the previous)
- └────────────────────────▶ M6 ──▶ M7   (admin track: independent of M2–M4; M6 wants
+M1 ──▶ M2 ──▶ M3 ──▶ M4 ──▶ M5   (content track: each phase depends on the previous)
+ └────────────────────────▶ M6 ──▶ M7   (admin track: independent of M2–M5; M6 wants
                                           M1's LocalizationService only for defaults)
 ```
 
