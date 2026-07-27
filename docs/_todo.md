@@ -43,6 +43,34 @@ real deployed project**, not a design gap. Worth confirming explicitly after M3 
 release count per publish, sitemap/hreflang correctness, and that unpublish leaves no
 orphaned `/{lang}/**` files.
 
+### 3b. CONFIRMED: `firebase deploy --only hosting` wipes all published content pages
+
+**Demonstrated on the dev project, 2026-07-27** — this is no longer hypothetical.
+
+A hosting deploy replaces the Hosting version with the contents of `dist/`, which
+does not include the pages the publish pipeline injected via the Hosting REST API.
+Every `/{ctSlug}/{urlSlug}.html`, every `/{lang}/...` variant, the list pages and the
+SEO files are dropped; those URLs then fall through the `"**" → /__shell.html` rewrite
+and render client-side instead.
+
+**It is easy to miss**, and was missed once here: the SPA shell answers *any* path with
+HTTP 200, so a status-code check reports the pages as healthy. Verify by content
+(`curl … | grep`), never by status.
+
+**Operational consequence today:** after any `firebase deploy --only hosting` (or
+`npm run deploy:dev`, which includes hosting), **all content must be republished** or
+the site silently degrades from static pages to client-rendered ones — losing the SEO
+those static pages exist for.
+
+Worth building: a `republishAll` admin callable that walks every published item and
+enqueues it, so recovery is one action rather than opening each item. It would also
+serve template changes, which have the same problem — a new template only reaches live
+pages when each item is republished.
+
+Closely related to item 4 below: the home page is the one page that *cannot* be
+pipeline-owned, because `/index.html` is a build artifact that hosting will always
+overwrite.
+
 ### 4. Updating the pre-rendered home page after deployment
 The home page is pre-rendered at deploy time. Investigate whether it can be updated
 *after* deployment without a full redeploy — the suspected blocker is that a deploy
