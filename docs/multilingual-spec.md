@@ -242,7 +242,7 @@ differ (decisions M-D17/M-D18):
 | `public/_partials/*` (~15 strings) | `data-arc-t` keys | Nav labels; also shared by both render engines, so one annotation covers static pages and the SPA. |
 | Home page (~167 nodes, ~950 words) | **Per-language file** | Structure *is* the content. Prose carries inline markup and word order that per-node keys cannot express, and marketing pages legitimately diverge per market. |
 
-#### M5.1 — `data-arc-t` for templates and partials
+#### M5.1 — `data-arc-t` for templates and partials ✅ done
 
 1. Annotate translatable text in place, English left as the fallback:
    `<span data-arc-t="read_more">Read Article</span>`. The element's existing content
@@ -265,7 +265,7 @@ differ (decisions M-D17/M-D18):
 **Manual test:** publish an article → `/hi/articles/{slug}` shows Hindi chrome; delete a
 key from `strings.json` → that one string falls back to English, page still fine.
 
-#### M5.2 — Content-type names per language
+#### M5.2 — Content-type names per language ✅ done
 
 Without this, "Back to **Articles**" stays half-English however well the chrome is
 translated, because the noun comes from the `ContentTypes` document.
