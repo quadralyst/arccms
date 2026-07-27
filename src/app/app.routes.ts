@@ -129,6 +129,11 @@ export const routes: Routes = [
               import('./pages/admin/(settings)/payments/payments-setting.page').then((m) => m.default),
           },
           {
+            path: 'localization',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/localization/localization-settings.page').then((m) => m.LocalizationSettingsPage),
+          },
+          {
             path: 'misc',
             loadComponent: () =>
               import('./pages/admin/(settings)/misc/misc-settings.page').then((m) => m.MiscSettingsPage),

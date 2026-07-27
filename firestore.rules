@@ -80,8 +80,11 @@ service cloud.firestore {
     // ============================================================
 
     match /Settings/{settingId} {
-      // Public-safe settings documents (no sensitive data)
-      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users'];
+      // Public-safe settings documents (no sensitive data).
+      // `localization` is public-read on purpose: the public language switcher
+      // and the SPA fallback renderer both need the site's language list before
+      // any user is authenticated. Writes stay admin-only via the catch-all below.
+      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization'];
       // Frontend-managed settings — any authenticated user can read/write.
       // UI routes are admin-gated via role guard; rules only enforce auth.
       allow read, write: if isAuthenticated() && settingId in [

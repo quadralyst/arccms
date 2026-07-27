@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockPartialsGet = vi.fn();
 const mockAboutGet = vi.fn();
 const mockSiteGet = vi.fn();
+const mockLocalizationGet = vi.fn();
 
 vi.mock('../init', () => ({
     db: {
@@ -11,6 +12,7 @@ vi.mock('../init', () => ({
             if (path === 'Settings/partials') return { get: mockPartialsGet };
             if (path === 'Settings/about') return { get: mockAboutGet };
             if (path === 'Settings/site') return { get: mockSiteGet };
+            if (path === 'Settings/localization') return { get: mockLocalizationGet };
             return { get: vi.fn() };
         }),
     },
@@ -25,6 +27,10 @@ import {
     getSiteConfig,
     getAboutConfig,
     clearSettingsCache,
+    getLocalizationSettings,
+    getExtraLanguages,
+    languagePathPrefix,
+    normalizeLocalization,
 } from '../shared/site-settings.js';
 import { db } from '../init.js';
 
@@ -360,6 +366,128 @@ describe('site-settings', () => {
             const result = await getSiteConfig();
 
             expect(result.baseUrl).toBe('https://about.com');
+        });
+    });
+
+    // ─── localization (M1) ─────────────────────────────────────────────────
+
+    describe('normalizeLocalization', () => {
+        const ENGLISH = { code: 'en', label: 'English', nativeLabel: 'English' };
+        const HINDI = { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' };
+
+        it('should default to a single English site for empty input', () => {
+            for (const input of [null, undefined, {}]) {
+                expect(normalizeLocalization(input)).toEqual({
+                    defaultLanguage: 'en',
+                    enabledLanguages: [ENGLISH],
+                });
+            }
+        });
+
+        it('should always list the default language first', () => {
+            const result = normalizeLocalization({
+                defaultLanguage: 'hi',
+                enabledLanguages: [ENGLISH, HINDI],
+            });
+            expect(result.enabledLanguages.map((l) => l.code)).toEqual(['hi', 'en']);
+        });
+
+        it('should add a default language missing from the list', () => {
+            const result = normalizeLocalization({
+                defaultLanguage: 'fr',
+                enabledLanguages: [HINDI],
+            });
+            expect(result.defaultLanguage).toBe('fr');
+            expect(result.enabledLanguages.map((l) => l.code)).toEqual(['fr', 'hi']);
+        });
+
+        it('should drop duplicates and code-less entries, and lower-case codes', () => {
+            const result = normalizeLocalization({
+                defaultLanguage: ' EN ',
+                enabledLanguages: [{ code: ' EN ', label: 'English', nativeLabel: 'English' }, ENGLISH, HINDI, { code: '' }],
+            });
+            expect(result.defaultLanguage).toBe('en');
+            expect(result.enabledLanguages.map((l) => l.code)).toEqual(['en', 'hi']);
+        });
+
+        it('should tolerate a non-array enabledLanguages', () => {
+            const result = normalizeLocalization({ defaultLanguage: 'en', enabledLanguages: 'nope' });
+            expect(result.enabledLanguages.map((l) => l.code)).toEqual(['en']);
+        });
+    });
+
+    describe('getLocalizationSettings', () => {
+        it('should read and normalize the settings document', async () => {
+            mockLocalizationGet.mockResolvedValueOnce({
+                exists: true,
+                data: () => ({
+                    defaultLanguage: 'en',
+                    enabledLanguages: [
+                        { code: 'en', label: 'English', nativeLabel: 'English' },
+                        { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' },
+                    ],
+                }),
+            });
+
+            const result = await getLocalizationSettings();
+
+            expect(result.defaultLanguage).toBe('en');
+            expect(result.enabledLanguages.map((l) => l.code)).toEqual(['en', 'hi']);
+        });
+
+        it('should fall back to a single-language site when the doc is missing', async () => {
+            mockLocalizationGet.mockResolvedValueOnce({ exists: false, data: () => undefined });
+
+            const result = await getLocalizationSettings();
+
+            expect(result).toEqual({
+                defaultLanguage: 'en',
+                enabledLanguages: [{ code: 'en', label: 'English', nativeLabel: 'English' }],
+            });
+        });
+
+        it('should fall back to a single-language site when the read throws', async () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+            mockLocalizationGet.mockRejectedValueOnce(new Error('unavailable'));
+
+            const result = await getLocalizationSettings();
+
+            expect(result.enabledLanguages.map((l) => l.code)).toEqual(['en']);
+            consoleSpy.mockRestore();
+        });
+
+        it('should cache within the TTL and re-read after clearSettingsCache', async () => {
+            mockLocalizationGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ defaultLanguage: 'en', enabledLanguages: [{ code: 'en', label: 'English', nativeLabel: 'English' }] }),
+            });
+
+            await getLocalizationSettings();
+            await getLocalizationSettings();
+            expect(mockLocalizationGet).toHaveBeenCalledTimes(1);
+
+            clearSettingsCache();
+            await getLocalizationSettings();
+            expect(mockLocalizationGet).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('localization helpers', () => {
+        const settings = {
+            defaultLanguage: 'en',
+            enabledLanguages: [
+                { code: 'en', label: 'English', nativeLabel: 'English' },
+                { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' },
+            ],
+        };
+
+        it('getExtraLanguages should exclude the default', () => {
+            expect(getExtraLanguages(settings).map((l) => l.code)).toEqual(['hi']);
+        });
+
+        it('languagePathPrefix should leave the default language at the root', () => {
+            expect(languagePathPrefix(settings, 'en')).toBe('');
+            expect(languagePathPrefix(settings, 'hi')).toBe('/hi');
         });
     });
 });
