@@ -27,6 +27,20 @@ export class ArcTranslateDirective {
     /** Translation key, read from the `data-arc-t` attribute. */
     readonly key = input.required<string>({ alias: 'data-arc-t' });
 
+    /**
+     * Values for `{{ }}` placeholders inside the translated string.
+     *
+     * A translation may carry interpolation — `"वापस {{ contentType }} पर"` —
+     * and the same JSON serves both renderers. The static pipeline resolves
+     * those tokens by hydrating the template afterwards; Angular cannot
+     * re-interpolate a string produced at runtime, so the directive
+     * substitutes them itself from this map. Both therefore read the same
+     * placeholder names, and one strings file covers both.
+     */
+    readonly params = input<Record<string, unknown> | undefined>(undefined, {
+        alias: 'data-arc-t-params',
+    });
+
     /** The authored English, captured before the first replacement. */
     private original: string | null = null;
 
@@ -38,7 +52,17 @@ export class ArcTranslateDirective {
             }
             // Restores the English when strings are cleared (switching back to
             // the default language), rather than leaving the last translation.
-            element.textContent = this.uiStrings.translate(this.key(), this.original);
+            const text = this.uiStrings.translate(this.key(), this.original);
+            element.textContent = this.interpolate(text, this.params());
+        });
+    }
+
+    /** Replaces `{{ name }}` tokens; an unknown token is left as authored. */
+    private interpolate(text: string, params: Record<string, unknown> | undefined): string {
+        if (!params || !text.includes('{{')) return text;
+        return text.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (match, name: string) => {
+            const value = params[name];
+            return value === undefined || value === null ? match : String(value);
         });
     }
 }

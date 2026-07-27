@@ -73,7 +73,7 @@ import {
             <header class="article-header">
                 <div class="container">
                     <a class="article-back-link" [href]="listUrl()">
-                        <i class="fas fa-arrow-left"></i> <span data-arc-t="back_to">Back to {{ currentContentType()?.name }}</span>
+                        <i class="fas fa-arrow-left"></i> <span data-arc-t="back_to" [data-arc-t-params]="{ contentType: currentContentType()?.name }">Back to {{ currentContentType()?.name }}</span>
                     </a>
                     <h1 class="article-title">{{ currentContent()?.title }}</h1>
                     <div class="article-meta">
@@ -82,7 +82,7 @@ import {
                         </span>
                         <span class="meta-divider">•</span>
                         <span class="article-read-time">
-                            <i class="far fa-clock"></i> <span data-arc-t="min_read">{{ getReadTime() }} min read</span>
+                            <i class="far fa-clock"></i> <span data-arc-t="min_read" [data-arc-t-params]="{ readTime: getReadTime() }">{{ getReadTime() }} min read</span>
                         </span>
                     </div>
                 </div>
@@ -132,7 +132,7 @@ import {
                     <nav class="article-navigation">
                         <a [href]="listUrl()" class="nav-back">
                             <i class="fas fa-th-large"></i>
-                            <span data-arc-t="all_of_type">All {{ currentContentType()?.name }}</span>
+                            <span data-arc-t="all_of_type" [data-arc-t-params]="{ contentType: currentContentType()?.name }">All {{ currentContentType()?.name }}</span>
                         </a>
                     </nav>
                 </div>
