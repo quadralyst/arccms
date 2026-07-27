@@ -9,12 +9,14 @@ import {
     IContentTranslation,
     isTranslatableField,
     isTranslationEmpty,
+    localizedPageTitle,
     mergeTranslation,
     pruneTranslation,
     TRANSLATABLE_BUILTIN_FIELDS,
 } from './content-translation.model';
 import { ContentTypeField } from '../content-types/content-types.model';
 import {
+    localizedPageTitle as localizedPageTitleServer,
     mergeTranslation as mergeTranslationServer,
     TRANSLATABLE_BUILTIN_FIELDS as SERVER_TRANSLATABLE_FIELDS,
 } from '../../../../../../functions/src/shared/content-translation';
@@ -217,5 +219,50 @@ describe('parity with the server implementation', () => {
 
     it('agrees on the translatable field list', () => {
         expect([...TRANSLATABLE_BUILTIN_FIELDS]).toEqual([...SERVER_TRANSLATABLE_FIELDS]);
+    });
+});
+
+describe('localizedPageTitle', () => {
+    const base = { title: 'Test page version 0.1', seoTitle: 'test page' };
+
+    it('prefers the translated SEO title', () => {
+        const translation: IContentTranslation = { lang: 'hi', title: 'शीर्षक', seoTitle: 'एसईओ' };
+        expect(localizedPageTitle(mergeTranslation(base, translation), translation)).toBe('एसईओ');
+    });
+
+    it('uses the translated title when the translator left the SEO title blank', () => {
+        // The bug this exists for: `seoTitle || title` on the merged document
+        // hands back the base language's seoTitle, so a fully translated page
+        // was served with an English <title>.
+        const translation: IContentTranslation = { lang: 'hi', title: 'शीर्षक' };
+        expect(localizedPageTitle(mergeTranslation(base, translation), translation)).toBe('शीर्षक');
+    });
+
+    it('keeps seoTitle precedence within a single language', () => {
+        expect(localizedPageTitle(base)).toBe('test page');
+    });
+
+    it('falls back to the base language when nothing is translated', () => {
+        const translation: IContentTranslation = { lang: 'hi', summary: 'सार' };
+        expect(localizedPageTitle(mergeTranslation(base, translation), translation)).toBe('test page');
+    });
+
+    it('returns an empty string when there is no title at all', () => {
+        expect(localizedPageTitle({})).toBe('');
+    });
+
+    it('matches the server implementation', () => {
+        const cases: (IContentTranslation | null)[] = [
+            null,
+            { lang: 'hi' },
+            { lang: 'hi', title: 'शीर्षक' },
+            { lang: 'hi', seoTitle: 'एसईओ' },
+            { lang: 'hi', title: 'शीर्षक', seoTitle: 'एसईओ' },
+        ];
+        for (const translation of cases) {
+            const merged = mergeTranslation(base, translation);
+            expect(localizedPageTitle(merged, translation))
+                .toBe(localizedPageTitleServer(merged, translation as never));
+        }
     });
 });

@@ -5,6 +5,7 @@ import {
     TRANSLATABLE_BUILTIN_FIELDS,
     detailFilePath,
     detailUrl,
+    localizedPageTitle,
     mergeTranslation,
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
@@ -143,7 +144,9 @@ function buildTemplateData(
     const shareUrl =
         content.canonicalUrl ||
         detailUrl(siteConfig.baseUrl, lang, defaultLang, contentType.slug, content.urlSlug);
-    const shareTitle = content.seoTitle || content.title || '';
+    // Same crossed-language trap as the <title>: share text must not fall back
+    // to the base language's seoTitle on a translated page.
+    const shareTitle = localizedPageTitle(content, translation);
     const shareSummary = content.summary || content.metaDescription || '';
 
     const share = {
@@ -321,7 +324,7 @@ export async function generateAndDeployContentDetailPage(
         const { body, styles, scripts } = extractStylesAndScripts(hydratedHtml);
 
         const meta: PageMeta = {
-            title: localizedContent.seoTitle || localizedContent.title || '',
+            title: localizedPageTitle(localizedContent, translations.get(lang)),
             metaDescription: localizedContent.metaDescription || '',
             // An author-set canonical applies to the default-language page it
             // was written for. Reusing it on every variant would point them all
