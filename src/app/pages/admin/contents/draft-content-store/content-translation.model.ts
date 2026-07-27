@@ -145,3 +145,27 @@ export function isTranslationEmpty(translation: IContentTranslation): boolean {
     const hasCustom = pruned.customFields !== undefined;
     return !hasBuiltin && !hasCustom;
 }
+
+/**
+ * The page title for one language variant.
+ *
+ * `seoTitle || title` is the right precedence *within* a language and the
+ * wrong one across two: a translator who filled in the title but left the SEO
+ * title blank would get the base language's `seoTitle` — English chrome on an
+ * otherwise translated page, which is what a translated page exists to avoid.
+ * So the translation is asked first, in full, and only a language with nothing
+ * to say falls back.
+ *
+ * Mirrored server-side in functions/src/pages/deployContentPage.ts, so the
+ * static page and the SPA fallback title a page the same way.
+ */
+export function localizedPageTitle(
+    localizedContent: { seoTitle?: string; title?: string },
+    translation?: IContentTranslation | null,
+): string {
+    return translation?.seoTitle
+        || translation?.title
+        || localizedContent.seoTitle
+        || localizedContent.title
+        || '';
+}

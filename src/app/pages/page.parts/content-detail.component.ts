@@ -25,6 +25,7 @@ import { ContentsService } from '../admin/contents/content-store/published-conte
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
 import {
     IContentTranslation,
+    localizedPageTitle,
     mergeTranslation,
 } from '../admin/contents/draft-content-store/content-translation.model';
 
@@ -764,8 +765,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // This ensures share links point to the correct canonical address.
         const shareUrl = content.canonicalUrl ||
             (typeof window !== 'undefined' ? window.location.href : '');
-        // Prefer seoTitle for share text — consistent with what OG tags use.
-        const shareTitle = (content as any).seoTitle || content.title || '';
+        // Prefer seoTitle for share text — consistent with what OG tags use,
+        // but never across languages: an untranslated seoTitle must not put the
+        // base language back on a translated page.
+        const shareTitle = localizedPageTitle(content, this.translation());
         const shareSummary = content.metaDescription || '';
 
         switch (platform) {
@@ -786,8 +789,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
      * Update page SEO meta tags from content data
      */
     private updateSeoMeta(content: IContents): void {
-        // Set page title - prefer seoTitle, fallback to title
-        const pageTitle = content.seoTitle || content.title;
+        // Set page title - prefer seoTitle, fallback to title, but never let an
+        // untranslated seoTitle outrank a translated title (localizedPageTitle).
+        const pageTitle = localizedPageTitle(content, this.translation());
         if (pageTitle) {
             this.titleService.setTitle(pageTitle);
         }
@@ -911,10 +915,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
         // Prepare share URLs (SSR-safe).
         // Prefer canonicalUrl when set — consistent with what og:url uses.
-        // Prefer seoTitle for share text — consistent with what og:title uses.
+        // Prefer seoTitle for share text — consistent with what og:title uses,
+        // but never across languages (see localizedPageTitle).
         const shareUrl = content.canonicalUrl ||
             (isPlatformBrowser(this.platformId) ? window.location.href : '');
-        const shareTitle = (content as any).seoTitle || content.title || '';
+        const shareTitle = localizedPageTitle(content, this.translation());
         const shareSummary = content.summary || content.metaDescription || '';
 
         const share = {
