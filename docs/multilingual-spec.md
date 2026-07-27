@@ -323,6 +323,35 @@ translated home page; the switcher offers exactly the languages a page exists in
 The drift guard (item 4) is the marker only — no build check yet; the mismatch is
 visible on inspection. Worth automating when a third language lands.
 
+#### M5.5 — Language-aware links ✅
+
+Reported after M5.4 shipped: a Hindi page read in Hindi and every link in its chrome
+navigated to English.
+
+The content templates were never the problem — `detail.html` and `list.html` build their
+links from `{{ langPrefix }}` and `{{ url }}`. The **partials** were: `_header.html` and
+`_footer.html` are one file shared by every language, so their links are written
+root-relative (`/articles`, `/#features`) and nothing pointed them at the language being
+rendered. The home page's `<arc-content-partials>` cards had the same gap, with no notion
+of language at all.
+
+`withLangPrefix` / `prefixAnchorHrefs` (`functions/src/shared/language-links.ts`, mirrored
+in `src/app/core/utils/`) hold the rule; the publish pipeline applies it where it bakes the
+partials in, and `LangHrefDirective` applies it to the Angular copies. The directive is
+scoped by import to the header and footer rather than applied to every anchor — the
+switcher and the content templates already build their own prefixed URLs, and rewriting
+those would double the prefix.
+
+The rule is conservative on purpose: only a single leading `/`, never `//`, `mailto:`,
+`#anchor` or an already-prefixed path, and `<a>` only — assets are served from one place
+whatever the page's language. It is idempotent, because the SPA directive re-applies
+whenever the language signal changes.
+
+**Not done: remembering the choice.** A visitor landing on `/` gets the default language
+even if they were reading Hindi yesterday. `LANG_STORAGE_KEY` in the switcher is still
+written and never read. Deliberate for now — a redirect at the root would flash the
+default language first, since `/` is prerendered and served statically.
+
 ### Phase M6 — Admin UI i18n foundation (M)
 
 **Goal:** the mechanism, proven on a slice — not the full extraction.
