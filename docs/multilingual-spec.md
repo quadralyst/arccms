@@ -1,6 +1,7 @@
 # ArcCMS Multi-lingual Content & Admin UI — Build Spec
 
-**Status:** Approved for phased build (discussion completed 2026-07-26)
+**Status:** M1–M4 built and deployed to the dev project (2026-07-27). M5–M7 outstanding.
+Approved for phased build (discussion completed 2026-07-26)
 **Branch:** `feat/multilingual` (cut from `feat/audience-unification` — that branch stack
 already touched the content editor and content services vs `main`, so building on it
 avoids guaranteed merge conflicts)
@@ -25,6 +26,9 @@ they stay in one language (English).** `docs/email-system-spec.md` is untouched 
 | M-D10 | Admin UI i18n library | **Transloco** (runtime JSON translations). `@angular/localize` is ruled out: it needs the Angular CLI builder's per-locale build outputs, and this project builds through AnalogJS + Vite (`vite build`), which has no such wiring. Transloco needs no build changes, works with signals, and switches live. |
 | M-D11 | Admin language preference | **Per admin user** (field on the user profile doc), falling back to `Settings/localization.defaultLanguage`. A Hindi-content site can still have an English-preferring admin. Public visitor preference is separate (M-D8, localStorage). |
 | M-D12 | AI translate | Optional phase: "Translate with AI" in the editor pre-fills the `translations/{lang}` doc via the existing Google Vertex AI integration, for admin review before publish. Never auto-publishes. |
+| M-D14 | Saving is per *item*, not per language | Revised during M2/M4: **Save as draft** and **Publish** persist the default-language document and every pending translation together, from whichever language tab is open. The original per-language save button proved confusing. `Clear translation` remains, being the one action genuinely scoped to a language. |
+| M-D15 | `templateFolder: 'default'` is a real folder | Discovered in M3: the SPA drew a full built-in layout for 'default' while the server emitted a bare skeleton, so a page looked different deployed vs. previewed. That layout now lives in `public/templates/default/{detail,list}.html` and both renderers resolve it through the same chain. |
+| M-D16 | Switcher links relative, hreflang absolute | hreflang must be absolute for search engines; the switcher must not be, or it throws visitors off any host that is not the configured `baseUrl` (preview channels, `*.web.app`). |
 | M-D13 | Tags / categories | Tag names & colors stay shared (untranslated) in v1 — they're cross-cutting labels stored per content type (`Tags_{slug}`). Deferred, listed in non-goals. |
 
 ### Explicit non-goals (deferred or permanently out)
@@ -96,7 +100,7 @@ Key facts the plan exploits:
 
 ## 3. Phases
 
-### Phase M1 — Localization settings foundation (S)
+### Phase M1 — Localization settings foundation (S) ✅ done
 
 **Goal:** the site knows its languages; everything later reads from one place.
 
@@ -120,7 +124,7 @@ Key facts the plan exploits:
 save, reload — persists. Firestore console shows `Settings/localization`.
 **Exit criteria:** settings page round-trips; non-admin cannot write the doc.
 
-### Phase M2 — Translation authoring in the editor (M)
+### Phase M2 — Translation authoring in the editor (M) ✅ done
 
 **Goal:** admins can author per-language variants of any content item.
 
@@ -155,7 +159,7 @@ reload editor — Hindi values reload.
 **Exit criteria:** default-language editing path provably untouched (existing editor
 specs still green); translation subdocs round-trip.
 
-### Phase M3 — Per-language publishing + SEO (M — the core)
+### Phase M3 — Per-language publishing + SEO (M — the core) ✅ done
 
 **Goal:** publish deploys one static page per language; search engines see a correct
 multilingual site.
@@ -192,7 +196,7 @@ removes both variants.
 **Exit criteria:** default-language output unchanged except additive SEO tags;
 translated variant fully served; unpublish leaves no orphan files.
 
-### Phase M4 — Language switcher + SPA fallback (S)
+### Phase M4 — Language switcher + SPA fallback (S) ✅ done
 
 **Goal:** the visitor-facing button; previews work for translated pages.
 
