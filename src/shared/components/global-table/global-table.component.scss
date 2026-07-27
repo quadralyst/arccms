@@ -207,3 +207,13 @@ code {
         box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
     }
 }
+/* Thumbnail for 'image' columns — keeps rows a predictable height and stops a
+   long storage URL from blowing out the column width. */
+.table-thumb {
+    width: auto;
+    max-width: 90px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    display: block;
+}

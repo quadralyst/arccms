@@ -27,7 +27,7 @@ import { ContentsStore } from '../content-store/published-contents.store';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
 import { ContentTypesStore } from '../content-types/content-types.store';
 import { ContentTypesService } from '../content-types/content-types.service';
-import { ContentType } from '../content-types/content-types.model';
+import { ContentType, ContentTypeField } from '../content-types/content-types.model';
 import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import {
   GlobalTableComponent,
@@ -342,6 +342,29 @@ export class DraftContentsTableComponent
   /**
    * Update table columns based on the current content type
    */
+  /**
+   * Whether a content-type field should be offered as a list column.
+   *
+   * Excluded:
+   *  - keys already rendered by a fixed column. Content types commonly define
+   *    their own `title` / `urlSlug` fields alongside the built-ins, which
+   *    produced two identically-headed columns side by side.
+   *  - `richtext`, which holds the article body. A table cell cannot show it
+   *    usefully and it squeezes every other column out of view.
+   *
+   * Excluded fields are still fully editable in the content editor — this
+   * only governs the list view.
+   */
+  private isListableField(field: ContentTypeField): boolean {
+    if (field.type === 'richtext') return false;
+
+    const fixedKeys = [
+      ...this.baseColumns.map((col) => col.key),
+      ...this.endColumns.map((col) => col.key),
+    ];
+    return !fixedKeys.includes(field.key);
+  }
+
   updateDynamicColumns() {
     if (!this.contentTypeSlug) {
       this.tableColumns = [...this.baseColumns, ...this.endColumns];
@@ -361,8 +384,16 @@ export class DraftContentsTableComponent
     // 1. Identify all potential columns (excluding Title and Actions which are fixed)
     const potentialColumns: { key: string; label: string }[] = [];
 
-    // Custom Fields
-    currentType.fields.forEach(field => {
+    // Custom Fields — but not every field earns a column:
+    //  - a field whose key collides with a fixed column (e.g. a custom "title"
+    //    on top of the built-in one) would render the same heading twice
+    //  - rich text is a whole article body; it cannot be read in a table cell
+    //    and pushes every other column off-screen
+    const listableFields = currentType.fields.filter(
+      (field) => this.isListableField(field),
+    );
+
+    listableFields.forEach(field => {
       potentialColumns.push({ key: field.key, label: field.label });
     });
 
@@ -420,11 +451,14 @@ export class DraftContentsTableComponent
     const activeKeys = this.visibleColumnKeys();
     
     // Generate Custom Columns definitions
-    const customColumnDefs: TableColumn[] = currentType.fields.map((field) => {
+    const customColumnDefs: TableColumn[] = listableFields.map((field) => {
       return {
         key: field.key,
         header: field.label,
-        type: 'text',
+        // Image fields show a thumbnail; a raw storage URL is unreadable and
+        // several hundred characters wide.
+        type: field.type === 'image' ? 'image' : 'text',
+        ...(field.type === 'image' ? { imageConfig: { height: 40, altKey: 'title' } } : {}),
         transformFn: (row: any) => {
           // 1. Handle Collection References
           if (field.useCollectionRef && field.collectionRef) {
