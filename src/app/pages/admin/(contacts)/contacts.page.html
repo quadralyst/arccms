@@ -10,16 +10,16 @@
     <mat-drawer-content>
         <div class="page-container">
             <!-- Header -->
-            <arc-page-header title="Contacts"
-                subtitle="The unified audience. Contacts sync automatically from signups, waitlists and customers.">
+            <arc-page-header [title]="'admin.audience.contacts.title' | transloco"
+                [subtitle]="'admin.audience.contacts.subtitle' | transloco">
                 <button mat-stroked-button [disabled]="busy()" (click)="runBackfill()">
-                    <mat-icon>sync</mat-icon> Backfill
+                    <mat-icon>sync</mat-icon> {{ 'admin.audience.contacts.backfill' | transloco }}
                 </button>
                 <button mat-stroked-button (click)="openImport()">
-                    <mat-icon>upload_file</mat-icon> Import CSV
+                    <mat-icon>upload_file</mat-icon> {{ 'admin.audience.contacts.import_csv' | transloco }}
                 </button>
                 <button mat-flat-button color="primary" (click)="openAdd()">
-                    <mat-icon>person_add</mat-icon> Add contact
+                    <mat-icon>person_add</mat-icon> {{ 'admin.audience.contacts.add' | transloco }}
                 </button>
             </arc-page-header>
 
@@ -76,8 +76,8 @@
             <!-- Table -->
             <app-global-table [data]="paged()" [columns]="columns" [loading]="loading()"
                 [pageIndex]="currentPage()" [pageSize]="pageSize()"
-                emptyIcon="fas fa-address-book" emptyTitle="No contacts found"
-                emptyDescription="Add a contact, import a CSV, or run a backfill to get started."
+                emptyIcon="fas fa-address-book" [emptyTitle]="'admin.audience.contacts.empty_title' | transloco"
+                [emptyDescription]="'admin.audience.contacts.empty_description' | transloco"
                 emptyActionLabel="Add contact" emptyActionIcon="fas fa-user-plus"
                 (emptyActionClick)="openAdd()">
             </app-global-table>
