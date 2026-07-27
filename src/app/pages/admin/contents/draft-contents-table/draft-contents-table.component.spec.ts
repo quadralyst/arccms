@@ -836,4 +836,43 @@ describe('DraftContentsTableComponent', () => {
             expect(author?.transformFn?.({ customFields: { author: 'Ada' } })).toBe('Ada');
         });
     });
+
+    describe('Status column (three states)', () => {
+        function statusColumn(): any {
+            component.contentTypeSlug = 'article';
+            component.visibleColumnKeys.set([]);
+            component.updateDynamicColumns();
+            return component.tableColumns.find((c) => c.key === 'publishedStatus');
+        }
+
+        const PUBLISHED_AT = new Date('2026-07-20T10:00:00Z');
+        const LATER = new Date('2026-07-21T10:00:00Z');
+
+        it('should label an unpublished item Draft', () => {
+            const col = statusColumn();
+            const row = { publishedStatus: false };
+            expect(col.badgeConfig.textFn(row)).toBe('Draft');
+            expect(col.classFn(row)).toBe('inactive');
+        });
+
+        it('should label an in-sync item Published', () => {
+            const col = statusColumn();
+            const row = { publishedStatus: true, lastPublishedAt: PUBLISHED_AT, modifiedAt: PUBLISHED_AT };
+            expect(col.badgeConfig.textFn(row)).toBe('Published');
+            expect(col.classFn(row)).toBe('active');
+        });
+
+        it('should label a published item with newer draft changes Edited', () => {
+            const col = statusColumn();
+            const row = { publishedStatus: true, lastPublishedAt: PUBLISHED_AT, modifiedAt: LATER };
+            expect(col.badgeConfig.textFn(row)).toBe('Edited');
+            expect(col.classFn(row)).toBe('pending');
+        });
+
+        it('should explain each state on hover', () => {
+            const col = statusColumn();
+            expect(col.titleFn({ publishedStatus: true, lastPublishedAt: PUBLISHED_AT, modifiedAt: LATER }))
+                .toContain('not live yet');
+        });
+    });
 });

@@ -15,6 +15,30 @@ interface QueueItem {
 }
 
 /**
+ * Records on the draft that it has just been published.
+ *
+ * The admin list distinguishes "Published" from "Edited" by comparing the
+ * draft's `modifiedAt` against this stamp. Writing it here — after the
+ * published copy is committed, and from the server rather than the client —
+ * guarantees it lands at or after the `modifiedAt` of the write that triggered
+ * the publish, so a freshly published item can never read as edited.
+ *
+ * Deliberately a narrow `update`: touching any other field (or `modifiedAt`)
+ * would defeat the comparison it exists to support.
+ */
+async function stampLastPublishedAt(draftCollection: string, docId: string): Promise<void> {
+    try {
+        await db.collection(draftCollection).doc(docId).update({
+            lastPublishedAt: Timestamp.now(),
+        });
+    } catch (error) {
+        // A missing draft (deleted mid-publish) is not worth failing the run —
+        // the status badge degrades to "Published", which is the safe default.
+        console.warn(`Could not stamp lastPublishedAt on ${draftCollection}/${docId}:`, error);
+    }
+}
+
+/**
  * Processes publish queue items.
  *
  * The admin app writes a trigger document to `_publish_queue` whenever
@@ -65,6 +89,7 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 publishBatch.set(publishedRef.collection('PublishedHistory').doc(), draftData);
                 await publishBatch.commit();
                 console.log(`Published: ${publishedCollection}/${docId}`);
+                await stampLastPublishedAt(draftCollection, docId);
 
                 // Deploy static HTML (detail + list pages)
                 // Skip entirely when ContentType.hasPublicUrl is false
@@ -118,6 +143,7 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 // Add to published history
                 updateBatch.set(publishedRef.collection('PublishedHistory').doc(), draftFields);
                 await updateBatch.commit();
+                await stampLastPublishedAt(draftCollection, docId);
 
                 // Deploy static HTML (detail + list pages)
                 // Skip entirely when ContentType.hasPublicUrl is false

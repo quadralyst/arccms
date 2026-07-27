@@ -23,6 +23,8 @@ export interface TableColumn {
     dateFormat?: string; // for 'date' type
     transformFn?: (row: any) => any;
     classFn?: (row: any) => string;
+    /** Hover text for the cell — useful when a short label needs explaining. */
+    titleFn?: (row: any) => string;
     clickable?: boolean;
 
     actions?: TableAction[];

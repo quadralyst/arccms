@@ -73,7 +73,8 @@
                             <span class="status-badge"
                                 [class.active]="!col.badgeConfig?.textFn && badgeValue(col, row)"
                                 [class.inactive]="!col.badgeConfig?.textFn && !badgeValue(col, row)"
-                                [ngClass]="col.classFn ? col.classFn(row) : ''">
+                                [ngClass]="col.classFn ? col.classFn(row) : ''"
+                                [attr.title]="col.titleFn ? col.titleFn(row) : null">
                                 {{ badgeText(col, row) }}
                             </span>
                         </ng-container>
