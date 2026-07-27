@@ -14,9 +14,10 @@
  * Spec: docs/multilingual-spec.md — Phase M5.3.
  */
 
-import { isPlatformBrowser } from '@angular/common';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Component, ElementRef, OnDestroy, PLATFORM_ID, inject } from '@angular/core';
 import { AfterViewInit, OnInit } from '@angular/core';
+import { Meta, Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { take } from 'rxjs';
 import { BaseComponent } from '../../../shared/components/base/base.component';
@@ -47,12 +48,26 @@ export abstract class HomeBaseComponent extends BaseComponent implements OnInit,
   protected localization = inject(LocalizationService);
   protected platformId = inject(PLATFORM_ID);
   protected uiStrings = inject(UiStringsService);
+  protected document = inject(DOCUMENT);
+  protected titleService = inject(Title);
+  protected metaService = inject(Meta);
 
   /**
    * Language this home page is written in. The default-language page leaves
    * this empty; a translated one sets its own code.
    */
   protected abstract readonly pageLang: string;
+
+  /**
+   * Head metadata for this language. The app shell (`index.html`) carries the
+   * default-language title and description, so only translated pages need to
+   * override them — an empty string leaves the shell's value in place.
+   */
+  protected readonly pageTitle: string = '';
+  protected readonly pageDescription: string = '';
+
+  /** The shell's own `<html lang>`, restored on the way out. */
+  private shellLang: string | null = null;
 
   constructor() {
     super();
@@ -68,6 +83,30 @@ export abstract class HomeBaseComponent extends BaseComponent implements OnInit,
     // partial, so it is annotated (data-arc-t) rather than translated inside
     // the page file.
     this.uiStrings.use(this.pageLang);
+    this.applyHeadMetadata();
+  }
+
+  /**
+   * Points `<html lang>`, the title and the description at this page's
+   * language. The shell is a single file shared by every route and is authored
+   * in the default language, so a translated page would otherwise be served
+   * with an English title and `lang="en"` — wrong for search engines and for
+   * screen readers, which pick pronunciation from that attribute.
+   *
+   * Runs during prerendering too, so the values are baked into the file rather
+   * than applied after hydration.
+   */
+  private applyHeadMetadata(): void {
+    if (!this.pageLang) return;
+
+    this.shellLang = this.document.documentElement.lang;
+    this.document.documentElement.lang = this.pageLang;
+    if (this.pageTitle) {
+      this.titleService.setTitle(this.pageTitle);
+    }
+    if (this.pageDescription) {
+      this.metaService.updateTag({ name: 'description', content: this.pageDescription });
+    }
   }
 
   ngAfterViewInit(): void {
@@ -106,5 +145,11 @@ export abstract class HomeBaseComponent extends BaseComponent implements OnInit,
     this.waitlistFormService.cleanup();
     // The next page may have no variants at all.
     this.localization.languageVariants.set(null);
+    // `<html lang>` belongs to the shell, not to us: leaving it set would
+    // mislabel whatever the visitor navigates to next within the SPA.
+    if (this.shellLang !== null) {
+      this.document.documentElement.lang = this.shellLang;
+      this.shellLang = null;
+    }
   }
 }
