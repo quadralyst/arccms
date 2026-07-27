@@ -27,24 +27,15 @@
             </button>
 
             @if(isTranslating()){
-            <!-- Translation mode: the base document is never written from here -->
+            <!-- Removing a translation is the one action scoped to a single
+                 language; saving and publishing always cover them all. -->
             <button type="button" class="btn btn-outline-danger btn-sm me-2" (click)="clearTranslation()"
-                [disabled]="isSavingTranslation() || !hasTranslation(activeLang())">
+                [disabled]="isSavingTranslation() || isSavingDraft || !hasTranslation(activeLang())"
+                [title]="'Delete the ' + activeLanguageLabel() + ' translation'">
                 <i class="fa-solid fa-eraser"></i> <span class="btn-text">Clear translation</span>
             </button>
-
-            <button type="button" class="btn btn-primary btn-sm" (click)="saveTranslation()"
-                [disabled]="isSavingTranslation()">
-                @if(isSavingTranslation()){
-                <i class="fas fa-spinner fa-spin"></i> <span class="btn-text">Saving...</span>
-                }
-                @else {
-                <i class="fa-regular fa-floppy-disk"></i>
-                <span class="btn-text">Save {{ activeLanguageLabel() }} translation</span>
-                }
-            </button>
             }
-            @else {
+
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="saveAsDraft()"
                 [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
                 @if(isSavingDraft){
@@ -59,7 +50,6 @@
                 [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
                 <i class="fa-solid fa-upload"></i> <span class="btn-text">Publish</span>
             </button>
-            }
         </div>
     </nav>
 
@@ -218,6 +208,7 @@
                     <i class="fa-solid fa-language me-1"></i>
                     Editing the <strong>{{ activeLanguageLabel() }}</strong> translation. Empty fields fall back to
                     {{ defaultLang() }}. The URL, cover image, tags and dates are shared across languages.
+                    <strong>Save as draft</strong> and <strong>Publish</strong> apply to every language at once.
                     @if(translationDirty()){
                     <span class="unsaved-badge"><i class="fa-solid fa-circle"></i> Unsaved changes</span>
                     }

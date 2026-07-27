@@ -1,0 +1,364 @@
+<!--
+  Default detail template.
+
+  This is the layout used when a content type has no template folder of its
+  own (templateFolder empty or "default"). It mirrors the Angular
+  ContentDetailComponent's built-in layout so a page looks the same whether it
+  is rendered locally by the SPA or deployed as static HTML by the publish
+  pipeline — previously the server fell back to a bare unstyled skeleton while
+  the SPA rendered this design.
+
+  Bindings come from buildTemplateData() in functions/src/pages/deployContentPage.ts.
+-->
+<div class="arc-cms-template">
+    <arc-header></arc-header>
+
+    <article class="article-detail">
+        <header class="article-header">
+            <div class="container">
+                <a class="article-back-link" href="{{ langPrefix }}/{{ contentTypeSlug }}">
+                    <i class="fas fa-arrow-left"></i> Back to {{ contentType }}
+                </a>
+                <h1 class="article-title">{{ title }}</h1>
+                <div class="article-meta">
+                    <span class="article-date">
+                        <i class="far fa-calendar"></i> {{ date }}
+                    </span>
+                    <span class="meta-divider">&#8226;</span>
+                    <span class="article-read-time">
+                        <i class="far fa-clock"></i> {{ readingTime }}
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <div class="article-cover" data-arc-if="coverImage">
+            <img src="{{ coverImage }}" alt="{{ title }}" class="article-cover-image">
+        </div>
+
+        <div class="article-body">
+            <div class="container">
+                <div class="article-content" [innerHTML]="content"></div>
+
+                <div class="article-tags" data-arc-loop="tags">
+                    <span class="article-tag">{{ name }}</span>
+                </div>
+
+                <div class="article-share">
+                    <span class="share-label">Share this article</span>
+                    <div class="share-buttons">
+                        <a class="share-btn share-twitter" href="{{ share.twitter }}" target="_blank" rel="noopener">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a class="share-btn share-facebook" href="{{ share.facebook }}" target="_blank" rel="noopener">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
+                        <a class="share-btn share-linkedin" href="{{ share.linkedin }}" target="_blank" rel="noopener">
+                            <i class="fab fa-linkedin-in"></i>
+                        </a>
+                        <a class="share-btn share-email" href="{{ share.email }}">
+                            <i class="fas fa-envelope"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <nav class="article-navigation">
+                    <a href="{{ langPrefix }}/{{ contentTypeSlug }}" class="nav-back">
+                        <i class="fas fa-th-large"></i>
+                        <span>All {{ contentType }}</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+    </article>
+
+    <arc-footer></arc-footer>
+</div>
+
+<style>
+.article-detail {
+    min-height: 60vh;
+    background: #ffffff;
+}
+
+/* Article Header */
+.article-header {
+    padding: 3rem 0 2rem;
+    text-align: center;
+    background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
+}
+
+.article-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #0066cc;
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+    transition: color 0.2s;
+}
+
+.article-back-link:hover {
+    color: #004499;
+}
+
+.article-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1d1d1f;
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    letter-spacing: -0.02em;
+}
+
+.article-meta {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.95rem;
+    color: #6e6e73;
+}
+
+.article-meta i {
+    margin-right: 0.35rem;
+}
+
+.meta-divider {
+    color: #d2d2d7;
+}
+
+/* Cover Image */
+.article-cover {
+    max-width: 1000px;
+    margin: 0 auto 2rem;
+    padding: 0 1rem;
+}
+
+.article-cover-image {
+    width: 100%;
+    height: auto;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* Article Body */
+.article-body {
+    padding: 2rem 0 4rem;
+}
+
+.article-content {
+    max-width: 720px;
+    margin: 0 auto;
+    font-size: 1.125rem;
+    line-height: 1.8;
+    color: #1d1d1f;
+}
+
+.article-content h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-top: 3rem;
+    margin-bottom: 1rem;
+    color: #1d1d1f;
+    letter-spacing: -0.01em;
+}
+
+.article-content h3 {
+    font-size: 1.375rem;
+    font-weight: 600;
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+    color: #1d1d1f;
+}
+
+.article-content p {
+    margin-bottom: 1.5rem;
+}
+
+.article-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    margin: 2rem 0;
+}
+
+.article-content blockquote {
+    border-left: 3px solid #0066cc;
+    padding-left: 1.5rem;
+    margin: 2rem 0;
+    font-style: italic;
+    color: #6e6e73;
+    font-size: 1.1rem;
+}
+
+.article-content code {
+    background: #f5f5f7;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: 'SF Mono', Menlo, monospace;
+}
+
+.article-content pre {
+    background: #1d1d1f;
+    color: #f5f5f7;
+    padding: 1.5rem;
+    border-radius: 12px;
+    overflow-x: auto;
+    margin: 2rem 0;
+    font-size: 0.9rem;
+}
+
+.article-content pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+}
+
+.article-content ul,
+.article-content ol {
+    margin-bottom: 1.5rem;
+    padding-left: 1.5rem;
+}
+
+.article-content li {
+    margin-bottom: 0.5rem;
+}
+
+/* Tags */
+.article-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e8e8ed;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.article-tag {
+    background: #f5f5f7;
+    color: #1d1d1f;
+    padding: 0.5rem 1rem;
+    border-radius: 100px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.article-tag:hover {
+    background: #e8e8ed;
+}
+
+/* Share Buttons */
+.article-share {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e8e8ed;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.share-label {
+    font-size: 0.9rem;
+    color: #6e6e73;
+    font-weight: 500;
+}
+
+.share-buttons {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.share-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    color: #ffffff;
+    text-decoration: none;
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+.share-btn:hover {
+    transform: scale(1.1);
+    opacity: 0.9;
+}
+
+.share-twitter { background: #1DA1F2; }
+.share-facebook { background: #4267B2; }
+.share-linkedin { background: #0A66C2; }
+.share-email { background: #6e6e73; }
+
+/* Navigation */
+.article-navigation {
+    display: flex;
+    justify-content: center;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e8e8ed;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.nav-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #f5f5f7;
+    color: #1d1d1f;
+    border-radius: 100px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.nav-back:hover {
+    background: #e8e8ed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .article-header {
+        padding: 2rem 0 1.5rem;
+    }
+
+    .article-title {
+        font-size: 1.75rem;
+    }
+
+    .article-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .meta-divider {
+        display: none;
+    }
+
+    .article-content {
+        font-size: 1rem;
+    }
+
+    .article-share {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+    `],
+</style>

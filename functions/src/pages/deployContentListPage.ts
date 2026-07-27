@@ -79,13 +79,12 @@ function getExcerpt(content: Record<string, any>): string {
  *  Tier 3: Built-in FALLBACK_LIST_TEMPLATE
  */
 async function loadListTemplate(templateFolder: string | undefined, siteId: string): Promise<string> {
-    if (!templateFolder || templateFolder === 'default') {
-        return FALLBACK_LIST_TEMPLATE;
-    }
+    // "default" is a real template folder — see loadDetailTemplate for why.
+    const folder = !templateFolder || templateFolder === 'default' ? 'default' : templateFolder;
 
     // Tier 1: Firestore
     try {
-        const docRef = db.doc(`templates/${templateFolder}:list`);
+        const docRef = db.doc(`templates/${folder}:list`);
         const snap = await docRef.get();
         if (snap.exists) {
             const data = snap.data();
@@ -98,7 +97,7 @@ async function loadListTemplate(templateFolder: string | undefined, siteId: stri
 
     // Tier 2: Fetch from hosting
     try {
-        const url = `https://${siteId}.web.app/templates/${templateFolder}/list.html`;
+        const url = `https://${siteId}.web.app/templates/${folder}/list.html`;
         const res = await fetch(url);
         if (res.ok) {
             const text = await res.text();
