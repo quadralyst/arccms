@@ -1626,15 +1626,30 @@ describe('CreateContentComponent', () => {
         describe('protecting the base document', () => {
             beforeEach(() => enableHindi());
 
-            it('does not auto-save the base document while translating', async () => {
+            it('auto-saves the base document from default-language values while translating', async () => {
+                // Auto-save writes the whole item. The base document must keep
+                // the default-language content even though the forms are
+                // showing a translation.
                 await loadEnglishContent();
                 await component.switchLanguage('hi');
-                const trigger = vi.spyOn(component['autoSaveTrigger$'], 'next');
+                component.pageTitle = 'नमस्ते';
+                component.triggerAutoSave();
+
+                component['performAutoSave']();
+                await Promise.resolve();
+
+                const [, payload] = mockDraftContentsStore.update.mock.calls[0];
+                expect(payload.title).toBe('Hello world');
+                expect(payload.content).toBe('<p>English body</p>');
+            });
+
+            it('marks the active translation dirty as it is edited', async () => {
+                await loadEnglishContent();
+                await component.switchLanguage('hi');
                 component.pageTitle = 'नमस्ते';
 
                 component.triggerAutoSave();
 
-                expect(trigger).not.toHaveBeenCalled();
                 expect(component.translationDirty()).toBe(true);
             });
 
@@ -1663,44 +1678,46 @@ describe('CreateContentComponent', () => {
                 expect(component.translationDirty()).toBe(false);
             });
 
-            it('drops an auto-save that was armed before switching language', async () => {
-                // Regression: the auto-save debounce is 30s. A timer armed on
-                // the default-language tab used to fire after a switch and
-                // write the *translation* into the base document, silently
-                // destroying the default-language content.
+            it('never writes translated text into the base document', async () => {
+                // Regression: a debounce armed on the default-language tab used
+                // to fire after a switch and write the *translation* into the
+                // base document, destroying the default-language content.
                 await loadEnglishContent();
                 await component.switchLanguage('hi');
                 component.pageTitle = 'नमस्ते';
 
                 component['performAutoSave']();
+                await Promise.resolve();
 
-                expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+                const [, payload] = mockDraftContentsStore.update.mock.calls[0];
+                expect(payload.title).toBe('Hello world');
             });
 
-            it('routes a stray saveAsDraft to the translation instead', async () => {
+            it('saves from a translation tab without corrupting the base document', async () => {
                 await loadEnglishContent();
                 await component.switchLanguage('hi');
                 component.pageTitle = 'नमस्ते';
+                component.triggerAutoSave();
 
                 component.saveAsDraft();
                 await Promise.resolve();
+                await Promise.resolve();
 
-                expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+                const [, payload] = mockDraftContentsStore.update.mock.calls[0];
+                expect(payload.title).toBe('Hello world');
                 expect(mockDraftContentsService.saveTranslation).toHaveBeenCalled();
             });
 
-            it('refuses to publish from a translation tab', async () => {
+            it('publishes from a translation tab', async () => {
                 await loadEnglishContent();
                 await component.switchLanguage('hi');
 
                 component.directPublishContent();
+                await Promise.resolve();
 
-                expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
-                expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                    expect.stringContaining('default language'),
-                    'error',
-                    'error',
-                );
+                const [, payload] = mockDraftContentsStore.update.mock.calls[0];
+                expect(payload.publishedStatus).toBe(true);
+                expect(payload.title).toBe('Hello world');
             });
 
             it('does not regenerate the shared slug from a translated title', async () => {
@@ -1736,11 +1753,10 @@ describe('CreateContentComponent', () => {
         describe('saving translations', () => {
             beforeEach(() => enableHindi());
 
-            it('writes only translatable fields to the translation document', async () => {
+            it('saves the base document and every translation from one button', async () => {
                 mockContentTypesStore.items.set([
                     {
-                        name: 'Article',
-                        slug: 'article',
+                        name: 'Article', slug: 'article',
                         fields: [
                             { key: 'blurb', label: 'Blurb', type: 'text', required: false, order: 0 },
                             { key: 'readingLevel', label: 'Level', type: 'number', required: false, order: 1 },
@@ -1751,22 +1767,83 @@ describe('CreateContentComponent', () => {
                 await component.switchLanguage('hi');
                 component.pageTitle = 'नमस्ते दुनिया';
                 component.customFieldValues = { blurb: 'हिन्दी सारांश', readingLevel: 9 };
+                component.triggerAutoSave();
 
-                await component.saveTranslation();
+                component.saveAsDraft();
+                await Promise.resolve();
+                await Promise.resolve();
 
+                // Base document keeps the default-language content...
+                expect(mockDraftContentsStore.update).toHaveBeenCalled();
+                const [, basePayload] = mockDraftContentsStore.update.mock.calls[0];
+                expect(basePayload.title).toBe('Hello world');
+                // ...and the translation is written alongside it.
                 const [slug, docId, translation] = mockDraftContentsService.saveTranslation.mock.calls[0];
                 expect(slug).toBe('article');
                 expect(docId).toBe('doc-1');
                 expect(translation.lang).toBe('hi');
                 expect(translation.title).toBe('नमस्ते दुनिया');
                 expect(translation.customFields).toEqual({ blurb: 'हिन्दी सारांश' });
-                expect(translation.translatedBy).toBe('admin-1');
-                expect(component.translationDirty()).toBe(false);
-                expect(component.hasTranslation('hi')).toBe(true);
             });
 
-            it('deletes the variant when every field has been emptied', async () => {
+            it('publishes every language together', async () => {
+                await loadEnglishContent();
+                await component.switchLanguage('hi');
+                component.pageTitle = 'नमस्ते';
+                component.triggerAutoSave();
+
+                component.directPublishContent();
+                await Promise.resolve();
+                await Promise.resolve();
+
+                const [, payload] = mockDraftContentsStore.update.mock.calls[0];
+                expect(payload.publishedStatus).toBe(true);
+                expect(payload.title).toBe('Hello world');
+                expect(mockDraftContentsService.saveTranslation).toHaveBeenCalled();
+            });
+
+            it('writes translations before the publish is enqueued', async () => {
+                // The pipeline copies translations when it processes the queue,
+                // so a queued publish must never overtake the write.
+                const order: string[] = [];
+                mockDraftContentsService.saveTranslation.mockImplementation(async () => {
+                    order.push('translation');
+                });
+                const enqueue = TestBed.inject(PublishQueueService).enqueue as any;
+                enqueue.mockImplementation(() => { order.push('enqueue'); });
+
+                await loadEnglishContent();
+                await component.switchLanguage('hi');
+                component.pageTitle = 'नमस्ते';
+                component.triggerAutoSave();
+
+                component.directPublishContent();
+                await Promise.resolve();
+                await Promise.resolve();
+
+                expect(order).toEqual(['translation', 'enqueue']);
+            });
+
+            it('carries translations of a brand-new item to the created document', async () => {
+                component.contentTypeSlug = 'article';
+                await component['initLanguages']();
+                component.pageTitle = 'Fresh item';
+                await component.switchLanguage('hi');
+                component.pageTitle = 'नया';
+                component.triggerAutoSave();
+
+                component.saveAsDraft();
+                await Promise.resolve();
+                await Promise.resolve();
+
+                expect(mockDraftContentsStore.add).toHaveBeenCalled();
+                const [, docId] = mockDraftContentsService.saveTranslation.mock.calls[0];
+                expect(docId).toBe('new-id');
+            });
+
+            it('deletes the variant when every translated field has been emptied', async () => {
                 mockDraftContentsService.getTranslatedLanguages.mockResolvedValue(['hi']);
+                mockDraftContentsService.getTranslation.mockResolvedValue({ lang: 'hi', title: 'नमस्ते' });
                 await loadEnglishContent();
                 await component.switchLanguage('hi');
                 component.pageTitle = '';
@@ -1774,48 +1851,49 @@ describe('CreateContentComponent', () => {
                 component.publishForm.get('summary')?.setValue('');
                 component.seoForm.get('seoTitle')?.setValue('');
                 component.customFieldValues = {};
+                component.triggerAutoSave();
 
-                await component.saveTranslation();
+                component.saveAsDraft();
+                await Promise.resolve();
+                await Promise.resolve();
 
                 expect(mockDraftContentsService.saveTranslation).not.toHaveBeenCalled();
                 expect(mockDraftContentsService.deleteTranslation).toHaveBeenCalledWith('article', 'doc-1', 'hi');
                 expect(component.hasTranslation('hi')).toBe(false);
             });
 
-            it('refuses to translate an item that has never been saved', async () => {
-                await component['initLanguages']();
-                await component.switchLanguage('hi');
-
-                await component.saveTranslation();
-
-                expect(mockDraftContentsService.saveTranslation).not.toHaveBeenCalled();
-                expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                    expect.stringContaining('Save the content once'),
-                    'error',
-                    'error',
-                );
-            });
-
-            it('does nothing when called on the default language', async () => {
+            it('does not rewrite untouched translations', async () => {
+                mockDraftContentsService.getTranslation.mockResolvedValue({ lang: 'hi', title: 'नमस्ते' });
                 await loadEnglishContent();
+                await component.switchLanguage('hi');
+                await component.switchLanguage('en');
+                component.pageTitle = 'English edit only';
 
-                await component.saveTranslation();
+                component.saveAsDraft();
+                await Promise.resolve();
+                await Promise.resolve();
 
                 expect(mockDraftContentsService.saveTranslation).not.toHaveBeenCalled();
             });
 
-            it('surfaces a save failure without clearing the form', async () => {
+            it('surfaces a translation failure without failing the whole save', async () => {
                 const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
                 mockDraftContentsService.saveTranslation.mockRejectedValue(new Error('denied'));
                 await loadEnglishContent();
                 await component.switchLanguage('hi');
                 component.pageTitle = 'नमस्ते';
+                component.triggerAutoSave();
 
-                await component.saveTranslation();
+                component.saveAsDraft();
+                await Promise.resolve();
+                await Promise.resolve();
 
-                expect(component.pageTitle).toBe('नमस्ते');
-                expect(component.isSavingTranslation()).toBe(false);
-                expect(component.saveStatusType).toBe('error');
+                expect(mockDraftContentsStore.update).toHaveBeenCalled();
+                expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                    expect.stringContaining('translation'),
+                    'error',
+                    'error',
+                );
                 consoleSpy.mockRestore();
             });
 

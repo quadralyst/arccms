@@ -280,8 +280,11 @@ describe('deployContentPage', () => {
             expect(deployedHtml).toContain('Test Article');
         });
 
-        it('should skip Tier 1+2 when templateFolder is "default"', async () => {
-            // ContentType with templateFolder = 'default'
+        it('should load the shared default template when templateFolder is "default"', async () => {
+            // "default" names a real template folder — public/templates/default —
+            // rather than meaning "no template". It used to short-circuit to the
+            // bare built-in skeleton, which is why a deployed page looked
+            // nothing like the same content previewed locally.
             mockContentTypeLimitGet.mockResolvedValue({
                 empty: false,
                 docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, templateFolder: 'default' }) }],
@@ -289,15 +292,11 @@ describe('deployContentPage', () => {
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            // Should not read template doc or fetch from hosting
-            expect(mockTopDoc).not.toHaveBeenCalled();
-            expect(mockFetch).not.toHaveBeenCalled();
-            // Should still deploy successfully
+            expect(mockTopDoc).toHaveBeenCalledWith('templates/default:detail');
             expect(mockDeployFileToHosting).toHaveBeenCalled();
         });
 
-        it('should skip Tier 1+2 when templateFolder is empty', async () => {
-            // ContentType with no templateFolder
+        it('should fall back to the default folder when templateFolder is empty', async () => {
             mockContentTypeLimitGet.mockResolvedValue({
                 empty: false,
                 docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, templateFolder: '' }) }],
@@ -305,8 +304,7 @@ describe('deployContentPage', () => {
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            expect(mockTopDoc).not.toHaveBeenCalled();
-            expect(mockFetch).not.toHaveBeenCalled();
+            expect(mockTopDoc).toHaveBeenCalledWith('templates/default:detail');
             expect(mockDeployFileToHosting).toHaveBeenCalled();
         });
     });

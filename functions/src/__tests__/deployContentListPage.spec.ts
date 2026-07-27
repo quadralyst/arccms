@@ -260,7 +260,8 @@ describe('deployContentListPage', () => {
             expect(deployedHtml).toContain('First Article');
         });
 
-        it('should skip Tier 1+2 when templateFolder is "default"', async () => {
+        it('should load the shared default template when templateFolder is "default"', async () => {
+            // See deployContentPage.spec — "default" is a real template folder.
             mockContentTypeLimitGet.mockResolvedValue({
                 empty: false,
                 docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, templateFolder: 'default' }) }],
@@ -268,8 +269,7 @@ describe('deployContentListPage', () => {
 
             await generateAndDeployContentListPage('articles');
 
-            expect(mockTopDoc).not.toHaveBeenCalled();
-            expect(mockFetch).not.toHaveBeenCalled();
+            expect(mockTopDoc).toHaveBeenCalledWith('templates/default:list');
             expect(mockDeployFileToHosting).toHaveBeenCalled();
         });
     });

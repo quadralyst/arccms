@@ -85,14 +85,16 @@ async function loadTranslations(
  *  Tier 3: Built-in FALLBACK_DETAIL_TEMPLATE
  */
 async function loadDetailTemplate(templateFolder: string | undefined, siteId: string): Promise<string> {
-    // If no custom template folder or explicitly "default", use fallback immediately
-    if (!templateFolder || templateFolder === 'default') {
-        return FALLBACK_DETAIL_TEMPLATE;
-    }
+    // "default" is a real template folder, not an absence of one. It used to
+    // short-circuit to the bare built-in skeleton below, while the Angular
+    // renderer drew its own full-featured default layout — so the same content
+    // looked completely different served statically vs. previewed locally.
+    // public/templates/default/ now holds that layout, and both renderers use it.
+    const folder = !templateFolder || templateFolder === 'default' ? 'default' : templateFolder;
 
     // Tier 1: Firestore
     try {
-        const docRef = db.doc(`templates/${templateFolder}:detail`);
+        const docRef = db.doc(`templates/${folder}:detail`);
         const snap = await docRef.get();
         if (snap.exists) {
             const data = snap.data();
@@ -105,7 +107,7 @@ async function loadDetailTemplate(templateFolder: string | undefined, siteId: st
 
     // Tier 2: Fetch from hosting
     try {
-        const url = `https://${siteId}.web.app/templates/${templateFolder}/detail.html`;
+        const url = `https://${siteId}.web.app/templates/${folder}/detail.html`;
         const res = await fetch(url);
         if (res.ok) {
             const text = await res.text();
