@@ -79,13 +79,18 @@ function hasValue(value: unknown): boolean {
  * Mirrored server-side in functions/src/shared/content-translation.ts — the
  * publish pipeline must merge identically to what the editor previews.
  */
-export function mergeTranslation<T extends Record<string, unknown>>(
+export function mergeTranslation<T extends object>(
     base: T,
     translation: IContentTranslation | null | undefined,
 ): T {
     if (!translation) return base;
 
-    const merged: Record<string, unknown> = { ...base };
+    // Callers pass declared interfaces (IContents, IDraftContents), which
+    // TypeScript will not assign to Record<string, unknown> — interfaces get no
+    // implicit index signature. The indexing is an implementation detail, so it
+    // is cast here rather than pushed onto every call site.
+    const source = base as Record<string, unknown>;
+    const merged: Record<string, unknown> = { ...source };
 
     for (const field of TRANSLATABLE_BUILTIN_FIELDS) {
         const value = translation[field];
@@ -94,7 +99,7 @@ export function mergeTranslation<T extends Record<string, unknown>>(
 
     if (translation.customFields) {
         const mergedCustom: Record<string, unknown> = {
-            ...((base['customFields'] as Record<string, unknown>) ?? {}),
+            ...((source['customFields'] as Record<string, unknown>) ?? {}),
         };
         for (const [key, value] of Object.entries(translation.customFields)) {
             if (hasValue(value)) mergedCustom[key] = value;

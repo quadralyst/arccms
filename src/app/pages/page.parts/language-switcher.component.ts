@@ -82,6 +82,9 @@ export class LanguageSwitcherComponent {
     links = computed(() => {
         const languages = this.localization.enabledLanguages();
         if (languages.length < 2) return [];
+        // Nothing to switch to unless this page is actually published per
+        // language — see LocalizationService.hasLanguageVariants.
+        if (!this.localization.hasLanguageVariants()) return [];
 
         const defaultLang = this.localization.defaultLanguage();
         const { path, activeLang } = this.splitLanguage(this.currentUrl(), languages, defaultLang);

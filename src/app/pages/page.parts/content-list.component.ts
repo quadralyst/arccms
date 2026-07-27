@@ -1,6 +1,6 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, Injector, OnInit, PLATFORM_ID, signal, untracked, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
@@ -15,6 +15,7 @@ import { TagsStore } from '../admin/contents/content-types/tags/tags.store';
 import { FooterComponent } from './footer.component';
 import { HeaderComponent } from './header.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
+import { LocalizationService } from '../../core/services/localization.service';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import {
     IContentTranslation,
@@ -75,7 +76,7 @@ import {
                     } @else {
                         <div class="content-grid">
                             @for(content of filteredContents(); track content.id) {
-                                <a [href]="'/' + contentTypeSlug() + '/' + content.urlSlug" class="content-card">
+                                <a [href]="itemUrl(content.urlSlug)" class="content-card">
                                     <div class="content-card-image" [style.background-image]="content.coverImage ? 'url(' + content.coverImage + ')' : ''">
                                         @if(!content.coverImage) {
                                             <div class="content-card-placeholder"></div>
@@ -305,7 +306,7 @@ import {
     changeDetection: ChangeDetectionStrategy.OnPush,
     encapsulation: ViewEncapsulation.None,
 })
-export class ContentListComponent extends BaseComponent implements OnInit {
+export class ContentListComponent extends BaseComponent implements OnInit, OnDestroy {
     private document = inject(DOCUMENT);
     // Router and ActivatedRoute are already injected in BaseComponent as 'router' and 'activatedRoute'
     private http = inject(HttpClient);
@@ -319,6 +320,7 @@ export class ContentListComponent extends BaseComponent implements OnInit {
     // Resolved lazily — only the /{lang}/ route needs it. See
     // ContentDetailComponent for why this is not injected eagerly.
     private injector = inject(Injector);
+    private localization = inject(LocalizationService);
     tagsStore = inject(TagsStore);
     private gaTracking = inject(GaTrackingService);
     private trackedContentTypes = new Set<string>();
@@ -366,7 +368,7 @@ export class ContentListComponent extends BaseComponent implements OnInit {
             // Untranslated items keep their default-language card rather than
             // dropping out — a half-empty list reads as a broken site, and
             // partial translation is the normal state. Matches the deploy.
-            .map((content: IContents) =>
+            .map((content: IContents): IContents =>
                 lang ? mergeTranslation(content, translations[content.id] ?? null) : content
             );
 
@@ -435,6 +437,8 @@ export class ContentListComponent extends BaseComponent implements OnInit {
         const lang = this.activatedRoute.snapshot.paramMap.get('lang') || '';
         this.contentTypeSlug.set(slug);
         this.pageLang.set(lang);
+        // Content pages are published per language, so the switcher applies here.
+        this.localization.hasLanguageVariants.set(true);
 
         if (!slug) {
             return;
@@ -458,6 +462,17 @@ export class ContentListComponent extends BaseComponent implements OnInit {
         if (!lang) return 'en_US';
         const [language, region] = lang.toLowerCase().split('-');
         return region ? `${language}_${region.toUpperCase()}` : language;
+    }
+
+    /** Keeps card links inside the language currently being viewed. */
+    itemUrl(urlSlug: string): string {
+        const prefix = this.pageLang() ? `/${this.pageLang()}` : '';
+        return `${prefix}/${this.contentTypeSlug()}/${urlSlug}`;
+    }
+
+    ngOnDestroy(): void {
+        // The next page may not have language variants.
+        this.localization.hasLanguageVariants.set(false);
     }
 
     /**
