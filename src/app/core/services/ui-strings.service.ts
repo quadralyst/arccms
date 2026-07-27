@@ -22,6 +22,15 @@ export class UiStringsService {
     /** Strings for the active language; empty for the default language. */
     readonly strings = signal<Record<string, string>>({});
 
+    /**
+     * The language the page on screen is written in; empty for the default.
+     *
+     * Set here because `use()` is already the one call every page makes to
+     * declare its language. Components without a `:lang` route param — the
+     * home page and anything it embeds — have no other way to know.
+     */
+    readonly activeLang = signal<string>('');
+
     private loaded = new Map<string, Record<string, string>>();
     private inFlight = new Map<string, Promise<Record<string, string>>>();
 
@@ -30,6 +39,8 @@ export class UiStringsService {
      * (the default language) clears them, restoring the authored English.
      */
     async use(lang: string): Promise<Record<string, string>> {
+        this.activeLang.set(lang);
+
         if (!lang) {
             this.strings.set({});
             return {};

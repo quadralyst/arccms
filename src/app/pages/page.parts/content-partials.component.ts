@@ -7,7 +7,8 @@ import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
-import { ContentType } from '../admin/contents/content-types/content-types.model';
+import { ContentType, contentTypeDescription, contentTypeName } from '../admin/contents/content-types/content-types.model';
+import { UiStringsService } from '../../core/services/ui-strings.service';
 import { IContents } from '../admin/contents/content-store/published-contents.model';
 
 /**
@@ -264,6 +265,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     private transferState = inject(TransferState);
 
     contentTypesStore = inject(ContentTypesStore);
+    private uiStrings = inject(UiStringsService);
     contentsStore = inject(ContentsStore);
 
     // Inputs - support both property binding and attribute binding
@@ -298,11 +300,20 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         return types.find((ct: ContentType) => ct.slug === slug) || null;
     });
 
+    /**
+     * The language of the page embedding this component.
+     *
+     * Partials appear on the home page, which has no `:lang` route param — it
+     * is a whole translated document per language — so the language comes from
+     * the strings service the page already activates.
+     */
+    private pageLang = computed(() => this.uiStrings.activeLang());
+
     displayTitle = computed(() => {
         const customTitle = this.sectionTitle();
         if (customTitle) return customTitle;
         const contentType = this.currentContentType();
-        return contentType ? `Latest ${contentType.name}` : 'Latest Content';
+        return contentType ? `Latest ${contentTypeName(contentType, this.pageLang())}` : 'Latest Content';
     });
 
     filteredContents = computed(() => {
@@ -402,10 +413,11 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
      */
     private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, contents: IContents[]): void {
         // Prepare data for template hydration
+        const lang = this.pageLang();
         const templateData = {
-            contentType: contentType.name,
+            contentType: contentTypeName(contentType, lang),
             contentTypeSlug: contentType.slug,
-            contentTypeDescription: contentType.description || '',
+            contentTypeDescription: contentTypeDescription(contentType, lang),
             sectionTitle: this.displayTitle(),
         };
 

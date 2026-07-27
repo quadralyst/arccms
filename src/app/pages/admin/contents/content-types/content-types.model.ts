@@ -33,15 +33,18 @@ export interface ContentType extends IBaseModel {
     listColumns?: string[]; // Keys of columns to show in the list view
     hasPublicUrl?: boolean; // When false, no static HTML pages are generated for this content type
     /**
-     * Per-language display names, keyed by BCP-47 code — e.g.
-     * `{ hi: { name: 'लेख', singularName: 'लेख' } }`.
+     * Per-language display text, keyed by BCP-47 code — e.g.
+     * `{ hi: { name: 'लेख', singularName: 'लेख', description: '...' } }`.
      *
-     * The type's name reaches the public pages ("Back to Articles", the list
-     * page heading), so without this a translated page keeps an English noun
-     * however well its chrome is translated. Admin-entered data, so it lives
-     * beside the type rather than in the static strings JSON (decision M-D19).
+     * This text reaches the public pages ("Back to Articles", the list page
+     * heading and its subtitle), so without it a translated page keeps English
+     * prose however well its chrome is translated. Admin-entered data, so it
+     * lives beside the type rather than in the static strings JSON (M-D19).
      *
-     * Absent or blank for a language means the default `name`/`singularName`.
+     * Absent or blank for a language falls back to the default field.
+     *
+     * The stored key still says `name` because it predates the description;
+     * renaming it would mean migrating every existing content type for no gain.
      */
     nameTranslations?: Record<string, ContentTypeNames>;
     /**
@@ -57,11 +60,15 @@ export interface ContentType extends IBaseModel {
     fieldLabelTranslations?: Record<string, Record<string, string>>;
 }
 
-/** Display names for one language. */
+/** Display text for one language. */
 export interface ContentTypeNames {
     name?: string;
     singularName?: string;
+    description?: string;
 }
+
+/** The keys of `ContentTypeNames` — what the translation tabs offer. */
+export type TranslatableTypeText = keyof ContentTypeNames;
 
 /**
  * The type's display name in a language, falling back to the default.
@@ -83,8 +90,22 @@ export function contentTypeSingularName(
 }
 
 /**
+ * The type's description in a language, falling back to the default.
+ *
+ * It is the subtitle under the list page heading, so an untranslated one is
+ * the most visible English left on an otherwise translated page.
+ */
+export function contentTypeDescription(
+    type: Pick<ContentType, 'description' | 'nameTranslations'> | null | undefined,
+    lang?: string,
+): string {
+    const translated = lang ? type?.nameTranslations?.[lang]?.description : '';
+    return translated?.trim() || type?.description || '';
+}
+
+/**
  * Drops blank entries so a language the admin left empty simply falls back to
- * the default name, rather than persisting empty strings that read as
+ * the default text, rather than persisting empty strings that read as
  * "translated to nothing".
  */
 export function pruneNameTranslations(
@@ -95,6 +116,7 @@ export function pruneNameTranslations(
         const entry: ContentTypeNames = {};
         if (names?.name?.trim()) entry.name = names.name.trim();
         if (names?.singularName?.trim()) entry.singularName = names.singularName.trim();
+        if (names?.description?.trim()) entry.description = names.description.trim();
         if (Object.keys(entry).length > 0) pruned[lang] = entry;
     }
     return pruned;

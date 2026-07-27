@@ -48,6 +48,15 @@
                 (input)="setTranslatedName(activeLang(), 'singularName', $any($event.target).value)" />
         </div>
 
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" rows="3"
+                [placeholder]="editForm.get('description')?.value || 'Description'"
+                [value]="translatedName(activeLang(), 'description')"
+                (input)="setTranslatedName(activeLang(), 'description', $any($event.target).value)"></textarea>
+            <small class="text-muted">Shown under the heading on the list page.</small>
+        </div>
+
         @if (translatableFields().length > 0) {
         <div class="form-section-title">Custom field labels</div>
         @for (field of translatableFields(); track field.key) {
