@@ -1,7 +1,8 @@
 import { Injectable, runInInjectionContext } from '@angular/core';
-import { CollectionReference, collection, getDocs, query, where, limit, doc, writeBatch, orderBy } from '@angular/fire/firestore';
+import { CollectionReference, collection, getDocs, getDoc, setDoc, deleteDoc, query, where, limit, doc, writeBatch, orderBy } from '@angular/fire/firestore';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IDraftContents, INextContentReference } from './draft-contents.model';
+import { IContentTranslation, pruneTranslation } from './content-translation.model';
 
 @Injectable({
     providedIn: 'root'
@@ -17,6 +18,78 @@ export class DraftContentsService extends DbService<IDraftContents> {
             return runInInjectionContext(this.injector, () => collection(this.firestore, `arc_${collectionSuffix}_drafts`)) as CollectionReference<IDraftContents>;
         }
         return super.getCollectionRef();
+    }
+
+    // ── Translations (M2) ──────────────────────────────────────────────────
+    // Per-language variants live in a sibling subcollection so the base draft
+    // document — the default language — is never migrated or rewritten:
+    //   arc_{slug}_drafts/{docId}/translations/{lang}
+
+    private translationsRef(contentTypeSlug: string, docId: string): CollectionReference {
+        return runInInjectionContext(this.injector, () =>
+            collection(this.firestore, `arc_${contentTypeSlug}_drafts`, docId, 'translations'),
+        );
+    }
+
+    /** Reads one language variant. Returns null when it has not been translated. */
+    async getTranslation(
+        contentTypeSlug: string,
+        docId: string,
+        lang: string,
+    ): Promise<IContentTranslation | null> {
+        try {
+            const ref = runInInjectionContext(this.injector, () =>
+                doc(this.translationsRef(contentTypeSlug, docId), lang),
+            );
+            const snap = await runInInjectionContext(this.injector, () => getDoc(ref));
+            if (!snap.exists()) return null;
+            return { ...(snap.data() as IContentTranslation), lang };
+        } catch (error) {
+            console.error(`Error loading "${lang}" translation:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Lists the language codes this item has been translated into.
+     * Used to badge the language tabs — cheap enough to refresh on load.
+     */
+    async getTranslatedLanguages(contentTypeSlug: string, docId: string): Promise<string[]> {
+        try {
+            const snapshot = await runInInjectionContext(this.injector, () =>
+                getDocs(this.translationsRef(contentTypeSlug, docId)),
+            );
+            return snapshot.docs.map((d) => d.id);
+        } catch (error) {
+            console.error('Error listing translations:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Writes one language variant. Blank fields are pruned rather than stored,
+     * so they keep falling back to the base document.
+     */
+    async saveTranslation(
+        contentTypeSlug: string,
+        docId: string,
+        translation: IContentTranslation,
+    ): Promise<void> {
+        const pruned = pruneTranslation(translation);
+        const ref = runInInjectionContext(this.injector, () =>
+            doc(this.translationsRef(contentTypeSlug, docId), translation.lang),
+        );
+        // Not a merge write: pruned-away fields must actually disappear so that
+        // clearing a field in the editor restores the default-language value.
+        await runInInjectionContext(this.injector, () => setDoc(ref, { ...pruned, lang: translation.lang }));
+    }
+
+    /** Removes a language variant entirely, reverting it to the base content. */
+    async deleteTranslation(contentTypeSlug: string, docId: string, lang: string): Promise<void> {
+        const ref = runInInjectionContext(this.injector, () =>
+            doc(this.translationsRef(contentTypeSlug, docId), lang),
+        );
+        await runInInjectionContext(this.injector, () => deleteDoc(ref));
     }
 
     /**
