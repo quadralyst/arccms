@@ -446,8 +446,11 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         const lang = this.activatedRoute.snapshot.paramMap.get('lang') || '';
         this.contentTypeSlug.set(slug);
         this.pageLang.set(lang);
-        // Content pages are published per language, so the switcher applies here.
-        this.localization.hasLanguageVariants.set(true);
+        // List pages are deployed for every enabled language, so all of them
+        // are genuinely reachable here.
+        this.localization.languageVariants.set(
+            this.localization.enabledLanguages().map(language => language.code),
+        );
         // Chrome for this page's language; '' restores the authored English.
         this.uiStrings.use(lang);
 
@@ -482,8 +485,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     }
 
     ngOnDestroy(): void {
-        // The next page may not have language variants.
-        this.localization.hasLanguageVariants.set(false);
+        // The next page may have no variants at all.
+        this.localization.languageVariants.set(null);
     }
 
     /**
