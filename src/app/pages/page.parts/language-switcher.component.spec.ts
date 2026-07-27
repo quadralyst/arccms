@@ -18,11 +18,12 @@ describe('LanguageSwitcherComponent', () => {
     let localization: any;
     let router: any;
 
-    function build(url: string, languages = [ENGLISH, HINDI], defaultLang = 'en') {
+    function build(url: string, languages = [ENGLISH, HINDI], defaultLang = 'en', hasVariants = true) {
         localization = {
             load: vi.fn().mockResolvedValue(undefined),
             enabledLanguages: signal(languages),
             defaultLanguage: signal(defaultLang),
+            hasLanguageVariants: signal(hasVariants),
         };
         router = { url, events: of() };
 
@@ -120,5 +121,25 @@ describe('LanguageSwitcherComponent', () => {
         // Navigation must never be blocked by a failed preference write.
         expect(() => component.remember('hi')).not.toThrow();
         vi.unstubAllGlobals();
+    });
+    it('renders nothing on a page with no language variants', () => {
+        // The home page and static pages are single-language. Offering to
+        // switch there links to /hi, which is not a route — it falls through to
+        // the content-list route and renders an empty list for a content type
+        // called "hi".
+        build('/', [ENGLISH, HINDI], 'en', false);
+
+        expect(component.links()).toEqual([]);
+        expect(fixture.nativeElement.querySelector('.arc-lang-switcher')).toBeNull();
+    });
+
+    it('appears again once a content page declares variants', () => {
+        build('/articles', [ENGLISH, HINDI], 'en', false);
+        expect(component.links()).toEqual([]);
+
+        localization.hasLanguageVariants.set(true);
+        fixture.detectChanges();
+
+        expect(component.links()).toHaveLength(2);
     });
 });

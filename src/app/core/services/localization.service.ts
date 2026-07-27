@@ -58,6 +58,22 @@ export class LocalizationService {
     /** True once a load attempt has completed (successfully or not). */
     readonly loaded = this.loadedSignal.asReadonly();
 
+    /**
+     * Whether the page currently being rendered actually exists in other
+     * languages.
+     *
+     * Only content pages are published per language. The home page and the
+     * static pages are single-language, so offering to switch there would link
+     * to a URL that does not exist — `/hi` is not a route and falls through to
+     * the content-list route, rendering an empty page for a content type
+     * called "hi".
+     *
+     * Content components set this while they are on screen; the switcher hides
+     * itself otherwise. This mirrors the static pipeline, which only injects a
+     * switcher into content pages.
+     */
+    readonly hasLanguageVariants = signal(false);
+
     readonly defaultLanguage = computed(() => this.settingsSignal().defaultLanguage);
     readonly enabledLanguages = computed(() => this.settingsSignal().enabledLanguages);
     /** Languages needing translations — i.e. everything but the default. */

@@ -99,13 +99,17 @@ function hasValue(value: unknown): boolean {
  * translation still deploys a complete page rather than one with holes in it.
  * `customFields` merges key-by-key for the same reason.
  */
-export function mergeTranslation<T extends Record<string, unknown>>(
+export function mergeTranslation<T extends object>(
     base: T,
     translation: ContentTranslation | null | undefined,
 ): T {
     if (!translation) return base;
 
-    const merged: Record<string, unknown> = { ...base };
+    // See the client mirror: declared interfaces are not assignable to
+    // Record<string, unknown>, so the indexing is cast here rather than pushed
+    // onto every call site.
+    const source = base as Record<string, unknown>;
+    const merged: Record<string, unknown> = { ...source };
 
     for (const field of TRANSLATABLE_BUILTIN_FIELDS) {
         const value = translation[field];
@@ -114,7 +118,7 @@ export function mergeTranslation<T extends Record<string, unknown>>(
 
     if (translation.customFields) {
         const mergedCustom: Record<string, unknown> = {
-            ...((base['customFields'] as Record<string, unknown>) ?? {}),
+            ...((source['customFields'] as Record<string, unknown>) ?? {}),
         };
         for (const [key, value] of Object.entries(translation.customFields)) {
             if (hasValue(value)) mergedCustom[key] = value;

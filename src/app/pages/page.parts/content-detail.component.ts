@@ -18,6 +18,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FooterComponent } from './footer.component';
 import { HeaderComponent } from './header.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
+import { LocalizationService } from '../../core/services/localization.service';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
 import {
@@ -69,7 +70,7 @@ import {
             <!-- Article Header -->
             <header class="article-header">
                 <div class="container">
-                    <a class="article-back-link" [href]="'/' + contentTypeSlug()">
+                    <a class="article-back-link" [href]="listUrl()">
                         <i class="fas fa-arrow-left"></i> Back to {{ currentContentType()?.name }}
                     </a>
                     <h1 class="article-title">{{ currentContent()?.title }}</h1>
@@ -127,7 +128,7 @@ import {
 
                     <!-- Navigation -->
                     <nav class="article-navigation">
-                        <a [href]="'/' + contentTypeSlug()" class="nav-back">
+                        <a [href]="listUrl()" class="nav-back">
                             <i class="fas fa-th-large"></i>
                             <span>All {{ currentContentType()?.name }}</span>
                         </a>
@@ -461,6 +462,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     // /{lang}/ routes ever need them. Injecting eagerly would make every page
     // that renders content — and its spec — depend on Firestore.
     private injector = inject(Injector);
+    private localization = inject(LocalizationService);
     private auth = inject(Auth);
     private gaTracking = inject(GaTrackingService);
     private trackedContent = false;
@@ -485,6 +487,12 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         const types = this.contentTypesStore.items();
         return types.find((ct: ContentType) => ct.slug === slug) || null;
     });
+
+    /** Keeps the back-links inside the language currently being viewed. */
+    listUrl(): string {
+        const prefix = this.pageLang() ? `/${this.pageLang()}` : '';
+        return `${prefix}/${this.contentTypeSlug()}`;
+    }
 
     /** Language prefix of the current URL — '' on the default-language routes. */
     pageLang = signal<string>('');
@@ -657,6 +665,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         this.urlSlug.set(contentSlug);
         this.isPreview.set(isPreview);
         this.pageLang.set(lang);
+        // Content pages are published per language, so the switcher applies here.
+        this.localization.hasLanguageVariants.set(true);
 
         // Eagerly set isCheckingDraft to prevent 404 flash before the effect fires
         if (isPreview) {
@@ -687,6 +697,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     }
 
     ngOnDestroy(): void {
+        // The next page may not have language variants.
+        this.localization.hasLanguageVariants.set(false);
         if (this.notFoundTimer !== null) {
             clearTimeout(this.notFoundTimer);
             this.notFoundTimer = null;
