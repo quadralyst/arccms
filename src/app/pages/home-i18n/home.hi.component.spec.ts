@@ -55,10 +55,12 @@ describe('HomeHiComponent', () => {
             ]),
             defaultLanguage: signal('en'),
         } as never;
-        // `translate` is exercised by [data-arc-t] in the header partial.
+        // `translate` is exercised by [data-arc-t] in the header partial, and
+        // `activeLang` by [LangHrefDirective] on its links.
         uiStrings = {
             use: vi.fn().mockResolvedValue({}),
             strings: signal<Record<string, string>>({}),
+            activeLang: signal(''),
             translate: vi.fn((_key: string, fallback: string) => fallback),
         } as never;
 

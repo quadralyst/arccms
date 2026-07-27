@@ -5,6 +5,7 @@ import {
     TRANSLATABLE_BUILTIN_FIELDS,
     detailFilePath,
     detailUrl,
+    langPrefix,
     localizedPageTitle,
     mergeTranslation,
 } from '../shared/content-translation.js';
@@ -19,6 +20,7 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
+import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting, removeFileFromHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 
@@ -190,7 +192,7 @@ function buildTemplateData(
         share,
         // Available to templates that want to build their own language links.
         lang,
-        langPrefix: lang === defaultLang ? '' : `/${lang}`,
+        langPrefix: langPrefix(lang, defaultLang),
     };
 }
 
@@ -313,10 +315,19 @@ export async function generateAndDeployContentDetailPage(
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
         // Replace arc components (header, footer, admin buttons, partials)
+        // The partials are one file shared by every language, so their links
+        // are root-relative and have to be pointed at this language — without
+        // it the page reads in Hindi and its chrome navigates to English.
+        const chrome = (html: string) =>
+            prefixAnchorHrefs(
+                TemplateHydrationService.applyStrings(html, uiStrings),
+                langPrefix(lang, defaultLang),
+            );
+
         hydratedHtml = replaceArcComponents(
             hydratedHtml,
-            TemplateHydrationService.applyStrings(partials.headerHtml, uiStrings),
-            TemplateHydrationService.applyStrings(partials.footerHtml, uiStrings),
+            chrome(partials.headerHtml),
+            chrome(partials.footerHtml),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
         );
 

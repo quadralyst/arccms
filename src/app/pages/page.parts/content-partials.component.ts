@@ -43,14 +43,14 @@ import { IContents } from '../admin/contents/content-store/published-contents.mo
                 <div class="content-partials-header">
                     <h2 class="content-partials-title">{{ displayTitle() }}</h2>
                     @if(currentContentType()) {
-                        <a [href]="'/' + contentType()" class="content-partials-view-all">
+                        <a [href]="listUrl()" class="content-partials-view-all">
                             View All <i class="fas fa-arrow-right"></i>
                         </a>
                     }
                 </div>
                 <div class="content-partials-grid">
                     @for(content of filteredContents(); track content.id) {
-                        <a [href]="'/' + contentType() + '/' + content.urlSlug" class="content-partial-card">
+                        <a [href]="itemUrl(content.urlSlug)" class="content-partial-card">
                             <div class="content-partial-image" 
                                  [style.background-image]="content.coverImage ? 'url(' + content.coverImage + ')' : ''">
                                 @if(!content.coverImage) {
@@ -308,6 +308,22 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
      * the strings service the page already activates.
      */
     private pageLang = computed(() => this.uiStrings.activeLang());
+
+    /** '' on the default language, '/{code}' otherwise. */
+    private langPrefix = computed(() => (this.pageLang() ? `/${this.pageLang()}` : ''));
+
+    /**
+     * These cards render on the home page, which exists per language — so
+     * their links have to stay in the language the visitor is reading, or
+     * every card is a one-way trip back to English.
+     */
+    listUrl(): string {
+        return `${this.langPrefix()}/${this.contentType()}`;
+    }
+
+    itemUrl(urlSlug: string): string {
+        return `${this.langPrefix()}/${this.contentType()}/${urlSlug}`;
+    }
 
     displayTitle = computed(() => {
         const customTitle = this.sectionTitle();

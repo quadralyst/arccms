@@ -18,6 +18,7 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
+import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 
@@ -278,10 +279,16 @@ export async function generateAndDeployContentListPage(
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
         // Replace arc components
+        // The partials are one file shared by every language, so their links
+        // are root-relative and have to be pointed at this language — without
+        // it the page reads in Hindi and its chrome navigates to English.
+        const chrome = (html: string) =>
+            prefixAnchorHrefs(TemplateHydrationService.applyStrings(html, uiStrings), prefix);
+
         hydratedHtml = replaceArcComponents(
             hydratedHtml,
-            TemplateHydrationService.applyStrings(partials.headerHtml, uiStrings),
-            TemplateHydrationService.applyStrings(partials.footerHtml, uiStrings),
+            chrome(partials.headerHtml),
+            chrome(partials.footerHtml),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
         );
 
