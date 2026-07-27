@@ -9,6 +9,8 @@ import { MatDialog } from '@angular/material/dialog';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ContentTypesStore } from './content-types.store';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { NotifyService } from '../../../../../shared/services/notify.service';
 import { ContentType } from './content-types.model';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import AddContentTypeComponent from './(add-content-type)/add.page';
@@ -38,7 +40,8 @@ export const routeMeta: RouteMeta = {
     EditContentTypeComponent,
     ViewContentTypeComponent,
     GlobalTableComponent,
-    PageHeaderComponent
+    PageHeaderComponent,
+    TranslocoPipe
   ],
   providers: [DatePipe],
   templateUrl: './content-types.html',
@@ -52,6 +55,8 @@ export default class ContentTypeComponent {
   route = inject(ActivatedRoute);
   router = inject(Router);
   toastService = inject(ToastService);
+  notify = inject(NotifyService);
+  transloco = inject(TranslocoService);
   @ViewChild('drawer') drawer!: MatDrawer;
 
   currentAction = signal<'add' | 'edit' | 'view' | ''>('');
@@ -66,8 +71,8 @@ export default class ContentTypeComponent {
   // Filters
   filters = signal<{ [key: string]: string }>({});
   filterableColumns = [
-    { label: 'Name', field: 'name' },
-    { label: 'Slug', field: 'slug' }
+    { label: this.transloco.translate('common.table.name'), field: 'name' },
+    { label: this.transloco.translate('common.table.slug'), field: 'slug' }
   ];
 
   // Table Config
@@ -152,13 +157,15 @@ export default class ContentTypeComponent {
   }
 
   deleteItem(item: ContentType) {
-    const msg = this.sanitizer.bypassSecurityTrustHtml(`Are you sure you want to delete "${item.name}"?`);
+    const msg = this.sanitizer.bypassSecurityTrustHtml(
+      this.transloco.translate('common.actions.delete_confirm', { name: item.name }),
+    );
     const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
       width: '350px',
       data: {
         dialogType: 'Delete',
         dialogMessage: msg,
-        btnText: 'Delete',
+        btnText: this.transloco.translate('common.actions.delete'),
         panelType: 'warn',
       },
     });
@@ -166,11 +173,11 @@ export default class ContentTypeComponent {
       if (result) {
         this.contentTypesStore.delete(item.id!).subscribe({
           next: () => {
-            this.toastService.success('Content type deleted successfully.');
+            this.notify.success('admin.contents.types.deleted');
           },
           error: (error) => {
             console.error('Error deleting content type:', error);
-            this.toastService.error('Failed to delete content type. Please try again.');
+            this.notify.error('admin.contents.types.delete_failed');
           },
         });
       }
@@ -339,65 +346,66 @@ export default class ContentTypeComponent {
       },
       {
         key: 'name',
-        header: 'Name',
+        header: this.transloco.translate('common.table.name'),
         type: 'text',
         sortable: true
       },
       {
         key: 'slug',
-        header: 'Slug',
+        header: this.transloco.translate('common.table.slug'),
         type: 'text',
         sortable: true
       },
       {
         key: 'fields',
-        header: 'Fields',
-        transformFn: (row: ContentType) => (row.fields && row.fields.length || 0) + ' field(s)'
+        header: this.transloco.translate('admin.contents.types.col_fields'),
+        transformFn: (row: ContentType) =>
+          this.transloco.translate('admin.contents.types.field_count', { count: row.fields?.length || 0 })
       },
       {
         key: 'hasPublicUrl',
-        header: 'Public Pages',
+        header: this.transloco.translate('admin.contents.types.col_public_pages'),
         type: 'html',
         transformFn: (row: ContentType) => row.hasPublicUrl !== false
-          ? '<span class="badge bg-success-subtle text-success"><i class="fas fa-globe me-1"></i>Yes</span>'
-          : '<span class="badge bg-secondary-subtle text-secondary"><i class="fas fa-lock me-1"></i>No</span>'
+          ? `<span class="badge bg-success-subtle text-success"><i class="fas fa-globe me-1"></i>${this.transloco.translate('common.yes')}</span>`
+          : `<span class="badge bg-secondary-subtle text-secondary"><i class="fas fa-lock me-1"></i>${this.transloco.translate('common.no')}</span>`
       },
       {
         key: 'modifiedAt',
-        header: 'Last Updated',
+        header: this.transloco.translate('common.table.last_updated'),
         sortable: true,
         transformFn: (row: ContentType) => this.formatDate(row.modifiedAt)
       },
       {
         key: 'actions',
-        header: 'Actions',
+        header: this.transloco.translate('common.table.actions'),
         type: 'actions',
         actions: [
           {
             action: 'view',
             icon: 'fas fa-eye text-secondary',
-            label: 'View',
+            label: this.transloco.translate('common.actions.view'),
             class: 'view',
             onAction: (row) => this.openView(row.id)
           },
           {
             action: 'edit',
             icon: 'fas fa-pen text-primary',
-            label: 'Edit',
+            label: this.transloco.translate('common.actions.edit'),
             class: 'edit',
             onAction: (row) => this.openEdit(row.id)
           },
           {
             action: 'tags',
             icon: 'fas fa-tags text-warning',
-            label: 'Manage Tags',
+            label: this.transloco.translate('admin.contents.types.manage_tags'),
             class: 'edit',
             onAction: (row) => this.openTags(row)
           },
           {
             action: 'delete',
             icon: 'fas fa-trash text-danger',
-            label: 'Delete',
+            label: this.transloco.translate('common.actions.delete'),
             class: 'delete',
             onAction: (row) => this.deleteItem(row)
           }

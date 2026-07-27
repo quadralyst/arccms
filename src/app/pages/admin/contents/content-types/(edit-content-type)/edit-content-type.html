@@ -1,6 +1,6 @@
 <div class="side-panel">
     <div class="panel-header">
-        <h5 class="mb-0">Edit Content Type</h5>
+        <h5 class="mb-0">{{ 'admin.contents.types.form.edit_title' | transloco }}</h5>
         <button class="close-btn" (click)="closeEdit()">
             <i class="fas fa-times"></i>
         </button>
@@ -16,7 +16,7 @@
                 (click)="activeLang.set(language.code)">
                 {{ language.label }}
                 @if (language.code === defaultLang()) {
-                <span class="ct-lang-badge">default</span>
+                <span class="ct-lang-badge">{{ 'admin.contents.types.form.default_badge' | transloco }}</span>
                 }
             </button>
             }
@@ -28,12 +28,11 @@
              slug, type, template, required flags — is shared across languages
              and stays on the default tab. -->
         <p class="text-muted small">
-            Translating into <strong>{{ activeLang() }}</strong>. Blank fields fall back to the
-            {{ defaultLang() }} text. Keys, types and settings are shared across languages.
+            <span [innerHTML]="'admin.contents.types.form.translating_into' | transloco: { lang: activeLang(), defaultLang: defaultLang() }"></span>
         </p>
 
         <div class="form-group">
-            <label class="form-label">Name (Plural)</label>
+            <label class="form-label">{{ 'admin.contents.types.form.name_plural_short' | transloco }}</label>
             <input type="text" class="form-control"
                 [placeholder]="editForm.get('name')?.value || 'Plural name'"
                 [value]="translatedName(activeLang(), 'name')"
@@ -41,7 +40,7 @@
         </div>
 
         <div class="form-group">
-            <label class="form-label">Singular Name</label>
+            <label class="form-label">{{ 'admin.contents.types.form.singular_name' | transloco }}</label>
             <input type="text" class="form-control"
                 [placeholder]="editForm.get('singularName')?.value || 'Singular name'"
                 [value]="translatedName(activeLang(), 'singularName')"
@@ -49,16 +48,16 @@
         </div>
 
         <div class="form-group">
-            <label class="form-label">Description</label>
+            <label class="form-label">{{ 'admin.contents.types.form.description' | transloco }}</label>
             <textarea class="form-control" rows="3"
                 [placeholder]="editForm.get('description')?.value || 'Description'"
                 [value]="translatedName(activeLang(), 'description')"
                 (input)="setTranslatedName(activeLang(), 'description', $any($event.target).value)"></textarea>
-            <small class="text-muted">Shown under the heading on the list page.</small>
+            <small class="text-muted">{{ 'admin.contents.types.form.description_translation_hint' | transloco }}</small>
         </div>
 
         @if (translatableFields().length > 0) {
-        <div class="form-section-title">Custom field labels</div>
+        <div class="form-section-title">{{ 'admin.contents.types.form.custom_field_labels' | transloco }}</div>
         @for (field of translatableFields(); track field.key) {
         <div class="form-group">
             <label class="form-label">{{ field.label }}</label>
@@ -69,55 +68,52 @@
         </div>
         }
         } @else {
-        <p class="text-muted small">This content type has no custom fields yet.</p>
+        <p class="text-muted small">{{ 'admin.contents.types.form.no_custom_fields' | transloco }}</p>
         }
 
         <hr />
 
         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-            <button type="button" class="btn btn-secondary me-md-2" (click)="closeEdit()">Cancel</button>
+            <button type="button" class="btn btn-secondary me-md-2" (click)="closeEdit()">{{ 'common.actions.cancel' | transloco }}</button>
             <button type="submit" class="btn btn-primary"
-                [disabled]="!editForm.valid || contentTypesStore.isLoading()">Update
-                Content Type</button>
+                [disabled]="!editForm.valid || contentTypesStore.isLoading()">{{ 'admin.contents.types.form.update' | transloco }}</button>
         </div>
         } @else {
         <div class="form-group">
             <label class="form-label">
-                Content Type Name (Plural) <span class="required">*</span>
+                {{ 'admin.contents.types.form.name_plural' | transloco }} <span class="required">*</span>
             </label>
-            <input type="text" placeholder="e.g., Articles" formControlName="name" class="form-control" id="name"
+            <input type="text" [placeholder]="'admin.contents.types.form.name_placeholder' | transloco" formControlName="name" class="form-control" id="name"
                 [class.is-invalid]="name.invalid && (name.dirty || name.touched)"
                 [class.is-valid]="name.valid && (name.dirty || name.touched)" />
-            <small class="text-muted">Used for lists (e.g., "All Articles")</small>
+            <small class="text-muted">{{ 'admin.contents.types.form.name_hint' | transloco }}</small>
 
             <div class="invalid-feedback">
                 @if(editForm.get('name')?.errors?.['required']){
-                <p>Name is required.</p>
+                <p>{{ 'admin.contents.types.form.name_required' | transloco }}</p>
                 } @else if(editForm.get('name')?.errors?.['minlength']){
-                <p>Name must be at least {{editForm.get('name')?.errors?.['minlength']?.requiredLength}} characters
-                    long.
-                </p>
+                <p>{{ 'admin.contents.types.form.name_minlength' | transloco: { length: editForm.get('name')?.errors?.['minlength']?.requiredLength } }}</p>
                 }
             </div>
         </div>
 
         <div class="form-group">
-            <label class="form-label">Singular Name</label>
-            <input type="text" placeholder="e.g., Article" formControlName="singularName" class="form-control"
+            <label class="form-label">{{ 'admin.contents.types.form.singular_name' | transloco }}</label>
+            <input type="text" [placeholder]="'admin.contents.types.form.singular_placeholder' | transloco" formControlName="singularName" class="form-control"
                 id="singularName" />
-            <small class="text-muted">Used for single items (e.g., "Add Article")</small>
+            <small class="text-muted">{{ 'admin.contents.types.form.singular_hint' | transloco }}</small>
         </div>
 
         <div class="form-group">
             <label class="form-label">
-                Description
+                {{ 'admin.contents.types.form.description' | transloco }}
             </label>
             <textarea class="form-control" rows="3" formControlName="description"
-                placeholder="Enter content type description"></textarea>
+                [placeholder]="'admin.contents.types.form.description_placeholder' | transloco"></textarea>
         </div>
 
         <div class="form-group">
-            <label class="form-label">Icon (Font Awesome)</label>
+            <label class="form-label">{{ 'admin.contents.types.form.icon' | transloco }}</label>
             <arc-icon-picker formControlName="icon"></arc-icon-picker>
         </div>
 
@@ -125,16 +121,16 @@
             <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" formControlName="hasPublicUrl"
                     id="hasPublicUrlToggle">
-                <label class="form-check-label ms-2" for="hasPublicUrlToggle">Generate public pages</label>
+                <label class="form-check-label ms-2" for="hasPublicUrlToggle">{{ 'admin.contents.types.form.public_pages' | transloco }}</label>
             </div>
             @if (editForm.get('hasPublicUrl')?.value === false) {
-            <small class="text-muted">Content of this type will not have standalone web pages.</small>
+            <small class="text-muted">{{ 'admin.contents.types.form.public_pages_off' | transloco }}</small>
             }
         </div>
 
         @if (editForm.get('hasPublicUrl')?.value !== false) {
         <div class="mb-4 form-group">
-            <label for="slug" class="form-label">Content Type Slug <span class="required">*</span></label>
+            <label for="slug" class="form-label">{{ 'admin.contents.types.form.slug' | transloco }} <span class="required">*</span></label>
 
             @if (!isEditingSlug()) {
                 <div class="url-display d-flex align-items-center">
@@ -144,7 +140,7 @@
                         <i class="fas fa-edit"></i>
                     </button>
                 </div>
-                <small class="text-muted">Slug is used as the content type identifier.</small>
+                <small class="text-muted">{{ 'admin.contents.types.form.slug_hint' | transloco }}</small>
             } @else {
                 <div class="input-group input-group-sm">
                     <span class="input-group-text" id="domain-addon">{{ domain }}</span>
@@ -166,27 +162,27 @@
                 @if ((slug.invalid || errorSlug()) && (slug.dirty || slug.touched)) {
                     <div class="invalid-feedback d-block">
                         @if (editForm.get('slug')?.errors?.['required']) {
-                            <p>Slug is required.</p>
+                            <p>{{ 'admin.contents.types.form.slug_required' | transloco }}</p>
                         } @else if (editForm.get('slug')?.errors?.['pattern']) {
-                            <p>Slug must contain only lowercase letters, numbers, and hyphens.</p>
+                            <p>{{ 'admin.contents.types.form.slug_pattern' | transloco }}</p>
                         } @else if (errorSlug()) {
-                            <p>This slug already exists. Please choose a different one.</p>
+                            <p>{{ 'admin.contents.types.form.slug_taken' | transloco }}</p>
                         }
                     </div>
                 }
                 <small class="text-danger d-block mt-1">
                     <i class="fas fa-exclamation-triangle me-1"></i>
-                    Changing the slug will break existing content links for this type!
+                    {{ 'admin.contents.types.form.slug_change_warning' | transloco }}
                 </small>
             }
         </div>
 
         <div class="form-group">
-            <label class="form-label">Content Template</label>
+            <label class="form-label">{{ 'admin.contents.types.form.template' | transloco }}</label>
             @if(templatesLoading()) {
             <div class="d-flex align-items-center">
                 <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                <span>Loading templates...</span>
+                <span>{{ 'admin.contents.types.form.template_loading' | transloco }}</span>
             </div>
             } @else {
             <select formControlName="templateFolder" class="form-select">
@@ -199,14 +195,14 @@
                 </option>
                 }
             </select>
-            <small class="text-muted">Select a template for displaying this content type's list and detail pages</small>
+            <small class="text-muted">{{ 'admin.contents.types.form.template_hint' | transloco }}</small>
             }
         </div>
         }
 
         <hr />
 
-        <div class="form-section-title">Custom fields</div>
+        <div class="form-section-title">{{ 'admin.contents.types.form.custom_fields' | transloco }}</div>
 
         <div formArrayName="fields">
             @for(field of fields.controls; track $index; let fieldIndex = $index) {
@@ -220,18 +216,18 @@
 
                 <div class="row">
                     <div class="col-md-6 form-group">
-                        <label class="form-label">Key <span class="required">*</span></label>
-                        <input type="text" placeholder="field_key" formControlName="key" class="form-control" />
+                        <label class="form-label">{{ 'admin.contents.types.form.field_key' | transloco }} <span class="required">*</span></label>
+                        <input type="text" [placeholder]="'admin.contents.types.form.field_key_placeholder' | transloco" formControlName="key" class="form-control" />
                     </div>
                     <div class="col-md-6 form-group">
-                        <label class="form-label">Label <span class="required">*</span></label>
-                        <input type="text" placeholder="Field Label" formControlName="label" class="form-control" />
+                        <label class="form-label">{{ 'admin.contents.types.form.field_label' | transloco }} <span class="required">*</span></label>
+                        <input type="text" [placeholder]="'admin.contents.types.form.field_label_placeholder' | transloco" formControlName="label" class="form-control" />
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-8 form-group">
-                        <label class="form-label">Type <span class="required">*</span></label>
+                        <label class="form-label">{{ 'admin.contents.types.form.field_type' | transloco }} <span class="required">*</span></label>
                         <select formControlName="type" class="form-select">
                             @for(type of fieldTypes; track type) {
                             <option [value]="type">{{ type }}</option>
@@ -239,7 +235,7 @@
                         </select>
                     </div>
                     <div class="col-md-4 form-group">
-                        <label class="form-label">Required</label>
+                        <label class="form-label">{{ 'admin.contents.types.form.field_required' | transloco }}</label>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" formControlName="required" />
                         </div>
@@ -256,7 +252,7 @@
                             <input class="form-check-input" type="checkbox" formControlName="useCollectionRef"
                                 [id]="'useCollectionRef_' + $index">
                             <label class="form-check-label" [for]="'useCollectionRef_' + $index">
-                                Use data from another collection
+                                {{ 'admin.contents.types.form.use_collection' | transloco }}
                             </label>
                         </div>
                     </div>
@@ -265,10 +261,10 @@
                 @if (!field.get('useCollectionRef')?.value) {
                 <div class="row">
                     <div class="col-12 form-group">
-                        <label class="form-label">Options <span class="required">*</span></label>
+                        <label class="form-label">{{ 'admin.contents.types.form.options' | transloco }} <span class="required">*</span></label>
                         <textarea formControlName="options" class="form-control" rows="2"
-                            placeholder="Enter comma-separated options (e.g., Red, Green, Blue)"></textarea>
-                        <small class="text-muted">Separate each option with a comma</small>
+                            [placeholder]="'admin.contents.types.form.options_placeholder' | transloco"></textarea>
+                        <small class="text-muted">{{ 'admin.contents.types.form.options_hint' | transloco }}</small>
                     </div>
                 </div>
                 } @else {
@@ -277,9 +273,9 @@
                     <!-- Step 1: Select Collection -->
                     <div class="row">
                         <div class="col-12 form-group">
-                            <label class="form-label">Source Collection <span class="required">*</span></label>
+                            <label class="form-label">{{ 'admin.contents.types.form.source_collection' | transloco }} <span class="required">*</span></label>
                             <select formControlName="collectionRefSlug" class="form-select">
-                                <option value="">Select a collection...</option>
+                                <option value="">{{ 'admin.contents.types.form.select_collection' | transloco }}</option>
                                 @for(ct of availableCollections(); track ct.slug) {
                                 <option [value]="ct.slug">{{ ct.name }}</option>
                                 }
@@ -291,21 +287,21 @@
                     <!-- Step 2: Select Display Field -->
                     <div class="row">
                         <div class="col-12 form-group">
-                            <label class="form-label">Display Field <span class="required">*</span></label>
+                            <label class="form-label">{{ 'admin.contents.types.form.display_field' | transloco }} <span class="required">*</span></label>
                             <select formControlName="collectionRefDisplayField" class="form-select">
-                                <option value="">Select field to display...</option>
+                                <option value="">{{ 'admin.contents.types.form.select_display_field' | transloco }}</option>
                                 @for(f of getCollectionFields(field.get('collectionRefSlug')?.value || ''); track f.key) {
                                 <option [value]="f.key">{{ f.label }} ({{ f.key }})</option>
                                 }
                             </select>
-                            <small class="text-muted">Field shown as the option label. This field and the logical ID are always saved.</small>
+                            <small class="text-muted">{{ 'admin.contents.types.form.display_field_hint' | transloco }}</small>
                         </div>
                     </div>
 
                     <!-- Step 3: Select Fields to Sync (denormalize) -->
                     <div class="row">
                         <div class="col-12 form-group">
-                            <label class="form-label">Additional Fields to Save (Denormalize)</label>
+                            <label class="form-label">{{ 'admin.contents.types.form.denormalize' | transloco }}</label>
                             <small class="text-muted d-block mb-2">
                                 Select which fields from "{{ field.get('collectionRefSlug')?.value }}"
                                 to store in this collection. These will be kept in sync automatically.
@@ -321,7 +317,7 @@
                                     <label class="form-check-label" [for]="'sync_' + fieldIndex + '_' + f.key">
                                         {{ f.label }} <code>({{ f.key }})</code>
                                         @if(f.key === 'id' || f.key === field.get('collectionRefDisplayField')?.value) {
-                                            <span class="badge bg-secondary ms-2" style="font-size: 0.7em;">Required</span>
+                                            <span class="badge bg-secondary ms-2" style="font-size: 0.7em;">{{ 'admin.contents.types.form.field_required' | transloco }}</span>
                                         }
                                     </label>
                                 </div>
@@ -346,16 +342,15 @@
         }
 
         <button type="button" class="btn btn-outline-primary btn-sm mb-3" (click)="addField()">
-            <i class="fas fa-plus me-1"></i> Add Field
+            <i class="fas fa-plus me-1"></i> {{ 'admin.contents.types.form.add_field' | transloco }}
         </button>
 
         <hr />
 
         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-            <button type="button" class="btn btn-secondary me-md-2" (click)="closeEdit()">Cancel</button>
+            <button type="button" class="btn btn-secondary me-md-2" (click)="closeEdit()">{{ 'common.actions.cancel' | transloco }}</button>
             <button type="submit" class="btn btn-primary"
-                [disabled]="!editForm.valid || contentTypesStore.isLoading()">Update
-                Content Type</button>
+                [disabled]="!editForm.valid || contentTypesStore.isLoading()">{{ 'admin.contents.types.form.update' | transloco }}</button>
         </div>
         }
     </form>
