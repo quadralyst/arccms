@@ -18,7 +18,26 @@ export const DEFAULT_SITE_CSS_URLS = [
 ];
 
 /**
- * Three default content types created during onboarding
+ * Three default content types created during onboarding.
+ *
+ * **`fields` is for what a content type adds, never for what every content
+ * item already has.** Title, URL slug, cover image, body, summary/excerpt and
+ * the published date are built into the content document and already have
+ * their own controls in the editor — the list of them is in
+ * `ContentTypeViewPage.builtInContentFields`, which is what the admin UI shows
+ * authors as available template placeholders.
+ *
+ * These three types used to declare `title`, `urlSlug`, `coverImage`, `body`,
+ * `excerpt` and `publishDate` as custom fields, and the damage was not
+ * cosmetic. Authors got two Title inputs and two URL Slug inputs per item, and
+ * `buildTemplateData` spreads `customFields` last, so the duplicate silently
+ * outranked the real field: a published article rendered its `customFields.
+ * title` while the document's own title said something else. The empty
+ * duplicates also collected junk — one seeded item stored an admin URL as its
+ * `urlSlug`.
+ *
+ * A type with no fields at all is correct and normal: an article *is* a title,
+ * a body and a cover image.
  */
 export const DEFAULT_CONTENT_TYPES: Omit<ContentType, 'id' | 'createdAt' | 'modifiedAt' | 'createdBy' | 'modifiedBy'>[] = [
     {
@@ -31,14 +50,9 @@ export const DEFAULT_CONTENT_TYPES: Omit<ContentType, 'id' | 'createdAt' | 'modi
         hasPublicUrl: true,
         templateFolder: 'default',
         listColumns: ['title', 'status', 'createdAt'],
-        fields: [
-            { key: 'title', label: 'Title', type: 'text', required: true, order: 1 },
-            { key: 'urlSlug', label: 'URL Slug', type: 'text', required: true, order: 2 },
-            { key: 'coverImage', label: 'Cover Image', type: 'image', required: false, order: 3 },
-            { key: 'excerpt', label: 'Excerpt', type: 'text', required: false, order: 4 },
-            { key: 'body', label: 'Body', type: 'richtext', required: true, order: 5 },
-            { key: 'publishDate', label: 'Publish Date', type: 'date', required: false, order: 6 },
-        ],
+        // Nothing beyond the built-ins: an article is a title, a body, a cover
+        // image and a slug, all of which every content item already has.
+        fields: [],
     },
     {
         name: 'User Manuals',
@@ -51,11 +65,7 @@ export const DEFAULT_CONTENT_TYPES: Omit<ContentType, 'id' | 'createdAt' | 'modi
         templateFolder: 'default',
         listColumns: ['title', 'status', 'createdAt'],
         fields: [
-            { key: 'title', label: 'Title', type: 'text', required: true, order: 1 },
-            { key: 'urlSlug', label: 'URL Slug', type: 'text', required: true, order: 2 },
-            { key: 'coverImage', label: 'Cover Image', type: 'image', required: false, order: 3 },
-            { key: 'body', label: 'Content', type: 'richtext', required: true, order: 4 },
-            { key: 'category', label: 'Category', type: 'dropdown', required: false, order: 5, options: 'Getting Started,Configuration,Troubleshooting,FAQ' },
+            { key: 'category', label: 'Category', type: 'dropdown', required: false, order: 1, options: 'Getting Started,Configuration,Troubleshooting,FAQ' },
         ],
     },
     {
@@ -68,13 +78,12 @@ export const DEFAULT_CONTENT_TYPES: Omit<ContentType, 'id' | 'createdAt' | 'modi
         hasPublicUrl: true,
         templateFolder: 'default',
         listColumns: ['title', 'version', 'releaseDate', 'status'],
+        // `releaseDate` is the version's own date and is not the date the note
+        // was published, so it stays.
         fields: [
-            { key: 'title', label: 'Title', type: 'text', required: true, order: 1 },
-            { key: 'urlSlug', label: 'URL Slug', type: 'text', required: true, order: 2 },
-            { key: 'version', label: 'Version', type: 'text', required: true, order: 3 },
-            { key: 'releaseDate', label: 'Release Date', type: 'date', required: true, order: 4 },
-            { key: 'body', label: 'Changes', type: 'richtext', required: true, order: 5 },
-            { key: 'isBreaking', label: 'Breaking Changes', type: 'boolean', required: false, order: 6 },
+            { key: 'version', label: 'Version', type: 'text', required: true, order: 1 },
+            { key: 'releaseDate', label: 'Release Date', type: 'date', required: true, order: 2 },
+            { key: 'isBreaking', label: 'Breaking Changes', type: 'boolean', required: false, order: 3 },
         ],
     },
 ];
