@@ -19,6 +19,7 @@ const {
     mockGenerateDetailPage,
     mockGenerateListPage,
     mockRemoveContentPage,
+    mockDeployBatchToHosting,
     mockContentTypeGet,
     mockSubCollectionGet,
     mockBatchDelete,
@@ -36,6 +37,7 @@ const {
     mockGenerateDetailPage: vi.fn(),
     mockGenerateListPage: vi.fn(),
     mockRemoveContentPage: vi.fn(),
+    mockDeployBatchToHosting: vi.fn(),
     mockContentTypeGet: vi.fn(),
     mockSubCollectionGet: vi.fn(),
     mockBatchDelete: vi.fn(),
@@ -52,6 +54,13 @@ vi.mock('../init', () => ({
         }),
     },
 }));
+
+vi.mock('../pages/deployToHosting', async (importOriginal) => {
+    // HostingBatch stays real — the queue collects into one; only the
+    // network-touching release is mocked.
+    const actual = await importOriginal<typeof import('../pages/deployToHosting.js')>();
+    return { ...actual, deployBatchToHosting: mockDeployBatchToHosting };
+});
 
 vi.mock('firebase-functions/v2/firestore', () => ({
     onDocumentCreated: vi.fn((_path: string, handler: any) => handler),
@@ -157,6 +166,7 @@ describe('processPublishQueue', () => {
         vi.clearAllMocks();
         buildChain();
         mockSubCollectionGet.mockResolvedValue({ docs: [], empty: true });
+        mockDeployBatchToHosting.mockResolvedValue(undefined);
         mockBatchDelete.mockReturnValue(undefined);
         mockSet.mockResolvedValue(undefined);
         mockUpdate.mockResolvedValue(undefined);
@@ -239,7 +249,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('publish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
         });
 
         it('should generate list page after publishing', async () => {
@@ -255,7 +265,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('publish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
 
         it('should not block Firestore sync when deployment fails', async () => {
@@ -294,7 +304,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('update', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
         });
 
         it('should generate list page after update', async () => {
@@ -310,7 +320,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('update', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
 
         it('should not block Firestore sync when deployment fails on update', async () => {
@@ -374,8 +384,8 @@ describe('processPublishQueue', () => {
             const event = createEvent('publish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
 
         it('should deploy static HTML when ContentType.hasPublicUrl is true', async () => {
@@ -388,8 +398,8 @@ describe('processPublishQueue', () => {
             const event = createEvent('publish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
     });
 
@@ -403,7 +413,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('unpublish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockRemoveContentPage).toHaveBeenCalledWith('articles', 'my-article');
+            expect(mockRemoveContentPage).toHaveBeenCalledWith('articles', 'my-article', expect.anything());
         });
 
         it('should regenerate list page on unpublish', async () => {
@@ -415,7 +425,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('unpublish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
 
         it('should skip page removal when urlSlug is missing', async () => {
@@ -429,7 +439,7 @@ describe('processPublishQueue', () => {
 
             expect(mockRemoveContentPage).not.toHaveBeenCalled();
             // But list should still regenerate
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
     });
 
@@ -443,7 +453,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('delete', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockRemoveContentPage).toHaveBeenCalledWith('articles', 'my-article');
+            expect(mockRemoveContentPage).toHaveBeenCalledWith('articles', 'my-article', expect.anything());
         });
 
         it('should regenerate list page on delete', async () => {
@@ -455,7 +465,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('delete', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
 
         it('should not block on removal failure during delete', async () => {
@@ -567,7 +577,7 @@ describe('processPublishQueue — batched writes', () => {
 
             await handler(createEvent('publish', 'articles', 'doc1'));
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
             consoleSpy.mockRestore();
         });
 

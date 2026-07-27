@@ -115,26 +115,85 @@ async function updateDeployStatus(
     await db.collection(collectionName).doc(docId).update(fields);
 }
 
+// ─── Deploy Batch ───────────────────────────────────────────────────────────
+
+/**
+ * Files to publish in one Hosting release.
+ *
+ * Every deploy builds its new version from the *latest release's* file
+ * manifest. Two deploys seconds apart can therefore race: the second reads a
+ * release list that has not yet caught up, inherits a manifest without the
+ * first file, and silently drops it — while both calls report success. That
+ * cost a translated page on the dev project (docs/_todo.md item 3c), and M3
+ * made it far likelier by turning 2 files per publish into 2 x languages.
+ *
+ * Collecting a whole publish into one batch removes the race by construction —
+ * one version built from one snapshot — and cuts releases per publish from N
+ * to 1.
+ */
+export class HostingBatch {
+    private readonly additions = new Map<string, string>();
+    private readonly removals = new Set<string>();
+
+    /** Queues a file. A later add of the same path replaces the earlier one. */
+    add(filePath: string, content: string): this {
+        this.additions.set(filePath, content);
+        this.removals.delete(filePath);
+        return this;
+    }
+
+    /** Queues a removal. */
+    remove(filePath: string): this {
+        this.removals.delete(filePath);
+        this.additions.delete(filePath);
+        this.removals.add(filePath);
+        return this;
+    }
+
+    get files(): Array<{ path: string; content: string }> {
+        return [...this.additions].map(([path, content]) => ({ path, content }));
+    }
+
+    get removedPaths(): string[] {
+        return [...this.removals];
+    }
+
+    get isEmpty(): boolean {
+        return this.additions.size === 0 && this.removals.size === 0;
+    }
+
+    get size(): number {
+        return this.additions.size + this.removals.size;
+    }
+}
+
 // ─── Core Functions ─────────────────────────────────────────────────────────
 
 /**
- * Deploys a single HTML file to Firebase Hosting via the REST API.
+ * Deploys a batch of files to Firebase Hosting in a SINGLE version/release.
  *
  * Follows a 10-step pipeline:
  *  1. Authenticate   2. Get release   3. Get files   4. Get config
  *  5. Gzip+hash      6. Create version 7. Populate    8. Upload
  *  9. Finalize+release 10. Update Firestore
  *
+ * One version per call is the point: see HostingBatch for the race that
+ * per-file deploys are subject to.
+ *
  * Writes step-by-step DeploymentLog to {collectionName}/{docId}/DeploymentLogs.
  * Updates deploy status fields on the content document.
  */
-export async function deployFileToHosting(
+export async function deployBatchToHosting(
     siteId: string,
-    filePath: string,
-    htmlContent: string,
+    batch: HostingBatch,
     collectionName: string,
     docId: string,
 ): Promise<void> {
+    if (batch.isEmpty) return;
+    const batchFiles = batch.files;
+    const batchRemovals = batch.removedPaths;
+    // Reported in status/logs; a batch is described by its first file.
+    const filePath = batchFiles[0]?.path || batchRemovals[0] || '';
     siteId = siteId || process.env.GCLOUD_PROJECT || '';
     const steps: DeployStep[] = [];
     const startedAt = new Date();
@@ -183,11 +242,17 @@ export async function deployFileToHosting(
         }
         addStep(steps, 4, 'Retrieve version config', 'success');
 
-        // Step 5: Gzip + hash
-        const { gzipped, hash } = gzipAndHash(htmlContent);
-        fileHashes[filePath] = hash;
+        // Step 5: Gzip + hash every file in the batch, then drop removals
+        const prepared = batchFiles.map(file => {
+            const { gzipped, hash } = gzipAndHash(file.content);
+            fileHashes[file.path] = hash;
+            return { ...file, gzipped, hash };
+        });
+        for (const path of batchRemovals) {
+            delete fileHashes[path];
+        }
         addStep(steps, 5, 'Gzip and hash content', 'success',
-            `hash: ${hash.substring(0, 12)}...`);
+            `${prepared.length} file(s), ${batchRemovals.length} removal(s)`);
 
         // Step 6: Create new version
         const newVersion = await apiFetch(
@@ -209,26 +274,29 @@ export async function deployFileToHosting(
         addStep(steps, 7, 'Populate files', 'success',
             `${uploadRequiredHashes.length} uploads required`);
 
-        // Step 8: Upload (conditional)
-        if (uploadRequiredHashes.includes(hash)) {
-            const uploadRes = await fetch(`${uploadUrl}/${hash}`, {
+        // Step 8: Upload (conditional, per file — unchanged content is skipped)
+        let uploaded = 0;
+        for (const file of prepared) {
+            if (!uploadRequiredHashes.includes(file.hash)) continue;
+            const uploadRes = await fetch(`${uploadUrl}/${file.hash}`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/octet-stream',
                 },
-                body: new Uint8Array(gzipped),
+                body: new Uint8Array(file.gzipped),
             });
             if (!uploadRes.ok) {
                 const text = await uploadRes.text();
-                const err = new Error(`Upload failed ${uploadRes.status}: ${text}`);
+                const err = new Error(`Upload failed ${uploadRes.status}: ${text} (${file.path})`);
                 (err as any).code = `HOSTING_API_${uploadRes.status}`;
                 throw err;
             }
-            addStep(steps, 8, 'Upload file content', 'success');
-        } else {
-            addStep(steps, 8, 'Upload file content', 'skipped', 'Content already exists');
+            uploaded++;
         }
+        addStep(steps, 8, 'Upload file content',
+            uploaded ? 'success' : 'skipped',
+            uploaded ? `${uploaded} uploaded` : 'Content already exists');
 
         // Step 9: Finalize + Release
         await apiFetch(
@@ -288,6 +356,28 @@ export async function deployFileToHosting(
         steps,
         error: errorMessage,
     });
+}
+
+/**
+ * Deploys a single file. Thin wrapper over `deployBatchToHosting`.
+ *
+ * Prefer batching when a caller writes several files in one operation — each
+ * call here is its own Hosting release, and sequential releases can race (see
+ * HostingBatch).
+ */
+export async function deployFileToHosting(
+    siteId: string,
+    filePath: string,
+    htmlContent: string,
+    collectionName: string,
+    docId: string,
+): Promise<void> {
+    await deployBatchToHosting(
+        siteId,
+        new HostingBatch().add(filePath, htmlContent),
+        collectionName,
+        docId,
+    );
 }
 
 /**

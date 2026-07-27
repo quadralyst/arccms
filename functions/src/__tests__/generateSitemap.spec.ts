@@ -91,7 +91,7 @@ describe('generateAndDeploySitemap', () => {
 
     it('should deploy to /sitemap.xml', async () => {
         await generateAndDeploySitemap();
-        expect(mockDeploySeoFileToHosting).toHaveBeenCalledWith('/sitemap.xml', expect.any(String));
+        expect(mockDeploySeoFileToHosting).toHaveBeenCalledWith('/sitemap.xml', expect.any(String), undefined);
     });
 
     it('should declare the xhtml namespace the alternates need', async () => {

@@ -1,6 +1,7 @@
 import * as zlib from 'node:zlib';
 import * as crypto from 'node:crypto';
 import { GoogleAuth } from 'google-auth-library';
+import { HostingBatch } from './deployToHosting.js';
 
 const API_BASE = 'https://firebasehosting.googleapis.com/v1beta1';
 
@@ -54,8 +55,16 @@ function gzipAndHash(content: string): { gzipped: Buffer; hash: string } {
 export async function deploySeoFileToHosting(
     filePath: string,
     fileContent: string,
+    batch?: HostingBatch,
 ): Promise<void> {
     const siteId = process.env.GCLOUD_PROJECT || '';
+
+    // When the caller is batching a publish, the SEO file rides along in the
+    // same release instead of racing the content pages — see HostingBatch.
+    if (batch) {
+        batch.add(filePath, fileContent);
+        return;
+    }
 
     // Step 1: Auth
     const token = await getAuthToken();

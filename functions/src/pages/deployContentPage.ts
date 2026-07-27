@@ -17,7 +17,7 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { deployFileToHosting, removeFileFromHosting } from './deployToHosting.js';
+import { HostingBatch, deployBatchToHosting, removeFileFromHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 
 // ─── Fallback Template ──────────────────────────────────────────────────────
@@ -204,7 +204,11 @@ function buildTemplateData(
 export async function generateAndDeployContentDetailPage(
     contentTypeSlug: string,
     docId: string,
+    batch?: HostingBatch,
 ): Promise<void> {
+    // When the caller supplies a batch, files join it and are released with the
+    // rest of the publish in one version — see HostingBatch for why.
+    const target = batch ?? new HostingBatch();
     const siteId = process.env.GCLOUD_PROJECT || '';
 
     // 1. Read published content
@@ -335,8 +339,11 @@ export async function generateAndDeployContentDetailPage(
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
         const fullHtml = buildHtmlDocument(body, meta, '', '', styles, scripts, poweredBy);
 
-        const filePath = detailFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug);
-        await deployFileToHosting(siteId, filePath, fullHtml, collectionName, docId);
+        target.add(detailFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug), fullHtml);
+    }
+
+    if (!batch) {
+        await deployBatchToHosting(siteId, target, collectionName, docId);
     }
 
     if (languages.length > 1) {
@@ -358,13 +365,20 @@ export async function generateAndDeployContentDetailPage(
 export async function removeContentPage(
     contentTypeSlug: string,
     urlSlug: string,
+    batch?: HostingBatch,
 ): Promise<void> {
     const siteId = process.env.GCLOUD_PROJECT || '';
     const localization = await getLocalizationSettings();
     const defaultLang = localization.defaultLanguage;
+    const target = batch ?? new HostingBatch();
 
     for (const language of localization.enabledLanguages) {
-        const filePath = detailFilePath(language.code, defaultLang, contentTypeSlug, urlSlug);
-        await removeFileFromHosting(siteId, filePath);
+        target.remove(detailFilePath(language.code, defaultLang, contentTypeSlug, urlSlug));
+    }
+
+    if (!batch) {
+        for (const path of target.removedPaths) {
+            await removeFileFromHosting(siteId, path);
+        }
     }
 }
