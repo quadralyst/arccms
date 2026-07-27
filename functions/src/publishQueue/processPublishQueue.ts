@@ -3,6 +3,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
 import { generateAndDeployContentDetailPage, removeContentPage } from '../pages/deployContentPage.js';
+import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
 import { generateAndDeploySitemap } from '../pages/generateSitemap.js';
 import { generateAndDeployRssFeeds } from '../pages/generateRssFeed.js';
@@ -111,6 +112,13 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
         return;
     }
 
+    // Everything this queue item touches — every language variant, the list
+    // pages, the sitemap and the feeds — goes out as ONE Hosting release.
+    // Deploying them one at a time raced: a later deploy could be built from
+    // a release list that had not caught up and silently drop an earlier
+    // file, which cost a translated page (docs/_todo.md item 3c).
+    const batch = new HostingBatch();
+
     const publishedCollection = getPublishedCollectionName(contentTypeSlug);
     const draftCollection = getDraftCollectionName(contentTypeSlug);
     const publishedRef = db.collection(publishedCollection).doc(docId);
@@ -146,8 +154,8 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 // Skip entirely when ContentType.hasPublicUrl is false
                 if (hasPublicUrl) {
                     try {
-                        await generateAndDeployContentDetailPage(contentTypeSlug, docId);
-                        await generateAndDeployContentListPage(contentTypeSlug);
+                        await generateAndDeployContentDetailPage(contentTypeSlug, docId, batch);
+                        await generateAndDeployContentListPage(contentTypeSlug, batch);
                     } catch (deployErr) {
                         console.error(`Static HTML deployment failed for publish ${contentTypeSlug}/${docId}:`, deployErr);
                     }
@@ -201,8 +209,8 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 // Skip entirely when ContentType.hasPublicUrl is false
                 if (hasPublicUrl) {
                     try {
-                        await generateAndDeployContentDetailPage(contentTypeSlug, docId);
-                        await generateAndDeployContentListPage(contentTypeSlug);
+                        await generateAndDeployContentDetailPage(contentTypeSlug, docId, batch);
+                        await generateAndDeployContentListPage(contentTypeSlug, batch);
                     } catch (deployErr) {
                         console.error(`Static HTML deployment failed for update ${contentTypeSlug}/${docId}:`, deployErr);
                     }
@@ -225,9 +233,9 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 if (hasPublicUrl) {
                     try {
                         if (urlSlug) {
-                            await removeContentPage(contentTypeSlug, urlSlug);
+                            await removeContentPage(contentTypeSlug, urlSlug, batch);
                         }
-                        await generateAndDeployContentListPage(contentTypeSlug);
+                        await generateAndDeployContentListPage(contentTypeSlug, batch);
                     } catch (deployErr) {
                         console.error(`Static HTML removal failed for unpublish ${contentTypeSlug}/${docId}:`, deployErr);
                     }
@@ -264,9 +272,9 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 if (hasPublicUrl) {
                     try {
                         if (delUrlSlug) {
-                            await removeContentPage(contentTypeSlug, delUrlSlug);
+                            await removeContentPage(contentTypeSlug, delUrlSlug, batch);
                         }
-                        await generateAndDeployContentListPage(contentTypeSlug);
+                        await generateAndDeployContentListPage(contentTypeSlug, batch);
                     } catch (deployErr) {
                         console.error(`Static HTML removal failed for delete ${contentTypeSlug}/${docId}:`, deployErr);
                     }
@@ -282,18 +290,28 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
         // so SEO files stay current with published content.
         if (hasPublicUrl) {
             try {
-                await generateAndDeploySitemap();
+                await generateAndDeploySitemap(batch);
             } catch (sitemapErr) {
                 console.error('Sitemap regeneration failed:', sitemapErr);
             }
             try {
-                await generateAndDeployRssFeeds();
+                await generateAndDeployRssFeeds(batch);
             } catch (rssErr) {
                 console.error('RSS feed regeneration failed:', rssErr);
             }
         }
     } catch (error) {
         console.error(`Error processing queue item (${action} ${publishedCollection}/${docId}):`, error);
+    }
+
+    // Single release for the whole queue item.
+    if (!batch.isEmpty) {
+        try {
+            await deployBatchToHosting(publishedCollection, batch, publishedCollection, docId);
+            console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
+        } catch (deployErr) {
+            console.error(`Hosting release failed for ${action} ${contentTypeSlug}/${docId}:`, deployErr);
+        }
     }
 
     // Always clean up the queue document

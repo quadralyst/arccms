@@ -17,7 +17,7 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { deployFileToHosting } from './deployToHosting.js';
+import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 
 // ─── Fallback Template ──────────────────────────────────────────────────────
@@ -130,7 +130,10 @@ async function loadListTemplate(templateFolder: string | undefined, siteId: stri
  */
 export async function generateAndDeployContentListPage(
     contentTypeSlug: string,
+    batch?: HostingBatch,
 ): Promise<void> {
+    // See generateAndDeployContentDetailPage.
+    const target = batch ?? new HostingBatch();
     const siteId = process.env.GCLOUD_PROJECT || '';
 
     // 1. Read ContentType
@@ -303,9 +306,13 @@ export async function generateAndDeployContentListPage(
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
         const fullHtml = buildHtmlDocument(body, meta, '', '', styles, scripts, poweredBy);
 
-        // Deploy to hosting — use a synthetic doc reference for deployment logging
+        target.add(listFilePath(lang, defaultLang, contentTypeSlug), fullHtml);
+    }
+
+    if (!batch) {
+        // Deployment logging needs a doc reference; use the newest item, or a
+        // placeholder when the type has no published content yet.
         const deployDocId = contents.length > 0 ? (contents[0] as any).id : '_list_index';
-        const filePath = listFilePath(lang, defaultLang, contentTypeSlug);
-        await deployFileToHosting(siteId, filePath, fullHtml, collectionName, deployDocId);
+        await deployBatchToHosting(siteId, target, collectionName, deployDocId);
     }
 }
