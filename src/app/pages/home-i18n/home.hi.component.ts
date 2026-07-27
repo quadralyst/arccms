@@ -23,4 +23,7 @@ import { HomeBaseComponent } from '../page.parts/home-base.component';
 })
 export default class HomeHiComponent extends HomeBaseComponent {
     protected readonly pageLang = 'hi';
+    protected override readonly pageTitle = 'Arc CMS — स्केलेबल स्टार्टअप वेबसाइटों के लिए ओपन-सोर्स, लो-कोड समाधान';
+    protected override readonly pageDescription =
+        'Arc CMS एक ओपन-सोर्स, लो-कोड कंटेंट प्लेटफ़ॉर्म है — अपनी लैंडिंग पेज, ब्लॉग और वेटलिस्ट को अपने ही Firebase प्रोजेक्ट पर चलाएँ।';
 }
