@@ -1,6 +1,6 @@
 # ArcCMS Multi-lingual Content & Admin UI — Build Spec
 
-**Status:** M1–M4 built and deployed to the dev project (2026-07-27). M5–M7 outstanding.
+**Status:** M1–M4 built and deployed to the dev project (2026-07-27). M6–M7 outstanding.
 Approved for phased build (discussion completed 2026-07-26)
 **Branch:** `feat/multilingual` (cut from `feat/audience-unification` — that branch stack
 already touched the content editor and content services vs `main`, so building on it
@@ -25,7 +25,7 @@ they stay in one language (English).** `docs/email-system-spec.md` is untouched 
 | M-D9 | SEO | `<html lang>` from page language (today hardcoded `"en"` in `functions/src/shared/html-document.ts`), correct `og:locale`, **`hreflang` alternate links across all variants + `x-default`**, sitemap `xhtml:link` alternates, dates formatted per page language (today hardcoded `'en-US'`). Canonical stays self-referential per language variant. |
 | M-D10 | Admin UI i18n library | **Transloco** (runtime JSON translations). `@angular/localize` is ruled out: it needs the Angular CLI builder's per-locale build outputs, and this project builds through AnalogJS + Vite (`vite build`), which has no such wiring. Transloco needs no build changes, works with signals, and switches live. |
 | M-D11 | Admin language preference | **Per admin user** (field on the user profile doc), falling back to `Settings/localization.defaultLanguage`. A Hindi-content site can still have an English-preferring admin. Public visitor preference is separate (M-D8, localStorage). |
-| M-D12 | AI translate | Optional phase: "Translate with AI" in the editor pre-fills the `translations/{lang}` doc via the existing Google Vertex AI integration, for admin review before publish. Never auto-publishes. |
+| M-D12 | AI translate | **Dropped (2026-07-27).** Machine translation of content is not wanted; translations are authored by hand. Removed from the plan rather than deferred. |
 | M-D14 | Saving is per *item*, not per language | Revised during M2/M4: **Save as draft** and **Publish** persist the default-language document and every pending translation together, from whichever language tab is open. The original per-language save button proved confusing. `Clear translation` remains, being the one action genuinely scoped to a language. |
 | M-D15 | `templateFolder: 'default'` is a real folder | Discovered in M3: the SPA drew a full built-in layout for 'default' while the server emitted a bare skeleton, so a page looked different deployed vs. previewed. That layout now lives in `public/templates/default/{detail,list}.html` and both renderers resolve it through the same chain. |
 | M-D16 | Switcher links relative, hreflang absolute | hreflang must be absolute for search engines; the switcher must not be, or it throws visitors off any host that is not the configured `baseUrl` (preview channels, `*.web.app`). |
@@ -33,7 +33,8 @@ they stay in one language (English).** `docs/email-system-spec.md` is untouched 
 
 ### Explicit non-goals (deferred or permanently out)
 **Emails/notifications in any language other than English (permanent, per product decision
-2026-07-26)** · translated `urlSlug`s · per-language template folders · tag/category name
+2026-07-26)** · **machine/AI translation of content (dropped 2026-07-27 — translations are
+authored by hand)** · translated `urlSlug`s · per-language template folders · tag/category name
 translation · automatic locale redirect by geo/browser · RTL layout audit of the public
 templates (do a one-time `dir="rtl"` pass only when the first RTL language is enabled) ·
 translating the email admin *content* (the email pages' UI chrome IS translated as part of
@@ -223,25 +224,6 @@ draft-preview of the Hindi variant renders via the SPA fallback.
 **Exit criteria:** button works end-to-end on static pages; SPA preview renders
 translations; no route shadowing regressions (`/admin`, `/pricing`, etc. still resolve).
 
-### Phase M5 — AI auto-translate (S–M, optional but high-leverage)
-
-**Goal:** one click fills a translation for review.
-
-1. Callable function `aiTranslateContent({contentTypeSlug, docId, targetLang})` (admin;
-   reuse the existing Vertex AI integration + callable-access pattern): sends the
-   translatable fields, writes the result to the draft's `translations/{lang}` subdoc
-   with `aiGenerated: true`; TipTap HTML translated tag-preservingly (translate text
-   nodes, keep markup).
-2. Editor: "Translate with AI" button on a language tab (empty or stale); result loads
-   into the form for review — publish still requires the normal M3 flow.
-3. Rate/size guard + clear error surfacing (Vertex quota).
-
-**Deploy:** functions.
-**Manual test:** new article → Hindi tab → Translate with AI → review/edit → save →
-publish → `/hi/...` serves it.
-**Exit criteria:** round-trip without manual Firestore edits; `aiGenerated` flag visible
-in the editor ("AI draft — review before publishing" badge).
-
 ### Phase M6 — Admin UI i18n foundation (M)
 
 **Goal:** the mechanism, proven on a slice — not the full extraction.
@@ -299,8 +281,7 @@ batches land:
 
 ```
 M1 ──▶ M2 ──▶ M3 ──▶ M4          (content track: each phase depends on the previous)
- │                    └─▶ M5     (needs M2 subdocs + M3 publish to be useful end-to-end)
- └────────────────────────▶ M6 ──▶ M7   (admin track: independent of M2–M5; M6 wants
+ └────────────────────────▶ M6 ──▶ M7   (admin track: independent of M2–M4; M6 wants
                                           M1's LocalizationService only for defaults)
 ```
 
