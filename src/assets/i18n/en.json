@@ -23,7 +23,8 @@
       "reset": "Reset",
       "view": "View",
       "logout": "Logout",
-      "delete_confirm": "Are you sure you want to delete \"{{ name }}\"?"
+      "delete_confirm": "Are you sure you want to delete \"{{ name }}\"?",
+      "open": "Open"
     },
     "state": {
       "loading": "Loading..."
@@ -49,7 +50,14 @@
       "slug": "Slug",
       "actions": "Actions",
       "last_updated": "Last Updated",
-      "status": "Status"
+      "status": "Status",
+      "email": "Email",
+      "role": "Role",
+      "joined": "Joined",
+      "index": "#",
+      "description": "Description",
+      "type": "Type",
+      "id": "ID"
     },
     "yes": "Yes",
     "no": "No",
@@ -345,6 +353,69 @@
         "unpublished": "Content unpublished.",
         "unpublish_failed": "Failed to unpublish content.",
         "view_save_failed": "Failed to save view preferences."
+      }
+    },
+    "users": {
+      "page_title": "Users Management",
+      "page_subtitle": "Manage your users",
+      "add": "Add User",
+      "empty_title": "No Users Found",
+      "empty_description": "No users found matching your criteria.",
+      "invalid_action": "Invalid action",
+      "none_selected": "No user selected",
+      "verify": "Verify"
+    },
+    "audience": {
+      "contacts": {
+        "sources": "Sources",
+        "lists": "Lists",
+        "tags": "Tags",
+        "consent": "Consent",
+        "title": "Contacts",
+        "subtitle": "The unified audience. Contacts sync automatically from signups, waitlists and customers.",
+        "empty_title": "No contacts found",
+        "empty_description": "Add a contact, import a CSV, or run a backfill to get started.",
+        "backfill": "Backfill",
+        "import_csv": "Import CSV",
+        "add": "Add contact",
+        "search": "Search contacts",
+        "any": "Any",
+        "subscribed": "Subscribed",
+        "pending": "Pending",
+        "unsubscribed": "Unsubscribed"
+      },
+      "lists": {
+        "members": "Members",
+        "view_form": "View form",
+        "title": "Lists",
+        "subtitle": "Audience lists drive broadcasts and drip campaigns. System lists sync automatically.",
+        "empty_title": "No lists yet",
+        "empty_description": "Create your first audience list to start sending broadcasts and drips.",
+        "sync": "Sync form lists",
+        "create": "Create list"
+      },
+      "tags": {
+        "tag": "Tag",
+        "contacts": "Contacts",
+        "view_contacts": "View contacts",
+        "title": "Tags",
+        "subtitle": "Tags label contacts across every list and form — use them to target sends by type.",
+        "empty_title": "No tags yet",
+        "empty_description": "Create a tag to label contacts, or import the tags from your existing waitlists.",
+        "import": "Import waitlist tags",
+        "create": "Create tag"
+      },
+      "fields": {
+        "field": "Field",
+        "merge_tag": "Merge tag",
+        "on_resubmit": "On re-submit",
+        "fallback": "Fallback",
+        "title": "Fields",
+        "subtitle": "Data your forms collect, stored on the contact so any send to any list can use it.",
+        "empty_title": "No custom fields yet",
+        "empty_description": "Create a field like Company or Role, then map a form input to it.",
+        "import": "Import past form data",
+        "new": "New field"
       }
     }
   }
