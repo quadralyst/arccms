@@ -703,5 +703,29 @@ describe('deployContentPage', () => {
             expect(htmlFor('/hi/articles/test-article.html'))
                 .toContain('<link rel="canonical" href="https://example.com/hi/articles/test-article">');
         });
+        it('should link the switcher relatively but hreflang absolutely', async () => {
+            // hreflang must be absolute for search engines; the switcher must
+            // not be, or clicking a language on a preview channel or the
+            // .web.app domain throws the visitor onto the configured baseUrl.
+            mockGetPartials.mockResolvedValue({
+                headerHtml: '<header><arc-language-switcher></arc-language-switcher></header>',
+                footerHtml: '<footer></footer>',
+            });
+            // The switcher lives inside the header partial, so the template
+            // must actually place the header.
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: `<arc-header></arc-header>${MOCK_TEMPLATE_HTML}` }),
+            });
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const html = htmlFor('/articles/test-article.html');
+            expect(html).toContain('<a href="/hi/articles/test-article" hreflang="hi"');
+            expect(html).toContain(
+                '<link rel="alternate" hreflang="hi" href="https://example.com/hi/articles/test-article">',
+            );
+        });
     });
 });

@@ -199,6 +199,11 @@ export async function generateAndDeployContentListPage(
         lang: lang.code,
         url: listUrl(baseUrl, lang.code, defaultLang, contentTypeSlug),
     }));
+    // Relative for the switcher — see buildLanguageSwitcher.
+    const switcherLinks = languages.map(lang => ({
+        lang: lang.code,
+        url: listUrl('', lang.code, defaultLang, contentTypeSlug),
+    }));
 
     const poweredBy = miscSettings.showPoweredBy ? POWERED_BY_HTML : undefined;
     const languageLabels = Object.fromEntries(
@@ -264,7 +269,7 @@ export async function generateAndDeployContentListPage(
             hydratedHtml,
             partials.headerHtml,
             partials.footerHtml,
-            buildLanguageSwitcher(alternates, lang, languageLabels),
+            buildLanguageSwitcher(switcherLinks, lang, languageLabels),
         );
 
         // Extract inline styles/scripts

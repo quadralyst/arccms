@@ -200,6 +200,11 @@ export function replaceArcComponents(
  * navigation, not interaction. The small script only remembers the choice for
  * the next visit; nothing depends on it running.
  *
+ * `alternates` here carry **relative** paths, unlike the hreflang alternates,
+ * which must be absolute for search engines. A visitor on a preview channel,
+ * on the .web.app domain, or on any host that is not the configured baseUrl
+ * would otherwise be thrown off the site by clicking a language.
+ *
  * Returns '' when the page exists in one language only, so single-language
  * sites get no markup at all.
  */
