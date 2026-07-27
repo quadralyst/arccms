@@ -2,6 +2,7 @@ import { db } from '../init.js';
 import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings } from '../shared/site-settings.js';
 import {
     ContentTranslation,
+    TRANSLATABLE_BUILTIN_FIELDS,
     detailFilePath,
     detailUrl,
     mergeTranslation,
@@ -128,6 +129,7 @@ function buildTemplateData(
     siteConfig: { siteName: string; baseUrl: string },
     lang = 'en',
     defaultLang = 'en',
+    translation?: ContentTranslation,
 ): Record<string, any> {
     const readTime = content.readTime || calculateReadingTime(content.content || '');
     const publishedOn = formatContentDate(content.publishedOn, lang);
@@ -148,6 +150,21 @@ function buildTemplateData(
         email: `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareUrl)}`,
     };
 
+    // Custom fields are spread last so they can extend the template data —
+    // but content types often define a field whose key shadows a built-in
+    // (`title` is common). An untranslated custom field must not silently
+    // override a field the translator explicitly filled in, so deliberately
+    // translated values are re-applied on top.
+    const translatedOverrides: Record<string, any> = {};
+    if (translation) {
+        for (const field of TRANSLATABLE_BUILTIN_FIELDS) {
+            const value = translation[field];
+            if (typeof value === 'string' && value.replace(/<[^>]*>/g, '').trim()) {
+                translatedOverrides[field] = value;
+            }
+        }
+    }
+
     return {
         contentType: contentType.name,
         cat: contentType.name,
@@ -158,6 +175,7 @@ function buildTemplateData(
         readTime,
         readingTime: `${readTime} min read`,
         ...((content.customFields as Record<string, any>) || {}),
+        ...translatedOverrides,
         share,
         // Available to templates that want to build their own language links.
         lang,
@@ -250,6 +268,7 @@ export async function generateAndDeployContentDetailPage(
             siteConfig,
             lang,
             defaultLang,
+            translations.get(lang),
         );
 
         const tagsData =
@@ -271,9 +290,13 @@ export async function generateAndDeployContentDetailPage(
         const meta: PageMeta = {
             title: localizedContent.seoTitle || localizedContent.title || '',
             metaDescription: localizedContent.metaDescription || '',
-            // Self-referential per language, unless the author set a canonical.
+            // An author-set canonical applies to the default-language page it
+            // was written for. Reusing it on every variant would point them all
+            // at one URL — directly contradicting the hreflang tags and telling
+            // search engines to drop the translations. Variants are always
+            // self-referential.
             canonicalUrl:
-                localizedContent.canonicalUrl ||
+                (lang === defaultLang ? localizedContent.canonicalUrl : '') ||
                 detailUrl(siteConfig.baseUrl, lang, defaultLang, contentTypeSlug, content.urlSlug),
             ogImage: localizedContent.coverImage || '',
             ogType: 'article',
