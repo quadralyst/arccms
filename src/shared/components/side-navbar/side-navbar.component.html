@@ -59,10 +59,10 @@
         <hr class="menu-separator">
         } @else if (item.externalUrl) {
         <a [href]="item.externalUrl" target="_blank" rel="noopener noreferrer" class="nav-link">
-            <i [matTooltip]="!isExpanded ? item.label : null" matTooltipPosition="right"
+            <i [matTooltip]="!isExpanded ? menuLabel(item) : null" matTooltipPosition="right"
                 [ngClass]="{'icon-size': isExpanded, 'icon-size-large': !isExpanded}" class="{{item.icon}}"></i>
             @if(isExpanded){
-            <span>{{ item.label }}</span>
+            <span>{{ menuLabel(item) }}</span>
             <i class="fa-solid fa-arrow-up-right-from-square ms-auto" style="font-size: 0.7rem; opacity: 0.6;"></i>
             }
         </a>
@@ -70,10 +70,10 @@
         <a [routerLink]="item.label === 'Logout' ? null : item.route" class="nav-link" routerLinkActive="active-menu"
             [routerLinkActiveOptions]="{exact: !item.subItems}"
             (click)="item.label === 'Logout' ? confirmLogout() : toggleDropdown(item)">
-            <i [matTooltip]="!isExpanded ? item.label : null" matTooltipPosition="right"
+            <i [matTooltip]="!isExpanded ? menuLabel(item) : null" matTooltipPosition="right"
                 [ngClass]="{'icon-size': isExpanded, 'icon-size-large': !isExpanded}" class="{{item.icon}}"></i>
             @if(isExpanded){
-            <span>{{ item.label }}</span>
+            <span>{{ menuLabel(item) }}</span>
             }
             @if (item.subItems && isExpanded) {
             <i class="{{item.isOpen ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'}} menu-arrow-icon fs-6"></i>
@@ -88,9 +88,9 @@
                 [queryParams]="subItem.queryParams || null"
                 [class.active-menu]="isRouteActive(subItem.route || '')">
                 <i class="{{subItem.icon}}" [ngClass]="{'fa-icon-size': isExpanded, 'fa-icon-size-large': !isExpanded}"
-                    [matTooltip]="!isExpanded ? subItem.label : null"></i>
+                    [matTooltip]="!isExpanded ? menuLabel(subItem) : null"></i>
                 @if(isExpanded){
-                <span class="m-0 p-0"> {{ subItem.label }}</span>
+                <span class="m-0 p-0"> {{ menuLabel(subItem) }}</span>
                 }
             </a>
             }

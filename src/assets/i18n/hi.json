@@ -1,0 +1,107 @@
+{
+  "common": {
+    "actions": {
+      "save": "सहेजें",
+      "saving": "सहेजा जा रहा है...",
+      "cancel": "रद्द करें",
+      "delete": "हटाएँ",
+      "remove": "निकालें",
+      "edit": "संपादित करें",
+      "add": "जोड़ें",
+      "close": "बंद करें",
+      "confirm": "पुष्टि करें",
+      "back": "वापस",
+      "search": "खोजें",
+      "reset": "रीसेट करें",
+      "view": "देखें",
+      "logout": "लॉग आउट"
+    },
+    "state": {
+      "loading": "लोड हो रहा है..."
+    },
+    "language": {
+      "admin_ui": "एडमिन भाषा",
+      "hint": "यह केवल एडमिन इंटरफ़ेस बदलता है। आपकी साइट किन भाषाओं में प्रकाशित होती है, यह स्थानीयकरण में तय होता है।"
+    },
+    "paginator": {
+      "items_per_page": "प्रति पृष्ठ आइटम:",
+      "next_page": "अगला पृष्ठ",
+      "previous_page": "पिछला पृष्ठ",
+      "first_page": "पहला पृष्ठ",
+      "last_page": "अंतिम पृष्ठ",
+      "range": "{{ total }} में से {{ start }} – {{ end }}",
+      "range_empty": "{{ total }} में से 0"
+    }
+  },
+  "admin": {
+    "nav": {
+      "dashboard": "डैशबोर्ड",
+      "signup_forms": "साइनअप फ़ॉर्म",
+      "media_manager": "मीडिया मैनेजर",
+      "users": "उपयोगकर्ता",
+      "audience": "दर्शक",
+      "contacts": "संपर्क",
+      "lists": "सूचियाँ",
+      "tags": "टैग",
+      "fields": "फ़ील्ड",
+      "email": "ईमेल",
+      "brand_kit": "ब्रांड किट",
+      "composer": "कंपोज़र",
+      "broadcasts": "प्रसारण",
+      "drip_campaigns": "ड्रिप अभियान",
+      "announcements": "घोषणाएँ",
+      "email_logs": "ईमेल लॉग",
+      "products": "उत्पाद",
+      "transactions": "लेन-देन",
+      "data": "डेटा",
+      "export_data": "डेटा निर्यात",
+      "import_data": "डेटा आयात",
+      "export_files": "फ़ाइल निर्यात",
+      "import_files": "फ़ाइल आयात",
+      "profile": "प्रोफ़ाइल",
+      "settings": "सेटिंग्स",
+      "about": "परिचय",
+      "logout": "लॉग आउट",
+      "content": "सामग्री",
+      "content_types": "सामग्री प्रकार",
+      "audience_and_emails": "दर्शक और ईमेल",
+      "email_templates": "ईमेल टेम्पलेट",
+      "logout_confirm": "क्या आप वाकई लॉग आउट करना चाहते हैं ?",
+      "logout_success": "लॉग आउट हो गया।"
+    },
+    "settings": {
+      "localization": {
+        "title": "स्थानीयकरण",
+        "languages": "भाषाएँ",
+        "intro_1": "चुनें कि यह साइट किन भाषाओं में प्रकाशित होगी।",
+        "intro_default_language": "डिफ़ॉल्ट भाषा",
+        "intro_2": "वह है जिसमें आप सामग्री लिखते हैं — उसके पेज अपने मौजूदा URL पर ही रहते हैं। बाकी हर भाषा अनुवाद के रूप में लिखी जाती है और URL उपसर्ग के साथ प्रकाशित होती है, जैसे",
+        "col_code": "कोड",
+        "col_language": "भाषा",
+        "col_url_prefix": "URL उपसर्ग",
+        "col_default": "डिफ़ॉल्ट",
+        "col_order": "क्रम",
+        "root_prefix": "— (मूल)",
+        "make_default": "{{ language }} को डिफ़ॉल्ट भाषा बनाएँ",
+        "move_up": "{{ language }} को ऊपर ले जाएँ",
+        "move_down": "{{ language }} को नीचे ले जाएँ",
+        "remove_language": "{{ language }} को निकालें",
+        "cannot_remove_default": "डिफ़ॉल्ट भाषा को निकाला नहीं जा सकता",
+        "add_a_language": "भाषा जोड़ें",
+        "select_a_language": "कोई भाषा चुनें...",
+        "other_enter_code": "अन्य (कोड दर्ज करें)...",
+        "custom_code": "कोड",
+        "custom_code_placeholder": "जैसे sw",
+        "custom_name": "नाम",
+        "custom_name_placeholder": "जैसे स्वाहिली",
+        "removal_note": "भाषा निकालने पर उसके लिए नए पेज प्रकाशित होना बंद हो जाते हैं। उस भाषा के पहले से तैनात पेज तब तक ऑनलाइन रहते हैं जब तक सामग्री दोबारा प्रकाशित या अप्रकाशित न की जाए।",
+        "save_languages": "भाषाएँ सहेजें",
+        "invalid_code": "मान्य भाषा कोड दर्ज करें, जैसे \"sw\" या \"pt-br\"।",
+        "unresolved_language": "उस भाषा को पहचाना नहीं जा सका।",
+        "already_enabled": "{{ language }} पहले से सक्षम है।",
+        "saved": "भाषाएँ सफलतापूर्वक सहेजी गईं",
+        "save_failed": "भाषाएँ सहेजी नहीं जा सकीं। कृपया दोबारा प्रयास करें।"
+      }
+    }
+  }
+}

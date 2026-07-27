@@ -1,0 +1,115 @@
+{
+  "_conventions": {
+    "_1_read_me": "English is the source language. Every key lives here first; other files are translations of this one. A key missing from a translation silently falls back to this file, so a partial translation is always safe to ship.",
+    "_2_namespaces": "common.* is text reused across the admin (button labels, statuses, table chrome). admin.nav.* is the side navigation. admin.<area>.* is one page or feature area, named after its route: admin.settings.*, admin.contents.*, admin.users.*.",
+    "_3_naming": "Keys describe the string's role, not its text: common.actions.save, not common.actions.save_changes. Renaming the English text should never mean renaming the key.",
+    "_4_params": "Interpolation uses {{ name }}: \"removed\": \"Removed {{ language }}\". Keep parameter names meaningful — translators see them and nothing else.",
+    "_5_do_not_translate": "Content-type names, user data and anything else authored in the CMS are data, not UI. Content types carry their own nameTranslations (M-D19), keyed to the site's content language, which is not this one.",
+    "_6_this_file_only": "_conventions is documentation and is never rendered. Translation files do not need it."
+  },
+  "common": {
+    "actions": {
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "remove": "Remove",
+      "edit": "Edit",
+      "add": "Add",
+      "close": "Close",
+      "confirm": "Confirm",
+      "back": "Back",
+      "search": "Search",
+      "reset": "Reset",
+      "view": "View",
+      "logout": "Logout"
+    },
+    "state": {
+      "loading": "Loading..."
+    },
+    "language": {
+      "admin_ui": "Admin language",
+      "hint": "Changes the admin interface only. The languages your site publishes in are set under Localization."
+    },
+    "paginator": {
+      "items_per_page": "Items per page:",
+      "next_page": "Next page",
+      "previous_page": "Previous page",
+      "first_page": "First page",
+      "last_page": "Last page",
+      "range": "{{ start }} – {{ end }} of {{ total }}",
+      "range_empty": "0 of {{ total }}"
+    }
+  },
+  "admin": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "signup_forms": "Signup Forms",
+      "media_manager": "Media Manager",
+      "users": "Users",
+      "audience": "Audience",
+      "contacts": "Contacts",
+      "lists": "Lists",
+      "tags": "Tags",
+      "fields": "Fields",
+      "email": "Email",
+      "brand_kit": "Brand Kit",
+      "composer": "Composer",
+      "broadcasts": "Broadcasts",
+      "drip_campaigns": "Drip Campaigns",
+      "announcements": "Announcements",
+      "email_logs": "Email Logs",
+      "products": "Products",
+      "transactions": "Transactions",
+      "data": "Data",
+      "export_data": "Export Data",
+      "import_data": "Import Data",
+      "export_files": "Export Files",
+      "import_files": "Import Files",
+      "profile": "Profile",
+      "settings": "Settings",
+      "about": "About",
+      "logout": "Logout",
+      "content": "Content",
+      "content_types": "Content types",
+      "audience_and_emails": "Audience & emails",
+      "email_templates": "Email Templates",
+      "logout_confirm": "Are you sure you want to logout ?",
+      "logout_success": "Logout successful."
+    },
+    "settings": {
+      "localization": {
+        "title": "Localization",
+        "languages": "Languages",
+        "intro_1": "Choose the languages this site publishes in. The",
+        "intro_default_language": "default language",
+        "intro_2": "is the one you write content in — its pages keep their existing URLs. Every other language is authored as a translation and published under a URL prefix, e.g.",
+        "col_code": "Code",
+        "col_language": "Language",
+        "col_url_prefix": "URL prefix",
+        "col_default": "Default",
+        "col_order": "Order",
+        "root_prefix": "— (root)",
+        "make_default": "Make {{ language }} the default language",
+        "move_up": "Move {{ language }} up",
+        "move_down": "Move {{ language }} down",
+        "remove_language": "Remove {{ language }}",
+        "cannot_remove_default": "The default language cannot be removed",
+        "add_a_language": "Add a language",
+        "select_a_language": "Select a language...",
+        "other_enter_code": "Other (enter a code)...",
+        "custom_code": "Code",
+        "custom_code_placeholder": "e.g. sw",
+        "custom_name": "Name",
+        "custom_name_placeholder": "e.g. Swahili",
+        "removal_note": "Removing a language stops new pages being published for it. Pages already deployed for that language stay online until the content is republished or unpublished.",
+        "save_languages": "Save Languages",
+        "invalid_code": "Enter a valid language code, e.g. \"sw\" or \"pt-br\".",
+        "unresolved_language": "Could not resolve that language.",
+        "already_enabled": "{{ language }} is already enabled.",
+        "saved": "Languages saved successfully",
+        "save_failed": "Could not save languages. Please try again."
+      }
+    }
+  }
+}

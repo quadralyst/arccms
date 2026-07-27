@@ -28,7 +28,7 @@
                 @if (manifestData()) {
                     <p class="manifest-info">
                         <i class="fa-solid fa-circle-check text-success me-1"></i>
-                        {{ Object.keys(manifestData()!).length }} entries found in manifest
+                        {{ manifestEntryCount() }} entries found in manifest
                     </p>
                 }
             </div>

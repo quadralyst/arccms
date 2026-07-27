@@ -1,6 +1,7 @@
 import { animate, style, transition, trigger } from '@angular/animations';
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, EventEmitter, inject, Input, Output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, EventEmitter, inject, Input, Output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
@@ -8,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatTooltip } from '@angular/material/tooltip';
+import { TranslocoService } from '@jsverse/transloco';
 import { SafeHtml } from '@angular/platform-browser';
 import { NavigationEnd, RouterModule } from '@angular/router';
 import { filter } from 'rxjs';
@@ -23,7 +25,18 @@ import { WaitlistAdminStore } from '../../../app/pages/admin/(waitlists)/waitlis
 
 export type MenuItem = {
     icon?: string;
+    /**
+     * The English label, and the item's identity.
+     *
+     * Menu state is keyed by it (`manualToggles`, the Logout and Profile
+     * lookups), so it stays untranslated on purpose — translating it would
+     * mean Logout stops logging out the moment the admin switches language.
+     * `labelKey` names the translation; items built from CMS data (content
+     * types, signup forms) have no key because their names *are* data.
+     */
     label: string;
+    /** Translation key for `label`, for the items we author. */
+    labelKey?: string;
     route?: string;
     externalUrl?: string;
     subItems?: MenuItem[];
@@ -79,13 +92,23 @@ export default class NavbarComponent extends BaseComponent {
     /** Explicit user expand/collapse choices, keyed by group label. Overrides route-based auto-expand. */
     private readonly manualToggles = signal<Record<string, boolean>>({});
 
+    private transloco = inject(TranslocoService);
+    private destroyRef = inject(DestroyRef);
     readonly contentTypesStore = inject(ContentTypesStore);
+
+    /**
+     * Re-read on every language change so the computed menu below recomputes.
+     * The labels are resolved in TypeScript rather than by the template pipe
+     * because they are also fed to `matTooltip`, sorted, and compared.
+     */
+    private readonly activeLang = signal(this.transloco.getActiveLang());
     readonly waitlistAdminStore = inject(WaitlistAdminStore);
 
     baseMenuItems: MenuItem[] = [
         {
             icon: 'fa-solid fa-gauge-high',
             label: 'Dashboard',
+            labelKey: 'admin.nav.dashboard',
             route: '/admin/dashboard',
             allowRoles: [this.constantVariables.ADMIN],
         },
@@ -94,89 +117,101 @@ export default class NavbarComponent extends BaseComponent {
             // gamification on. Route + collection unchanged — label only.
             icon: 'fa-solid fa-list-alt',
             label: 'Signup Forms',
+            labelKey: 'admin.nav.signup_forms',
             route: '/admin/waitlists',
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
             icon: 'fa-solid fa-images',
             label: 'Media Manager',
+            labelKey: 'admin.nav.media_manager',
             route: '/admin/media',
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
             icon: 'fa-solid fa-users',
             label: 'Users',
+            labelKey: 'admin.nav.users',
             route: '/admin/users',
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
             icon: 'fa-solid fa-address-book',
             label: 'Audience',
+            labelKey: 'admin.nav.audience',
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
-                { label: 'Contacts', route: '/admin/contacts', icon: 'fa-solid fa-user-group' },
-                { label: 'Lists', route: '/admin/lists', icon: 'fa-solid fa-rectangle-list' },
-                { label: 'Tags', route: '/admin/contact-tags', icon: 'fa-solid fa-tags' },
-                { label: 'Fields', route: '/admin/contact-fields', icon: 'fa-solid fa-table-columns' },
+                { label: 'Contacts', labelKey: 'admin.nav.contacts', route: '/admin/contacts', icon: 'fa-solid fa-user-group' },
+                { label: 'Lists', labelKey: 'admin.nav.lists', route: '/admin/lists', icon: 'fa-solid fa-rectangle-list' },
+                { label: 'Tags', labelKey: 'admin.nav.tags', route: '/admin/contact-tags', icon: 'fa-solid fa-tags' },
+                { label: 'Fields', labelKey: 'admin.nav.fields', route: '/admin/contact-fields', icon: 'fa-solid fa-table-columns' },
             ],
         },
         {
             icon: 'fa-solid fa-palette',
             label: 'Email',
+            labelKey: 'admin.nav.email',
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
-                { label: 'Brand Kit', route: '/admin/email/brand-kit', icon: 'fa-solid fa-palette' },
-                { label: 'Composer', route: '/admin/email/composer', icon: 'fa-solid fa-pen-ruler' },
-                { label: 'Broadcasts', route: '/admin/email/broadcasts', icon: 'fa-solid fa-tower-broadcast' },
-                { label: 'Drip Campaigns', route: '/admin/email/drip-campaigns', icon: 'fa-solid fa-droplet' },
-                { label: 'Announcements', route: '/admin/email/announcements', icon: 'fa-solid fa-bullhorn' },
-                { label: 'Email Logs', route: '/admin/email-logs', icon: 'fa-solid fa-envelope-open-text' },
+                { label: 'Brand Kit', labelKey: 'admin.nav.brand_kit', route: '/admin/email/brand-kit', icon: 'fa-solid fa-palette' },
+                { label: 'Composer', labelKey: 'admin.nav.composer', route: '/admin/email/composer', icon: 'fa-solid fa-pen-ruler' },
+                { label: 'Broadcasts', labelKey: 'admin.nav.broadcasts', route: '/admin/email/broadcasts', icon: 'fa-solid fa-tower-broadcast' },
+                { label: 'Drip Campaigns', labelKey: 'admin.nav.drip_campaigns', route: '/admin/email/drip-campaigns', icon: 'fa-solid fa-droplet' },
+                { label: 'Announcements', labelKey: 'admin.nav.announcements', route: '/admin/email/announcements', icon: 'fa-solid fa-bullhorn' },
+                { label: 'Email Logs', labelKey: 'admin.nav.email_logs', route: '/admin/email-logs', icon: 'fa-solid fa-envelope-open-text' },
             ],
         },
         {
             icon: 'fa-solid fa-box-open',
             label: 'Products',
+            labelKey: 'admin.nav.products',
             route: '/admin/products',
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
             icon: 'fa-solid fa-receipt',
             label: 'Transactions',
+            labelKey: 'admin.nav.transactions',
             route: '/admin/transactions',
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
             icon: 'fa-solid fa-database',
             label: 'Data',
+            labelKey: 'admin.nav.data',
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
-                { label: 'Export Data', route: '/admin/data/export-data', icon: 'fa-solid fa-file-export' },
-                { label: 'Import Data', route: '/admin/data/import-data', icon: 'fa-solid fa-file-import' },
-                { label: 'Export Files', route: '/admin/data/export-files', icon: 'fa-solid fa-cloud-arrow-down' },
-                { label: 'Import Files', route: '/admin/data/import-files', icon: 'fa-solid fa-cloud-arrow-up' },
+                { label: 'Export Data', labelKey: 'admin.nav.export_data', route: '/admin/data/export-data', icon: 'fa-solid fa-file-export' },
+                { label: 'Import Data', labelKey: 'admin.nav.import_data', route: '/admin/data/import-data', icon: 'fa-solid fa-file-import' },
+                { label: 'Export Files', labelKey: 'admin.nav.export_files', route: '/admin/data/export-files', icon: 'fa-solid fa-cloud-arrow-down' },
+                { label: 'Import Files', labelKey: 'admin.nav.import_files', route: '/admin/data/import-files', icon: 'fa-solid fa-cloud-arrow-up' },
             ],
         },
         {
             icon: 'fa-solid fa-user',
             label: 'Profile',
+            labelKey: 'admin.nav.profile',
             route: '/admin/profile',
             allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER],
         },
         {
             icon: 'fa-solid fa-gear',
             label: 'Settings',
+            labelKey: 'admin.nav.settings',
             route: '/admin/settings',
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
             icon: 'fa-solid fa-circle-info',
             label: 'About',
+            labelKey: 'admin.nav.about',
             externalUrl: 'https://arccms.com/about',
             allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER],
         },
         {
             icon: 'fa-solid fa-right-from-bracket',
             label: 'Logout',
+            labelKey: 'admin.nav.logout',
             route: '',
             allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER],
         },
@@ -202,9 +237,10 @@ export default class NavbarComponent extends BaseComponent {
         const contentGroup: MenuItem = {
             icon: 'fa-solid fa-layer-group',
             label: 'Content',
+            labelKey: 'admin.nav.content',
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
-                { label: 'Content types', route: '/admin/contents/content-types', icon: 'fa-solid fa-newspaper' },
+                { label: 'Content types', labelKey: 'admin.nav.content_types', route: '/admin/contents/content-types', icon: 'fa-solid fa-newspaper' },
                 ...contentTypeLinks,
             ],
         };
@@ -216,13 +252,13 @@ export default class NavbarComponent extends BaseComponent {
             label: w.name,
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
-                { label: 'Dashboard', route: `/admin/waitlists/dashboard/${w.id}`, icon: 'fa-solid fa-gauge-high' } as MenuItem,
-                { label: 'Users', route: `/admin/waitlists/users/${w.id}`, icon: 'fa-solid fa-users', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
+                { label: 'Dashboard', labelKey: 'admin.nav.dashboard', route: `/admin/waitlists/dashboard/${w.id}`, icon: 'fa-solid fa-gauge-high' } as MenuItem,
+                { label: 'Users', labelKey: 'admin.nav.users', route: `/admin/waitlists/users/${w.id}`, icon: 'fa-solid fa-users', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
                 // The form's list hub (U4): its audience, broadcast history and
                 // sequence. The list id mirrors the form id (`waitlistListId()`).
-                { label: 'Audience & emails', route: `/admin/lists/waitlist-${w.id}`, icon: 'fa-solid fa-paper-plane' } as MenuItem,
-                { label: 'Tags', route: `/admin/waitlists/tags`, icon: 'fa-solid fa-tags', queryParams: { waitlistId: w.id, waitlistName: w.name, returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
-                { label: 'Email Templates', route: `/admin/waitlists/templates/${w.id}`, icon: 'fa-solid fa-envelope', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
+                { label: 'Audience & emails', labelKey: 'admin.nav.audience_and_emails', route: `/admin/lists/waitlist-${w.id}`, icon: 'fa-solid fa-paper-plane' } as MenuItem,
+                { label: 'Tags', labelKey: 'admin.nav.tags', route: `/admin/waitlists/tags`, icon: 'fa-solid fa-tags', queryParams: { waitlistId: w.id, waitlistName: w.name, returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
+                { label: 'Email Templates', labelKey: 'admin.nav.email_templates', route: `/admin/waitlists/templates/${w.id}`, icon: 'fa-solid fa-envelope', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
             ]
         })).sort((a: MenuItem, b: MenuItem) => (a.label || '').localeCompare(b.label || ''));
 
@@ -257,7 +293,16 @@ export default class NavbarComponent extends BaseComponent {
         return items;
     });
 
+    /** A menu item's display label: translated when we authored it, data otherwise. */
+    menuLabel(item: MenuItem): string {
+        this.activeLang();
+        return item.labelKey ? this.transloco.translate(item.labelKey) : item.label;
+    }
+
     ngOnInit() {
+        this.transloco.langChanges$
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe(lang => this.activeLang.set(lang));
         this.contentTypesStore.getAll();
         this.waitlistAdminStore.subscribe();
         this.router.events
@@ -289,13 +334,17 @@ export default class NavbarComponent extends BaseComponent {
     }
 
     confirmLogout() {
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(`Are you sure you want to logout ?`);
+        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
+            this.transloco.translate('admin.nav.logout_confirm'),
+        );
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
             width: '350px',
             data: {
+                // dialogType is a discriminator the dialog switches on, not
+                // display text — it stays English.
                 dialogType: 'Logout',
                 dialogMessage: msg,
-                btnText: 'Logout',
+                btnText: this.transloco.translate('common.actions.logout'),
                 panelType: 'warn',
             },
         });
@@ -303,7 +352,7 @@ export default class NavbarComponent extends BaseComponent {
             if (!!result) {
                 this.authStore.logout().subscribe({
                     next: () => {
-                        this.toastService.openCustomSnackbar('Logout successful.', 'success', 'check_circle');
+                        this.toastService.openCustomSnackbar(this.transloco.translate('admin.nav.logout_success'), 'success', 'check_circle');
                         this.router.navigate(['/signup']);
                     },
                     error: (err) => {
