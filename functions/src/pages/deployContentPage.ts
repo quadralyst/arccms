@@ -8,6 +8,7 @@ import {
     mergeTranslation,
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
+import { contentTypeName } from '../shared/content-type-names.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -168,9 +169,13 @@ function buildTemplateData(
         }
     }
 
+    // The type's name shows up in the page ("Back to Articles"), so it is
+    // translated like any other visible noun (M-D19).
+    const typeName = contentTypeName(contentType, lang);
+
     return {
-        contentType: contentType.name,
-        cat: contentType.name,
+        contentType: typeName,
+        cat: typeName,
         contentTypeSlug: contentType.slug,
         ...content,
         publishedOn,

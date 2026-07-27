@@ -18,7 +18,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { BaseComponent } from '../../../../../../shared/components/base/base.component';
 import { IconPickerComponent } from '../../../../../../shared/components/icon-picker/icon-picker.component';
 import { OmitCommonFields } from '../../../../../../shared/models/base-model';
-import { ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
+import { LocalizationService } from '../../../../../core/services/localization.service';
+import { ContentTypeNames, pruneNameTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
 import { ContentTypesStore } from '../content-types.store';
 import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator } from '../collection-ref-helpers';
 import { roleGuard } from '../../../../../guards/role.guard';
@@ -42,6 +43,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     @Output() close = new EventEmitter();
     contentTypesStore = inject(ContentTypesStore);
     templateFolderService = inject(TemplateFolderService);
+    private localization = inject(LocalizationService);
     action = input('action');
     errorMessages: string[] = [];
     public domain: string = '';
@@ -103,6 +105,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         this.editForm.patchValue({
             name: currentItem.name || '',
             singularName: currentItem.singularName || '',
+            nameTranslations: currentItem.nameTranslations || {},
             description: currentItem.description || '',
             hasPublicUrl: currentItem.hasPublicUrl !== false,
             slug: currentItem.slug || '',
@@ -132,6 +135,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             this.editForm.reset({
                 name: '',
                 singularName: '',
+                nameTranslations: {},
                 description: '',
                 hasPublicUrl: true,
                 slug: '',
@@ -149,6 +153,8 @@ export default class EditContentTypeComponent extends BaseComponent implements O
 
     constructor() {
         super();
+        // The per-language name fields only appear on a multilingual site.
+        this.localization.load();
         // Use effect for side effects (form updates) - signals can be written inside effects
         effect(() => {
             const item = this.currentItem();
@@ -161,6 +167,10 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     editForm = new FormGroup({
         name: new FormControl('', [Validators.required, Validators.minLength(3)]),
         singularName: new FormControl(''),
+        // Per-language display names, keyed by code (M-D19). Held as a plain
+        // value rather than nested controls so adding a language needs no
+        // form surgery.
+        nameTranslations: new FormControl<Record<string, ContentTypeNames>>({}),
         description: new FormControl(''),
         hasPublicUrl: new FormControl(true),
         slug: new FormControl('', [Validators.required, Validators.pattern(/^[a-z0-9-]+$/)]),
@@ -169,6 +179,23 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         templateFolder: new FormControl('default'),
         fields: new FormArray([], [duplicateFieldKeyValidator()]),
     });
+
+    /** Languages other than the default — the ones needing a translated name. */
+    extraLanguages = computed(() => this.localization.extraLanguages());
+
+    /** Current translated name for a language, for the template's two-way bind. */
+    translatedName(lang: string, key: 'name' | 'singularName'): string {
+        const all = this.editForm.get('nameTranslations')?.value || {};
+        return all[lang]?.[key] || '';
+    }
+
+    setTranslatedName(lang: string, key: 'name' | 'singularName', value: string): void {
+        const control = this.editForm.get('nameTranslations');
+        const all = { ...(control?.value || {}) };
+        all[lang] = { ...(all[lang] || {}), [key]: value };
+        control?.setValue(all);
+        control?.markAsDirty();
+    }
 
     get name() {
         return this.editForm.get('name')!;
@@ -259,6 +286,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         const updatedContentType: Partial<ContentType> = {
             name: formValue.name || '',
             singularName: formValue.singularName || '',
+            nameTranslations: pruneNameTranslations(formValue.nameTranslations),
             slug: slug,
             description: formValue.description || '',
             icon: formValue.icon || 'fa-solid fa-folder',

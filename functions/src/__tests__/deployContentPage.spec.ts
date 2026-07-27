@@ -794,5 +794,39 @@ describe('deployContentPage', () => {
             expect(hindi).toContain('वापस Articles पर');
             expect(hindi).not.toContain('{{');
         });
+        it('should use the translated content-type name on the translated page', async () => {
+            // Without this a Hindi page still reads "Back to Articles" (M-D19).
+            mockContentTypeLimitGet.mockResolvedValue({
+                empty: false,
+                docs: [{
+                    data: () => ({
+                        ...MOCK_CONTENT_TYPE,
+                        nameTranslations: { hi: { name: 'लेख' } },
+                    }),
+                }],
+            });
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<article><span>{{ contentType }}</span></article>' }),
+            });
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html')).toContain('लेख');
+            expect(htmlFor('/articles/test-article.html')).toContain('Articles');
+        });
+
+        it('should keep the default name when the type is untranslated', async () => {
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<article><span>{{ contentType }}</span></article>' }),
+            });
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html')).toContain('Articles');
+        });
     });
 });

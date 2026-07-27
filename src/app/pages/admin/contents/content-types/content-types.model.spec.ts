@@ -1,4 +1,4 @@
-import { CollectionReferenceConfig, ContentType, ContentTypeField, ContentTypeFieldType } from './content-types.model';
+import { CollectionReferenceConfig, ContentType, ContentTypeField, ContentTypeFieldType, contentTypeName, contentTypeSingularName, pruneNameTranslations } from './content-types.model';
 
 describe('ContentTypes Model', () => {
     describe('ContentTypeFieldType', () => {
@@ -624,5 +624,77 @@ describe('ContentTypes Model', () => {
             expect(contentType.fields[1].useCollectionRef).toBe(true);
             expect(contentType.fields[1].collectionRef!.collectionSlug).toBe('authors');
         });
+    });
+});
+
+// ── Per-language names (M5.2) ───────────────────────────────────────────────
+
+describe('contentTypeName', () => {
+    const type = {
+        name: 'Articles',
+        singularName: 'Article',
+        nameTranslations: { hi: { name: 'लेख', singularName: 'लेख' } },
+    };
+
+    it('returns the translated name for a language', () => {
+        expect(contentTypeName(type, 'hi')).toBe('लेख');
+    });
+
+    it('falls back to the default name for an untranslated language', () => {
+        expect(contentTypeName(type, 'fr')).toBe('Articles');
+    });
+
+    it('falls back when no language is given', () => {
+        expect(contentTypeName(type)).toBe('Articles');
+        expect(contentTypeName(type, '')).toBe('Articles');
+    });
+
+    it('treats a blank translation as absent', () => {
+        expect(contentTypeName({ ...type, nameTranslations: { hi: { name: '  ' } } }, 'hi'))
+            .toBe('Articles');
+    });
+
+    it('copes with no translations at all', () => {
+        expect(contentTypeName({ name: 'Articles' }, 'hi')).toBe('Articles');
+    });
+});
+
+describe('contentTypeSingularName', () => {
+    const type = {
+        name: 'Articles',
+        singularName: 'Article',
+        nameTranslations: { hi: { name: 'लेख' } },
+    };
+
+    it('falls back to the default singular when only the plural is translated', () => {
+        expect(contentTypeSingularName(type, 'hi')).toBe('Article');
+    });
+
+    it('returns the translated singular when present', () => {
+        expect(contentTypeSingularName(
+            { ...type, nameTranslations: { hi: { singularName: 'एक लेख' } } }, 'hi',
+        )).toBe('एक लेख');
+    });
+
+    it('falls back to the plural when no singular is set at all', () => {
+        expect(contentTypeSingularName({ name: 'Articles' }, 'hi')).toBe('Articles');
+    });
+});
+
+describe('pruneNameTranslations', () => {
+    it('drops blank entries so they fall back to the default', () => {
+        expect(pruneNameTranslations({
+            hi: { name: 'लेख', singularName: '  ' },
+            fr: { name: '', singularName: '' },
+        })).toEqual({ hi: { name: 'लेख' } });
+    });
+
+    it('trims values', () => {
+        expect(pruneNameTranslations({ hi: { name: '  लेख  ' } })).toEqual({ hi: { name: 'लेख' } });
+    });
+
+    it('copes with null and undefined', () => {
+        expect(pruneNameTranslations(null)).toEqual({});
+        expect(pruneNameTranslations(undefined)).toEqual({});
     });
 });

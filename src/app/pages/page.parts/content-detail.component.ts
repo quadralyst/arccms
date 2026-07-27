@@ -9,7 +9,7 @@ import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
-import { ContentType } from '../admin/contents/content-types/content-types.model';
+import { ContentType, contentTypeName } from '../admin/contents/content-types/content-types.model';
 import { IContents } from '../admin/contents/content-store/published-contents.model';
 import { DraftContentsStore } from '../admin/contents/draft-content-store/draft-contents.store';
 import { Auth, authState } from '@angular/fire/auth';
@@ -73,7 +73,7 @@ import {
             <header class="article-header">
                 <div class="container">
                     <a class="article-back-link" [href]="listUrl()">
-                        <i class="fas fa-arrow-left"></i> <span data-arc-t="back_to" [data-arc-t-params]="{ contentType: currentContentType()?.name }">Back to {{ currentContentType()?.name }}</span>
+                        <i class="fas fa-arrow-left"></i> <span data-arc-t="back_to" [data-arc-t-params]="{ contentType: typeName() }">Back to {{ typeName() }}</span>
                     </a>
                     <h1 class="article-title">{{ currentContent()?.title }}</h1>
                     <div class="article-meta">
@@ -132,7 +132,7 @@ import {
                     <nav class="article-navigation">
                         <a [href]="listUrl()" class="nav-back">
                             <i class="fas fa-th-large"></i>
-                            <span data-arc-t="all_of_type" [data-arc-t-params]="{ contentType: currentContentType()?.name }">All {{ currentContentType()?.name }}</span>
+                            <span data-arc-t="all_of_type" [data-arc-t-params]="{ contentType: typeName() }">All {{ typeName() }}</span>
                         </a>
                     </nav>
                 </div>
@@ -496,6 +496,12 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         const prefix = this.pageLang() ? `/${this.pageLang()}` : '';
         return `${prefix}/${this.contentTypeSlug()}`;
     }
+
+    /** The content type's name in the page's language (M-D19). */
+    typeName = computed(() => {
+        const type = this.currentContentType();
+        return type ? contentTypeName(type, this.pageLang()) : '';
+    });
 
     /** Language prefix of the current URL — '' on the default-language routes. */
     pageLang = signal<string>('');
