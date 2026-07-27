@@ -18,12 +18,12 @@
         <div class="nav-right">
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="globalService.goBack()"
                 [disabled]="isSavingDraft">
-                <i class="fa-solid fa-xmark"></i> <span class="btn-text">Close</span>
+                <i class="fa-solid fa-xmark"></i> <span class="btn-text">{{ 'common.actions.close' | transloco }}</span>
             </button>
 
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="navigateBySlug()"
                 [disabled]="isSavingDraft || !publishForm.get('urlSlug')?.value">
-                <i class="fa-regular fa-eye"></i> <span class="btn-text">Preview</span>
+                <i class="fa-regular fa-eye"></i> <span class="btn-text">{{ 'admin.contents.editor.preview' | transloco }}</span>
             </button>
 
             @if(isTranslating()){
@@ -32,23 +32,23 @@
             <button type="button" class="btn btn-outline-danger btn-sm me-2" (click)="clearTranslation()"
                 [disabled]="isSavingTranslation() || isSavingDraft || !hasTranslation(activeLang())"
                 [title]="'Delete the ' + activeLanguageLabel() + ' translation'">
-                <i class="fa-solid fa-eraser"></i> <span class="btn-text">Clear translation</span>
+                <i class="fa-solid fa-eraser"></i> <span class="btn-text">{{ 'admin.contents.editor.clear_translation' | transloco }}</span>
             </button>
             }
 
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="saveAsDraft()"
                 [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
                 @if(isSavingDraft){
-                <i class="fas fa-spinner fa-spin"></i> <span class="btn-text">Saving...</span>
+                <i class="fas fa-spinner fa-spin"></i> <span class="btn-text">{{ 'common.actions.saving' | transloco }}</span>
                 }
                 @else {
-                <i class="fa-regular fa-floppy-disk"></i> <span class="btn-text">Save as draft</span>
+                <i class="fa-regular fa-floppy-disk"></i> <span class="btn-text">{{ 'admin.contents.editor.save_draft' | transloco }}</span>
                 }
             </button>
 
             <button type="button" class="btn btn-primary btn-sm" (click)="directPublishContent()"
                 [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
-                <i class="fa-solid fa-upload"></i> <span class="btn-text">Publish</span>
+                <i class="fa-solid fa-upload"></i> <span class="btn-text">{{ 'admin.contents.editor.publish' | transloco }}</span>
             </button>
         </div>
     </nav>
@@ -75,7 +75,7 @@
             <div class="version-preview-header">
                 <div class="version-preview-header-left">
                     <button class="btn btn-outline-secondary btn-sm" (click)="closeVersionPreview()">
-                        <i class="fa-solid fa-arrow-left me-1"></i> Back to editor
+                        <i class="fa-solid fa-arrow-left me-1"></i> {{ 'admin.contents.editor.back_to_editor' | transloco }}
                     </button>
                     <span class="version-preview-label">
                         <i class="fa-solid fa-clock-rotate-left me-1"></i>
@@ -84,7 +84,7 @@
                     </span>
                 </div>
                 <button class="btn btn-primary btn-sm" (click)="restoreVersion(previewingVersion()!)">
-                    <i class="fa-solid fa-rotate-left me-1"></i> Restore this version
+                    <i class="fa-solid fa-rotate-left me-1"></i> {{ 'admin.contents.editor.restore_version' | transloco }}
                 </button>
             </div>
 
@@ -105,32 +105,32 @@
                 <div class="version-preview-meta">
                     <!-- Basic Info -->
                     <div class="meta-section">
-                        <h6 class="meta-section-title"><i class="fa-solid fa-circle-info me-1"></i> Basic</h6>
+                        <h6 class="meta-section-title"><i class="fa-solid fa-circle-info me-1"></i> {{ 'admin.contents.editor.tab_basic' | transloco }}</h6>
 
                         @if(previewingVersion()!.summary){
                         <div class="meta-field">
-                            <label>Summary</label>
+                            <label>{{ 'admin.contents.editor.summary' | transloco }}</label>
                             <p>{{ previewingVersion()!.summary }}</p>
                         </div>
                         }
 
                         @if(previewingVersion()!.urlSlug){
                         <div class="meta-field">
-                            <label>URL Slug</label>
+                            <label>{{ 'admin.contents.editor.url_slug' | transloco }}</label>
                             <p class="text-muted">{{ previewingVersion()!.urlSlug }}</p>
                         </div>
                         }
 
                         @if(previewingVersion()!.coverImage){
                         <div class="meta-field">
-                            <label>Cover Image</label>
+                            <label>{{ 'admin.contents.editor.cover_image' | transloco }}</label>
                             <img [src]="previewingVersion()!.coverImage" alt="Cover" class="meta-thumb" />
                         </div>
                         }
 
                         @if(previewingVersion()!.tagsWithColors && previewingVersion()!.tagsWithColors!.length > 0){
                         <div class="meta-field">
-                            <label>Tags</label>
+                            <label>{{ 'admin.contents.editor.tags' | transloco }}</label>
                             <div class="meta-tags">
                                 @for(tag of previewingVersion()!.tagsWithColors; track tag.name){
                                 <span class="tag-pill" [style.background-color]="tag.color">{{ tag.name }}</span>
@@ -139,7 +139,7 @@
                         </div>
                         } @else if(previewingVersion()!.tags && previewingVersion()!.tags!.length > 0){
                         <div class="meta-field">
-                            <label>Tags</label>
+                            <label>{{ 'admin.contents.editor.tags' | transloco }}</label>
                             <div class="meta-tags">
                                 @for(tag of previewingVersion()!.tags; track tag){
                                 <span class="tag-pill">{{ tag }}</span>
@@ -151,7 +151,7 @@
                         <!-- Custom Fields -->
                         @if(previewingVersion()!.customFields){
                         <div class="meta-field">
-                            <label>Custom Fields</label>
+                            <label>{{ 'admin.contents.editor.custom_fields' | transloco }}</label>
                             @for(entry of (previewingVersion()!.customFields | keyvalue); track entry.key){
                             <div class="custom-field-entry">
                                 <span class="custom-field-key">{{ entry.key }}:</span>
@@ -167,12 +167,12 @@
                         <h6 class="meta-section-title"><i class="fa-solid fa-magnifying-glass me-1"></i> SEO</h6>
 
                         <div class="meta-field">
-                            <label>SEO Title</label>
+                            <label>{{ 'admin.contents.editor.seo_title' | transloco }}</label>
                             <p>{{ previewingVersion()!.seoTitle || '—' }}</p>
                         </div>
 
                         <div class="meta-field">
-                            <label>Meta Description</label>
+                            <label>{{ 'admin.contents.editor.meta_description' | transloco }}</label>
                             <p>{{ previewingVersion()!.metaDescription || '—' }}</p>
                         </div>
                     </div>
@@ -194,7 +194,7 @@
                         [title]="lang.code === defaultLang() ? lang.label + ' (default language)' : lang.label">
                         {{ lang.label }}
                         @if(lang.code === defaultLang()){
-                        <span class="lang-badge default">default</span>
+                        <span class="lang-badge default">{{ 'admin.contents.editor.default_badge' | transloco }}</span>
                         } @else if(hasTranslation(lang.code)){
                         <span class="lang-badge translated" title="Translated"><i
                                 class="fa-solid fa-check"></i></span>
@@ -206,11 +206,14 @@
                 @if(isTranslating()){
                 <div class="language-hint">
                     <i class="fa-solid fa-language me-1"></i>
-                    Editing the <strong>{{ activeLanguageLabel() }}</strong> translation. Empty fields fall back to
-                    {{ defaultLang() }}. The URL, cover image, tags and dates are shared across languages.
-                    <strong>Save as draft</strong> and <strong>Publish</strong> apply to every language at once.
+                    <span [innerHTML]="'admin.contents.editor.translating_note' | transloco: {
+                        language: activeLanguageLabel(),
+                        defaultLang: defaultLang(),
+                        saveLabel: ('admin.contents.editor.save_draft' | transloco),
+                        publishLabel: ('admin.contents.editor.publish' | transloco)
+                    }"></span>
                     @if(translationDirty()){
-                    <span class="unsaved-badge"><i class="fa-solid fa-circle"></i> Unsaved changes</span>
+                    <span class="unsaved-badge"><i class="fa-solid fa-circle"></i> {{ 'admin.contents.editor.unsaved_changes' | transloco }}</span>
                     }
                 </div>
                 }
@@ -237,12 +240,12 @@
         <div class="settings-sidebar">
             <div class="sidebar-tabs">
                 <button class="tab-btn" [class.active]="activeTab === 'basic'"
-                    (click)="activeTab = 'basic'">Basic</button>
-                <button class="tab-btn" [class.active]="activeTab === 'seo'" (click)="activeTab = 'seo'">SEO</button>
+                    (click)="activeTab = 'basic'">{{ 'admin.contents.editor.tab_basic' | transloco }}</button>
+                <button class="tab-btn" [class.active]="activeTab === 'seo'" (click)="activeTab = 'seo'">{{ 'admin.contents.editor.tab_seo' | transloco }}</button>
                 @if(publishedId){
                 <button class="tab-btn" [class.active]="activeTab === 'history'"
                     (click)="activeTab = 'history'">
-                    <i class="fa-solid fa-clock-rotate-left me-1"></i>History
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i>{{ 'admin.contents.editor.history' | transloco }}
                 </button>
                 }
             </div>
@@ -269,7 +272,7 @@
                         @if(contentId && !lastDraftSavedDate && !lastPublishedDate){
                         <span class="status-badge id-info">
                             <i class="fa-solid fa-file"></i>
-                            Editing draft...
+                            {{ 'admin.contents.editor.editing_draft' | transloco }}
                         </span>
                         }
 
@@ -277,7 +280,7 @@
                         @if(saveStatusMessage === 'Auto-saved'){
                         <span class="status-badge auto-saved">
                             <i class="fa-solid fa-cloud-arrow-up"></i>
-                            Auto-saved
+                            {{ 'admin.contents.editor.auto_saved' | transloco }}
                         </span>
                         }
 
@@ -285,19 +288,19 @@
                         @if(deployStatus() === 'pending'){
                         <span class="status-badge deploying">
                             <i class="fa-solid fa-spinner fa-spin"></i>
-                            Deploying to hosting...
+                            {{ 'admin.contents.editor.deploying' | transloco }}
                         </span>
                         }
                         @if(deployStatus() === 'deployed'){
                         <span class="status-badge deploy-success">
                             <i class="fa-solid fa-check-circle"></i>
-                            Deployed to hosting
+                            {{ 'admin.contents.editor.deployed' | transloco }}
                         </span>
                         }
                         @if(deployStatus() === 'failed'){
                         <span class="status-badge deploy-failed" [title]="deployError()">
                             <i class="fa-solid fa-exclamation-triangle"></i>
-                            Deploy failed
+                            {{ 'admin.contents.editor.deploy_failed' | transloco }}
                             <button class="retry-btn" (click)="retryDeployment()" title="Retry deployment">
                                 <i class="fa-solid fa-rotate-right"></i>
                             </button>
@@ -316,7 +319,7 @@
                             <label class="form-label">
                                 Cover Image
                                 @if(isTranslating()){
-                                <span class="shared-badge" title="Shared across all languages">shared</span>
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                             </label>
                             @if(isTranslating()){
@@ -325,7 +328,7 @@
                                 <img [src]="coverImage" class="img-fluid rounded border"
                                     style="max-height: 120px; object-fit: cover;">
                                 } @else {
-                                <span class="text-muted">No cover image</span>
+                                <span class="text-muted">{{ 'admin.contents.editor.no_cover_image' | transloco }}</span>
                                 }
                                 <small class="text-muted d-block mt-1">Edit on the {{ defaultLang() }} tab.</small>
                             </div>
@@ -333,10 +336,9 @@
                             <div class="cover-image-upload" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
                                 @if (!coverImage) {
                                 <div class="upload-area" (click)="openMediaManager()">
-                                    <p class="mb-1">Click to upload</p>
-                                    <small class="text-muted">Recommended: 1200 x 630 pixels</small>
-                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2">Upload
-                                        image</button>
+                                    <p class="mb-1">{{ 'admin.contents.editor.click_to_upload' | transloco }}</p>
+                                    <small class="text-muted">{{ 'admin.contents.editor.image_recommendation' | transloco }}</small>
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2">{{ 'admin.contents.editor.upload_image' | transloco }}</button>
                                     <input type="file" id="coverImageInput" hidden (change)="onFileSelected($event)"
                                         accept="image/*">
                                 </div>
@@ -347,7 +349,7 @@
 
                                     <button type="button" class="btn btn-outline-danger btn-sm"
                                         (click)="removeCoverImage()">
-                                        <i class="fa-solid fa-trash me-1"></i> Remove Image
+                                        <i class="fa-solid fa-trash me-1"></i> {{ 'admin.contents.editor.remove_image' | transloco }}
                                     </button>
                                 </div>
                                 }
@@ -360,11 +362,11 @@
 
                         <!-- Summary -->
                         <div class="form-group mb-3">
-                            <label class="form-label">Summary</label>
+                            <label class="form-label">{{ 'admin.contents.editor.summary' | transloco }}</label>
                             <textarea class="form-control form-control-sm" formControlName="summary" rows="3"
                                 [placeholder]="isTranslating() ? (basePlaceholder('summary') || 'Enter content summary') : 'Enter content summary (auto-generated from content)'"
                                 (input)="markTranslationDirty()"></textarea>
-                            <small class="text-muted">Used for content lists and default SEO description.</small>
+                            <small class="text-muted">{{ 'admin.contents.editor.summary_hint' | transloco }}</small>
                         </div>
 
                         <!-- URL Slug (Read-only display) -->
@@ -373,12 +375,12 @@
                             <label class="form-label">
                                 URL
                                 @if(isTranslating()){
-                                <span class="shared-badge" title="Shared across all languages">shared</span>
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                                 @if (isEditingSlug()) {
                                 <span class="text-danger ms-2" style="font-size: 0.8em;">
                                     <i class="fa-solid fa-triangle-exclamation"></i>
-                                    Changing this will break existing links!
+                                    {{ 'admin.contents.editor.slug_warning' | transloco }}
                                 </span>
                                 }
                             </label>
@@ -427,7 +429,7 @@
 
                         <!-- Tags with Autocomplete -->
                         <div class="form-group">
-                            <label class="form-label">Tags</label>
+                            <label class="form-label">{{ 'admin.contents.editor.tags' | transloco }}</label>
 
                             <!-- Selected Tags with Colors -->
                             <div class="tags-container mb-2">
@@ -470,7 +472,7 @@
 
                                     @if (!filteredTags.length && !tagSearchTerm()) {
                                     <div class="tag-option text-muted">
-                                        Start typing to search or create tags
+                                        {{ 'admin.contents.editor.tags_placeholder' | transloco }}
                                     </div>
                                     }
                                 </div>
@@ -481,7 +483,7 @@
                         <!-- Custom Fields Section -->
                         @if (currentFields.length > 0) {
                         <hr class="my-3">
-                        <div class="form-section-title mb-3">Custom Fields</div>
+                        <div class="form-section-title mb-3">{{ 'admin.contents.editor.custom_fields' | transloco }}</div>
 
                         @for (field of currentFields; track field.key) {
                         <div class="form-group mb-3">
@@ -491,7 +493,7 @@
                                 <span class="text-danger">*</span>
                                 }
                                 @if(isFieldLocked(field)){
-                                <span class="shared-badge" title="Shared across all languages">shared</span>
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                             </label>
 
@@ -543,7 +545,7 @@
                                     <button type="button" class="btn btn-outline-secondary btn-sm"
                                         (click)="openFullscreenEditor(field.key, field.label)"
                                         title="Open in fullscreen editor">
-                                        <i class="fa-solid fa-expand me-1"></i> Expand
+                                        <i class="fa-solid fa-expand me-1"></i> {{ 'admin.contents.editor.expand' | transloco }}
                                     </button>
                                 </div>
                                 <div class="richtext-editor-container">
@@ -572,7 +574,7 @@
                                             }
                                         </select>
                                         @if(loadingReferences()){
-                                            <small class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading options...</small>
+                                            <small class="text-muted"><i class="fas fa-spinner fa-spin"></i> {{ 'admin.contents.editor.loading_options' | transloco }}</small>
                                         }
                                     </div>
                                 } @else {
@@ -594,7 +596,7 @@
                                     <!-- Collection Reference Checkbox -->
                                     <div class="checkbox-group reference-checkboxes">
                                         @if(loadingReferences()){
-                                            <small class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading options...</small>
+                                            <small class="text-muted"><i class="fas fa-spinner fa-spin"></i> {{ 'admin.contents.editor.loading_options' | transloco }}</small>
                                         }
                                         @for (option of referenceOptions()[field.key] || []; track option.id) {
                                             <div class="form-check">
@@ -634,7 +636,7 @@
                                     <!-- Collection Reference Radio -->
                                     <div class="radio-group reference-radios">
                                         @if(loadingReferences()){
-                                            <small class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading options...</small>
+                                            <small class="text-muted"><i class="fas fa-spinner fa-spin"></i> {{ 'admin.contents.editor.loading_options' | transloco }}</small>
                                         }
                                         @for (option of referenceOptions()[field.key] || []; track option.id) {
                                             <div class="form-check">
@@ -675,8 +677,8 @@
                                 @if (!customFieldValues[field.key]) {
                                 <div class="upload-area" (click)="openMediaManagerForField(field.key)">
                                     <i class="fa-solid fa-image mb-1" style="font-size: 1.5rem; color: #adb5bd;"></i>
-                                    <p class="mb-1 small">Click to select image</p>
-                                    <button type="button" class="btn btn-outline-primary btn-sm">Select image</button>
+                                    <p class="mb-1 small">{{ 'admin.contents.editor.click_to_select_image' | transloco }}</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm">{{ 'admin.contents.editor.select_image' | transloco }}</button>
                                 </div>
                                 } @else {
                                 <div class="image-preview-container d-flex flex-column align-items-center p-2">
@@ -685,11 +687,11 @@
                                     <div class="d-flex gap-2">
                                         <button type="button" class="btn btn-outline-primary btn-sm"
                                             (click)="openMediaManagerForField(field.key)">
-                                            <i class="fa-solid fa-arrows-rotate me-1"></i> Change
+                                            <i class="fa-solid fa-arrows-rotate me-1"></i> {{ 'admin.contents.editor.change' | transloco }}
                                         </button>
                                         <button type="button" class="btn btn-outline-danger btn-sm"
                                             (click)="removeCustomFieldImage(field.key)">
-                                            <i class="fa-solid fa-trash me-1"></i> Remove
+                                            <i class="fa-solid fa-trash me-1"></i> {{ 'common.actions.remove' | transloco }}
                                         </button>
                                     </div>
                                 </div>
@@ -708,7 +710,7 @@
                                 Next {{ getContentTypeName() }}
                             </label>
                             <p class="text-muted small mb-2">
-                                Link to the next content in a series (e.g., tutorial steps)
+                                {{ 'admin.contents.editor.next_content_hint' | transloco }}
                             </p>
 
                             <!-- Selected Next Content Display -->
@@ -738,7 +740,7 @@
                                 <div class="next-content-dropdown">
                                     @if (isLoadingContents) {
                                     <div class="next-content-empty">
-                                        <i class="fa-solid fa-spinner fa-spin me-1"></i> Loading...
+                                        <i class="fa-solid fa-spinner fa-spin me-1"></i> {{ 'common.state.loading' | transloco }}
                                     </div>
                                     } @else if (filteredNextContents.length > 0) {
                                     @for (content of filteredNextContents; track content.id) {
@@ -752,7 +754,7 @@
                                     }
                                     } @else {
                                     <div class="next-content-empty">
-                                        No content found
+                                        {{ 'admin.contents.editor.no_content_found' | transloco }}
                                     </div>
                                     }
                                 </div>
@@ -769,13 +771,13 @@
                 <div class="tab-panel">
                     <form [formGroup]="seoForm">
                         <div class="form-group">
-                            <label class="form-label">SEO Title</label>
+                            <label class="form-label">{{ 'admin.contents.editor.seo_title' | transloco }}</label>
                             <input type="text" class="form-control form-control-sm" formControlName="seoTitle"
                                 [placeholder]="isTranslating() ? (basePlaceholder('seoTitle') || 'Enter SEO title') : 'Enter SEO title'"
                                 (input)="triggerAutoSave()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Meta Description</label>
+                            <label class="form-label">{{ 'admin.contents.editor.meta_description' | transloco }}</label>
                             <textarea class="form-control form-control-sm" formControlName="metaDescription" rows="3"
                                 [placeholder]="isTranslating() ? (basePlaceholder('metaDescription') || 'Enter meta description') : 'Enter meta description'"
                                 (input)="triggerAutoSave()"></textarea>
@@ -784,7 +786,7 @@
                             <label class="form-label">
                                 Canonical URL
                                 @if(isTranslating()){
-                                <span class="shared-badge" title="Shared across all languages">shared</span>
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                             </label>
                             <input type="url" class="form-control form-control-sm" formControlName="canonicalUrl"
@@ -797,7 +799,7 @@
                         <div class="social-preview-section">
                             <label class="form-label">
                                 <i class="fa-solid fa-share-nodes me-1"></i>
-                                Social Sharing Preview
+                                {{ 'admin.contents.editor.social_preview' | transloco }}
                             </label>
                             <p class="text-muted small mb-2">Preview how this content may appear when shared on social
                                 media</p>
@@ -809,7 +811,7 @@
                                     } @else {
                                     <div class="image-placeholder">
                                         <i class="fa-solid fa-image"></i>
-                                        <span>No cover image</span>
+                                        <span>{{ 'admin.contents.editor.no_cover_image' | transloco }}</span>
                                     </div>
                                     }
                                 </div>
