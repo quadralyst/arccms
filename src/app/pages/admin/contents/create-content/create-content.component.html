@@ -486,7 +486,7 @@
                         @for (field of currentFields; track field.key) {
                         <div class="form-group mb-3">
                             <label class="form-label">
-                                {{ field.label }}
+                                {{ fieldLabel(field) }}
                                 @if (field.required) {
                                 <span class="text-danger">*</span>
                                 }

@@ -19,7 +19,7 @@ import { BaseComponent } from '../../../../../../shared/components/base/base.com
 import { IconPickerComponent } from '../../../../../../shared/components/icon-picker/icon-picker.component';
 import { OmitCommonFields } from '../../../../../../shared/models/base-model';
 import { LocalizationService } from '../../../../../core/services/localization.service';
-import { ContentTypeNames, pruneNameTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
+import { ContentTypeNames, pruneNameTranslations, pruneFieldLabelTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
 import { ContentTypesStore } from '../content-types.store';
 import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator } from '../collection-ref-helpers';
 import { roleGuard } from '../../../../../guards/role.guard';
@@ -106,6 +106,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             name: currentItem.name || '',
             singularName: currentItem.singularName || '',
             nameTranslations: currentItem.nameTranslations || {},
+            fieldLabelTranslations: currentItem.fieldLabelTranslations || {},
             description: currentItem.description || '',
             hasPublicUrl: currentItem.hasPublicUrl !== false,
             slug: currentItem.slug || '',
@@ -136,6 +137,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
                 name: '',
                 singularName: '',
                 nameTranslations: {},
+                fieldLabelTranslations: {},
                 description: '',
                 hasPublicUrl: true,
                 slug: '',
@@ -153,8 +155,10 @@ export default class EditContentTypeComponent extends BaseComponent implements O
 
     constructor() {
         super();
-        // The per-language name fields only appear on a multilingual site.
-        this.localization.load();
+        // The per-language tabs only appear on a multilingual site.
+        this.localization.load().then(settings => {
+            if (!this.activeLang()) this.activeLang.set(settings.defaultLanguage);
+        });
         // Use effect for side effects (form updates) - signals can be written inside effects
         effect(() => {
             const item = this.currentItem();
@@ -171,6 +175,9 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         // value rather than nested controls so adding a language needs no
         // form surgery.
         nameTranslations: new FormControl<Record<string, ContentTypeNames>>({}),
+        // lang -> fieldKey -> label. Derived from the live field list below,
+        // so adding or removing a field updates the translation tabs at once.
+        fieldLabelTranslations: new FormControl<Record<string, Record<string, string>>>({}),
         description: new FormControl(''),
         hasPublicUrl: new FormControl(true),
         slug: new FormControl('', [Validators.required, Validators.pattern(/^[a-z0-9-]+$/)]),
@@ -179,6 +186,54 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         templateFolder: new FormControl('default'),
         fields: new FormArray([], [duplicateFieldKeyValidator()]),
     });
+
+    /**
+     * Language tab currently shown in the drawer. The default language shows
+     * the whole form; any other shows only what can be translated.
+     */
+    activeLang = signal<string>('');
+    isTranslating = computed(() => {
+        const active = this.activeLang();
+        return !!active && active !== this.localization.defaultLanguage();
+    });
+    enabledLanguages = computed(() => this.localization.enabledLanguages());
+    defaultLang = computed(() => this.localization.defaultLanguage());
+
+    /**
+     * The fields available to translate, read straight from the live form —
+     * which is what keeps the translation tabs in step with the field list.
+     *
+     * A method rather than a computed: the form is populated by an effect that
+     * can run before any subscription is in place, so a signal-based cache can
+     * latch an empty list and never invalidate. Re-reading each change
+     * detection cycle is cheap here and always correct.
+     */
+    translatableFields(): Array<{ key: string; label: string }> {
+        // Read the controls rather than the FormArray's value: `value` omits
+        // disabled controls, and the controls are the same source the
+        // default-language tab renders from.
+        const array = this.editForm.get('fields') as FormArray | null;
+        return (array?.controls ?? [])
+            .map(control => ({
+                key: (control.get('key')?.value as string) || '',
+                label: (control.get('label')?.value as string) || '',
+            }))
+            .filter(field => !!field.key)
+            .map(field => ({ key: field.key, label: field.label || field.key }));
+    }
+
+    translatedFieldLabel(lang: string, fieldKey: string): string {
+        const all = this.editForm.get('fieldLabelTranslations')?.value || {};
+        return all[lang]?.[fieldKey] || '';
+    }
+
+    setTranslatedFieldLabel(lang: string, fieldKey: string, value: string): void {
+        const control = this.editForm.get('fieldLabelTranslations');
+        const all = { ...(control?.value || {}) };
+        all[lang] = { ...(all[lang] || {}), [fieldKey]: value };
+        control?.setValue(all);
+        control?.markAsDirty();
+    }
 
     /** Languages other than the default — the ones needing a translated name. */
     extraLanguages = computed(() => this.localization.extraLanguages());
@@ -287,6 +342,13 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             name: formValue.name || '',
             singularName: formValue.singularName || '',
             nameTranslations: pruneNameTranslations(formValue.nameTranslations),
+            fieldLabelTranslations: pruneFieldLabelTranslations(
+                formValue.fieldLabelTranslations,
+                // Prefixed keys, matching what is written to `fields` below.
+                (formValue.fields || []).map((field: any) =>
+                    field.key && !field.key.startsWith(slug + '_') ? slug + '_' + field.key : field.key,
+                ),
+            ),
             slug: slug,
             description: formValue.description || '',
             icon: formValue.icon || 'fa-solid fa-folder',

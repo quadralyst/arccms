@@ -8,7 +8,7 @@ import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
 import { ContentTypesStore } from '../content-types/content-types.store';
-import { ContentType, ContentTypeField } from '../content-types/content-types.model';
+import { ContentType, ContentTypeField, contentTypeFieldLabel } from '../content-types/content-types.model';
 import TiptapEditorComponent from '../../../../../shared/components/tiptap-editor/tiptap-editor.component';
 import { TagsStore } from '../content-types/tags/tags.store';
 import { ITag } from '../content-types/tags/tags.model';
@@ -752,6 +752,14 @@ export class CreateContentComponent extends BaseComponent {
   baseCustomFieldValue(key: string): string {
     const value = this.baseValues().customFields?.[key];
     return value === null || value === undefined ? '' : String(value);
+  }
+
+  /**
+   * A custom field's label in the language being edited, so a translator sees
+   * the form in their own language. Falls back to the authored label.
+   */
+  fieldLabel(field: ContentTypeField): string {
+    return contentTypeFieldLabel(this.currentContentType(), field.key, field.label, this.activeLang());
   }
 
   /** Only free-text custom fields are translatable — see M-D5. */
