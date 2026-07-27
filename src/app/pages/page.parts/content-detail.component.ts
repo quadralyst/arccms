@@ -547,6 +547,19 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     /** Guards against re-reading the translation on every store emission. */
     private translationRequested = false;
 
+    /** Tells the switcher which languages this item actually exists in. */
+    private async announceVariants(typeSlug: string, docId: string): Promise<void> {
+        const defaultLang = this.localization.defaultLanguage();
+        try {
+            const translated = await this.injector
+                .get(ContentsService)
+                .getTranslatedLanguages(typeSlug, docId);
+            this.localization.languageVariants.set([defaultLang, ...translated]);
+        } catch {
+            this.localization.languageVariants.set([defaultLang]);
+        }
+    }
+
     /**
      * Reads the language variant for this page. Published content first; a
      * preview falls back to the draft variant, so an unpublished translation
@@ -587,16 +600,21 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // document id is not known before then. Reads only the store and the
         // language, so writing `translation` below cannot re-trigger it.
         effect(() => {
-            const lang = this.pageLang();
             const items = this.contentsStore.items();
-            if (!lang || this.translationRequested) return;
+            if (this.translationRequested) return;
 
             const match = items.find((content: IContents) =>
                 content.urlSlug === this.urlSlug() && content.type === this.contentTypeSlug());
             if (!match?.id) return;
 
             this.translationRequested = true;
-            untracked(() => this.loadTranslation(lang, this.contentTypeSlug(), match.id));
+            const lang = this.pageLang();
+            untracked(() => {
+                if (lang) this.loadTranslation(lang, this.contentTypeSlug(), match.id);
+                // The switcher may now offer exactly the languages this item
+                // has, rather than everything enabled site-wide.
+                this.announceVariants(this.contentTypeSlug(), match.id);
+            });
         });
 
         effect(() => {
@@ -674,8 +692,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         this.urlSlug.set(contentSlug);
         this.isPreview.set(isPreview);
         this.pageLang.set(lang);
-        // Content pages are published per language, so the switcher applies here.
-        this.localization.hasLanguageVariants.set(true);
+        // Filled in once the published translations are known; until then the
+        // default language alone, so no dead link is ever offered.
+        this.localization.languageVariants.set(
+            [this.localization.defaultLanguage()],
+        );
         // Chrome for this page's language; '' restores the authored English.
         this.uiStrings.use(lang);
 
@@ -708,8 +729,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     }
 
     ngOnDestroy(): void {
-        // The next page may not have language variants.
-        this.localization.hasLanguageVariants.set(false);
+        // The next page may have no variants at all.
+        this.localization.languageVariants.set(null);
         if (this.notFoundTimer !== null) {
             clearTimeout(this.notFoundTimer);
             this.notFoundTimer = null;

@@ -33,6 +33,26 @@ export class ContentsService extends DbService<IContents> {
     }
 
     /**
+     * Lists the languages a published item has been translated into. Used by
+     * the switcher so it never offers a language whose page was never
+     * deployed.
+     */
+    async getTranslatedLanguages(contentTypeSlug: string, docId: string): Promise<string[]> {
+        try {
+            const ref = runInInjectionContext(this.injector, () =>
+                collection(this.firestore, `arc_${contentTypeSlug}`, docId, 'translations'),
+            );
+            const snap = await runInInjectionContext(this.injector, () => getDocs(ref));
+            return snap.docs.map(doc => doc.id);
+        } catch (error) {
+            // No translations is the safe answer — the page still exists in the
+            // default language.
+            console.error('Error listing published translations:', error);
+            return [];
+        }
+    }
+
+    /**
      * Reads a published language variant: `arc_{slug}/{docId}/translations/{lang}`.
      *
      * Mirrors `DraftContentsService.getTranslation` on the published side. Used

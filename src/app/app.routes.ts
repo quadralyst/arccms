@@ -451,6 +451,16 @@ export const routes: Routes = [
       import('./pages/public-page-renderer/public-page-renderer.component').then((m) => m.PublicPageRendererComponent),
   },
 
+  // Translated home pages. Declared per language rather than through the
+  // language guard: a home page exists only where someone has written one, and
+  // that is a file in the repo, not a Firestore setting. Listed before the
+  // language content routes so the single-segment path wins.
+  {
+    path: 'hi',
+    loadComponent: () =>
+      import('./pages/home-i18n/home.hi.component').then((m) => m.default),
+  },
+
   // Translated public content: /{lang}/{contentTypeSlug}[/{urlSlug}].
   //
   // Published pages are served as static HTML straight from Hosting; these
