@@ -580,6 +580,9 @@ export class CreateContentComponent extends BaseComponent {
       // Re-checked after the debounce, not just when the timer was armed —
       // the active language can change while it is pending.
       filter(() => !this.isTranslating()),
+      // Never rewrite an unchanged document: that bumps modifiedAt and makes
+      // the list report the item as edited-since-publish when it is not.
+      filter(() => this.hasUnsavedDraftChanges()),
       filter(() => this.validateForDraft().valid),
     ).subscribe(() => {
       this.performAutoSave();
@@ -761,11 +764,65 @@ export class CreateContentComponent extends BaseComponent {
       normalize(values.seoTitle),
       normalize(values.metaDescription),
       custom,
-    ].join(' ');
+    ].join('\u0000');
   }
 
   /** Signature of what is currently stored/applied for the active language. */
   private appliedSignature = '';
+
+  // ── No-op auto-save suppression ──────────────────────────────────────────
+  // The editor emits a content event when TipTap receives its value on load,
+  // which armed the auto-save debounce without the user touching anything —
+  // so merely opening an item rewrote it 30s later. That bumped `modifiedAt`
+  // and made every published item read as "Edited" in the list. Auto-save now
+  // compares against the state as loaded and skips when nothing has changed.
+  private savedDraftSignature: string | null = null;
+  /** Set when values are applied programmatically; the editor's echo of that
+   *  application re-captures the baseline instead of counting as an edit. */
+  private awaitingBaselineCapture = false;
+
+  /**
+   * Stable signature of the fields worth persisting. Volatile bookkeeping
+   * (timestamps, save status) is excluded so it never registers as a change.
+   */
+  private draftSignature(values: Record<string, unknown>): string {
+    const VOLATILE = new Set([
+      'updatedAt', 'modifiedAt', 'createdAt', 'modifiedBy', 'createdBy',
+      'publishedOn', 'lastPublishedAt', 'status', 'publishedStatus',
+    ]);
+    const normalize = (value: unknown): unknown => {
+      if (value === null || value === undefined || value === '') return null;
+      if (Array.isArray(value)) return value.map(normalize);
+      if (value instanceof Date) return null;
+      if (typeof value === 'object') {
+        const entries = Object.entries(value as Record<string, unknown>)
+          .filter(([key]) => !VOLATILE.has(key))
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, val]) => [key, normalize(val)]);
+        return Object.fromEntries(entries);
+      }
+      return value;
+    };
+
+    const filtered = Object.entries(values)
+      .filter(([key]) => !VOLATILE.has(key))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, val]) => [key, normalize(val)]);
+
+    return JSON.stringify(Object.fromEntries(filtered));
+  }
+
+  /** Records the current form state as "saved", so it stops looking dirty. */
+  private captureDraftBaseline(): void {
+    if (this.isTranslating()) return;
+    this.savedDraftSignature = this.draftSignature(this.buildDraftFormValues());
+  }
+
+  /** True when the base document differs from what was loaded or last saved. */
+  private hasUnsavedDraftChanges(): boolean {
+    if (this.savedDraftSignature === null) return true;
+    return this.draftSignature(this.buildDraftFormValues()) !== this.savedDraftSignature;
+  }
 
   /** Marks the active translation dirty; the base auto-save is not involved. */
   markTranslationDirty(): void {
@@ -989,6 +1046,11 @@ export class CreateContentComponent extends BaseComponent {
       { injector: this.injector }
     );
 
+    // Freshly loaded content is by definition unmodified. The editor's echo
+    // (above) refines this once TipTap has normalized the body.
+    this.awaitingBaselineCapture = true;
+    this.captureDraftBaseline();
+
     // Trigger change detection to update the view
     this.cdr.detectChanges();
   }
@@ -1080,6 +1142,15 @@ export class CreateContentComponent extends BaseComponent {
     // "If I change the summary then the SEO Description is using the default value, then update the SEO description"
 
     // We handle the sync in valueChanges of summary. Here we just set summary.
+
+    // TipTap echoes the value it was just given, reserializing it on the way.
+    // That echo — and the summary/meta-description it cascades into above — is
+    // the last step of loading, not a user edit, so the baseline is taken here
+    // rather than in patchForms, once everything has settled.
+    if (this.awaitingBaselineCapture) {
+      this.awaitingBaselineCapture = false;
+      this.captureDraftBaseline();
+    }
   }
 
   public createSlag(): void {
@@ -1590,6 +1661,8 @@ export class CreateContentComponent extends BaseComponent {
   }
 
   private addContentInDraft(formValues: any, isPublish: boolean = false, afterSave?: () => void) {
+    const savedSignature = this.draftSignature(formValues);
+
     this.draftContentStore.add(formValues, this.contentTypeSlug).subscribe({
       next: (newId: string) => {
         this.ngZone.run(() => {
@@ -1597,6 +1670,8 @@ export class CreateContentComponent extends BaseComponent {
             // The store's add() method returns the ID string directly
             this.contentId = newId;
             this.lastDraftSavedDate = new Date();
+            // See updateContentInDraft — what was written is the clean state.
+            this.savedDraftSignature = savedSignature;
 
             // Enqueue publish action so the Cloud Function syncs to the published collection
             if (isPublish) {
@@ -1639,10 +1714,17 @@ export class CreateContentComponent extends BaseComponent {
     // Update updatedAt timestamp
     formValues.updatedAt = new Date();
 
+    const savedSignature = this.draftSignature(formValues);
+
     this.draftContentStore.update(this.contentId, formValues, this.contentTypeSlug).subscribe({
       next: () => {
         this.ngZone.run(async () => {
           this.lastDraftSavedDate = new Date();
+          // What we just wrote is now the clean state. Without this a pending
+          // auto-save debounce fires ~30s later and rewrites the document —
+          // bumping modifiedAt past lastPublishedAt and making a just-published
+          // item report as "Edited" with nobody having touched it.
+          this.savedDraftSignature = savedSignature;
 
           // Enqueue publish action so the Cloud Function syncs to the published collection
           if (type === this.constantVariables.PUBLISH) {
@@ -1720,6 +1802,8 @@ export class CreateContentComponent extends BaseComponent {
     // language switch mid-debounce silently overwrites the default-language
     // content with the translation.
     if (this.isTranslating()) return;
+    // Re-checked here too: performAutoSave is also reachable directly.
+    if (!this.hasUnsavedDraftChanges()) return;
 
     const formValues = this.buildDraftFormValues();
     this.isAutoSaving = true;
@@ -1734,6 +1818,7 @@ export class CreateContentComponent extends BaseComponent {
           this.saveStatusMessage = 'Auto-saved';
           this.saveStatusType = 'success';
           this.isAutoSaving = false;
+          this.captureDraftBaseline();
           this.cdr.detectChanges();
 
           setTimeout(() => {

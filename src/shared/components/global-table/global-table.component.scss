@@ -74,6 +74,13 @@ code {
         background: #f8d7da;
         color: #721c24;
     }
+
+    /* An outstanding action rather than a failure — e.g. published content
+       whose draft has unpublished changes. */
+    &.pending {
+        background: #fff3cd;
+        color: #664d03;
+    }
 }
 
 

@@ -1416,6 +1416,91 @@ describe('CreateContentComponent', () => {
         });
     });
 
+    describe('No-op auto-save suppression', () => {
+        // Opening an item used to rewrite it 30s later, because TipTap emits a
+        // content event when it receives its value. That bumped modifiedAt and
+        // made every published item read as "Edited" in the list.
+        async function loadSavedItem(): Promise<void> {
+            component.contentTypeSlug = 'article';
+            component.contentId = 'doc-1';
+            component['patchForms']({
+                id: 'doc-1',
+                title: 'Hello world',
+                content: '<p>Body</p>',
+                summary: 'Summary',
+                urlSlug: 'hello-world',
+                type: 'article',
+            });
+            // TipTap's echo of the value it was just given.
+            component.passEditorContentToParent('<p>Body</p>');
+        }
+
+        it('does not save when nothing has changed since loading', async () => {
+            await loadSavedItem();
+
+            component['performAutoSave']();
+
+            expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+        });
+
+        it('saves once a field actually changes', async () => {
+            await loadSavedItem();
+            component.pageTitle = 'Hello world, edited';
+
+            component['performAutoSave']();
+
+            expect(mockDraftContentsStore.update).toHaveBeenCalled();
+        });
+
+        it('ignores the editor reserializing the same body', async () => {
+            await loadSavedItem();
+            // Same content, re-emitted — e.g. on a re-render.
+            component.passEditorContentToParent('<p>Body</p>');
+
+            component['performAutoSave']();
+
+            expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+        });
+
+        it('stops reporting changes after a save completes', async () => {
+            await loadSavedItem();
+            component.pageTitle = 'Edited once';
+            component['performAutoSave']();
+            expect(mockDraftContentsStore.update).toHaveBeenCalledTimes(1);
+
+            component['performAutoSave']();
+
+            expect(mockDraftContentsStore.update).toHaveBeenCalledTimes(1);
+        });
+
+        it('does not auto-save again right after a manual save', async () => {
+            // Regression: the baseline was only reset by auto-save, so a manual
+            // save or publish left the item looking dirty. The pending debounce
+            // then rewrote it ~30s later, pushing modifiedAt past
+            // lastPublishedAt and flipping a just-published item to "Edited".
+            await loadSavedItem();
+            component.pageTitle = 'Edited then published';
+
+            component.saveAsDraft();
+            mockDraftContentsStore.update.mockClear();
+
+            component['performAutoSave']();
+
+            expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+        });
+
+        it('saves an item whose baseline was never captured', async () => {
+            // Defensive: an unknown baseline must not silently swallow a save.
+            component.contentTypeSlug = 'article';
+            component.contentId = 'doc-1';
+            component.pageTitle = 'Fresh';
+
+            component['performAutoSave']();
+
+            expect(mockDraftContentsStore.update).toHaveBeenCalled();
+        });
+    });
+
     // ── Translations (M2) ────────────────────────────────────────────────────
     describe('Multilingual editing', () => {
         /** Puts the editor on a saved item with English content loaded. */

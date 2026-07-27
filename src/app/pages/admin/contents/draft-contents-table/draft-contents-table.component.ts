@@ -28,6 +28,12 @@ import { DraftContentsStore } from '../draft-content-store/draft-contents.store'
 import { ContentTypesStore } from '../content-types/content-types.store';
 import { ContentTypesService } from '../content-types/content-types.service';
 import { ContentType, ContentTypeField } from '../content-types/content-types.model';
+import {
+  CONTENT_STATUS_CLASS,
+  CONTENT_STATUS_LABEL,
+  CONTENT_STATUS_TOOLTIP,
+  deriveContentStatus,
+} from '../draft-content-store/content-status';
 import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import {
   GlobalTableComponent,
@@ -231,12 +237,14 @@ export class DraftContentsTableComponent
       key: 'publishedStatus',
       header: 'Status',
       type: 'badge',
+      // Three states rather than a published/draft boolean — a live page whose
+      // draft has moved on is neither. `textFn` puts the badge in multi-state
+      // mode, leaving the tone to classFn.
       badgeConfig: {
-        trueText: 'Published',
-        falseText: 'Draft',
-        trueClass: 'active',
-        falseClass: 'inactive',
+        textFn: (row) => CONTENT_STATUS_LABEL[deriveContentStatus(row)],
       },
+      classFn: (row) => CONTENT_STATUS_CLASS[deriveContentStatus(row)],
+      titleFn: (row) => CONTENT_STATUS_TOOLTIP[deriveContentStatus(row)],
     },
     {
       key: 'modifiedAt',
