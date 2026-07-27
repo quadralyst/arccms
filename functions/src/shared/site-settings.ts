@@ -52,6 +52,8 @@ let siteConfigCache: { data: SiteConfig; timestamp: number } | null = null;
 let aboutConfigCache: { data: AboutConfig; timestamp: number } | null = null;
 let miscSettingsCache: { data: MiscSettings; timestamp: number } | null = null;
 let localizationCache: { data: LocalizationSettings; timestamp: number } | null = null;
+/** Per-language UI strings, keyed by language code. */
+const uiStringsCache = new Map<string, { data: Record<string, string>; timestamp: number }>();
 
 function isCacheValid(cache: { timestamp: number } | null): boolean {
     if (!cache) return false;
@@ -281,6 +283,46 @@ export async function getLocalizationSettings(): Promise<LocalizationSettings> {
     return settings;
 }
 
+/**
+ * Static UI strings for a language, used by `data-arc-t` in templates and
+ * partials. Committed to the repo at `public/i18n/{lang}/strings.json` and
+ * therefore served from hosting — they ship with the templates and must exist
+ * at publish time (decision M-D18).
+ *
+ * The default language has no file: its text is the English authored into the
+ * templates, which doubles as the fallback for any missing key.
+ *
+ * Cached for 5 minutes per instance, like the partials.
+ */
+export async function getUiStrings(lang: string): Promise<Record<string, string>> {
+    if (!lang) return {};
+
+    const cached = uiStringsCache.get(lang);
+    if (cached && isCacheValid(cached)) return cached.data;
+
+    const projectId = process.env.GCLOUD_PROJECT || '';
+    let strings: Record<string, string> = {};
+
+    if (projectId) {
+        try {
+            const res = await fetch(`https://${projectId}.web.app/i18n/${lang}/strings.json`);
+            if (res.ok) {
+                const parsed = await res.json();
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    strings = parsed as Record<string, string>;
+                }
+            }
+        } catch (error) {
+            // A missing or malformed file leaves the authored English in place,
+            // which is the designed fallback — never fail a publish over it.
+            console.warn(`Could not load UI strings for "${lang}":`, error);
+        }
+    }
+
+    uiStringsCache.set(lang, { data: strings, timestamp: Date.now() });
+    return strings;
+}
+
 /** Languages other than the default — the ones that need translations. */
 export function getExtraLanguages(settings: LocalizationSettings): Language[] {
     return settings.enabledLanguages.filter((l) => l.code !== settings.defaultLanguage);
@@ -304,4 +346,5 @@ export function clearSettingsCache(): void {
     aboutConfigCache = null;
     miscSettingsCache = null;
     localizationCache = null;
+    uiStringsCache.clear();
 }

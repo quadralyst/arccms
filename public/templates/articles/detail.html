@@ -68,13 +68,13 @@
                 <nav class="article-nav">
                     <div class="nav-prev" data-arc-if="previousContent">
                         <a href="{{ previousContent.url }}" class="nav-link">
-                            <span class="nav-direction"><i class="fas fa-chevron-left"></i> Previous</span>
+                            <span class="nav-direction"><i class="fas fa-chevron-left"></i data-arc-t="previous"> Previous</span>
                             <span class="nav-title">{{ previousContent.title }}</span>
                         </a>
                     </div>
                     <div class="nav-next" data-arc-if="nextContent">
                         <a href="{{ nextContent.url }}" class="nav-link">
-                            <span class="nav-direction">Next <i class="fas fa-chevron-right"></i></span>
+                            <span class="nav-direction" data-arc-t="next">Next <i class="fas fa-chevron-right"></i></span>
                             <span class="nav-title">{{ nextContent.title }}</span>
                         </a>
                     </div>

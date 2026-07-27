@@ -16,6 +16,8 @@ import { FooterComponent } from './footer.component';
 import { HeaderComponent } from './header.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
+import { UiStringsService } from '../../core/services/ui-strings.service';
+import { ArcTranslateDirective } from '../../core/directives/arc-translate.directive';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import {
     IContentTranslation,
@@ -29,7 +31,7 @@ import {
 @Component({
     selector: 'arc-content-list',
     standalone: true,
-    imports: [CommonModule, HeaderComponent, FooterComponent, SafeHtmlPipe],
+    imports: [CommonModule, HeaderComponent, FooterComponent, SafeHtmlPipe, ArcTranslateDirective],
     template: `
     <arc-header></arc-header>
     
@@ -70,8 +72,8 @@ import {
                     @if(filteredContents().length === 0) {
                         <div class="empty-state">
                             <i class="fas fa-newspaper"></i>
-                            <h3>No Content Yet</h3>
-                            <p>Check back soon for new content.</p>
+                            <h3 data-arc-t="empty_title">No Content Yet</h3>
+                            <p data-arc-t="empty_body">Check back soon for new content.</p>
                         </div>
                     } @else {
                         <div class="content-grid">
@@ -86,11 +88,11 @@ import {
                                         <div class="content-card-meta">
                                             <time>{{ formatContentDate(content.publishedOn) }}</time>
                                             <span class="meta-separator">•</span>
-                                            <span>{{ getReadTime(content) }} min read</span>
+                                            <span data-arc-t="min_read">{{ getReadTime(content) }} min read</span>
                                         </div>
                                         <h2 class="content-card-title">{{ content.title }}</h2>
                                         <p class="content-card-excerpt">{{ getExcerpt(content) }}</p>
-                                        <span class="content-card-read-more">Read Article <i class="fas fa-arrow-right"></i></span>
+                                        <span class="content-card-read-more"><span data-arc-t="read_more">Read Article</span> <i class="fas fa-arrow-right"></i></span>
                                     </div>
                                 </a>
                             }
@@ -321,6 +323,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     // ContentDetailComponent for why this is not injected eagerly.
     private injector = inject(Injector);
     private localization = inject(LocalizationService);
+    private uiStrings = inject(UiStringsService);
     tagsStore = inject(TagsStore);
     private gaTracking = inject(GaTrackingService);
     private trackedContentTypes = new Set<string>();
@@ -439,6 +442,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         this.pageLang.set(lang);
         // Content pages are published per language, so the switcher applies here.
         this.localization.hasLanguageVariants.set(true);
+        // Chrome for this page's language; '' restores the authored English.
+        this.uiStrings.use(lang);
 
         if (!slug) {
             return;
@@ -589,7 +594,9 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         });
 
         // First process loops with list data
-        let hydratedHtml = TemplateHydrationService.processLoops(templateHtml, { items: listData });
+        // See ContentDetailComponent — chrome before loops and bindings.
+        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings());
+        let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
 
         // Then hydrate with page-level data
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);

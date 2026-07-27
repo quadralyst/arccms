@@ -19,6 +19,8 @@ import { FooterComponent } from './footer.component';
 import { HeaderComponent } from './header.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
+import { UiStringsService } from '../../core/services/ui-strings.service';
+import { ArcTranslateDirective } from '../../core/directives/arc-translate.directive';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
 import {
@@ -33,7 +35,7 @@ import {
 @Component({
     selector: 'arc-content-detail',
     standalone: true,
-    imports: [CommonModule, HeaderComponent, FooterComponent, SafeHtmlPipe],
+    imports: [CommonModule, HeaderComponent, FooterComponent, SafeHtmlPipe, ArcTranslateDirective],
     template: `
     <arc-header></arc-header>
     
@@ -71,7 +73,7 @@ import {
             <header class="article-header">
                 <div class="container">
                     <a class="article-back-link" [href]="listUrl()">
-                        <i class="fas fa-arrow-left"></i> Back to {{ currentContentType()?.name }}
+                        <i class="fas fa-arrow-left"></i> <span data-arc-t="back_to">Back to {{ currentContentType()?.name }}</span>
                     </a>
                     <h1 class="article-title">{{ currentContent()?.title }}</h1>
                     <div class="article-meta">
@@ -80,7 +82,7 @@ import {
                         </span>
                         <span class="meta-divider">•</span>
                         <span class="article-read-time">
-                            <i class="far fa-clock"></i> {{ getReadTime() }} min read
+                            <i class="far fa-clock"></i> <span data-arc-t="min_read">{{ getReadTime() }} min read</span>
                         </span>
                     </div>
                 </div>
@@ -109,7 +111,7 @@ import {
 
                     <!-- Share Buttons -->
                     <div class="article-share">
-                        <span class="share-label">Share this article</span>
+                        <span class="share-label" data-arc-t="share_this_article">Share this article</span>
                         <div class="share-buttons">
                             <a class="share-btn share-twitter" [href]="getShareUrl('twitter')" target="_blank" rel="noopener">
                                 <i class="fab fa-twitter"></i>
@@ -130,7 +132,7 @@ import {
                     <nav class="article-navigation">
                         <a [href]="listUrl()" class="nav-back">
                             <i class="fas fa-th-large"></i>
-                            <span>All {{ currentContentType()?.name }}</span>
+                            <span data-arc-t="all_of_type">All {{ currentContentType()?.name }}</span>
                         </a>
                     </nav>
                 </div>
@@ -463,6 +465,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     // that renders content — and its spec — depend on Firestore.
     private injector = inject(Injector);
     private localization = inject(LocalizationService);
+    private uiStrings = inject(UiStringsService);
     private auth = inject(Auth);
     private gaTracking = inject(GaTrackingService);
     private trackedContent = false;
@@ -667,6 +670,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         this.pageLang.set(lang);
         // Content pages are published per language, so the switcher applies here.
         this.localization.hasLanguageVariants.set(true);
+        // Chrome for this page's language; '' restores the authored English.
+        this.uiStrings.use(lang);
 
         // Eagerly set isCheckingDraft to prevent 404 flash before the effect fires
         if (isPreview) {
@@ -926,6 +931,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         const tagsData = (content as any).tagsWithColors ||
             (content.tags || []).map((t: string) => ({ name: t, color: '#6b7280' }));
         
+        // Static chrome first — before loops and bindings, so a translated
+        // value may carry its own {{ }} and a repeated item template is
+        // translated once. Mirrors the publish pipeline's order.
+        hydratedHtml = TemplateHydrationService.applyStrings(hydratedHtml, this.uiStrings.strings());
+
         // Always processing loops to ensure cleanup of placeholders if empty
         hydratedHtml = TemplateHydrationService.processLoops(hydratedHtml, {
             tags: tagsData
