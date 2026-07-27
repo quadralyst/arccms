@@ -279,7 +279,7 @@ translated, because the noun comes from the `ContentTypes` document.
    `buildTemplateData` (`contentType`, `cat`), the list/detail SPA components, and page
    titles.
 
-#### M5.3 — Per-language home page
+#### M5.3 — Per-language home page ✅
 
 1. `public/i18n/{lang}/index.html` — a full translated copy of `public/index.html`.
    Same directory as that language's `strings.json`, so a language is one folder.
@@ -296,7 +296,7 @@ translated, because the noun comes from the `ContentTypes` document.
    translation lags. Whole-file translation trades single-source structure for
    translator freedom; the marker makes that trade *visible* rather than silent.
 
-#### M5.4 — Switcher honesty
+#### M5.4 — Switcher honesty ✅
 
 `LocalizationService.hasLanguageVariants` becomes `languageVariants: string[] | null` —
 the languages *this page* actually exists in, not merely those enabled site-wide. The
@@ -308,6 +308,20 @@ a language whose page was never deployed.
 **Deploy:** hosting (new i18n assets, annotated templates/partials) + functions.
 **Exit criteria:** a Hindi article page contains no English chrome; `/hi` serves a
 translated home page; the switcher offers exactly the languages a page exists in.
+
+**As built.** Two things surfaced during M5.3 that the plan above did not anticipate:
+
+- A translated page also needs translated *head* metadata. The shell (`index.html`) is
+  one file shared by every route, so `/hi` was served with an English `<title>` and
+  `lang="en"`. `HomeBaseComponent` now sets `lang`, title and description from the page's
+  own language, during prerendering as well, and restores the shell's `lang` on destroy
+  so a later SPA route is not mislabelled.
+- A `.md` file placed under `src/` is picked up by the Analog content plugin and fails
+  the rollup parse, which is why `public/i18n/README.md` documents the per-language
+  components rather than a README beside them.
+
+The drift guard (item 4) is the marker only — no build check yet; the mismatch is
+visible on inspection. Worth automating when a third language lands.
 
 ### Phase M6 — Admin UI i18n foundation (M)
 
