@@ -73,4 +73,35 @@ describe('ArcTranslateDirective', () => {
 
         expect(fixture.nativeElement.textContent.trim()).toBe('लेख पढ़ें');
     });
+    it('substitutes placeholders carried by a translation', () => {
+        // Angular cannot re-interpolate a runtime string, so the directive
+        // resolves the same {{ }} tokens the static pipeline uses.
+        @Component({
+            standalone: true,
+            imports: [ArcTranslateDirective],
+            template: `<span data-arc-t="back_to" [data-arc-t-params]="{ contentType: 'Articles' }">Back to Articles</span>`,
+        })
+        class ParamHost { }
+
+        strings.set({ back_to: 'वापस {{ contentType }} पर' });
+        const fixture = TestBed.createComponent(ParamHost);
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.textContent.trim()).toBe('वापस Articles पर');
+    });
+
+    it('leaves an unknown placeholder as authored', () => {
+        @Component({
+            standalone: true,
+            imports: [ArcTranslateDirective],
+            template: `<span data-arc-t="back_to" [data-arc-t-params]="{ other: 'x' }">Back</span>`,
+        })
+        class ParamHost { }
+
+        strings.set({ back_to: 'वापस {{ contentType }} पर' });
+        const fixture = TestBed.createComponent(ParamHost);
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.textContent.trim()).toContain('{{ contentType }}');
+    });
 });

@@ -88,7 +88,7 @@ import {
                                         <div class="content-card-meta">
                                             <time>{{ formatContentDate(content.publishedOn) }}</time>
                                             <span class="meta-separator">•</span>
-                                            <span data-arc-t="min_read">{{ getReadTime(content) }} min read</span>
+                                            <span data-arc-t="min_read" [data-arc-t-params]="{ readTime: getReadTime(content) }">{{ getReadTime(content) }} min read</span>
                                         </div>
                                         <h2 class="content-card-title">{{ content.title }}</h2>
                                         <p class="content-card-excerpt">{{ getExcerpt(content) }}</p>
