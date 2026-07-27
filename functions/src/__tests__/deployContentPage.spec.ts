@@ -654,5 +654,56 @@ describe('deployContentPage', () => {
                 '/hi/articles/test-article.html',
             ]);
         });
+        it('should let a translated field win over a shadowing custom field', async () => {
+            // Content types commonly define a custom field whose key shadows a
+            // built-in (`title`). The custom field is spread last, so without
+            // care an untranslated one silently overrides the translated title.
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, customFields: { title: 'English custom title' } }),
+            });
+            withHindiTranslation({ title: 'Hindi title' });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const hindi = htmlFor('/hi/articles/test-article.html');
+            expect(hindi).toContain('Hindi title');
+            expect(hindi).not.toContain('English custom title');
+        });
+
+        it('should leave the shadowing custom field in place when untranslated', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, customFields: { title: 'English custom title' } }),
+            });
+            mockGetLocalizationSettings.mockResolvedValue(EN_HI);
+            mockTranslationsGet.mockResolvedValue({
+                docs: [{ id: 'hi', data: () => ({ lang: 'hi', content: '<p>Hindi body</p>' }) }],
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html')).toContain('English custom title');
+        });
+
+        it('should not reuse an author canonical on translated variants', async () => {
+            // A shared canonical would contradict hreflang and deindex the
+            // translations.
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, canonicalUrl: 'https://elsewhere.com/original' }),
+            });
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/articles/test-article.html'))
+                .toContain('<link rel="canonical" href="https://elsewhere.com/original">');
+            expect(htmlFor('/hi/articles/test-article.html'))
+                .toContain('<link rel="canonical" href="https://example.com/hi/articles/test-article">');
+        });
     });
 });
