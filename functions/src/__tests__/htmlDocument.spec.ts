@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     buildHtmlDocument,
+    toOgLocale,
     replaceArcComponents,
     extractStylesAndScripts,
     injectSeoMetadata,
@@ -328,5 +329,101 @@ describe('replaceArcComponents – hash link fix', () => {
         const result = replaceArcComponents(html, header, footer);
         expect(result).toContain('href="/"');
         expect(result).toContain('href="#features"');
+    });
+});
+
+// ── Multilingual document head (M3) ─────────────────────────────────────────
+
+describe('buildHtmlDocument – language and hreflang', () => {
+    const BASE_META = {
+        title: 'T',
+        metaDescription: 'D',
+        canonicalUrl: 'https://example.com/articles/a',
+        ogImage: '',
+        ogType: 'article',
+        siteName: 'Site',
+        cssUrls: [],
+    };
+
+    it('should default to English when no language is given', () => {
+        const html = buildHtmlDocument('<p>x</p>', { ...BASE_META }, '', '');
+        expect(html).toContain('<html lang="en">');
+        expect(html).toContain('<meta property="og:locale" content="en">');
+    });
+
+    it('should use the page language', () => {
+        const html = buildHtmlDocument('<p>x</p>', { ...BASE_META, lang: 'hi' }, '', '');
+        expect(html).toContain('<html lang="hi">');
+        expect(html).toContain('<meta property="og:locale" content="hi">');
+    });
+
+    it('should add dir="rtl" for right-to-left languages', () => {
+        const html = buildHtmlDocument('<p>x</p>', { ...BASE_META, lang: 'ar', rtl: true }, '', '');
+        expect(html).toContain('<html lang="ar" dir="rtl">');
+    });
+
+    it('should not add a dir attribute for left-to-right languages', () => {
+        const html = buildHtmlDocument('<p>x</p>', { ...BASE_META, lang: 'hi' }, '', '');
+        expect(html).not.toContain('dir="rtl"');
+    });
+
+    it('should emit an alternate for every language plus x-default', () => {
+        const html = buildHtmlDocument('<p>x</p>', {
+            ...BASE_META,
+            lang: 'hi',
+            defaultLang: 'en',
+            alternates: [
+                { lang: 'en', url: 'https://example.com/articles/a' },
+                { lang: 'hi', url: 'https://example.com/hi/articles/a' },
+            ],
+        }, '', '');
+
+        expect(html).toContain('<link rel="alternate" hreflang="en" href="https://example.com/articles/a">');
+        expect(html).toContain('<link rel="alternate" hreflang="hi" href="https://example.com/hi/articles/a">');
+        expect(html).toContain('<link rel="alternate" hreflang="x-default" href="https://example.com/articles/a">');
+    });
+
+    it('should omit hreflang when the page exists in one language only', () => {
+        const html = buildHtmlDocument('<p>x</p>', {
+            ...BASE_META,
+            lang: 'en',
+            defaultLang: 'en',
+            alternates: [{ lang: 'en', url: 'https://example.com/articles/a' }],
+        }, '', '');
+
+        expect(html).not.toContain('hreflang');
+    });
+
+    it('should skip x-default when the default language has no variant', () => {
+        const html = buildHtmlDocument('<p>x</p>', {
+            ...BASE_META,
+            lang: 'hi',
+            defaultLang: 'fr',
+            alternates: [
+                { lang: 'en', url: 'https://example.com/articles/a' },
+                { lang: 'hi', url: 'https://example.com/hi/articles/a' },
+            ],
+        }, '', '');
+
+        expect(html).toContain('hreflang="en"');
+        expect(html).not.toContain('x-default');
+    });
+});
+
+describe('toOgLocale', () => {
+    it('should pass through a bare language subtag', () => {
+        expect(toOgLocale('hi')).toBe('hi');
+    });
+
+    it('should upper-case a region into the language_TERRITORY form', () => {
+        expect(toOgLocale('pt-br')).toBe('pt_BR');
+    });
+
+    it('should normalize case and whitespace', () => {
+        expect(toOgLocale('  EN-us ')).toBe('en_US');
+    });
+
+    it('should fall back to English for an empty value', () => {
+        expect(toOgLocale('')).toBe('en');
     });
 });

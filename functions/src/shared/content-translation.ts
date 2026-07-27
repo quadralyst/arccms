@@ -35,6 +35,53 @@ export interface ContentTranslation {
     aiGenerated?: boolean;
 }
 
+/**
+ * Path prefix for a language: '' for the default language — whose URLs are
+ * unchanged by the multilingual feature — and '/{code}' for every other.
+ */
+export function langPrefix(lang: string, defaultLang: string): string {
+    return lang && lang !== defaultLang ? `/${lang}` : '';
+}
+
+/**
+ * Absolute URL of a content detail page in a given language.
+ * The slug is identical across languages; only the prefix differs.
+ */
+export function detailUrl(
+    baseUrl: string,
+    lang: string,
+    defaultLang: string,
+    contentTypeSlug: string,
+    urlSlug: string,
+): string {
+    return `${baseUrl.replace(/\/+$/, '')}${langPrefix(lang, defaultLang)}/${contentTypeSlug}/${urlSlug}`;
+}
+
+/** Absolute URL of a content list page in a given language. */
+export function listUrl(
+    baseUrl: string,
+    lang: string,
+    defaultLang: string,
+    contentTypeSlug: string,
+): string {
+    return `${baseUrl.replace(/\/+$/, '')}${langPrefix(lang, defaultLang)}/${contentTypeSlug}`;
+}
+
+/** Hosting file path for a detail page in a given language. */
+export function detailFilePath(
+    lang: string,
+    defaultLang: string,
+    contentTypeSlug: string,
+    urlSlug: string,
+): string {
+    return `${langPrefix(lang, defaultLang)}/${contentTypeSlug}/${urlSlug}.html`;
+}
+
+/** Hosting file path for a list page in a given language. */
+export function listFilePath(lang: string, defaultLang: string, contentTypeSlug: string): string {
+    return `${langPrefix(lang, defaultLang)}/${contentTypeSlug}/index.html`;
+}
+
 /** Blank means "not translated" — including whitespace-only and empty HTML. */
 function hasValue(value: unknown): boolean {
     if (value === null || value === undefined) return false;
