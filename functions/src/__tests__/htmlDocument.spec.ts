@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     buildHtmlDocument,
+    buildLanguageSwitcher,
     toOgLocale,
     replaceArcComponents,
     extractStylesAndScripts,
@@ -425,5 +426,64 @@ describe('toOgLocale', () => {
 
     it('should fall back to English for an empty value', () => {
         expect(toOgLocale('')).toBe('en');
+    });
+});
+
+// ── Language switcher (M4) ──────────────────────────────────────────────────
+
+describe('buildLanguageSwitcher', () => {
+    const ALTERNATES = [
+        { lang: 'en', url: 'https://example.com/articles/a' },
+        { lang: 'hi', url: 'https://example.com/hi/articles/a' },
+    ];
+    const LABELS = { en: 'English', hi: 'हिन्दी' };
+
+    it('should render a link per language', () => {
+        const html = buildLanguageSwitcher(ALTERNATES, 'en', LABELS);
+
+        expect(html).toContain('href="https://example.com/articles/a"');
+        expect(html).toContain('href="https://example.com/hi/articles/a"');
+        expect(html).toContain('English');
+        expect(html).toContain('हिन्दी');
+    });
+
+    it('should mark the current language', () => {
+        const html = buildLanguageSwitcher(ALTERNATES, 'hi', LABELS);
+
+        expect(html).toMatch(/data-arc-lang="hi"[^>]*class="arc-lang-link is-current"/);
+        expect(html).toMatch(/data-arc-lang="en"[^>]*class="arc-lang-link"/);
+    });
+
+    it('should render nothing for a single language', () => {
+        expect(buildLanguageSwitcher([ALTERNATES[0]], 'en', LABELS)).toBe('');
+        expect(buildLanguageSwitcher([], 'en', LABELS)).toBe('');
+    });
+
+    it('should fall back to the upper-cased code when no label is known', () => {
+        expect(buildLanguageSwitcher(ALTERNATES, 'en', {})).toContain('>EN<');
+    });
+
+    it('should work without JavaScript — the links are real hrefs', () => {
+        const html = buildLanguageSwitcher(ALTERNATES, 'en', LABELS);
+        // Switching language is navigation; the script only stores a preference.
+        expect(html).toMatch(/<a [^>]*href="https:\/\/example\.com\/hi\/articles\/a"/);
+    });
+});
+
+describe('replaceArcComponents – language switcher', () => {
+    const HEADER = '<header>Site <arc-language-switcher></arc-language-switcher></header>';
+
+    it('should inject the switcher markup into the header', () => {
+        const html = replaceArcComponents('<div><arc-header></arc-header></div>', HEADER, '', '<nav>SWITCH</nav>');
+
+        expect(html).toContain('<nav>SWITCH</nav>');
+        expect(html).not.toContain('arc-language-switcher');
+    });
+
+    it('should remove the element when there is nothing to switch between', () => {
+        const html = replaceArcComponents('<div><arc-header></arc-header></div>', HEADER, '');
+
+        expect(html).not.toContain('arc-language-switcher');
+        expect(html).toContain('<header>Site </header>');
     });
 });
