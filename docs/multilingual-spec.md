@@ -397,8 +397,40 @@ Rules of the sweep: extraction only — no behavioral edits ride along; every ba
 per directory, human-reviewed. Track per-directory progress with checkboxes below as
 batches land:
 
-- [ ] contents/ · [ ] (settings)/ · [ ] users/ · [ ] audience pages · [ ] (media)/ ·
-  [ ] dashboards · [ ] snackbars wrapper + sweep · [ ] shared components · [ ] dialogs
+- [x] **contents/** — content types (list + add/edit drawers), the content editor
+  including its language tabs and deploy status, the draft table every type renders.
+  Not done: `bulk-import/`, `preview-slug/`, `content-types/tags/`, `[slug]/`.
+- [~] **(settings)/** — the hub (its nav is the way into every settings page) and the
+  localization page in full. The other nine pages are untouched: about, email,
+  integrations, analytics, payments, user, message, site-usage, misc — roughly 350
+  strings, the largest single block left.
+- [x] **users/** — list, columns, actions, empty state. The add/edit/view drawers are not
+  done.
+- [x] **audience pages** — Contacts, Lists, Tags, Fields: headers, empty states, toolbar
+  buttons, every table column. Their drawers are not done.
+- [x] **snackbars wrapper + sweep** — `NotifyService` exists and every call site in the
+  swept areas uses it. ~30 call sites elsewhere still pass English strings.
+- [x] **shared components** — the two that every page renders through: `GlobalTableComponent`
+  (headings, action tooltips, loading) and `ConfirmationPopupComponent`. The other ~17 in
+  `src/shared/components` are not done.
+- [x] **dialogs** — the shared confirmation dialog, via `titleKey`. Feature-specific
+  dialogs (bulk import, test send, new email) are not done.
+- [ ] **(media)/** · [ ] **dashboards** · [ ] **(waitlists)/** · [ ] email areas
+  (composer, broadcasts, drips, announcements, brand kit, logs) · [ ] **(data)/** ·
+  [ ] products · [ ] transactions
+
+**Two traps worth knowing before continuing the sweep.**
+
+Table columns and action labels are built in *field initialisers*, which run before the
+translation file has loaded — `translate()` there returns the key it was handed. They
+now hold the key and `GlobalTableComponent` resolves it, which is also what makes a
+language switch update them. Any new list page should follow that, not call
+`translate()` when defining columns.
+
+A spec that does `overrideComponent(..., { set: { imports: [] } })` to keep Material out
+of the way also strips the transloco pipe, and `NO_ERRORS_SCHEMA` does not cover an
+unknown pipe — the template fails to render entirely. Keep `TranslocoPipe` in the
+override.
 
 **Manual test per batch:** flip to the second admin language, walk the swept pages, no
 `missing key` console warnings, no English leakage on swept pages.
