@@ -30,3 +30,49 @@ currently disabled, so signups work.
 
 _Reference: signup flow `src/app/pages/(auth)/(signup)/signup.page.ts`; auth store
 `src/app/pages/(auth)/auth.store.ts`._
+
+---
+
+## Multilingual — open questions (raised 2026-07-27)
+
+> The multilingual build itself is specced in [`docs/multilingual-spec.md`](multilingual-spec.md)
+> (phases M1–M7, branch `feat/multilingual`). The items below are **questions/ideas
+> raised alongside it that are not part of that spec** — parked here on purpose.
+> Nothing here is built or scheduled.
+
+### 3. Confirm per-language static publishing on a real Firebase deploy
+On Firebase, publishing a content item deploys a static HTML page to Hosting
+(`_publish_queue` → `processPublishQueue` → `deployContentPage` → Hosting REST API).
+Question: does this hold for translated pages too — i.e. does each enabled language get
+its own deployed static file at `/{lang}/{ctSlug}/{urlSlug}.html`?
+
+Spec Phase M3 is designed to do exactly this (loop enabled languages, deploy one file
+per language, remove all variants on unpublish), so this is a **verification task on a
+real deployed project**, not a design gap. Worth confirming explicitly after M3 ships:
+release count per publish, sitemap/hreflang correctness, and that unpublish leaves no
+orphaned `/{lang}/**` files.
+
+### 4. Updating the pre-rendered home page after deployment
+The home page is pre-rendered at deploy time. Investigate whether it can be updated
+*after* deployment without a full redeploy — the suspected blocker is that a deploy
+overwrites routes/assets, so anything written to Hosting afterwards gets clobbered by
+the next build.
+
+Worth scoping: which parts of the home page need to be editable at runtime (content vs
+routing/shell), whether the content-publish pipeline could own the home page the way it
+owns content pages, and how that interacts with `dist/analog/public` + the `"**" →
+/__shell.html` rewrite. Relevant either way for multilingual, since a translated home
+page would need the same mechanism.
+
+### 5. In-place / inline editing on the public page
+Idea: an incremental editor that edits content **in place on the public-facing page**
+rather than in the admin editor — click a heading or paragraph on the live page and edit
+it there.
+
+Notably cheap-ish to explore given the existing architecture: the public templates
+already mark their bound regions (`data-arc-bind`, `{{ }}`, `data-arc-loop`), and there
+is already a client-side hydration path (`src/app/core/services/template-hydration.service.ts`)
+that renders the same templates in the browser. An inline editor could reuse those
+binding markers to know which field each element maps to. Open questions: auth/edit-mode
+gating on public pages, saving back to `arc_{slug}_drafts`, rich-text vs plain fields,
+and how it interacts with translations (edit the language you are viewing).
