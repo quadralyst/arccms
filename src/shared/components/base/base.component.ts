@@ -10,6 +10,7 @@ import { GlobalService } from '../../services/global.service';
 import { ToastService } from '../../services/toast.service';
 import { NotifyService } from '../../services/notify.service';
 import { TranslocoService } from '@jsverse/transloco';
+import { TranslationKey } from '../../../app/core/i18n/translation-keys';
 
 export enum IActionType {
     Add = 'add',
@@ -85,6 +86,18 @@ export class BaseComponent {
     /**
      * Retrieves the form errors for a given form group.
      */
+    /**
+     * A translated string, with the key checked at compile time.
+     *
+     * Prefer this over `transloco.translate()` in TypeScript: the key is typed
+     * as `TranslationKey`, so a typo fails the build instead of rendering
+     * `ADMIN.FOO.BAR` to a user. Use `transloco.translate()` directly only for
+     * a key computed at runtime, such as one built from a record's id.
+     */
+    t(key: TranslationKey, params?: Record<string, unknown>): string {
+        return this.transloco.translate(key, params);
+    }
+
     getFormErrors(formGroup: FormGroup): string[] {
         const errors: string[] = [];
         const controls = formGroup.controls;

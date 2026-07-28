@@ -18,6 +18,7 @@
 import { Injectable, inject } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 import { ToastService } from './toast.service';
+import { TranslationKey } from '../../app/core/i18n/translation-keys';
 
 type ToastParams = Record<string, unknown>;
 
@@ -26,19 +27,19 @@ export class NotifyService {
     private toast = inject(ToastService);
     private transloco = inject(TranslocoService);
 
-    success(key: string, params?: ToastParams): void {
+    success(key: TranslationKey, params?: ToastParams): void {
         this.toast.openCustomSnackbar(this.text(key, params), 'success', 'check_circle');
     }
 
-    error(key: string, params?: ToastParams): void {
+    error(key: TranslationKey, params?: ToastParams): void {
         this.toast.openCustomSnackbar(this.text(key, params), 'error', 'error');
     }
 
-    warning(key: string, params?: ToastParams): void {
+    warning(key: TranslationKey, params?: ToastParams): void {
         this.toast.openCustomSnackbar(this.text(key, params), 'warning', 'warning');
     }
 
-    info(key: string, params?: ToastParams): void {
+    info(key: TranslationKey, params?: ToastParams): void {
         this.toast.openCustomSnackbar(this.text(key, params), 'info', 'info');
     }
 
@@ -48,7 +49,7 @@ export class NotifyService {
     }
 
     /** Translate a key, or hand back text that clearly is not one. */
-    private text(key: string, params?: ToastParams): string {
+    private text(key: TranslationKey, params?: ToastParams): string {
         return this.transloco.translate(key, params);
     }
 }
