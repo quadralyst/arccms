@@ -400,10 +400,9 @@ batches land:
 - [x] **contents/** — content types (list + add/edit drawers), the content editor
   including its language tabs and deploy status, the draft table every type renders.
   Not done: `bulk-import/`, `preview-slug/`, `content-types/tags/`, `[slug]/`.
-- [~] **(settings)/** — the hub (its nav is the way into every settings page) and the
-  localization page in full. The other nine pages are untouched: about, email,
-  integrations, analytics, payments, user, message, site-usage, misc — roughly 350
-  strings, the largest single block left.
+- [x] **(settings)/** — complete. All ten pages: the hub, localization, about, misc,
+  user, message, site-usage, email (with its test-connection dialog), integrations
+  and analytics, including the two long Setup Guide walkthroughs.
 - [x] **users/** — list, columns, actions, empty state. The add/edit/view drawers are not
   done.
 - [x] **audience pages** — Contacts, Lists, Tags, Fields: headers, empty states, toolbar
