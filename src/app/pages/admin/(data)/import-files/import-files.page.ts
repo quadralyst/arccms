@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -27,8 +28,7 @@ export const routeMeta: RouteMeta = {
         MatCheckboxModule,
         MatIconModule,
         MatProgressBarModule,
-        MatRadioModule,
-    ],
+        MatRadioModule, TranslocoPipe],
     templateUrl: './import-files.page.html',
     styleUrls: ['./import-files.page.scss'],
 })
@@ -102,7 +102,7 @@ export default class ImportFilesPageComponent extends BaseComponent {
             const text = await file.text();
             this.manifestData.set(JSON.parse(text));
         } catch {
-            this.toastService.openCustomSnackbar('Invalid manifest JSON file.', 'error', 'error');
+            this.notify.error('admin.data.import_files.invalid_manifest');
             this.manifestFile.set(null);
             this.manifestData.set(null);
         }
@@ -150,11 +150,7 @@ export default class ImportFilesPageComponent extends BaseComponent {
                 failCount > 0 ? 'warning' : 'check_circle',
             );
         } catch (error: any) {
-            this.toastService.openCustomSnackbar(
-                'Upload failed: ' + (error.message || 'Unknown error'),
-                'error',
-                'error',
-            );
+            this.notify.error('admin.data.import_files.upload_failed', { error: error.message || this.t('common.unknown_error') });
         } finally {
             this.isUploading.set(false);
         }
@@ -186,7 +182,7 @@ export default class ImportFilesPageComponent extends BaseComponent {
             const successCount = results.filter((r) => r.success).length;
             this.toastService.openCustomSnackbar(`Restored ${successCount} files from manifest.`, 'success', 'check_circle');
         } catch (error: any) {
-            this.toastService.openCustomSnackbar('Restore failed: ' + (error.message || 'Unknown error'), 'error', 'error');
+            this.notify.error('admin.data.import_files.restore_failed', { error: error.message || this.t('common.unknown_error') });
         } finally {
             this.isUploading.set(false);
         }

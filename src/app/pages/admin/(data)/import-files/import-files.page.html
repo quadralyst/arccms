@@ -1,23 +1,23 @@
 <div class="import-files-container">
     <div class="import-header">
-        <h2>Import Files</h2>
-        <p class="text-muted">Upload files to Firebase Storage.</p>
+        <h2>{{ 'admin.data.import_files.title' | transloco }}</h2>
+        <p class="text-muted">{{ 'admin.data.import_files.subtitle' | transloco }}</p>
     </div>
 
     <!-- Mode Selection -->
     @if (!uploadResults()) {
         <div class="mode-selection">
             <mat-radio-group [ngModel]="mode()" (ngModelChange)="mode.set($event)" class="mode-options">
-                <mat-radio-button value="upload">Upload new files</mat-radio-button>
-                <mat-radio-button value="manifest">Restore from manifest</mat-radio-button>
+                <mat-radio-button value="upload">{{ 'admin.data.import_files.upload_new' | transloco }}</mat-radio-button>
+                <mat-radio-button value="manifest">{{ 'admin.data.import_files.restore' | transloco }}</mat-radio-button>
             </mat-radio-group>
         </div>
 
         <!-- Manifest Upload (manifest mode only) -->
         @if (mode() === 'manifest') {
             <div class="manifest-section">
-                <h4>Manifest File</h4>
-                <p class="text-muted">Upload the media-manifest.json exported from Export Files.</p>
+                <h4>{{ 'admin.data.import_files.manifest' | transloco }}</h4>
+                <p class="text-muted">{{ 'admin.data.import_files.manifest_hint' | transloco }}</p>
                 <label class="file-input-label">
                     <input type="file" accept=".json" (change)="onManifestSelected($event)" hidden>
                     <span class="browse-btn">
@@ -28,7 +28,7 @@
                 @if (manifestData()) {
                     <p class="manifest-info">
                         <i class="fa-solid fa-circle-check text-success me-1"></i>
-                        {{ manifestEntryCount() }} entries found in manifest
+                        {{ 'admin.data.import_files.entries_found' | transloco: { count: manifestEntryCount() } }}
                     </p>
                 }
             </div>
@@ -37,7 +37,7 @@
         <!-- Target Prefix (upload mode only) -->
         @if (mode() === 'upload') {
             <div class="config-section">
-                <label class="config-label">Storage path prefix:</label>
+                <label class="config-label">{{ 'admin.data.import_files.path_prefix' | transloco }}</label>
                 <input type="text" class="prefix-input"
                        [ngModel]="targetPrefix()"
                        (ngModelChange)="targetPrefix.set($event)">
@@ -49,11 +49,11 @@
              (dragover)="onDragOver($event)"
              (drop)="onDrop($event)">
             <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
-            <p>Drag and drop files here</p>
+            <p>{{ 'admin.data.import_files.drag_drop' | transloco }}</p>
             <p class="text-muted">or</p>
             <label class="file-input-label">
                 <input type="file" multiple (change)="onFilesSelected($event)" hidden>
-                <span class="browse-btn">Browse Files</span>
+                <span class="browse-btn">{{ 'admin.data.import.browse' | transloco }}</span>
             </label>
         </div>
 
@@ -61,7 +61,7 @@
         @if (selectedFiles().length > 0) {
             <div class="file-list">
                 <div class="file-list-header">
-                    {{ selectedFiles().length }} files selected ({{ formatSize(totalSize) }})
+                    {{ 'admin.data.import_files.files_selected' | transloco: { count: selectedFiles().length, size: formatSize(totalSize) } }}
                 </div>
                 @for (file of selectedFiles(); track $index) {
                     <div class="file-row">
@@ -83,7 +83,7 @@
                 <mat-checkbox
                     [ngModel]="updateMediaCollection()"
                     (ngModelChange)="updateMediaCollection.set($event)">
-                    Update media collection metadata
+                    {{ 'admin.data.import_files.update_metadata' | transloco }}
                 </mat-checkbox>
             </div>
         }
@@ -96,8 +96,7 @@
                     [value]="(uploadProgress()!.filesCompleted / uploadProgress()!.totalFiles) * 100">
                 </mat-progress-bar>
                 <p class="progress-text">
-                    Uploading: {{ uploadProgress()!.currentFile }}
-                    ({{ uploadProgress()!.filesCompleted }}/{{ uploadProgress()!.totalFiles }})
+                    {{ 'admin.data.import_files.uploading_progress' | transloco: { name: uploadProgress()!.currentFile, done: uploadProgress()!.filesCompleted, total: uploadProgress()!.totalFiles } }}
                 </p>
             </div>
         }
@@ -108,10 +107,10 @@
                     (click)="startUpload()"
                     [disabled]="selectedFiles().length === 0 || isUploading() || (mode() === 'manifest' && !manifestData())">
                 @if (isUploading()) {
-                    <i class="fa-solid fa-spinner fa-spin me-2"></i> Uploading...
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i> {{ 'admin.data.import_files.uploading' | transloco }}
                 } @else {
                     <i class="fa-solid fa-cloud-arrow-up me-2"></i>
-                    Upload {{ selectedFiles().length }} Files
+                    {{ 'admin.data.import_files.upload_n' | transloco: { count: selectedFiles().length } }}
                 }
             </button>
         </div>
@@ -120,16 +119,16 @@
     <!-- Upload Results -->
     @if (uploadResults()) {
         <div class="upload-summary">
-            <h3>Upload Complete</h3>
+            <h3>{{ 'admin.data.import_files.complete' | transloco }}</h3>
 
             <div class="summary-stats">
                 <div class="stat success">
                     <span class="stat-value">{{ successCount }}</span>
-                    <span class="stat-label">Successful</span>
+                    <span class="stat-label">{{ 'admin.data.import_files.successful' | transloco }}</span>
                 </div>
                 <div class="stat error">
                     <span class="stat-value">{{ failCount }}</span>
-                    <span class="stat-label">Failed</span>
+                    <span class="stat-label">{{ 'admin.data.import_files.failed_count' | transloco }}</span>
                 </div>
             </div>
 
@@ -149,7 +148,7 @@
 
             <div class="import-actions">
                 <button mat-flat-button color="primary" (click)="resetUpload()">
-                    <i class="fa-solid fa-redo me-2"></i> New Upload
+                    <i class="fa-solid fa-redo me-2"></i> {{ 'admin.data.import_files.new_upload' | transloco }}
                 </button>
             </div>
         </div>

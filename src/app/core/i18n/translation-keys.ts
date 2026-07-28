@@ -241,6 +241,91 @@ export type TranslationKey =
     | 'admin.dashboard.total_signups'
     | 'admin.dashboard.view_all'
     | 'admin.dashboard.view_full_analytics'
+    | 'admin.data.export.bundle_badge'
+    | 'admin.data.export.collections_selected'
+    | 'admin.data.export.complete'
+    | 'admin.data.export.drafts'
+    | 'admin.data.export.export_selected'
+    | 'admin.data.export.exporting'
+    | 'admin.data.export.failed'
+    | 'admin.data.export.progress'
+    | 'admin.data.export.progress_detail'
+    | 'admin.data.export.published'
+    | 'admin.data.export.subtitle'
+    | 'admin.data.export.tags'
+    | 'admin.data.export.title'
+    | 'admin.data.export_files.download_zip'
+    | 'admin.data.export_files.downloading'
+    | 'admin.data.export_files.failed'
+    | 'admin.data.export_files.loading'
+    | 'admin.data.export_files.none'
+    | 'admin.data.export_files.of_selected'
+    | 'admin.data.export_files.progress'
+    | 'admin.data.export_files.select_all'
+    | 'admin.data.export_files.subtitle'
+    | 'admin.data.export_files.title'
+    | 'admin.data.group_audience'
+    | 'admin.data.group_content'
+    | 'admin.data.group_email'
+    | 'admin.data.group_settings'
+    | 'admin.data.group_users'
+    | 'admin.data.import.back'
+    | 'admin.data.import.browse'
+    | 'admin.data.import.complete'
+    | 'admin.data.import.counts'
+    | 'admin.data.import.drag_drop'
+    | 'admin.data.import.error_details'
+    | 'admin.data.import.errors'
+    | 'admin.data.import.failed'
+    | 'admin.data.import.import_selected'
+    | 'admin.data.import.imported'
+    | 'admin.data.import.importing'
+    | 'admin.data.import.merge'
+    | 'admin.data.import.new_import'
+    | 'admin.data.import.on_conflict'
+    | 'admin.data.import.overwrite'
+    | 'admin.data.import.per_collection'
+    | 'admin.data.import.preview_title'
+    | 'admin.data.import.progress_title'
+    | 'admin.data.import.select_all'
+    | 'admin.data.import.skip'
+    | 'admin.data.import.skipped'
+    | 'admin.data.import.step_import'
+    | 'admin.data.import.step_preview'
+    | 'admin.data.import.step_upload'
+    | 'admin.data.import.summary'
+    | 'admin.data.import.upload_hint'
+    | 'admin.data.import.upload_title'
+    | 'admin.data.import.version_collections'
+    | 'admin.data.import.warnings'
+    | 'admin.data.import_files.complete'
+    | 'admin.data.import_files.drag_drop'
+    | 'admin.data.import_files.entries_found'
+    | 'admin.data.import_files.failed_count'
+    | 'admin.data.import_files.files_selected'
+    | 'admin.data.import_files.invalid_manifest'
+    | 'admin.data.import_files.manifest'
+    | 'admin.data.import_files.manifest_hint'
+    | 'admin.data.import_files.new_upload'
+    | 'admin.data.import_files.path_prefix'
+    | 'admin.data.import_files.restore'
+    | 'admin.data.import_files.restore_failed'
+    | 'admin.data.import_files.subtitle'
+    | 'admin.data.import_files.successful'
+    | 'admin.data.import_files.title'
+    | 'admin.data.import_files.update_metadata'
+    | 'admin.data.import_files.upload'
+    | 'admin.data.import_files.upload_failed'
+    | 'admin.data.import_files.upload_n'
+    | 'admin.data.import_files.upload_new'
+    | 'admin.data.import_files.uploading'
+    | 'admin.data.import_files.uploading_progress'
+    | 'admin.data.other_collections'
+    | 'admin.data.preset_all_content'
+    | 'admin.data.preset_all_settings'
+    | 'admin.data.preset_everything'
+    | 'admin.data.subtitle'
+    | 'admin.data.title'
     | 'admin.media.api_hint'
     | 'admin.media.api_not_configured'
     | 'admin.media.configure_api'
@@ -798,6 +883,7 @@ export type TranslationKey =
     | 'common.table.slug'
     | 'common.table.status'
     | 'common.table.type'
+    | 'common.unknown_error'
     | 'common.validation.generic'
     | 'common.validation.maxlength'
     | 'common.validation.minlength'
@@ -1036,6 +1122,91 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.total_signups',
     'admin.dashboard.view_all',
     'admin.dashboard.view_full_analytics',
+    'admin.data.export.bundle_badge',
+    'admin.data.export.collections_selected',
+    'admin.data.export.complete',
+    'admin.data.export.drafts',
+    'admin.data.export.export_selected',
+    'admin.data.export.exporting',
+    'admin.data.export.failed',
+    'admin.data.export.progress',
+    'admin.data.export.progress_detail',
+    'admin.data.export.published',
+    'admin.data.export.subtitle',
+    'admin.data.export.tags',
+    'admin.data.export.title',
+    'admin.data.export_files.download_zip',
+    'admin.data.export_files.downloading',
+    'admin.data.export_files.failed',
+    'admin.data.export_files.loading',
+    'admin.data.export_files.none',
+    'admin.data.export_files.of_selected',
+    'admin.data.export_files.progress',
+    'admin.data.export_files.select_all',
+    'admin.data.export_files.subtitle',
+    'admin.data.export_files.title',
+    'admin.data.group_audience',
+    'admin.data.group_content',
+    'admin.data.group_email',
+    'admin.data.group_settings',
+    'admin.data.group_users',
+    'admin.data.import.back',
+    'admin.data.import.browse',
+    'admin.data.import.complete',
+    'admin.data.import.counts',
+    'admin.data.import.drag_drop',
+    'admin.data.import.error_details',
+    'admin.data.import.errors',
+    'admin.data.import.failed',
+    'admin.data.import.import_selected',
+    'admin.data.import.imported',
+    'admin.data.import.importing',
+    'admin.data.import.merge',
+    'admin.data.import.new_import',
+    'admin.data.import.on_conflict',
+    'admin.data.import.overwrite',
+    'admin.data.import.per_collection',
+    'admin.data.import.preview_title',
+    'admin.data.import.progress_title',
+    'admin.data.import.select_all',
+    'admin.data.import.skip',
+    'admin.data.import.skipped',
+    'admin.data.import.step_import',
+    'admin.data.import.step_preview',
+    'admin.data.import.step_upload',
+    'admin.data.import.summary',
+    'admin.data.import.upload_hint',
+    'admin.data.import.upload_title',
+    'admin.data.import.version_collections',
+    'admin.data.import.warnings',
+    'admin.data.import_files.complete',
+    'admin.data.import_files.drag_drop',
+    'admin.data.import_files.entries_found',
+    'admin.data.import_files.failed_count',
+    'admin.data.import_files.files_selected',
+    'admin.data.import_files.invalid_manifest',
+    'admin.data.import_files.manifest',
+    'admin.data.import_files.manifest_hint',
+    'admin.data.import_files.new_upload',
+    'admin.data.import_files.path_prefix',
+    'admin.data.import_files.restore',
+    'admin.data.import_files.restore_failed',
+    'admin.data.import_files.subtitle',
+    'admin.data.import_files.successful',
+    'admin.data.import_files.title',
+    'admin.data.import_files.update_metadata',
+    'admin.data.import_files.upload',
+    'admin.data.import_files.upload_failed',
+    'admin.data.import_files.upload_n',
+    'admin.data.import_files.upload_new',
+    'admin.data.import_files.uploading',
+    'admin.data.import_files.uploading_progress',
+    'admin.data.other_collections',
+    'admin.data.preset_all_content',
+    'admin.data.preset_all_settings',
+    'admin.data.preset_everything',
+    'admin.data.subtitle',
+    'admin.data.title',
     'admin.media.api_hint',
     'admin.media.api_not_configured',
     'admin.media.configure_api',
@@ -1593,6 +1764,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.table.slug',
     'common.table.status',
     'common.table.type',
+    'common.unknown_error',
     'common.validation.generic',
     'common.validation.maxlength',
     'common.validation.minlength',
