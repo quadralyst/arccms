@@ -452,8 +452,14 @@ folder and only one of them is live.
 template needs the language prefix added by hand (§1.6).
 
 **A key that renders as `ADMIN.FOO.BAR`.** A typo. In TypeScript, use
-`this.t('…')` or `this.notify.*` and the compiler catches it; in a template
-`| transloco` is unchecked, so the parity spec is the backstop.
+`this.t('…')` (or `injectT()` in a class that does not extend `BaseComponent`)
+and the compiler catches it; in a template `| transloco` is unchecked, so the
+parity spec is the backstop.
+
+**A sweep that looks finished and is not.** Searching for `>text<` misses any
+string wrapped across lines, which is most long sentences in this codebase.
+Match whitespace-insensitively, and look at the page in the second language
+before calling it done.
 
 **A deployed page still in English.** Static pages are built at publish time.
 Deploying is not republishing.
@@ -477,14 +483,13 @@ npm run build                           # templates
 
 Honest state of play, so you know what you are walking into.
 
-**Admin — swept:** the shell and navigation, settings hub, localization
-settings, content types (list + add/edit drawers), the content editor, the draft
-list, users, Contacts/Lists/Tags/Fields, the shared table, the confirmation
-dialog, validation messages, the paginator.
+**Admin — swept:** the shell and navigation, **all ten settings pages**, content
+types (list + add/edit drawers), the content editor, the draft list, users,
+Contacts/Lists/Tags/Fields, the shared table, the confirmation dialog, validation
+messages, the paginator.
 
-**Admin — not swept:** nine settings pages (about, email, integrations,
-analytics, payments, user, message, site-usage, misc — the largest block left),
-waitlists, all the email areas, media, dashboards, data, products, transactions,
+**Admin — not swept:** waitlists, the email areas (composer, broadcasts, drips,
+announcements, brand kit, logs), media, dashboards, data, products, transactions,
 and most feature-specific drawers and dialogs. These read English inside a
 translated shell, which is the fallback working.
 
