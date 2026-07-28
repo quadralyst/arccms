@@ -241,6 +241,27 @@ export type TranslationKey =
     | 'admin.dashboard.total_signups'
     | 'admin.dashboard.view_all'
     | 'admin.dashboard.view_full_analytics'
+    | 'admin.media.api_hint'
+    | 'admin.media.api_not_configured'
+    | 'admin.media.configure_api'
+    | 'admin.media.delete_failed'
+    | 'admin.media.dimensions'
+    | 'admin.media.drop_hint'
+    | 'admin.media.empty'
+    | 'admin.media.insert'
+    | 'admin.media.load_failed'
+    | 'admin.media.logo_alt'
+    | 'admin.media.metadata_failed'
+    | 'admin.media.open_full'
+    | 'admin.media.search_failed'
+    | 'admin.media.search_placeholder'
+    | 'admin.media.searching'
+    | 'admin.media.select_page'
+    | 'admin.media.selected'
+    | 'admin.media.selected_image_alt'
+    | 'admin.media.supports'
+    | 'admin.media.upload_new'
+    | 'admin.media.uploaded'
     | 'admin.nav.about'
     | 'admin.nav.announcements'
     | 'admin.nav.audience'
@@ -274,6 +295,73 @@ export type TranslationKey =
     | 'admin.nav.tags'
     | 'admin.nav.transactions'
     | 'admin.nav.users'
+    | 'admin.products.active'
+    | 'admin.products.add_tier'
+    | 'admin.products.code'
+    | 'admin.products.code_note'
+    | 'admin.products.confirmed_sales'
+    | 'admin.products.copy_failed'
+    | 'admin.products.copy_link'
+    | 'admin.products.create_failed'
+    | 'admin.products.created'
+    | 'admin.products.created_toast'
+    | 'admin.products.credits'
+    | 'admin.products.credits_hint'
+    | 'admin.products.currency'
+    | 'admin.products.days'
+    | 'admin.products.delete_failed'
+    | 'admin.products.deleted'
+    | 'admin.products.description'
+    | 'admin.products.discount_code'
+    | 'admin.products.display_only'
+    | 'admin.products.dodo_id'
+    | 'admin.products.features'
+    | 'admin.products.generate'
+    | 'admin.products.generating'
+    | 'admin.products.grandfathering'
+    | 'admin.products.grandfathering_note'
+    | 'admin.products.higher_more_access'
+    | 'admin.products.inactive'
+    | 'admin.products.interval'
+    | 'admin.products.label'
+    | 'admin.products.limit'
+    | 'admin.products.link_copied'
+    | 'admin.products.link_failed'
+    | 'admin.products.link_note'
+    | 'admin.products.list_price'
+    | 'admin.products.monthly'
+    | 'admin.products.name'
+    | 'admin.products.new'
+    | 'admin.products.no_checkout_url'
+    | 'admin.products.no_tiers'
+    | 'admin.products.none'
+    | 'admin.products.none_value'
+    | 'admin.products.off'
+    | 'admin.products.off_percent'
+    | 'admin.products.one_time'
+    | 'admin.products.open_new_tab'
+    | 'admin.products.premium_type'
+    | 'admin.products.price'
+    | 'admin.products.pricing_tiers'
+    | 'admin.products.rank_hint'
+    | 'admin.products.save'
+    | 'admin.products.sold'
+    | 'admin.products.subscription'
+    | 'admin.products.subtitle'
+    | 'admin.products.test_link'
+    | 'admin.products.tier'
+    | 'admin.products.tier_note'
+    | 'admin.products.tier_rank'
+    | 'admin.products.title'
+    | 'admin.products.trial'
+    | 'admin.products.trial_days'
+    | 'admin.products.type'
+    | 'admin.products.update_failed'
+    | 'admin.products.updated'
+    | 'admin.products.updates_hint'
+    | 'admin.products.updates_years'
+    | 'admin.products.view_details'
+    | 'admin.products.yearly'
     | 'admin.settings.about.address'
     | 'admin.settings.about.address_hint'
     | 'admin.settings.about.address_placeholder'
@@ -623,6 +711,18 @@ export type TranslationKey =
     | 'admin.settings.user.signups_disabled'
     | 'admin.settings.user.subtitle'
     | 'admin.settings.user.title'
+    | 'admin.transactions.col_amount'
+    | 'admin.transactions.col_customer'
+    | 'admin.transactions.col_date'
+    | 'admin.transactions.col_event'
+    | 'admin.transactions.col_plan'
+    | 'admin.transactions.failed'
+    | 'admin.transactions.none'
+    | 'admin.transactions.pending'
+    | 'admin.transactions.refunded'
+    | 'admin.transactions.subtitle'
+    | 'admin.transactions.succeeded'
+    | 'admin.transactions.title'
     | 'admin.users.add'
     | 'admin.users.empty_description'
     | 'admin.users.empty_title'
@@ -936,6 +1036,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.total_signups',
     'admin.dashboard.view_all',
     'admin.dashboard.view_full_analytics',
+    'admin.media.api_hint',
+    'admin.media.api_not_configured',
+    'admin.media.configure_api',
+    'admin.media.delete_failed',
+    'admin.media.dimensions',
+    'admin.media.drop_hint',
+    'admin.media.empty',
+    'admin.media.insert',
+    'admin.media.load_failed',
+    'admin.media.logo_alt',
+    'admin.media.metadata_failed',
+    'admin.media.open_full',
+    'admin.media.search_failed',
+    'admin.media.search_placeholder',
+    'admin.media.searching',
+    'admin.media.select_page',
+    'admin.media.selected',
+    'admin.media.selected_image_alt',
+    'admin.media.supports',
+    'admin.media.upload_new',
+    'admin.media.uploaded',
     'admin.nav.about',
     'admin.nav.announcements',
     'admin.nav.audience',
@@ -969,6 +1090,73 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.tags',
     'admin.nav.transactions',
     'admin.nav.users',
+    'admin.products.active',
+    'admin.products.add_tier',
+    'admin.products.code',
+    'admin.products.code_note',
+    'admin.products.confirmed_sales',
+    'admin.products.copy_failed',
+    'admin.products.copy_link',
+    'admin.products.create_failed',
+    'admin.products.created',
+    'admin.products.created_toast',
+    'admin.products.credits',
+    'admin.products.credits_hint',
+    'admin.products.currency',
+    'admin.products.days',
+    'admin.products.delete_failed',
+    'admin.products.deleted',
+    'admin.products.description',
+    'admin.products.discount_code',
+    'admin.products.display_only',
+    'admin.products.dodo_id',
+    'admin.products.features',
+    'admin.products.generate',
+    'admin.products.generating',
+    'admin.products.grandfathering',
+    'admin.products.grandfathering_note',
+    'admin.products.higher_more_access',
+    'admin.products.inactive',
+    'admin.products.interval',
+    'admin.products.label',
+    'admin.products.limit',
+    'admin.products.link_copied',
+    'admin.products.link_failed',
+    'admin.products.link_note',
+    'admin.products.list_price',
+    'admin.products.monthly',
+    'admin.products.name',
+    'admin.products.new',
+    'admin.products.no_checkout_url',
+    'admin.products.no_tiers',
+    'admin.products.none',
+    'admin.products.none_value',
+    'admin.products.off',
+    'admin.products.off_percent',
+    'admin.products.one_time',
+    'admin.products.open_new_tab',
+    'admin.products.premium_type',
+    'admin.products.price',
+    'admin.products.pricing_tiers',
+    'admin.products.rank_hint',
+    'admin.products.save',
+    'admin.products.sold',
+    'admin.products.subscription',
+    'admin.products.subtitle',
+    'admin.products.test_link',
+    'admin.products.tier',
+    'admin.products.tier_note',
+    'admin.products.tier_rank',
+    'admin.products.title',
+    'admin.products.trial',
+    'admin.products.trial_days',
+    'admin.products.type',
+    'admin.products.update_failed',
+    'admin.products.updated',
+    'admin.products.updates_hint',
+    'admin.products.updates_years',
+    'admin.products.view_details',
+    'admin.products.yearly',
     'admin.settings.about.address',
     'admin.settings.about.address_hint',
     'admin.settings.about.address_placeholder',
@@ -1318,6 +1506,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.user.signups_disabled',
     'admin.settings.user.subtitle',
     'admin.settings.user.title',
+    'admin.transactions.col_amount',
+    'admin.transactions.col_customer',
+    'admin.transactions.col_date',
+    'admin.transactions.col_event',
+    'admin.transactions.col_plan',
+    'admin.transactions.failed',
+    'admin.transactions.none',
+    'admin.transactions.pending',
+    'admin.transactions.refunded',
+    'admin.transactions.subtitle',
+    'admin.transactions.succeeded',
+    'admin.transactions.title',
     'admin.users.add',
     'admin.users.empty_description',
     'admin.users.empty_title',

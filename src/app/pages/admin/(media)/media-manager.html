@@ -17,12 +17,12 @@
                             <div class="header-search-container">
                                 <div class="search-box">
                                     <i class="fas fa-search me-2 text-muted"></i>
-                                    <input type="text" [(ngModel)]="searchValue" placeholder="Search for free images..."
+                                    <input type="text" [(ngModel)]="searchValue" [placeholder]="'admin.media.search_placeholder' | transloco"
                                         (keyup.enter)="searchImage(searchValue)" [disabled]="isSearching">
                                     <button (click)="searchImage(searchValue)" type="button"
                                         [disabled]="isSearching" [class.searching]="isSearching">
                                         @if(isSearching) {
-                                        <i class="fas fa-spinner fa-spin me-1"></i> Searching...
+                                        <i class="fas fa-spinner fa-spin me-1"></i> {{ 'admin.media.searching' | transloco }}
                                         } @else {
                                         Search
                                         }
@@ -33,12 +33,12 @@
                             @if(selectedItem?.value === 'upload'){
                             <button (click)="openFilePicker()" class=" btn btn-primary btn-sm" id="uploadNewBtnMain">
                                 <i class="fas fa-plus me-1 fs-6"></i>
-                                Upload New
+                                {{ 'admin.media.upload_new' | transloco }}
                             </button>
                             }
                             @if(_DIALOG_DATA.isDialogOpen){
                             <button mat-dialog-close class="btn btn-secondary" id="cancelModalBtn">
-                                Cancel
+                                                                {{ 'common.actions.cancel' | transloco }}
                             </button>
                             }
                         </div>
@@ -67,9 +67,7 @@
                                 <div class="col-12 mt-2 empty_col" [ngClass]="{'asModal': _DIALOG_DATA.isDialogOpen}">
                                     @if(selectedItem?.value === 'upload'){
                                     @if(!uploadImage){
-                                    <label class="empty_upload_label">You do not have any photo in your gallery. Please
-                                        upload a
-                                        photo to get started</label><br>
+                                    <label class="empty_upload_label">{{ 'admin.media.empty' | transloco }}</label><br>
                                     }
                                     <div class="dropzone"
                                          [class.dragover]="isDragOver"
@@ -80,7 +78,7 @@
                                          (click)="openFilePicker()"
                                          style="position: relative;">
                                         @if(uploadImage){
-                                        <img [src]="uploadImage" alt="Selected Image" class="selected-image"
+                                        <img [src]="uploadImage" [alt]="'admin.media.selected_image_alt' | transloco" class="selected-image"
                                             height="140px">
                                         @if(showUploadingSpinner) {
                                         <mat-progress-spinner class="example-margin" [mode]="mode"
@@ -96,8 +94,8 @@
                                         <div class="dropzone-icon">
                                             <span class="material-icons">cloud_upload</span>
                                         </div>
-                                        <div class="dropzone-text">Drop an image here or click to browse</div>
-                                        <div class="dropzone-subtext">Supports JPEG, PNG, WebP, GIF</div>
+                                        <div class="dropzone-text">{{ 'admin.media.drop_hint' | transloco }}</div>
+                                        <div class="dropzone-subtext">{{ 'admin.media.supports' | transloco }}</div>
                                         }
                                     </div>
                                     }
@@ -115,14 +113,13 @@
                                             <div class="not-configured-icon">
                                                 <i class="fa-solid fa-image"></i>
                                             </div>
-                                            <h4>Media API Not Configured</h4>
+                                            <h4>{{ 'admin.media.api_not_configured' | transloco }}</h4>
                                             <p class="text-muted">
-                                                To search free images from Unsplash, configure your
-                                                API key in the integrations settings.
+                                                {{ 'admin.media.api_hint' | transloco }}
                                             </p>
                                             <button class="btn btn-primary" (click)="navigateToIntegrations()">
                                                 <i class="fa-solid fa-gear me-2"></i>
-                                                Configure API Key
+                                                {{ 'admin.media.configure_api' | transloco }}
                                             </button>
                                         </div>
                                         } @else {
@@ -135,12 +132,12 @@
                                                         <div class="search-box">
                                                             <i class="fas fa-search me-2 text-muted"></i>
                                                             <input #searchInput type="text" [(ngModel)]="searchValue"
-                                                                placeholder="Search for free images..."
+                                                                [placeholder]="'admin.media.search_placeholder' | transloco"
                                                                 (keyup.enter)="searchImage(searchValue)" [disabled]="isSearching">
                                                             <button (click)="searchImage(searchValue)"
                                                                 type="button" [disabled]="isSearching" [class.searching]="isSearching">
                                                                 @if(isSearching) {
-                                                                <i class="fas fa-spinner fa-spin me-1"></i> Searching...
+                                                                <i class="fas fa-spinner fa-spin me-1"></i> {{ 'admin.media.searching' | transloco }}
                                                                 } @else {
                                                                 Search
                                                                 }
@@ -172,7 +169,7 @@
                                             style="width: 100%; position: relative; cursor: pointer;">
                                         <figcaption class="fig_upload">
                                             @if(uploadImage){
-                                            <img [src]="uploadImage" alt="Selected Image" class="selected-image"
+                                            <img [src]="uploadImage" [alt]="'admin.media.selected_image_alt' | transloco" class="selected-image"
                                                 height="140px">
                                             @if(showUploadingSpinner) {
                                             <mat-progress-spinner class="example-margin" [mode]="mode"
@@ -227,16 +224,16 @@
                     <footer>
                         <mat-paginator [length]="pagination?.totalItems" [pageSize]="pagination?.pageSize || 20"
                             [pageIndex]="currentPageIndex" (page)="getPaginatorData($event)"
-                            aria-label="Select page">
+                            [attr.aria-label]="'admin.media.select_page' | transloco">
                         </mat-paginator>
                     </footer>
                     }
                 </div>
                 <div class="side-preview">
                     <div class="preview-header">
-                        <div class="preview-title">Selected Media</div>
+                        <div class="preview-title">{{ 'admin.media.selected' | transloco }}</div>
                         @if(_DIALOG_DATA.isDialogOpen){
-                        <button mat-dialog-close class="close-modal-btn" title="Close">
+                        <button mat-dialog-close class="close-modal-btn" [title]="'common.actions.close' | transloco">
                             <i class="fas fa-times"></i>
                         </button>
                         }
@@ -245,11 +242,11 @@
                         (click)="selectedMediaUrl && openFullImage()"
                         [title]="selectedMediaUrl ? 'Click to open full-size image in new tab' : ''">
                         <img [src]=" selectedMediaUrl?.urls?.regular || selectedMediaUrl?.url || 'https://placehold.co/800x450/e9f7fe/555555?text=Selected+photo+will+come+here'"
-                            alt="Company Logo Wide"
+                            [alt]="'admin.media.logo_alt' | transloco"
                             (error)="handleImageError($event)">
                         @if(selectedMediaUrl) {
                         <div class="preview-overlay">
-                            <i class="fas fa-external-link-alt"></i> Open full size
+                            <i class="fas fa-external-link-alt"></i> {{ 'admin.media.open_full' | transloco }}
                         </div>
                         }
                     </div>
@@ -257,19 +254,19 @@
                     <div class="preview-metadata">
                         @if(selectedMediaUrl.name) {
                         <div class="metadata-row">
-                            <span class="metadata-label">Name</span>
+                            <span class="metadata-label">{{ 'common.table.name' | transloco }}</span>
                             <span class="metadata-value" [title]="selectedMediaUrl.name">{{ selectedMediaUrl.name }}</span>
                         </div>
                         }
                         @if(selectedImageDimensions) {
                         <div class="metadata-row">
-                            <span class="metadata-label">Dimensions</span>
+                            <span class="metadata-label">{{ 'admin.media.dimensions' | transloco }}</span>
                             <span class="metadata-value">{{ selectedImageDimensions }}</span>
                         </div>
                         }
                         @if(selectedMediaUrl.uploadTime) {
                         <div class="metadata-row">
-                            <span class="metadata-label">Uploaded</span>
+                            <span class="metadata-label">{{ 'admin.media.uploaded' | transloco }}</span>
                             <span class="metadata-value">{{ selectedMediaUrl.uploadTime | date:'medium' }}</span>
                         </div>
                         }
@@ -277,7 +274,7 @@
                     }
                     @if(_DIALOG_DATA.isDialogOpen){
                     <button id="insertMediaBtn" (click)="insertMedia()" class=" btn btn-primary btn-insert">
-                        <i class="fas fa-check me-1 fs-6"></i> Insert Media
+                        <i class="fas fa-check me-1 fs-6"></i> {{ 'admin.media.insert' | transloco }}
                     </button>
                     }
                 </div>
