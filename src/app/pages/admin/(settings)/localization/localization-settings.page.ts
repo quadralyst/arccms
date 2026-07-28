@@ -69,7 +69,7 @@ import {
                       <span class="text-muted">· {{ lang.nativeLabel }}</span>
                     }
                     @if (lang.rtl) {
-                      <span class="badge bg-secondary ms-2">RTL</span>
+                      <span class="badge bg-secondary ms-2">{{ 'admin.settings.localization.rtl_badge' | transloco }}</span>
                     }
                   </td>
                   <td>

@@ -9,8 +9,7 @@
             </div>
             <h3>{{ 'admin.settings.email.disabled_title' | transloco }}</h3>
             <p class="text-muted">
-                Email functionality is currently turned off.
-                Configure a provider and test the connection, then enable it to start sending emails.
+                {{ 'admin.settings.email.turned_off_note' | transloco }}
             </p>
             <button mat-flat-button color="primary" (click)="startConfiguring()">
                 <i class="fa-solid fa-gear me-2"></i>
@@ -181,7 +180,7 @@
             <mat-card-header>
                 <mat-card-title>
                     <i class="fa-solid fa-gauge me-2"></i>
-                    Rate Limits ({{ getSelectedProvider().name }})
+                    {{ 'admin.settings.email.rate_limits_for' | transloco: { provider: getSelectedProvider().name } }}
                 </mat-card-title>
                 <mat-card-subtitle>
                     {{ 'admin.settings.email.rate_hint' | transloco }}
@@ -190,8 +189,7 @@
             <mat-card-content class="pt-3" [formGroup]="getActiveProviderRateLimitGroup()">
                 <div class="alert alert-light border small mb-3">
                     <i class="fa-solid fa-circle-info text-primary me-1"></i>
-                    These defaults are pre-configured based on {{ getSelectedProvider().name }} guidelines.
-                    You usually don't need to change them unless you have a custom plan with higher limits.
+                    {{ 'admin.settings.email.rate_defaults_note' | transloco: { provider: getSelectedProvider().name } }}
                 </div>
                 <div class="row">
                     <div class="col-md-4">
@@ -290,7 +288,7 @@
                 <div class="feature-toggle-row d-flex align-items-start justify-content-between gap-3 py-2">
                     <div class="feature-toggle-label">
                         <div class="fw-medium">{{ 'admin.settings.email.require_verification' | transloco }}</div>
-                        <div class="text-muted small">New users must confirm their email via a one-time code before their account is verified. Forced off while email is disabled.</div>
+                        <div class="text-muted small">{{ 'admin.settings.email.verification_note' | transloco }} {{ 'admin.settings.email.forced_off' | transloco }}</div>
                     </div>
                     <mat-slide-toggle
                         formControlName="requireSignupVerification"
@@ -318,13 +316,13 @@
                     class="test-btn">
                     @if (isTesting()) {
                     <mat-spinner diameter="20" class="me-2"></mat-spinner>
-                    Testing...
+                    {{ 'admin.settings.email.testing' | transloco }}
                     } @else if (testPassed()) {
                     <i class="fa-solid fa-check-circle me-2"></i>
-                    Test Passed
+                    {{ 'admin.settings.email.test_passed' | transloco }}
                     } @else {
                     <i class="fa-solid fa-plug me-2"></i>
-                    Send a Test Email
+                    {{ 'admin.settings.email.send_test' | transloco }}
                     }
                 </button>
                 } @else { <span></span> }
@@ -343,7 +341,7 @@
                         } @else {
                         <i class="fa-solid fa-save me-2"></i>
                         }
-                        Save Settings
+                        {{ 'common.actions.save_settings' | transloco }}
                     </button>
                 </div>
             </div>
