@@ -7,14 +7,14 @@
             <div class="disabled-icon">
                 <i class="fa-regular fa-envelope"></i>
             </div>
-            <h3>Email is Disabled</h3>
+            <h3>{{ 'admin.settings.email.disabled_title' | transloco }}</h3>
             <p class="text-muted">
                 Email functionality is currently turned off.
                 Configure a provider and test the connection, then enable it to start sending emails.
             </p>
             <button mat-flat-button color="primary" (click)="startConfiguring()">
                 <i class="fa-solid fa-gear me-2"></i>
-                Configure Email
+                {{ 'admin.settings.email.configure' | transloco }}
             </button>
             }
             @else{
@@ -26,11 +26,11 @@
     <!-- Header with Enable Toggle -->
     <div class="header mb-4">
         <div class="header-content">
-            <h3 class="m-0">Email Configuration</h3>
-            <p class="text-muted mb-0">Set up how your site sends emails for waitlist confirmations, notifications, and broadcasts</p>
+            <h3 class="m-0">{{ 'admin.settings.email.title' | transloco }}</h3>
+            <p class="text-muted mb-0">{{ 'admin.settings.email.subtitle' | transloco }}</p>
         </div>
         <mat-slide-toggle [checked]="emailEnabled()" (change)="toggleEmail($event.checked)" color="primary">
-            Email Enabled
+            {{ 'admin.settings.email.enabled' | transloco }}
         </mat-slide-toggle>
     </div>
 
@@ -41,13 +41,13 @@
             <div class="provider-selected">
                 <i [class]="getSelectedProvider().icon + ' provider-icon-sm'"></i>
                 <div class="provider-selected-info">
-                    <span class="provider-selected-label">Email Provider</span>
+                    <span class="provider-selected-label">{{ 'admin.settings.email.provider' | transloco }}</span>
                     <span class="provider-selected-name">{{ getSelectedProvider().name }}</span>
                 </div>
             </div>
             <button mat-stroked-button type="button" (click)="showProviderList.set(true)">
                 <i class="fa-solid fa-exchange-alt me-2"></i>
-                Change Provider
+                {{ 'admin.settings.email.change_provider' | transloco }}
             </button>
         </div>
         }
@@ -58,10 +58,10 @@
             <mat-card-header>
                 <mat-card-title>
                     <i class="fa-solid fa-plug me-2"></i>
-                    Select Email Provider
+                    {{ 'admin.settings.email.select_provider' | transloco }}
                 </mat-card-title>
                 <mat-card-subtitle>
-                    Choose the service that will send emails from your site
+                    {{ 'admin.settings.email.select_provider_hint' | transloco }}
                 </mat-card-subtitle>
             </mat-card-header>
             <mat-card-content class="pt-3">
@@ -85,7 +85,7 @@
                 </mat-radio-group>
                 <div class="mt-3 text-end">
                     <button mat-flat-button color="primary" type="button" (click)="showProviderList.set(false)">
-                        Done
+                        {{ 'admin.settings.email.done' | transloco }}
                     </button>
                 </div>
             </mat-card-content>
@@ -117,39 +117,39 @@
             }
         }
 
-        <!-- Sender Information Section -->
+        <!-- {{ 'admin.settings.email.sender_info' | transloco }} Section -->
         <mat-card class="mb-4">
             <mat-card-header>
                 <mat-card-title>
                     <i class="fa-solid fa-user me-2"></i>
-                    Sender Information
+                    {{ 'admin.settings.email.sender_info' | transloco }}
                 </mat-card-title>
                 <mat-card-subtitle>
-                    This is how your emails will appear to recipients
+                    {{ 'admin.settings.email.sender_info_hint' | transloco }}
                 </mat-card-subtitle>
             </mat-card-header>
             <mat-card-content class="pt-3">
                 <div class="row">
                     <div class="col-md-6">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>Sender Name</mat-label>
-                            <input matInput formControlName="senderName" placeholder="e.g. My Website">
-                            <mat-hint>The name recipients see (e.g. your website name)</mat-hint>
+                            <mat-label>{{ 'admin.settings.email.sender_name' | transloco }}</mat-label>
+                            <input matInput formControlName="senderName" [placeholder]="'admin.settings.email.sender_name_placeholder' | transloco">
+                            <mat-hint>{{ 'admin.settings.email.sender_name_hint' | transloco }}</mat-hint>
                         </mat-form-field>
                     </div>
                     <div class="col-md-6">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>Sender Email</mat-label>
+                            <mat-label>{{ 'admin.settings.email.sender_email' | transloco }}</mat-label>
                             <input matInput type="email" formControlName="senderEmail"
                                 placeholder="noreply@yoursite.com"
                                 [readonly]="gmailSenderLocked()">
                             @if (gmailSenderLocked()) {
                             <mat-hint>
                                 <i class="fa-solid fa-lock me-1"></i>
-                                Locked to your Gmail address (Gmail requires this)
+                                {{ 'admin.settings.email.sender_email_locked' | transloco }}
                             </mat-hint>
                             } @else {
-                            <mat-hint>The "from" address on your emails</mat-hint>
+                            <mat-hint>{{ 'admin.settings.email.sender_email_hint' | transloco }}</mat-hint>
                             }
                         </mat-form-field>
                     </div>
@@ -158,17 +158,17 @@
                 <div class="row mt-3">
                     <div class="col-md-6">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>Reply-To Email (Optional)</mat-label>
+                            <mat-label>{{ 'admin.settings.email.reply_to' | transloco }}</mat-label>
                             <input matInput type="email" formControlName="replyToEmail"
                                 placeholder="support@yoursite.com">
-                            <mat-hint>When someone replies to your email, it goes here instead</mat-hint>
+                            <mat-hint>{{ 'admin.settings.email.reply_to_hint' | transloco }}</mat-hint>
                         </mat-form-field>
                     </div>
                     <div class="col-md-6">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>BCC Email (Optional)</mat-label>
+                            <mat-label>{{ 'admin.settings.email.bcc' | transloco }}</mat-label>
                             <input matInput type="email" formControlName="bccEmail" placeholder="admin@yoursite.com">
-                            <mat-hint>Secretly receive a copy of every email sent</mat-hint>
+                            <mat-hint>{{ 'admin.settings.email.bcc_hint' | transloco }}</mat-hint>
                         </mat-form-field>
                     </div>
                 </div>
@@ -184,7 +184,7 @@
                     Rate Limits ({{ getSelectedProvider().name }})
                 </mat-card-title>
                 <mat-card-subtitle>
-                    Controls how fast emails are sent to avoid hitting provider limits
+                    {{ 'admin.settings.email.rate_hint' | transloco }}
                 </mat-card-subtitle>
             </mat-card-header>
             <mat-card-content class="pt-3" [formGroup]="getActiveProviderRateLimitGroup()">
@@ -196,24 +196,24 @@
                 <div class="row">
                     <div class="col-md-4">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>Per Second</mat-label>
+                            <mat-label>{{ 'admin.settings.email.per_second' | transloco }}</mat-label>
                             <input matInput type="number" formControlName="perSecond" min="1">
-                            <mat-hint>Max emails sent per second</mat-hint>
-                            <mat-error>Must be at least 1</mat-error>
+                            <mat-hint>{{ 'admin.settings.email.per_second_hint' | transloco }}</mat-hint>
+                            <mat-error>{{ 'admin.settings.email.at_least_one' | transloco }}</mat-error>
                         </mat-form-field>
                     </div>
                     <div class="col-md-4">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>Per Hour (optional)</mat-label>
+                            <mat-label>{{ 'admin.settings.email.per_hour' | transloco }}</mat-label>
                             <input matInput type="number" formControlName="perHour" min="1">
-                            <mat-hint>Leave empty for no hourly cap</mat-hint>
+                            <mat-hint>{{ 'admin.settings.email.per_hour_hint' | transloco }}</mat-hint>
                         </mat-form-field>
                     </div>
                     <div class="col-md-4">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>Per Day (optional)</mat-label>
+                            <mat-label>{{ 'admin.settings.email.per_day' | transloco }}</mat-label>
                             <input matInput type="number" formControlName="perDay" min="1">
-                            <mat-hint>Your daily sending limit</mat-hint>
+                            <mat-hint>{{ 'admin.settings.email.per_day_hint' | transloco }}</mat-hint>
                         </mat-form-field>
                     </div>
                 </div>
@@ -221,28 +221,28 @@
         </mat-card>
         }
 
-        <!-- Auto-Purge Email Logs -->
+        <!-- {{ 'admin.settings.email.auto_purge' | transloco }} -->
         <mat-card class="mb-4" formGroupName="autoPurge">
             <mat-card-header>
                 <mat-card-title>
                     <i class="fa-solid fa-broom me-2"></i>
-                    Auto-Purge Email Logs
+                    {{ 'admin.settings.email.auto_purge' | transloco }}
                 </mat-card-title>
                 <mat-card-subtitle>
-                    Automatically clean up old email logs to save storage space
+                    {{ 'admin.settings.email.auto_purge_hint' | transloco }}
                 </mat-card-subtitle>
             </mat-card-header>
             <mat-card-content class="pt-3">
                 <div class="d-flex align-items-center gap-4 flex-wrap">
                     <mat-slide-toggle formControlName="enabled" color="primary">
-                        Enable auto-purge
+                        {{ 'admin.settings.email.auto_purge_enable' | transloco }}
                     </mat-slide-toggle>
                     @if (emailForm.get('autoPurge.enabled')?.value) {
                     <mat-form-field appearance="outline" style="width: 220px;">
-                        <mat-label>Keep logs for (days)</mat-label>
+                        <mat-label>{{ 'admin.settings.email.keep_days' | transloco }}</mat-label>
                         <input matInput type="number" formControlName="retentionDays" min="1" max="365">
-                        <mat-hint class="text-nowrap">Logs older than this are automatically deleted</mat-hint>
-                        <mat-error>Must be between 1 and 365</mat-error>
+                        <mat-hint class="text-nowrap">{{ 'admin.settings.email.keep_days_hint' | transloco }}</mat-hint>
+                        <mat-error>{{ 'admin.settings.email.keep_days_range' | transloco }}</mat-error>
                     </mat-form-field>
                     }
                 </div>
@@ -254,17 +254,17 @@
             <mat-card-header>
                 <mat-card-title>
                     <i class="fa-solid fa-sliders me-2"></i>
-                    Email Features
+                    {{ 'admin.settings.email.features' | transloco }}
                 </mat-card-title>
                 <mat-card-subtitle>
-                    Turn individual email types on or off. The master switch above overrides all of these.
+                    {{ 'admin.settings.email.features_hint' | transloco }}
                 </mat-card-subtitle>
             </mat-card-header>
             <mat-card-content class="pt-3">
                 @if (!emailEnabled()) {
                 <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
                     <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span>Email is turned off. Enable email above to configure and use these features.</span>
+                    <span>{{ 'admin.settings.email.features_off' | transloco }}</span>
                 </div>
                 }
 
@@ -289,7 +289,7 @@
 
                 <div class="feature-toggle-row d-flex align-items-start justify-content-between gap-3 py-2">
                     <div class="feature-toggle-label">
-                        <div class="fw-medium">Require email verification on signup</div>
+                        <div class="fw-medium">{{ 'admin.settings.email.require_verification' | transloco }}</div>
                         <div class="text-muted small">New users must confirm their email via a one-time code before their account is verified. Forced off while email is disabled.</div>
                     </div>
                     <mat-slide-toggle
@@ -308,7 +308,7 @@
             @if (emailForm.get('activeProvider')?.value === 'debug_log') {
             <div class="alert alert-warning small mb-3">
                 <i class="fa-solid fa-bug me-1"></i>
-                <strong>Debug Provider (Log Only)</strong> needs no connection test — emails are recorded in Email Logs, not sent. Just Save.
+                <strong>{{ 'admin.settings.email.debug_provider' | transloco }}</strong> {{ 'admin.settings.email.debug_hint' | transloco }}
             </div>
             }
             <div class="d-flex justify-content-between align-items-center">
@@ -333,7 +333,7 @@
                     @if (!testPassed() && emailForm.dirty && emailForm.get('activeProvider')?.value !== 'debug_log') {
                     <span class="save-hint text-muted me-3">
                         <i class="fa-solid fa-info-circle me-1"></i>
-                        Please test connection before saving
+                        {{ 'admin.settings.email.test_before_save' | transloco }}
                     </span>
                     }
                     <button mat-flat-button color="primary" type="submit"

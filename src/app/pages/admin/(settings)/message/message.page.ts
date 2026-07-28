@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { roleGuard } from '../../../../guards/role.guard';
@@ -31,8 +32,7 @@ import { DEFAULT_GLOBAL_MESSAGE_SETTINGS, GRADIENT_PRESETS, getGradientById, IGl
         MatButtonModule,
         MatFormFieldModule,
         MatInputModule,
-        MatProgressSpinnerModule,
-    ],
+        MatProgressSpinnerModule, TranslocoPipe],
     templateUrl: './message.page.html',
     styleUrl: './message.page.scss',
 })
