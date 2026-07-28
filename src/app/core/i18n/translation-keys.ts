@@ -234,12 +234,81 @@ export type TranslationKey =
     | 'admin.settings.about.address'
     | 'admin.settings.about.address_hint'
     | 'admin.settings.about.address_placeholder'
+    | 'admin.settings.about.intro'
     | 'admin.settings.about.production_url'
     | 'admin.settings.about.production_url_hint'
     | 'admin.settings.about.production_url_placeholder'
     | 'admin.settings.about.site_name'
     | 'admin.settings.about.site_name_hint'
     | 'admin.settings.about.site_name_placeholder'
+    | 'admin.settings.analytics.client_id'
+    | 'admin.settings.analytics.client_id_placeholder'
+    | 'admin.settings.analytics.client_id_required'
+    | 'admin.settings.analytics.client_secret'
+    | 'admin.settings.analytics.client_secret_placeholder'
+    | 'admin.settings.analytics.client_secret_required'
+    | 'admin.settings.analytics.configure'
+    | 'admin.settings.analytics.configured'
+    | 'admin.settings.analytics.connect_button'
+    | 'admin.settings.analytics.connect_failed'
+    | 'admin.settings.analytics.connect_intro'
+    | 'admin.settings.analytics.connect_success'
+    | 'admin.settings.analytics.connected'
+    | 'admin.settings.analytics.connected_to'
+    | 'admin.settings.analytics.connecting'
+    | 'admin.settings.analytics.connection'
+    | 'admin.settings.analytics.copied'
+    | 'admin.settings.analytics.copy_failed'
+    | 'admin.settings.analytics.creds_hint'
+    | 'admin.settings.analytics.creds_save_failed'
+    | 'admin.settings.analytics.creds_saved'
+    | 'admin.settings.analytics.disconnect'
+    | 'admin.settings.analytics.disconnect_failed'
+    | 'admin.settings.analytics.disconnected'
+    | 'admin.settings.analytics.disconnecting'
+    | 'admin.settings.analytics.guide'
+    | 'admin.settings.analytics.intro'
+    | 'admin.settings.analytics.live_site'
+    | 'admin.settings.analytics.local_dev'
+    | 'admin.settings.analytics.not_connected'
+    | 'admin.settings.analytics.oauth_credentials'
+    | 'admin.settings.analytics.property'
+    | 'admin.settings.analytics.required_by_google'
+    | 'admin.settings.analytics.s1_a'
+    | 'admin.settings.analytics.s1_b'
+    | 'admin.settings.analytics.s1_c'
+    | 'admin.settings.analytics.s1_d'
+    | 'admin.settings.analytics.s1_e'
+    | 'admin.settings.analytics.s1_title'
+    | 'admin.settings.analytics.s2_a'
+    | 'admin.settings.analytics.s2_b'
+    | 'admin.settings.analytics.s2_c'
+    | 'admin.settings.analytics.s2_c1'
+    | 'admin.settings.analytics.s2_c2'
+    | 'admin.settings.analytics.s2_c3'
+    | 'admin.settings.analytics.s2_c4'
+    | 'admin.settings.analytics.s2_d'
+    | 'admin.settings.analytics.s2_e'
+    | 'admin.settings.analytics.s2_f'
+    | 'admin.settings.analytics.s2_g'
+    | 'admin.settings.analytics.s2_h'
+    | 'admin.settings.analytics.s2_i'
+    | 'admin.settings.analytics.s2_j'
+    | 'admin.settings.analytics.s2_title'
+    | 'admin.settings.analytics.s3_a'
+    | 'admin.settings.analytics.s3_b'
+    | 'admin.settings.analytics.s3_c'
+    | 'admin.settings.analytics.s3_d'
+    | 'admin.settings.analytics.s3_title'
+    | 'admin.settings.analytics.same_account'
+    | 'admin.settings.analytics.save_credentials'
+    | 'admin.settings.analytics.save_creds_first'
+    | 'admin.settings.analytics.save_first'
+    | 'admin.settings.analytics.saved_hint'
+    | 'admin.settings.analytics.select_property_failed'
+    | 'admin.settings.analytics.subtitle'
+    | 'admin.settings.analytics.title'
+    | 'admin.settings.analytics.why_note'
     | 'admin.settings.background_style'
     | 'admin.settings.banner_enabled'
     | 'admin.settings.email.at_least_one'
@@ -258,6 +327,7 @@ export type TranslationKey =
     | 'admin.settings.email.features'
     | 'admin.settings.email.features_hint'
     | 'admin.settings.email.features_off'
+    | 'admin.settings.email.forced_off'
     | 'admin.settings.email.keep_days'
     | 'admin.settings.email.keep_days_hint'
     | 'admin.settings.email.keep_days_range'
@@ -268,12 +338,16 @@ export type TranslationKey =
     | 'admin.settings.email.per_second'
     | 'admin.settings.email.per_second_hint'
     | 'admin.settings.email.provider'
+    | 'admin.settings.email.rate_defaults_note'
     | 'admin.settings.email.rate_hint'
+    | 'admin.settings.email.rate_limits'
+    | 'admin.settings.email.rate_limits_for'
     | 'admin.settings.email.reply_to'
     | 'admin.settings.email.reply_to_hint'
     | 'admin.settings.email.require_verification'
     | 'admin.settings.email.select_provider'
     | 'admin.settings.email.select_provider_hint'
+    | 'admin.settings.email.send_test'
     | 'admin.settings.email.sender_email'
     | 'admin.settings.email.sender_email_hint'
     | 'admin.settings.email.sender_email_locked'
@@ -284,7 +358,11 @@ export type TranslationKey =
     | 'admin.settings.email.sender_name_placeholder'
     | 'admin.settings.email.subtitle'
     | 'admin.settings.email.test_before_save'
+    | 'admin.settings.email.test_passed'
+    | 'admin.settings.email.testing'
     | 'admin.settings.email.title'
+    | 'admin.settings.email.turned_off_note'
+    | 'admin.settings.email.verification_note'
     | 'admin.settings.enable_banner'
     | 'admin.settings.enable_to_configure'
     | 'admin.settings.hub.about.description'
@@ -309,6 +387,68 @@ export type TranslationKey =
     | 'admin.settings.hub.title'
     | 'admin.settings.hub.user.description'
     | 'admin.settings.hub.user.label'
+    | 'admin.settings.integrations.access_key'
+    | 'admin.settings.integrations.access_key_placeholder'
+    | 'admin.settings.integrations.geo'
+    | 'admin.settings.integrations.geo_custom_option'
+    | 'admin.settings.integrations.geo_disabled_hint'
+    | 'admin.settings.integrations.geo_enable'
+    | 'admin.settings.integrations.geo_endpoint'
+    | 'admin.settings.integrations.geo_endpoint_hint'
+    | 'admin.settings.integrations.geo_endpoint_placeholder'
+    | 'admin.settings.integrations.geo_guide'
+    | 'admin.settings.integrations.geo_intro'
+    | 'admin.settings.integrations.geo_ipapi_hint'
+    | 'admin.settings.integrations.geo_ipapi_option'
+    | 'admin.settings.integrations.geo_ipinfo_option'
+    | 'admin.settings.integrations.geo_key'
+    | 'admin.settings.integrations.geo_key_placeholder'
+    | 'admin.settings.integrations.geo_note'
+    | 'admin.settings.integrations.geo_provider'
+    | 'admin.settings.integrations.geo_s1_a'
+    | 'admin.settings.integrations.geo_s1_b'
+    | 'admin.settings.integrations.geo_s1_c'
+    | 'admin.settings.integrations.geo_s1_title'
+    | 'admin.settings.integrations.geo_s2_a'
+    | 'admin.settings.integrations.geo_s2_b'
+    | 'admin.settings.integrations.geo_s2_c'
+    | 'admin.settings.integrations.geo_s2_title'
+    | 'admin.settings.integrations.geo_s3_a'
+    | 'admin.settings.integrations.geo_s3_b'
+    | 'admin.settings.integrations.geo_s3_c'
+    | 'admin.settings.integrations.geo_s3_title'
+    | 'admin.settings.integrations.geo_save_failed'
+    | 'admin.settings.integrations.geo_saved'
+    | 'admin.settings.integrations.geo_subtitle'
+    | 'admin.settings.integrations.geo_token'
+    | 'admin.settings.integrations.geo_token_hint'
+    | 'admin.settings.integrations.geo_token_placeholder'
+    | 'admin.settings.integrations.save_geo'
+    | 'admin.settings.integrations.save_unsplash'
+    | 'admin.settings.integrations.secret_key'
+    | 'admin.settings.integrations.secret_key_placeholder'
+    | 'admin.settings.integrations.subtitle'
+    | 'admin.settings.integrations.unsplash'
+    | 'admin.settings.integrations.unsplash_guide'
+    | 'admin.settings.integrations.unsplash_hint'
+    | 'admin.settings.integrations.unsplash_intro'
+    | 'admin.settings.integrations.unsplash_note'
+    | 'admin.settings.integrations.unsplash_s1_a'
+    | 'admin.settings.integrations.unsplash_s1_b'
+    | 'admin.settings.integrations.unsplash_s1_c'
+    | 'admin.settings.integrations.unsplash_s1_title'
+    | 'admin.settings.integrations.unsplash_s2_a'
+    | 'admin.settings.integrations.unsplash_s2_b'
+    | 'admin.settings.integrations.unsplash_s2_c'
+    | 'admin.settings.integrations.unsplash_s2_d'
+    | 'admin.settings.integrations.unsplash_s2_title'
+    | 'admin.settings.integrations.unsplash_s3_a'
+    | 'admin.settings.integrations.unsplash_s3_b'
+    | 'admin.settings.integrations.unsplash_s3_c'
+    | 'admin.settings.integrations.unsplash_s3_title'
+    | 'admin.settings.integrations.unsplash_save_failed'
+    | 'admin.settings.integrations.unsplash_saved'
+    | 'admin.settings.integrations.unsplash_subtitle'
     | 'admin.settings.live_preview'
     | 'admin.settings.localization.add_a_language'
     | 'admin.settings.localization.already_enabled'
@@ -334,6 +474,7 @@ export type TranslationKey =
     | 'admin.settings.localization.removal_note'
     | 'admin.settings.localization.remove_language'
     | 'admin.settings.localization.root_prefix'
+    | 'admin.settings.localization.rtl_badge'
     | 'admin.settings.localization.save_failed'
     | 'admin.settings.localization.save_languages'
     | 'admin.settings.localization.saved'
@@ -363,11 +504,47 @@ export type TranslationKey =
     | 'admin.settings.misc.max_height_hint'
     | 'admin.settings.misc.max_width'
     | 'admin.settings.misc.max_width_hint'
+    | 'admin.settings.misc.media_intro'
     | 'admin.settings.misc.media_saved'
     | 'admin.settings.misc.media_upload'
     | 'admin.settings.misc.powered_by'
+    | 'admin.settings.misc.powered_by_note'
     | 'admin.settings.misc.save_branding'
     | 'admin.settings.misc.save_media'
+    | 'admin.settings.misc.webp_note'
+    | 'admin.settings.payments.body'
+    | 'admin.settings.payments.cancel_url'
+    | 'admin.settings.payments.connect_failed'
+    | 'admin.settings.payments.connected'
+    | 'admin.settings.payments.dodo'
+    | 'admin.settings.payments.emails'
+    | 'admin.settings.payments.emails_note'
+    | 'admin.settings.payments.enable'
+    | 'admin.settings.payments.keys_note'
+    | 'admin.settings.payments.live'
+    | 'admin.settings.payments.live_key'
+    | 'admin.settings.payments.mode'
+    | 'admin.settings.payments.not_yet'
+    | 'admin.settings.payments.received_question'
+    | 'admin.settings.payments.received_yes'
+    | 'admin.settings.payments.save_failed'
+    | 'admin.settings.payments.save_template'
+    | 'admin.settings.payments.saved'
+    | 'admin.settings.payments.send_this'
+    | 'admin.settings.payments.subject'
+    | 'admin.settings.payments.subtitle'
+    | 'admin.settings.payments.success_url'
+    | 'admin.settings.payments.test'
+    | 'admin.settings.payments.test_confirmed'
+    | 'admin.settings.payments.test_connection'
+    | 'admin.settings.payments.test_email'
+    | 'admin.settings.payments.test_key'
+    | 'admin.settings.payments.test_prompt'
+    | 'admin.settings.payments.testing'
+    | 'admin.settings.payments.unknown_error'
+    | 'admin.settings.payments.webhook_note'
+    | 'admin.settings.payments.webhook_note_end'
+    | 'admin.settings.payments.webhook_secret'
     | 'admin.settings.site_usage.accept_placeholder'
     | 'admin.settings.site_usage.accept_text'
     | 'admin.settings.site_usage.accept_text_required'
@@ -384,6 +561,15 @@ export type TranslationKey =
     | 'admin.settings.site_usage.reject_text_required'
     | 'admin.settings.site_usage.subtitle'
     | 'admin.settings.site_usage.title'
+    | 'admin.settings.test_connection.check_folders'
+    | 'admin.settings.test_connection.email_invalid'
+    | 'admin.settings.test_connection.email_required'
+    | 'admin.settings.test_connection.intro'
+    | 'admin.settings.test_connection.message'
+    | 'admin.settings.test_connection.send'
+    | 'admin.settings.test_connection.subject'
+    | 'admin.settings.test_connection.title'
+    | 'admin.settings.test_connection.to'
     | 'admin.settings.user.assigned_note'
     | 'admin.settings.user.assigned_note_end'
     | 'admin.settings.user.default_role'
@@ -407,18 +593,22 @@ export type TranslationKey =
     | 'common.actions.cancel'
     | 'common.actions.close'
     | 'common.actions.confirm'
+    | 'common.actions.copy'
     | 'common.actions.delete'
     | 'common.actions.delete_confirm'
     | 'common.actions.edit'
     | 'common.actions.enable'
+    | 'common.actions.hide'
     | 'common.actions.logout'
     | 'common.actions.open'
     | 'common.actions.remove'
     | 'common.actions.reset'
     | 'common.actions.save'
     | 'common.actions.save_settings'
+    | 'common.actions.save_short'
     | 'common.actions.saving'
     | 'common.actions.search'
+    | 'common.actions.show'
     | 'common.actions.view'
     | 'common.dialog.confirm'
     | 'common.dialog.delete'
@@ -695,12 +885,81 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.about.address',
     'admin.settings.about.address_hint',
     'admin.settings.about.address_placeholder',
+    'admin.settings.about.intro',
     'admin.settings.about.production_url',
     'admin.settings.about.production_url_hint',
     'admin.settings.about.production_url_placeholder',
     'admin.settings.about.site_name',
     'admin.settings.about.site_name_hint',
     'admin.settings.about.site_name_placeholder',
+    'admin.settings.analytics.client_id',
+    'admin.settings.analytics.client_id_placeholder',
+    'admin.settings.analytics.client_id_required',
+    'admin.settings.analytics.client_secret',
+    'admin.settings.analytics.client_secret_placeholder',
+    'admin.settings.analytics.client_secret_required',
+    'admin.settings.analytics.configure',
+    'admin.settings.analytics.configured',
+    'admin.settings.analytics.connect_button',
+    'admin.settings.analytics.connect_failed',
+    'admin.settings.analytics.connect_intro',
+    'admin.settings.analytics.connect_success',
+    'admin.settings.analytics.connected',
+    'admin.settings.analytics.connected_to',
+    'admin.settings.analytics.connecting',
+    'admin.settings.analytics.connection',
+    'admin.settings.analytics.copied',
+    'admin.settings.analytics.copy_failed',
+    'admin.settings.analytics.creds_hint',
+    'admin.settings.analytics.creds_save_failed',
+    'admin.settings.analytics.creds_saved',
+    'admin.settings.analytics.disconnect',
+    'admin.settings.analytics.disconnect_failed',
+    'admin.settings.analytics.disconnected',
+    'admin.settings.analytics.disconnecting',
+    'admin.settings.analytics.guide',
+    'admin.settings.analytics.intro',
+    'admin.settings.analytics.live_site',
+    'admin.settings.analytics.local_dev',
+    'admin.settings.analytics.not_connected',
+    'admin.settings.analytics.oauth_credentials',
+    'admin.settings.analytics.property',
+    'admin.settings.analytics.required_by_google',
+    'admin.settings.analytics.s1_a',
+    'admin.settings.analytics.s1_b',
+    'admin.settings.analytics.s1_c',
+    'admin.settings.analytics.s1_d',
+    'admin.settings.analytics.s1_e',
+    'admin.settings.analytics.s1_title',
+    'admin.settings.analytics.s2_a',
+    'admin.settings.analytics.s2_b',
+    'admin.settings.analytics.s2_c',
+    'admin.settings.analytics.s2_c1',
+    'admin.settings.analytics.s2_c2',
+    'admin.settings.analytics.s2_c3',
+    'admin.settings.analytics.s2_c4',
+    'admin.settings.analytics.s2_d',
+    'admin.settings.analytics.s2_e',
+    'admin.settings.analytics.s2_f',
+    'admin.settings.analytics.s2_g',
+    'admin.settings.analytics.s2_h',
+    'admin.settings.analytics.s2_i',
+    'admin.settings.analytics.s2_j',
+    'admin.settings.analytics.s2_title',
+    'admin.settings.analytics.s3_a',
+    'admin.settings.analytics.s3_b',
+    'admin.settings.analytics.s3_c',
+    'admin.settings.analytics.s3_d',
+    'admin.settings.analytics.s3_title',
+    'admin.settings.analytics.same_account',
+    'admin.settings.analytics.save_credentials',
+    'admin.settings.analytics.save_creds_first',
+    'admin.settings.analytics.save_first',
+    'admin.settings.analytics.saved_hint',
+    'admin.settings.analytics.select_property_failed',
+    'admin.settings.analytics.subtitle',
+    'admin.settings.analytics.title',
+    'admin.settings.analytics.why_note',
     'admin.settings.background_style',
     'admin.settings.banner_enabled',
     'admin.settings.email.at_least_one',
@@ -719,6 +978,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.email.features',
     'admin.settings.email.features_hint',
     'admin.settings.email.features_off',
+    'admin.settings.email.forced_off',
     'admin.settings.email.keep_days',
     'admin.settings.email.keep_days_hint',
     'admin.settings.email.keep_days_range',
@@ -729,12 +989,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.email.per_second',
     'admin.settings.email.per_second_hint',
     'admin.settings.email.provider',
+    'admin.settings.email.rate_defaults_note',
     'admin.settings.email.rate_hint',
+    'admin.settings.email.rate_limits',
+    'admin.settings.email.rate_limits_for',
     'admin.settings.email.reply_to',
     'admin.settings.email.reply_to_hint',
     'admin.settings.email.require_verification',
     'admin.settings.email.select_provider',
     'admin.settings.email.select_provider_hint',
+    'admin.settings.email.send_test',
     'admin.settings.email.sender_email',
     'admin.settings.email.sender_email_hint',
     'admin.settings.email.sender_email_locked',
@@ -745,7 +1009,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.email.sender_name_placeholder',
     'admin.settings.email.subtitle',
     'admin.settings.email.test_before_save',
+    'admin.settings.email.test_passed',
+    'admin.settings.email.testing',
     'admin.settings.email.title',
+    'admin.settings.email.turned_off_note',
+    'admin.settings.email.verification_note',
     'admin.settings.enable_banner',
     'admin.settings.enable_to_configure',
     'admin.settings.hub.about.description',
@@ -770,6 +1038,68 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.title',
     'admin.settings.hub.user.description',
     'admin.settings.hub.user.label',
+    'admin.settings.integrations.access_key',
+    'admin.settings.integrations.access_key_placeholder',
+    'admin.settings.integrations.geo',
+    'admin.settings.integrations.geo_custom_option',
+    'admin.settings.integrations.geo_disabled_hint',
+    'admin.settings.integrations.geo_enable',
+    'admin.settings.integrations.geo_endpoint',
+    'admin.settings.integrations.geo_endpoint_hint',
+    'admin.settings.integrations.geo_endpoint_placeholder',
+    'admin.settings.integrations.geo_guide',
+    'admin.settings.integrations.geo_intro',
+    'admin.settings.integrations.geo_ipapi_hint',
+    'admin.settings.integrations.geo_ipapi_option',
+    'admin.settings.integrations.geo_ipinfo_option',
+    'admin.settings.integrations.geo_key',
+    'admin.settings.integrations.geo_key_placeholder',
+    'admin.settings.integrations.geo_note',
+    'admin.settings.integrations.geo_provider',
+    'admin.settings.integrations.geo_s1_a',
+    'admin.settings.integrations.geo_s1_b',
+    'admin.settings.integrations.geo_s1_c',
+    'admin.settings.integrations.geo_s1_title',
+    'admin.settings.integrations.geo_s2_a',
+    'admin.settings.integrations.geo_s2_b',
+    'admin.settings.integrations.geo_s2_c',
+    'admin.settings.integrations.geo_s2_title',
+    'admin.settings.integrations.geo_s3_a',
+    'admin.settings.integrations.geo_s3_b',
+    'admin.settings.integrations.geo_s3_c',
+    'admin.settings.integrations.geo_s3_title',
+    'admin.settings.integrations.geo_save_failed',
+    'admin.settings.integrations.geo_saved',
+    'admin.settings.integrations.geo_subtitle',
+    'admin.settings.integrations.geo_token',
+    'admin.settings.integrations.geo_token_hint',
+    'admin.settings.integrations.geo_token_placeholder',
+    'admin.settings.integrations.save_geo',
+    'admin.settings.integrations.save_unsplash',
+    'admin.settings.integrations.secret_key',
+    'admin.settings.integrations.secret_key_placeholder',
+    'admin.settings.integrations.subtitle',
+    'admin.settings.integrations.unsplash',
+    'admin.settings.integrations.unsplash_guide',
+    'admin.settings.integrations.unsplash_hint',
+    'admin.settings.integrations.unsplash_intro',
+    'admin.settings.integrations.unsplash_note',
+    'admin.settings.integrations.unsplash_s1_a',
+    'admin.settings.integrations.unsplash_s1_b',
+    'admin.settings.integrations.unsplash_s1_c',
+    'admin.settings.integrations.unsplash_s1_title',
+    'admin.settings.integrations.unsplash_s2_a',
+    'admin.settings.integrations.unsplash_s2_b',
+    'admin.settings.integrations.unsplash_s2_c',
+    'admin.settings.integrations.unsplash_s2_d',
+    'admin.settings.integrations.unsplash_s2_title',
+    'admin.settings.integrations.unsplash_s3_a',
+    'admin.settings.integrations.unsplash_s3_b',
+    'admin.settings.integrations.unsplash_s3_c',
+    'admin.settings.integrations.unsplash_s3_title',
+    'admin.settings.integrations.unsplash_save_failed',
+    'admin.settings.integrations.unsplash_saved',
+    'admin.settings.integrations.unsplash_subtitle',
     'admin.settings.live_preview',
     'admin.settings.localization.add_a_language',
     'admin.settings.localization.already_enabled',
@@ -795,6 +1125,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.localization.removal_note',
     'admin.settings.localization.remove_language',
     'admin.settings.localization.root_prefix',
+    'admin.settings.localization.rtl_badge',
     'admin.settings.localization.save_failed',
     'admin.settings.localization.save_languages',
     'admin.settings.localization.saved',
@@ -824,11 +1155,47 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.misc.max_height_hint',
     'admin.settings.misc.max_width',
     'admin.settings.misc.max_width_hint',
+    'admin.settings.misc.media_intro',
     'admin.settings.misc.media_saved',
     'admin.settings.misc.media_upload',
     'admin.settings.misc.powered_by',
+    'admin.settings.misc.powered_by_note',
     'admin.settings.misc.save_branding',
     'admin.settings.misc.save_media',
+    'admin.settings.misc.webp_note',
+    'admin.settings.payments.body',
+    'admin.settings.payments.cancel_url',
+    'admin.settings.payments.connect_failed',
+    'admin.settings.payments.connected',
+    'admin.settings.payments.dodo',
+    'admin.settings.payments.emails',
+    'admin.settings.payments.emails_note',
+    'admin.settings.payments.enable',
+    'admin.settings.payments.keys_note',
+    'admin.settings.payments.live',
+    'admin.settings.payments.live_key',
+    'admin.settings.payments.mode',
+    'admin.settings.payments.not_yet',
+    'admin.settings.payments.received_question',
+    'admin.settings.payments.received_yes',
+    'admin.settings.payments.save_failed',
+    'admin.settings.payments.save_template',
+    'admin.settings.payments.saved',
+    'admin.settings.payments.send_this',
+    'admin.settings.payments.subject',
+    'admin.settings.payments.subtitle',
+    'admin.settings.payments.success_url',
+    'admin.settings.payments.test',
+    'admin.settings.payments.test_confirmed',
+    'admin.settings.payments.test_connection',
+    'admin.settings.payments.test_email',
+    'admin.settings.payments.test_key',
+    'admin.settings.payments.test_prompt',
+    'admin.settings.payments.testing',
+    'admin.settings.payments.unknown_error',
+    'admin.settings.payments.webhook_note',
+    'admin.settings.payments.webhook_note_end',
+    'admin.settings.payments.webhook_secret',
     'admin.settings.site_usage.accept_placeholder',
     'admin.settings.site_usage.accept_text',
     'admin.settings.site_usage.accept_text_required',
@@ -845,6 +1212,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.site_usage.reject_text_required',
     'admin.settings.site_usage.subtitle',
     'admin.settings.site_usage.title',
+    'admin.settings.test_connection.check_folders',
+    'admin.settings.test_connection.email_invalid',
+    'admin.settings.test_connection.email_required',
+    'admin.settings.test_connection.intro',
+    'admin.settings.test_connection.message',
+    'admin.settings.test_connection.send',
+    'admin.settings.test_connection.subject',
+    'admin.settings.test_connection.title',
+    'admin.settings.test_connection.to',
     'admin.settings.user.assigned_note',
     'admin.settings.user.assigned_note_end',
     'admin.settings.user.default_role',
@@ -868,18 +1244,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.actions.cancel',
     'common.actions.close',
     'common.actions.confirm',
+    'common.actions.copy',
     'common.actions.delete',
     'common.actions.delete_confirm',
     'common.actions.edit',
     'common.actions.enable',
+    'common.actions.hide',
     'common.actions.logout',
     'common.actions.open',
     'common.actions.remove',
     'common.actions.reset',
     'common.actions.save',
     'common.actions.save_settings',
+    'common.actions.save_short',
     'common.actions.saving',
     'common.actions.search',
+    'common.actions.show',
     'common.actions.view',
     'common.dialog.confirm',
     'common.dialog.delete',

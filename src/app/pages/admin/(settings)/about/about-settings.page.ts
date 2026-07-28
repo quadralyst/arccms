@@ -21,8 +21,7 @@ import { AboutSettingsService } from './about-settings.service';
         <div class="settings-section">
             <h3 class="mb-4">{{ 'admin.settings.hub.about.label' | transloco }}</h3>
             <p class="text-muted mb-4">
-                Configure your site's identity. These values are used in SEO meta tags,
-                canonical URLs, and email footers.
+                {{ 'admin.settings.about.intro' | transloco }}
             </p>
 
             <div class="form-group mb-3">
@@ -77,7 +76,7 @@ import { AboutSettingsService } from './about-settings.service';
                     [disabled]="isSaving()"
                 >
                     @if (isSaving()) {
-                        <i class="fas fa-spinner fa-spin me-1"></i> Saving...
+                        <i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.actions.saving' | transloco }}
                     } @else {
                         <i class="fas fa-save me-1"></i> {{ 'common.actions.save_settings' | transloco }}
                     }

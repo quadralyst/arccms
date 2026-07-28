@@ -22,7 +22,7 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
 
       <h4>{{ 'admin.settings.misc.media_upload' | transloco }}</h4>
       <p class="text-muted mb-4">
-        Configure constraints for uploaded media images. Images exceeding the max dimensions will be automatically resized before upload.
+        {{ 'admin.settings.misc.media_intro' | transloco }}
       </p>
 
       <div class="row mb-3">
@@ -83,7 +83,7 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
           </label>
         </div>
         <small class="text-muted d-block mt-1">
-          When enabled, all uploaded images (except GIFs) are automatically converted to WebP format for faster page loads and smaller file sizes.
+          {{ 'admin.settings.misc.webp_note' | transloco }}
         </small>
       </div>
 
@@ -94,7 +94,7 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
           [disabled]="isSavingMedia()"
         >
           @if(isSavingMedia()) {
-          <i class="fas fa-spinner fa-spin me-1"></i> Saving...
+          <i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.actions.saving' | transloco }}
           } @else {
           <i class="fas fa-save me-1"></i> {{ 'admin.settings.misc.save_media' | transloco }}
           }
@@ -128,7 +128,7 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
           </label>
         </div>
         <small class="text-muted d-block mt-1">
-          When enabled, a small "Powered by Arc CMS" text is shown at the bottom of all public pages and outgoing emails.
+          {{ 'admin.settings.misc.powered_by_note' | transloco }}
         </small>
       </div>
 
@@ -139,7 +139,7 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
           [disabled]="isSavingBranding()"
         >
           @if(isSavingBranding()) {
-          <i class="fas fa-spinner fa-spin me-1"></i> Saving...
+          <i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.actions.saving' | transloco }}
           } @else {
           <i class="fas fa-save me-1"></i> {{ 'admin.settings.misc.save_branding' | transloco }}
           }
