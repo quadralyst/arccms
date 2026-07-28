@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Functions, httpsCallable } from '@angular/fire/functions';
@@ -50,12 +51,11 @@ interface ActivityItem {
         MatProgressSpinnerModule,
         UserShellComponent,
         IfEntitledDirective,
-        PageHeaderComponent,
-    ],
+        PageHeaderComponent, TranslocoPipe],
     template: `
         <app-user-shell>
             <div class="dash">
-                <arc-page-header [title]="'Welcome back, ' + firstName()" subtitle="Here's your account at a glance."></arc-page-header>
+                <arc-page-header [title]="'user.dashboard.welcome' | transloco: { name: firstName() }" [subtitle]="'user.dashboard.subtitle' | transloco"></arc-page-header>
 
                 <!-- Onboarding empty state: brand-new free user with nothing yet -->
                 @if (isNewUser()) {
@@ -63,34 +63,34 @@ interface ActivityItem {
                         <div class="w-body">
                             <i class="fa-solid fa-rocket"></i>
                             <div>
-                                <h3>Get started</h3>
-                                <p class="text-muted">You're on the Free plan. Explore plans to unlock premium features and credits.</p>
+                                <h3>{{ 'user.dashboard.get_started' | transloco }}</h3>
+                                <p class="text-muted">{{ 'user.dashboard.free_note' | transloco }}</p>
                             </div>
-                            <a mat-raised-button color="primary" routerLink="/pricing">See plans</a>
+                            <a mat-raised-button color="primary" routerLink="/pricing">{{ 'user.dashboard.see_plans' | transloco }}</a>
                         </div>
                     </mat-card>
                 }
 
                 <div class="tiles">
                     <mat-card class="tile">
-                        <span class="k">Membership</span>
+                        <span class="k">{{ 'user.dashboard.membership' | transloco }}</span>
                         @if (entitlements.isPro()) {
                             <span class="v pro">{{ entitlements.premiumType() || 'Pro' }}</span>
                             <span class="sub">{{ entitlements.premiumStatus() || 'active' }}</span>
                         } @else {
-                            <span class="v">Free</span>
-                            <a class="sub link" routerLink="/pricing">Upgrade →</a>
+                            <span class="v">{{ 'user.free' | transloco }}</span>
+                            <a class="sub link" routerLink="/pricing">{{ 'user.dashboard.upgrade' | transloco }}</a>
                         }
                     </mat-card>
 
                     <mat-card class="tile">
-                        <span class="k">Credits</span>
+                        <span class="k">{{ 'user.dashboard.credits' | transloco }}</span>
                         <span class="v">{{ entitlements.creditBalance() }}</span>
-                        <a class="sub link" routerLink="/account">History →</a>
+                        <a class="sub link" routerLink="/account">{{ 'user.dashboard.history' | transloco }}</a>
                     </mat-card>
 
                     <mat-card class="tile">
-                        <span class="k">Plan tier</span>
+                        <span class="k">{{ 'user.dashboard.plan_tier' | transloco }}</span>
                         <span class="v">{{ entitlements.tierRank() >= 0 ? '#' + entitlements.tierRank() : '—' }}</span>
                         <span class="sub">{{ entitlement()?.premiumTierLabel || 'No active plan' }}</span>
                     </mat-card>
@@ -102,18 +102,18 @@ interface ActivityItem {
                         @if (spending()) { <mat-spinner diameter="16" class="me-2"></mat-spinner> }
                         Use 1 credit
                     </button>
-                    <a mat-stroked-button routerLink="/pricing"><i class="fa-solid fa-plus me-1"></i>Buy credits / Upgrade</a>
-                    <a mat-stroked-button routerLink="/account"><i class="fa-solid fa-receipt me-1"></i>Manage billing</a>
+                    <a mat-stroked-button routerLink="/pricing"><i class="fa-solid fa-plus me-1"></i>{{ 'user.dashboard.buy_credits' | transloco }}</a>
+                    <a mat-stroked-button routerLink="/account"><i class="fa-solid fa-receipt me-1"></i>{{ 'user.dashboard.manage_billing' | transloco }}</a>
                 </div>
                 @if (creditError()) { <p class="err">{{ creditError() }}</p> }
 
                 <!-- Compact membership detail (members only) -->
                 @if (entitlements.isPro()) {
                     <mat-card class="mdetail">
-                        <div class="md"><span class="k">Renews / expires</span><span class="v">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span></div>
-                        <div class="md"><span class="k">Free updates until</span><span class="v">{{ fmtDate(entitlement()?.updatesUntil) }}</span></div>
-                        <div class="md"><span class="k">Deal</span><span class="v">{{ entitlement()?.premiumTierLabel || '—' }}</span></div>
-                        <div class="md"><span class="k">Discount</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '—' }}</span></div>
+                        <div class="md"><span class="k">{{ 'user.dashboard.renews' | transloco }}</span><span class="v">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span></div>
+                        <div class="md"><span class="k">{{ 'user.dashboard.updates_until' | transloco }}</span><span class="v">{{ fmtDate(entitlement()?.updatesUntil) }}</span></div>
+                        <div class="md"><span class="k">{{ 'user.dashboard.deal' | transloco }}</span><span class="v">{{ entitlement()?.premiumTierLabel || '—' }}</span></div>
+                        <div class="md"><span class="k">{{ 'user.dashboard.discount' | transloco }}</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '—' }}</span></div>
                     </mat-card>
                 }
 
@@ -122,22 +122,22 @@ interface ActivityItem {
                     <div class="pc-body">
                         <i class="fa-solid fa-star pc-icon"></i>
                         <div>
-                            <h3>Premium tools unlocked</h3>
-                            <p class="text-muted">You have full access to members-only features.</p>
+                            <h3>{{ 'user.dashboard.premium_unlocked' | transloco }}</h3>
+                            <p class="text-muted">{{ 'user.dashboard.premium_note' | transloco }}</p>
                         </div>
-                        <a mat-raised-button color="primary" routerLink="/user/premium">Open premium area</a>
+                        <a mat-raised-button color="primary" routerLink="/user/premium">{{ 'user.dashboard.open_premium' | transloco }}</a>
                     </div>
                 </mat-card>
 
-                <!-- Recent activity (summary; full history on /account) -->
+                <!-- {{ 'user.dashboard.recent_activity' | transloco }} (summary; full history on /account) -->
                 <div class="section-head">
-                    <h2>Recent activity</h2>
-                    <a routerLink="/account" class="link">View all →</a>
+                    <h2>{{ 'user.dashboard.recent_activity' | transloco }}</h2>
+                    <a routerLink="/account" class="link">{{ 'user.dashboard.view_all' | transloco }}</a>
                 </div>
                 @if (loadingActivity()) {
                     <div class="py-3"><mat-spinner diameter="24"></mat-spinner></div>
                 } @else if (activity().length === 0) {
-                    <p class="text-muted">No activity yet.</p>
+                    <p class="text-muted">{{ 'user.dashboard.no_activity' | transloco }}</p>
                 } @else {
                     <mat-card class="activity">
                         @for (a of activity(); track a.id) {
@@ -151,11 +151,11 @@ interface ActivityItem {
                     </mat-card>
                 }
 
-                <h2 class="mt-4">Quick links</h2>
+                <h2 class="mt-4">{{ 'user.dashboard.quick_links' | transloco }}</h2>
                 <div class="links">
-                    <a class="ql" routerLink="/account"><i class="fa-solid fa-receipt"></i><span class="t">Account &amp; Billing</span><span class="d">Membership, credits, transaction history</span></a>
-                    <a class="ql" routerLink="/user/profile"><i class="fa-solid fa-user"></i><span class="t">Profile</span><span class="d">Name, email, password, photo</span></a>
-                    <a class="ql" routerLink="/pricing"><i class="fa-solid fa-tag"></i><span class="t">Plans &amp; Pricing</span><span class="d">Upgrade or change your plan</span></a>
+                    <a class="ql" routerLink="/account"><i class="fa-solid fa-receipt"></i><span class="t">{{ 'user.nav.account' | transloco }}</span><span class="d">{{ 'user.dashboard.account_hint' | transloco }}</span></a>
+                    <a class="ql" routerLink="/user/profile"><i class="fa-solid fa-user"></i><span class="t">{{ 'user.nav.profile' | transloco }}</span><span class="d">{{ 'user.dashboard.profile_hint' | transloco }}</span></a>
+                    <a class="ql" routerLink="/pricing"><i class="fa-solid fa-tag"></i><span class="t">{{ 'user.dashboard.plans_pricing' | transloco }}</span><span class="d">{{ 'user.dashboard.plans_hint' | transloco }}</span></a>
                 </div>
             </div>
         </app-user-shell>
