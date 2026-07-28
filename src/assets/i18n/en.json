@@ -270,7 +270,9 @@
           "save": "Save Content Type",
           "update": "Update Content Type",
           "translating_into": "Translating into <strong>{{ lang }}</strong>. Blank fields fall back to the {{ defaultLang }} text. Keys, types and settings are shared across languages.",
-          "default_badge": "default"
+          "default_badge": "default",
+          "default_template": "Default Template",
+          "field_n": "Field {{ n }}"
         },
         "fix_slug": "Please fix the slug error before submitting.",
         "created": "Content type created successfully",
@@ -352,7 +354,9 @@
         "unpublish_confirm": "Are you sure you want to unpublish this content?",
         "unpublished": "Content unpublished.",
         "unpublish_failed": "Failed to unpublish content.",
-        "view_save_failed": "Failed to save view preferences."
+        "view_save_failed": "Failed to save view preferences.",
+        "add_item": "Add {{ type }}",
+        "manage_subtitle": "Manage your {{ type }}"
       }
     },
     "users": {

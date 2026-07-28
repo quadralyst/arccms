@@ -3,6 +3,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import {
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   Input,
@@ -13,6 +14,7 @@ import {
   ViewChild,
   TemplateRef,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -28,7 +30,7 @@ import { ContentsStore } from '../content-store/published-contents.store';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
 import { ContentTypesStore } from '../content-types/content-types.store';
 import { ContentTypesService } from '../content-types/content-types.service';
-import { ContentType, ContentTypeField } from '../content-types/content-types.model';
+import { ContentType, ContentTypeField, contentTypeName, contentTypeSingularName } from '../content-types/content-types.model';
 import {
   CONTENT_STATUS_CLASS,
   CONTENT_STATUS_LABEL_KEY,
@@ -112,10 +114,19 @@ export class DraftContentsTableComponent
     const found = contentTypes.find(
       (ct: ContentType) => ct.slug === this.contentTypeSlug,
     );
-    return found ? found.name : this.formatSlugAsName(this.contentTypeSlug);
+    return found
+      ? contentTypeName(found, this.adminLang())
+      : this.formatSlugAsName(this.contentTypeSlug);
   }
 
-  // Get the singular name for the content type (e.g., "Article")
+  /**
+   * The type's singular name for this reader.
+   *
+   * The admin authored these translations for the public pages (M-D19); a
+   * reader who set the admin to that language gets them here too, and an
+   * untranslated type keeps its authored name. Reads `adminLang` so the
+   * heading re-renders when the language changes.
+   */
   getContentTypeSingularName(): string {
     if (!this.contentTypeSlug) return 'Content';
     const contentTypes = this.contentTypesStore.items();
@@ -124,8 +135,7 @@ export class DraftContentsTableComponent
     );
     if (found) {
       return (
-        found.singularName ||
-        found.name ||
+        contentTypeSingularName(found, this.adminLang()) ||
         this.formatSlugAsName(this.contentTypeSlug)
       );
     }
@@ -140,7 +150,7 @@ export class DraftContentsTableComponent
       (ct: ContentType) => ct.slug === this.contentTypeSlug,
     );
     if (found) {
-      return found.name || this.formatSlugAsName(this.contentTypeSlug);
+      return contentTypeName(found, this.adminLang()) || this.formatSlugAsName(this.contentTypeSlug);
     }
     return this.formatSlugAsName(this.contentTypeSlug);
   }
@@ -325,7 +335,17 @@ export class DraftContentsTableComponent
     }, { allowSignalWrites: true });
   }
 
+  /**
+   * The admin UI language, as a signal so the headings re-render when it
+   * changes rather than waiting for the next navigation.
+   */
+  private destroyRef = inject(DestroyRef);
+  readonly adminLang = signal<string>(this.transloco.getActiveLang());
+
   ngOnInit(): void {
+    this.transloco.langChanges$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(lang => this.adminLang.set(lang));
     // Initial data fetch
     this.fetchData();
   }

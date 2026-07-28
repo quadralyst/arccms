@@ -10,7 +10,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RouterLink } from '@angular/router';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { AnalyticsConnectionStatusService } from '../../../../../shared/services/analytics-connection-status.service';
 import { GoogleOAuthService } from '../../../../../shared/services/google-oauth.service';
@@ -29,7 +28,6 @@ export const routeMeta: RouteMeta = {
     imports: [
         CommonModule,
         ReactiveFormsModule,
-        RouterLink,
         MatCardModule,
         MatFormFieldModule,
         MatInputModule,

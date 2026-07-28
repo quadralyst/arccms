@@ -7,7 +7,16 @@ export interface CollectionReferenceConfig {
     collectionName: string;         // display name of the referenced content type (e.g., "Authors")
     displayField: string;           // field key used as the label shown to the user (e.g., "title")
     valueField: string;             // field key used as the stored value/identifier (e.g., "id")
-    syncFields: string[];           // field keys to denormalize/store redundantly (e.g., ["title", "urlSlug", "coverImage"])
+    /**
+     * Field keys to denormalize/store redundantly (e.g. ["title", "urlSlug",
+     * "coverImage"]).
+     *
+     * Optional because it genuinely can be: the readers all guard for it
+     * (`syncFields || []`, `if (field.collectionRef.syncFields)`), which is
+     * the honest reading of documents written before the field existed. The
+     * type claimed otherwise, which is what NG8107 was pointing at.
+     */
+    syncFields?: string[];
 }
 
 export interface ContentTypeField {

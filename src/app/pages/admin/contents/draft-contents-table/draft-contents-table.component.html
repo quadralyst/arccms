@@ -39,9 +39,9 @@
     </div>
     } @else {
     <arc-page-header [title]="getContentTypePluralName()"
-        [subtitle]="'Manage your ' + (getContentTypePluralName() | lowercase)">
+        [subtitle]="'admin.contents.list.manage_subtitle' | transloco: { type: (getContentTypePluralName() | lowercase) }">
         <button mat-raised-button color="primary" (click)="openContent('')">
-            <mat-icon>add</mat-icon> Add {{ getContentTypeSingularName() }}
+            <mat-icon>add</mat-icon> {{ 'admin.contents.list.add_item' | transloco: { type: getContentTypeSingularName() } }}
         </button>
         <button mat-stroked-button class="ms-2" (click)="openBulkImport()">
             <mat-icon>upload_file</mat-icon> {{ 'admin.contents.list.bulk_import' | transloco }}
@@ -110,7 +110,7 @@
         [sortField]="sortField()" [sortOrder]="sortOrder()" (sortChange)="setSortField($event)"
         (cellClick)="onCellClick($event)" emptyTitle="No Items Found"
         [emptyDescription]="'No ' + (getContentTypePluralName() | lowercase) + ' yet. Click Add New to get started.'"
-        emptyActionLabel="Add {{ getContentTypeSingularName() }}" (emptyActionClick)="openContent('')"
+        [emptyActionLabel]="'admin.contents.list.add_item' | transloco: { type: getContentTypeSingularName() }" (emptyActionClick)="openContent('')"
         [showEmptyAction]="true"
         [trackByFn]="trackByContentId">
     </app-global-table>
