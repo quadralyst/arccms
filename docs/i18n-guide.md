@@ -483,15 +483,15 @@ npm run build                           # templates
 
 Honest state of play, so you know what you are walking into.
 
-**Admin — swept:** the shell and navigation, **all ten settings pages**, the
-**dashboard**, content types (list + add/edit drawers), the content editor, the
-draft list, users, Contacts/Lists/Tags/Fields, the shared table, the confirmation
-dialog, validation messages, the paginator.
+**Swept:** the admin shell and navigation, all ten settings pages, the dashboard,
+content types (list + add/edit drawers), the content editor, the draft list, users,
+Contacts/Lists/Tags/Fields, media, the data wizards, products, transactions, the
+shared table, the confirmation dialog, validation messages, the paginator — and the
+whole signed-in user area.
 
-**Admin — not swept:** waitlists, the email areas (composer, broadcasts, drips,
-announcements, brand kit, logs), media, data, products, transactions, and most
-feature-specific drawers and dialogs. These read English inside a translated
-shell, which is the fallback working.
+**Not swept:** waitlists, the email areas (composer, broadcasts, drips,
+announcements, brand kit, logs), and most feature-specific drawers and dialogs.
+These read English inside a translated shell, which is the fallback working.
 
 One judgement worth repeating from the dashboard: Google Analytics metric names
 (`Sessions`, `Bounce Rate`, …) are left exactly as the API returns them. They are
