@@ -231,6 +231,62 @@ export type TranslationKey =
     | 'admin.nav.tags'
     | 'admin.nav.transactions'
     | 'admin.nav.users'
+    | 'admin.settings.about.address'
+    | 'admin.settings.about.address_hint'
+    | 'admin.settings.about.address_placeholder'
+    | 'admin.settings.about.production_url'
+    | 'admin.settings.about.production_url_hint'
+    | 'admin.settings.about.production_url_placeholder'
+    | 'admin.settings.about.site_name'
+    | 'admin.settings.about.site_name_hint'
+    | 'admin.settings.about.site_name_placeholder'
+    | 'admin.settings.background_style'
+    | 'admin.settings.banner_enabled'
+    | 'admin.settings.email.at_least_one'
+    | 'admin.settings.email.auto_purge'
+    | 'admin.settings.email.auto_purge_enable'
+    | 'admin.settings.email.auto_purge_hint'
+    | 'admin.settings.email.bcc'
+    | 'admin.settings.email.bcc_hint'
+    | 'admin.settings.email.change_provider'
+    | 'admin.settings.email.configure'
+    | 'admin.settings.email.debug_hint'
+    | 'admin.settings.email.debug_provider'
+    | 'admin.settings.email.disabled_title'
+    | 'admin.settings.email.done'
+    | 'admin.settings.email.enabled'
+    | 'admin.settings.email.features'
+    | 'admin.settings.email.features_hint'
+    | 'admin.settings.email.features_off'
+    | 'admin.settings.email.keep_days'
+    | 'admin.settings.email.keep_days_hint'
+    | 'admin.settings.email.keep_days_range'
+    | 'admin.settings.email.per_day'
+    | 'admin.settings.email.per_day_hint'
+    | 'admin.settings.email.per_hour'
+    | 'admin.settings.email.per_hour_hint'
+    | 'admin.settings.email.per_second'
+    | 'admin.settings.email.per_second_hint'
+    | 'admin.settings.email.provider'
+    | 'admin.settings.email.rate_hint'
+    | 'admin.settings.email.reply_to'
+    | 'admin.settings.email.reply_to_hint'
+    | 'admin.settings.email.require_verification'
+    | 'admin.settings.email.select_provider'
+    | 'admin.settings.email.select_provider_hint'
+    | 'admin.settings.email.sender_email'
+    | 'admin.settings.email.sender_email_hint'
+    | 'admin.settings.email.sender_email_locked'
+    | 'admin.settings.email.sender_info'
+    | 'admin.settings.email.sender_info_hint'
+    | 'admin.settings.email.sender_name'
+    | 'admin.settings.email.sender_name_hint'
+    | 'admin.settings.email.sender_name_placeholder'
+    | 'admin.settings.email.subtitle'
+    | 'admin.settings.email.test_before_save'
+    | 'admin.settings.email.title'
+    | 'admin.settings.enable_banner'
+    | 'admin.settings.enable_to_configure'
     | 'admin.settings.hub.about.description'
     | 'admin.settings.hub.about.label'
     | 'admin.settings.hub.analytics.description'
@@ -253,6 +309,7 @@ export type TranslationKey =
     | 'admin.settings.hub.title'
     | 'admin.settings.hub.user.description'
     | 'admin.settings.hub.user.label'
+    | 'admin.settings.live_preview'
     | 'admin.settings.localization.add_a_language'
     | 'admin.settings.localization.already_enabled'
     | 'admin.settings.localization.cannot_remove_default'
@@ -283,6 +340,60 @@ export type TranslationKey =
     | 'admin.settings.localization.select_a_language'
     | 'admin.settings.localization.title'
     | 'admin.settings.localization.unresolved_language'
+    | 'admin.settings.message.button_label'
+    | 'admin.settings.message.button_label_placeholder'
+    | 'admin.settings.message.button_url'
+    | 'admin.settings.message.button_url_placeholder'
+    | 'admin.settings.message.configure'
+    | 'admin.settings.message.heading'
+    | 'admin.settings.message.heading_placeholder'
+    | 'admin.settings.message.heading_required'
+    | 'admin.settings.message.message'
+    | 'admin.settings.message.message_placeholder'
+    | 'admin.settings.message.message_required'
+    | 'admin.settings.message.subtitle'
+    | 'admin.settings.message.title'
+    | 'admin.settings.misc.branding'
+    | 'admin.settings.misc.branding_hint'
+    | 'admin.settings.misc.branding_saved'
+    | 'admin.settings.misc.convert_webp'
+    | 'admin.settings.misc.max_file_size'
+    | 'admin.settings.misc.max_file_size_hint'
+    | 'admin.settings.misc.max_height'
+    | 'admin.settings.misc.max_height_hint'
+    | 'admin.settings.misc.max_width'
+    | 'admin.settings.misc.max_width_hint'
+    | 'admin.settings.misc.media_saved'
+    | 'admin.settings.misc.media_upload'
+    | 'admin.settings.misc.powered_by'
+    | 'admin.settings.misc.save_branding'
+    | 'admin.settings.misc.save_media'
+    | 'admin.settings.site_usage.accept_placeholder'
+    | 'admin.settings.site_usage.accept_text'
+    | 'admin.settings.site_usage.accept_text_required'
+    | 'admin.settings.site_usage.banner_message'
+    | 'admin.settings.site_usage.banner_message_placeholder'
+    | 'admin.settings.site_usage.banner_message_required'
+    | 'admin.settings.site_usage.configure'
+    | 'admin.settings.site_usage.learn_more'
+    | 'admin.settings.site_usage.policy_link'
+    | 'admin.settings.site_usage.policy_link_hint'
+    | 'admin.settings.site_usage.policy_placeholder'
+    | 'admin.settings.site_usage.reject_placeholder'
+    | 'admin.settings.site_usage.reject_text'
+    | 'admin.settings.site_usage.reject_text_required'
+    | 'admin.settings.site_usage.subtitle'
+    | 'admin.settings.site_usage.title'
+    | 'admin.settings.user.assigned_note'
+    | 'admin.settings.user.assigned_note_end'
+    | 'admin.settings.user.default_role'
+    | 'admin.settings.user.default_role_hint'
+    | 'admin.settings.user.enable'
+    | 'admin.settings.user.enable_signups'
+    | 'admin.settings.user.enable_signups_hint'
+    | 'admin.settings.user.signups_disabled'
+    | 'admin.settings.user.subtitle'
+    | 'admin.settings.user.title'
     | 'admin.users.add'
     | 'admin.users.empty_description'
     | 'admin.users.empty_title'
@@ -299,11 +410,13 @@ export type TranslationKey =
     | 'common.actions.delete'
     | 'common.actions.delete_confirm'
     | 'common.actions.edit'
+    | 'common.actions.enable'
     | 'common.actions.logout'
     | 'common.actions.open'
     | 'common.actions.remove'
     | 'common.actions.reset'
     | 'common.actions.save'
+    | 'common.actions.save_settings'
     | 'common.actions.saving'
     | 'common.actions.search'
     | 'common.actions.view'
@@ -317,7 +430,10 @@ export type TranslationKey =
     | 'common.filters.status'
     | 'common.language.admin_ui'
     | 'common.language.hint'
+    | 'common.messages.save_failed'
+    | 'common.messages.saved'
     | 'common.no'
+    | 'common.optional'
     | 'common.paginator.first_page'
     | 'common.paginator.items_per_page'
     | 'common.paginator.last_page'
@@ -576,6 +692,62 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.tags',
     'admin.nav.transactions',
     'admin.nav.users',
+    'admin.settings.about.address',
+    'admin.settings.about.address_hint',
+    'admin.settings.about.address_placeholder',
+    'admin.settings.about.production_url',
+    'admin.settings.about.production_url_hint',
+    'admin.settings.about.production_url_placeholder',
+    'admin.settings.about.site_name',
+    'admin.settings.about.site_name_hint',
+    'admin.settings.about.site_name_placeholder',
+    'admin.settings.background_style',
+    'admin.settings.banner_enabled',
+    'admin.settings.email.at_least_one',
+    'admin.settings.email.auto_purge',
+    'admin.settings.email.auto_purge_enable',
+    'admin.settings.email.auto_purge_hint',
+    'admin.settings.email.bcc',
+    'admin.settings.email.bcc_hint',
+    'admin.settings.email.change_provider',
+    'admin.settings.email.configure',
+    'admin.settings.email.debug_hint',
+    'admin.settings.email.debug_provider',
+    'admin.settings.email.disabled_title',
+    'admin.settings.email.done',
+    'admin.settings.email.enabled',
+    'admin.settings.email.features',
+    'admin.settings.email.features_hint',
+    'admin.settings.email.features_off',
+    'admin.settings.email.keep_days',
+    'admin.settings.email.keep_days_hint',
+    'admin.settings.email.keep_days_range',
+    'admin.settings.email.per_day',
+    'admin.settings.email.per_day_hint',
+    'admin.settings.email.per_hour',
+    'admin.settings.email.per_hour_hint',
+    'admin.settings.email.per_second',
+    'admin.settings.email.per_second_hint',
+    'admin.settings.email.provider',
+    'admin.settings.email.rate_hint',
+    'admin.settings.email.reply_to',
+    'admin.settings.email.reply_to_hint',
+    'admin.settings.email.require_verification',
+    'admin.settings.email.select_provider',
+    'admin.settings.email.select_provider_hint',
+    'admin.settings.email.sender_email',
+    'admin.settings.email.sender_email_hint',
+    'admin.settings.email.sender_email_locked',
+    'admin.settings.email.sender_info',
+    'admin.settings.email.sender_info_hint',
+    'admin.settings.email.sender_name',
+    'admin.settings.email.sender_name_hint',
+    'admin.settings.email.sender_name_placeholder',
+    'admin.settings.email.subtitle',
+    'admin.settings.email.test_before_save',
+    'admin.settings.email.title',
+    'admin.settings.enable_banner',
+    'admin.settings.enable_to_configure',
     'admin.settings.hub.about.description',
     'admin.settings.hub.about.label',
     'admin.settings.hub.analytics.description',
@@ -598,6 +770,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.title',
     'admin.settings.hub.user.description',
     'admin.settings.hub.user.label',
+    'admin.settings.live_preview',
     'admin.settings.localization.add_a_language',
     'admin.settings.localization.already_enabled',
     'admin.settings.localization.cannot_remove_default',
@@ -628,6 +801,60 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.localization.select_a_language',
     'admin.settings.localization.title',
     'admin.settings.localization.unresolved_language',
+    'admin.settings.message.button_label',
+    'admin.settings.message.button_label_placeholder',
+    'admin.settings.message.button_url',
+    'admin.settings.message.button_url_placeholder',
+    'admin.settings.message.configure',
+    'admin.settings.message.heading',
+    'admin.settings.message.heading_placeholder',
+    'admin.settings.message.heading_required',
+    'admin.settings.message.message',
+    'admin.settings.message.message_placeholder',
+    'admin.settings.message.message_required',
+    'admin.settings.message.subtitle',
+    'admin.settings.message.title',
+    'admin.settings.misc.branding',
+    'admin.settings.misc.branding_hint',
+    'admin.settings.misc.branding_saved',
+    'admin.settings.misc.convert_webp',
+    'admin.settings.misc.max_file_size',
+    'admin.settings.misc.max_file_size_hint',
+    'admin.settings.misc.max_height',
+    'admin.settings.misc.max_height_hint',
+    'admin.settings.misc.max_width',
+    'admin.settings.misc.max_width_hint',
+    'admin.settings.misc.media_saved',
+    'admin.settings.misc.media_upload',
+    'admin.settings.misc.powered_by',
+    'admin.settings.misc.save_branding',
+    'admin.settings.misc.save_media',
+    'admin.settings.site_usage.accept_placeholder',
+    'admin.settings.site_usage.accept_text',
+    'admin.settings.site_usage.accept_text_required',
+    'admin.settings.site_usage.banner_message',
+    'admin.settings.site_usage.banner_message_placeholder',
+    'admin.settings.site_usage.banner_message_required',
+    'admin.settings.site_usage.configure',
+    'admin.settings.site_usage.learn_more',
+    'admin.settings.site_usage.policy_link',
+    'admin.settings.site_usage.policy_link_hint',
+    'admin.settings.site_usage.policy_placeholder',
+    'admin.settings.site_usage.reject_placeholder',
+    'admin.settings.site_usage.reject_text',
+    'admin.settings.site_usage.reject_text_required',
+    'admin.settings.site_usage.subtitle',
+    'admin.settings.site_usage.title',
+    'admin.settings.user.assigned_note',
+    'admin.settings.user.assigned_note_end',
+    'admin.settings.user.default_role',
+    'admin.settings.user.default_role_hint',
+    'admin.settings.user.enable',
+    'admin.settings.user.enable_signups',
+    'admin.settings.user.enable_signups_hint',
+    'admin.settings.user.signups_disabled',
+    'admin.settings.user.subtitle',
+    'admin.settings.user.title',
     'admin.users.add',
     'admin.users.empty_description',
     'admin.users.empty_title',
@@ -644,11 +871,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.actions.delete',
     'common.actions.delete_confirm',
     'common.actions.edit',
+    'common.actions.enable',
     'common.actions.logout',
     'common.actions.open',
     'common.actions.remove',
     'common.actions.reset',
     'common.actions.save',
+    'common.actions.save_settings',
     'common.actions.saving',
     'common.actions.search',
     'common.actions.view',
@@ -662,7 +891,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.filters.status',
     'common.language.admin_ui',
     'common.language.hint',
+    'common.messages.save_failed',
+    'common.messages.saved',
     'common.no',
+    'common.optional',
     'common.paginator.first_page',
     'common.paginator.items_per_page',
     'common.paginator.last_page',

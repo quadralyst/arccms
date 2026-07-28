@@ -1,6 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { filter, firstValueFrom, Subscription } from 'rxjs';
@@ -48,8 +49,7 @@ import { DebugProviderComponent } from './providers/debug-provider.component';
         SmtpProviderComponent,
         GmailProviderComponent,
         ResendProviderComponent,
-        DebugProviderComponent,
-    ],
+        DebugProviderComponent, TranslocoPipe],
     templateUrl: './email-setting.page.html',
     styleUrls: ['./email-setting.page.scss'],
 })

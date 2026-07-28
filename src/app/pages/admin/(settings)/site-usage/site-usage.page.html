@@ -6,15 +6,15 @@
             <div class="disabled-icon">
                 <i class="fa-solid fa-cookie-bite"></i>
             </div>
-            <h3>Site Usage Banner</h3>
+            <h3>{{ 'admin.settings.site_usage.title' | transloco }}</h3>
             <p class="text-muted">
-                Display a GDPR-compliant site usage banner at the bottom of public pages.
+                {{ 'admin.settings.site_usage.subtitle' | transloco }}
                 <br>
-                Enable it to configure your message.
+                {{ 'admin.settings.enable_to_configure' | transloco }}
             </p>
             <button mat-flat-button color="primary" (click)="enableConsent()">
                 <i class="fa-solid fa-power-off me-2"></i>
-                Enable Banner
+                {{ 'admin.settings.enable_banner' | transloco }}
             </button>
         </div>
     </div>
@@ -22,24 +22,24 @@
     <!-- Header with Enable Toggle -->
     <div class="header mb-4">
         <div class="header-content">
-            <h3 class="m-0">Site Usage Banner</h3>
-            <p class="text-muted mb-0">Configure the site usage banner for your website</p>
+            <h3 class="m-0">{{ 'admin.settings.site_usage.title' | transloco }}</h3>
+            <p class="text-muted mb-0">{{ 'admin.settings.site_usage.configure' | transloco }}</p>
         </div>
         <mat-slide-toggle [checked]="consentEnabled()" (change)="toggleConsent($event.checked)" color="primary">
-            Banner Enabled
+            {{ 'admin.settings.banner_enabled' | transloco }}
         </mat-slide-toggle>
     </div>
 
-    <!-- Live Preview -->
+    <!-- {{ 'admin.settings.live_preview' | transloco }} -->
     <div class="preview-section mb-4">
-        <h4 class="preview-label">Live Preview</h4>
+        <h4 class="preview-label">{{ 'admin.settings.live_preview' | transloco }}</h4>
         <div class="banner-preview" [style.background]="getSelectedGradient().gradient">
             <div class="preview-content" [style.color]="getSelectedGradient().textColor">
                 <div class="preview-text">
                     <span class="preview-message">
                         {{ consentForm.get('bannerText')?.value || 'Your site usage message here...' }}</span>
                     @if (consentForm.get('privacyPolicyLink')?.value) {
-                    <a class="preview-link" [style.color]="getSelectedGradient().textColor">Learn more</a>
+                    <a class="preview-link" [style.color]="getSelectedGradient().textColor">{{ 'admin.settings.site_usage.learn_more' | transloco }}</a>
                     }
                 </div>
                 <div class="preview-actions">
@@ -60,12 +60,12 @@
     <form [formGroup]="consentForm" (ngSubmit)="onSubmit()">
         <!-- Banner Text -->
         <div class="form-group mb-3">
-            <label class="form-label">Banner Message <span class="text-danger">*</span></label>
+            <label class="form-label">{{ 'admin.settings.site_usage.banner_message' | transloco }} <span class="text-danger">*</span></label>
             <textarea class="form-control" formControlName="bannerText" rows="3"
-                placeholder="e.g., We use cookies to enhance your browsing experience..."
+                [placeholder]="'admin.settings.site_usage.banner_message_placeholder' | transloco"
                 [class.is-invalid]="consentForm.get('bannerText')?.touched && consentForm.get('bannerText')?.invalid"></textarea>
             @if (consentForm.get('bannerText')?.touched && consentForm.get('bannerText')?.errors?.['required']) {
-            <div class="invalid-feedback">Banner message is required</div>
+            <div class="invalid-feedback">{{ 'admin.settings.site_usage.banner_message_required' | transloco }}</div>
             }
         </div>
 
@@ -73,25 +73,25 @@
         <div class="row mb-3">
             <div class="col-md-6">
                 <div class="form-group">
-                    <label class="form-label">Accept Button Text <span class="text-danger">*</span></label>
+                    <label class="form-label">{{ 'admin.settings.site_usage.accept_text' | transloco }} <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" formControlName="acceptButtonText"
-                        placeholder="e.g., Accept All"
+                        [placeholder]="'admin.settings.site_usage.accept_placeholder' | transloco"
                         [class.is-invalid]="consentForm.get('acceptButtonText')?.touched && consentForm.get('acceptButtonText')?.invalid">
                     @if (consentForm.get('acceptButtonText')?.touched &&
                     consentForm.get('acceptButtonText')?.errors?.['required']) {
-                    <div class="invalid-feedback">Accept button text is required</div>
+                    <div class="invalid-feedback">{{ 'admin.settings.site_usage.accept_text_required' | transloco }}</div>
                     }
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
-                    <label class="form-label">Reject Button Text <span class="text-danger">*</span></label>
+                    <label class="form-label">{{ 'admin.settings.site_usage.reject_text' | transloco }} <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" formControlName="rejectButtonText"
-                        placeholder="e.g., Reject All"
+                        [placeholder]="'admin.settings.site_usage.reject_placeholder' | transloco"
                         [class.is-invalid]="consentForm.get('rejectButtonText')?.touched && consentForm.get('rejectButtonText')?.invalid">
                     @if (consentForm.get('rejectButtonText')?.touched &&
                     consentForm.get('rejectButtonText')?.errors?.['required']) {
-                    <div class="invalid-feedback">Reject button text is required</div>
+                    <div class="invalid-feedback">{{ 'admin.settings.site_usage.reject_text_required' | transloco }}</div>
                     }
                 </div>
             </div>
@@ -99,15 +99,15 @@
 
         <!-- Privacy Policy Link -->
         <div class="form-group mb-3">
-            <label class="form-label">Site Usage/Privacy Policy Link <span class="text-muted">(optional)</span></label>
+            <label class="form-label">{{ 'admin.settings.site_usage.policy_link' | transloco }} <span class="text-muted">{{ 'common.optional' | transloco }}</span></label>
             <input type="text" class="form-control" formControlName="privacyPolicyLink"
-                placeholder="e.g., /p/cookie-policy or https://example.com/privacy">
-            <small class="text-muted">Leave as /p/cookie-policy to use the built-in page</small>
+                [placeholder]="'admin.settings.site_usage.policy_placeholder' | transloco">
+            <small class="text-muted">{{ 'admin.settings.site_usage.policy_link_hint' | transloco }}</small>
         </div>
 
         <!-- Gradient Selection -->
         <div class="form-group mb-4">
-            <label class="form-label">Background Style</label>
+            <label class="form-label">{{ 'admin.settings.background_style' | transloco }}</label>
             <div class="gradient-grid">
                 @for (gradient of gradients; track gradient.id) {
                 <div class="gradient-option" [class.selected]="consentForm.get('gradientId')?.value === gradient.id"
@@ -128,7 +128,7 @@
                 <mat-spinner diameter="20" class="me-2"></mat-spinner>
                 }
                 <i class="fa-solid fa-save me-2"></i>
-                Save Settings
+                {{ 'common.actions.save_settings' | transloco }}
             </button>
         </div>
     </form>
