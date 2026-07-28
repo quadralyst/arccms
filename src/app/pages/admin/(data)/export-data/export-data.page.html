@@ -1,8 +1,8 @@
 <div class="export-data-container">
     <div class="export-header">
         <div class="export-header-left">
-            <h2>Export Data</h2>
-            <p class="text-muted">Select collections to export as JSON. Document IDs and cross-references are preserved.</p>
+            <h2>{{ 'admin.data.export.title' | transloco }}</h2>
+            <p class="text-muted">{{ 'admin.data.export.subtitle' | transloco }}</p>
         </div>
         <button
             mat-flat-button
@@ -11,9 +11,9 @@
             (click)="startExport()"
             [disabled]="totalSelectedCount === 0 || isExporting()">
             @if (isExporting()) {
-                <i class="fa-solid fa-spinner fa-spin me-2"></i> Exporting...
+                <i class="fa-solid fa-spinner fa-spin me-2"></i> {{ 'admin.data.export.exporting' | transloco }}
             } @else {
-                <i class="fa-solid fa-file-export me-2"></i> Export Selected ({{ totalSelectedCount }})
+                <i class="fa-solid fa-file-export me-2"></i> {{ 'admin.data.export.export_selected' | transloco: { count: totalSelectedCount } }}
             }
         </button>
     </div>
@@ -24,11 +24,11 @@
             @for (preset of presets; track preset.id) {
                 <button class="preset-btn" (click)="applyPreset(preset.id)">
                     <i [class]="preset.icon"></i>
-                    {{ preset.label }}
+                    {{ preset.label | translatable }}
                 </button>
             }
         </div>
-        <span class="selection-summary">{{ totalSelectedCount }} collections selected</span>
+        <span class="selection-summary">{{ 'admin.data.export.collections_selected' | transloco: { count: totalSelectedCount } }}</span>
     </div>
 
     <!-- Collection Groups -->
@@ -42,7 +42,7 @@
                            [class.fa-chevron-right]="!group.expanded"
                            [class.fa-chevron-down]="group.expanded"></i>
                         <i [class]="group.icon" class="group-icon"></i>
-                        <span class="group-label">{{ group.label }}</span>
+                        <span class="group-label">{{ group.label | translatable }}</span>
                     </div>
                     <mat-checkbox
                         [checked]="isGroupFullySelected(group)"
@@ -105,7 +105,7 @@
                                                 <i [class]="sb.bundle.contentTypeIcon" class="bundle-icon"></i>
                                             }
                                             <span class="bundle-name">{{ sb.bundle.contentTypeName }}</span>
-                                            <span class="bundle-badge">3 collections</span>
+                                            <span class="bundle-badge">{{ 'admin.data.export.bundle_badge' | transloco }}</span>
                                             @if (sb.bundle.referencedSlugs.length > 0) {
                                                 <span class="bundle-refs">
                                                     <i class="fa-solid fa-link"></i>
@@ -136,7 +136,7 @@
                                         <div class="bundle-sub-row">
                                             <div class="sub-indent">
                                                 <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
-                                                <span class="collection-name">Drafts</span>
+                                                <span class="collection-name">{{ 'admin.data.export.drafts' | transloco }}</span>
                                                 <span class="collection-path">{{ sb.bundle.draftsCollection.name }}</span>
                                             </div>
                                             <span class="collection-count">
@@ -150,7 +150,7 @@
                                         <div class="bundle-sub-row">
                                             <div class="sub-indent">
                                                 <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
-                                                <span class="collection-name">Published</span>
+                                                <span class="collection-name">{{ 'admin.data.export.published' | transloco }}</span>
                                                 <span class="collection-path">{{ sb.bundle.publishedCollection.name }}</span>
                                             </div>
                                             <span class="collection-count">
@@ -164,7 +164,7 @@
                                         <div class="bundle-sub-row">
                                             <div class="sub-indent">
                                                 <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
-                                                <span class="collection-name">Tags</span>
+                                                <span class="collection-name">{{ 'admin.data.export.tags' | transloco }}</span>
                                                 <span class="collection-path">{{ sb.bundle.tagsCollection.name }}</span>
                                             </div>
                                             <span class="collection-count">
@@ -193,9 +193,12 @@
                 [value]="exportProgress() ? (exportProgress()!.collectionsCompleted / exportProgress()!.totalCollections) * 100 : 0">
             </mat-progress-bar>
             <p class="progress-text">
-                Exporting: {{ exportProgress()?.currentCollection }}
-                ({{ exportProgress()?.collectionsCompleted }}/{{ exportProgress()?.totalCollections }} collections,
-                {{ exportProgress()?.documentsExported }} documents)
+                {{ 'admin.data.export.progress_detail' | transloco: {
+                    collection: exportProgress()?.currentCollection,
+                    done: exportProgress()?.collectionsCompleted,
+                    total: exportProgress()?.totalCollections,
+                    docs: exportProgress()?.documentsExported
+                } }}
             </p>
         </div>
     }
@@ -204,7 +207,7 @@
     @if (exportComplete()) {
         <div class="export-complete">
             <i class="fa-solid fa-circle-check"></i>
-            <span>Export completed successfully. The JSON file has been downloaded.</span>
+            <span>{{ 'admin.data.export.complete' | transloco }}</span>
         </div>
     }
 

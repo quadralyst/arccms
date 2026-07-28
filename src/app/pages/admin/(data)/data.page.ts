@@ -1,5 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslatablePipe } from '../../../core/i18n/translatable.pipe';
 import { Component, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -32,11 +34,10 @@ interface DataCategory {
         MatCardModule,
         MatIconModule,
         MatListModule,
-        PageHeaderComponent,
-    ],
+        PageHeaderComponent, TranslatablePipe, TranslocoPipe],
     template: `
         <div class="data-container">
-            <arc-page-header title="Data Management" subtitle="Import and export data and files"></arc-page-header>
+            <arc-page-header [title]="'admin.data.title' | transloco" [subtitle]="'admin.data.subtitle' | transloco"></arc-page-header>
 
             <div class="data-layout">
                 <aside class="data-sidebar">
@@ -48,7 +49,7 @@ interface DataCategory {
                                class="data-item">
                                 <i [class]="category.icon + ' me-3'"></i>
                                 <div class="data-item-content">
-                                    <span class="data-label">{{ category.label }}</span>
+                                    <span class="data-label">{{ category.label | translatable }}</span>
                                     <span class="data-description">{{ category.description }}</span>
                                 </div>
                             </a>
@@ -239,28 +240,28 @@ export default class DataPageComponent extends BaseComponent {
     dataCategories = signal<DataCategory[]>([
         {
             id: 'export-data',
-            label: 'Export Data',
+            label: 'admin.nav.export_data',
             icon: 'fa-solid fa-file-export',
             route: '/admin/data/export-data',
             description: 'Export Firestore collections to JSON',
         },
         {
             id: 'import-data',
-            label: 'Import Data',
+            label: 'admin.nav.import_data',
             icon: 'fa-solid fa-file-import',
             route: '/admin/data/import-data',
             description: 'Import JSON data into Firestore',
         },
         {
             id: 'export-files',
-            label: 'Export Files',
+            label: 'admin.nav.export_files',
             icon: 'fa-solid fa-cloud-arrow-down',
             route: '/admin/data/export-files',
             description: 'Download files from Storage',
         },
         {
             id: 'import-files',
-            label: 'Import Files',
+            label: 'admin.nav.import_files',
             icon: 'fa-solid fa-cloud-arrow-up',
             route: '/admin/data/import-files',
             description: 'Upload files to Storage',
