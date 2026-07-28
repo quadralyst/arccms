@@ -998,5 +998,76 @@
         "upload_n": "Upload {{ count }} Files"
       }
     }
+  },
+  "user": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "account": "Account & Billing",
+      "premium": "Premium",
+      "profile": "Profile",
+      "plans": "Plans",
+      "sign_out": "Sign out"
+    },
+    "free": "Free",
+    "credits": "credits",
+    "dashboard": {
+      "subtitle": "Here's your account at a glance.",
+      "welcome": "Welcome back, {{ name }}",
+      "get_started": "Get started",
+      "free_note": "You're on the Free plan. Explore plans to unlock premium features and credits.",
+      "see_plans": "See plans",
+      "membership": "Membership",
+      "upgrade": "Upgrade →",
+      "credits": "Credits",
+      "history": "History →",
+      "plan_tier": "Plan tier",
+      "buy_credits": "Buy credits / Upgrade",
+      "manage_billing": "Manage billing",
+      "renews": "Renews / expires",
+      "updates_until": "Free updates until",
+      "deal": "Deal",
+      "discount": "Discount",
+      "premium_unlocked": "Premium tools unlocked",
+      "premium_note": "You have full access to members-only features.",
+      "open_premium": "Open premium area",
+      "recent_activity": "Recent activity",
+      "view_all": "View all →",
+      "no_activity": "No activity yet.",
+      "quick_links": "Quick links",
+      "account_hint": "Membership, credits, transaction history",
+      "profile_hint": "Name, email, password, photo",
+      "plans_pricing": "Plans & Pricing",
+      "plans_hint": "Upgrade or change your plan"
+    },
+    "profile": {
+      "title": "Profile",
+      "subtitle": "Manage your name, email, password and photo."
+    },
+    "premium": {
+      "title": "Premium area",
+      "on_plan": "You're on the <strong>{{ plan }}</strong> plan ({{ type }}). This page is only reachable by members — it's guarded by <code>entitledGuard</code>.",
+      "priority_processing": "Priority processing",
+      "placeholder": "Placeholder premium feature.",
+      "advanced_analytics": "Advanced analytics",
+      "priority_support": "Priority support",
+      "back": "← Back to dashboard"
+    },
+    "account": {
+      "title": "My Membership",
+      "sign_in_prompt": "Please sign in to view your membership.",
+      "sign_in": "Sign in",
+      "tier_rank": "Tier rank",
+      "plan_deal": "Plan / deal",
+      "discount_code": "Discount code",
+      "subscription_id": "Subscription ID",
+      "customer_id": "Customer ID",
+      "view_plans": "View plans",
+      "change": "Change",
+      "reason": "Reason",
+      "balance": "Balance",
+      "transaction_history": "Transaction history",
+      "no_transactions": "No transactions yet.",
+      "pro_chip": "PRO · {{ type }}"
+    }
   }
 }

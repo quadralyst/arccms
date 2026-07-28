@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Functions, httpsCallable } from '@angular/fire/functions';
@@ -34,22 +35,21 @@ import { toJsDate } from '../payments-ui/date-utils';
         MatTableModule,
         MatChipsModule,
         UserShellComponent,
-        PageHeaderComponent,
-    ],
+        PageHeaderComponent, TranslocoPipe],
     template: `
         <app-user-shell>
         <div class="account">
             @if (!uid()) {
                 <mat-card class="signin-card">
                     <mat-card-content class="text-center py-4">
-                        <p class="mb-3">Please sign in to view your membership.</p>
-                        <a mat-raised-button color="primary" routerLink="/signup" [queryParams]="{ redirect: '/account' }">Sign in</a>
+                        <p class="mb-3">{{ 'user.account.sign_in_prompt' | transloco }}</p>
+                        <a mat-raised-button color="primary" routerLink="/signup" [queryParams]="{ redirect: '/account' }">{{ 'user.account.sign_in' | transloco }}</a>
                     </mat-card-content>
                 </mat-card>
             } @else {
-                <arc-page-header title="My Membership">
+                <arc-page-header [title]="'user.account.title' | transloco">
                     <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loadingEntitlement()">
-                        <i class="fa-solid fa-rotate-right me-2"></i>Refresh
+                        <i class="fa-solid fa-rotate-right me-2"></i>{{ 'admin.dashboard.refresh' | transloco }}
                     </button>
                 </arc-page-header>
 
@@ -60,34 +60,34 @@ import { toJsDate } from '../payments-ui/date-utils';
                     } @else {
                         <mat-card-content>
                             <div class="status-row">
-                                <span class="label">Status</span>
+                                <span class="label">{{ 'common.table.status' | transloco }}</span>
                                 @if (entitlement()?.isPro) {
-                                    <mat-chip class="chip pro">PRO · {{ entitlement()?.premiumType || '—' }}</mat-chip>
+                                    <mat-chip class="chip pro">{{ 'user.account.pro_chip' | transloco: { type: (entitlement()?.premiumType || '—') } }}</mat-chip>
                                     <mat-chip class="chip" [class]="statusClass()">{{ entitlement()?.premiumStatus || 'active' }}</mat-chip>
                                 } @else {
-                                    <mat-chip class="chip free">Free</mat-chip>
+                                    <mat-chip class="chip free">{{ 'user.free' | transloco }}</mat-chip>
                                 }
                             </div>
 
                             <div class="grid">
-                                <div class="field"><span class="k">Tier rank</span><span class="v">{{ entitlement()?.premiumTierRank ?? '—' }}</span></div>
-                                <div class="field"><span class="k">Plan / deal</span><span class="v">{{ entitlement()?.premiumTierLabel || '—' }}</span></div>
-                                <div class="field"><span class="k">Discount code</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '—' }}</span></div>
-                                <div class="field"><span class="k">Renews / expires</span><span class="v">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span></div>
-                                <div class="field"><span class="k">Free updates until</span><span class="v">{{ fmtDate(updatesUntil()) }}</span></div>
-                                <div class="field"><span class="k">Subscription ID</span><span class="v mono">{{ entitlement()?.providerSubscriptionId || '—' }}</span></div>
-                                <div class="field"><span class="k">Customer ID</span><span class="v mono">{{ entitlement()?.providerCustomerId || '—' }}</span></div>
+                                <div class="field"><span class="k">{{ 'user.account.tier_rank' | transloco }}</span><span class="v">{{ entitlement()?.premiumTierRank ?? '—' }}</span></div>
+                                <div class="field"><span class="k">{{ 'user.account.plan_deal' | transloco }}</span><span class="v">{{ entitlement()?.premiumTierLabel || '—' }}</span></div>
+                                <div class="field"><span class="k">{{ 'user.account.discount_code' | transloco }}</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '—' }}</span></div>
+                                <div class="field"><span class="k">{{ 'user.dashboard.renews' | transloco }}</span><span class="v">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span></div>
+                                <div class="field"><span class="k">{{ 'user.dashboard.updates_until' | transloco }}</span><span class="v">{{ fmtDate(updatesUntil()) }}</span></div>
+                                <div class="field"><span class="k">{{ 'user.account.subscription_id' | transloco }}</span><span class="v mono">{{ entitlement()?.providerSubscriptionId || '—' }}</span></div>
+                                <div class="field"><span class="k">{{ 'user.account.customer_id' | transloco }}</span><span class="v mono">{{ entitlement()?.providerCustomerId || '—' }}</span></div>
                             </div>
 
                             @if (!entitlement()?.isPro) {
-                                <div class="mt-3"><a mat-raised-button color="primary" routerLink="/pricing">View plans</a></div>
+                                <div class="mt-3"><a mat-raised-button color="primary" routerLink="/pricing">{{ 'user.account.view_plans' | transloco }}</a></div>
                             }
                         </mat-card-content>
                     }
                 </mat-card>
 
                 <!-- Prepaid credits -->
-                <h2 class="mt-4">Credits</h2>
+                <h2 class="mt-4">{{ 'user.dashboard.credits' | transloco }}</h2>
                 <mat-card class="credits-card">
                     <mat-card-content>
                         <div class="credits-row">
@@ -106,7 +106,7 @@ import { toJsDate } from '../payments-ui/date-utils';
 
                         @if (ledger().length > 0) {
                             <table class="ledger mt-3">
-                                <thead><tr><th>Date</th><th>Change</th><th>Reason</th><th>Balance</th></tr></thead>
+                                <thead><tr><th>{{ 'admin.dashboard.col_date' | transloco }}</th><th>{{ 'user.account.change' | transloco }}</th><th>{{ 'user.account.reason' | transloco }}</th><th>{{ 'user.account.balance' | transloco }}</th></tr></thead>
                                 <tbody>
                                     @for (e of ledger(); track e.id) {
                                         <tr>
@@ -123,32 +123,32 @@ import { toJsDate } from '../payments-ui/date-utils';
                 </mat-card>
 
                 <!-- Transactions -->
-                <h2 class="mt-4">Transaction history</h2>
+                <h2 class="mt-4">{{ 'user.account.transaction_history' | transloco }}</h2>
                 @if (loadingTxns()) {
                     <div class="d-flex justify-content-center py-4"><mat-spinner diameter="28"></mat-spinner></div>
                 } @else if (transactions().length === 0) {
-                    <p class="text-muted">No transactions yet.</p>
+                    <p class="text-muted">{{ 'user.account.no_transactions' | transloco }}</p>
                 } @else {
                     <div class="table-wrap">
                         <table mat-table [dataSource]="transactions()" class="w-100">
                             <ng-container matColumnDef="date">
-                                <th mat-header-cell *matHeaderCellDef>Date</th>
+                                <th mat-header-cell *matHeaderCellDef>{{ 'admin.dashboard.col_date' | transloco }}</th>
                                 <td mat-cell *matCellDef="let t">{{ fmtDate(t.createdAt) }}</td>
                             </ng-container>
                             <ng-container matColumnDef="amount">
-                                <th mat-header-cell *matHeaderCellDef>Amount</th>
+                                <th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_amount' | transloco }}</th>
                                 <td mat-cell *matCellDef="let t">{{ t.amount | number: '1.2-2' }} {{ t.currency }}</td>
                             </ng-container>
                             <ng-container matColumnDef="plan">
-                                <th mat-header-cell *matHeaderCellDef>Plan</th>
+                                <th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_plan' | transloco }}</th>
                                 <td mat-cell *matCellDef="let t">{{ t.premiumType }}{{ t.tierApplied ? ' · ' + t.tierApplied : '' }}</td>
                             </ng-container>
                             <ng-container matColumnDef="status">
-                                <th mat-header-cell *matHeaderCellDef>Status</th>
+                                <th mat-header-cell *matHeaderCellDef>{{ 'common.table.status' | transloco }}</th>
                                 <td mat-cell *matCellDef="let t"><span class="txn-status" [class]="t.status">{{ t.status }}</span></td>
                             </ng-container>
                             <ng-container matColumnDef="event">
-                                <th mat-header-cell *matHeaderCellDef>Event</th>
+                                <th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_event' | transloco }}</th>
                                 <td mat-cell *matCellDef="let t" class="mono">{{ t.eventType }}</td>
                             </ng-container>
                             <tr mat-header-row *matHeaderRowDef="columns"></tr>

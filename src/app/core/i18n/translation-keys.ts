@@ -888,7 +888,66 @@ export type TranslationKey =
     | 'common.validation.maxlength'
     | 'common.validation.minlength'
     | 'common.validation.required'
-    | 'common.yes';
+    | 'common.yes'
+    | 'user.account.balance'
+    | 'user.account.change'
+    | 'user.account.customer_id'
+    | 'user.account.discount_code'
+    | 'user.account.no_transactions'
+    | 'user.account.plan_deal'
+    | 'user.account.pro_chip'
+    | 'user.account.reason'
+    | 'user.account.sign_in'
+    | 'user.account.sign_in_prompt'
+    | 'user.account.subscription_id'
+    | 'user.account.tier_rank'
+    | 'user.account.title'
+    | 'user.account.transaction_history'
+    | 'user.account.view_plans'
+    | 'user.credits'
+    | 'user.dashboard.account_hint'
+    | 'user.dashboard.buy_credits'
+    | 'user.dashboard.credits'
+    | 'user.dashboard.deal'
+    | 'user.dashboard.discount'
+    | 'user.dashboard.free_note'
+    | 'user.dashboard.get_started'
+    | 'user.dashboard.history'
+    | 'user.dashboard.manage_billing'
+    | 'user.dashboard.membership'
+    | 'user.dashboard.no_activity'
+    | 'user.dashboard.open_premium'
+    | 'user.dashboard.plan_tier'
+    | 'user.dashboard.plans_hint'
+    | 'user.dashboard.plans_pricing'
+    | 'user.dashboard.premium_note'
+    | 'user.dashboard.premium_unlocked'
+    | 'user.dashboard.profile_hint'
+    | 'user.dashboard.quick_links'
+    | 'user.dashboard.recent_activity'
+    | 'user.dashboard.renews'
+    | 'user.dashboard.see_plans'
+    | 'user.dashboard.subtitle'
+    | 'user.dashboard.updates_until'
+    | 'user.dashboard.upgrade'
+    | 'user.dashboard.view_all'
+    | 'user.dashboard.welcome'
+    | 'user.free'
+    | 'user.nav.account'
+    | 'user.nav.dashboard'
+    | 'user.nav.plans'
+    | 'user.nav.premium'
+    | 'user.nav.profile'
+    | 'user.nav.sign_out'
+    | 'user.premium.advanced_analytics'
+    | 'user.premium.back'
+    | 'user.premium.on_plan'
+    | 'user.premium.placeholder'
+    | 'user.premium.priority_processing'
+    | 'user.premium.priority_support'
+    | 'user.premium.title'
+    | 'user.profile.subtitle'
+    | 'user.profile.title';
 
 /** The same list at runtime, for the parity spec and for validation. */
 export const TRANSLATION_KEYS: readonly TranslationKey[] = [
@@ -1770,4 +1829,63 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.validation.minlength',
     'common.validation.required',
     'common.yes',
+    'user.account.balance',
+    'user.account.change',
+    'user.account.customer_id',
+    'user.account.discount_code',
+    'user.account.no_transactions',
+    'user.account.plan_deal',
+    'user.account.pro_chip',
+    'user.account.reason',
+    'user.account.sign_in',
+    'user.account.sign_in_prompt',
+    'user.account.subscription_id',
+    'user.account.tier_rank',
+    'user.account.title',
+    'user.account.transaction_history',
+    'user.account.view_plans',
+    'user.credits',
+    'user.dashboard.account_hint',
+    'user.dashboard.buy_credits',
+    'user.dashboard.credits',
+    'user.dashboard.deal',
+    'user.dashboard.discount',
+    'user.dashboard.free_note',
+    'user.dashboard.get_started',
+    'user.dashboard.history',
+    'user.dashboard.manage_billing',
+    'user.dashboard.membership',
+    'user.dashboard.no_activity',
+    'user.dashboard.open_premium',
+    'user.dashboard.plan_tier',
+    'user.dashboard.plans_hint',
+    'user.dashboard.plans_pricing',
+    'user.dashboard.premium_note',
+    'user.dashboard.premium_unlocked',
+    'user.dashboard.profile_hint',
+    'user.dashboard.quick_links',
+    'user.dashboard.recent_activity',
+    'user.dashboard.renews',
+    'user.dashboard.see_plans',
+    'user.dashboard.subtitle',
+    'user.dashboard.updates_until',
+    'user.dashboard.upgrade',
+    'user.dashboard.view_all',
+    'user.dashboard.welcome',
+    'user.free',
+    'user.nav.account',
+    'user.nav.dashboard',
+    'user.nav.plans',
+    'user.nav.premium',
+    'user.nav.profile',
+    'user.nav.sign_out',
+    'user.premium.advanced_analytics',
+    'user.premium.back',
+    'user.premium.on_plan',
+    'user.premium.placeholder',
+    'user.premium.priority_processing',
+    'user.premium.priority_support',
+    'user.premium.title',
+    'user.profile.subtitle',
+    'user.profile.title',
 ];

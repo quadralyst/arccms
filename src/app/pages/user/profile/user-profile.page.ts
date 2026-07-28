@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { UserShellComponent } from '../user-shell.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import ProfileComponent from '../../(auth)/(profile)/profile.page';
@@ -10,11 +11,11 @@ import ProfileComponent from '../../(auth)/(profile)/profile.page';
  */
 @Component({
     standalone: true,
-    imports: [UserShellComponent, ProfileComponent, PageHeaderComponent],
+    imports: [UserShellComponent, ProfileComponent, PageHeaderComponent, TranslocoPipe],
     template: `
         <app-user-shell>
             <div class="profile-wrap">
-                <arc-page-header title="Profile" subtitle="Manage your name, email, password and photo."></arc-page-header>
+                <arc-page-header [title]="'user.profile.title' | transloco" [subtitle]="'user.profile.subtitle' | transloco"></arc-page-header>
                 <arc-profile></arc-profile>
             </div>
         </app-user-shell>

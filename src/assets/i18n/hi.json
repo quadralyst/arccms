@@ -990,5 +990,76 @@
         "upload_n": "{{ count }} फ़ाइलें अपलोड करें"
       }
     }
+  },
+  "user": {
+    "nav": {
+      "dashboard": "डैशबोर्ड",
+      "account": "खाता और बिलिंग",
+      "premium": "प्रीमियम",
+      "profile": "प्रोफ़ाइल",
+      "plans": "योजनाएँ",
+      "sign_out": "साइन आउट"
+    },
+    "free": "मुफ़्त",
+    "credits": "क्रेडिट",
+    "dashboard": {
+      "subtitle": "एक नज़र में आपका खाता।",
+      "welcome": "वापसी पर स्वागत है, {{ name }}",
+      "get_started": "शुरू करें",
+      "free_note": "आप मुफ़्त योजना पर हैं। प्रीमियम सुविधाएँ और क्रेडिट पाने के लिए योजनाएँ देखें।",
+      "see_plans": "योजनाएँ देखें",
+      "membership": "सदस्यता",
+      "upgrade": "अपग्रेड करें →",
+      "credits": "क्रेडिट",
+      "history": "इतिहास →",
+      "plan_tier": "योजना श्रेणी",
+      "buy_credits": "क्रेडिट खरीदें / अपग्रेड करें",
+      "manage_billing": "बिलिंग प्रबंधित करें",
+      "renews": "नवीनीकरण / समाप्ति",
+      "updates_until": "मुफ़्त अपडेट कब तक",
+      "deal": "डील",
+      "discount": "छूट",
+      "premium_unlocked": "प्रीमियम टूल अनलॉक",
+      "premium_note": "आपके पास केवल-सदस्य सुविधाओं तक पूरी पहुँच है।",
+      "open_premium": "प्रीमियम क्षेत्र खोलें",
+      "recent_activity": "हाल की गतिविधि",
+      "view_all": "सभी देखें →",
+      "no_activity": "अभी कोई गतिविधि नहीं।",
+      "quick_links": "त्वरित लिंक",
+      "account_hint": "सदस्यता, क्रेडिट, लेन-देन इतिहास",
+      "profile_hint": "नाम, ईमेल, पासवर्ड, फ़ोटो",
+      "plans_pricing": "योजनाएँ और मूल्य",
+      "plans_hint": "अपनी योजना अपग्रेड या बदलें"
+    },
+    "profile": {
+      "title": "प्रोफ़ाइल",
+      "subtitle": "अपना नाम, ईमेल, पासवर्ड और फ़ोटो प्रबंधित करें।"
+    },
+    "premium": {
+      "title": "प्रीमियम क्षेत्र",
+      "on_plan": "आप <strong>{{ plan }}</strong> योजना ({{ type }}) पर हैं। यह पेज केवल सदस्यों के लिए है — इसे <code>entitledGuard</code> सुरक्षित रखता है।",
+      "priority_processing": "प्राथमिकता से प्रोसेसिंग",
+      "placeholder": "प्लेसहोल्डर प्रीमियम सुविधा।",
+      "advanced_analytics": "उन्नत एनालिटिक्स",
+      "priority_support": "प्राथमिकता सहायता",
+      "back": "← डैशबोर्ड पर वापस"
+    },
+    "account": {
+      "title": "मेरी सदस्यता",
+      "sign_in_prompt": "अपनी सदस्यता देखने के लिए कृपया साइन इन करें।",
+      "sign_in": "साइन इन करें",
+      "tier_rank": "श्रेणी रैंक",
+      "plan_deal": "योजना / डील",
+      "discount_code": "छूट कोड",
+      "subscription_id": "सदस्यता ID",
+      "customer_id": "ग्राहक ID",
+      "view_plans": "योजनाएँ देखें",
+      "change": "परिवर्तन",
+      "reason": "कारण",
+      "balance": "शेष",
+      "transaction_history": "लेन-देन इतिहास",
+      "no_transactions": "अभी कोई लेन-देन नहीं।",
+      "pro_chip": "PRO · {{ type }}"
+    }
   }
 }
