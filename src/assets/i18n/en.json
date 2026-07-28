@@ -100,7 +100,8 @@
       "saved": "Settings saved successfully",
       "save_failed": "Failed to save settings"
     },
-    "optional": "(optional)"
+    "optional": "(optional)",
+    "not_available": "N/A"
   },
   "admin": {
     "nav": {
@@ -749,6 +750,51 @@
         "import": "Import past form data",
         "new": "New field"
       }
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "refreshing": "Refreshing...",
+      "refresh": "Refresh",
+      "view_full_analytics": "View Full Analytics",
+      "debug_provider_active": "Debug Provider (Log Only) is active.",
+      "email_settings": "Email Settings",
+      "email_not_configured": "Email not configured.",
+      "email_disabled_note": "Waitlist OTP verification and emails are currently disabled.",
+      "configure_email": "Configure Email",
+      "ga_overview": "Google Analytics Overview",
+      "no_data": "No data available",
+      "ga_not_connected": "Google Analytics Not Connected",
+      "ga_setup_hint": "Set up Google Analytics to see real-time website metrics like sessions, users, and bounce rate.",
+      "setup_analytics": "Set Up Analytics",
+      "content_media": "Content & Media",
+      "media": "Media",
+      "media_files": "Media files in library",
+      "growth_leads": "Growth & Leads",
+      "view_all": "View All →",
+      "total_signups": "Total Signups",
+      "this_week": "+ this week",
+      "active": "Active",
+      "inactive": "Inactive",
+      "recent_signups": "Recent Waitlist Signups",
+      "col_date": "Date",
+      "col_waitlist": "Waitlist",
+      "col_referrals": "Referrals",
+      "col_details": "Details",
+      "no_recent_signups": "No recent signups",
+      "recent_activity": "Recent Activity",
+      "no_recent_activity": "No recent activity",
+      "refresh_failed": "Failed to refresh analytics data.",
+      "property_title": "Select GA4 Property",
+      "property_intro": "We couldn't auto-detect which property matches your site. Please select the GA4 property to connect:",
+      "property_account": "Account:",
+      "connect": "Connect",
+      "debug_banner": "<strong>Debug Provider (Log Only) is active.</strong> No emails are actually being sent — every message is recorded in Email Logs only. Switch to a real provider before going live.",
+      "firebase_console_note": "You can also view basic analytics directly on your <a href=\"{{ url }}\" target=\"_blank\" rel=\"noopener noreferrer\">Firebase console</a>",
+      "no_analytics_yet": "No analytics data available yet. Click <strong>{{ refresh }}</strong> to fetch data from Google Analytics.",
+      "count_this_week": "+{{ count }} this week",
+      "count_published": "{{ count }} Published",
+      "count_draft": "{{ count }} Draft",
+      "last_sync": "Last sync: {{ date }}"
     }
   }
 }

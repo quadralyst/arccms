@@ -483,15 +483,20 @@ npm run build                           # templates
 
 Honest state of play, so you know what you are walking into.
 
-**Admin — swept:** the shell and navigation, **all ten settings pages**, content
-types (list + add/edit drawers), the content editor, the draft list, users,
-Contacts/Lists/Tags/Fields, the shared table, the confirmation dialog, validation
-messages, the paginator.
+**Admin — swept:** the shell and navigation, **all ten settings pages**, the
+**dashboard**, content types (list + add/edit drawers), the content editor, the
+draft list, users, Contacts/Lists/Tags/Fields, the shared table, the confirmation
+dialog, validation messages, the paginator.
 
 **Admin — not swept:** waitlists, the email areas (composer, broadcasts, drips,
-announcements, brand kit, logs), media, dashboards, data, products, transactions,
-and most feature-specific drawers and dialogs. These read English inside a
-translated shell, which is the fallback working.
+announcements, brand kit, logs), media, data, products, transactions, and most
+feature-specific drawers and dialogs. These read English inside a translated
+shell, which is the fallback working.
+
+One judgement worth repeating from the dashboard: Google Analytics metric names
+(`Sessions`, `Bounce Rate`, …) are left exactly as the API returns them. They are
+lookup keys for the icon and colour map, so translating them would break the
+lookup — and they are GA's vocabulary, not ours.
 
 **The signed-in user area is not swept at all.** `src/app/pages/user/` has its
 own shell (`user-shell.component.ts`) with a hardcoded nav — it does not use the

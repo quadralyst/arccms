@@ -198,6 +198,49 @@ export type TranslationKey =
     | 'admin.contents.types.slug_exists'
     | 'admin.contents.types.update_failed'
     | 'admin.contents.types.updated'
+    | 'admin.dashboard.active'
+    | 'admin.dashboard.col_date'
+    | 'admin.dashboard.col_details'
+    | 'admin.dashboard.col_referrals'
+    | 'admin.dashboard.col_waitlist'
+    | 'admin.dashboard.configure_email'
+    | 'admin.dashboard.connect'
+    | 'admin.dashboard.content_media'
+    | 'admin.dashboard.count_draft'
+    | 'admin.dashboard.count_published'
+    | 'admin.dashboard.count_this_week'
+    | 'admin.dashboard.debug_banner'
+    | 'admin.dashboard.debug_provider_active'
+    | 'admin.dashboard.email_disabled_note'
+    | 'admin.dashboard.email_not_configured'
+    | 'admin.dashboard.email_settings'
+    | 'admin.dashboard.firebase_console_note'
+    | 'admin.dashboard.ga_not_connected'
+    | 'admin.dashboard.ga_overview'
+    | 'admin.dashboard.ga_setup_hint'
+    | 'admin.dashboard.growth_leads'
+    | 'admin.dashboard.inactive'
+    | 'admin.dashboard.last_sync'
+    | 'admin.dashboard.media'
+    | 'admin.dashboard.media_files'
+    | 'admin.dashboard.no_analytics_yet'
+    | 'admin.dashboard.no_data'
+    | 'admin.dashboard.no_recent_activity'
+    | 'admin.dashboard.no_recent_signups'
+    | 'admin.dashboard.property_account'
+    | 'admin.dashboard.property_intro'
+    | 'admin.dashboard.property_title'
+    | 'admin.dashboard.recent_activity'
+    | 'admin.dashboard.recent_signups'
+    | 'admin.dashboard.refresh'
+    | 'admin.dashboard.refresh_failed'
+    | 'admin.dashboard.refreshing'
+    | 'admin.dashboard.setup_analytics'
+    | 'admin.dashboard.this_week'
+    | 'admin.dashboard.title'
+    | 'admin.dashboard.total_signups'
+    | 'admin.dashboard.view_all'
+    | 'admin.dashboard.view_full_analytics'
     | 'admin.nav.about'
     | 'admin.nav.announcements'
     | 'admin.nav.audience'
@@ -623,6 +666,7 @@ export type TranslationKey =
     | 'common.messages.save_failed'
     | 'common.messages.saved'
     | 'common.no'
+    | 'common.not_available'
     | 'common.optional'
     | 'common.paginator.first_page'
     | 'common.paginator.items_per_page'
@@ -849,6 +893,49 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.slug_exists',
     'admin.contents.types.update_failed',
     'admin.contents.types.updated',
+    'admin.dashboard.active',
+    'admin.dashboard.col_date',
+    'admin.dashboard.col_details',
+    'admin.dashboard.col_referrals',
+    'admin.dashboard.col_waitlist',
+    'admin.dashboard.configure_email',
+    'admin.dashboard.connect',
+    'admin.dashboard.content_media',
+    'admin.dashboard.count_draft',
+    'admin.dashboard.count_published',
+    'admin.dashboard.count_this_week',
+    'admin.dashboard.debug_banner',
+    'admin.dashboard.debug_provider_active',
+    'admin.dashboard.email_disabled_note',
+    'admin.dashboard.email_not_configured',
+    'admin.dashboard.email_settings',
+    'admin.dashboard.firebase_console_note',
+    'admin.dashboard.ga_not_connected',
+    'admin.dashboard.ga_overview',
+    'admin.dashboard.ga_setup_hint',
+    'admin.dashboard.growth_leads',
+    'admin.dashboard.inactive',
+    'admin.dashboard.last_sync',
+    'admin.dashboard.media',
+    'admin.dashboard.media_files',
+    'admin.dashboard.no_analytics_yet',
+    'admin.dashboard.no_data',
+    'admin.dashboard.no_recent_activity',
+    'admin.dashboard.no_recent_signups',
+    'admin.dashboard.property_account',
+    'admin.dashboard.property_intro',
+    'admin.dashboard.property_title',
+    'admin.dashboard.recent_activity',
+    'admin.dashboard.recent_signups',
+    'admin.dashboard.refresh',
+    'admin.dashboard.refresh_failed',
+    'admin.dashboard.refreshing',
+    'admin.dashboard.setup_analytics',
+    'admin.dashboard.this_week',
+    'admin.dashboard.title',
+    'admin.dashboard.total_signups',
+    'admin.dashboard.view_all',
+    'admin.dashboard.view_full_analytics',
     'admin.nav.about',
     'admin.nav.announcements',
     'admin.nav.audience',
@@ -1274,6 +1361,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.messages.save_failed',
     'common.messages.saved',
     'common.no',
+    'common.not_available',
     'common.optional',
     'common.paginator.first_page',
     'common.paginator.items_per_page',
