@@ -414,9 +414,13 @@ batches land:
   `src/shared/components` are not done.
 - [x] **dialogs** — the shared confirmation dialog, via `titleKey`. Feature-specific
   dialogs (bulk import, test send, new email) are not done.
-- [ ] **(media)/** · [ ] **dashboards** · [ ] **(waitlists)/** · [ ] email areas
-  (composer, broadcasts, drips, announcements, brand kit, logs) · [ ] **(data)/** ·
-  [ ] products · [ ] transactions
+- [x] **admin dashboard** — banners, the analytics panel and its empty states, the
+  content/media and growth cards, the recent-signups table and the GA4 property dialog.
+  Google Analytics metric names are left as the API returns them: they are lookup keys
+  for the icon/colour map, not our strings.
+- [ ] **(media)/** · [ ] **(waitlists)/** · [ ] email areas (composer, broadcasts,
+  drips, announcements, brand kit, logs) · [ ] **(data)/** · [ ] products ·
+  [ ] transactions · [ ] the signed-in user area (`src/app/pages/user/`)
 
 **Two traps worth knowing before continuing the sweep.**
 

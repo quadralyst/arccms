@@ -92,7 +92,8 @@
       "saved": "सेटिंग्स सफलतापूर्वक सहेजी गईं",
       "save_failed": "सेटिंग्स सहेजी नहीं जा सकीं"
     },
-    "optional": "(वैकल्पिक)"
+    "optional": "(वैकल्पिक)",
+    "not_available": "लागू नहीं"
   },
   "admin": {
     "nav": {
@@ -741,6 +742,51 @@
         "import": "पुराना फ़ॉर्म डेटा आयात करें",
         "new": "नया फ़ील्ड"
       }
+    },
+    "dashboard": {
+      "title": "डैशबोर्ड",
+      "refreshing": "ताज़ा किया जा रहा है...",
+      "refresh": "ताज़ा करें",
+      "view_full_analytics": "पूरा एनालिटिक्स देखें",
+      "debug_provider_active": "डिबग प्रदाता (केवल लॉग) सक्रिय है।",
+      "email_settings": "ईमेल सेटिंग्स",
+      "email_not_configured": "ईमेल कॉन्फ़िगर नहीं है।",
+      "email_disabled_note": "वेटलिस्ट OTP सत्यापन और ईमेल फ़िलहाल बंद हैं।",
+      "configure_email": "ईमेल कॉन्फ़िगर करें",
+      "ga_overview": "Google Analytics अवलोकन",
+      "no_data": "कोई डेटा उपलब्ध नहीं",
+      "ga_not_connected": "Google Analytics कनेक्ट नहीं है",
+      "ga_setup_hint": "सत्र, उपयोगकर्ता और बाउंस दर जैसे रीयल-टाइम वेबसाइट मेट्रिक्स देखने के लिए Google Analytics सेट करें।",
+      "setup_analytics": "एनालिटिक्स सेट करें",
+      "content_media": "सामग्री और मीडिया",
+      "media": "मीडिया",
+      "media_files": "लाइब्रेरी में मीडिया फ़ाइलें",
+      "growth_leads": "वृद्धि और लीड्स",
+      "view_all": "सभी देखें →",
+      "total_signups": "कुल साइनअप",
+      "this_week": "+ इस सप्ताह",
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय",
+      "recent_signups": "हाल के वेटलिस्ट साइनअप",
+      "col_date": "दिनांक",
+      "col_waitlist": "वेटलिस्ट",
+      "col_referrals": "रेफ़रल",
+      "col_details": "विवरण",
+      "no_recent_signups": "कोई हालिया साइनअप नहीं",
+      "recent_activity": "हाल की गतिविधि",
+      "no_recent_activity": "कोई हालिया गतिविधि नहीं",
+      "refresh_failed": "एनालिटिक्स डेटा ताज़ा नहीं हो सका।",
+      "property_title": "GA4 प्रॉपर्टी चुनें",
+      "property_intro": "हम अपने आप पहचान नहीं सके कि कौन सी प्रॉपर्टी आपकी साइट से मेल खाती है। कृपया कनेक्ट करने के लिए GA4 प्रॉपर्टी चुनें:",
+      "property_account": "खाता:",
+      "connect": "कनेक्ट करें",
+      "debug_banner": "<strong>डिबग प्रदाता (केवल लॉग) सक्रिय है।</strong> कोई ईमेल वास्तव में नहीं भेजा जा रहा — हर संदेश केवल ईमेल लॉग में दर्ज होता है। लाइव होने से पहले असली प्रदाता पर स्विच करें।",
+      "firebase_console_note": "आप बुनियादी एनालिटिक्स सीधे अपने <a href=\"{{ url }}\" target=\"_blank\" rel=\"noopener noreferrer\">Firebase कंसोल</a> पर भी देख सकते हैं",
+      "no_analytics_yet": "अभी कोई एनालिटिक्स डेटा उपलब्ध नहीं। Google Analytics से डेटा लाने के लिए <strong>{{ refresh }}</strong> क्लिक करें।",
+      "count_this_week": "+{{ count }} इस सप्ताह",
+      "count_published": "{{ count }} प्रकाशित",
+      "count_draft": "{{ count }} ड्राफ़्ट",
+      "last_sync": "अंतिम सिंक: {{ date }}"
     }
   }
 }
