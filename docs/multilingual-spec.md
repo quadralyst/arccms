@@ -418,9 +418,15 @@ batches land:
   content/media and growth cards, the recent-signups table and the GA4 property dialog.
   Google Analytics metric names are left as the API returns them: they are lookup keys
   for the icon/colour map, not our strings.
-- [ ] **(media)/** · [ ] **(waitlists)/** · [ ] email areas (composer, broadcasts,
-  drips, announcements, brand kit, logs) · [ ] **(data)/** · [ ] products ·
-  [ ] transactions · [ ] the signed-in user area (`src/app/pages/user/`)
+- [x] **(media)/** — the media manager, its Unsplash search and metadata panel.
+- [x] **(data)/** — the hub and all four wizards (export/import data, export/import
+  files), including step labels, progress lines and result summaries.
+- [x] **products** · [x] **transactions**
+- [x] **the signed-in user area** (`src/app/pages/user/`, `src/app/pages/account/`) —
+  its own shell nav, dashboard, profile, premium and account/billing. Keys live under
+  `user.*`; the two areas share only `common.*`.
+- [ ] **(waitlists)/** · [ ] email areas (composer, broadcasts, drips, announcements,
+  brand kit, logs) · [ ] feature-specific drawers and dialogs
 
 **Two traps worth knowing before continuing the sweep.**
 

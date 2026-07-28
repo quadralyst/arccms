@@ -498,12 +498,13 @@ One judgement worth repeating from the dashboard: Google Analytics metric names
 lookup keys for the icon and colour map, so translating them would break the
 lookup — and they are GA's vocabulary, not ours.
 
-**The signed-in user area is not swept at all.** `src/app/pages/user/` has its
-own shell (`user-shell.component.ts`) with a hardcoded nav — it does not use the
-admin `arc-side-navbar`. Note that those pages *do* render `arc-page-header`, so
-the language picker is visible there while changing almost nothing. Either sweep
-that area or pass `[showLanguagePicker]="false"` on its page headers until you
-do.
+**The signed-in user area is swept**, under `user.*` keys. It has its own shell
+(`user-shell.component.ts`) with its own nav — it does not use the admin
+`arc-side-navbar` — so its strings live beside it rather than under `admin.nav.*`.
+
+One naming wrinkle: the service behind the picker is `AdminLanguageService` and
+its constant `ADMIN_LANGUAGES`, but both now serve the user area too. Read them
+as "the UI language of whoever is signed in".
 
 **Date and number pipes** follow the admin language from the *next* page load,
 not immediately. Angular resolves `LOCALE_ID` once at bootstrap and the built-in
