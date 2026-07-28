@@ -95,26 +95,31 @@ the template is hydrated:
 { "back_to": "वापस {{ contentType }} पर" }
 ```
 
-### Know which annotation works where
+### The three annotations
 
-The two file groups are processed by different code, and only `data-arc-t`
-itself is supported by both. **Check this table before reaching for a variant** —
-using the wrong one fails silently, in one renderer only.
+All three work everywhere — in `public/templates/**`, in the two shared partials,
+on published pages and in the SPA. You do not need to know which renderer will
+handle your file.
 
-| Annotation | `public/templates/**` | `public/_partials/_header.html`, `_footer.html` |
-|---|---|---|
-| `data-arc-t="key"` | ✅ | ✅ |
-| `data-arc-t-attr="placeholder:key"` | ✅ | ❌ — not implemented by the directive |
-| `data-arc-t-params="…"` | ❌ — not implemented by the hydrators | ✅ |
+| Annotation | What it does |
+|---|---|
+| `data-arc-t="key"` | Replaces the element's text |
+| `data-arc-t-attr="placeholder:key"` | Replaces an attribute. Comma-separate for several: `"placeholder:a,title:b"` |
+| `data-arc-t-params='{"count": 5}'` | Fills `{{ }}` tokens in the translated string |
 
-Why: `public/templates/**` is fetched and hydrated as *text*, by
-`TemplateHydrationService` in the SPA and its mirror in
-`functions/src/shared/template-hydration.ts`. The two partials are different —
-they are Angular component templates (`HeaderComponent`, `FooterComponent`), so
-they go through `ArcTranslateDirective` instead.
+In an Angular template, params are a binding rather than JSON:
 
-Neither variant is used anywhere yet, so if you need one in the group that lacks
-it, implement it on that side rather than working around it.
+```html
+<span data-arc-t="min_read" [data-arc-t-params]="{ count: readTime }">5 min read</span>
+```
+
+The authored English is always the fallback, for attributes as much as text. An
+unknown `{{ token }}` is left visible rather than becoming a silent gap, and a
+malformed params attribute degrades to the authored English rather than
+aborting a publish.
+
+`annotation-parity.spec.ts` holds the three renderers to identical behaviour —
+if you extend the annotations, extend that spec too.
 
 > Strings are cached for five minutes per Cloud Function instance, so a freshly
 > deployed `strings.json` can take that long to reach newly published pages.
@@ -267,7 +272,19 @@ the key.
 
 Before inventing a key, check whether `common.*` already has it. "Save",
 "Cancel", "Delete", "Name", "Status", "Actions", "Loading…" and the "Showing N
-to M of T records" footer are all there.
+to M of T records" footer are all there. Autocomplete helps: `TranslationKey`
+lists every key that exists.
+
+### After editing en.json
+
+```bash
+npm run i18n:keys
+```
+
+This regenerates `src/app/core/i18n/translation-keys.ts` — the `TranslationKey`
+union that types `notify.*`, `t()` and `isTranslationKey`. Forgetting to run it
+fails `i18n-parity.spec.ts`, which also fails if a translation is missing a key,
+has invented one, or if `ADMIN_LANGUAGES` offers a language with no JSON file.
 
 ## 2.3 How to translate each kind of string
 
@@ -281,12 +298,14 @@ to M of T records" footer are all there.
 
 Add `TranslocoPipe` to the component's `imports`.
 
-**In TypeScript** — the service. `BaseComponent` already provides it as
-`this.transloco`:
+**In TypeScript** — `this.t()` on `BaseComponent`, whose key is type-checked:
 
 ```ts
-this.transloco.translate('admin.contents.types.slug_exists', { slug });
+this.t('admin.contents.types.slug_exists', { slug });
 ```
+
+Use `this.transloco.translate()` directly only for a key computed at runtime —
+one built from a record's id, say — where a type cannot help.
 
 **A toast** — `NotifyService`, provided by `BaseComponent` as `this.notify`:
 
@@ -338,6 +357,12 @@ returns the key you handed it and the heading renders as
 `ADMIN.CONTENTS.LIST.COL_TITLE`. Passing the key also means a language switch
 updates the headings without the page rebuilding its columns.
 
+`header` and `label` accept **either a key or literal text**, because a column
+can also come from a content type's custom field, whose label is data. The table
+resolves them with `| translatable`, which translates a known key and prints
+anything else unchanged — the same rule as `data-arc-t`. Reach for that pipe
+anywhere you have a field that could hold either.
+
 For a cell value computed per row, `transformFn` / `textFn` / `titleFn` run at
 render time, so `translate()` is correct there:
 
@@ -384,15 +409,17 @@ the drawer beside it.
    ```
 5. Nothing else. The picker, the preference and the paginator pick it up.
 
-Keep `en.json` and every translation in step. There is a parity check in
-`docs/` tooling history; the quickest version is to compare the flattened key
-lists of the two files and diff them.
+`i18n-parity.spec.ts` enforces the rest: it fails if any translation is missing
+a key, if one invents a key with no English source, or if a language in
+`ADMIN_LANGUAGES` has no JSON file. Run `npm run i18n:keys` after adding the
+file so the generated union includes nothing stale.
 
 ## 2.7 Writing a new admin page
 
 1. Add `TranslocoPipe` to the component's `imports`.
 2. Put every visible string in `en.json` under `admin.<area>.*`, reusing
-   `common.*` wherever it fits, and add the same keys to `hi.json`.
+   `common.*` wherever it fits, and add the same keys to every translation.
+   Then run `npm run i18n:keys`.
 3. Table columns and action labels: pass keys (§2.4).
 4. Toasts: `this.notify.*` (§2.3).
 5. Dialogs: pass `titleKey` (§2.3).
@@ -424,8 +451,9 @@ folder and only one of them is live.
 **A translated page linking back to English.** A link that is not in a content
 template needs the language prefix added by hand (§1.6).
 
-**A `data-arc-t-attr` or `data-arc-t-params` that does nothing.** They are not
-supported in both file groups — see the table in §1.4.
+**A key that renders as `ADMIN.FOO.BAR`.** A typo. In TypeScript, use
+`this.t('…')` or `this.notify.*` and the compiler catches it; in a template
+`| transloco` is unchecked, so the parity spec is the backstop.
 
 **A deployed page still in English.** Static pages are built at publish time.
 Deploying is not republishing.
@@ -496,5 +524,9 @@ prerendered and a client-side redirect would flash the default language first.
 | Admin preference | `src/app/core/i18n/admin-language.service.ts` |
 | Translated toasts | `src/shared/services/notify.service.ts` |
 | Spec setup | `src/test/setup.ts`, `src/test/transloco-test-providers.ts` |
+| Key generator | `scripts/generate-i18n-keys.mjs` → `npm run i18n:keys` |
+| Generated key union | `src/app/core/i18n/translation-keys.ts` |
+| Key-or-text pipe | `src/app/core/i18n/translatable.pipe.ts` |
+| Drift tests | `src/test/i18n-parity.spec.ts`, `src/app/core/i18n/annotation-parity.spec.ts` |
 | Server mirrors | `functions/src/shared/` |
 | Design decisions | `docs/multilingual-spec.md` §0 |
