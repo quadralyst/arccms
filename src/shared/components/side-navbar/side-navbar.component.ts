@@ -20,7 +20,7 @@ import MediaManagerComponent from '../../../app/pages/admin/(media)/media.page';
 import { BaseComponent } from '../base/base.component';
 import { ConfirmationPopupComponent } from '../confirmation-popup/confirmation-popup.component';
 import { ContentTypesStore } from '../../../app/pages/admin/contents/content-types/content-types.store';
-import { ContentType } from '../../../app/pages/admin/contents/content-types/content-types.model';
+import { ContentType, contentTypeName } from '../../../app/pages/admin/contents/content-types/content-types.model';
 import { WaitlistAdminStore } from '../../../app/pages/admin/(waitlists)/waitlist.store';
 
 export type MenuItem = {
@@ -227,9 +227,16 @@ export default class NavbarComponent extends BaseComponent {
             return true;
         });
 
+        // A content type's name is CMS data, but the admin authored a
+        // translation of it for the public pages (M-D19) and asked to read the
+        // admin in this language — so use it where one exists. Untranslated
+        // types keep their authored name, the same fallback the rest of the
+        // admin uses. Sorting follows the displayed label, so the order is the
+        // one this reader sees.
+        const lang = this.activeLang();
         const contentTypeLinks: MenuItem[] = validTypes.map((t: ContentType) => ({
             icon: t.icon || 'fa-solid fa-folder',
-            label: t.name,
+            label: contentTypeName(t, lang),
             route: `/admin/contents/${t.slug}`,
         })).sort((a: MenuItem, b: MenuItem) => (a.label || '').localeCompare(b.label || ''));
 
