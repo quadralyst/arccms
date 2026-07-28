@@ -304,6 +304,15 @@ Add `TranslocoPipe` to the component's `imports`.
 this.t('admin.contents.types.slug_exists', { slug });
 ```
 
+Plenty of pages do **not** extend `BaseComponent`. They get the same typed
+helper from `injectT()`:
+
+```ts
+private t = injectT();          // src/app/core/i18n/inject-t.ts
+...
+this.saveMessage.set(this.t('common.messages.saved'));
+```
+
 Use `this.transloco.translate()` directly only for a key computed at runtime —
 one built from a record's id, say — where a type cannot help.
 
@@ -325,8 +334,8 @@ this.dialog.open(ConfirmationPopupComponent, {
     data: {
         dialogType: 'Delete',                 // discriminator, stays English
         titleKey: 'common.dialog.delete',     // what the heading shows
-        dialogMessage: this.sanitizer.bypassSecurityTrustHtml(
-            this.transloco.translate('common.actions.delete_confirm', { name }),
+                dialogMessage: this.sanitizer.bypassSecurityTrustHtml(
+            this.t('common.actions.delete_confirm', { name }),
         ),
         btnText: this.transloco.translate('common.actions.delete'),
         panelType: 'warn',
@@ -336,6 +345,47 @@ this.dialog.open(ConfirmationPopupComponent, {
 
 **Form validation** — nothing to do. `getFormErrors` on `BaseComponent` is
 already translated, so every form gets it.
+
+### Sentences that contain markup
+
+A sentence with a link, a `<strong>` or a `<code>` inside it is still **one
+key**. Put the markup in the value and render it with `[innerHTML]`:
+
+```html
+<li [innerHTML]="'admin.settings.integrations.unsplash_s1_b' | transloco"></li>
+```
+```json
+{ "unsplash_s1_b": "Click <strong>Register as a developer</strong> (or log in…)" }
+```
+
+Splitting it into `Click` + `Register as a developer` + `(or log in…)` looks
+tidier in the template and is wrong: word order differs between languages and a
+translator cannot reorder fragments they receive separately.
+
+Angular's sanitizer keeps `href`, `target`, `rel`, `<strong>` and `<code>`, so
+links survive. Pass values in as parameters rather than concatenating:
+
+```html
+<span [innerHTML]="'admin.dashboard.firebase_console_note' | transloco: { url: getGa4Url() }"></span>
+```
+
+**Quoted UI from another product stays in its own language.** The setup guides
+say "Click <strong>Create application</strong>" with the button name in English
+even in the Hindi copy, because that is what the Google and Unsplash consoles
+actually show. Translating a label that only exists in English would make the
+instruction harder to follow, not easier.
+
+### Conditional text
+
+Translate the *choice of key*, not each branch:
+
+```html
+{{ (p.active ? 'admin.products.active' : 'admin.products.inactive') | transloco }}
+```
+
+Substituting inside the branches — `p.active ? '{{ … }}' : '…'` — produces
+nested interpolation and a template that will not compile. It is an easy
+mistake to make with a find-and-replace.
 
 ## 2.4 Tables: pass keys, not translations
 
@@ -360,8 +410,12 @@ updates the headings without the page rebuilding its columns.
 `header` and `label` accept **either a key or literal text**, because a column
 can also come from a content type's custom field, whose label is data. The table
 resolves them with `| translatable`, which translates a known key and prints
-anything else unchanged — the same rule as `data-arc-t`. Reach for that pipe
-anywhere you have a field that could hold either.
+anything else unchanged — the same rule as `data-arc-t`.
+
+Reach for that pipe anywhere a field could hold either. The data wizards use it
+for their collection-group and preset labels: those are display-only and passed
+through untouched, so putting a key in `label` needed no change to how the list
+is built.
 
 For a cell value computed per row, `transformFn` / `textFn` / `titleFn` run at
 render time, so `translate()` is correct there:
@@ -387,6 +441,13 @@ contentTypeDescription(type, this.adminLang())
 Applied in the sidebar and the content list heading. Deliberately **not** in the
 content-types management table, whose Name column is the `name` field you edit in
 the drawer beside it.
+
+**A string that is also a lookup key is not translatable at all.** The dashboard
+maps Google Analytics metric names (`Sessions`, `Bounce Rate`, …) to an icon and
+colour; translating the displayed name would break the lookup, and they are GA's
+vocabulary arriving from its API rather than ours. When you find a string doing
+double duty as an identifier, leave it and translate around it — the same reason
+`dialogType` and the side-nav `label` stay English.
 
 ---
 
@@ -416,17 +477,27 @@ file so the generated union includes nothing stale.
 
 ## 2.7 Writing a new admin page
 
-1. Add `TranslocoPipe` to the component's `imports`.
-2. Put every visible string in `en.json` under `admin.<area>.*`, reusing
-   `common.*` wherever it fits, and add the same keys to every translation.
-   Then run `npm run i18n:keys`.
+The **signed-in user area** works exactly the same way; its keys live under
+`user.*` rather than `admin.*`, and it has its own shell rather than the admin
+side-navbar.
+
+1. Add `TranslocoPipe` to the component's `imports` — plus `TranslatablePipe` if
+   anything renders a field that may hold a key *or* data.
+2. Put every visible string in `en.json` under `admin.<area>.*` (or `user.*`),
+   reusing `common.*` wherever it fits, and add the same keys to every
+   translation. Then run `npm run i18n:keys`.
 3. Table columns and action labels: pass keys (§2.4).
-4. Toasts: `this.notify.*` (§2.3).
+4. Toasts: `this.notify.*`; typed key, right icon (§2.3).
 5. Dialogs: pass `titleKey` (§2.3).
-6. If a spec does `overrideComponent(..., { set: { imports: [] } })` to keep
+6. Sentences with markup: one key, `[innerHTML]` (§2.3).
+7. If a spec does `overrideComponent(..., { set: { imports: [] } })` to keep
    Angular Material out of the way, **keep `TranslocoPipe` in that array**.
    `NO_ERRORS_SCHEMA` covers an unknown element but not an unknown *pipe* — the
    template will fail to render entirely.
+
+Then run all three checks. `vitest` catches a broken component, `tsc` catches a
+mistyped key, and only `npm run build` catches a broken *template* — which is
+what most i18n mistakes produce.
 
 Specs need no other setup: `src/test/setup.ts` gives every TestBed the real
 translations. To render a spec in another language:
@@ -456,10 +527,28 @@ template needs the language prefix added by hand (§1.6).
 and the compiler catches it; in a template `| transloco` is unchecked, so the
 parity spec is the backstop.
 
-**A sweep that looks finished and is not.** Searching for `>text<` misses any
-string wrapped across lines, which is most long sentences in this codebase.
-Match whitespace-insensitively, and look at the page in the second language
-before calling it done.
+**A sweep that looks finished and is not.** Three ways a scan under-reports:
+
+- a string **wrapped across lines** — most long sentences here are; match
+  whitespace-insensitively;
+- a string in an **attribute** (`title=`, `placeholder=`, `matTooltip=`,
+  `emptyTitle=`), which a text-node scan cannot see at all;
+- a sentence **containing an interpolation**, like `Upload {{ n }} Files`, which
+  looks like two fragments to a naive scan.
+
+Look at the page in the second language before calling it done. Every batch this
+session had leftovers that only a rendered page revealed.
+
+**A find-and-replace that hits code.** Replacing a bare word rewrites it
+wherever it appears: `Dimensions` matched inside `selectedImageDimensions`, and
+`Disconnect` inside `(click)="onDisconnect()"`. Anchor on word boundaries, and
+prefer replacing the surrounding markup (`<h2>Text</h2>`) over the bare word.
+
+**A spec asserting on toast text.** Moving a call site to `NotifyService` breaks
+any spec spying on `toastService.error(...)`, because the toast now arrives via
+`openCustomSnackbar(text, type, icon)`. Update the assertion to that — it still
+checks the sentence a person reads, one layer down — and add
+`openCustomSnackbar: vi.fn()` to the mock.
 
 **A deployed page still in English.** Static pages are built at publish time.
 Deploying is not republishing.
