@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { DatePipe, NgClass } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import {
     ChangeDetectionStrategy,
     ChangeDetectorRef,
@@ -71,8 +72,7 @@ interface MediaMenuItem {
         MatListModule,
         MatCardModule,
         MatDialogClose,
-        MatProgressSpinnerModule,
-    ],
+        MatProgressSpinnerModule, TranslocoPipe],
     templateUrl: './media-manager.html',
     styleUrls: ['./media-manager.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -159,7 +159,7 @@ export default class MediaManagerComponent extends BaseComponent {
                     this.isSearching = false;
                     this.ref.detectChanges();
                     console.error('Error occurred while retrieving images from unsplash', error);
-                    this.toastService.error('Failed to search images. Please try again.');
+                    this.notify.error('admin.media.search_failed');
                 });
         } else {
             this.searchResults = [];
@@ -338,7 +338,7 @@ export default class MediaManagerComponent extends BaseComponent {
                 },
                 error: (err: any) => {
                     console.error('Failed to save media metadata:', err);
-                    this.toastService.error('Images uploaded but failed to save metadata.');
+                    this.notify.error('admin.media.metadata_failed');
                     this.loadMediaItems();
                 },
             });
@@ -358,7 +358,7 @@ export default class MediaManagerComponent extends BaseComponent {
             },
             error: (error) => {
                 console.error(error);
-                this.toastService.error('Failed to load media items.');
+                this.notify.error('admin.media.load_failed');
             },
         });
         this.subscriptions.push(sub);
@@ -414,7 +414,7 @@ export default class MediaManagerComponent extends BaseComponent {
             data: {
                 dialogType: 'Delete',
                 dialogMessage: msg,
-                btnText: 'Delete',
+                btnText: this.t('common.actions.delete'),
                 panelType: 'warn',
             },
         });
@@ -431,7 +431,7 @@ export default class MediaManagerComponent extends BaseComponent {
             this.loadMediaItems();
         } catch (error) {
             console.error('Failed to delete media item:', error);
-            this.toastService.error('Failed to delete media item. Please try again.');
+            this.notify.error('admin.media.delete_failed');
         }
     }
 

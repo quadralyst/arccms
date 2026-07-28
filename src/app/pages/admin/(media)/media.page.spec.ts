@@ -123,7 +123,7 @@ describe('MediaManagerComponent', () => {
                 { provide: MatDialog, useValue: mockDialog },
                 { provide: MatDialogRef, useValue: mockDialogRef },
                 { provide: MAT_DIALOG_DATA, useValue: { isDialogOpen: false } },
-                { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } },
+                { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), openCustomSnackbar: vi.fn() } },
                 { provide: GlobalService, useValue: { debugMode: vi.fn(() => false) } },
                 { provide: Location, useValue: { back: vi.fn() } },
                 { provide: Router, useValue: mockRouter },
@@ -438,7 +438,8 @@ describe('MediaManagerComponent', () => {
             // Flush microtasks: rejection propagates through .then() → .catch()
             await new Promise(resolve => setTimeout(resolve, 0));
 
-            expect(toastService.error).toHaveBeenCalledWith('Failed to search images. Please try again.');
+            expect(toastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Failed to search images. Please try again.', 'error', 'error');
         });
 
         it('should reset isSearching flag on error', async () => {
@@ -458,7 +459,8 @@ describe('MediaManagerComponent', () => {
 
             await component.deleteUploadedMedia('media-id');
 
-            expect(toastService.error).toHaveBeenCalledWith('Failed to delete media item. Please try again.');
+            expect(toastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Failed to delete media item. Please try again.', 'error', 'error');
         });
     });
 
@@ -522,7 +524,7 @@ describe('MediaManagerComponent as Dialog', () => {
                 { provide: MatDialog, useValue: { open: vi.fn() } },
                 { provide: MatDialogRef, useValue: mockDialogRef },
                 { provide: MAT_DIALOG_DATA, useValue: { isDialogOpen: true } },
-                { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } },
+                { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), openCustomSnackbar: vi.fn() } },
                 { provide: GlobalService, useValue: { debugMode: vi.fn(() => false) } },
                 { provide: Location, useValue: { back: vi.fn() } },
                 { provide: Router, useValue: { navigate: vi.fn() } },
