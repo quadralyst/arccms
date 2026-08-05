@@ -7,20 +7,30 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockRunTransaction, mockLedgerDoc } = vi.hoisted(() => ({
+const { mockRunTransaction, mockLedgerDoc, mockQueryGet } = vi.hoisted(() => ({
   mockRunTransaction: vi.fn(),
   mockLedgerDoc: vi.fn(),
+  mockQueryGet: vi.fn(),
 }));
 
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: { now: () => ({ __now: true }) } }));
+
+/** Chainable query stub for the ledger lookups in refundableCreditAmount(). */
+const query: any = {
+  where: () => query,
+  orderBy: () => query,
+  limit: () => query,
+  get: (...args: unknown[]) => mockQueryGet(...args),
+};
+
 vi.mock('../init', () => ({
   db: {
-    collection: () => ({ doc: mockLedgerDoc }),
+    collection: () => ({ doc: mockLedgerDoc, ...query }),
     runTransaction: mockRunTransaction,
   },
 }));
 
-import { grantCredits, refundCredits, spendCredits } from '../dodo-payments/credits.js';
+import { grantCredits, refundCredits, spendCredits, refundableCreditAmount } from '../dodo-payments/credits.js';
 
 const userRef = { __kind: 'user' } as any;
 
@@ -97,5 +107,76 @@ describe('spendCredits', () => {
   it('rejects when the balance is insufficient', async () => {
     wire({ balance: 2 });
     await expect(spendCredits(userRef, 'u1', 5)).rejects.toThrow('insufficient-credits');
+  });
+});
+
+describe('refundableCreditAmount', () => {
+  /** Ledger entries the subscription lookup returns, newest first. */
+  function ledgerPage(entries: Record<string, unknown>[]) {
+    mockQueryGet.mockResolvedValue({ docs: entries.map((e) => ({ data: () => e })) });
+  }
+
+  beforeEach(() => {
+    mockLedgerDoc.mockReturnValue({ get: vi.fn().mockResolvedValue({ exists: false }) });
+    ledgerPage([]);
+  });
+
+  it('reads the exact allowance a one-time purchase granted', async () => {
+    mockLedgerDoc.mockReturnValue({
+      get: vi.fn().mockResolvedValue({ exists: true, data: () => ({ delta: 250 }) }),
+    });
+
+    const amount = await refundableCreditAmount({ providerPaymentId: 'pay1', fallback: 100 });
+
+    expect(mockLedgerDoc).toHaveBeenCalledWith('grant:pay:pay1');
+    expect(amount).toBe(250);
+  });
+
+  // The old code clawed back product.creditsGranted — one period's worth — however
+  // many renewals had actually granted, and went stale if the product was edited.
+  it('reads the most recent allowance granted for a subscription', async () => {
+    ledgerPage([
+      { delta: -5, reason: 'consume' },
+      { delta: 300, reason: 'renewal' },
+      { delta: 300, reason: 'purchase' },
+    ]);
+
+    const amount = await refundableCreditAmount({ providerSubscriptionId: 'sub1', fallback: 100 });
+
+    expect(amount).toBe(300);
+  });
+
+  it('ignores debits when looking for the last grant', async () => {
+    ledgerPage([{ delta: -50, reason: 'consume' }, { delta: -20, reason: 'refund' }, { delta: 75, reason: 'renewal' }]);
+
+    expect(await refundableCreditAmount({ providerSubscriptionId: 'sub1', fallback: 100 })).toBe(75);
+  });
+
+  it('prefers the exact payment grant over the subscription lookup', async () => {
+    mockLedgerDoc.mockReturnValue({
+      get: vi.fn().mockResolvedValue({ exists: true, data: () => ({ delta: 42 }) }),
+    });
+    ledgerPage([{ delta: 999, reason: 'renewal' }]);
+
+    const amount = await refundableCreditAmount({
+      providerPaymentId: 'pay1',
+      providerSubscriptionId: 'sub1',
+      fallback: 100,
+    });
+
+    expect(amount).toBe(42);
+  });
+
+  it('falls back to the product allowance when no grant can be found', async () => {
+    expect(await refundableCreditAmount({ providerSubscriptionId: 'sub1', fallback: 100 })).toBe(100);
+    expect(await refundableCreditAmount({ fallback: 100 })).toBe(100);
+  });
+
+  it('falls back when the deterministic entry exists but is not a positive grant', async () => {
+    mockLedgerDoc.mockReturnValue({
+      get: vi.fn().mockResolvedValue({ exists: true, data: () => ({ delta: 0 }) }),
+    });
+
+    expect(await refundableCreditAmount({ providerPaymentId: 'pay1', fallback: 100 })).toBe(100);
   });
 });

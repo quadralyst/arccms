@@ -96,13 +96,18 @@ describe('HomeComponent', () => {
                 { provide: WaitlistService, useValue: mockWaitlistService },
                 { provide: WaitlistFormService, useValue: mockWaitlistFormService },
                 { provide: EmailConfigStatusService, useValue: mockEmailConfigService },
-                { provide: ContentsStore, useValue: mockContentsStore },
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: HttpClient, useValue: mockHttpClient },
                 { provide: AuthService, useValue: mockAuthService },
                 { provide: OnboardingSetupService, useValue: mockSetupService },
             ],
-        }).compileComponents();
+        })
+            // HomeComponent renders ContentPartialsComponent, which declares
+            // `providers: [ContentsStore]`. That component-level instance shadows a
+            // provider registered above, so the real store (→ ContentsService →
+            // Firestore) would be built. overrideProvider replaces it everywhere.
+            .overrideProvider(ContentsStore, { useValue: mockContentsStore })
+            .compileComponents();
 
         fixture = TestBed.createComponent(HomeComponent);
         component = fixture.componentInstance;
