@@ -23,6 +23,7 @@ import { IContents } from '../admin/contents/content-store/published-contents.mo
     selector: 'arc-content-partials',
     standalone: true,
     imports: [CommonModule, SafeHtmlPipe],
+    providers: [ContentsStore],
     template: `
     @if(hydrated()) {
     @if(contentTypesStore.isLoading() || contentsStore.isLoading()) {
