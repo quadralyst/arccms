@@ -46,7 +46,7 @@ export const routeMeta: RouteMeta = {
                         <p class="text-muted">No transactions.</p>
                     } @else {
                         <table mat-table [dataSource]="filtered()" class="w-100">
-                            <ng-container matColumnDef="createdAt"><th mat-header-cell *matHeaderCellDef>Date</th><td mat-cell *matCellDef="let t">{{ t.createdAt | date:'short' }}</td></ng-container>
+                            <ng-container matColumnDef="createdAt"><th mat-header-cell *matHeaderCellDef>Date</th><td mat-cell *matCellDef="let t">{{ t.createdAt.seconds * 1000 | date:'short' }}</td></ng-container>
                             <ng-container matColumnDef="userEmail"><th mat-header-cell *matHeaderCellDef>Customer</th><td mat-cell *matCellDef="let t">{{ t.userEmail }}</td></ng-container>
                             <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>Amount</th><td mat-cell *matCellDef="let t">{{ t.currency }} {{ t.amount }}</td></ng-container>
                             <ng-container matColumnDef="premiumType"><th mat-header-cell *matHeaderCellDef>Plan</th><td mat-cell *matCellDef="let t">{{ t.premiumType }}</td></ng-container>
