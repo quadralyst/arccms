@@ -845,7 +845,14 @@
                 </ul>
               </div>
 
-              @if (errorMessage()) {
+              @if (adminClaimPending()) {
+              <div class="alert alert-warning mt-3">
+                <i class="fas fa-triangle-exclamation me-1"></i>
+                Your admin permissions are still propagating. Setup will finish
+                either way — the default waitlist may be skipped, and you can add
+                one later from Waitlists.
+              </div>
+              } @if (errorMessage()) {
               <div class="alert alert-danger mt-3">{{ errorMessage() }}</div>
               } @if (setupFailed()) {
               <div class="d-flex gap-2 mt-4">

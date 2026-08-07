@@ -21,7 +21,6 @@ import { Meta, Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { take } from 'rxjs';
 import { BaseComponent } from '../../../shared/components/base/base.component';
-import { AuthService } from '../(auth)/auth.service';
 import { OnboardingSetupService } from '../(onboarding)/onboarding-setup.service';
 import { WaitlistFormService } from './waitlist-form.service';
 import { LocalizationService } from '../../core/services/localization.service';
@@ -42,7 +41,6 @@ export const HOME_PAGE_LANGUAGES = ['en', 'hi'];
 export abstract class HomeBaseComponent extends BaseComponent implements OnInit, AfterViewInit, OnDestroy {
   protected elementRef = inject(ElementRef);
   protected waitlistFormService = inject(WaitlistFormService);
-  protected authService = inject(AuthService);
   protected setupService = inject(OnboardingSetupService);
   protected homeRouter = inject(Router);
   protected localization = inject(LocalizationService);
@@ -120,20 +118,14 @@ export abstract class HomeBaseComponent extends BaseComponent implements OnInit,
       return;
     }
 
-    // On first run (no users yet), redirect to the onboarding wizard
-    this.authService.isFirstRun().pipe(take(1)).subscribe((firstRun) => {
-      if (firstRun) {
+    // On first run, or when the wizard was started but never finished,
+    // redirect to the onboarding wizard.
+    this.setupService.shouldShowOnboarding().pipe(take(1)).subscribe((showOnboarding) => {
+      if (showOnboarding) {
         this.homeRouter.navigate(['/onboarding']);
         return;
       }
-      // Also redirect if onboarding wizard was started but not completed
-      this.setupService.isOnboardingComplete().pipe(take(1)).subscribe((complete) => {
-        if (!complete) {
-          this.homeRouter.navigate(['/onboarding']);
-          return;
-        }
-        this.initForms();
-      });
+      this.initForms();
     });
   }
 
