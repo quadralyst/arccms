@@ -48,6 +48,14 @@ describe('DEFAULT_CONTENT_TYPES', () => {
         },
     );
 
+    it('seeds Articles and nothing else', () => {
+        // User Manuals and Release Notes used to ship here too. An unwanted type
+        // is not free — it claims a slug and with it the arc_{slug},
+        // arc_{slug}_drafts and Tags_{slug} collections — and a site that wants
+        // one can add it from the admin UI.
+        expect(DEFAULT_CONTENT_TYPES.map(t => t.slug)).toEqual(['articles']);
+    });
+
     it('keeps the fields that are genuinely specific to a type', () => {
         const byslug = Object.fromEntries(
             DEFAULT_CONTENT_TYPES.map(t => [t.slug, (t.fields || []).map(f => f.key)]),
@@ -56,8 +64,6 @@ describe('DEFAULT_CONTENT_TYPES', () => {
         // A type with no fields is correct, not a mistake: an article *is* a
         // title, a body and a cover image.
         expect(byslug['articles']).toEqual([]);
-        expect(byslug['user-manuals']).toEqual(['category']);
-        expect(byslug['release-notes']).toEqual(['version', 'releaseDate', 'isBreaking']);
     });
 
     it('numbers each type its own fields from 1', () => {

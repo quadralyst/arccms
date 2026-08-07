@@ -72,7 +72,7 @@ describe('HomeComponent', () => {
         };
 
         const mockSetupService = {
-            isOnboardingComplete: vi.fn().mockReturnValue(of(true)),
+            shouldShowOnboarding: vi.fn().mockReturnValue(of(false)),
         };
 
         await TestBed.configureTestingModule({

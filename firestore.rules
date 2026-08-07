@@ -95,7 +95,14 @@ service cloud.firestore {
       // `localization` is public-read on purpose: the public language switcher
       // and the SPA fallback renderer both need the site's language list before
       // any user is authenticated. Writes stay admin-only via the catch-all below.
-      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization'];
+      // `onboarding_status` is public-read for the same class of reason: the
+      // home page and the signup page decide whether to send a visitor to the
+      // setup wizard before anyone is signed in, and that decision is now made
+      // from this flag rather than from the emptiness of `email_lookup`. It
+      // holds only `completed` and two timestamps — it says whether the site
+      // finished its setup, which any visitor to an unfinished site can see
+      // anyway. Writes stay authenticated via the block below.
+      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status'];
       // Frontend-managed settings — any authenticated user can read/write.
       // UI routes are admin-gated via role guard; rules only enforce auth.
       allow read, write: if isAuthenticated() && settingId in [
