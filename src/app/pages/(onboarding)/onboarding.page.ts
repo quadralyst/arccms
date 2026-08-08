@@ -86,9 +86,10 @@ export default class OnboardingComponent implements OnInit {
     isCompleting = signal(false);
     setupFailed = signal(false);
     // True once we have given up waiting for the `admin` custom claim to reach
-    // the ID token. Everything the wizard still needs is authenticated-only, so
-    // this is a warning and not a stop — but isAdmin()-gated writes (the default
-    // waitlist) will be refused while it holds.
+    // the ID token. Every remaining step writes something isAdmin() guards —
+    // Settings/site, Settings/integrations, Settings/email, the default waitlist —
+    // and the connection-test callable refuses a claimless caller, so each of
+    // those entry points re-checks through `ensureAdminClaim()` before acting.
     adminClaimPending = signal(false);
 
     // Forms
@@ -185,6 +186,34 @@ export default class OnboardingComponent implements OnInit {
             console.warn('Token refresh failed (non-fatal):', err);
             return false;
         }
+    }
+
+    /**
+     * Gate for every step that touches an admin-only resource.
+     *
+     * `checkAdminClaim` gives up after ten attempts and lets the wizard advance
+     * with `adminClaimPending` set, so from step 3 on the visitor may be holding a
+     * claimless token. Each of those steps now writes something `isAdmin()` guards
+     * — `Settings/site`, `Settings/integrations`, `Settings/email` — and the
+     * connection-test callable rejects a claimless caller outright.
+     *
+     * So try one more forced token refresh at the point of use. The claim usually
+     * has landed by then; the wizard only got here because the *first* few polls
+     * were too early. If it still is not there, say so plainly rather than letting
+     * the caller report a generic failure for a permission error.
+     */
+    private async ensureAdminClaim(): Promise<boolean> {
+        if (!this.adminClaimPending()) return true;
+
+        if (await this.hasAdminClaim()) {
+            this.adminClaimPending.set(false);
+            return true;
+        }
+
+        this.errorMessage.set(
+            'Your administrator permissions have not finished propagating. Wait a few seconds and try again.',
+        );
+        return false;
     }
 
     // ─── Step 1-2: Admin Account (existing logic) ───
@@ -300,6 +329,8 @@ export default class OnboardingComponent implements OnInit {
         this.errorMessage.set('');
 
         try {
+            if (!(await this.ensureAdminClaim())) return;
+
             const { siteName, siteUrl } = this.siteInfoForm.value;
             await this.setupService.saveSiteInfo(siteName.trim(), siteUrl.trim());
             await this.setupService.saveDefaultSettings();
@@ -404,8 +435,17 @@ export default class OnboardingComponent implements OnInit {
         this.testPassed.set(false);
 
         try {
+            // The callable requires a signed-in caller. If the admin claim never
+            // landed, refresh the token here rather than letting it come back as
+            // an opaque `unauthenticated`.
+            if (!(await this.ensureAdminClaim())) {
+                this.toastService.error('Administrator permissions are still propagating. Try again in a moment.');
+                return;
+            }
+
             const settings = this.buildEmailSettings();
-            await this.emailSettingService.testEmailConnection({
+            // The callable returns its verdict directly — no document to poll.
+            const result = await this.emailSettingService.testEmailConnection({
                 config: settings,
                 activeProvider: settings.activeProvider,
                 testEmail: dialogResult.testEmail,
@@ -413,24 +453,20 @@ export default class OnboardingComponent implements OnInit {
                 message: dialogResult.message,
             });
 
-            // Monitor the test results
-            const sub = this.emailSettingService.monitorConnectionTest()
-                .pipe(takeUntilDestroyed(this.destroyRef))
-                .subscribe((result) => {
-                    if (!result || result.status === 'processing') return;
-
-                    this.isTesting.set(false);
-                    if (result.status === 'success') {
-                        this.testPassed.set(true);
-                        this.toastService.success('Connection successful! Test email sent.');
-                    } else {
-                        this.toastService.error(result.message || 'Connection failed');
-                    }
-                    sub.unsubscribe();
-                });
+            if (result.success) {
+                this.testPassed.set(true);
+                this.toastService.success('Connection successful! Test email sent.');
+            } else {
+                this.toastService.error(result.message || 'Connection failed');
+            }
         } catch (error) {
             console.error('Connection test failed:', error);
-            this.toastService.error('Connection test failed. Please check your settings.');
+            this.toastService.error(
+                error instanceof Error && error.message
+                    ? error.message
+                    : 'Connection test failed. Please check your settings.',
+            );
+        } finally {
             this.isTesting.set(false);
         }
     }
@@ -462,6 +498,8 @@ export default class OnboardingComponent implements OnInit {
         this.errorMessage.set('');
 
         try {
+            if (!(await this.ensureAdminClaim())) return;
+
             const settings = this.buildEmailSettings();
             await this.setupService.saveEmailConfig(settings);
             this.errorMessage.set('');
@@ -480,6 +518,8 @@ export default class OnboardingComponent implements OnInit {
         this.errorMessage.set('');
 
         try {
+            if (!(await this.ensureAdminClaim())) return;
+
             await this.setupService.saveEmailSkipped();
             this.currentStep.set(5);
             this.errorMessage.set('');
