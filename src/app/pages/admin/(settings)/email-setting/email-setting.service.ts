@@ -1,12 +1,15 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
-import { Firestore, doc, getDoc, setDoc, serverTimestamp, collection, addDoc, docData } from '@angular/fire/firestore';
-import { Functions } from '@angular/fire/functions';
+import { Firestore, doc, getDoc, setDoc, serverTimestamp } from '@angular/fire/firestore';
+import { Functions, httpsCallable } from '@angular/fire/functions';
 import { from, map, Observable, of, catchError } from 'rxjs';
-import { DEFAULT_EMAIL_SETTINGS, IEmailSettings } from './email-setting.model';
-import { DEFAULT_EMAIL_TESTING_CONFIG, IEmailTestingConfig } from './email-testing.model';
+import {
+    DEFAULT_EMAIL_SETTINGS,
+    IConnectionTestPayload,
+    IConnectionTestResult,
+    IEmailSettings,
+} from './email-setting.model';
 
 const SETTINGS_COLLECTION = 'Settings';
-const EMAIL_TESTING_DOC = 'emailTestingConnection';
 const EMAIL_SETTINGS_DOC = 'email';
 
 @Injectable({
@@ -74,64 +77,26 @@ export class EmailSettingService {
     }
 
     /**
-     * Test SMTP connection by triggering an update to the testing document
+     * Test the provider connection through the `testSmtpConfigConnection` callable,
+     * which rejects unauthenticated requests and returns its verdict directly.
+     *
+     * This used to write the payload — provider credentials included — to
+     * `Settings/emailTestingConnection` and poll the document for a Cloud Function
+     * to write a status back. That persisted the SMTP password / Resend API key in
+     * Firestore with nothing to clear them, so the callable is both safer and
+     * simpler: no document, no polling, no stored secret.
      */
-    async testEmailConnection(config: any): Promise<void> {
-        const docRef = doc(this.firestore, SETTINGS_COLLECTION, EMAIL_TESTING_DOC);
-        await setDoc(docRef, {
-            ...config,
-            status: 'processing',
-            updatedAt: serverTimestamp(),
-        }, { merge: false }); // merge: false so we clean out old test data completely
-    }
-
-    /**
-     * Monitor the connection test document
-     */
-    monitorConnectionTest(): Observable<any> {
-        const docRef = doc(this.firestore, SETTINGS_COLLECTION, EMAIL_TESTING_DOC);
-        return docData(docRef);
-    }
-
-    /**
-     * Fetch email testing configuration from Firestore
-     */
-    getEmailTestingConfig(): Observable<IEmailTestingConfig> {
-        const docRef = doc(this.firestore, SETTINGS_COLLECTION, EMAIL_TESTING_DOC);
-        return from(getDoc(docRef)).pipe(
-            map((snapshot) => {
-                if (snapshot.exists()) {
-                    const data = snapshot.data() as IEmailTestingConfig;
-                    return { ...data, id: snapshot.id };
-                }
-                return { ...DEFAULT_EMAIL_TESTING_CONFIG };
-            }),
-            catchError((error) => {
-                console.error('Error fetching email testing configuration:', error);
-                return of({ ...DEFAULT_EMAIL_TESTING_CONFIG });
-            })
+    async testEmailConnection(payload: IConnectionTestPayload): Promise<IConnectionTestResult> {
+        const callable = runInInjectionContext(this.injector, () =>
+            httpsCallable<IConnectionTestPayload, IConnectionTestResult>(
+                this.functions,
+                'testSmtpConfigConnection',
+            ),
         );
-    }
-
-    /**
-     * Save email testing configuration to Firestore
-     */
-    async saveEmailTestingConfig(config: IEmailTestingConfig): Promise<void> {
-        const docRef = doc(this.firestore, SETTINGS_COLLECTION, EMAIL_TESTING_DOC);
-        const dataToSave = {
-            ...config,
-            updatedAt: serverTimestamp(),
+        const response = await callable(payload);
+        return {
+            success: !!response.data?.success,
+            message: response.data?.message || '',
         };
-
-        // Remove id field before saving (it's the document ID, not a field)
-        delete dataToSave.id;
-
-        // If this is a new document, set createdAt
-        const snapshot = await getDoc(docRef);
-        if (!snapshot.exists()) {
-            (dataToSave as any).createdAt = serverTimestamp();
-        }
-
-        await setDoc(docRef, dataToSave, { merge: true });
     }
 }

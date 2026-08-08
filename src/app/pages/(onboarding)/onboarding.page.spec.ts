@@ -19,6 +19,20 @@ import { of } from 'rxjs';
 import OnboardingComponent from './onboarding.page';
 
 describe('OnboardingComponent', () => {
+    /**
+     * From step 3 on, every wizard action writes something `isAdmin()` guards —
+     * `Settings/site`, `Settings/integrations`, `Settings/email` — or calls a
+     * callable that rejects a claimless caller. Those methods therefore pass
+     * through `ensureAdminClaim()` first. These specs invoke methods via
+     * `prototype.call()` with plain object literals, so the guard and the signal
+     * it reads have to be attached the same way the other private methods are.
+     */
+    const adminClaimCtx = () => ({
+        adminClaimPending: signal(false),
+        ensureAdminClaim: (OnboardingComponent.prototype as any).ensureAdminClaim,
+        hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
+    });
+
     describe('Component Definition', () => {
         it('should be defined', () => {
             expect(OnboardingComponent).toBeDefined();
@@ -387,6 +401,7 @@ describe('OnboardingComponent', () => {
                     get: () => ({ markAsTouched: vi.fn() }),
                     value: {},
                 },
+                ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
                 setupService: { saveSiteInfo, saveDefaultSettings: vi.fn() },
@@ -406,6 +421,7 @@ describe('OnboardingComponent', () => {
                     get: () => ({ markAsTouched: vi.fn() }),
                     value: { siteName: 'Test Site', siteUrl: 'https://test.com' },
                 },
+                ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
                 setupService: { saveSiteInfo: mockSaveSiteInfo, saveDefaultSettings: mockSaveDefaults },
@@ -426,6 +442,7 @@ describe('OnboardingComponent', () => {
                     get: () => ({ markAsTouched: vi.fn() }),
                     value: { siteName: 'Test Site', siteUrl: 'https://test.com' },
                 },
+                ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal('old error'),
                 setupService: {
@@ -447,6 +464,7 @@ describe('OnboardingComponent', () => {
                     get: () => ({ markAsTouched: vi.fn() }),
                     value: { siteName: 'Test Site', siteUrl: 'https://test.com' },
                 },
+                ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
                 setupService: {
@@ -470,6 +488,7 @@ describe('OnboardingComponent', () => {
                     get: () => ({ markAsTouched: vi.fn() }),
                     value: { siteName: 'Test Site', siteUrl: 'https://test.com' },
                 },
+                ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
                 setupService: {
@@ -492,6 +511,7 @@ describe('OnboardingComponent', () => {
                     get: () => ({ markAsTouched: vi.fn() }),
                     value: { siteName: 'Test', siteUrl: 'https://t.com' },
                 },
+                ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
                 setupService: {
@@ -642,6 +662,7 @@ describe('OnboardingComponent', () => {
         function makeEmailCtx(overrides: Record<string, any> = {}) {
             const ctx: Record<string, any> = {
                 testPassed: signal(true),
+                ...adminClaimCtx(),
                 isSavingEmail: signal(false),
                 errorMessage: signal(''),
                 setupService: { saveEmailConfig: vi.fn().mockResolvedValue(undefined) },
@@ -709,6 +730,7 @@ describe('OnboardingComponent', () => {
         it('saves email as skipped and advances to step 5', async () => {
             const mockSkip = vi.fn().mockResolvedValue(undefined);
             const ctx = {
+                ...adminClaimCtx(),
                 isSavingEmail: signal(false),
                 errorMessage: signal(''),
                 setupService: { saveEmailSkipped: mockSkip },
@@ -724,6 +746,7 @@ describe('OnboardingComponent', () => {
         it('stays on step 4 and shows error when skip save fails', async () => {
             const mockSkip = vi.fn().mockRejectedValue(new Error('Firestore error'));
             const ctx = {
+                ...adminClaimCtx(),
                 isSavingEmail: signal(false),
                 errorMessage: signal(''),
                 setupService: { saveEmailSkipped: mockSkip },
@@ -738,6 +761,7 @@ describe('OnboardingComponent', () => {
 
         it('resets isSavingEmail after error', async () => {
             const ctx = {
+                ...adminClaimCtx(),
                 isSavingEmail: signal(false),
                 errorMessage: signal(''),
                 setupService: { saveEmailSkipped: vi.fn().mockRejectedValue(new Error('fail')) },
@@ -746,6 +770,206 @@ describe('OnboardingComponent', () => {
             };
             await OnboardingComponent.prototype.skipEmail.call(ctx);
             expect(ctx.isSavingEmail()).toBe(false);
+        });
+    });
+
+    // ─── Step 4: testConnection ────────────────────────────────────────────
+
+    describe('testConnection', () => {
+        const buildEmailSettings = (OnboardingComponent.prototype as any).buildEmailSettings;
+
+        function makeTestCtx(overrides: Record<string, any> = {}) {
+            const ctx: Record<string, any> = {
+                ...adminClaimCtx(),
+                isTesting: signal(false),
+                testPassed: signal(false),
+                errorMessage: signal(''),
+                selectedProvider: signal('gmail'),
+                isProviderConfigValid: () => true,
+                emailForm: {
+                    value: {
+                        senderEmail: 'test@gmail.com',
+                        senderName: 'Test',
+                        replyToEmail: '',
+                        smtp: {},
+                        gmail: { user: 'test@gmail.com', password: 'pass' },
+                        resend: {},
+                    },
+                },
+                siteInfoForm: { get: () => ({ value: 'My Site' }) },
+                dialog: {
+                    open: vi.fn().mockReturnValue({
+                        afterClosed: () => of({ testEmail: 'to@example.com', subject: 'S', message: 'M' }),
+                    }),
+                },
+                emailSettingService: {
+                    testEmailConnection: vi.fn().mockResolvedValue({ success: true, message: 'ok' }),
+                },
+                toastService: { success: vi.fn(), error: vi.fn() },
+                ...overrides,
+            };
+            ctx['buildEmailSettings'] = buildEmailSettings.bind(ctx);
+            return ctx;
+        }
+
+        it('calls the callable and marks the test passed on success', async () => {
+            const ctx = makeTestCtx();
+
+            await OnboardingComponent.prototype.testConnection.call(ctx);
+
+            expect(ctx['emailSettingService'].testEmailConnection).toHaveBeenCalled();
+            expect(ctx['testPassed']()).toBe(true);
+            expect(ctx['isTesting']()).toBe(false);
+        });
+
+        it('sends credentials nested under `config`, never persisted anywhere', async () => {
+            const ctx = makeTestCtx();
+
+            await OnboardingComponent.prototype.testConnection.call(ctx);
+
+            const payload = ctx['emailSettingService'].testEmailConnection.mock.calls[0][0];
+            expect(payload.config.gmail.password).toBe('pass');
+            expect(payload.activeProvider).toBe('gmail');
+            expect(payload.testEmail).toBe('to@example.com');
+        });
+
+        it('does not mark the test passed when the callable reports failure', async () => {
+            const ctx = makeTestCtx({
+                emailSettingService: {
+                    testEmailConnection: vi.fn().mockResolvedValue({ success: false, message: 'Invalid login' }),
+                },
+            });
+
+            await OnboardingComponent.prototype.testConnection.call(ctx);
+
+            expect(ctx['testPassed']()).toBe(false);
+            expect(ctx['toastService'].error).toHaveBeenCalledWith('Invalid login');
+            expect(ctx['isTesting']()).toBe(false);
+        });
+
+        it('refreshes a pending admin claim before calling, and proceeds once it lands', async () => {
+            const ctx = makeTestCtx({
+                adminClaimPending: signal(true),
+                auth: {
+                    currentUser: {
+                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'admin' } }),
+                    },
+                },
+            });
+
+            await OnboardingComponent.prototype.testConnection.call(ctx);
+
+            expect(ctx['auth'].currentUser.getIdTokenResult).toHaveBeenCalledWith(true);
+            expect(ctx['adminClaimPending']()).toBe(false);
+            expect(ctx['emailSettingService'].testEmailConnection).toHaveBeenCalled();
+        });
+
+        it('does not call the callable when the admin claim never arrives', async () => {
+            // Without this the callable rejects with a bare `unauthenticated`,
+            // which is what the removed unauthenticated document write papered over.
+            const ctx = makeTestCtx({
+                adminClaimPending: signal(true),
+                auth: {
+                    currentUser: {
+                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }),
+                    },
+                },
+            });
+
+            await OnboardingComponent.prototype.testConnection.call(ctx);
+
+            expect(ctx['emailSettingService'].testEmailConnection).not.toHaveBeenCalled();
+            expect(ctx['testPassed']()).toBe(false);
+            expect(ctx['isTesting']()).toBe(false);
+            expect(ctx['errorMessage']()).toContain('propagating');
+        });
+
+        it('clears the testing flag when the callable rejects', async () => {
+            const ctx = makeTestCtx({
+                emailSettingService: {
+                    testEmailConnection: vi.fn().mockRejectedValue(new Error('unauthenticated')),
+                },
+            });
+
+            await OnboardingComponent.prototype.testConnection.call(ctx);
+
+            expect(ctx['isTesting']()).toBe(false);
+            expect(ctx['testPassed']()).toBe(false);
+        });
+    });
+
+    describe('ensureAdminClaim', () => {
+        it('passes straight through when no claim is pending', async () => {
+            const ctx = {
+                adminClaimPending: signal(false),
+                errorMessage: signal(''),
+                hasAdminClaim: vi.fn(),
+            };
+
+            const ok = await (OnboardingComponent.prototype as any).ensureAdminClaim.call(ctx);
+
+            expect(ok).toBe(true);
+            expect(ctx.hasAdminClaim).not.toHaveBeenCalled();
+        });
+
+        it('clears the pending flag when a forced refresh finds the claim', async () => {
+            const ctx = {
+                adminClaimPending: signal(true),
+                errorMessage: signal(''),
+                auth: {
+                    currentUser: {
+                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'admin' } }),
+                    },
+                },
+                hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
+            };
+
+            const ok = await (OnboardingComponent.prototype as any).ensureAdminClaim.call(ctx);
+
+            expect(ok).toBe(true);
+            expect(ctx.adminClaimPending()).toBe(false);
+            expect(ctx.errorMessage()).toBe('');
+        });
+
+        it('reports a readable error instead of letting a permission failure surface raw', async () => {
+            const ctx = {
+                adminClaimPending: signal(true),
+                errorMessage: signal(''),
+                auth: { currentUser: { getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }) } },
+                hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
+            };
+
+            const ok = await (OnboardingComponent.prototype as any).ensureAdminClaim.call(ctx);
+
+            expect(ok).toBe(false);
+            expect(ctx.adminClaimPending()).toBe(true);
+            expect(ctx.errorMessage()).toContain('propagating');
+        });
+
+        it('blocks the admin-only writes in step 3 while the claim is missing', async () => {
+            const saveSiteInfo = vi.fn();
+            const ctx = {
+                ...adminClaimCtx(),
+                adminClaimPending: signal(true),
+                auth: { currentUser: { getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }) } },
+                siteInfoForm: {
+                    invalid: false,
+                    controls: {},
+                    get: () => ({ markAsTouched: vi.fn() }),
+                    value: { siteName: 'Test Site', siteUrl: 'https://test.com' },
+                },
+                isSavingSiteInfo: signal(false),
+                errorMessage: signal(''),
+                setupService: { saveSiteInfo, saveDefaultSettings: vi.fn() },
+                currentStep: signal<number>(3),
+                toastService: { error: vi.fn() },
+            };
+
+            await OnboardingComponent.prototype.saveSiteInfo.call(ctx);
+
+            expect(saveSiteInfo).not.toHaveBeenCalled();
+            expect(ctx.currentStep()).toBe(3);
+            expect(ctx.isSavingSiteInfo()).toBe(false);
         });
     });
 

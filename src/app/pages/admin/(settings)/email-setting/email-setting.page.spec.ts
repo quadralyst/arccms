@@ -24,8 +24,7 @@ describe('EmailSettingPageComponent', () => {
         mockEmailSettingService = {
             getEmailSettings: vi.fn().mockReturnValue(of(DEFAULT_EMAIL_SETTINGS)),
             saveEmailSettings: vi.fn().mockResolvedValue(undefined),
-            testEmailConnection: vi.fn().mockResolvedValue(undefined),
-            monitorConnectionTest: vi.fn().mockReturnValue(of({ status: 'success', message: 'Connected' })),
+            testEmailConnection: vi.fn().mockResolvedValue({ success: true, message: 'Connected' }),
         };
 
         mockDialogRef = {
@@ -251,8 +250,72 @@ describe('EmailSettingPageComponent', () => {
 
         expect(mockDialog.open).toHaveBeenCalledWith(TestConnectionDialogComponent, { width: '400px' });
         expect(mockEmailSettingService.testEmailConnection).toHaveBeenCalled();
-        expect(mockEmailSettingService.monitorConnectionTest).toHaveBeenCalled();
         expect(component.testPassed()).toBe(true);
+        expect(component.isTesting()).toBe(false);
+    });
+
+    it('should send the credentials nested under `config`, as the callable destructures them', async () => {
+        const mockProviderComponent: IEmailProviderComponent = {
+            formGroup: new FormGroup({
+                host: new FormControl('smtp.example.com'),
+                user: new FormControl('user@example.com'),
+                password: new FormControl('secret123'),
+            }),
+            isConfigValid: vi.fn().mockReturnValue(true),
+            getSenderEmailConstraint: vi.fn().mockReturnValue(null),
+        };
+        component.onProviderComponentReady(mockProviderComponent);
+
+        await component.testConnection();
+
+        const payload = mockEmailSettingService.testEmailConnection.mock.calls[0][0];
+        expect(payload.config).toBeDefined();
+        expect(payload.activeProvider).toBe(payload.config.activeProvider);
+        expect(payload.testEmail).toBe('test@example.com');
+        // Credentials belong inside `config`, never spread across the top level.
+        expect(payload.password).toBeUndefined();
+        expect(payload.apiKey).toBeUndefined();
+    });
+
+    it('should report failure without marking the test passed', async () => {
+        const mockProviderComponent: IEmailProviderComponent = {
+            formGroup: new FormGroup({
+                host: new FormControl('smtp.example.com'),
+                user: new FormControl('user@example.com'),
+                password: new FormControl('wrong'),
+            }),
+            isConfigValid: vi.fn().mockReturnValue(true),
+            getSenderEmailConstraint: vi.fn().mockReturnValue(null),
+        };
+        component.onProviderComponentReady(mockProviderComponent);
+        mockEmailSettingService.testEmailConnection.mockResolvedValue({
+            success: false,
+            message: 'Invalid login',
+        });
+
+        await component.testConnection();
+
+        expect(component.testPassed()).toBe(false);
+        expect(component.isTesting()).toBe(false);
+    });
+
+    it('should clear the testing flag when the callable rejects', async () => {
+        const mockProviderComponent: IEmailProviderComponent = {
+            formGroup: new FormGroup({
+                host: new FormControl('smtp.example.com'),
+                user: new FormControl('user@example.com'),
+                password: new FormControl('secret123'),
+            }),
+            isConfigValid: vi.fn().mockReturnValue(true),
+            getSenderEmailConstraint: vi.fn().mockReturnValue(null),
+        };
+        component.onProviderComponentReady(mockProviderComponent);
+        mockEmailSettingService.testEmailConnection.mockRejectedValue(new Error('unauthenticated'));
+
+        await component.testConnection();
+
+        expect(component.testPassed()).toBe(false);
+        expect(component.isTesting()).toBe(false);
     });
 
     it('should not call service if dialog is cancelled', async () => {

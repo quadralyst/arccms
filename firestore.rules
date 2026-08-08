@@ -105,9 +105,18 @@ service cloud.firestore {
       allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status'];
       // Frontend-managed settings — any authenticated user can read/write.
       // UI routes are admin-gated via role guard; rules only enforce auth.
+      //
+      // `email`, `integrations` and `analytics` are deliberately NOT in this list:
+      // all three carry live secrets — `email` holds smtp.password / gmail.password
+      // / resend.apiKey, `integrations` holds the Unsplash secretKey and the geo
+      // API key, `analytics` holds the Google OAuth clientSecret. Rules are the
+      // only gate a direct SDK call meets, and "authenticated" here means any
+      // registered visitor, not an admin, so this list handed the site's mail
+      // credentials to every signed-in user. They fall through to isAdmin() below.
+      // Only the admin settings pages read them, and those are admin-gated already.
       allow read, write: if isAuthenticated() && settingId in [
-        'about', 'site', 'email', 'email_status', 'analytics',
-        'integrations', 'users', 'global-message', 'misc',
+        'about', 'site', 'email_status',
+        'users', 'global-message', 'misc',
         'site-usage', 'onboarding_status'
       ];
       // analytics_status — authenticated read (frontend listener for GA connect flow);
@@ -116,14 +125,20 @@ service cloud.firestore {
       // dodo-payments — holds API keys + webhook secret. Admin only (secrets are
       // also masked on read in the UI layer). Listed explicitly for clarity.
       allow read, write: if settingId == 'dodo-payments' && isAdmin();
-      // Everything else (e.g. analytics_status, future sensitive docs) — admin only
+      // Everything else — `email`, `integrations`, `analytics`, `analytics_status`,
+      // and any future sensitive doc — admin only.
+      //
+      // NOTE: there is deliberately no `emailTestingConnection` rule here. That
+      // document used to carry provider credentials to a Firestore-triggered
+      // connection test, guarded by a nested `match /emailTestingConnection` that
+      // resolved to the collection path `Settings/{settingId}/emailTestingConnection`
+      // — no document wildcard, so it granted nothing and the catch-all above did
+      // the real work. A downstream fork "consolidated" that dead rule into a live
+      // `settingId == 'emailTestingConnection'` and made the credentials world
+      // readable and world writable. The document is gone: the connection test is
+      // now the `testSmtpConfigConnection` callable, which authenticates the caller
+      // and never persists the payload. Do not add a rule for it.
       allow read, write: if isAdmin();
-
-      // Email connection test document (single document)
-      // Allow unauthenticated users to read/write for onboarding flow
-      match /emailTestingConnection {
-        allow read, write: if true;
-      }
     }
 
     // ============================================================
