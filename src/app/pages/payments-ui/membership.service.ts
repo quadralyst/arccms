@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
 import { DbService } from '../../../shared/services/db.service';
 import { IUser } from '../admin/users/user.model';
 
@@ -16,5 +17,9 @@ import { IUser } from '../admin/users/user.model';
 export class MembershipService extends DbService<IUser> {
     constructor() {
         super('users');
+    }
+
+    override getById(uid: string, collectionSuffix?: string): Observable<IUser | null> {
+        return this.getByCustomField('uid', '==', uid, collectionSuffix);
     }
 }

@@ -214,8 +214,6 @@ async function recordTransaction(
     userId,
     userEmail: data.customer?.email || '',
     provider: PAYMENT_PROVIDER,
-    providerPaymentId: data.payment_id,
-    providerSubscriptionId: data.subscription_id,
     productId: product?.id || data.metadata?.productId || '',
     premiumType: product?.premiumType || data.metadata?.premiumType || '',
     // A refund's own `amount` is the refunded sum; `total_amount`, when the payload
@@ -234,6 +232,8 @@ async function recordTransaction(
     // Omitted rather than written false, so real transactions stay unchanged.
     ...(isTest ? { isTest: true } : {}),
     createdAt: Timestamp.now(),
+    ...(data.payment_id ? { providerPaymentId: data.payment_id } : {}),
+    ...(data.subscription_id ? { providerSubscriptionId: data.subscription_id } : {}),
   };
   await db.collection('Transactions').add(txn);
   return { created: true, idempotencyKey };
