@@ -182,179 +182,186 @@
       "fields": [
         {
           "fieldPath": "userId",
-          "order": "ASCENDING"
+          "collectionGroup": "CreditLedger",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "providerSubscriptionId",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "createdAt",
+              "order": "DESCENDING"
+            }
+          ]
         },
         {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
+          "collectionGroup": "Notifications",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "userId",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "read",
+              "order": "ASCENDING"
+            }
+          ]
+        },
+        {
+          "collectionGroup": "DripEnrollments",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "status",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "nextSendAt",
+              "order": "ASCENDING"
+            }
+          ]
+        },
+        {
+          "collectionGroup": "DripEnrollments",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "contactId",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "status",
+              "order": "ASCENDING"
+            }
+          ]
+        },
+        {
+          "collectionGroup": "DripEnrollments",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "contactId",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "status",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "listId",
+              "order": "ASCENDING"
+            }
+          ]
+        },
+        {
+          "collectionGroup": "DripEnrollments",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "campaignId",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "status",
+              "order": "ASCENDING"
+            }
+          ]
+        },
+        {
+          "collectionGroup": "DripCampaigns",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "status",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "listId",
+              "order": "ASCENDING"
+            }
+          ]
+        },
+        {
+          "collectionGroup": "Transactions",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "status",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "createdAt",
+              "order": "ASCENDING"
+            }
+          ]
+        },
+        {
+          "collectionGroup": "DripEnrollments",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "contactId",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "status",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "nextSendAt",
+              "order": "ASCENDING"
+            }
+          ]
+        },
+        {
+          "collectionGroup": "DripCampaigns",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "listId",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "isWelcomeSequence",
+              "order": "ASCENDING"
+            }
+          ]
+        },
+        {
+          "collectionGroup": "DripEnrollments",
+          "queryScope": "COLLECTION",
+          "fields": [
+            {
+              "fieldPath": "contactId",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "status",
+              "order": "ASCENDING"
+            },
+            {
+              "fieldPath": "heldReason",
+              "order": "ASCENDING"
+            }
+          ]
         }
-      ]
-    },
-    {
-      "collectionGroup": "Notifications",
-      "queryScope": "COLLECTION",
-      "fields": [
+      ],
+      "fieldOverrides": [
         {
-          "fieldPath": "userId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "read",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "DripEnrollments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "nextSendAt",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "DripEnrollments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "contactId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "DripEnrollments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "contactId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "listId",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "DripEnrollments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "campaignId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "DripCampaigns",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "listId",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "Transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "DripEnrollments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "contactId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "nextSendAt",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "DripCampaigns",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "listId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isWelcomeSequence",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "DripEnrollments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "contactId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "heldReason",
-          "order": "ASCENDING"
-        }
-      ]
-    }
-  ],
-  "fieldOverrides": [
-    {
-      "collectionGroup": "users",
-      "fieldPath": "email",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION"
-        },
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION_GROUP"
+          "collectionGroup": "users",
+          "fieldPath": "email",
+          "indexes": [
+            {
+              "order": "ASCENDING",
+              "queryScope": "COLLECTION"
+            },
+            {
+              "order": "ASCENDING",
+              "queryScope": "COLLECTION_GROUP"
+            }
+          ]
         }
       ]
     }

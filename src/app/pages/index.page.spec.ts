@@ -97,7 +97,6 @@ describe('HomeComponent', () => {
                 { provide: WaitlistService, useValue: mockWaitlistService },
                 { provide: WaitlistFormService, useValue: mockWaitlistFormService },
                 { provide: EmailConfigStatusService, useValue: mockEmailConfigService },
-                { provide: ContentsStore, useValue: mockContentsStore },
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: HttpClient, useValue: mockHttpClient },
                 { provide: AuthService, useValue: mockAuthService },

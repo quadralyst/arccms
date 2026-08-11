@@ -480,9 +480,18 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                 console.warn(`[DbService] resolveReferences failed for "${obj.path}":`, error);
                 return null; // Gracefully skip unresolvable references
             }
+        } else if (obj instanceof Date) {
+            return obj;
+        } else if (obj && typeof (obj as any).toDate === 'function') {
+            return obj;
         } else if (Array.isArray(obj)) {
             return Promise.all(obj.map((item) => this.resolveReferences(item)));
         } else if (typeof obj === 'object' && obj !== null) {
+            // Only recurse into plain objects, not other class instances
+            const proto = Object.getPrototypeOf(obj);
+            if (proto !== null && proto !== Object.prototype) {
+                return obj;
+            }
             const resolvedObj: any = {};
             for (const key in obj) {
                 if (Object.prototype.hasOwnProperty.call(obj, key)) {
