@@ -187,13 +187,24 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
     }
 
     getSelectedProvider() {
-        const activeProvider = this.emailForm.get('activeProvider')?.value || 'smtp';
+        const activeProvider = this.emailForm?.get('activeProvider')?.value || 'smtp';
         return this.providers.find(p => p.id === activeProvider) || this.providers[0];
     }
 
     getActiveProviderRateLimitGroup(): FormGroup {
-        const provider = this.emailForm.get('activeProvider')?.value || 'smtp';
-        return this.emailForm.get(`providerRateLimits.${provider}`) as FormGroup;
+        if (!this.emailForm) {
+            return this.fb.group({
+                perSecond: [1, [Validators.required, Validators.min(1)]],
+                perHour: [null as number | null],
+                perDay: [null as number | null],
+            });
+        }
+        const rawProvider = this.emailForm.get('activeProvider')?.value;
+        const provider = (rawProvider === 'smtp' || rawProvider === 'gmail' || rawProvider === 'resend')
+            ? rawProvider
+            : 'smtp';
+        const group = this.emailForm.get(`providerRateLimits.${provider}`);
+        return (group || this.emailForm.get('providerRateLimits.smtp')) as FormGroup;
     }
 
     /** Get initial data for a provider component (from cache) */
