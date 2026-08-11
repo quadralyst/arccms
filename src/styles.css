@@ -324,6 +324,185 @@ arc-content-partials {
 }
 
 /* ============================================================
+   SHARED ADMIN PAGE PRIMITIVES
+   Canonical page header, status badges, drawer panel chrome and
+   email preview canvas. Reused across admin pages so individual
+   pages don't re-declare these (see waitlists / users for the
+   original component-scoped versions this consolidates).
+   ============================================================ */
+
+/* Page shell — matches the waitlists/users header convention */
+.arc-admin .page-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.arc-admin .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  gap: 1rem;
+}
+
+.arc-admin .page-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.arc-admin .page-header .subtitle {
+  margin: 4px 0 0;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Status badges — one soft-pill family with semantic modifiers.
+   Pages map their domain status to a modifier via a small helper. */
+.arc-admin .status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  text-transform: capitalize;
+}
+
+.arc-admin .status-badge.is-success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.arc-admin .status-badge.is-warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.arc-admin .status-badge.is-danger {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.arc-admin .status-badge.is-info {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.arc-admin .status-badge.is-neutral {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.arc-admin .status-badge.is-dark {
+  background: #d6d8db;
+  color: #1b1e21;
+}
+
+/* Audience headline counts (Contacts / Lists) — clickable, each filters the
+   table below to that consent state. */
+.arc-admin .count-chip {
+  background: #f8f9fa;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.arc-admin .count-chip:hover {
+  background: #eef2f7;
+  border-color: #cbd5e1;
+}
+
+.arc-admin .count-chip strong {
+  color: #111827;
+}
+
+/* Tag chips in the contact drawer — click to add/remove the tag. Colour comes
+   from the tag itself via inline bindings. */
+.arc-admin .tag-toggle {
+  border: 1.5px solid;
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.arc-admin .tag-toggle:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Right-side drawer panel chrome — shared by add/edit/view children
+   hosted in a mat-drawer. Consolidates the users/(add-user) styles. */
+.arc-admin .side-panel {
+  padding: 20px;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.arc-admin .side-panel .panel-header {
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.arc-admin .side-panel .panel-header h5 {
+  margin: 0;
+  font-weight: 600;
+}
+
+.arc-admin .side-panel .close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: #6c757d;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.arc-admin .side-panel .close-btn:hover {
+  color: #dc3545;
+}
+
+/* Footer action row inside a drawer panel (Cancel + primary submit) */
+.arc-admin .side-panel .panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+/* Email preview canvas — the neutral backdrop behind rendered email HTML.
+   Consolidates the inline #e9ecef canvases in brand-kit + block editor. */
+.arc-admin .email-preview-canvas {
+  background: #e9ecef;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 0.5rem;
+  overflow: auto;
+}
+
+/* Page-level side-drawer containers fill the viewport so the right-side
+   drawer opens full height even when the page content is short. Excludes the
+   admin shell's own nav drawer (.arc-main-page). */
+.arc-admin mat-drawer-container:not(.arc-main-page) {
+  min-height: 100vh;
+}
+
+/* ============================================================
    ADMIN MOBILE RESPONSIVE STYLES
    Global responsive utilities for all admin pages
    ============================================================ */
@@ -576,5 +755,442 @@ arc-content-partials {
   .arc-admin .tab-btn {
     padding: 0.5rem;
     font-size: 0.8rem;
+  }
+}
+
+/* ============================================================
+   BROADCAST COMPOSER
+   Professional, Mailchimp-style compose experience: a sticky
+   action bar, a settings card, and a block editor with a
+   device-framed live preview. Scoped to .broadcast-composer /
+   .email-block-editor so it also lifts the email-composer page.
+   ============================================================ */
+
+.arc-admin .broadcast-composer {
+  --composer-border: #e5e7eb;
+  --composer-muted: #6b7280;
+  --composer-ink: #111827;
+  --composer-surface: #ffffff;
+  --composer-bg: #f4f5f7;
+  margin: -24px;
+  padding: 0;
+}
+
+/* Sticky action bar */
+.arc-admin .composer-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 14px 24px;
+  background: var(--composer-surface);
+  border-bottom: 1px solid var(--composer-border);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.arc-admin .composer-topbar .topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.arc-admin .composer-topbar .back-btn {
+  flex-shrink: 0;
+  color: var(--composer-muted);
+}
+
+.arc-admin .composer-topbar .composer-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--composer-ink);
+  line-height: 1.2;
+}
+
+.arc-admin .composer-topbar .composer-subtitle {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--composer-muted);
+}
+
+.arc-admin .composer-topbar .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.arc-admin .composer-topbar .capture-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--composer-muted);
+}
+
+.arc-admin .composer-topbar .capture-hint mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.arc-admin .composer-topbar .capture-hint.is-ready {
+  color: #15803d;
+}
+
+/* Body layout */
+.arc-admin .composer-body {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.arc-admin .composer-card {
+  background: var(--composer-surface);
+  border: 1px solid var(--composer-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+  overflow: hidden;
+}
+
+.arc-admin .composer-card + .composer-card {
+  margin-top: 20px;
+}
+
+.arc-admin .composer-card .card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--composer-border);
+  background: #fbfbfc;
+}
+
+.arc-admin .composer-card .card-head .head-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: #eef2ff;
+  color: #4f46e5;
+  flex-shrink: 0;
+}
+
+.arc-admin .composer-card .card-head .head-icon mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.arc-admin .composer-card .card-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--composer-ink);
+}
+
+.arc-admin .composer-card .card-head p {
+  margin: 1px 0 0;
+  font-size: 12.5px;
+  color: var(--composer-muted);
+}
+
+.arc-admin .composer-card .card-body {
+  padding: 20px;
+}
+
+.arc-admin .composer-card .card-body.is-flush {
+  padding: 0;
+}
+
+/* Settings card field grid */
+.arc-admin .settings-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 4px 18px;
+  align-items: start;
+}
+
+.arc-admin .settings-grid .grid-full {
+  grid-column: 1 / -1;
+}
+
+.arc-admin .field-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--composer-muted);
+  margin: 6px 0 10px;
+}
+
+.arc-admin .audience-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.arc-admin .settings-divider {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: var(--composer-border);
+  margin: 8px 0 16px;
+}
+
+.arc-admin .schedule-block {
+  grid-column: 1 / -1;
+}
+
+.arc-admin .schedule-block .schedule-note {
+  margin: 2px 0 0 4px;
+  font-size: 12.5px;
+  color: var(--composer-muted);
+}
+
+/* ---- Block editor lift ---- */
+.arc-admin .email-block-editor .editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: #f8f9fb;
+  border-bottom: 1px solid var(--composer-border, #e5e7eb);
+}
+
+.arc-admin .email-block-editor .toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Segmented desktop/mobile toggle */
+.arc-admin .email-block-editor .device-toggle {
+  display: inline-flex;
+  padding: 3px;
+  background: #eceef1;
+  border-radius: 9px;
+}
+
+.arc-admin .email-block-editor .device-toggle button {
+  border: none;
+  background: transparent;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 0;
+  line-height: 1.2;
+}
+
+.arc-admin .email-block-editor .device-toggle button mat-icon {
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+
+.arc-admin .email-block-editor .device-toggle button.active {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+}
+
+/* Editor split */
+.arc-admin .email-block-editor .editor-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+}
+
+.arc-admin .email-block-editor .blocks-pane {
+  padding: 18px;
+  border-right: 1px solid var(--composer-border, #e5e7eb);
+  min-width: 0;
+}
+
+.arc-admin .email-block-editor .preview-pane {
+  padding: 18px;
+  background: #f4f5f7;
+  min-width: 0;
+}
+
+/* Block cards */
+.arc-admin .email-block-editor .block-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 11px;
+  padding: 12px 14px 14px;
+  margin-bottom: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.arc-admin .email-block-editor .block-card:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.06);
+}
+
+.arc-admin .email-block-editor .block-card .block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.arc-admin .email-block-editor .block-card .block-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: #374151;
+}
+
+.arc-admin .email-block-editor .block-card .block-index {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.arc-admin .email-block-editor .block-card .block-controls button {
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+}
+
+.arc-admin .email-block-editor .blocks-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 11px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--composer-muted, #6b7280);
+}
+
+.arc-admin .email-block-editor .blocks-empty mat-icon {
+  font-size: 30px;
+  width: 30px;
+  height: 30px;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+/* Device-framed preview */
+.arc-admin .email-block-editor .preview-frame {
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #d7dbe0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.10);
+  transition: max-width 0.25s ease;
+}
+
+.arc-admin .email-block-editor .preview-frame.is-desktop {
+  max-width: 100%;
+}
+
+.arc-admin .email-block-editor .preview-frame.is-mobile {
+  max-width: 380px;
+  border-radius: 26px;
+  padding: 10px;
+  background: #1f2937;
+}
+
+.arc-admin .email-block-editor .preview-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: #f1f3f5;
+  border-bottom: 1px solid #e2e5e9;
+}
+
+.arc-admin .email-block-editor .preview-frame.is-mobile .preview-chrome {
+  border-radius: 18px 18px 0 0;
+  justify-content: center;
+  background: #111827;
+  border-bottom: none;
+}
+
+.arc-admin .email-block-editor .preview-chrome .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d1d5db;
+}
+
+.arc-admin .email-block-editor .preview-chrome .dot.r { background: #ff5f57; }
+.arc-admin .email-block-editor .preview-chrome .dot.y { background: #febc2e; }
+.arc-admin .email-block-editor .preview-chrome .dot.g { background: #28c840; }
+
+.arc-admin .email-block-editor .preview-frame.is-mobile .notch {
+  width: 90px;
+  height: 5px;
+  border-radius: 3px;
+  background: #374151;
+}
+
+.arc-admin .email-block-editor .preview-scroll {
+  background: #ffffff;
+  max-height: calc(100vh - 240px);
+  overflow: auto;
+}
+
+.arc-admin .email-block-editor .preview-frame.is-mobile .preview-scroll {
+  border-radius: 0 0 16px 16px;
+}
+
+.arc-admin .email-block-editor .preview-sticky {
+  position: sticky;
+  top: 84px;
+}
+
+/* Responsive: stack the split below tablet */
+@media (max-width: 991px) {
+  .arc-admin .settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .arc-admin .email-block-editor .editor-split {
+    grid-template-columns: 1fr;
+  }
+  .arc-admin .email-block-editor .blocks-pane {
+    border-right: none;
+    border-bottom: 1px solid var(--composer-border, #e5e7eb);
+  }
+  .arc-admin .email-block-editor .preview-sticky {
+    position: static;
+  }
+  .arc-admin .email-block-editor .preview-scroll {
+    max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .arc-admin .composer-topbar {
+    flex-wrap: wrap;
+  }
+  .arc-admin .composer-topbar .topbar-right {
+    width: 100%;
+    justify-content: flex-end;
   }
 }

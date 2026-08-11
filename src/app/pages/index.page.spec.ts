@@ -16,6 +16,7 @@ import { ToastService } from '../../shared/services/toast.service';
 import { EmailConfigStatusService } from '../../shared/services/email-config-status.service';
 import { ContentsStore } from './admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from './admin/contents/content-types/content-types.store';
+import { ContentPartialsComponent } from './page.parts/content-partials.component';
 
 import { WaitlistService } from './waitlist/waitlist.service';
 import { WaitlistFormService } from './page.parts/waitlist-form.service';
@@ -102,11 +103,16 @@ describe('HomeComponent', () => {
                 { provide: OnboardingSetupService, useValue: mockSetupService },
             ],
         })
-            // HomeComponent renders ContentPartialsComponent, which declares
-            // `providers: [ContentsStore]`. That component-level instance shadows a
-            // provider registered above, so the real store (→ ContentsService →
-            // Firestore) would be built. overrideProvider replaces it everywhere.
-            .overrideProvider(ContentsStore, { useValue: mockContentsStore })
+            // HomeComponent renders <arc-content-partials>, and ContentPartialsComponent declares
+            // `providers: [ContentsStore]`, which shadows the root-level mock above. Override the
+            // child's component-level provider so no real store (and no Firestore) is constructed.
+            .overrideComponent(ContentPartialsComponent, {
+                set: {
+                    providers: [
+                        { provide: ContentsStore, useValue: mockContentsStore },
+                    ]
+                }
+            })
             .compileComponents();
 
         fixture = TestBed.createComponent(HomeComponent);

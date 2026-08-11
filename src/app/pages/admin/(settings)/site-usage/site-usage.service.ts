@@ -1,4 +1,5 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, OnDestroy, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Firestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot } from '@angular/fire/firestore';
 import { from, map, Observable, of, catchError, BehaviorSubject } from 'rxjs';
 import { DEFAULT_SITE_USAGE_SETTINGS, ISiteUsageSettings, SITE_USAGE_STORAGE_KEY, SiteUsageState } from './site-usage.model';
@@ -9,8 +10,9 @@ const SITE_USAGE_DOC = 'site-usage';
 @Injectable({
     providedIn: 'root',
 })
-export class SiteUsageService {
+export class SiteUsageService implements OnDestroy {
     private firestore = inject(Firestore);
+    private platformId = inject(PLATFORM_ID);
 
     /** Real-time settings subject for the banner component */
     private settingsSubject = new BehaviorSubject<ISiteUsageSettings>(DEFAULT_SITE_USAGE_SETTINGS);
@@ -25,8 +27,26 @@ export class SiteUsageService {
     /**
      * Initialize real-time listener for settings changes
      * This allows the banner to update immediately when admin changes settings
+     *
+     * Never listens during SSR. @angular/fire captures the injector at
+     * `onSnapshot` time and runs the callback inside it; the server tears the
+     * request injector down once the response is rendered, but the listener
+     * outlives it. The next snapshot — e.g. an admin toggling the banner — then
+     * fires against a destroyed injector, and the resulting NG0205 surfaces on
+     * a Firestore timer where nothing can catch it, killing the server process.
+     * The banner is rendered from the root App component and injects this
+     * service in a field initializer, so the guard in its `ngOnInit` comes too
+     * late — the constructor has already run. `settingsSubject` is a
+     * BehaviorSubject seeded with the defaults, so skipping the listener leaves
+     * the server rendering exactly the default state.
      */
     private initRealtimeListener(): void {
+        if (!isPlatformBrowser(this.platformId)) return;
+
+        // Idempotent: never overwrite a live handle, which would orphan the
+        // previous listener for the lifetime of the app.
+        if (this.unsubscribeSnapshot) return;
+
         const docRef = doc(this.firestore, SETTINGS_COLLECTION, SITE_USAGE_DOC);
 
         this.unsubscribeSnapshot = onSnapshot(docRef, (snapshot) => {
@@ -131,6 +151,7 @@ export class SiteUsageService {
     ngOnDestroy(): void {
         if (this.unsubscribeSnapshot) {
             this.unsubscribeSnapshot();
+            this.unsubscribeSnapshot = null;
         }
     }
 }

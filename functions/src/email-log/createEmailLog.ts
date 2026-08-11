@@ -15,6 +15,15 @@ export const onEmailLogCreate = onDocumentCreated('EmailLogs/{EmailLogsId}', asy
     return;
   }
 
+  // Only newly-queued docs are sendable. queueEmail() writes blocked sends with
+  // a terminal status (skipped/suppressed) and those must never be delivered.
+  // Retries of retrying/deferred docs are handled by retryPendingEmails, not here.
+  const status = (emailLogsData as EmailLogData).status;
+  if (status && status !== 'pending') {
+    console.log(`onEmailLogCreate: ${emailLogsId} has status '${status}', not sending.`);
+    return;
+  }
+
   try {
     await sendMail(emailLogsData as EmailLogData, emailLogsId);
   } catch (error) {

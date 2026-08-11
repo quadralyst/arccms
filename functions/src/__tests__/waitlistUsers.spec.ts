@@ -258,29 +258,25 @@ describe('Waitlist User Functions', () => {
     });
   });
 
-  describe('onWaitlistedUsersCreate', () => {
-    it('should use shared emailTemplateHelper', async () => {
+  describe('the retired WaitlistedUsers triggers (U6 cutover)', () => {
+    it('no longer exist', async () => {
+      // onWaitlistedUsersCreate / onWaitlistedUserUpdate emailed an OTP when
+      // `verificationCode` was written to a registry doc. U5 stopped writing that field
+      // — requestFormOtp sends the code directly — so both had been dormant since, and
+      // joinForm no longer creates registry docs at all. Asserting their absence keeps a
+      // future change from resurrecting a path that would email from frozen data.
       const fs = await import('fs');
       const path = await import('path');
-      const fileContent = fs.readFileSync(
-        path.resolve(__dirname, '../waitlists/waitlistedUsers/onWaitlistedUsersCreate.ts'),
-        'utf-8'
-      );
 
-      expect(fileContent).toContain("import { getEmailTemplate, createOtpEmailLog }");
+      expect(fs.existsSync(path.resolve(__dirname, '../waitlists/waitlistedUsers'))).toBe(false);
     });
-  });
 
-  describe('onWaitlistedUsersUpdate', () => {
-    it('should use shared emailTemplateHelper', async () => {
+    it('are not exported from the functions entrypoint', async () => {
       const fs = await import('fs');
       const path = await import('path');
-      const fileContent = fs.readFileSync(
-        path.resolve(__dirname, '../waitlists/waitlistedUsers/onWaitlistedUsersUpdate.ts'),
-        'utf-8'
-      );
+      const index = fs.readFileSync(path.resolve(__dirname, '../index.ts'), 'utf-8');
 
-      expect(fileContent).toContain("import { getEmailTemplate, createOtpEmailLog }");
+      expect(index).not.toContain("export * from './waitlists/waitlistedUsers/");
     });
   });
 });
@@ -306,9 +302,33 @@ describe('Waitlist Create Function', () => {
         'utf-8'
       );
 
-      expect(fileContent).toContain("collection('EmailTemplate')");
-      expect(fileContent).toContain('waitlist_welcome_email');
-      expect(fileContent).toContain('waitlist_verify_otp_email');
+      // U5.5: the trigger is only the *eager* path now — it delegates to the same
+      // helper that every send path calls lazily, so a form whose trigger never
+      // fired still gets its templates the first time one is needed. The trigger
+      // must therefore hold no seeding logic of its own.
+      expect(fileContent).toContain('ensureWaitlistTemplates');
+      expect(fileContent).not.toContain("collection('EmailTemplate')");
+      expect(fileContent).not.toContain('buildWaitlistTemplateDefs');
+
+      const defaults = fs.readFileSync(
+        path.resolve(__dirname, '../email-core/defaultTemplates.ts'),
+        'utf-8'
+      );
+      expect(defaults).toContain('waitlist_welcome_email');
+      expect(defaults).toContain('waitlist_verify_otp_email');
+      expect(defaults).toContain("collection('EmailTemplate')");
+    });
+
+    it('should create the mirrored audience list eagerly', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const fileContent = fs.readFileSync(
+        path.resolve(__dirname, '../waitlists/onWaitlistsCreate.ts'),
+        'utf-8'
+      );
+
+      // A form must appear under Audience → Lists before its first signup (U1).
+      expect(fileContent).toContain('ensureFormList');
     });
   });
 });

@@ -137,7 +137,7 @@ export interface CollectionGroup {
     contentTypeBundles?: ContentTypeBundle[]; // Only used by the 'content' group
 }
 
-export type CollectionGroupId = 'content' | 'users-waitlists' | 'settings-media' | 'email';
+export type CollectionGroupId = 'content' | 'users-waitlists' | 'audience' | 'settings-media' | 'email';
 
 // ---------------------------------------------------------------------------
 // Static collection registry
@@ -159,6 +159,12 @@ export const KNOWN_COLLECTIONS: CollectionConfig[] = [
         name: 'WaitlistedUsers', displayName: 'Waitlisted Users',
         subcollections: [{ name: 'referrals', displayName: 'Referrals' }],
     },
+    // Unified audience layer (U1/U2). Contacts carry consent, so exports of this
+    // group contain marketing-permission state — treat as sensitive.
+    { name: 'Contacts', displayName: 'Contacts' },
+    { name: 'Lists', displayName: 'Lists' },
+    { name: 'ContactTags', displayName: 'Contact Tags' },
+    { name: 'Suppression', displayName: 'Suppression List' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -171,6 +177,10 @@ export const COLLECTION_GROUP_MAP: Record<string, CollectionGroupId> = {
     users:           'users-waitlists',
     Waitlists:       'users-waitlists',
     WaitlistedUsers: 'users-waitlists',
+    Contacts:        'audience',
+    Lists:           'audience',
+    ContactTags:     'audience',
+    Suppression:     'audience',
     Settings:        'settings-media',
     media:           'settings-media',
     EmailTemplate:   'email',
@@ -182,6 +192,7 @@ export const COLLECTION_GROUP_MAP: Record<string, CollectionGroupId> = {
 export const COLLECTION_GROUP_DEFS: { id: CollectionGroupId; label: string; icon: string }[] = [
     { id: 'content',          label: 'Content',            icon: 'fa-solid fa-file-lines' },
     { id: 'users-waitlists',  label: 'Users & Waitlists',  icon: 'fa-solid fa-users' },
+    { id: 'audience',         label: 'Audience',           icon: 'fa-solid fa-address-book' },
     { id: 'settings-media',   label: 'Settings & Media',   icon: 'fa-solid fa-gear' },
     { id: 'email',            label: 'Email',              icon: 'fa-solid fa-envelope' },
 ];
@@ -259,6 +270,12 @@ export const IMPORT_ORDER: string[] = [
     // Tags_ and arc_* dynamic collections are matched by prefix in getImportPriority
     'Waitlists',
     'WaitlistedUsers',
+    // Audience: Lists and ContactTags first — Contacts reference both by id, and
+    // Contacts must exist before Suppression is meaningful.
+    'Lists',
+    'ContactTags',
+    'Contacts',
+    'Suppression',
     'BroadcastEmails',
     'EmailLogs',
 ];

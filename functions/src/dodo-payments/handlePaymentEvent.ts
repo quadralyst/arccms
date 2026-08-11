@@ -5,6 +5,10 @@ import { db } from '../init.js';
 import { findUserRef, grantEntitlement, revokeEntitlement, markPastDue } from './entitlements.js';
 import { grantCredits, refundCredits, refundableCreditAmount } from './credits.js';
 import { sendPaymentEmail } from './paymentEmailHelper.js';
+import { upsertContact, ensureSystemLists, SYSTEM_LISTS } from '../email-core/contacts.js';
+import { createNotification } from '../email-core/notifications.js';
+import { notifyAdmins } from '../email-core/adminAlerts.js';
+import { emitAppEvent } from '../email-core/appEvents.js';
 import { toMajorUnits } from './money.js';
 import { DodoWebhookPayload, DodoWebhookData, ProductDoc, TransactionDoc, TransactionStatus, PAYMENT_PROVIDER } from './types.js';
 
@@ -336,6 +340,44 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
     }
   }
 
+  // Mirror the buyer into the unified Contacts layer (source `customer`,
+  // joins the `all-customers` system list). Idempotent — repeat charges no-op.
+  const customerEmail = data.customer?.email || '';
+  if (customerEmail) {
+    try {
+      await ensureSystemLists();
+      await upsertContact({
+        email: customerEmail,
+        name: data.customer?.name,
+        userId: userId || undefined,
+        source: 'customer',
+        addLists: [SYSTEM_LISTS.ALL_CUSTOMERS],
+      });
+    } catch (err) {
+      logger.warn('handleSuccess: failed to sync customer contact', err);
+    }
+  }
+
+  await sendPaymentEmail(
+    'payment_succeeded_email',
+    { email: customerEmail, name: data.customer?.name },
+    {
+      amount: toMajorUnits(data.total_amount, data.currency),
+      currency: data.currency,
+      status: 'succeeded',
+      plan: product?.premiumType,
+      renewalDate: data.next_billing_date,
+    },
+  );
+
+  // Notifications & event bus (Phase 5) — additive, non-fatal.
+  await Promise.allSettled([
+    userId
+      ? createNotification({ userId, type: 'payment_succeeded', title: 'Payment received', body: 'Thank you! Your payment was successful.', createdBy: 'system' })
+      : Promise.resolve(''),
+    notifyAdmins('admin_payment_received', { title: 'Payment received', body: `${customerEmail || 'A customer'} paid.`, link: '/admin/transactions' }),
+    emitAppEvent('payment.succeeded', { userId, contactEmail: customerEmail }),
+  ]);
   // Dodo emits BOTH a subscription event and a payment.succeeded for a single
   // charge, so emailing on every success event sent two receipts per purchase.
   // The receipt belongs to the event that moved money; the subscription events
@@ -381,14 +423,20 @@ async function handleFailure(eventType: string, data: DodoWebhookData, eventAt?:
     return;
   }
 
-  if (created) {
-    await sendPaymentEmail(
-      'payment_failed_email',
-      recipient,
-      { amount: toMajorUnits(data.total_amount, data.currency), currency: data.currency, status: 'failed', plan: product?.premiumType },
-      idempotencyKey,
-    );
-  }
+  await sendPaymentEmail(
+    'payment_failed_email',
+    { email: data.customer?.email || '', name: data.customer?.name },
+    { amount: toMajorUnits(data.total_amount, data.currency), currency: data.currency, status: 'failed', plan: product?.premiumType },
+  );
+
+  // Notifications & event bus (Phase 5) — additive, non-fatal.
+  await Promise.allSettled([
+    userId
+      ? createNotification({ userId, type: 'payment_failed', title: 'Payment failed', body: 'We could not process your payment. Please update your payment method.', createdBy: 'system' })
+      : Promise.resolve(''),
+    notifyAdmins('admin_payment_failed', { title: 'Payment failed', body: `${data.customer?.email || 'A customer'} had a payment fail.`, link: '/admin/transactions' }),
+    emitAppEvent('payment.failed', { userId, contactEmail: data.customer?.email || '' }),
+  ]);
 }
 
 async function handleOnHold(data: DodoWebhookData, eventAt?: Date): Promise<void> {

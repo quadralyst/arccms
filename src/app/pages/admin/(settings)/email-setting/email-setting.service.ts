@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { Firestore, doc, getDoc, setDoc, serverTimestamp, collection, addDoc, docData } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
 import { from, map, Observable, of, catchError } from 'rxjs';
@@ -15,13 +15,14 @@ const EMAIL_SETTINGS_DOC = 'email';
 export class EmailSettingService {
     private firestore = inject(Firestore);
     private functions = inject(Functions);
+    private injector = inject(Injector);
 
     /**
      * Fetch email settings from Firestore
      */
     getEmailSettings(): Observable<IEmailSettings> {
-        const docRef = doc(this.firestore, SETTINGS_COLLECTION, EMAIL_SETTINGS_DOC);
-        return from(getDoc(docRef)).pipe(
+        const docRef = runInInjectionContext(this.injector, () => doc(this.firestore, SETTINGS_COLLECTION, EMAIL_SETTINGS_DOC));
+        return from(runInInjectionContext(this.injector, () => getDoc(docRef))).pipe(
             map((snapshot) => {
                 if (snapshot.exists()) {
                     const data = snapshot.data() as IEmailSettings;
@@ -57,9 +58,19 @@ export class EmailSettingService {
 
         await setDoc(docRef, dataToSave, { merge: true });
 
-        // Sync the public-facing status document (contains only isEnabled, no credentials)
+        // Sync the public-facing status document (no credentials). Mirrors the
+        // signup-verification toggle so the pre-auth signup page can read it (E4).
         const statusDocRef = doc(this.firestore, SETTINGS_COLLECTION, 'email_status');
-        await setDoc(statusDocRef, { isEnabled: settings.isEnabled }, { merge: true });
+        await setDoc(
+            statusDocRef,
+            {
+                isEnabled: settings.isEnabled,
+                requireSignupVerification: settings.requireSignupVerification ?? false,
+                // Public flag so the dashboard can warn when the simulated provider is active.
+                debugMode: settings.activeProvider === 'debug_log',
+            },
+            { merge: true },
+        );
     }
 
     /**

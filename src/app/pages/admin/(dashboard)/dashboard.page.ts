@@ -1,10 +1,11 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, Injector, runInInjectionContext, signal } from '@angular/core';
 import { Firestore, collection, query, where, getCountFromServer } from '@angular/fire/firestore';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AnalyticsConnectionStatusService } from '../../../../shared/services/analytics-connection-status.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { GoogleOAuthService } from '../../../../shared/services/google-oauth.service';
@@ -12,8 +13,9 @@ import { AnalyticsStore } from './analytics.store';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
 import { DraftContentsService } from '../contents/draft-content-store/draft-contents.service';
 import { MediaManagerService } from '../(media)/media-manager.service';
-import { WaitlistedUsersService } from '../(waitlists)/waitlisted-users.service';
 import { WaitlistAdminStore } from '../(waitlists)/waitlist.store';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { AudienceService } from '../(audience)/audience.service';
 import { UserService } from '../users/user.service';
 import { roleGuard } from '../../../guards/role.guard';
 
@@ -26,7 +28,7 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'arc-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, PageHeaderComponent],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
 })
@@ -67,11 +69,13 @@ export default class DashboardComponent extends BaseComponent {
   mediaService = inject(MediaManagerService);
 
   // Growth & Leads - using services for efficient count queries
-  waitlistedUsersService = inject(WaitlistedUsersService);
   waitlistAdminStore = inject(WaitlistAdminStore);
   userService = inject(UserService);
+  private audienceService = inject(AudienceService);
+  private destroyRef = inject(DestroyRef);
   private appRouter = inject(Router);
   private firestore = inject(Firestore);
+  private injector = inject(Injector);
 
   // Email configuration status
   emailConfigService = inject(EmailConfigStatusService);
@@ -189,16 +193,16 @@ export default class DashboardComponent extends BaseComponent {
     const counts: Record<string, { total: number; thisWeek: number }> = {};
 
     for (const wl of waitlists) {
-      const usersRef = collection(this.firestore, `Waitlists/${wl.id}/users`);
+      const usersRef = runInInjectionContext(this.injector, () => collection(this.firestore, `Waitlists/${wl.id}/users`));
 
       try {
         // Total users in this waitlist
-        const totalSnap = await getCountFromServer(usersRef);
+        const totalSnap = await runInInjectionContext(this.injector, () => getCountFromServer(usersRef));
         const total = totalSnap.data().count;
 
         // Users signed up in last 7 days
-        const weekQuery = query(usersRef, where('signupTimestamp', '>=', sevenDaysAgo));
-        const weekSnap = await getCountFromServer(weekQuery);
+        const weekQuery = runInInjectionContext(this.injector, () => query(usersRef, where('signupTimestamp', '>=', sevenDaysAgo)));
+        const weekSnap = await runInInjectionContext(this.injector, () => getCountFromServer(weekQuery));
         const thisWeek = weekSnap.data().count;
 
         counts[wl.id] = { total, thisWeek };
@@ -275,36 +279,19 @@ export default class DashboardComponent extends BaseComponent {
    * Load Growth & Leads counts using efficient server-side queries
    */
   private loadGrowthAndLeadsCounts(): void {
-    // Total waitlist signups
-    this.waitlistedUsersService.getCollectionTotalCount({
-      limitCount: 0,
-      currentPageNumber: 0,
-      previousPageNumber: 0
-    }).subscribe((count) => {
-      this.totalWaitlistCount.set(count);
-    });
+    // U4: these read the unified `Contacts` audience rather than `WaitlistedUsers`,
+    // which U6 retires. Contacts exist from the moment of signup (U2), so the
+    // totals now include people mid-funnel who have not verified yet — which is
+    // what "signups" always meant here.
+    void this.audienceService.countContacts().then((c) => this.totalWaitlistCount.set(c));
 
-    // Waitlist signups in the last 7 days
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    this.waitlistedUsersService.getCollectionTotalCount({
-      whereConditions: [{ field: 'signupTimestamp', operator: '>=', value: sevenDaysAgo }],
-      limitCount: 0,
-      currentPageNumber: 0,
-      previousPageNumber: 0
-    }).subscribe((count) => {
-      this.last7DaysWaitlistCount.set(count);
-    });
+    void this.audienceService.countContactsSince(sevenDaysAgo).then((c) => this.last7DaysWaitlistCount.set(c));
 
-    // Verified waitlist users (emailVerified = true)
-    this.waitlistedUsersService.getCollectionTotalCount({
-      whereConditions: [{ field: 'emailVerified', operator: '==', value: true }],
-      limitCount: 0,
-      currentPageNumber: 0,
-      previousPageNumber: 0
-    }).subscribe((count) => {
-      this.verifiedUsersCount.set(count);
-    });
+    // "Verified" is now "mailable": U2 promotes a contact to `subscribed` exactly
+    // when they confirm their address.
+    void this.audienceService.countContactsByConsent('subscribed').then((c) => this.verifiedUsersCount.set(c));
 
     // Total admin users
     this.userService.getCollectionTotalCount({
@@ -346,15 +333,10 @@ export default class DashboardComponent extends BaseComponent {
    * Load recent waitlist signups (last 7, ordered by signupTimestamp desc)
    */
   private loadRecentWaitlistSignups(): void {
-    this.waitlistedUsersService.getAll({
-      orderByField: 'signupTimestamp',
-      orderByDirection: 'desc',
-      limitCount: 7,
-      currentPageNumber: 0,
-      previousPageNumber: 0
-    }).subscribe((result) => {
-      this.recentWaitlistSignups.set(result.collectionData || []);
-    });
+    // Contacts, newest first (U4) — same list, sourced from the audience layer.
+    this.audienceService.getRecentContacts(7)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((contacts) => this.recentWaitlistSignups.set(contacts as any[]));
   }
 
   /**

@@ -6,6 +6,8 @@ import {
     Component,
     ElementRef,
     inject,
+    Injector,
+    runInInjectionContext,
     ViewChild,
     ViewEncapsulation,
 } from '@angular/core';
@@ -88,6 +90,7 @@ export default class MediaManagerComponent extends BaseComponent {
     readonly dialogRef = inject(MatDialogRef<MediaManagerComponent>, { optional: true });
     fileUploadService = inject(FileUploadService);
     private firestore = inject(Firestore);
+    private injector = inject(Injector);
 
     selectedItem: MediaMenuItem | null = null;
     selectedMediaUrl: SelectableMedia | null = null;
@@ -483,8 +486,10 @@ export default class MediaManagerComponent extends BaseComponent {
      */
     private async loadMediaUploadSettings(): Promise<void> {
         try {
-            const docRef = doc(this.firestore, 'Settings', 'misc');
-            const docSnap = await getDoc(docRef);
+            const docSnap = await runInInjectionContext(this.injector, () => {
+                const docRef = doc(this.firestore, 'Settings', 'misc');
+                return getDoc(docRef);
+            });
             if (docSnap.exists()) {
                 const data = { ...DEFAULT_MISC_SETTINGS, ...docSnap.data() } as IMiscSettings;
                 this.mediaSettings = {

@@ -16,6 +16,7 @@ import EditContentTypeComponent from './(edit-content-type)/edit.[contentTypeId]
 import { ViewContentTypeComponent } from './(view-content-type)/view.[contentTypeId].page';
 import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { GlobalTableComponent, TableColumn } from '../../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
@@ -36,7 +37,8 @@ export const routeMeta: RouteMeta = {
     AddContentTypeComponent,
     EditContentTypeComponent,
     ViewContentTypeComponent,
-    GlobalTableComponent
+    GlobalTableComponent,
+    PageHeaderComponent
   ],
   providers: [DatePipe],
   templateUrl: './content-types.html',

@@ -49,8 +49,10 @@ export class PaymentSettingsService {
         if (!this.isBrowser) {
             return of({ ...DEFAULT_DODO_PAYMENT_SETTINGS });
         }
-        const docRef = doc(this.firestore, SETTINGS_COLLECTION, DODO_DOC);
-        return from(getDoc(docRef)).pipe(
+        return from(this.inCtx(() => {
+            const docRef = doc(this.firestore, SETTINGS_COLLECTION, DODO_DOC);
+            return getDoc(docRef);
+        })).pipe(
             map((snapshot) => {
                 if (!snapshot.exists()) {
                     return { ...DEFAULT_DODO_PAYMENT_SETTINGS };

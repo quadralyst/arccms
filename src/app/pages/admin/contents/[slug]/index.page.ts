@@ -18,9 +18,6 @@ export const routeMeta: RouteMeta = {
   standalone: true,
   imports: [CommonModule, DraftContentsTableComponent],
   template: `
-    <div class="d-flex justify-content-between align-items-center top-bar">
-      <h5 class="mb-0">{{ formatSlugAsName(slug()) }}</h5>
-    </div>
     @if(slug()){
     <div class="p-4">
       <arc-draft-contents-table

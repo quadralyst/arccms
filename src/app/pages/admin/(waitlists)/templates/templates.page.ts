@@ -7,27 +7,27 @@
 
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, Injector, inject, runInInjectionContext, signal, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import { Firestore, collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where, orderBy } from '@angular/fire/firestore';
+import { Functions, httpsCallable } from '@angular/fire/functions';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import {
-    IEmailTemplate,
-    DEFAULT_OTP_TEMPLATE,
-    DEFAULT_WELCOME_TEMPLATE,
-    DEFAULT_BROADCAST_TEMPLATE
-} from '../email-template.model';
+import { IEmailTemplate } from '../email-template.model';
+import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { BroadcastEmailEditorComponent } from '../../../../../shared/components/broadcast-email-editor/broadcast-email-editor.component';
 import { IBroadcastEmail } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.model';
 import { BroadcastEmailStore } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.store';
 import { EmailTemplateEditorComponent } from '../../../../../shared/components/email-template-editor/email-template-editor.component';
+import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { MatChipsModule } from '@angular/material/chips';
 import { EmailConfigStatusService } from '../../../../../shared/services/email-config-status.service';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { TestEmailComponent } from '../../../../../shared/components/test-email/test-email.component';
 import { roleGuard } from '../../../../guards/role.guard';
 import { EmailSettingService } from '../../(settings)/email-setting/email-setting.service';
+import { HashtagAutocompleteDirective } from '../../../../../shared/directives/hashtag-autocomplete/hashtag-autocomplete.directive';
+import { getEmailTags } from '../../../../../shared/constants/email-tags';
 
 export const routeMeta: RouteMeta = {
     title: 'Email Templates | Arc CMS',
@@ -42,14 +42,17 @@ type TemplateType = 'waitlist_verify_otp_email' | 'waitlist_welcome_email' | 'wa
     templateUrl: './templates.page.html',
     styleUrls: ['./templates.page.scss'],
     standalone: true,
-    imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, MatDialogModule, EmailTemplateEditorComponent, MatChipsModule, BroadcastEmailEditorComponent],
+    imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, MatDialogModule, EmailTemplateEditorComponent, MatChipsModule, BroadcastEmailEditorComponent, PageHeaderComponent, HashtagAutocompleteDirective],
 })
 export default class TemplatesComponent implements OnInit {
     private readonly route = inject(ActivatedRoute);
     private readonly router = inject(Router);
     private readonly fb = inject(FormBuilder);
     private readonly firestore = inject(Firestore);
+    private readonly functions = inject(Functions);
     private readonly dialog = inject(MatDialog);
+    private readonly cdr = inject(ChangeDetectorRef);
+    private readonly injector = inject(Injector);
     private readonly broadcastStore = inject(BroadcastEmailStore);
     private readonly toastService = inject(ToastService);
     private emailSettingService = inject(EmailSettingService);
@@ -115,7 +118,7 @@ export default class TemplatesComponent implements OnInit {
 
     async loadWaitlist(waitlistId: string): Promise<void> {
         try {
-            const waitlistDoc = await getDoc(doc(this.firestore, 'Waitlists', waitlistId));
+            const waitlistDoc = await runInInjectionContext(this.injector, () => getDoc(doc(this.firestore, 'Waitlists', waitlistId)));
             if (waitlistDoc.exists()) {
                 this.waitlistName.set(waitlistDoc.data()?.['name'] || 'Unknown Waitlist');
             }
@@ -124,12 +127,39 @@ export default class TemplatesComponent implements OnInit {
         }
     }
 
+    /**
+     * The server's current defaults, fetched once per visit.
+     *
+     * This page used to carry its own `DEFAULT_OTP_TEMPLATE` /
+     * `DEFAULT_WELCOME_TEMPLATE`, which had drifted into a different document
+     * altogether — so "Reset to default" produced an email the system would never
+     * send. There is now one definition, on the server.
+     */
+    private serverDefaults: Record<string, { subject: string; template: string }> = {};
+
+    private async loadServerDefaults(): Promise<void> {
+        try {
+            const callable = runInInjectionContext(this.injector, () =>
+                httpsCallable<unknown, { defaults: { type: string; subject: string; template: string }[] }>(
+                    this.functions, 'getWaitlistTemplateDefaults'));
+            const res = await callable({});
+            for (const def of res.data?.defaults || []) {
+                this.serverDefaults[def.type] = { subject: def.subject, template: def.template };
+            }
+        } catch (error) {
+            // Non-fatal: a stored template still loads. Only the blank-tab
+            // placeholder and "Reset to default" depend on this.
+            console.error('Could not load the default templates from the server:', error);
+        }
+    }
+
     async loadTemplates(waitlistId: string): Promise<void> {
         this.loading.set(true);
         try {
-            const templatesRef = collection(this.firestore, 'EmailTemplate');
-            const q = query(templatesRef, where('waitlistId', '==', waitlistId));
-            const snapshot = await getDocs(q);
+            await this.loadServerDefaults();
+            const templatesRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'EmailTemplate'));
+            const q = runInInjectionContext(this.injector, () => query(templatesRef, where('waitlistId', '==', waitlistId)));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             snapshot.forEach((doc) => {
                 const data = doc.data() as IEmailTemplate;
@@ -137,6 +167,14 @@ export default class TemplatesComponent implements OnInit {
                     this.templates[data.type as TemplateType] = { id: doc.id, ...data };
                 }
             });
+
+            // An upgraded install can have forms whose templates were never seeded
+            // (they predate the create trigger). The server heals them on the first
+            // send, but the admin would see empty tabs until then — so seed now and
+            // re-read. Idempotent, and it never overwrites an existing template.
+            const missing = (['waitlist_verify_otp_email', 'waitlist_welcome_email'] as TemplateType[])
+                .filter((t) => !this.templates[t]);
+            if (missing.length) await this.seedMissingTemplates(waitlistId);
 
             // Load the active tab's template
             this.loadTemplateIntoForm(this.activeTab());
@@ -150,13 +188,13 @@ export default class TemplatesComponent implements OnInit {
     async loadBroadcastHistory(waitlistId: string): Promise<void> {
         this.loadingBroadcasts.set(true);
         try {
-            const broadcastsRef = collection(this.firestore, 'BroadcastEmails');
-            const q = query(
+            const broadcastsRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'BroadcastEmails'));
+            const q = runInInjectionContext(this.injector, () => query(
                 broadcastsRef,
                 where('waitlistId', '==', waitlistId),
                 orderBy('createdAt', 'desc')
-            );
-            const snapshot = await getDocs(q);
+            ));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             const broadcasts: IBroadcastEmail[] = [];
             snapshot.forEach((doc) => {
@@ -173,9 +211,9 @@ export default class TemplatesComponent implements OnInit {
 
     async loadWaitlistUsers(waitlistId: string): Promise<void> {
         try {
-            const usersRef = collection(this.firestore, `Waitlists/${waitlistId}/users`);
-            const q = query(usersRef, orderBy('signupTimestamp', 'desc'));
-            const snapshot = await getDocs(q);
+            const usersRef = runInInjectionContext(this.injector, () => collection(this.firestore, `Waitlists/${waitlistId}/users`));
+            const q = runInInjectionContext(this.injector, () => query(usersRef, orderBy('signupTimestamp', 'desc')));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
             const users: any[] = [];
             snapshot.forEach((doc) => {
@@ -219,6 +257,14 @@ export default class TemplatesComponent implements OnInit {
         }
     }
 
+    /**
+     * Send the admin to this form's list hub, which owns broadcasts now (U4).
+     * The list id mirrors the form id — see `waitlistListId()` on the server.
+     */
+    goToListHub(): void {
+        this.router.navigate(['/admin/lists', `waitlist-${this.waitlistId()}`]);
+    }
+
     loadTemplateIntoForm(type: TemplateType): void {
         if (type === 'waitlist_broadcast_email') return; // Broadcast tab shows history, not form
 
@@ -247,15 +293,34 @@ export default class TemplatesComponent implements OnInit {
         }
     }
 
-    getDefaultTemplate(type: TemplateType): { subject: string; template: string } {
-        switch (type) {
-            case 'waitlist_verify_otp_email':
-                return { subject: 'Verify your email', template: DEFAULT_OTP_TEMPLATE };
-            case 'waitlist_welcome_email':
-                return { subject: 'Welcome to the waitlist!', template: DEFAULT_WELCOME_TEMPLATE };
-            case 'waitlist_broadcast_email':
-                return { subject: 'Update from the team', template: DEFAULT_BROADCAST_TEMPLATE };
+    /**
+     * Ask the server to create this form's missing defaults, then re-read them.
+     * `backfillWaitlistTemplates` is idempotent and leaves existing docs alone.
+     */
+    private async seedMissingTemplates(waitlistId: string): Promise<void> {
+        try {
+            const callable = runInInjectionContext(this.injector, () =>
+                httpsCallable(this.functions, 'backfillWaitlistTemplates'));
+            await callable({});
+
+            const templatesRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'EmailTemplate'));
+            const q = runInInjectionContext(this.injector, () => query(templatesRef, where('waitlistId', '==', waitlistId)));
+            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
+            snapshot.forEach((d) => {
+                const data = d.data() as IEmailTemplate;
+                if (data.type && this.templates.hasOwnProperty(data.type)) {
+                    this.templates[data.type as TemplateType] = { id: d.id, ...data };
+                }
+            });
+        } catch (error) {
+            console.error('Could not seed the default templates:', error);
         }
+    }
+
+    getDefaultTemplate(type: TemplateType): { subject: string; template: string } {
+        // One definition, fetched from the server. The empty fallback only shows if
+        // that call failed, and is preferable to pasting in a stale local copy.
+        return this.serverDefaults[type] || { subject: '', template: '' };
     }
 
     async saveTemplate(): Promise<void> {
@@ -325,19 +390,7 @@ export default class TemplatesComponent implements OnInit {
     }
 
     getPlaceholders(): string[] {
-        const type = this.activeTab();
-        const common = ['##NAME##', '##EMAIL##'];
-
-        switch (type) {
-            case 'waitlist_verify_otp_email':
-                return [...common, '##OTP##'];
-            case 'waitlist_welcome_email':
-                return [...common, '##POSITION##', '##REFERRAL_CODE##', '##REFERRAL_LINK##'];
-            case 'waitlist_broadcast_email':
-                return [...common, '##SUBJECT##', '##CONTENT##', '##UNSUBSCRIBE_LINK##'];
-            default:
-                return common;
-        }
+        return getEmailTags(this.activeTab());
     }
 
     // Broadcast specific methods
@@ -457,15 +510,48 @@ export default class TemplatesComponent implements OnInit {
     }
 
     /**
-     * Handle checkbox change for template active status
-     * Auto-saves when the template is disabled to persist the state
+     * Handle the active/inactive checkbox.
+     *
+     * Unchecking persists immediately — there is no Save step — and it is a
+     * consequential change: turning the OTP template off stops every new signup on
+     * this form from being verified, and turning the welcome off stops new signups
+     * being greeted. It also writes `otpEnabled` on the form, which is what the
+     * public page reads. So it asks first, and puts the checkbox back if the answer
+     * is no.
      */
-    async onTemplateActiveChange(event: Event): Promise<void> {
+    onTemplateActiveChange(event: Event): void {
         const checkbox = event.target as HTMLInputElement;
-        if (!checkbox.checked) {
-            // When unchecking, save immediately to persist the disabled state
+        if (checkbox.checked) return; // enabling still needs an explicit Save
+
+        const isOtp = this.activeTab() === 'waitlist_verify_otp_email';
+        const dialogMessage = isOtp
+            ? 'Turn off email verification for this form? New signups will not be sent a '
+              + 'code, and their email status will stay "Pending". This takes effect '
+              + 'immediately — you do not need to save.'
+            : 'Turn off the welcome email for this form? New signups will no longer be '
+              + 'greeted. This takes effect immediately — you do not need to save.';
+
+        this.dialog.open(ConfirmationPopupComponent, {
+            width: '350px',
+            data: {
+                dialogType: 'Confirm',
+                dialogMessage,
+                btnText: isOtp ? 'Turn off verification' : 'Turn off welcome email',
+                panelType: 'warn',
+            },
+        }).afterClosed().subscribe(async (confirmed: boolean) => {
+            if (!confirmed) {
+                // Put the control back — the change event already flipped it, and the
+                // template swaps in a "disabled" panel the moment isActive goes false,
+                // so leaving it would show this form as off when nothing was written.
+                // detectChanges because the dialog result arrives outside the click's
+                // change-detection pass.
+                this.templateForm.get('isActive')?.setValue(true, { emitEvent: false });
+                this.cdr.detectChanges();
+                return;
+            }
             await this.saveTemplate();
-        }
+        });
     }
 
     /**

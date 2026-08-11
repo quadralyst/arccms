@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, runInInjectionContext } from '@angular/core';
 import { collection, CollectionReference, Firestore } from '@angular/fire/firestore';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IWaitlistUserTag, getWaitlistUserTagsCollectionName } from './waitlist-user-tags.model';
@@ -27,7 +27,7 @@ export class WaitlistUserTagsService extends DbService<IWaitlistUserTag> {
         this.currentWaitlistId.set(waitlistId);
         const collName = getWaitlistUserTagsCollectionName(waitlistId);
         // Update the dbCollection reference to point to the new collection
-        this.dbCollection = collection(this.tagFirestore, collName) as CollectionReference<IWaitlistUserTag>;
+        this.dbCollection = runInInjectionContext(this.injector, () => collection(this.tagFirestore, collName)) as CollectionReference<IWaitlistUserTag>;
     }
 
     /**

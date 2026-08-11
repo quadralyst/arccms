@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../guards/role.guard';
 import { TransactionsStore } from './transactions.store';
 
@@ -18,15 +19,12 @@ export const routeMeta: RouteMeta = {
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule, MatSelectModule],
+    imports: [CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent],
     template: `
         <div class="transactions-page">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <h1 class="m-0">Transactions</h1>
-                    <p class="text-muted mb-0">Payment records from Dodo. Raw webhook payloads are stored in the WebhookEvents collection for debugging.</p>
-                </div>
-                <mat-form-field appearance="outline">
+            <arc-page-header title="Transactions"
+                subtitle="Payment records from Dodo. Raw webhook payloads are stored in the WebhookEvents collection for debugging.">
+                <mat-form-field appearance="outline" class="mb-0">
                     <mat-label>Status</mat-label>
                     <mat-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
                         <mat-option value="">All</mat-option>
@@ -36,7 +34,7 @@ export const routeMeta: RouteMeta = {
                         <mat-option value="pending">Pending</mat-option>
                     </mat-select>
                 </mat-form-field>
-            </div>
+            </arc-page-header>
 
             <mat-card>
                 <mat-card-content class="pt-3">

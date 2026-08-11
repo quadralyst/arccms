@@ -5,14 +5,14 @@
  * Extracted from PageContentComponent to be used in index.page.ts.
  */
 
-import { inject, Injectable, PLATFORM_ID } from '@angular/core';
+import { inject, Injectable, Injector, PLATFORM_ID, runInInjectionContext } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { WaitlistService } from '../waitlist/waitlist.service';
 import { IWaitlistFormData, IWaitlist } from '../waitlist/waitlist.model';
 import { SignupMetadataService } from '../waitlist/signup-metadata.service';
 import { EmailConfigStatusService } from '../../../shared/services/email-config-status.service';
 import { GlobalService } from '../../../shared/services/global.service';
-import { Firestore, doc, getDoc, collection, getCountFromServer } from '@angular/fire/firestore';
+import { Firestore, doc, getDoc, collection } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { DEFAULT_INTEGRATIONS_SETTINGS, IGeoConfig } from '../admin/(settings)/integrations-setting/integrations-setting.model';
 
@@ -47,10 +47,10 @@ export class WaitlistFormService {
     private functions = inject(Functions);
     private globalService = inject(GlobalService);
     private metadataService = inject(SignupMetadataService);
+    private injector = inject(Injector);
 
     private formStates = new Map<HTMLFormElement, WaitlistFormState>();
     private defaultWaitlistId = 'default';
-    private templOtp: string | null = null;
 
     /**
      * Check if OTP verification template is enabled for a waitlist.
@@ -61,8 +61,10 @@ export class WaitlistFormService {
      */
     private async isOtpTemplateEnabled(waitlistId: string): Promise<boolean> {
         try {
-            const waitlistRef = doc(this.firestore, 'Waitlists', waitlistId);
-            const waitlistSnap = await getDoc(waitlistRef);
+            const waitlistSnap = await runInInjectionContext(this.injector, () => {
+                const waitlistRef = doc(this.firestore, 'Waitlists', waitlistId);
+                return getDoc(waitlistRef);
+            });
             if (waitlistSnap.exists()) {
                 // otpEnabled defaults to true when not explicitly set
                 return waitlistSnap.data()?.['otpEnabled'] !== false;
@@ -86,8 +88,10 @@ export class WaitlistFormService {
         if (!isPlatformBrowser(this.platformId)) return DEFAULT_INTEGRATIONS_SETTINGS.geo;
 
         try {
-            const docRef = doc(this.firestore, 'Settings', 'integrations');
-            const docSnap = await getDoc(docRef);
+            const docSnap = await runInInjectionContext(this.injector, () => {
+                const docRef = doc(this.firestore, 'Settings', 'integrations');
+                return getDoc(docRef);
+            });
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 return { ...DEFAULT_INTEGRATIONS_SETTINGS.geo, ...data?.['geo'] };
@@ -151,9 +155,19 @@ export class WaitlistFormService {
                     let count = countCache.get(waitlistId);
 
                     if (count === undefined) {
-                        const usersRef = collection(this.firestore, 'Waitlists', waitlistId, 'users');
-                        const snapshot = await getCountFromServer(usersRef);
-                        count = snapshot.data().count;
+                        // #51: read the denormalised counter off the form document
+                        // instead of aggregating over member docs. The aggregate query
+                        // needed public read on a collection holding raw email
+                        // addresses, and that is the exposure this closes. The form doc
+                        // is public by design — it is what renders the page.
+                        const formSnap = await runInInjectionContext(this.injector, () =>
+                            getDoc(doc(this.firestore, 'Waitlists', waitlistId)));
+                        const data = formSnap.exists() ? formSnap.data() : null;
+                        // Note the small semantic shift: the aggregate counted every
+                        // member document, `totalSignups` counts confirmed ones. For a
+                        // "N people have joined" label that is the more honest number,
+                        // and it no longer requires reading anyone's record.
+                        count = Number(data?.['totalSignups'] ?? 0);
                         countCache.set(waitlistId, count);
                     }
 
@@ -385,6 +399,14 @@ export class WaitlistFormService {
                 waitlist = await this.waitlistService.getWaitlist(waitlistId);
             }
 
+            // Only ask the server to create the doc when it is actually missing — and
+            // wait for it. Firing this on every load meant the one useful case (a
+            // missing waitlist) raced the form binding, and the request was in flight
+            // during page teardown, where an aborted fetch surfaces as `internal`.
+            if (!waitlist) {
+                await this.ensureWaitlistExists(waitlistId);
+            }
+
             if (waitlist && !waitlist.isActive) {
                 this.renderDisabledOverlay(form as HTMLFormElement, waitlist);
                 continue;
@@ -402,7 +424,6 @@ export class WaitlistFormService {
             };
             this.formStates.set(form as HTMLFormElement, state);
 
-            this.ensureWaitlistExists(waitlistId);
             form.addEventListener('submit', (e: Event) => this.handleFormSubmit(e, form as HTMLFormElement));
 
             // Track form interaction for behavioral metadata
@@ -447,12 +468,39 @@ export class WaitlistFormService {
         form.appendChild(overlay);
     }
 
-    private async ensureWaitlistExists(waitlistId: string): Promise<void> {
+    /**
+     * Ask the server to create the waitlist doc if it is missing.
+     *
+     * Runs in the injection context like every other Firebase call in this service.
+     * Failures are reported with the callable's own code, because the SDK collapses
+     * every transport-level failure (aborted or blocked fetch) into a bare `internal`,
+     * which says nothing about what went wrong.
+     */
+    private async ensureWaitlistExists(waitlistId: string): Promise<boolean> {
         try {
-            const callable = httpsCallable(this.functions, 'ensureWaitlistExists');
-            await callable({ waitlistId });
+            const callable = runInInjectionContext(this.injector, () =>
+                httpsCallable<{ waitlistId: string }, { success: boolean; existed?: boolean; reason?: string }>(
+                    this.functions,
+                    'ensureWaitlistExists',
+                ),
+            );
+            const result = await callable({ waitlistId });
+            if (!result.data?.success) {
+                console.error(`Could not create waitlist "${waitlistId}": ${result.data?.reason || 'unknown reason'}`);
+                return false;
+            }
+            return true;
         } catch (error) {
-            console.error(`Error ensuring waitlist exists: ${waitlistId}`, error);
+            const code = (error as { code?: string })?.code;
+            const message = (error as { message?: string })?.message;
+            console.error(
+                `Could not create waitlist "${waitlistId}" (${code || 'no code'}: ${message || String(error)}).` +
+                (code === 'functions/internal'
+                    ? ' A bare "internal" means the request never completed — the page was torn down mid-call, or the request was blocked.'
+                    : ''),
+                error,
+            );
+            return false;
         }
     }
 
@@ -525,7 +573,6 @@ export class WaitlistFormService {
                 signupMetadata,
             });
 
-            this.templOtp = result.verificationCode || null;
 
             if ((result as Record<string, unknown>)['error']) {
                 state.error = (result as Record<string, unknown>)['message'] as string;

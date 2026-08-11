@@ -216,10 +216,56 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/(waitlists)/tags/tags.page').then((m) => m.default),
       },
+    ],
+  },
+  // Admin List hub (U4): one workspace per list — Members / Broadcasts / Sequence.
+  // Declared before nothing in particular, but note `/admin/lists` itself is
+  // file-based; this adds the detail route only.
+  {
+    path: 'admin/lists/:listId',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
       {
-        path: 'subscribers',
+        path: '',
         loadComponent: () =>
-          import('./pages/admin/(waitlists)/subscribers/subscribers.page').then((m) => m.default),
+          import('./pages/admin/(list-hub)/list-hub.page').then((m) => m.default),
+      },
+    ],
+  },
+  // Admin Audience Route (custom Fields, U4.5).
+  {
+    path: 'admin/contact-fields',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(contact-fields)/contact-fields.page').then((m) => m.default),
+      },
+    ],
+  },
+  // Admin Audience Route (Tags). Declared explicitly like every other admin
+  // feature route rather than relying on file-based routing, which resolves
+  // server-side but does not reliably reach the client route table here — the
+  // page then falls through to the public `:contentTypeSlug/:urlSlug` route and
+  // renders "Content Not Found" in the public shell.
+  {
+    path: 'admin/contact-tags',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(contact-tags)/contact-tags.page').then((m) => m.default),
       },
     ],
   },
@@ -235,6 +281,44 @@ export const routes: Routes = [
         path: '',
         loadComponent: () =>
           import('./pages/admin/(email-logs)/email-logs.page').then((m) => m.default),
+      },
+    ],
+  },
+  // Admin Email Routes (Brand Kit, Composer, Broadcasts, Drip Campaigns, Announcements)
+  // Nested under a shared /admin/email/* prefix so the sidebar's Email submenu
+  // maps to real, matching routes instead of scattered top-level paths.
+  {
+    path: 'admin/email',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      { path: '', redirectTo: 'brand-kit', pathMatch: 'full' },
+      {
+        path: 'brand-kit',
+        loadComponent: () =>
+          import('./pages/admin/(email-brand)/brand-kit.page').then((m) => m.default),
+      },
+      {
+        path: 'composer',
+        loadComponent: () =>
+          import('./pages/admin/(email-composer)/email-composer.page').then((m) => m.default),
+      },
+      {
+        path: 'broadcasts',
+        loadComponent: () =>
+          import('./pages/admin/(broadcasts)/broadcasts.page').then((m) => m.default),
+      },
+      {
+        path: 'drip-campaigns',
+        loadComponent: () =>
+          import('./pages/admin/(drips)/drips.page').then((m) => m.default),
+      },
+      {
+        path: 'announcements',
+        loadComponent: () =>
+          import('./pages/admin/(announcements)/announcements.page').then((m) => m.default),
       },
     ],
   },
@@ -303,6 +387,24 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Notifications Route (nests under the admin shell for the sidebar;
+  // the same page component also renders standalone at /notifications for
+  // signed-in members, self-wrapping in the user shell there).
+  {
+    path: 'admin/notifications',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/(notifications)/notifications.page').then((m) => m.default),
+      },
+    ],
+  },
+
   // Public Pricing Page (logged-in users purchase from here)
   {
     path: 'pricing',

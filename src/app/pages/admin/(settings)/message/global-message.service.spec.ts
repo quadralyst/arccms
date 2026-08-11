@@ -1,10 +1,27 @@
 import { TestBed } from '@angular/core/testing';
+import { PLATFORM_ID } from '@angular/core';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DEFAULT_GLOBAL_MESSAGE_SETTINGS, GRADIENT_PRESETS, getGradientById, IGlobalMessageSettings } from './global-message.model';
 
+const { mockOnSnapshot, mockUnsubscribe } = vi.hoisted(() => ({
+    mockOnSnapshot: vi.fn(),
+    mockUnsubscribe: vi.fn(),
+}));
+
+vi.mock('@angular/fire/firestore', () => ({
+    Firestore: class Firestore { },
+    doc: vi.fn(() => ({})),
+    getDoc: vi.fn(),
+    setDoc: vi.fn(),
+    serverTimestamp: vi.fn(() => ({})),
+    onSnapshot: (...args: any[]) => mockOnSnapshot(...args),
+}));
+
+import { Firestore } from '@angular/fire/firestore';
+import { GlobalMessageService } from './global-message.service';
+
 /**
  * Tests for Global Message Model
- * Service tests are omitted as the service requires Firebase which is complex to mock
  */
 describe('Global Message Model', () => {
     describe('DEFAULT_GLOBAL_MESSAGE_SETTINGS', () => {
@@ -106,5 +123,67 @@ describe('Global Message Model', () => {
 
             expect(settings.id).toBe('test-id');
         });
+    });
+});
+
+describe('GlobalMessageService', () => {
+    function makeService(platform: 'browser' | 'server'): GlobalMessageService {
+        TestBed.configureTestingModule({
+            providers: [
+                { provide: Firestore, useValue: {} },
+                { provide: PLATFORM_ID, useValue: platform },
+            ],
+        });
+        return TestBed.inject(GlobalMessageService);
+    }
+
+    beforeEach(() => {
+        TestBed.resetTestingModule();
+        vi.clearAllMocks();
+        mockOnSnapshot.mockReturnValue(mockUnsubscribe);
+    });
+
+    it('does not register a Firestore listener during SSR', () => {
+        // The banner is rendered from the root App component, so this service is
+        // constructed on every server render. A listener registered there
+        // outlives the request injector it captured; the next settings edit then
+        // fires @angular/fire's callback against a destroyed injector (NG0205)
+        // and kills the process.
+        makeService('server');
+
+        expect(mockOnSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('still emits the default settings synchronously during SSR', async () => {
+        // The banner reads settings$ via toSignal({ requireSync: true }), so the
+        // subject must still emit on subscribe with no listener attached.
+        const service = makeService('server');
+
+        const emitted = await new Promise((resolve) => {
+            service.settings$.subscribe(resolve);
+        });
+
+        expect(emitted).toEqual(DEFAULT_GLOBAL_MESSAGE_SETTINGS);
+    });
+
+    it('registers a listener in the browser', () => {
+        makeService('browser');
+
+        expect(mockOnSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops the listener when the injector is destroyed', () => {
+        const service = makeService('browser');
+
+        service.ngOnDestroy();
+
+        expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it('ngOnDestroy is safe on the server, where no listener was registered', () => {
+        const service = makeService('server');
+
+        expect(() => service.ngOnDestroy()).not.toThrow();
+        expect(mockUnsubscribe).not.toHaveBeenCalled();
     });
 });

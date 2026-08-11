@@ -44,6 +44,7 @@ Arc CMS uses Firestore and Cloud Storage security rules to control data access. 
 | `EmailTemplate/{id}` | Admin | Admin | |
 | `BroadcastEmails/{id}` | Admin | Admin | |
 | `EmailLog/{id}` | Admin | Admin | |
+| `ErasureLog/{emailHash}` | Admin | None (Cloud Functions only) | Erasure receipts. Hash-keyed and address-free; functions-only write because an editable audit trail is not an audit trail |
 
 ### Waitlist Collections (Unauthenticated Access)
 

@@ -1,0 +1,151 @@
+<!-- Broadcast Email Editor -->
+<div class="email-block-editor">
+    <!-- Toolbar -->
+    <div class="editor-toolbar">
+        <div class="toolbar-group">
+            <button mat-flat-button color="primary" [matMenuTriggerFor]="addMenu">
+                <mat-icon>add</mat-icon> Add block
+            </button>
+            <mat-menu #addMenu>
+                @for (t of blockTypes; track t) {
+                <button mat-menu-item (click)="add(t)"><span class="text-capitalize">{{ t }}</span></button>
+                }
+            </mat-menu>
+
+            <div class="device-toggle" role="group" aria-label="Preview device">
+                <button type="button" [class.active]="previewMode() === 'desktop'"
+                    (click)="previewMode.set('desktop')">
+                    <mat-icon>desktop_windows</mat-icon> Desktop
+                </button>
+                <button type="button" [class.active]="previewMode() === 'mobile'"
+                    (click)="previewMode.set('mobile')">
+                    <mat-icon>smartphone</mat-icon> Mobile
+                </button>
+            </div>
+        </div>
+
+        <div class="toolbar-group">
+            <button mat-stroked-button (click)="sendTest()"><mat-icon>send</mat-icon> Send test</button>
+            <button mat-flat-button color="primary" (click)="save()"><mat-icon>save</mat-icon> Save</button>
+        </div>
+    </div>
+
+    @if (error()) {
+    <div class="alert alert-danger m-3">{{ error() }}</div>
+    }
+
+    <div class="editor-split">
+        <!-- Block list -->
+        <div class="blocks-pane">
+            @for (block of blocks(); track block.id; let i = $index) {
+            <div class="block-card">
+                <div class="block-head">
+                    <span class="block-tag">
+                        <span class="block-index">{{ i + 1 }}</span>{{ block.type }}
+                    </span>
+                    <div class="block-controls">
+                        <button mat-icon-button (click)="move(i, -1)" [disabled]="i === 0"
+                            aria-label="Move up"><mat-icon>arrow_upward</mat-icon></button>
+                        <button mat-icon-button (click)="move(i, 1)" [disabled]="i === blocks().length - 1"
+                            aria-label="Move down"><mat-icon>arrow_downward</mat-icon></button>
+                        <button mat-icon-button color="warn" (click)="remove(i)"
+                            aria-label="Delete block"><mat-icon>delete</mat-icon></button>
+                    </div>
+                </div>
+
+                @switch (block.type) {
+                @case ('heading') {
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Heading text</mat-label>
+                    <input matInput [arcHashtagAutocomplete]="placeholders" [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" style="width: 120px;">
+                    <mat-label>Level</mat-label>
+                    <mat-select [ngModel]="block.level" (ngModelChange)="setHeadingLevel(i, $event)">
+                        <mat-option [value]="1">H1</mat-option>
+                        <mat-option [value]="2">H2</mat-option>
+                        <mat-option [value]="3">H3</mat-option>
+                    </mat-select>
+                </mat-form-field>
+                }
+                @case ('paragraph') {
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Paragraph text (basic HTML allowed)</mat-label>
+                    <textarea matInput rows="3" [arcHashtagAutocomplete]="placeholders" [ngModel]="block.html" (ngModelChange)="patch(i, { html: $event })"></textarea>
+                </mat-form-field>
+                <button mat-button [matMenuTriggerFor]="tagMenu"><mat-icon>tag</mat-icon> Insert tag</button>
+                <mat-menu #tagMenu>
+                    @for (p of placeholders; track p) {
+                    <button mat-menu-item (click)="insertTag(i, 'html', p)">{{ p }}</button>
+                    }
+                </mat-menu>
+                }
+                @case ('image') {
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Image URL</mat-label>
+                    <input matInput [ngModel]="block.src" (ngModelChange)="patch(i, { src: $event })" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Alt text</mat-label>
+                    <input matInput [ngModel]="block.alt" (ngModelChange)="patch(i, { alt: $event })" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Link URL (optional)</mat-label>
+                    <input matInput [ngModel]="block.href" (ngModelChange)="patch(i, { href: $event })" />
+                </mat-form-field>
+                }
+                @case ('button') {
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Button label</mat-label>
+                    <input matInput [arcHashtagAutocomplete]="placeholders" [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Button URL</mat-label>
+                    <input matInput [ngModel]="block.href" (ngModelChange)="patch(i, { href: $event })" />
+                </mat-form-field>
+                }
+                @case ('spacer') {
+                <mat-form-field appearance="outline" style="width: 160px;">
+                    <mat-label>Height (px)</mat-label>
+                    <input matInput type="number" [ngModel]="block.height" (ngModelChange)="patch(i, { height: +$event })" />
+                </mat-form-field>
+                }
+                @case ('raw') {
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Raw HTML</mat-label>
+                    <textarea matInput class="font-monospace" rows="4" [arcHashtagAutocomplete]="placeholders" [ngModel]="block.html" (ngModelChange)="patch(i, { html: $event })"></textarea>
+                </mat-form-field>
+                }
+                @case ('social') { <p class="small text-muted mb-0">Uses the social links from your brand kit.</p> }
+                @case ('divider') { <p class="small text-muted mb-0">A horizontal divider.</p> }
+                @case ('columns') { <p class="small text-muted mb-0">Two-column layout (edit nested blocks in a future iteration).</p> }
+                }
+            </div>
+            } @empty {
+            <div class="blocks-empty">
+                <mat-icon>dashboard_customize</mat-icon>
+                <p class="mb-0">No blocks yet — click <strong>Add block</strong> to start building your email.</p>
+            </div>
+            }
+        </div>
+
+        <!-- Preview -->
+        <div class="preview-pane">
+            <div class="preview-sticky">
+                <div class="preview-frame" [class.is-desktop]="previewMode() === 'desktop'"
+                    [class.is-mobile]="previewMode() === 'mobile'">
+                    @if (previewMode() === 'desktop') {
+                    <div class="preview-chrome">
+                        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                    </div>
+                    } @else {
+                    <div class="preview-chrome"><span class="notch"></span></div>
+                    }
+                    <div class="preview-scroll">
+                        <div [innerHTML]="previewHtml()"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

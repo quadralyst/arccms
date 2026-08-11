@@ -1,0 +1,96 @@
+<mat-drawer-container class="fields-drawer-container" hasBackdrop="true">
+    <mat-drawer [opened]="drawerOpen()" mode="over" position="end" class="drawer" style="width: 460px;"
+        (closedStart)="closeDrawer()">
+        <div class="side-panel">
+            <div class="panel-header">
+                <h5>{{ editing() ? 'Edit field' : 'New field' }}</h5>
+                <button class="close-btn" (click)="closeDrawer()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="flex-grow-1">
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Label</mat-label>
+                    <input matInput [(ngModel)]="label" placeholder="e.g. Company" />
+                    @if (previewKey()) {
+                        <mat-hint>Merge tag: <code>##FIELD:{{ previewKey() }}##</code></mat-hint>
+                    }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Type</mat-label>
+                    <mat-select [(ngModel)]="type">
+                        <mat-option value="text">Text</mat-option>
+                        <mat-option value="number">Number</mat-option>
+                        <mat-option value="date">Date</mat-option>
+                        <mat-option value="boolean">Yes / no</mat-option>
+                        <mat-option value="select">Choice</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                @if (type === 'select') {
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Choices (comma separated)</mat-label>
+                    <input matInput [(ngModel)]="optionsText" placeholder="Founder, Engineer, Other" />
+                </mat-form-field>
+                }
+
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>On re-submit</mat-label>
+                    <mat-select [(ngModel)]="writePolicy">
+                        <mat-option value="fill">Keep the existing value</mat-option>
+                        <mat-option value="overwrite">Overwrite with the newer value</mat-option>
+                    </mat-select>
+                    <mat-hint>
+                        "Keep" means a second form can never replace what someone told you first.
+                    </mat-hint>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Fallback for emails (optional)</mat-label>
+                    <input matInput [(ngModel)]="defaultValue" placeholder="e.g. your company" />
+                    <mat-hint>
+                        Use as <code>##FIELD:{{ previewKey() || 'key' }}|{{ defaultValue || 'fallback' }}##</code>
+                        so contacts without a value never see a blank gap.
+                    </mat-hint>
+                </mat-form-field>
+            </div>
+
+            <div class="panel-actions">
+                <button mat-stroked-button (click)="closeDrawer()">Cancel</button>
+                <button mat-flat-button color="primary" [disabled]="busy() || !previewKey()" (click)="save()">
+                    <mat-icon>{{ editing() ? 'save' : 'add' }}</mat-icon>
+                    {{ editing() ? 'Save' : 'Create field' }}
+                </button>
+            </div>
+        </div>
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="page-container">
+            <arc-page-header title="Fields"
+                subtitle="Data your forms collect, stored on the contact so any send to any list can use it.">
+                <button mat-stroked-button (click)="runMigration()" [disabled]="busy()"
+                    matTooltip="Copy values from past form submissions onto contacts, using each form's field mapping. Safe to run more than once.">
+                    <mat-icon>download</mat-icon> Import past form data
+                </button>
+                <button mat-flat-button color="primary" (click)="openAdd()">
+                    <mat-icon>add</mat-icon> New field
+                </button>
+            </arc-page-header>
+
+            <p class="fields-note">
+                <i class="fas fa-circle-info"></i>
+                Map a form's inputs to these fields in the form's edit panel. Values arrive on the
+                contact at signup, so they work in broadcasts and sequences to any list — including
+                lists fed by several forms.
+            </p>
+
+            <app-global-table [data]="fields()" [columns]="columns" [loading]="loading()"
+                emptyIcon="fas fa-table-columns" emptyTitle="No custom fields yet"
+                emptyDescription="Create a field like Company or Role, then map a form input to it."
+                emptyActionLabel="New field" emptyActionIcon="fas fa-plus"
+                (emptyActionClick)="openAdd()">
+            </app-global-table>
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

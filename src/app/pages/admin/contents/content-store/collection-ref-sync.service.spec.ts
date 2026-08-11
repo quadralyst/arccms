@@ -27,6 +27,8 @@ vi.mock('@angular/fire/firestore', () => ({
 vi.mock('@angular/core', () => ({
     Injectable: () => (target: any) => target,
     inject: () => ({}),
+    Injector: class {},
+    runInInjectionContext: (_injector: any, fn: () => any) => fn(),
 }));
 
 vi.mock('../content-types/content-types.store', () => ({

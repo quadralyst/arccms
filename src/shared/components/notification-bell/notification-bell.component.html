@@ -1,0 +1,36 @@
+<button mat-icon-button (click)="togglePanel()" [attr.aria-label]="unreadCount() > 0 ? 'Notifications, ' + badgeText() + ' unread' : 'Notifications'">
+    <mat-icon [matBadge]="badgeText()" [matBadgeHidden]="unreadCount() === 0" matBadgeColor="warn" matBadgeSize="small" aria-hidden="false">
+        notifications
+    </mat-icon>
+</button>
+
+<ng-template #panelTpl>
+    <aside class="notif-panel" role="dialog" aria-modal="true" aria-label="Notifications">
+        <div class="panel-header">
+            <h2>Notifications</h2>
+            <div class="header-actions">
+                @if (unreadCount() > 0) {
+                <button type="button" class="btn-mark-all" (click)="markAllRead()">Mark all read</button>
+                }
+                <button type="button" class="close-icon-btn" (click)="closePanel()" aria-label="Close notifications">
+                    <mat-icon>close</mat-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="panel-body">
+            @for (n of recent(); track n.id) {
+            <button type="button" class="notif-item" [class.unread]="!n.read" (click)="open(n)">
+                <div class="notif-title">{{ n.title }}</div>
+                <div class="notif-body-text">{{ n.body }}</div>
+            </button>
+            } @empty {
+            <div class="notif-empty">You're all caught up.</div>
+            }
+        </div>
+
+        <div class="panel-footer">
+            <button type="button" class="btn-view-all" (click)="viewAll()">View all notifications</button>
+        </div>
+    </aside>
+</ng-template>

@@ -61,17 +61,9 @@
     <mat-drawer-content>
         <div class="page-wrapper">
             <!-- Header -->
-            <div class="page-header">
-                <div class="header-left">
-                    <button class="btn-back" (click)="goBack()">
-                        <i class="fas fa-arrow-left"></i>
-                    </button>
-                    <div>
-                        <h1>Manage Tags</h1>
-                        <p class="subtitle">{{ waitlistName || waitlistId }}</p>
-                    </div>
-                </div>
-            </div>
+            <arc-page-header title="Manage Tags" [subtitle]="waitlistName || waitlistId"
+                [showBack]="true" (back)="goBack()">
+            </arc-page-header>
 
             <!-- Quick Add -->
             <div class="quick-add-bar mb-3">

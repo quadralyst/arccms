@@ -5,7 +5,7 @@
  * Provides methods for login, signup, logout, and user profile management.
  */
 
-import { inject } from '@angular/core';
+import { inject, Injector, runInInjectionContext } from '@angular/core';
 import { Auth, onAuthStateChanged, User } from '@angular/fire/auth';
 import { Router } from '@angular/router';
 import { patchState, signalStore, withHooks, withMethods, withState } from '@ngrx/signals';
@@ -73,6 +73,7 @@ export const AuthState = signalStore(
             router: Router = inject(Router),
             constant = inject(ConstantVariables),
             toastService = inject(ToastService),
+            injector = inject(Injector),
         ) => ({
             clearCurrent() {
                 patchState(store, { currentUser: null, isLoading: false, isSuccess: true, error: '' });
@@ -330,7 +331,7 @@ export const AuthState = signalStore(
 
             initAuthStateListener(): Observable<User | null> {
                 return new Observable<User | null>((observer) => {
-                    const unsubscribe = onAuthStateChanged(
+                    const unsubscribe = runInInjectionContext(injector, () => onAuthStateChanged(
                         auth,
                         (user) => {
                             if (user) {
@@ -388,7 +389,7 @@ export const AuthState = signalStore(
                             patchState(store, { error: error.message });
                             observer.error(error);
                         },
-                    );
+                    ));
 
                     return unsubscribe;
                 });

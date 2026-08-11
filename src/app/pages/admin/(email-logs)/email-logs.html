@@ -10,13 +10,14 @@
     <mat-drawer-content>
         <div class="arc">
             <div class="flex-grow-1">
-                <!-- Top Bar -->
-                <div class="d-flex justify-content-between align-items-center top-bar">
-                    <h5 class="mb-0">Email Logs</h5>
-                </div>
-
                 <!-- Content Area -->
                 <div class="content-area">
+                    <!-- Top Bar -->
+                    <arc-page-header title="Email Logs"></arc-page-header>
+
+                    <!-- Email health summary (last 24h) -->
+                    <arc-email-health-card></arc-email-health-card>
+
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <div>
                             <h6 class="mb-0">All Email Logs</h6>

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { Injector, PLATFORM_ID } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { Firestore, onSnapshot } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
 import { MediaManagerService } from './media-manager.service';
@@ -181,6 +183,52 @@ describe('MediaManagerService', () => {
             });
 
             expect(unsubFn).toHaveBeenCalled();
+        });
+    });
+
+    describe('getMediaListFromFirestore during SSR', () => {
+        function makeServerService(): MediaManagerService {
+            TestBed.resetTestingModule();
+            TestBed.configureTestingModule({
+                providers: [
+                    MediaManagerService,
+                    { provide: Firestore, useValue: mockFirestore },
+                    { provide: Functions, useValue: mockFunctions },
+                    { provide: PLATFORM_ID, useValue: 'server' },
+                ],
+            });
+            const service = TestBed.inject(MediaManagerService);
+            // The parent DbService is mocked out in this file, so it never sets
+            // up the injector its runInInjectionContext calls need.
+            (service as any).injector = TestBed.inject(Injector);
+            return service;
+        }
+
+        beforeEach(() => {
+            vi.mocked(onSnapshot).mockClear();
+        });
+
+        it('does not register a Firestore listener during SSR', async () => {
+            // Reached from the media page's ngOnInit. A listener registered on
+            // the server outlives the request injector @angular/fire captured;
+            // a later upload then fires its callback against a destroyed
+            // injector (NG0205) on a Firestore timer, killing the process.
+            const service = makeServerService();
+
+            await firstValueFrom(service.getMediaListFromFirestore(20));
+
+            expect(onSnapshot).not.toHaveBeenCalled();
+        });
+
+        it('emits an empty page so the media page can still render on the server', async () => {
+            const service = makeServerService();
+
+            const result = await firstValueFrom(service.getMediaListFromFirestore(20));
+
+            expect(result).toEqual({
+                items: [],
+                pagination: { pageSize: 20, totalItems: 0, lastVisible: undefined },
+            });
         });
     });
 });

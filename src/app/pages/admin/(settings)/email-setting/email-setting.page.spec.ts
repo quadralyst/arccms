@@ -107,8 +107,8 @@ describe('EmailSettingPageComponent', () => {
         expect(component.providerFormCache['resend']).toEqual(DEFAULT_EMAIL_SETTINGS.resend);
     });
 
-    it('should have three providers available', () => {
-        expect(component.providers.length).toBe(3);
+    it('should have four providers available (incl. Debug Provider)', () => {
+        expect(component.providers.length).toBe(4);
     });
 
     it('should start with provider list hidden', () => {

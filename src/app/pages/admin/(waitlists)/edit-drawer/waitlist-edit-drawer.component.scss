@@ -63,6 +63,18 @@
         margin-bottom: 8px;
         font-size: 14px;
         font-weight: 500;
+
+        // A toggle row is a flex pair (switch + text), not a block label. This
+        // has to be scoped here to out-specify `.form-group label` above —
+        // a bare `.toggle-label` loses to it, which left every switch sitting on
+        // the text baseline with no gap.
+        &.toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 0;
+            cursor: pointer;
+        }
     }
 
     .required {
@@ -139,16 +151,16 @@
     }
 }
 
-/* Toggle Styles */
+/* Toggle Styles — the switch itself. Row layout (flex/gap/centring) lives on
+   `.form-group label.toggle-label` above, where it can out-specify the block
+   `label` rule. */
 .toggle-label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-
     input[type="checkbox"] {
         width: 40px;
         height: 20px;
+        // Fixed track size — never let a long label squeeze the switch, which
+        // would also break its vertical centring.
+        flex: 0 0 auto;
         appearance: none;
         background: #e2e8f0;
         border-radius: 11px;
@@ -184,6 +196,15 @@
     }
 }
 
+/* Additional lists a form feeds. Rows reuse .toggle-label so each control is the
+   same switch as Active/Gamification above — previously these were unstyled
+   native checkboxes that also failed to centre against their label. */
+.feeds-lists {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .drawer {
@@ -211,4 +232,40 @@
             width: 100%;
         }
     }
+}
+
+/* U4.5: maps a form input to a contact field, so answers become audience data. */
+.field-map {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.field-map-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .form-control {
+        flex: 1 1 auto;
+    }
+}
+
+.field-map-input {
+    flex: 0 0 auto;
+    max-width: 40%;
+    background: #eef2f7;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #334155;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.field-map-arrow {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #94a3b8;
 }

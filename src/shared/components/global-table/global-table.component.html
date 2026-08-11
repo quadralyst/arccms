@@ -61,11 +61,11 @@
 
                         <!-- Badge Type -->
                         <ng-container *ngIf="col.type === 'badge'">
-                            <span class="status-badge" [class.active]="row[col.key]" [class.inactive]="!row[col.key]"
+                            <span class="status-badge"
+                                [class.active]="!col.badgeConfig?.textFn && badgeValue(col, row)"
+                                [class.inactive]="!col.badgeConfig?.textFn && !badgeValue(col, row)"
                                 [ngClass]="col.classFn ? col.classFn(row) : ''">
-                                {{ row[col.key] ? (col.badgeConfig?.trueText || 'Active') :
-                                (col.badgeConfig?.falseText
-                                || 'Inactive') }}
+                                {{ badgeText(col, row) }}
                             </span>
                         </ng-container>
 

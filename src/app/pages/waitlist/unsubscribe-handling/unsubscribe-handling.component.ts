@@ -8,8 +8,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
-import { doc, updateDoc } from '@angular/fire/firestore';
-import { Firestore } from '@angular/fire/firestore';
+import { Functions, httpsCallable } from '@angular/fire/functions';
 import { GaTrackingService } from '../../../../shared/services/ga-tracking.service';
 
 @Component({
@@ -153,7 +152,8 @@ import { GaTrackingService } from '../../../../shared/services/ga-tracking.servi
     `],
 })
 export class UnsubscribeHandlingComponent extends BaseComponent implements OnInit {
-    private firestore = inject(Firestore);
+    private route = inject(ActivatedRoute);
+    private functions = inject(Functions);
     private cdr = inject(ChangeDetectorRef);
     private gaTracking = inject(GaTrackingService);
 
@@ -185,15 +185,15 @@ export class UnsubscribeHandlingComponent extends BaseComponent implements OnIni
         this.success = false;
 
         try {
-            // Update WaitlistedUsers collection
-            const waitlistedUserRef = doc(this.firestore, 'WaitlistedUsers', this.userId);
-            await updateDoc(waitlistedUserRef, { isSubscribed: false });
-
-            // Update waitlist subcollection if waitlistId is provided
-            if (this.waitlistId) {
-                const userRef = doc(this.firestore, `Waitlists/${this.waitlistId}/users`, this.userId);
-                await updateDoc(userRef, { isSubscribed: false });
-            }
+            // U5: consent is written server-side. The browser used to set
+            // `isSubscribed:false` on both docs directly, which made consent
+            // client-writable and only half-applied it — no Suppression doc, no
+            // Contacts.consent update, no drip exit. The callable runs the same
+            // routine as the token-based one-click endpoint.
+            const call = httpsCallable<{ userId: string; waitlistId?: string }, { ok: boolean }>(
+                this.functions, 'unsubscribeLegacyLink',
+            );
+            await call({ userId: this.userId, waitlistId: this.waitlistId || undefined });
 
             this.success = true;
         } catch (error) {

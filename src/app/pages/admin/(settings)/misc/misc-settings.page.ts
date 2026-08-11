@@ -6,7 +6,7 @@
  * - Media upload constraints
  */
 
-import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, Injector, runInInjectionContext, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
@@ -171,6 +171,7 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
 })
 export class MiscSettingsPage implements OnInit {
   private firestore = inject(Firestore);
+  private injector = inject(Injector);
 
   settings = signal<IMiscSettings>(DEFAULT_MISC_SETTINGS);
   isSavingBranding = signal(false);
@@ -184,8 +185,7 @@ export class MiscSettingsPage implements OnInit {
 
   async loadSettings(): Promise<void> {
     try {
-      const docRef = doc(this.firestore, 'Settings', 'misc');
-      const docSnap = await getDoc(docRef);
+      const docSnap = await runInInjectionContext(this.injector, () => getDoc(doc(this.firestore, 'Settings', 'misc')));
       if (docSnap.exists()) {
         this.settings.set({ ...DEFAULT_MISC_SETTINGS, ...docSnap.data() });
       }

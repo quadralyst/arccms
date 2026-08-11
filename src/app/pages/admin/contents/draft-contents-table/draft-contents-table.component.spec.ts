@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { headerTestProviders } from '../../../../../test/header-test-providers';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DraftContentsTableComponent } from './draft-contents-table.component';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -100,6 +101,7 @@ describe('DraftContentsTableComponent', () => {
         await TestBed.configureTestingModule({
             imports: [DraftContentsTableComponent, NoopAnimationsModule],
             providers: [
+                ...headerTestProviders(),
                 { provide: DraftContentsStore, useValue: mockDraftContentsStore },
                 { provide: ContentsStore, useValue: mockContentsStore },
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },

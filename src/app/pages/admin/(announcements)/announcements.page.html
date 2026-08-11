@@ -1,0 +1,105 @@
+<div class="page-container">
+    <arc-page-header title="Announcements &amp; Notifications"
+        subtitle="Publish in-app announcements and configure which events notify your users.">
+    </arc-page-header>
+
+    <mat-tab-group>
+        <!-- Composer -->
+        <mat-tab label="Send announcement">
+            <div class="tab-body tab-form">
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Title</mat-label>
+                    <input matInput [(ngModel)]="title" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Body</mat-label>
+                    <textarea matInput rows="4" [(ngModel)]="body"></textarea>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Link (optional)</mat-label>
+                    <input matInput [(ngModel)]="link" placeholder="/some/page" />
+                </mat-form-field>
+
+                <div class="d-flex gap-3 align-items-center flex-wrap mb-3">
+                    <mat-form-field appearance="outline" style="width: 200px;">
+                        <mat-label>Audience</mat-label>
+                        <mat-select [(ngModel)]="audienceKind">
+                            <mat-option value="all">All users</mat-option>
+                            <mat-option value="role">By role</mat-option>
+                            <mat-option value="list">By list</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    @if (audienceKind === 'role') {
+                    <mat-form-field appearance="outline" style="width: 160px;">
+                        <mat-label>Role</mat-label>
+                        <input matInput [(ngModel)]="audienceRole" />
+                    </mat-form-field>
+                    }
+                    @if (audienceKind === 'list') {
+                    <mat-form-field appearance="outline" style="width: 280px;">
+                        <mat-label>Lists</mat-label>
+                        <mat-select multiple [(ngModel)]="includeListIds">
+                            @for (l of lists(); track l.id) {
+                            <mat-option [value]="l.id">{{ l.name }} ({{ l.memberCount || 0 }})</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                    }
+                    <mat-form-field appearance="outline" style="width: 240px;">
+                        <mat-label>Exclude lists (optional)</mat-label>
+                        <mat-select multiple [(ngModel)]="excludeListIds">
+                            @for (l of lists(); track l.id) {
+                            <mat-option [value]="l.id" [disabled]="includeListIds.includes(l.id)">
+                                {{ l.name }}
+                            </mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-slide-toggle [(ngModel)]="sendEmail" color="primary">Also send email</mat-slide-toggle>
+                </div>
+
+                <p class="small text-muted mb-3">
+                    Announcements create an in-app notification, so only people with an account
+                    receive them — contacts on a list without a linked account are skipped.
+                </p>
+
+                <button mat-flat-button color="primary" [disabled]="sending() || !canPublish()" (click)="publish()">
+                    <mat-icon>campaign</mat-icon> Publish announcement
+                </button>
+            </div>
+        </mat-tab>
+
+        <!-- Notification types -->
+        <mat-tab label="Notification types">
+            <div class="tab-body">
+                @for (t of types(); track t.key) {
+                <div class="tab-form d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <div>
+                        <div class="fw-medium">{{ t.label }}</div>
+                        <div class="small text-muted">{{ t.key }}</div>
+                    </div>
+                    <div class="d-flex gap-4 align-items-center">
+                        <mat-slide-toggle [(ngModel)]="t.enabled" color="primary">Enabled</mat-slide-toggle>
+                        <mat-slide-toggle [(ngModel)]="t.email" color="primary">Email</mat-slide-toggle>
+                    </div>
+                </div>
+                }
+                <button class="mt-3" mat-flat-button color="primary" (click)="saveTypes()">Save types</button>
+            </div>
+        </mat-tab>
+
+        <!-- Event mappings -->
+        <mat-tab label="Event mappings">
+            <div class="tab-body">
+                <p class="text-muted">Built-in event hooks. Enabling a mapping runs its configured actions in addition to the direct behavior — enable with care to avoid duplicate sends.</p>
+                @for (m of mappings(); track m.key) {
+                <div class="mapping-row d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <code>{{ m.key }}</code>
+                    <mat-slide-toggle [(ngModel)]="m.enabled" color="primary">Enabled</mat-slide-toggle>
+                </div>
+                }
+                <button class="mt-3" mat-flat-button color="primary" (click)="saveMappings()">Save mappings</button>
+            </div>
+        </mat-tab>
+    </mat-tab-group>
+</div>

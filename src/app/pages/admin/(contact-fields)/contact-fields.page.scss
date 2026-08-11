@@ -1,0 +1,23 @@
+/* Explains how fields reach a send, since the connection (form → contact →
+   template tag) spans three screens. */
+.fields-note {
+    background: #f1f5f9;
+    border-left: 3px solid #94a3b8;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 16px;
+
+    i {
+        margin-right: 6px;
+        color: #64748b;
+    }
+}
+
+code {
+    background: #eef2f7;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+}

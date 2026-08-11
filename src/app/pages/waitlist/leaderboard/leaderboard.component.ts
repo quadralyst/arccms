@@ -53,7 +53,8 @@ export class LeaderboardComponent extends BaseComponent implements OnInit {
             this.waitlistedUserId = params.get('waitlisteduserid') || '';
             this.showPersonalStats = !!this.waitlistedUserId;
 
-            // Load personal data first (needed for leaderboard user position lookup)
+            // Personal record + referrals, in one call. Loaded first because the
+            // leaderboard uses it to locate this member's own position.
             if (this.waitlistedUserId) {
                 await this.loadPersonalUserData();
             }
@@ -67,11 +68,6 @@ export class LeaderboardComponent extends BaseComponent implements OnInit {
                 if (waitlist) {
                     this.router.navigate([`/leaderboard/${waitlist.id}`], { replaceUrl: true });
                 }
-            }
-
-            // Load referrals in parallel (doesn't block leaderboard)
-            if (this.waitlistedUserId) {
-                this.loadAllReferralsData();
             }
 
             // Track leaderboard view
@@ -132,10 +128,14 @@ export class LeaderboardComponent extends BaseComponent implements OnInit {
                     this.displayLeaderboard = [];
                 }
             } else {
-                // For overall leaderboard, attempt cloud function or fallback
+                // Point the callable at this form's members. It was passed an empty
+                // string, which is falsy, so it fell back to its default of reading
+                // `WaitlistedUsers` — and that copy of `totalReferrals` went stale when
+                // U6 moved referral crediting onto the member doc alone, so the rank
+                // came from counts that stopped updating.
                 const response = await this.waitlistService.fetchLeaderboard(
                     this.personalUserData?.email || '',
-                    '',
+                    this.waitlistId ? `Waitlists/${this.waitlistId}/users` : '',
                 );
 
                 if (response?.displayLeaderboard?.length > 0) {
@@ -159,21 +159,21 @@ export class LeaderboardComponent extends BaseComponent implements OnInit {
         }
     }
 
+    /**
+     * The member's record and their referral history, in one round trip.
+     *
+     * These were two separate reads against `WaitlistedUsers` — the record, then the
+     * referrals subcollection. #51 moved both server-side, and the callable returns
+     * them together, so fetching twice would just be two calls for one payload.
+     */
     async loadPersonalUserData(): Promise<void> {
         try {
-            this.personalUserData = await this.waitlistService.getWaitlistedUser(this.waitlistedUserId);
+            const view = await this.waitlistService.getMemberView(this.waitlistId, this.waitlistedUserId);
+            this.personalUserData = (view?.member as any) ?? null;
+            this.allReferralsData = view?.referrals ?? [];
             this.cdr.detectChanges();
         } catch (error) {
             console.error('Error loading personal user data:', error);
-        }
-    }
-
-    async loadAllReferralsData(): Promise<void> {
-        try {
-            this.allReferralsData = await this.waitlistService.getAllReferralsData(this.waitlistedUserId);
-            this.cdr.detectChanges();
-        } catch (error) {
-            console.error('Error loading referrals data:', error);
         }
     }
 

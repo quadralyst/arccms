@@ -121,13 +121,22 @@ describe('ExportDataService', () => {
     });
 
     describe('getCollectionGroups', () => {
-        it('should return 4 groups in correct order (no legacy)', () => {
+        it('should return 5 groups in correct order (no legacy)', () => {
             const groups = service.getCollectionGroups();
-            expect(groups).toHaveLength(4);
+            expect(groups).toHaveLength(5);
             expect(groups[0].id).toBe('content');
             expect(groups[1].id).toBe('users-waitlists');
-            expect(groups[2].id).toBe('settings-media');
-            expect(groups[3].id).toBe('email');
+            // Audience (Contacts/Lists/ContactTags/Suppression) — added in U2.
+            expect(groups[2].id).toBe('audience');
+            expect(groups[3].id).toBe('settings-media');
+            expect(groups[4].id).toBe('email');
+        });
+
+        it('should group the audience collections together', () => {
+            const groups = service.getCollectionGroups();
+            const audience = groups.find((g) => g.id === 'audience')!;
+            const names = audience.collections.map((c) => c.name);
+            expect(names).toEqual(expect.arrayContaining(['Contacts', 'Lists', 'ContactTags', 'Suppression']));
         });
 
         it('should put ContentTypes in content group', () => {

@@ -110,6 +110,11 @@
                     [initialData]="getProviderData('resend')"
                     (componentReady)="onProviderComponentReady($event)" />
             }
+            @case ('debug_log') {
+                <app-debug-provider
+                    [initialData]="getProviderData('debug_log')"
+                    (componentReady)="onProviderComponentReady($event)" />
+            }
         }
 
         <!-- Sender Information Section -->
@@ -170,7 +175,8 @@
             </mat-card-content>
         </mat-card>
 
-        <!-- Provider Rate Limits -->
+        <!-- Provider Rate Limits (not applicable to the simulated debug provider) -->
+        @if (emailForm.get('activeProvider')?.value !== 'debug_log') {
         <mat-card class="mb-4">
             <mat-card-header>
                 <mat-card-title>
@@ -213,6 +219,7 @@
                 </div>
             </mat-card-content>
         </mat-card>
+        }
 
         <!-- Auto-Purge Email Logs -->
         <mat-card class="mb-4" formGroupName="autoPurge">
@@ -242,9 +249,70 @@
             </mat-card-content>
         </mat-card>
 
+        <!-- Feature Toggles -->
+        <mat-card class="mb-4">
+            <mat-card-header>
+                <mat-card-title>
+                    <i class="fa-solid fa-sliders me-2"></i>
+                    Email Features
+                </mat-card-title>
+                <mat-card-subtitle>
+                    Turn individual email types on or off. The master switch above overrides all of these.
+                </mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="pt-3">
+                @if (!emailEnabled()) {
+                <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Email is turned off. Enable email above to configure and use these features.</span>
+                </div>
+                }
+
+                <div formGroupName="features" class="feature-toggle-list">
+                    @for (f of featureMeta; track f.key) {
+                    <div class="feature-toggle-row d-flex align-items-start justify-content-between gap-3 py-2">
+                        <div class="feature-toggle-label">
+                            <div class="fw-medium">{{ f.label }}</div>
+                            <div class="text-muted small">{{ f.description }}</div>
+                        </div>
+                        <mat-slide-toggle
+                            [formControlName]="f.key"
+                            color="primary"
+                            [disabled]="!emailEnabled()"
+                            (change)="onFeatureToggleChange()">
+                        </mat-slide-toggle>
+                    </div>
+                    }
+                </div>
+
+                <hr class="my-3" />
+
+                <div class="feature-toggle-row d-flex align-items-start justify-content-between gap-3 py-2">
+                    <div class="feature-toggle-label">
+                        <div class="fw-medium">Require email verification on signup</div>
+                        <div class="text-muted small">New users must confirm their email via a one-time code before their account is verified. Forced off while email is disabled.</div>
+                    </div>
+                    <mat-slide-toggle
+                        formControlName="requireSignupVerification"
+                        color="primary"
+                        [disabled]="!emailEnabled()"
+                        (change)="onFeatureToggleChange()">
+                    </mat-slide-toggle>
+                </div>
+
+            </mat-card-content>
+        </mat-card>
+
         <!-- Action Buttons -->
         <div class="action-section">
+            @if (emailForm.get('activeProvider')?.value === 'debug_log') {
+            <div class="alert alert-warning small mb-3">
+                <i class="fa-solid fa-bug me-1"></i>
+                <strong>Debug Provider (Log Only)</strong> needs no connection test — emails are recorded in Email Logs, not sent. Just Save.
+            </div>
+            }
             <div class="d-flex justify-content-between align-items-center">
+                @if (emailForm.get('activeProvider')?.value !== 'debug_log') {
                 <button mat-stroked-button type="button" (click)="testConnection()"
                     [disabled]="isTesting() || !isProviderConfigValid()" [class.test-success]="testPassed()"
                     class="test-btn">
@@ -259,15 +327,17 @@
                     Send a Test Email
                     }
                 </button>
+                } @else { <span></span> }
 
                 <div class="save-section">
-                    @if (!testPassed() && emailForm.dirty) {
+                    @if (!testPassed() && emailForm.dirty && emailForm.get('activeProvider')?.value !== 'debug_log') {
                     <span class="save-hint text-muted me-3">
                         <i class="fa-solid fa-info-circle me-1"></i>
                         Please test connection before saving
                     </span>
                     }
-                    <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || !testPassed()">
+                    <button mat-flat-button color="primary" type="submit"
+                        [disabled]="isSaving() || (!testPassed() && emailForm.get('activeProvider')?.value !== 'debug_log')">
                         @if (isSaving()) {
                         <mat-spinner diameter="20" class="me-2"></mat-spinner>
                         } @else {

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
+import { Component, inject, Injector, OnInit, runInInjectionContext, signal, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router, NavigationEnd } from '@angular/router';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
@@ -48,6 +48,7 @@ export class PoweredByFooterComponent implements OnInit {
     private firestore = inject(Firestore);
     private router = inject(Router);
     private platformId = inject(PLATFORM_ID);
+    private injector = inject(Injector);
 
     showBadge = signal(true);
     private isAdminRoute = signal(false);
@@ -81,8 +82,8 @@ export class PoweredByFooterComponent implements OnInit {
 
     private async loadSettings(): Promise<void> {
         try {
-            const docRef = doc(this.firestore, 'Settings', 'misc');
-            const docSnap = await getDoc(docRef);
+            const docRef = runInInjectionContext(this.injector, () => doc(this.firestore, 'Settings', 'misc'));
+            const docSnap = await runInInjectionContext(this.injector, () => getDoc(docRef));
             if (docSnap.exists()) {
                 const data = docSnap.data() as IMiscSettings;
                 this.poweredByEnabled.set(data.showPoweredBy ?? DEFAULT_MISC_SETTINGS.showPoweredBy ?? true);

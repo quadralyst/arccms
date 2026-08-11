@@ -15,6 +15,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { Firestore } from '@angular/fire/firestore';
+import { Functions } from '@angular/fire/functions';
 import { MatDialog } from '@angular/material/dialog';
 import TemplatesComponent from './templates.page';
 import { BroadcastEmailStore } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.store';
@@ -91,6 +92,9 @@ describe('TemplatesComponent', () => {
             ],
             providers: [
                 { provide: Firestore, useValue: mockFirestore },
+                // U5.5: the page fetches the default templates from the server
+                // (`getWaitlistTemplateDefaults`) instead of keeping its own copy.
+                { provide: Functions, useValue: {} },
                 { provide: MatDialog, useValue: mockDialog },
                 { provide: ActivatedRoute, useValue: mockActivatedRoute },
                 { provide: Router, useValue: mockRouter },
@@ -435,6 +439,76 @@ describe('TemplatesComponent', () => {
 
         it('should have enableTemplateAndSave method', () => {
             expect(typeof component.enableTemplateAndSave).toBe('function');
+        });
+
+        describe('onTemplateActiveChange — confirmation before an immediate write', () => {
+            // Unchecking persists straight away; there is no Save step. Turning the OTP
+            // template off stops every new signup on this form being verified, and it
+            // also writes `otpEnabled`, which is what the public page reads. So it must
+            // ask first — an accidental click should not be able to do that silently.
+            const uncheck = () => ({ target: { checked: false } } as unknown as Event);
+            const check = () => ({ target: { checked: true } } as unknown as Event);
+
+            // The component is standalone and imports MatDialogModule, so its own
+            // injector supplies the real MatDialog and the TestBed provider never wins.
+            // Spy on the instance the component actually holds.
+            function dialogReturning(confirmed: boolean) {
+                return vi.spyOn((component as any).dialog, 'open').mockReturnValue({
+                    afterClosed: () => of(confirmed),
+                } as any);
+            }
+
+            it('asks for confirmation instead of saving straight away', () => {
+                const open = dialogReturning(false);
+                const save = vi.spyOn(component, 'saveTemplate').mockResolvedValue(undefined);
+
+                component.onTemplateActiveChange(uncheck());
+
+                expect(open).toHaveBeenCalled();
+                expect(save).not.toHaveBeenCalled();
+            });
+
+            it('restores the checkbox and writes nothing when declined', () => {
+                dialogReturning(false);
+                const save = vi.spyOn(component, 'saveTemplate').mockResolvedValue(undefined);
+                component.templateForm.patchValue({ isActive: false });
+
+                component.onTemplateActiveChange(uncheck());
+
+                expect(component.templateForm.get('isActive')?.value).toBe(true);
+                expect(save).not.toHaveBeenCalled();
+            });
+
+            it('saves once confirmed', () => {
+                dialogReturning(true);
+                const save = vi.spyOn(component, 'saveTemplate').mockResolvedValue(undefined);
+
+                component.onTemplateActiveChange(uncheck());
+
+                expect(save).toHaveBeenCalledTimes(1);
+            });
+
+            it('does not prompt when enabling — that still needs an explicit Save', () => {
+                const open = dialogReturning(false);
+                const save = vi.spyOn(component, 'saveTemplate').mockResolvedValue(undefined);
+
+                component.onTemplateActiveChange(check());
+
+                expect(open).not.toHaveBeenCalled();
+                expect(save).not.toHaveBeenCalled();
+            });
+
+            it('names the consequence for the tab being turned off', () => {
+                const open = dialogReturning(false);
+                component.activeTab.set('waitlist_verify_otp_email');
+
+                component.onTemplateActiveChange(uncheck());
+
+                const msg = (open.mock.calls[0][1] as any).data.dialogMessage as string;
+                expect(msg).toMatch(/verification/i);
+                // The immediacy is the part that surprised a reader of the old code.
+                expect(msg).toMatch(/immediately/i);
+            });
         });
 
         it('should have onTemplateActiveChange method', () => {

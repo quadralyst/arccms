@@ -29,6 +29,10 @@ export class EmailConfigStatusService {
   isEmailConfigured = signal(false);
   isLoading = signal(true);
   bannerDismissed = signal(false);
+  /** E4 — mirror of Settings/email.requireSignupVerification (public status doc). */
+  requireSignupVerification = signal(false);
+  /** True when the simulated "Debug Provider (Log Only)" is the active provider. */
+  debugMode = signal(false);
 
   private unsubscribe: (() => void) | null = null;
 
@@ -42,8 +46,11 @@ export class EmailConfigStatusService {
    */
   private initializeListener(): void {
     if (!isPlatformBrowser(this.platformId)) {
-      this.isLoading.set(false);
-      this._isLoading.next(false);
+      // Leave isLoading at its default (true) on the server. Forcing it false here
+      // makes the SSR render disagree with the client's own pre-listener state
+      // (also loading=true until the first snapshot arrives), and that mismatch at
+      // the hydration boundary leaves the affected @if content permanently inert —
+      // present in the DOM but with no live view/listeners attached to it.
       return;
     }
 
@@ -58,6 +65,8 @@ export class EmailConfigStatusService {
 
         this._isEmailConfigured.next(enabled);
         this.isEmailConfigured.set(enabled);
+        this.requireSignupVerification.set(!!data?.['requireSignupVerification']);
+        this.debugMode.set(!!data?.['debugMode']);
 
         this._isLoading.next(false);
         this.isLoading.set(false);
@@ -66,6 +75,8 @@ export class EmailConfigStatusService {
         console.error('Error listening to email settings:', error);
         this._isEmailConfigured.next(false);
         this.isEmailConfigured.set(false);
+        this.requireSignupVerification.set(false);
+        this.debugMode.set(false);
         this._isLoading.next(false);
         this.isLoading.set(false);
       }
@@ -108,6 +119,15 @@ export class EmailConfigStatusService {
     return (
       !this.isEmailConfigured() && !this.bannerDismissed() && !this.isLoading()
     );
+  }
+
+  /**
+   * E4 — whether the signup flow should require email OTP verification:
+   * email must be configured AND the admin toggle must be on. When email is
+   * disabled this is always false (the step is skipped).
+   */
+  shouldVerifySignup(): boolean {
+    return this.isEmailConfigured() && this.requireSignupVerification();
   }
 
   /**

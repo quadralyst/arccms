@@ -6,15 +6,16 @@
  */
 
 export const environment = {
-    production: true,
+    production: false,
 
     firebaseConfig: {
-        apiKey: 'YOUR_API_KEY',
-        authDomain: 'your-project.firebaseapp.com',
-        projectId: 'your-project-id',
-        storageBucket: 'your-project.appspot.com',
-        messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-        appId: 'YOUR_APP_ID',
-        measurementId: 'G-YOUR_MEASUREMENT_ID',
+        apiKey: 'AIzaSyBBCl1esmI7bPFTRAdxm0SbR8Z3R-8LwdY',
+        authDomain: 'xlm-project-864ff.firebaseapp.com',
+        databaseURL: 'https://xlm-project-864ff.firebaseio.com',
+        projectId: 'xlm-project-864ff',
+        storageBucket: 'xlm-project-864ff.appspot.com',
+        messagingSenderId: '957465473852',
+        appId: '1:957465473852:web:8c4b169c444d18b6a36439',
+        measurementId: 'G-7JE7LY5876',
     },
 };

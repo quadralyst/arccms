@@ -3,6 +3,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import type { BroadcastEmailDoc, ProviderRateLimits, EmailSettings } from '../types.js';
 import { processRecipientBatch } from './broadcastHelper.js';
+import { runAudienceBroadcast } from './broadcastAudience.js';
 import { legacyToProviderLimits, checkQuota } from '../mail-config/emailCounter.js';
 
 /**
@@ -40,8 +41,13 @@ export const continueBroadcast = onDocumentCreated(
 
         const broadcastData = broadcastSnap.data() as BroadcastEmailDoc;
 
-        // Only resume paused broadcasts
-        if (broadcastData.status !== 'paused') {
+        // Resume paused broadcasts, and start scheduled AUDIENCE broadcasts the
+        // scheduler flipped to 'queued' (they don't re-fire the create trigger).
+        // Legacy 'queued' broadcasts are handled by processBroadcast on create.
+        const resumable =
+            broadcastData.status === 'paused' ||
+            (broadcastData.status === 'queued' && !!broadcastData.audience);
+        if (!resumable) {
             console.log(
                 `continueBroadcast: ${broadcastId} status is '${broadcastData.status}', skipping.`,
             );
@@ -73,10 +79,11 @@ export const continueBroadcast = onDocumentCreated(
 
         // Read active provider for quota checking
         let activeProvider = 'smtp';
+        let emailSettings: EmailSettings | undefined;
         try {
             const settingsSnap = await db.collection('Settings').doc('email').get();
-            const settings = settingsSnap.data() as EmailSettings | undefined;
-            activeProvider = settings?.activeProvider || 'smtp';
+            emailSettings = settingsSnap.data() as EmailSettings | undefined;
+            activeProvider = emailSettings?.activeProvider || 'smtp';
         } catch {
             /* use default */
         }
@@ -84,7 +91,9 @@ export const continueBroadcast = onDocumentCreated(
         // Atomically claim this broadcast (prevents duplicate processing on retries)
         const acquired = await db.runTransaction(async (txn) => {
             const snap = await txn.get(broadcastRef);
-            if (snap.data()?.status !== 'paused') return false;
+            const st = snap.data()?.status;
+            const canStart = st === 'paused' || (st === 'queued' && !!snap.data()?.audience);
+            if (!canStart) return false;
             txn.update(broadcastRef, { status: 'processing', updatedAt: Timestamp.now() });
             return true;
         });
@@ -102,6 +111,13 @@ export const continueBroadcast = onDocumentCreated(
         };
 
         try {
+            // Phase 6: audience broadcasts resume by paging Contacts from the cursor.
+            if (broadcastData.audience) {
+                await runAudienceBroadcast(broadcastRef, broadcastData, broadcastId, providerLimits, quotaChecker, PROCESSING_BUDGET_MS);
+                if (docRef) await docRef.delete();
+                return;
+            }
+
             const result = await processRecipientBatch({
                 broadcastRef,
                 broadcastData,
@@ -112,6 +128,7 @@ export const continueBroadcast = onDocumentCreated(
                 initialSentCount: broadcastData.sentCount || 0,
                 initialFailedCount: broadcastData.failedCount || 0,
                 quotaChecker,
+                emailSettings,
             });
 
             if (result.quotaExhausted) {

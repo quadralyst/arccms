@@ -76,23 +76,18 @@ describe('Side Navbar - Slug Validation', () => {
 
     it('should generate correct routes for content types with valid slugs', () => {
         const validTypes = mockContentTypes.filter(t => !!t.slug);
-        const dynamicItems = validTypes.map((t: ContentType) => ({
+        const contentTypeLinks = validTypes.map((t: ContentType) => ({
             label: t.name,
-            subItems: [
-                { label: `List ${t.name}`, route: `/admin/contents/${t.slug}` },
-                { label: `Add ${t.name}`, route: `/admin/contents/${t.slug}/add` }
-            ]
+            route: `/admin/contents/${t.slug}`,
         }));
 
-        const blogPostItem = dynamicItems.find(item => item.label === 'Blog Post');
+        const blogPostItem = contentTypeLinks.find(item => item.label === 'Blog Post');
         expect(blogPostItem).toBeDefined();
-        expect(blogPostItem?.subItems?.[0].route).toBe('/admin/contents/blog-post');
-        expect(blogPostItem?.subItems?.[1].route).toBe('/admin/contents/blog-post/add');
+        expect(blogPostItem?.route).toBe('/admin/contents/blog-post');
 
-        const productItem = dynamicItems.find(item => item.label === 'Product');
+        const productItem = contentTypeLinks.find(item => item.label === 'Product');
         expect(productItem).toBeDefined();
-        expect(productItem?.subItems?.[0].route).toBe('/admin/contents/product');
-        expect(productItem?.subItems?.[1].route).toBe('/admin/contents/product/add');
+        expect(productItem?.route).toBe('/admin/contents/product');
     });
 
     it('should log warning for content types without slugs', () => {
@@ -114,14 +109,11 @@ describe('Side Navbar - Slug Validation', () => {
 
     it('should not include undefined slugs in routes', () => {
         const validTypes = mockContentTypes.filter(t => !!t.slug);
-        const routes = validTypes.flatMap(t => [
-            `/admin/contents/${t.slug}`,
-            `/admin/contents/${t.slug}/add`
-        ]);
+        const routes = validTypes.map(t => `/admin/contents/${t.slug}`);
 
         routes.forEach(route => {
             expect(route).not.toContain('undefined');
-            expect(route).toMatch(/^\/admin\/contents\/[a-z-]+(\/add)?$/);
+            expect(route).toMatch(/^\/admin\/contents\/[a-z-]+$/);
         });
     });
 });
@@ -129,14 +121,16 @@ describe('Side Navbar - Slug Validation', () => {
 describe('NavbarComponent', () => {
     let component: NavbarComponent;
     let fixture: any;
+    const contentTypesSignal = signal<Partial<ContentType>[]>([]);
 
     beforeEach(async () => {
+        contentTypesSignal.set([]);
         const authStoreMock = {
             currentUser: signal({ name: 'Test User', role: 'admin', photo: '' }),
             logout: vi.fn(),
         };
         const contentTypesStoreMock = {
-            items: signal([]),
+            items: contentTypesSignal,
             getAll: vi.fn(),
         };
         const waitlistAdminStoreMock = {
@@ -170,6 +164,59 @@ describe('NavbarComponent', () => {
         fixture = TestBed.createComponent(NavbarComponent);
         component = fixture.componentInstance;
         fixture.detectChanges();
+    });
+
+    it('should group content types under a single Content menu with Content types first', () => {
+        contentTypesSignal.set([
+            { id: '1', name: 'Articles', slug: 'articles' },
+            { id: '2', name: 'Impact', slug: 'impact' },
+        ]);
+
+        const items = component.menuItems();
+        const contentGroup = items.find(i => i.label === 'Content');
+        expect(contentGroup).toBeDefined();
+        expect(contentGroup?.route).toBeUndefined();
+        expect(contentGroup?.subItems?.[0]).toMatchObject({
+            label: 'Content types',
+            route: '/admin/contents/content-types',
+        });
+        expect(contentGroup?.subItems?.slice(1).map(s => s.label)).toEqual(['Articles', 'Impact']);
+        expect(contentGroup?.subItems?.map(s => s.route)).toEqual([
+            '/admin/contents/content-types',
+            '/admin/contents/articles',
+            '/admin/contents/impact',
+        ]);
+
+        // No standalone "Contents Type" item and no "Add ..." entries anywhere
+        expect(items.find(i => i.label === 'Contents Type')).toBeUndefined();
+        const allSubLabels = items.flatMap(i => i.subItems?.map(s => s.label) ?? []);
+        expect(allSubLabels.some(l => l.startsWith('Add '))).toBe(false);
+        expect(allSubLabels.some(l => l.startsWith('List '))).toBe(false);
+    });
+
+    it('should auto-expand the Content group when a content route is active', () => {
+        contentTypesSignal.set([
+            { id: '1', name: 'Articles', slug: 'articles' },
+            { id: '2', name: 'Impact', slug: 'impact' },
+        ]);
+
+        // Not on a content route yet -> group stays collapsed.
+        component.currentUrl.set('/admin/dashboard');
+        expect(component.menuItems().find(i => i.label === 'Content')?.isOpen).toBe(false);
+
+        // Navigating to a content type's page auto-opens its parent group.
+        component.currentUrl.set('/admin/contents/articles');
+        expect(component.menuItems().find(i => i.label === 'Content')?.isOpen).toBe(true);
+    });
+
+    it('should honour an explicit toggle over route-based auto-expand', () => {
+        component.currentUrl.set('/admin/dashboard');
+        const audience = component.menuItems().find(i => i.label === 'Audience')!;
+        expect(audience.isOpen).toBe(false);
+
+        // User expands a group that has no active child; it must stay open after a recompute.
+        component.toggleDropdown(audience);
+        expect(component.menuItems().find(i => i.label === 'Audience')?.isOpen).toBe(true);
     });
 
     it('should have About external link above Logout', () => {
