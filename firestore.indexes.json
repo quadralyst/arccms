@@ -147,6 +147,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "CreditLedger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "providerSubscriptionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

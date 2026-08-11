@@ -49,7 +49,7 @@ export const routeMeta: RouteMeta = {
               <div class="detail-body">
                 @if (p.description) { <p class="desc">{{ p.description }}</p> }
 
-                <div class="field"><span class="k">Dodo Product ID</span><span class="v mono">{{ p.dodoProductId || '—' }}</span></div>
+                <div class="field"><span class="k">Dodo Product ID</span><span class="v mono">{{ p.providerProductIds?.dodo || legacyDodoId(p) || '—' }}</span></div>
                 <div class="field"><span class="k">Type</span><span class="v">{{ p.type === 'subscription' ? 'Subscription' : 'One-time' }}</span></div>
                 @if (p.type === 'subscription') {
                   <div class="field"><span class="k">Interval</span><span class="v">{{ p.interval === 'year' ? 'Yearly' : 'Monthly' }}</span></div>
@@ -172,6 +172,22 @@ export const routeMeta: RouteMeta = {
                                         </mat-form-field>
                                     </div>
                                 }
+                                @if (form.get('type')?.value === 'one_time') {
+                                    <div class="col-md-3">
+                                        <mat-form-field appearance="outline" class="w-100">
+                                            <mat-label>Free-updates years</mat-label>
+                                            <input matInput type="number" formControlName="updatesYears" />
+                                            <mat-hint>Lifetime access; updates for N years</mat-hint>
+                                        </mat-form-field>
+                                    </div>
+                                }
+                                <div class="col-md-3">
+                                    <mat-form-field appearance="outline" class="w-100">
+                                        <mat-label>Credits granted</mat-label>
+                                        <input matInput type="number" formControlName="creditsGranted" />
+                                        <mat-hint>{{ form.get('type')?.value === 'subscription' ? 'Per renewal' : 'Per purchase' }} · 0 = none</mat-hint>
+                                    </mat-form-field>
+                                </div>
                             </div>
                             <div class="row">
                                 <div class="col-md-3">
@@ -192,6 +208,22 @@ export const routeMeta: RouteMeta = {
                                 </div>
                             </div>
 
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <mat-form-field appearance="outline" class="w-100">
+                                        <mat-label>Base Price / Amount</mat-label>
+                                        <input matInput type="number" formControlName="price" />
+                                        <mat-hint>Base product price (used for display on pricing page)</mat-hint>
+                                    </mat-form-field>
+                                </div>
+                                <div class="col-md-3">
+                                    <mat-form-field appearance="outline" class="w-100">
+                                        <mat-label>Currency</mat-label>
+                                        <input matInput formControlName="currency" placeholder="USD" />
+                                    </mat-form-field>
+                                </div>
+                            </div>
+
                             <!-- Pricing tiers -->
                             <div class="tiers-section">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -199,13 +231,17 @@ export const routeMeta: RouteMeta = {
                                     <button mat-stroked-button type="button" (click)="addTier()"><i class="fa-solid fa-plus me-1"></i>Add tier</button>
                                 </div>
                                 <p class="text-muted small">Buyers are assigned the first tier whose cumulative limit isn't exceeded. Set limit to 0 for the final "everyone else" tier. The discount code must exist in Dodo (its redemption limit enforces the cap).</p>
+                                @if (form.get('type')?.value === 'subscription') {
+                                    <p class="text-warning small"><i class="fa-solid fa-triangle-exclamation me-1"></i><strong>Grandfathering:</strong> for subscription tiers, the Dodo discount code must be configured as <strong>recurring</strong> so the early-bird price persists on every renewal. A one-time code only discounts the first payment.</p>
+                                }
                                 <div formArrayName="tiers">
                                     @for (tier of tiers.controls; track $index; let i = $index) {
                                         <div class="row tier-row" [formGroupName]="i">
-                                            <div class="col-md-3"><mat-form-field appearance="outline" class="w-100"><mat-label>Label</mat-label><input matInput formControlName="label" /></mat-form-field></div>
+                                            <div class="col-md-2"><mat-form-field appearance="outline" class="w-100"><mat-label>Label</mat-label><input matInput formControlName="label" /></mat-form-field></div>
                                             <div class="col-md-2"><mat-form-field appearance="outline" class="w-100"><mat-label>Limit</mat-label><input matInput type="number" formControlName="maxCount" /></mat-form-field></div>
                                             <div class="col-md-3"><mat-form-field appearance="outline" class="w-100"><mat-label>Discount code</mat-label><input matInput formControlName="discountCode" /></mat-form-field></div>
-                                            <div class="col-md-2"><mat-form-field appearance="outline" class="w-100"><mat-label>Off %</mat-label><input matInput type="number" formControlName="discountPct" /></mat-form-field></div>
+                                            <div class="col-md-1"><mat-form-field appearance="outline" class="w-100"><mat-label>Off %</mat-label><input matInput type="number" formControlName="discountPct" /></mat-form-field></div>
+                                            <div class="col-md-2"><mat-form-field appearance="outline" class="w-100"><mat-label>Price</mat-label><input matInput type="number" formControlName="price" /></mat-form-field></div>
                                             <div class="col-md-2 d-flex align-items-center"><button mat-icon-button color="warn" type="button" (click)="removeTier(i)"><mat-icon>delete</mat-icon></button></div>
                                         </div>
                                     }
@@ -319,6 +355,10 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
             type: ['subscription', Validators.required],
             interval: ['month'],
             trialDays: [0],
+            updatesYears: [0],
+            creditsGranted: [0],
+            price: [0],
+            currency: ['USD'],
             premiumType: ['', Validators.required],
             tierRank: [1, Validators.required],
             active: [true],
@@ -326,12 +366,13 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         });
     }
 
-    private tierGroup(t?: Partial<{ label: string; maxCount: number; discountCode: string; discountPct: number }>): FormGroup {
+    private tierGroup(t?: Partial<{ label: string; maxCount: number; discountCode: string; discountPct: number; price: number }>): FormGroup {
         return this.fb.group({
             label: [t?.label ?? ''],
             maxCount: [t?.maxCount ?? 0],
             discountCode: [t?.discountCode ?? ''],
             discountPct: [t?.discountPct ?? 0],
+            price: [t?.price ?? 0],
         });
     }
 
@@ -397,6 +438,11 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         this.editProduct(p);
     }
 
+    /** Legacy flat `dodoProductId` on pre-migration product docs (before providerProductIds). */
+    legacyDodoId(p: IProduct): string | undefined {
+        return (p as { dodoProductId?: string }).dodoProductId;
+    }
+
     openCreate(): void {
         this.editingId.set(null);
         this.buildForm();
@@ -407,8 +453,11 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         this.editingId.set(p.id);
         this.buildForm();
         this.form.patchValue({
-            name: p.name, dodoProductId: p.dodoProductId, description: p.description ?? '',
+            name: p.name, dodoProductId: p.providerProductIds?.dodo ?? this.legacyDodoId(p) ?? '', description: p.description ?? '',
             type: p.type, interval: p.interval ?? 'month', trialDays: p.trialDays ?? 0,
+            updatesYears: p.updatesYears ?? 0,
+            creditsGranted: p.creditsGranted ?? 0,
+            price: p.price ?? 0, currency: p.currency ?? 'USD',
             premiumType: p.premiumType, tierRank: p.tierRank, active: p.active,
         });
         (p.tiers ?? []).forEach((t) => this.tiers.push(this.tierGroup(t)));
@@ -424,16 +473,20 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         const v = this.form.getRawValue();
         const payload = {
             name: v.name,
-            dodoProductId: v.dodoProductId,
+            providerProductIds: { dodo: v.dodoProductId },
             description: v.description,
             type: v.type,
             interval: v.type === 'subscription' ? v.interval : undefined,
             trialDays: v.type === 'subscription' ? Number(v.trialDays) || 0 : 0,
+            updatesYears: v.type === 'one_time' ? Number(v.updatesYears) || 0 : 0,
+            creditsGranted: Number(v.creditsGranted) || 0,
+            price: Number(v.price) || 0,
+            currency: v.currency || 'USD',
             premiumType: v.premiumType,
             tierRank: Number(v.tierRank) || 0,
             active: v.active,
-            tiers: (v.tiers ?? []).map((t: { label: string; maxCount: number; discountCode: string; discountPct: number }) => ({
-                label: t.label, maxCount: Number(t.maxCount) || 0, discountCode: t.discountCode, discountPct: Number(t.discountPct) || 0,
+            tiers: (v.tiers ?? []).map((t: { label: string; maxCount: number; discountCode: string; discountPct: number; price: number }) => ({
+                label: t.label, maxCount: Number(t.maxCount) || 0, discountCode: t.discountCode, discountPct: Number(t.discountPct) || 0, price: Number(t.price) || 0,
             })),
             features: [],
         };
