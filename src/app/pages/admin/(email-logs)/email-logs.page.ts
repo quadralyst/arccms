@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, Injector, OnDestroy, OnInit, runInInjectionContext, signal, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,6 +12,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Firestore, collection, collectionData, doc, getDoc, query, where } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
+import { statusBadgeClass, statusBadgeLabel } from '../../../../shared/utils/status-badge';
 import { Subscription } from 'rxjs';
 
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
@@ -21,6 +22,8 @@ import { ToastService } from '../../../../shared/services/toast.service';
 import { EmailLogStore } from './email-log.store';
 import { IEmailLog } from './email-log.model';
 import ViewEmailLogComponent from './(view-email-log)/view-email-log.component';
+import { EmailHealthCardComponent } from '../../../../shared/components/email-health-card/email-health-card.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 
 interface ActiveBroadcast {
     id: string;
@@ -46,6 +49,8 @@ interface ActiveBroadcast {
         MatFormFieldModule,
         GlobalTableComponent,
         ViewEmailLogComponent,
+        EmailHealthCardComponent,
+        PageHeaderComponent,
     ],
     providers: [DatePipe],
     templateUrl: './email-logs.html',
@@ -61,6 +66,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
     private firestore = inject(Firestore);
     private route = inject(ActivatedRoute);
     private router = inject(Router);
+    private injector = inject(Injector);
     dialog = inject(MatDialog);
     sanitizer = inject(DomSanitizer);
     toastService = inject(ToastService);
@@ -103,7 +109,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
 
     /** Load retention days from Settings/email.autoPurge (Fix 9) */
     private loadRetentionDays(): void {
-        getDoc(doc(this.firestore, 'Settings', 'email')).then((snap) => {
+        runInInjectionContext(this.injector, () => getDoc(doc(this.firestore, 'Settings', 'email'))).then((snap) => {
             const data = snap.data() as Record<string, any> | undefined;
             if (data?.['autoPurge']?.retentionDays) {
                 this.retentionDays.set(data['autoPurge'].retentionDays);
@@ -119,12 +125,14 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
 
     /** Subscribe to active broadcasts for progress banner */
     private subscribeToActiveBroadcasts(): void {
-        const broadcastsRef = collection(this.firestore, 'BroadcastEmails');
-        const q = query(
-            broadcastsRef,
-            where('status', 'in', ['queued', 'processing', 'paused']),
-        );
-        this.broadcastSub = collectionData(q, { idField: 'id' }).subscribe({
+        const q = runInInjectionContext(this.injector, () => {
+            const broadcastsRef = collection(this.firestore, 'BroadcastEmails');
+            return query(
+                broadcastsRef,
+                where('status', 'in', ['queued', 'processing', 'paused']),
+            );
+        });
+        this.broadcastSub = runInInjectionContext(this.injector, () => collectionData(q, { idField: 'id' })).subscribe({
             next: (docs) => {
                 const typedDocs = docs as Record<string, any>[];
                 this.activeBroadcasts.set(
@@ -301,17 +309,17 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
                         .replace(/\b\w/g, (c) => c.toUpperCase()),
             },
             {
+                // A delivery status is not a boolean. This column used to collapse all
+                // seven states into Success/Failed, and because the badge read the raw
+                // field it showed a green "Success" for `skipped` — the exact status a
+                // queueEmail gate writes when it deliberately withholds a message. The
+                // health strip above the table counted those skips correctly, so the
+                // two disagreed on the same page.
                 key: 'status',
                 header: 'Status',
                 type: 'badge',
-                badgeConfig: {
-                    trueClass: 'active',
-                    falseClass: 'inactive',
-                    trueText: 'Success',
-                    falseText: 'Failed',
-                },
-                transformFn: (row: IEmailLog) =>
-                    row.status === 'success' || row.status === 'delivered' || row.status === 'sent',
+                badgeConfig: { textFn: (row: IEmailLog) => statusBadgeLabel(row.status) },
+                classFn: (row: IEmailLog) => statusBadgeClass(row.status),
             },
             {
                 key: 'activeProvider',

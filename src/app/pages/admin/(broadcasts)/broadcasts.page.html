@@ -1,0 +1,143 @@
+<div class="page-container">
+    @if (mode() === 'list') {
+    <!-- ── List view ── -->
+    <arc-page-header title="Broadcasts"
+        subtitle="One-off emails to a list. Past and scheduled broadcasts appear below.">
+        <button mat-flat-button color="primary" (click)="startCompose()">
+            <mat-icon>add</mat-icon> New broadcast
+        </button>
+    </arc-page-header>
+
+    <app-global-table [data]="recent()" [columns]="columns" [loading]="loading()"
+        emptyIcon="fas fa-tower-broadcast" emptyTitle="No broadcasts yet"
+        emptyDescription="Send your first broadcast to a list of contacts."
+        emptyActionLabel="New broadcast" emptyActionIcon="fas fa-plus"
+        (emptyActionClick)="startCompose()">
+    </app-global-table>
+    }
+
+    @if (mode() === 'compose') {
+    <!-- ── Compose view ── -->
+    <div class="broadcast-composer">
+        <!-- Sticky action bar -->
+        <div class="composer-topbar">
+            <div class="topbar-left">
+                <button mat-icon-button class="back-btn" (click)="backToList()" aria-label="Back to broadcasts">
+                    <mat-icon>arrow_back</mat-icon>
+                </button>
+                <div>
+                    <h1 class="composer-title">New broadcast</h1>
+                    <p class="composer-subtitle">Compose a one-off email and send it to a list.</p>
+                </div>
+            </div>
+            <div class="topbar-right">
+                @if (content()) {
+                <span class="capture-hint is-ready"><mat-icon>check_circle</mat-icon> Content captured</span>
+                } @else {
+                <span class="capture-hint"><mat-icon>edit_note</mat-icon> Save your content to enable sending</span>
+                }
+                <button mat-flat-button color="primary" class="send-btn" [disabled]="sending() || !content()"
+                    (click)="send()">
+                    <mat-icon>send</mat-icon> {{ schedule ? 'Schedule broadcast' : 'Send broadcast' }}
+                </button>
+            </div>
+        </div>
+
+        <div class="composer-body">
+            <!-- Settings card -->
+            <section class="composer-card">
+                <header class="card-head">
+                    <span class="head-icon"><mat-icon>tune</mat-icon></span>
+                    <div>
+                        <h2>Broadcast settings</h2>
+                        <p>Who receives this email and when it goes out.</p>
+                    </div>
+                </header>
+                <div class="card-body">
+                    <div class="settings-grid">
+                        <mat-form-field appearance="outline" class="grid-full">
+                            <mat-label>Subject</mat-label>
+                            <input matInput [(ngModel)]="subject" placeholder="Your subject line"
+                                [arcHashtagAutocomplete]="broadcastTags" />
+                        </mat-form-field>
+
+                        <div class="grid-full field-label">Audience</div>
+
+                        <mat-form-field appearance="outline">
+                            <mat-label>Send to lists</mat-label>
+                            <mat-select multiple [(ngModel)]="includeListIds" (ngModelChange)="eligible.set(null)">
+                                @for (l of lists(); track l.id) {
+                                <mat-option [value]="l.id">{{ l.name }} ({{ l.memberCount || 0 }})</mat-option>
+                                }
+                            </mat-select>
+                            <mat-hint>Pick several to reach everyone across them — nobody is emailed twice.</mat-hint>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline">
+                            <mat-label>Exclude lists (optional)</mat-label>
+                            <mat-select multiple [(ngModel)]="excludeListIds" (ngModelChange)="eligible.set(null)">
+                                @for (l of lists(); track l.id) {
+                                <mat-option [value]="l.id" [disabled]="includeListIds.includes(l.id)">
+                                    {{ l.name }} ({{ l.memberCount || 0 }})
+                                </mat-option>
+                                }
+                            </mat-select>
+                            <mat-hint>Anyone on these is skipped, even if an included list has them.</mat-hint>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline">
+                            <mat-label>Filter: premiumType (optional)</mat-label>
+                            <input matInput [(ngModel)]="premiumType" (ngModelChange)="eligible.set(null)"
+                                placeholder="e.g. pro" />
+                        </mat-form-field>
+
+                        <div class="grid-full audience-actions">
+                            <button mat-stroked-button [disabled]="previewing() || !includeListIds.length" (click)="preview()">
+                                <mat-icon>groups</mat-icon> Preview count
+                            </button>
+                            @if (eligible() !== null) {
+                            <span class="status-badge is-info">{{ eligible() }} eligible (consented)</span>
+                            }
+                        </div>
+
+                        <div class="settings-divider"></div>
+
+                        <div class="schedule-block">
+                            <mat-slide-toggle [(ngModel)]="schedule" color="primary">Schedule for later</mat-slide-toggle>
+                            @if (schedule) {
+                            <mat-form-field appearance="outline" class="w-100 mt-3">
+                                <mat-label>Send at</mat-label>
+                                <input matInput type="datetime-local" [(ngModel)]="scheduledAt" />
+                            </mat-form-field>
+                            } @else {
+                            <p class="schedule-note">Off — the broadcast is queued and sent immediately.</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Content card -->
+            <section class="composer-card">
+                <header class="card-head">
+                    <span class="head-icon"><mat-icon>edit_note</mat-icon></span>
+                    <div>
+                        <h2>Email content</h2>
+                        <p>Build your email from blocks and preview it live before sending.</p>
+                    </div>
+                </header>
+                <div class="card-body is-flush">
+                    <arc-email-block-editor
+                        [design]="starterDesign"
+                        [brandKit]="brandKit()"
+                        category="marketing"
+                        [placeholders]="broadcastTags"
+                        (saved)="onContentSaved($event)"
+                        (testSend)="onTestSend($event)">
+                    </arc-email-block-editor>
+                </div>
+            </section>
+        </div>
+    </div>
+    }
+</div>

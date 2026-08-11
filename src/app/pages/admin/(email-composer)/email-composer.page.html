@@ -1,0 +1,75 @@
+<div class="page-container">
+    <arc-page-header title="Email Composer"
+        subtitle="Compose emails from blocks — no HTML required. Templates store both the design and compiled HTML.">
+    </arc-page-header>
+
+    @if (selected(); as t) {
+        <div class="mb-3">
+            <button mat-stroked-button (click)="clearSelection()">
+                <mat-icon>arrow_back</mat-icon> Back to templates
+            </button>
+        </div>
+        @if (isBlocks) {
+        <div class="row g-2 mb-3">
+            <div class="col-md-5">
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Title</mat-label>
+                    <input matInput [ngModel]="titleDraft()" (ngModelChange)="titleDraft.set($event)"
+                        placeholder="Welcome — day 1" />
+                </mat-form-field>
+            </div>
+            <div class="col-md-5">
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Subject</mat-label>
+                    <input matInput [ngModel]="subjectDraft()" (ngModelChange)="subjectDraft.set($event)"
+                        placeholder="Welcome aboard 👋" />
+                </mat-form-field>
+            </div>
+            <div class="col-md-2">
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Category</mat-label>
+                    <mat-select [ngModel]="categoryDraft()" (ngModelChange)="categoryDraft.set($event)">
+                        <mat-option value="marketing">Marketing</mat-option>
+                        <mat-option value="transactional">Transactional</mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+        </div>
+        <arc-email-block-editor
+            [design]="currentDesign"
+            [brandKit]="brandKit()"
+            [category]="categoryDraft()"
+            [placeholders]="placeholdersFor(t.type)"
+            (saved)="onSaved($event)"
+            (testSend)="onTestSend($event)">
+        </arc-email-block-editor>
+        } @else {
+        <div class="border rounded p-3">
+            <div class="alert alert-info d-flex justify-content-between align-items-center">
+                <span>This is a legacy (HTML) template. It sends unchanged. Upgrade to edit it with blocks.</span>
+                <button mat-flat-button color="primary" (click)="upgradeToBlocks()">
+                    <mat-icon>upgrade</mat-icon> Upgrade to blocks
+                </button>
+            </div>
+            <div class="border rounded p-2 bg-light" style="max-height: 400px; overflow:auto;">
+                <div [innerHTML]="t.template"></div>
+            </div>
+        </div>
+        }
+    } @else {
+    <div class="d-flex justify-content-end mb-3">
+        <button mat-flat-button color="primary" [disabled]="creating()" (click)="createNew()">
+            <mat-icon>add</mat-icon> New email
+        </button>
+    </div>
+    <app-global-table
+        [data]="templates()"
+        [columns]="tableColumns"
+        [loading]="loading()"
+        (cellClick)="onCellClick($event)"
+        emptyTitle="No Templates"
+        emptyDescription="No email templates found."
+        [showEmptyAction]="false">
+    </app-global-table>
+    }
+</div>

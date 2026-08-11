@@ -1,0 +1,98 @@
+<mat-drawer-container class="contacts-drawer-container" hasBackdrop="true">
+    <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 500px;">
+        @if (currentAction()) {
+        <arc-contact-drawer [mode]="currentAction() || 'add'" [lists]="lists()" [allTags]="tags()" [allFields]="fields()"
+            [contact]="currentContact()" (saved)="closeDrawer()" (close)="closeDrawer()">
+        </arc-contact-drawer>
+        }
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="page-container">
+            <!-- Header -->
+            <arc-page-header title="Contacts"
+                subtitle="The unified audience. Contacts sync automatically from signups, waitlists and customers.">
+                <button mat-stroked-button [disabled]="busy()" (click)="runBackfill()">
+                    <mat-icon>sync</mat-icon> Backfill
+                </button>
+                <button mat-stroked-button (click)="openImport()">
+                    <mat-icon>upload_file</mat-icon> Import CSV
+                </button>
+                <button mat-flat-button color="primary" (click)="openAdd()">
+                    <mat-icon>person_add</mat-icon> Add contact
+                </button>
+            </arc-page-header>
+
+            <!-- Audience summary: pending contacts exist but are never mailable -->
+            @if (!loading() && contacts().length) {
+            <div class="audience-counts d-flex gap-3 align-items-center mb-2">
+                <button type="button" class="count-chip" (click)="onConsentFilter('subscribed')">
+                    <strong>{{ counts().subscribed }}</strong> subscribed
+                </button>
+                <button type="button" class="count-chip" (click)="onConsentFilter('pending')"
+                    matTooltip="Signed up but haven't confirmed their email — excluded from all marketing sends">
+                    <strong>{{ counts().pending }}</strong> pending
+                </button>
+                <button type="button" class="count-chip" (click)="onConsentFilter('unsubscribed')">
+                    <strong>{{ counts().unsubscribed }}</strong> unsubscribed
+                </button>
+            </div>
+            }
+
+            <!-- Search + filters -->
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+                <mat-form-field appearance="outline" style="width: 320px;">
+                    <mat-label>Search contacts</mat-label>
+                    <input matInput [ngModel]="search()" (ngModelChange)="onSearch($event)" placeholder="email or name" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" style="width: 180px;">
+                    <mat-label>Consent</mat-label>
+                    <mat-select [ngModel]="consentFilter()" (ngModelChange)="onConsentFilter($event)">
+                        <mat-option value="">Any</mat-option>
+                        <mat-option value="subscribed">Subscribed</mat-option>
+                        <mat-option value="pending">Pending</mat-option>
+                        <mat-option value="unsubscribed">Unsubscribed</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" style="width: 200px;">
+                    <mat-label>Tag</mat-label>
+                    <mat-select [ngModel]="tagFilter()" (ngModelChange)="onTagFilter($event)">
+                        <mat-option value="">Any</mat-option>
+                        @for (t of tags(); track t.id) {
+                            <mat-option [value]="t.id">{{ t.label }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+
+                @if (hasFilters()) {
+                    <button mat-stroked-button (click)="clearFilters()">
+                        <mat-icon>close</mat-icon> Clear
+                    </button>
+                }
+            </div>
+
+            <!-- Table -->
+            <app-global-table [data]="paged()" [columns]="columns" [loading]="loading()"
+                [pageIndex]="currentPage()" [pageSize]="pageSize()"
+                emptyIcon="fas fa-address-book" emptyTitle="No contacts found"
+                emptyDescription="Add a contact, import a CSV, or run a backfill to get started."
+                emptyActionLabel="Add contact" emptyActionIcon="fas fa-user-plus"
+                (emptyActionClick)="openAdd()">
+            </app-global-table>
+
+            <!-- Pagination -->
+            @if (total()) {
+            <div class="pagination-footer d-flex justify-content-between align-items-center">
+                <div class="record-count text-muted">
+                    Showing {{ getStartRecord() }} to {{ getEndRecord() }} of <strong>{{ total() }}</strong> contacts
+                </div>
+                <mat-paginator [length]="total()" [pageSize]="pageSize()" [pageIndex]="currentPage()"
+                    [pageSizeOptions]="[5, 10, 25, 50]" [showFirstLastButtons]="true" (page)="onPageChange($event)">
+                </mat-paginator>
+            </div>
+            }
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

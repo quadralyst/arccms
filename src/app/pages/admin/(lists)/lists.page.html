@@ -1,0 +1,31 @@
+<mat-drawer-container class="lists-drawer-container" hasBackdrop="true">
+    <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 460px;">
+        @if (currentAction()) {
+        <arc-list-drawer [mode]="currentAction() || 'add'" [list]="currentList()"
+            (saved)="closeDrawer()" (close)="closeDrawer()">
+        </arc-list-drawer>
+        }
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="page-container">
+            <arc-page-header title="Lists"
+                subtitle="Audience lists drive broadcasts and drip campaigns. System lists sync automatically.">
+                <button mat-stroked-button (click)="syncFormLists()" [disabled]="busy()"
+                    matTooltip="Create the missing list for any signup form that doesn't have one yet">
+                    <mat-icon>sync</mat-icon> Sync form lists
+                </button>
+                <button mat-flat-button color="primary" (click)="openAdd()">
+                    <mat-icon>add</mat-icon> Create list
+                </button>
+            </arc-page-header>
+
+            <app-global-table [data]="lists()" [columns]="columns" [loading]="loading()"
+                emptyIcon="fas fa-list-ul" emptyTitle="No lists yet"
+                emptyDescription="Create your first audience list to start sending broadcasts and drips."
+                emptyActionLabel="Create list" emptyActionIcon="fas fa-plus"
+                (emptyActionClick)="openAdd()">
+            </app-global-table>
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

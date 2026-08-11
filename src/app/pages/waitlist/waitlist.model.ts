@@ -47,6 +47,17 @@ export interface IWaitlist extends IBaseModel {
     fieldsVersion?: number;
     uiConfig: IWaitlistUiConfig;
     defaultTagId?: string;
+    /**
+     * Lists this form feeds (U3). Always includes its own `waitlist-{id}` system
+     * list; may add manual lists so several forms can feed one audience. Absent
+     * on pre-U3 forms — the backend falls back to `[waitlist-{id}]`.
+     */
+    targetListIds?: string[];
+    /**
+     * When false, this is a plain signup form: no referral link, leaderboard, or
+     * queue position (U3). Absent/true = waitlist behaviour (backwards compatible).
+     */
+    gamificationEnabled?: boolean;
 }
 
 /**

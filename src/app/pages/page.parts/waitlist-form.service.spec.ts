@@ -51,6 +51,10 @@ describe('WaitlistFormService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
+        // clearAllMocks resets calls but keeps implementations, so restore the default
+        // callable here — otherwise a test that stubs a rejection leaks into the rest.
+        mockHttpsCallable.mockImplementation(() => vi.fn().mockResolvedValue({ data: { success: true } }));
+
         // Default Firestore mocks
         mockGetCountFromServer.mockResolvedValue({ data: () => ({ count: 0 }) });
         // getDoc default: doc doesn't exist → isOtpTemplateEnabled returns true (OTP enabled)
@@ -173,6 +177,102 @@ describe('WaitlistFormService', () => {
         });
     });
 
+    describe('ensureWaitlistExists', () => {
+        const formHtml = `
+        <form data-waitlist-form data-waitlist-id="test-waitlist">
+          <input name="email" value="test@example.com" />
+        </form>
+      `;
+
+        it('should not call the callable when the waitlist already exists', async () => {
+            mockWaitlistService.getWaitlistBySlug.mockResolvedValue({ id: 'test-waitlist', isActive: true });
+
+            const container = document.createElement('div');
+            container.innerHTML = formHtml;
+            await service.initWaitlistForms(container);
+
+            expect(mockHttpsCallable).not.toHaveBeenCalled();
+        });
+
+        it('should create the waitlist before binding the form when it is missing', async () => {
+            const order: string[] = [];
+            const callable = vi.fn(async () => {
+                order.push('ensure');
+                return { data: { success: true, existed: false } };
+            });
+            mockHttpsCallable.mockReturnValue(callable);
+            mockWaitlistService.getWaitlistBySlug.mockResolvedValue(null);
+            mockWaitlistService.getWaitlist.mockResolvedValue(null);
+
+            const container = document.createElement('div');
+            container.innerHTML = formHtml;
+            await service.initWaitlistForms(container);
+
+            const form = container.querySelector('form') as HTMLFormElement;
+            form.addEventListener('submit', () => order.push('submit'));
+            form.dispatchEvent(new Event('submit'));
+
+            expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'ensureWaitlistExists');
+            expect(callable).toHaveBeenCalledWith({ waitlistId: 'test-waitlist' });
+            expect(order).toEqual(['ensure', 'submit']);
+        });
+
+        it('should report the callable error code instead of swallowing it', async () => {
+            const consoleError = vi.spyOn(console, 'error').mockImplementation(() => { });
+            mockHttpsCallable.mockReturnValue(
+                vi.fn().mockRejectedValue(Object.assign(new Error('internal'), { code: 'functions/internal' })),
+            );
+            mockWaitlistService.getWaitlistBySlug.mockResolvedValue(null);
+            mockWaitlistService.getWaitlist.mockResolvedValue(null);
+
+            const container = document.createElement('div');
+            container.innerHTML = formHtml;
+            await service.initWaitlistForms(container);
+
+            expect(consoleError).toHaveBeenCalled();
+            const message = consoleError.mock.calls[0][0] as string;
+            expect(message).toContain('test-waitlist');
+            expect(message).toContain('functions/internal');
+            // A bare `internal` is a transport failure, so say so rather than leaving
+            // the reader to guess the function rejected.
+            expect(message).toContain('never completed');
+        });
+
+        it('should report a server-side refusal reason', async () => {
+            const consoleError = vi.spyOn(console, 'error').mockImplementation(() => { });
+            mockHttpsCallable.mockReturnValue(
+                vi.fn().mockResolvedValue({ data: { success: false, reason: 'invalid-waitlist-id' } }),
+            );
+            mockWaitlistService.getWaitlistBySlug.mockResolvedValue(null);
+            mockWaitlistService.getWaitlist.mockResolvedValue(null);
+
+            const container = document.createElement('div');
+            container.innerHTML = formHtml;
+            await service.initWaitlistForms(container);
+
+            expect(consoleError).toHaveBeenCalledWith(
+                expect.stringContaining('invalid-waitlist-id'),
+            );
+        });
+
+        it('should still bind the form when creation fails', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => { });
+            mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('boom')));
+            mockWaitlistService.getWaitlistBySlug.mockResolvedValue(null);
+            mockWaitlistService.getWaitlist.mockResolvedValue(null);
+
+            const container = document.createElement('div');
+            container.innerHTML = formHtml;
+            await service.initWaitlistForms(container);
+
+            const form = container.querySelector('form') as HTMLFormElement;
+            form.dispatchEvent(new Event('submit'));
+            await flushPromises();
+
+            expect(mockWaitlistService.joinWaitlist).toHaveBeenCalled();
+        });
+    });
+
     describe('cleanup', () => {
         it('should restore original form HTML on cleanup', async () => {
             const container = document.createElement('div');
@@ -244,9 +344,14 @@ describe('WaitlistFormService', () => {
     });
 
     describe('updateWaitlistCounts', () => {
-        it('should fetch and update counts for elements with data-waitlist-count', async () => {
-            mockGetCountFromServer.mockResolvedValue({
-                data: () => ({ count: 123 })
+        it('reads the count off the form document, not by aggregating member docs', async () => {
+            // #51: this used getCountFromServer over Waitlists/{id}/users, which needed
+            // public read on a collection holding raw email addresses — the exposure
+            // being closed. `totalSignups` on the form doc is public by design, since
+            // the form doc is what renders the page.
+            mockGetDoc.mockResolvedValue({
+                exists: () => true,
+                data: () => ({ totalSignups: 123 }),
             });
 
             const container = document.createElement('div');
@@ -258,19 +363,28 @@ describe('WaitlistFormService', () => {
             `;
 
             await service.initWaitlistForms(container);
-
-            expect(mockCollection).toHaveBeenCalledWith(expect.anything(), 'Waitlists', 'test-list', 'users');
-            expect(mockGetCountFromServer).toHaveBeenCalled();
-            
             await flushPromises();
 
-            const countEl = container.querySelector('[data-waitlist-count]');
-            expect(countEl?.textContent).toBe('123');
+            expect(mockGetCountFromServer).not.toHaveBeenCalled();
+            expect(container.querySelector('[data-waitlist-count]')?.textContent).toBe('123');
+        });
+
+        it('shows zero rather than breaking when the form has no counter yet', async () => {
+            mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({}) });
+
+            const container = document.createElement('div');
+            container.innerHTML = `<span data-waitlist-count="test-list">0</span>`;
+
+            await service.initWaitlistForms(container);
+            await flushPromises();
+
+            expect(container.querySelector('[data-waitlist-count]')?.textContent).toBe('0');
         });
 
         it('should use global waitlist id if specific one not provided', async () => {
-            mockGetCountFromServer.mockResolvedValue({
-                data: () => ({ count: 456 })
+            mockGetDoc.mockResolvedValue({
+                exists: () => true,
+                data: () => ({ totalSignups: 456 }),
             });
 
             const container = document.createElement('div');
@@ -280,8 +394,9 @@ describe('WaitlistFormService', () => {
             `;
 
             await service.initWaitlistForms(container);
+            await flushPromises();
 
-            expect(mockCollection).toHaveBeenCalledWith(expect.anything(), 'Waitlists', 'global-list', 'users');
+            expect(container.querySelector('[data-waitlist-count]')?.textContent).toBe('456');
         });
     });
 

@@ -24,11 +24,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { EmailSettingService } from './email-setting.service';
 import { TestConnectionDialogComponent } from './test-connection-dialog.component';
-import { EMAIL_PROVIDERS, EmailProvider, IEmailSettings, PROVIDER_DEFAULT_LIMITS } from './email-setting.model';
+import { DEFAULT_EMAIL_FEATURES, EMAIL_FEATURE_META, EMAIL_PROVIDERS, EmailProvider, IEmailSettings, PROVIDER_DEFAULT_LIMITS } from './email-setting.model';
 import { IEmailProviderComponent } from './providers/email-provider-base';
 import { SmtpProviderComponent } from './providers/smtp-provider.component';
 import { GmailProviderComponent } from './providers/gmail-provider.component';
 import { ResendProviderComponent } from './providers/resend-provider.component';
+import { DebugProviderComponent } from './providers/debug-provider.component';
 
 @Component({
     standalone: true,
@@ -47,6 +48,7 @@ import { ResendProviderComponent } from './providers/resend-provider.component';
         SmtpProviderComponent,
         GmailProviderComponent,
         ResendProviderComponent,
+        DebugProviderComponent,
     ],
     templateUrl: './email-setting.page.html',
     styleUrls: ['./email-setting.page.scss'],
@@ -59,6 +61,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
 
     emailForm!: FormGroup;
     providers = EMAIL_PROVIDERS;
+    featureMeta = EMAIL_FEATURE_META;
 
     emailEnabled = signal(false);
     /** True while the admin is configuring a provider but email is not yet enabled. */
@@ -118,7 +121,24 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
                 enabled: [true],
                 retentionDays: [60, [Validators.required, Validators.min(1), Validators.max(365)]],
             }),
+            features: this.fb.group({
+                waitlistEmails: [DEFAULT_EMAIL_FEATURES.waitlistEmails],
+                authEmails: [DEFAULT_EMAIL_FEATURES.authEmails],
+                paymentEmails: [DEFAULT_EMAIL_FEATURES.paymentEmails],
+                notificationEmails: [DEFAULT_EMAIL_FEATURES.notificationEmails],
+                broadcasts: [DEFAULT_EMAIL_FEATURES.broadcasts],
+                drips: [DEFAULT_EMAIL_FEATURES.drips],
+                adminAlerts: [DEFAULT_EMAIL_FEATURES.adminAlerts],
+            }),
+            requireSignupVerification: [false],
+            trackingPixelUrl: [''],
+            liveUrl: [''],
         });
+    }
+
+    /** The features FormGroup — used by the template's toggle rows. */
+    get featuresGroup(): FormGroup {
+        return this.emailForm.get('features') as FormGroup;
     }
 
     private setupFormChangeListener(): void {
@@ -166,6 +186,10 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
                     rateLimit: settings.rateLimit,
                     providerRateLimits: settings.providerRateLimits,
                     autoPurge: settings.autoPurge,
+                    features: { ...DEFAULT_EMAIL_FEATURES, ...(settings.features || {}) },
+                    requireSignupVerification: settings.requireSignupVerification ?? false,
+                    trackingPixelUrl: settings.trackingPixelUrl ?? '',
+                    liveUrl: settings.liveUrl ?? '',
                 });
 
                 this.emailEnabled.set(settings.isEnabled);
@@ -282,6 +306,21 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
         return this.activeProviderComponent()?.isConfigValid() ?? false;
     }
 
+    /** True when the simulated Debug Provider is selected — it needs no connection test. */
+    isDebugProvider(): boolean {
+        return this.emailForm.get('activeProvider')?.value === 'debug_log';
+    }
+
+    /**
+     * Persist a Features / verification toggle change immediately.
+     * These are independent of provider-connection testing, so we save directly
+     * (type=true bypasses the "test connection first" gate).
+     */
+    onFeatureToggleChange(): void {
+        this.emailForm.markAsDirty();
+        this.onSubmit(true);
+    }
+
     /** Build the full IEmailSettings object from shared form + all provider caches */
     private buildSettings(): IEmailSettings {
         // Cache the active provider's current data
@@ -307,7 +346,8 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
             this.emailEnabled.set(false);
         }
 
-        if (!this.testPassed() && !type) {
+        // The simulated Debug Provider has no connection to test — never gate its save.
+        if (!this.testPassed() && !type && !this.isDebugProvider()) {
             this.toastService.openCustomSnackbar('Please test the connection first', 'warning', 'warning');
             return;
         }

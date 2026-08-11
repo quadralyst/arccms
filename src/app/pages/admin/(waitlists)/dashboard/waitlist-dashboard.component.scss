@@ -1,3 +1,9 @@
+/* Consistent page inset so the header matches other admin pages (24px). */
+:host {
+    display: block;
+    padding: 24px;
+}
+
 /* Top Bar - matches pattern from other admin pages */
 .top-bar {
     background-color: white;
@@ -21,9 +27,9 @@
     }
 }
 
-/* Dashboard Content */
+/* Dashboard Content — inset now comes from :host so it aligns with the header. */
 .dashboard-content {
-    padding: 1.25rem;
+    padding: 0;
 }
 
 /* Sections */

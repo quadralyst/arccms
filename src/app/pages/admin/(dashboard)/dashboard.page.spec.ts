@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { headerTestProviders } from '../../../../test/header-test-providers';
 import DashboardComponent from './dashboard.page';
 import { GlobalService } from '../../../../shared/services/global.service';
 import { ToastService } from '../../../../shared/services/toast.service';
@@ -15,7 +16,7 @@ import { GoogleOAuthService } from '../../../../shared/services/google-oauth.ser
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
 import { DraftContentsService } from '../contents/draft-content-store/draft-contents.service';
 import { MediaManagerService } from '../(media)/media-manager.service';
-import { WaitlistedUsersService } from '../(waitlists)/waitlisted-users.service';
+import { AudienceService } from '../(audience)/audience.service';
 import { UserService } from '../users/user.service';
 import { WaitlistAdminStore } from '../(waitlists)/waitlist.store';
 import { Firestore } from '@angular/fire/firestore';
@@ -63,9 +64,12 @@ describe('DashboardComponent', () => {
     const mockMediaService = {
         getCollectionTotalCount: vi.fn().mockReturnValue(of(0))
     };
-    const mockWaitlistedUsersService = {
-        getCollectionTotalCount: vi.fn().mockReturnValue(of(0)),
-        getAll: vi.fn().mockReturnValue(of({ collectionData: [], totalCount: 0 }))
+    // U4: growth widgets read the unified Contacts audience, not WaitlistedUsers.
+    const mockAudienceService = {
+        countContacts: vi.fn().mockResolvedValue(0),
+        countContactsSince: vi.fn().mockResolvedValue(0),
+        countContactsByConsent: vi.fn().mockResolvedValue(0),
+        getRecentContacts: vi.fn().mockReturnValue(of([])),
     };
     const mockUserService = {
         getCollectionTotalCount: vi.fn().mockReturnValue(of(0))
@@ -75,7 +79,8 @@ describe('DashboardComponent', () => {
         isLoading: vi.fn().mockReturnValue(false),
         bannerDismissed: vi.fn().mockReturnValue(false),
         shouldShowBanner: vi.fn().mockReturnValue(true),
-        dismissBanner: vi.fn()
+        dismissBanner: vi.fn(),
+        debugMode: vi.fn().mockReturnValue(false)
     };
     const mockAnalyticsConnectionStatus = {
         isConnected: vi.fn().mockReturnValue(false),
@@ -104,6 +109,7 @@ describe('DashboardComponent', () => {
         await TestBed.configureTestingModule({
             imports: [DashboardComponent],
             providers: [
+                ...headerTestProviders(),
                 { provide: GlobalService, useValue: mockGlobal },
                 { provide: ToastService, useValue: mockToast },
                 { provide: Location, useValue: mockLocation },
@@ -114,7 +120,7 @@ describe('DashboardComponent', () => {
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: DraftContentsService, useValue: mockDraftContentsService },
                 { provide: MediaManagerService, useValue: mockMediaService },
-                { provide: WaitlistedUsersService, useValue: mockWaitlistedUsersService },
+                { provide: AudienceService, useValue: mockAudienceService },
                 { provide: UserService, useValue: mockUserService },
                 { provide: EmailConfigStatusService, useValue: mockEmailConfigService },
                 { provide: AnalyticsConnectionStatusService, useValue: mockAnalyticsConnectionStatus },

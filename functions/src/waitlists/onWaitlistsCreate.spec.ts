@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { onWaitlistsCreate } from './onWaitlistsCreate.js'; // Adjust import based on your structure
+import { onWaitlistsCreate } from './onWaitlistsCreate.js';
 import { db } from '../init.js';
-// import * as firestoreFunctions from 'firebase-functions/v2/firestore';
+import { ensureFormList } from '../email-core/contacts.js';
 
 // Mock dependencies
 vi.mock('../init', () => ({
@@ -15,144 +15,182 @@ vi.mock('firebase-functions/v2/firestore', () => ({
     onDocumentCreated: vi.fn((opts, handler) => handler),
 }));
 
+vi.mock('firebase-functions/v2', () => ({
+    logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
+}));
+
+vi.mock('../email-core/contacts.js', () => ({
+    ensureFormList: vi.fn().mockResolvedValue('waitlist-wl-123'),
+}));
+
+/**
+ * The trigger delegates seeding to `ensureWaitlistTemplates` (U5.5), so these run
+ * as trigger+helper integration tests: they still pin the canonical doc ids, the
+ * body content and the idempotency skip, which is where the value is.
+ */
 describe('onWaitlistsCreate', () => {
     const mockDb = db as any;
+    let batchSet: any;
+    let batchCommit: any;
+    // Doc ids that already exist in EmailTemplate (drives the idempotency skip).
+    let existingIds: Set<string>;
+
+    const event = {
+        data: { data: () => ({ name: 'Test Waitlist' }) },
+        params: { waitlistsId: 'wl-123' },
+    };
+
+    function setup(settings: { exists: boolean; data: () => any }): void {
+        batchSet = vi.fn();
+        batchCommit = vi.fn().mockResolvedValue(undefined);
+        mockDb.batch.mockReturnValue({ set: batchSet, commit: batchCommit });
+
+        mockDb.collection.mockImplementation((name: string) => {
+            if (name === 'Settings') {
+                return { doc: vi.fn(() => ({ get: vi.fn().mockResolvedValue(settings) })) };
+            }
+            if (name === 'Waitlists') {
+                // U5.5: seeding now runs through ensureWaitlistTemplates, which
+                // refuses to write templates for a form that does not exist —
+                // requestFormOtp is public, so an unknown id must not create docs.
+                return { doc: vi.fn(() => ({ get: vi.fn().mockResolvedValue({ exists: true }) })) };
+            }
+            if (name === 'EmailTemplate') {
+                // U5.5: presence is decided by a (waitlistId, type) query, not by the
+                // canonical doc id — real data holds three id schemes, and checking the
+                // id alone duplicates templates for the older forms. `existingIds` is
+                // still keyed by canonical id, so the query resolves through it.
+                const chain = (filters: Record<string, any>): any => ({
+                    where: (field: string, _op: string, value: any) =>
+                        chain({ ...filters, [field]: value }),
+                    limit: () => ({
+                        get: async () => {
+                            const id = `${filters['waitlistId']}_${filters['type']}`;
+                            return { empty: !existingIds.has(id), docs: [] };
+                        },
+                    }),
+                });
+                return {
+                    doc: vi.fn((id: string) => ({
+                        id,
+                        get: vi.fn().mockResolvedValue({ exists: existingIds.has(id) }),
+                    })),
+                    ...chain({}),
+                };
+            }
+            return { doc: vi.fn() };
+        });
+    }
 
     beforeEach(() => {
         vi.clearAllMocks();
-
-        // Default mocks
-        mockDb.batch.mockReturnValue({
-            set: vi.fn(),
-            commit: vi.fn().mockResolvedValue(undefined),
-        });
+        existingIds = new Set();
+        vi.mocked(ensureFormList).mockResolvedValue('waitlist-wl-123');
     });
 
-    it('should create templates with settings from Firestore', async () => {
-        // Mock settings fetch
-        const mockSettingsData = {
-            senderName: 'Test Sender',
-            senderEmail: 'test@example.com',
-        };
+    it('creates the mirrored audience list eagerly, named after the waitlist', async () => {
+        setup({ exists: true, data: () => ({ senderName: 'S', senderEmail: 'e@x.com' }) });
 
-        const mockSettingsGet = vi.fn().mockResolvedValue({
-            exists: true,
-            data: () => mockSettingsData,
-        });
+        await (onWaitlistsCreate as any)(event);
 
-        const mockDoc = vi.fn().mockReturnValue({
-            id: 'new-doc-id', // For templates
-            get: mockSettingsGet // For Settings
-        });
+        // A brand-new form shows up under Audience → Lists before any signup.
+        expect(ensureFormList).toHaveBeenCalledWith('wl-123', 'Test Waitlist');
+    });
 
-        mockDb.collection.mockImplementation((name: any) => {
-            if (name === 'Settings') return { doc: mockDoc };
-            if (name === 'EmailTemplate') return { doc: mockDoc };
-            return { doc: mockDoc };
-        });
+    it('falls back to a placeholder list name when the waitlist has no name', async () => {
+        setup({ exists: true, data: () => ({ senderName: 'S', senderEmail: 'e@x.com' }) });
 
-        const mockEvent = {
-            data: {
-                data: () => ({ name: 'Test Waitlist' }),
-            },
-            params: {
-                waitlistsId: 'wl-123',
-            },
-        };
+        await (onWaitlistsCreate as any)({ ...event, data: { data: () => ({}) } });
 
-        // Call the function
-        await (onWaitlistsCreate as any)(mockEvent);
+        expect(ensureFormList).toHaveBeenCalledWith('wl-123', 'Waitlist wl-123');
+    });
 
-        // Verify settings were fetched
+    it('still seeds templates when list creation fails', async () => {
+        setup({ exists: true, data: () => ({ senderName: 'S', senderEmail: 'e@x.com' }) });
+        vi.mocked(ensureFormList).mockRejectedValue(new Error('lists unavailable'));
+
+        await (onWaitlistsCreate as any)(event);
+
+        expect(batchSet).toHaveBeenCalledTimes(2);
+        expect(batchCommit).toHaveBeenCalledTimes(1);
+    });
+
+    it('creates both templates with canonical per-waitlist ids using settings', async () => {
+        setup({ exists: true, data: () => ({ senderName: 'Test Sender', senderEmail: 'test@example.com' }) });
+
+        await (onWaitlistsCreate as any)(event);
+
         expect(mockDb.collection).toHaveBeenCalledWith('Settings');
-        expect(mockDoc).toHaveBeenCalledWith('email');
-
-        // Verify batch set was called with correct data
-        const batchSet = mockDb.batch().set;
         expect(batchSet).toHaveBeenCalledTimes(2);
 
-        // Check second call (args[1]) for one of the templates to see if it used the settings
-        const callArgs = batchSet.mock.calls[0][1];
-        expect(callArgs).toMatchObject({
+        // Canonical `${waitlistId}_${type}` ids — the scheme the admin templates
+        // page writes, so the trigger and the UI can no longer diverge.
+        const ids = batchSet.mock.calls.map(([ref]: any[]) => ref.id).sort();
+        expect(ids).toEqual(['wl-123_waitlist_verify_otp_email', 'wl-123_waitlist_welcome_email']);
+
+        const welcome = batchSet.mock.calls[0][1];
+        expect(welcome).toMatchObject({
             waitlistId: 'wl-123',
             senderName: 'Test Sender',
             senderEmail: 'test@example.com',
             createdBy: 'system',
+            isActive: true,
+            category: 'marketing',
         });
-
-        // Check if company name is in the footer of the template
-        expect(callArgs.template).not.toContain('© 2025');
+        // The stored `id` matches the deterministic doc id.
+        expect(welcome.id).toBe(batchSet.mock.calls[0][0].id);
+        expect(batchCommit).toHaveBeenCalledTimes(1);
     });
 
-    it('should fallback to defaults if settings missing', async () => {
-        // Mock settings fetch returning empty
-        const mockSettingsGet = vi.fn().mockResolvedValue({
-            exists: false,
-            data: () => ({}),
-        });
+    it('marks the OTP template transactional and active', async () => {
+        setup({ exists: true, data: () => ({ senderName: 'S', senderEmail: 'e@x.com' }) });
 
-        const mockDoc = vi.fn().mockReturnValue({
-            id: 'new-doc-id',
-            get: mockSettingsGet
-        });
+        await (onWaitlistsCreate as any)(event);
 
-        mockDb.collection.mockImplementation((name: any) => {
-            if (name === 'Settings') return { doc: mockDoc };
-            if (name === 'EmailTemplate') return { doc: mockDoc };
-            return { doc: mockDoc };
-        });
+        const otp = batchSet.mock.calls.find(([, p]: any[]) => p.type === 'waitlist_verify_otp_email')[1];
+        expect(otp).toMatchObject({ category: 'transactional', isActive: true });
+    });
 
-        const mockEvent = {
-            data: {
-                data: () => ({ name: 'Test Waitlist' }),
-            },
-            params: {
-                waitlistsId: 'wl-123',
-            },
-        };
+    it('is idempotent — skips templates whose deterministic doc already exists', async () => {
+        setup({ exists: true, data: () => ({ senderName: 'S', senderEmail: 'e@x.com' }) });
+        existingIds = new Set(['wl-123_waitlist_welcome_email', 'wl-123_waitlist_verify_otp_email']);
 
-        await (onWaitlistsCreate as any)(mockEvent);
+        await (onWaitlistsCreate as any)(event);
 
-        const batchSet = mockDb.batch().set;
-        const callArgs = batchSet.mock.calls[0][1];
+        expect(batchSet).not.toHaveBeenCalled();
+        expect(batchCommit).not.toHaveBeenCalled();
+    });
 
-        expect(callArgs).toMatchObject({
-            senderName: '',
-            senderEmail: '',
-        });
+    it('creates only the missing template when one already exists', async () => {
+        setup({ exists: true, data: () => ({ senderName: 'S', senderEmail: 'e@x.com' }) });
+        existingIds = new Set(['wl-123_waitlist_welcome_email']);
 
-        const callArgs2 = batchSet.mock.calls[1][1];
-        expect(callArgs2.template).toContain('Arc CMS'); // Default company name
+        await (onWaitlistsCreate as any)(event);
+
+        expect(batchSet).toHaveBeenCalledTimes(1);
+        expect(batchSet.mock.calls[0][0].id).toBe('wl-123_waitlist_verify_otp_email');
+        expect(batchCommit).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to default sender identity if settings missing', async () => {
+        setup({ exists: false, data: () => ({}) });
+
+        await (onWaitlistsCreate as any)(event);
+
+        const welcome = batchSet.mock.calls.find(([, p]: any[]) => p.type === 'waitlist_welcome_email')[1];
+        expect(welcome).toMatchObject({ senderName: '', senderEmail: '' });
+
+        const otp = batchSet.mock.calls.find(([, p]: any[]) => p.type === 'waitlist_verify_otp_email')[1];
+        expect(otp.template).toContain('Arc CMS'); // Default company name in footer
     });
 
     it('OTP template should state 15 minutes validity (not 10)', async () => {
-        const mockSettingsGet = vi.fn().mockResolvedValue({
-            exists: true,
-            data: () => ({ senderName: 'Test', senderEmail: 'test@x.com' }),
-        });
+        setup({ exists: true, data: () => ({ senderName: 'Test', senderEmail: 'test@x.com' }) });
 
-        const mockDoc = vi.fn().mockReturnValue({
-            id: 'new-doc-id',
-            get: mockSettingsGet
-        });
+        await (onWaitlistsCreate as any)(event);
 
-        mockDb.collection.mockImplementation((name: any) => {
-            if (name === 'Settings') return { doc: mockDoc };
-            if (name === 'EmailTemplate') return { doc: mockDoc };
-            return { doc: mockDoc };
-        });
-
-        const mockEvent = {
-            data: { data: () => ({ name: 'Test Waitlist' }) },
-            params: { waitlistsId: 'wl-123' },
-        };
-
-        await (onWaitlistsCreate as any)(mockEvent);
-
-        const batchSet = mockDb.batch().set;
-        // Find the OTP template (type: waitlist_verify_otp_email)
         const otpCall = batchSet.mock.calls.find(
-            ([, payload]: any[]) => payload?.type === 'waitlist_verify_otp_email'
+            ([, payload]: any[]) => payload?.type === 'waitlist_verify_otp_email',
         );
         expect(otpCall).toBeDefined();
         expect(otpCall[1].template).toContain('15 minutes');

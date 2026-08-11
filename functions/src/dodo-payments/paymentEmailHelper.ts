@@ -1,7 +1,7 @@
-import { Timestamp } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
-import { EmailLogData, EmailTemplateData } from '../types.js';
+import { EmailTemplateData } from '../types.js';
+import { queueEmail } from '../email-core/queueEmail.js';
 import { PaymentEmailType } from './types.js';
 
 /**
@@ -22,7 +22,7 @@ import { PaymentEmailType } from './types.js';
  *   ##TRIAL_ENDS_AT##             → trialEndsAt
  */
 export async function sendPaymentEmail(
-  type: PaymentEmailType,
+  type: PaymentEmailType | 'updates_ending_email',
   recipient: { email: string; name?: string },
   vars: {
     amount?: number;
@@ -31,6 +31,8 @@ export async function sendPaymentEmail(
     plan?: string;
     renewalDate?: string;
     trialEndsAt?: string;
+    /** ##UPDATES_END_DATE## — used by the updates-ending reminder (E2). */
+    updatesEndDate?: string;
   },
   /**
    * Stable per-event key. When given, the EmailLogs document id is derived from
@@ -52,72 +54,33 @@ export async function sendPaymentEmail(
   }
 
   const template = snap.docs[0].data() as EmailTemplateData & { isActive?: boolean };
-  if (template.isActive === false) {
-    logger.info(`Payment email template ${type} is disabled; skipping.`);
-    return;
-  }
-
-  // BCC from email settings (mirrors the waitlist email helpers).
-  let bccEmail = '';
-  try {
-    const settingsDoc = await db.collection('Settings').doc('email').get();
-    if (settingsDoc.exists) {
-      bccEmail = settingsDoc.data()?.['bccEmail'] || '';
-    }
-  } catch (e) {
-    logger.error('Error fetching email settings for BCC', e);
-  }
 
   const toName = recipient.name || recipient.email.split('@')[0];
 
-  const emailObj: EmailLogData = {
+  // Route through the queueEmail() chokepoint — it enforces the kill-switch,
+  // the paymentEmails feature toggle, template-active state, and suppression,
+  // and resolves BCC from settings. Payment email is transactional.
+  await queueEmail({
+    source: 'payment',
+    category: 'transactional',
+    toEmail: recipient.email,
+    toName,
     senderEmail: template.senderEmail,
     senderName: template.senderName,
-    toName,
-    name: toName,
-    toEmail: recipient.email,
     subject: template.subject,
     template: template.template,
     text: template.previewText || '',
-    bcc: bccEmail,
     type,
-    createdAt: Timestamp.now(),
-    // Tag data
-    currency: vars.currency || '',
-    price: vars.amount !== undefined ? String(vars.amount) : '',
-    paymentStatus: vars.status || '',
-    subscriptionPlan: vars.plan || '',
-    renewalDate: vars.renewalDate || '',
-    trialEndsAt: vars.trialEndsAt || '',
-  };
-
-  if (!dedupeKey) {
-    await db.collection('EmailLogs').add(emailObj);
-    logger.info(`Enqueued payment email ${type} to ${recipient.email}`);
-    return;
-  }
-
-  // create() fails with ALREADY_EXISTS if this email was already enqueued for
-  // this event — the idempotent no-op we want when the trigger retries.
-  try {
-    await db.collection('EmailLogs').doc(emailLogId(type, dedupeKey)).create(emailObj);
-    logger.info(`Enqueued payment email ${type} to ${recipient.email}`);
-  } catch (error) {
-    if (isAlreadyExists(error)) {
-      logger.info(`Payment email ${type} for ${dedupeKey} already enqueued; skipping.`);
-      return;
-    }
-    throw error;
-  }
-}
-
-/** Deterministic EmailLogs doc id. `/` is illegal in a doc id; keys may contain it. */
-function emailLogId(type: PaymentEmailType, dedupeKey: string): string {
-  return `${type}__${dedupeKey}`.replace(/\//g, '_').slice(0, 1500);
-}
-
-/** True for a Firestore ALREADY_EXISTS error (gRPC status 6). */
-function isAlreadyExists(error: unknown): boolean {
-  const code = (error as { code?: unknown })?.code;
-  return code === 6 || code === 'already-exists';
+    templateIsActive: template.isActive !== false,
+    data: {
+      currency: vars.currency || '',
+      price: vars.amount !== undefined ? String(vars.amount) : '',
+      paymentStatus: vars.status || '',
+      subscriptionPlan: vars.plan || '',
+      renewalDate: vars.renewalDate || '',
+      trialEndsAt: vars.trialEndsAt || '',
+      updatesEndDate: vars.updatesEndDate || '',
+    },
+  });
+  logger.info(`Enqueued payment email ${type} to ${recipient.email}`);
 }

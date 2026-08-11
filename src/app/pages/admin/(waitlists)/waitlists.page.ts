@@ -6,7 +6,7 @@
 
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, Injector, inject, runInInjectionContext, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Firestore, collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy, setDoc, getCountFromServer } from '@angular/fire/firestore';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -14,6 +14,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { roleGuard } from '../../../guards/role.guard';
 import { WaitlistEditDrawerComponent, WaitlistFormData } from './edit-drawer/waitlist-edit-drawer.component';
@@ -36,6 +37,11 @@ interface IWaitlist {
     startingPoint?: number;
     allUsersCount?: number;
     defaultTagId?: string;
+    targetListIds?: string[];
+    gamificationEnabled?: boolean;
+    /** Parsed form input names + their mapping to contact fields (U4.5). */
+    fields?: string[];
+    fieldMap?: Record<string, string>;
 }
 
 @Component({
@@ -49,7 +55,8 @@ interface IWaitlist {
         MatIconModule,
         GlobalTableComponent,
         RouterLink,
-        WaitlistEditDrawerComponent
+        WaitlistEditDrawerComponent,
+        PageHeaderComponent
     ],
 })
 export default class WaitlistsComponent implements OnInit, OnDestroy {
@@ -57,6 +64,7 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
     private firestore = inject(Firestore);
     private dialog = inject(MatDialog);
     private sanitizer = inject(DomSanitizer);
+    private injector = inject(Injector);
 
     // Email configuration status
     emailConfigService = inject(EmailConfigStatusService);
@@ -173,18 +181,18 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
     }
 
     async loadWaitlists(): Promise<void> {
-        const collectionRef = collection(this.firestore, 'Waitlists');
-        const q = query(collectionRef, orderBy('createdAt', 'desc'));
+        const collectionRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'Waitlists'));
+        const q = runInInjectionContext(this.injector, () => query(collectionRef, orderBy('createdAt', 'desc')));
 
-        this.unsubscribe = onSnapshot(q, async (snapshot) => {
+        this.unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(q, async (snapshot) => {
             const promises = snapshot.docs.map(async (docSnap) => {
                 const data = docSnap.data();
                 const id = docSnap.id;
 
                 // Fetch total count of users (verified + unverified)
                 try {
-                    const usersRef = collection(this.firestore, 'Waitlists', id, 'users');
-                    const countSnap = await getCountFromServer(usersRef);
+                    const usersRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'Waitlists', id, 'users'));
+                    const countSnap = await runInInjectionContext(this.injector, () => getCountFromServer(usersRef));
                     return {
                         id,
                         ...data,
@@ -202,7 +210,7 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
         }, (error) => {
             console.error('Error loading waitlists:', error);
             this.loading.set(false);
-        });
+        }));
     }
 
     openAddDrawer(): void {
@@ -227,13 +235,18 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
         try {
             if (this.currentAction() === 'edit') {
                 const docRef = doc(this.firestore, 'Waitlists', this.currentId());
-                await updateDoc(docRef, { ...formData, updatedAt: new Date() });
+                // Canonical targetListIds always includes the form's own system
+                // list (U3); the drawer only tracks the additional manual picks.
+                const targetListIds = this.withOwnList(this.currentId(), formData.targetListIds);
+                await updateDoc(docRef, { ...formData, targetListIds, updatedAt: new Date() });
             } else {
                 const collectionRef = collection(this.firestore, 'Waitlists');
                 const docRef = doc(collectionRef, formData.slug);
+                const targetListIds = this.withOwnList(formData.slug, formData.targetListIds);
 
                 await setDoc(docRef, {
                     ...formData,
+                    targetListIds,
                     createdAt: new Date(),
                     totalSignups: 0,
                 });
@@ -242,6 +255,11 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
         } catch (error) {
             console.error('Error saving waitlist:', error);
         }
+    }
+
+    /** Prepend a form's own `waitlist-{id}` system list to its manual list picks. */
+    private withOwnList(formId: string, manualPicks: string[] = []): string[] {
+        return [...new Set([`waitlist-${formId}`, ...manualPicks.filter(Boolean)])];
     }
 
     async deleteWaitlist(waitlist: IWaitlist): Promise<void> {
@@ -262,8 +280,8 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
         dialogRef.afterClosed().subscribe(async (result: any) => {
             if (!!result) {
                 try {
-                    const docRef = doc(this.firestore, 'Waitlists', waitlist.id);
-                    await deleteDoc(docRef);
+                    const docRef = runInInjectionContext(this.injector, () => doc(this.firestore, 'Waitlists', waitlist.id));
+                    await runInInjectionContext(this.injector, () => deleteDoc(docRef));
                 } catch (error) {
                     console.error('Error deleting waitlist:', error);
                 }

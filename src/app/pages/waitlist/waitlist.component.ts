@@ -206,6 +206,15 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
     waitlist = signal<IWaitlist | null>(null);
     alreadyVerified = signal<boolean>(false);
 
+    /**
+     * Whether to show referral link, leaderboard, and queue position (U3).
+     * Defaults to true so existing waitlists are unchanged; only an explicit
+     * `gamificationEnabled: false` turns this into a plain signup form.
+     */
+    get showGamification(): boolean {
+        return this.waitlist()?.gamificationEnabled !== false;
+    }
+
     get isUsedAsChild(): boolean {
         return !!this.waitlistIdInput;
     }

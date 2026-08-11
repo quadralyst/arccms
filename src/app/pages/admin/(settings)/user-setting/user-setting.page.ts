@@ -10,6 +10,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { roleGuard } from '../../../../guards/role.guard';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
+import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { UserSettingService } from './user-setting.service';
 import { AVAILABLE_ROLES, IUserSettings } from './user-setting.model';
 import { MatButtonModule } from '@angular/material/button';
@@ -32,6 +33,7 @@ export const routeMeta: RouteMeta = {
         MatFormFieldModule,
         MatProgressSpinnerModule,
         MatButtonModule,
+        PageHeaderComponent,
     ],
     templateUrl: './user-setting.page.html',
     styleUrl: './user-setting.page.scss',

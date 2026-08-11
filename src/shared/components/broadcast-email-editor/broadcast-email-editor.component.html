@@ -67,6 +67,7 @@
                                 <label for="subject">Subject <span class="required">*</span></label>
                                 <input type="text" class="form-control" formControlName="subject"
                                     placeholder="Email subject line"
+                                    [arcHashtagAutocomplete]="emailPlaceholders"
                                     [class.is-invalid]="subject?.invalid && (subject?.dirty || subject?.touched)"
                                     [class.is-valid]="subject?.valid && (subject?.dirty || subject?.touched)">
                                 <div class="invalid-feedback">Subject is required.</div>
@@ -76,7 +77,8 @@
                             <div class="form-group">
                                 <label for="previewText">Preview Text</label>
                                 <input type="text" class="form-control" formControlName="previewText"
-                                    placeholder="Text shown in email previews">
+                                    placeholder="Text shown in email previews"
+                                    [arcHashtagAutocomplete]="emailPlaceholders">
                             </div>
 
                             <!-- Error Messages -->
@@ -165,7 +167,8 @@
                 </div>
                 } @else {
                 <div class="visual-editor">
-                    <app-tiptap-editor [productValue]="htmlContent" (textEditorContent)="onEditorChanges($event)">
+                    <app-tiptap-editor [productValue]="htmlContent" [tags]="emailPlaceholders"
+                        (textEditorContent)="onEditorChanges($event)">
                     </app-tiptap-editor>
                 </div>
                 }

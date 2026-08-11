@@ -4,6 +4,7 @@
  * Uses mock store/service with Vitest.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { headerTestProviders } from '../../../../../test/header-test-providers';
 import { Firestore } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -64,6 +65,7 @@ describe('WaitlistTagsComponent', () => {
         await TestBed.configureTestingModule({
             imports: [WaitlistTagsComponent, NoopAnimationsModule],
             providers: [
+                ...headerTestProviders(),
                 { provide: WaitlistUserTagsStore, useClass: MockWaitlistUserTagsStore },
                 { provide: WaitlistUserTagsService, useClass: MockWaitlistUserTagsService },
                 ConstantVariables,

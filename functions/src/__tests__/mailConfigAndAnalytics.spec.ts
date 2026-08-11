@@ -36,8 +36,10 @@ describe('buildTrackingPixel (mailConfig.ts)', () => {
       'utf-8'
     );
 
-    // The function checks if TRACKING_PIXEL_URL is falsy and returns ''
-    expect(fileContent).toContain("if (!constant.TRACKING_PIXEL_URL) return '';");
+    // The function resolves a tracking URL (settings override → constant) and
+    // returns '' when none is configured.
+    expect(fileContent).toContain('const url = trackingUrl || constant.TRACKING_PIXEL_URL;');
+    expect(fileContent).toContain("if (!url) return '';");
   });
 
   it('should build a 1x1 invisible tracking pixel img tag', async () => {
@@ -184,7 +186,8 @@ describe('sendMail — email counter integration', () => {
       path.resolve(__dirname, '../mail-config/mailConfig.ts'),
       'utf-8'
     );
-    expect(fileContent).toContain("import { incrementSendCount } from './emailCounter.js'");
+    // Import now also pulls in quota helpers for universal rate-limit enforcement.
+    expect(fileContent).toMatch(/import \{[^}]*incrementSendCount[^}]*\} from '\.\/emailCounter\.js'/);
   });
 
   it('should call incrementSendCount after successful email send', async () => {
@@ -660,5 +663,104 @@ describe('Analytics Dashboard Functions', () => {
       
       expect(fileContent).toContain("collection('Settings')");
     });
+  });
+});
+
+describe('processEmailTemplate — custom contact fields (U4.5)', () => {
+  const base = { toName: 'Ana', toEmail: 'ana@example.com' };
+
+  it('resolves ##FIELD:key## from the contact fields carried on the log', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      subject: 'News for ##FIELD:company##',
+      template: '<p>Hi ##NAME##, how is ##FIELD:company##?</p>',
+      contactFields: { company: 'Acme' },
+    } as any, {});
+
+    expect(result.subject).toBe('News for Acme');
+    expect(result.template).toContain('how is Acme?');
+    expect(result.template).toContain('Hi Ana');
+  });
+
+  it('uses the inline fallback when the contact has no value', async () => {
+    // The reason fallbacks exist: two forms feeding one list collect different
+    // fields, so a shared template must not render a blank gap.
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      subject: 'Hello',
+      template: '<p>How is ##FIELD:company|your team##?</p>',
+      contactFields: {},
+    } as any, {});
+
+    expect(result.template).toContain('How is your team?');
+    expect(result.template).not.toContain('##FIELD');
+  });
+
+  it('falls back when the field is present but empty', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      subject: 'Hello',
+      template: '<p>At ##FIELD:company|your company##</p>',
+      contactFields: { company: '' },
+    } as any, {});
+
+    expect(result.template).toContain('At your company');
+  });
+
+  it('renders empty (never the raw tag) when there is no value and no fallback', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      subject: 'Hello',
+      template: '<p>At ##FIELD:company##.</p>',
+      contactFields: {},
+    } as any, {});
+
+    expect(result.template).toBe('<p>At .</p>');
+  });
+
+  it('does not collide with built-in tags of a similar name', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      subject: 'Hello',
+      template: '<p>##FIELD:company## vs ##COMPANY_NAME##</p>',
+      contactFields: { company: 'Acme' },
+    } as any, { companyName: 'Arc CMS' });
+
+    expect(result.template).toContain('Acme vs Arc CMS');
+  });
+
+  it('handles a log with no contactFields at all (pre-U4.5 docs)', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      subject: 'Hello',
+      template: '<p>At ##FIELD:company|somewhere##</p>',
+    } as any, {});
+
+    expect(result.template).toContain('At somewhere');
+  });
+
+  it('resolves several fields in one template', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      subject: 'Hello',
+      template: '<p>##FIELD:role## at ##FIELD:company##</p>',
+      contactFields: { role: 'CTO', company: 'Acme' },
+    } as any, {});
+
+    expect(result.template).toContain('CTO at Acme');
   });
 });

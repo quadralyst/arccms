@@ -15,6 +15,7 @@ import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../guards/role.guard';
 import { ProductsStore } from './products.store';
 import { IProduct } from './product.model';
@@ -30,7 +31,7 @@ export const routeMeta: RouteMeta = {
     imports: [
         CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatIconModule,
         MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule, MatTableModule,
-        MatSidenavModule, MatTooltipModule, MatProgressSpinnerModule,
+        MatSidenavModule, MatTooltipModule, MatProgressSpinnerModule, PageHeaderComponent,
     ],
     template: `
       <mat-drawer-container class="products-drawer-container" hasBackdrop="true">
@@ -113,15 +114,12 @@ export const routeMeta: RouteMeta = {
 
         <mat-drawer-content>
         <div class="products-page">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <h1 class="m-0">Products</h1>
-                    <p class="text-muted mb-0">Products are created in Dodo; mirror them here with pricing tiers & entitlements.</p>
-                </div>
+            <arc-page-header title="Products"
+                subtitle="Products are created in Dodo; mirror them here with pricing tiers & entitlements.">
                 @if (!showForm()) {
                     <button mat-raised-button color="primary" (click)="openCreate()"><i class="fa-solid fa-plus me-2"></i>New Product</button>
                 }
-            </div>
+            </arc-page-header>
 
             @if (showForm()) {
                 <mat-card class="mb-4">

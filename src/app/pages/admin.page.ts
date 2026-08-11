@@ -27,7 +27,6 @@ import { CommonModule } from '@angular/common';
         MatSidenavModule,
         MatToolbarModule,
         MatButtonModule,
-        MatIconModule,
         CommonModule
     ],
     templateUrl: './admin/admin.html',
@@ -52,6 +51,17 @@ import { CommonModule } from '@angular/common';
         
         mat-drawer {
             height: 100%;
+        }
+
+        .arc-mobile-bar {
+            background-color: #fff;
+            border-bottom: 1px solid #e9ecef;
+            padding: 6px 12px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .arc-mobile-bar span {
+            font-weight: 600;
         }
     `]
 })

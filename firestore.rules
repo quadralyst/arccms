@@ -206,6 +206,82 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Email system (Phase 3+): Contacts, Suppression, signup OTPs are
+    // functions-only writes; admins may read for the admin UIs. Lists are
+    // admin-managed (memberCount is maintained by functions but admin writes are
+    // allowed for manual list management).
+    match /Contacts/{emailHash} {
+      allow read: if isAdmin();
+      allow write: if false; // Cloud Functions (Admin SDK) only
+    }
+
+    match /Suppression/{emailHash} {
+      allow read: if isAdmin();
+      allow write: if false; // Cloud Functions only
+    }
+
+    match /signup_otps/{emailHash} {
+      allow read, write: if false; // Cloud Functions only (never client-readable)
+    }
+
+    // Erasure receipts (adminDeleteContact). Hash-keyed and address-free by
+    // construction, so admin read is safe — it is the operator's proof a deletion
+    // request was actioned. Write is functions-only for the same reason a contact
+    // is: an editable audit trail is not an audit trail.
+    match /ErasureLog/{emailHash} {
+      allow read: if isAdmin();
+      allow write: if false; // Cloud Functions only
+    }
+
+    // NOTE (U4.5): `Settings/contact_fields` needs no rule of its own — the
+    // `Settings/{settingId}` catch-all above already grants admins read/write, and
+    // admin read is all the Fields page, the form mapping picker and the contact
+    // drawer require. A `write: if false` block here would be misleading: rules
+    // OR together, so the catch-all would still permit the write.
+
+    match /Lists/{listId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Global audience tags (U2). Distinct from the CMS `Tags_{slug}` content
+    // taxonomy below, which is public-read — these label contacts and are
+    // admin-only. Doc id is a slug of the label; `usageCount` is maintained by
+    // functions but admin writes are allowed for label/colour management.
+    match /ContactTags/{tagId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Notifications (Phase 5): a user reads their own and may only flip `read`;
+    // create/delete are functions/admin only.
+    match /Notifications/{id} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow create, delete: if false;
+    }
+
+    // Event bus + announcements: functions-only writes; admins read for the UIs.
+    match /AppEvents/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /Announcements/{id} {
+      allow read: if isAdmin();
+      allow write: if false; // created via the sendAnnouncement callable
+    }
+
+    // Drip campaigns (Phase 7): admin-managed. Enrollments are functions-only.
+    match /DripCampaigns/{id} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    match /DripEnrollments/{id} {
+      allow read: if isAdmin();
+      allow write: if false; // Cloud Functions only
+    }
+
     // ============================================================
     // 5. WAITLIST COLLECTIONS
     //    Signup flow runs client-side without authentication.
@@ -225,44 +301,89 @@ service cloud.firestore {
 
       // Users subcollection - signup flow (unauthenticated)
       match /users/{userId} {
-        allow read: if true;
+        // #51: NO public read. This carried `allow read: if true`, verified exploitable —
+        // an unauthenticated request using only the web API key (which ships in the
+        // frontend bundle) could page every signup, raw email addresses included.
+        //
+        // The rule existed because the browser read these documents: the leaderboard and
+        // user-detail pages, the signup duplicate check, the OTP confirm path, the
+        // referrer lookup and the member count. All of those now go through callables —
+        // getPublicLeaderboard, getPublicMemberView, joinForm, creditReferral — which
+        // return an explicit field allowlist and masked addresses.
+        //
+        // Creates stay open: a signup writes its own member doc, and the U5 lockdown
+        // already restricts which fields an update may touch.
+        allow read: if isAdmin();
         allow create: if request.resource.data.keys().hasAll(['email', 'waitlistId'])
                       && request.resource.data.email is string
                       && request.resource.data.email.size() > 0
                       && request.resource.data.email.size() < 255;
+        // U5 item 5: verification, queue position and referral counts are written ONLY by
+        // Cloud Functions (finalizeFormSignup / verifyFormOtp / the referral triggers).
+        // Until U5 these were client-writable, so anyone could mark themselves
+        // verified, jump the queue, or inflate their referral count with a single
+        // Firestore write. Removed from the whitelist: emailVerified, isConfirmed,
+        // verificationCode, verificationExpires, verifiedAt, queuePosition,
+        // totalReferrals. Creates are unaffected — a signup still creates its own doc.
         allow update: if isAdmin() || request.resource.data.diff(resource.data)
                          .affectedKeys()
-                         .hasOnly(['emailVerified', 'isConfirmed', 'verificationCode',
-                                   'verificationExpires', 'verifiedAt', 'queuePosition',
-                                   'isSubscribed', 'firstName', 'leaderboardLink',
-                                   'totalReferrals', 'tags', 'referredBy']);
+                         .hasOnly(['isSubscribed', 'firstName', 'leaderboardLink',
+                                   'tags', 'referredBy']);
         allow delete: if isAdmin();
 
         // Notes subcollection - admin-only internal annotations on subscribers
         match /notes/{noteId} {
           allow read, write: if isAdmin();
         }
+
+        // U6: referrals live under the member that earned them, so the crediting
+        // trigger takes the form and the member straight from the document path
+        // instead of trusting fields on the record. Same permissions the block under
+        // WaitlistedUsers had — public read for the leaderboard, unauthenticated
+        // create for the signup flow — but `totalReferrals` itself stays
+        // functions-only (see the member update rule above), so a forged referral
+        // record still cannot inflate a count directly.
+        match /referrals/{referralId} {
+          // #51: read through getPublicMemberView, which masks the referred addresses.
+          // Public read here handed out the email of everyone a member ever referred.
+          allow read: if isAdmin();
+          allow create: if request.resource.data.keys().hasAll(['referredEmail'])
+                        && request.resource.data.referredEmail is string
+                        && request.resource.data.referredEmail.size() > 0
+                        && request.resource.data.referredEmail.size() < 255;
+          allow update: if isAdmin() || request.resource.data.diff(resource.data)
+                           .affectedKeys()
+                           .hasOnly(['status', 'completedAt']);
+          allow delete: if isAdmin();
+        }
       }
     }
 
-    // WaitlistedUsers - global user registry for signup + leaderboard
+    // WaitlistedUsers - retired global registry (U6). Read-only for admins; see the
+    // frozen-write note below.
     match /WaitlistedUsers/{userId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['email', 'waitlistId'])
-                    && request.resource.data.email is string
-                    && request.resource.data.email.size() > 0
-                    && request.resource.data.email.size() < 255;
-      allow update: if isAdmin() || request.resource.data.diff(resource.data)
-                       .affectedKeys()
-                       .hasOnly(['emailVerified', 'isConfirmed', 'verificationCode',
-                                 'verificationExpires', 'verifiedAt', 'queuePosition',
-                                 'isSubscribed', 'firstName', 'leaderboardLink',
-                                 'totalReferrals', 'waitlistId', 'waitlistIds', 'referredBy']);
+      // #51: NO public read — the worst of the four, since it exposed every signup
+      // across every form in one collection. Nothing public reads it now:
+      // getPublicMemberView resolves a legacy `waitlistedUserId` through the member
+      // doc's back-reference, so leaderboard links already sent by email still work.
+      allow read: if isAdmin();
+      // U6 cutover: FROZEN. Nothing writes this collection any more — joinForm creates
+      // only a member doc, finalizeFormSignup's mirror is gone, and the two OTP triggers
+      // that fired on it are deleted. Records written before the cutover are kept so
+      // already-sent links and the historical importers still resolve, but they are now
+      // read-only.
+      //
+      // Admin writes stay permitted so the export/import tooling and any manual repair
+      // still work. Physical deletion of the collection is a deliberate admin step after
+      // verification, not something these rules do.
+      allow create, update: if isAdmin();
       allow delete: if isAdmin();
 
       // Referrals subcollection - leaderboard + signup flow
       match /referrals/{referralId} {
-        allow read: if true;
+        // #51: same reasoning as the parent. U6 moved referrals under the member doc;
+        // these are the pre-migration records.
+        allow read: if isAdmin();
         allow create: if request.resource.data.keys().hasAll(['referredEmail'])
                       && request.resource.data.referredEmail is string
                       && request.resource.data.referredEmail.size() > 0

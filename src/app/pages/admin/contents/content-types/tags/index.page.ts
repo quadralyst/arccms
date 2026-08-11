@@ -14,6 +14,7 @@ import { TagsStore } from './tags.store';
 import { ITag } from './tags.model';
 import { ConfirmationPopupComponent } from '../../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { GlobalTableComponent, TableColumn } from '../../../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../../../shared/components/page-header/page-header.component';
 
 import AddTagComponent from './(add-tag)/add.page';
 import EditTagComponent from './(edit-tag)/edit.[tagId].page';
@@ -40,7 +41,8 @@ export const routeMeta: RouteMeta = {
         AddTagComponent,
         EditTagComponent,
         ViewTagComponent,
-        GlobalTableComponent
+        GlobalTableComponent,
+        PageHeaderComponent
     ],
     templateUrl: './index.html',
     styleUrl: './index.scss',

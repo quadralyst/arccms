@@ -1,0 +1,28 @@
+<mat-drawer-container class="drips-drawer-container" hasBackdrop="true">
+    <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 600px;">
+        @if (currentAction()) {
+        <arc-drip-drawer [mode]="currentAction() || 'add'" [campaign]="currentCampaign()"
+            [lists]="lists()" [templates]="templates()"
+            (saved)="closeDrawer()" (close)="closeDrawer()">
+        </arc-drip-drawer>
+        }
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="page-container">
+            <arc-page-header title="Drip Campaigns"
+                subtitle="Linear sequences per list. Joining a list enrolls a contact; leaving or unsubscribing exits them.">
+                <button mat-flat-button color="primary" (click)="openAdd()">
+                    <mat-icon>add</mat-icon> New campaign
+                </button>
+            </arc-page-header>
+
+            <app-global-table [data]="campaigns()" [columns]="columns" [loading]="loading()"
+                emptyIcon="fas fa-droplet" emptyTitle="No campaigns yet"
+                emptyDescription="Create a drip campaign to send a timed sequence of emails when contacts join a list."
+                emptyActionLabel="New campaign" emptyActionIcon="fas fa-plus"
+                (emptyActionClick)="openAdd()">
+            </app-global-table>
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

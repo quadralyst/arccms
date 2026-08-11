@@ -10,19 +10,18 @@
           <button class="btn btn-link text-decoration-none mob_menu" (click)="drawer.toggle()">Menu</button>
         </div> -->
 
-            <mat-toolbar class="mob_menu d-flex justify-content-between align-items-center"
-                [ngClass]="drawerMode === 'side' ? 'd-none' : ''">
-                <div class="d-flex align-items-center">
-                    <div class="btn d-flex border-0" (click)="drawer.toggle()">
-                        <mat-icon class="">menu</mat-icon>
-                    </div>
-                    <span>{{ constantVariables.APPLICATION_NAME }}</span>
-                </div>
-                <button mat-icon-button class="example-icon favorite-icon"
-                    aria-label="Example icon-button with heart icon">
-                    <mat-icon>notifications</mat-icon>
+            <!-- Mobile-only bar: on desktop the sidebar supplies nav and each
+                 page's <arc-page-header> carries the notification bell, so no top
+                 bar is needed. On mobile (over mode) we keep a slim bar with the
+                 hamburger + app name so the sidebar stays reachable. -->
+            @if (drawerMode === 'over') {
+            <div class="arc-mobile-bar d-flex align-items-center">
+                <button class="btn d-flex border-0" (click)="drawer.toggle()" aria-label="Menu">
+                    <mat-icon>menu</mat-icon>
                 </button>
-            </mat-toolbar>
+                <span class="ms-1">{{ constantVariables.APPLICATION_NAME }}</span>
+            </div>
+            }
             <router-outlet></router-outlet>
             <!-- <arc-footer></arc-footer> -->
         </mat-drawer-content>

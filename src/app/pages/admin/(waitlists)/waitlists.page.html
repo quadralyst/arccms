@@ -1,18 +1,11 @@
-<div class="d-flex justify-content-between align-items-center top-bar">
-    <h5 class="mb-0">Waitlists</h5>
-</div>
 <!-- Waitlists Admin Page Template -->
 <div class="page-container">
     <!-- Header -->
-    <div class="page-header">
-        <div class="header-content">
-            <h1>Waitlists</h1>
-            <p class="subtitle">Manage your waitlists, users, and email templates</p>
-        </div>
+    <arc-page-header title="Waitlists" subtitle="Manage your waitlists, users, and email templates">
         <button class="btn btn-primary" (click)="openAddDrawer()">
             <i class="fas fa-plus"></i> Add Waitlist
         </button>
-    </div>
+    </arc-page-header>
 
     <!-- Email Not Configured Warning Banner -->
     @if (emailConfigService.shouldShowBanner()) {

@@ -1,0 +1,168 @@
+import { RouteMeta } from '@analogjs/router';
+import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { roleGuard } from '../../../guards/role.guard';
+import { ToastService } from '../../../../shared/services/toast.service';
+import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
+import { AudienceService } from '../(audience)/audience.service';
+import { IList } from '../(audience)/audience.model';
+import { ListDrawerComponent, ListDrawerMode } from './(list-drawer)/list-drawer.component';
+
+export const routeMeta: RouteMeta = {
+    title: 'Lists | Arc CMS',
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+};
+
+@Component({
+    standalone: true,
+    imports: [
+        CommonModule, FormsModule, MatButtonModule, MatIconModule, MatDialogModule,
+        MatSidenavModule, MatTooltipModule, GlobalTableComponent, ListDrawerComponent, PageHeaderComponent,
+    ],
+    templateUrl: './lists.page.html',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    host: { ngSkipHydration: 'true' },
+})
+export default class ListsPageComponent implements OnInit {
+    @ViewChild('drawer') drawer!: MatDrawer;
+
+    private audience = inject(AudienceService);
+    private toast = inject(ToastService);
+    private dialog = inject(MatDialog);
+    private sanitizer = inject(DomSanitizer);
+    private destroyRef = inject(DestroyRef);
+    private router = inject(Router);
+
+    lists = signal<IList[]>([]);
+    loading = signal(true);
+    busy = signal(false);
+
+    currentAction = signal<ListDrawerMode | ''>('');
+    currentList = signal<IList | null>(null);
+
+    columns: TableColumn[] = [
+        { key: 'name', header: 'Name', type: 'text', classFn: () => 'fw-medium' },
+        { key: 'description', header: 'Description', type: 'text', classFn: () => 'small text-muted', transformFn: (r) => r.description || '—' },
+        {
+            key: 'type', header: 'Type', type: 'html',
+            // Static markup only — never interpolate list-supplied values here.
+            transformFn: (r) => r.formId
+                ? '<span class="status-badge is-info">Form</span>'
+                : `<span class="status-badge ${r.type === 'system' ? 'is-info' : 'is-neutral'}">${r.type}</span>`,
+        },
+        { key: 'memberCount', header: 'Members', type: 'text', transformFn: (r) => r.memberCount || 0 },
+        {
+            key: 'actions', header: 'Actions', type: 'actions',
+            actions: [
+                {
+                    action: 'open', icon: 'fas fa-arrow-right text-primary', label: 'Open', class: 'edit',
+                    // Row click opens the hub for every list — including system
+                    // lists, which have no editable settings but do have members,
+                    // broadcasts and sequences worth seeing.
+                    isRowClick: true, onAction: (row) => this.openHub(row),
+                },
+                {
+                    action: 'view-form', icon: 'fas fa-arrow-up-right-from-square text-primary', label: 'View form', class: 'edit',
+                    hide: (row) => !row.formId, onAction: (row) => this.viewForm(row),
+                },
+                {
+                    action: 'edit', icon: 'fas fa-pen text-primary', label: 'Edit', class: 'edit',
+                    hide: (row) => row.type === 'system', onAction: (row) => this.openEdit(row),
+                },
+                {
+                    action: 'delete', icon: 'fas fa-trash text-danger', label: 'Delete', class: 'delete',
+                    hide: (row) => row.type === 'system', onAction: (row) => this.confirmDelete(row),
+                },
+            ],
+        },
+    ];
+
+    ngOnInit(): void {
+        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((lists) => {
+            this.lists.set(lists);
+            this.loading.set(false);
+        });
+    }
+
+    openAdd(): void {
+        this.currentAction.set('add');
+        this.currentList.set(null);
+        this.drawer?.open();
+    }
+
+    openEdit(list: IList): void {
+        this.currentAction.set('edit');
+        this.currentList.set(list);
+        this.drawer?.open();
+    }
+
+    /**
+     * Backfill lists for signup forms created before eager list creation existed
+     * (and repair names/back-pointers on lists the old lazy path left behind).
+     */
+    async syncFormLists(): Promise<void> {
+        this.busy.set(true);
+        try {
+            const res = await this.audience.backfillFormLists();
+            const d: any = res?.data || {};
+            this.toast.success(`Synced ${d.forms ?? 0} forms: ${d.created ?? 0} created, ${d.repaired ?? 0} updated`);
+        } catch (e) {
+            console.error(e);
+            this.toast.error('Failed to sync form lists');
+        } finally {
+            this.busy.set(false);
+        }
+    }
+
+    /** Open the list's workspace: members, broadcasts and sequence (U4). */
+    openHub(list: IList): void {
+        this.router.navigate(['/admin/lists', list.id]);
+    }
+
+    /** Jump from a form-fed list to the signup form that feeds it. */
+    viewForm(list: IList): void {
+        if (!list.formId) return;
+        this.router.navigate(['/admin/waitlists/dashboard', list.formId]);
+    }
+
+    closeDrawer(): void {
+        this.drawer?.close();
+        this.currentAction.set('');
+        this.currentList.set(null);
+    }
+
+    confirmDelete(list: IList): void {
+        if (list.type === 'system') {
+            this.toast.error('System lists cannot be deleted');
+            return;
+        }
+        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
+            `Are you sure you want to delete <strong>${list.name}</strong>?`,
+        );
+        this.dialog.open(ConfirmationPopupComponent, {
+            width: '350px',
+            data: { dialogType: 'Delete', dialogMessage: msg, btnText: 'Delete', panelType: 'warn' },
+        }).afterClosed().subscribe(async (result: boolean) => {
+            if (!result) return;
+            try {
+                await this.audience.deleteList(list.id);
+                this.toast.success('List deleted');
+            } catch (e) {
+                console.error(e);
+                this.toast.error('Failed to delete list');
+            }
+        });
+    }
+}

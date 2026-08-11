@@ -1,0 +1,13 @@
+/* Constrain form/list content within the tabs to a comfortable reading width,
+   replacing the previous inline max-width styles. */
+.tab-body {
+    padding-top: 1.5rem;
+}
+
+.tab-form {
+    max-width: 640px;
+}
+
+.mapping-row {
+    max-width: 480px;
+}

@@ -27,7 +27,9 @@ export const onWaitlistUserDelete = onDocumentDeleted(
         await decrementReferralCounts(
           deletedData.referredBy,
           waitlistId,
-          deletedData.waitlistedUserId || event.params.usersId
+          // Both ids: pre-U6 referral records name the referred person by their
+          // WaitlistedUsers id, post-U6 records by their member-doc id.
+          [deletedData.waitlistedUserId || '', event.params.usersId],
         );
         console.log(
           `Decremented referral count for referrer code ${deletedData.referredBy} after deleting user ${deletedData.email || event.params.usersId}`

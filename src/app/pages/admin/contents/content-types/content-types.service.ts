@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, runInInjectionContext } from '@angular/core';
 import { query, where, getDocs, limit } from '@angular/fire/firestore';
 import { DbService } from '../../../../../shared/services/db.service';
 import { ContentType } from './content-types.model';
@@ -20,8 +20,10 @@ export class ContentTypesService extends DbService<ContentType> {
     slug: string,
   ): Promise<{ exists: boolean; slug: string }> {
     try {
-      const q = query(this.dbCollection, where('slug', '==', slug), limit(1));
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await runInInjectionContext(this.injector, () => {
+        const q = query(this.dbCollection, where('slug', '==', slug), limit(1));
+        return getDocs(q);
+      });
 
       return {
         exists: !querySnapshot.empty,

@@ -1,7 +1,5 @@
 <!-- Page Header -->
-<div class="d-flex justify-content-between align-items-center top-bar">
-    <h5 class="mb-0">{{ waitlist()?.name || 'Waitlist Dashboard' }}</h5>
-</div>
+<arc-page-header [title]="waitlist()?.name || 'Waitlist Dashboard'"></arc-page-header>
 
 @if (loading()) {
 <div class="dashboard-content">

@@ -20,6 +20,7 @@ import { WaitlistUserTagsStore } from '../joined-users/waitlist-user-tags.store'
 import { IWaitlistUserTag } from '../joined-users/waitlist-user-tags.model';
 import { ConstantVariables } from '../../../../../shared/constants/common-constants';
 import { GlobalTableComponent, TableColumn } from '../../../../../shared/components/global-table/global-table.component';
+import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
@@ -39,7 +40,8 @@ export const routeMeta: RouteMeta = {
         MatIconModule,
         MatButtonModule,
         MatDialogModule,
-        GlobalTableComponent
+        GlobalTableComponent,
+        PageHeaderComponent
     ],
     templateUrl: './tags.page.html',
     styleUrls: ['./tags.page.scss'],

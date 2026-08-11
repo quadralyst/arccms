@@ -5,7 +5,7 @@
  * Uses Angular Fire for Firestore integration.
  */
 
-import { Inject, Injectable, inject, InjectionToken, PLATFORM_ID } from '@angular/core';
+import { Inject, Injectable, inject, InjectionToken, Injector, PLATFORM_ID, runInInjectionContext } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import {
     CollectionReference,
@@ -71,6 +71,7 @@ interface QueryResult<T> {
 export class DbService<T extends IBaseModel> extends GlobalService {
     firestore = inject(Firestore);
     private platformId = inject(PLATFORM_ID);
+    protected injector = inject(Injector);
     dbCollection: CollectionReference<T>;
 
     constructor(@Inject(COLLECTION_NAME) private collectionName: string) {
@@ -98,64 +99,66 @@ export class DbService<T extends IBaseModel> extends GlobalService {
         let countQuery: Query<T> = targetCollection;
 
         if (queryParams) {
-            const whereConstraints: any[] = [];
-            const orConstraints: any[] = [];
+            runInInjectionContext(this.injector, () => {
+                const whereConstraints: any[] = [];
+                const orConstraints: any[] = [];
 
-            if (queryParams.whereConditions) {
-                for (const condition of queryParams.whereConditions) {
-                    whereConstraints.push(where(condition.field, condition.operator, condition.value));
+                if (queryParams.whereConditions) {
+                    for (const condition of queryParams.whereConditions) {
+                        whereConstraints.push(where(condition.field, condition.operator, condition.value));
+                    }
                 }
-            }
 
-            if (queryParams.orConditions && queryParams.orConditions.length > 0) {
-                for (const condition of queryParams.orConditions) {
-                    orConstraints.push(where(condition.field, condition.operator, condition.value));
+                if (queryParams.orConditions && queryParams.orConditions.length > 0) {
+                    for (const condition of queryParams.orConditions) {
+                        orConstraints.push(where(condition.field, condition.operator, condition.value));
+                    }
                 }
-            }
 
-            const filterConstraints = [];
-            if (whereConstraints.length && orConstraints.length) {
-                filterConstraints.push(and(...whereConstraints, or(...orConstraints)));
-            } else if (whereConstraints.length) {
-                filterConstraints.push(...whereConstraints);
-            } else if (orConstraints.length) {
-                filterConstraints.push(or(...orConstraints));
-            }
+                const filterConstraints = [];
+                if (whereConstraints.length && orConstraints.length) {
+                    filterConstraints.push(and(...whereConstraints, or(...orConstraints)));
+                } else if (whereConstraints.length) {
+                    filterConstraints.push(...whereConstraints);
+                } else if (orConstraints.length) {
+                    filterConstraints.push(or(...orConstraints));
+                }
 
-            if (filterConstraints.length > 0) {
-                dataQuery = query<T, DocumentData>(targetCollection, ...filterConstraints);
-                countQuery = query<T, DocumentData>(targetCollection, ...filterConstraints);
-            }
+                if (filterConstraints.length > 0) {
+                    dataQuery = query<T, DocumentData>(targetCollection, ...filterConstraints);
+                    countQuery = query<T, DocumentData>(targetCollection, ...filterConstraints);
+                }
 
-            if (queryParams.orderByField) {
-                dataQuery = query<T, DocumentData>(
-                    dataQuery,
-                    orderBy(queryParams.orderByField, queryParams.orderByDirection || 'asc'),
-                );
-            }
+                if (queryParams.orderByField) {
+                    dataQuery = query<T, DocumentData>(
+                        dataQuery,
+                        orderBy(queryParams.orderByField, queryParams.orderByDirection || 'asc'),
+                    );
+                }
 
-            if (queryParams?.startAfterDoc instanceof DocumentSnapshot) {
-                dataQuery = query<T, DocumentData>(
-                    dataQuery,
-                    startAfter(queryParams.startAfterDoc),
-                    limit(queryParams.limitCount),
-                );
-            } else if (queryParams?.endBeforeDoc instanceof DocumentSnapshot) {
-                dataQuery = query<T, DocumentData>(
-                    dataQuery,
-                    endBefore(queryParams.endBeforeDoc),
-                    limitToLast(queryParams.limitCount),
-                );
-            } else if (queryParams.limitCount > 0) {
-                dataQuery = query<T, DocumentData>(dataQuery, limit(queryParams.limitCount));
-            }
+                if (queryParams?.startAfterDoc instanceof DocumentSnapshot) {
+                    dataQuery = query<T, DocumentData>(
+                        dataQuery,
+                        startAfter(queryParams.startAfterDoc),
+                        limit(queryParams.limitCount),
+                    );
+                } else if (queryParams?.endBeforeDoc instanceof DocumentSnapshot) {
+                    dataQuery = query<T, DocumentData>(
+                        dataQuery,
+                        endBefore(queryParams.endBeforeDoc),
+                        limitToLast(queryParams.limitCount),
+                    );
+                } else if (queryParams.limitCount > 0) {
+                    dataQuery = query<T, DocumentData>(dataQuery, limit(queryParams.limitCount));
+                }
+            });
         }
 
         // On the server, use one-shot getDocs() to avoid hanging connections.
         // On the client, use real-time onSnapshot() for live updates.
         const data$ = isPlatformBrowser(this.platformId)
             ? new Observable<any>((observer) => {
-                const unsubscribe = onSnapshot(
+                const unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(
                     dataQuery,
                     (querySnapshot) => {
                         const data = querySnapshot.docs.map((doc) => {
@@ -174,10 +177,10 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                         console.error(`[DbService] data snapshot error on "${this.collectionName}":`, error);
                         observer.error(error);
                     },
-                );
+                ));
                 return { unsubscribe };
             })
-            : from(getDocs(dataQuery)).pipe(
+            : from(runInInjectionContext(this.injector, () => getDocs(dataQuery))).pipe(
                 map((querySnapshot) => {
                     const data = querySnapshot.docs.map((doc) => {
                         const docData = doc.data();
@@ -225,7 +228,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
 
         const count$ = isPlatformBrowser(this.platformId)
             ? new Observable<number>((observer) => {
-                const unsubscribe = onSnapshot(
+                const unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(
                     countQuery,
                     (snapshot) => {
                         observer.next(snapshot.size);
@@ -234,10 +237,10 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                         console.warn(`[DbService] count snapshot error on "${this.collectionName}":`, error);
                         observer.next(0); // Emit 0 instead of killing the combineLatest pipeline
                     },
-                );
+                ));
                 return { unsubscribe };
             })
-            : from(getCountFromServer(countQuery)).pipe(
+            : from(runInInjectionContext(this.injector, () => getCountFromServer(countQuery))).pipe(
                 map((snapshot) => snapshot.data().count),
                 catchError((error) => {
                     console.warn(`[DbService] getCountFromServer error on "${this.collectionName}":`, error);
@@ -257,9 +260,12 @@ export class DbService<T extends IBaseModel> extends GlobalService {
 
     getById(id: string, collectionSuffix?: string): Observable<T | null> {
         const targetCollection = this.getCollectionRef(collectionSuffix);
-        const docRef = doc(targetCollection, id) as DocumentReference<T>;
+        const docPromise = runInInjectionContext(this.injector, () => {
+            const docRef = doc(targetCollection, id) as DocumentReference<T>;
+            return getDoc(docRef);
+        });
 
-        return from(getDoc(docRef)).pipe(
+        return from(docPromise).pipe(
             switchMap(async (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -287,10 +293,13 @@ export class DbService<T extends IBaseModel> extends GlobalService {
 
     getByCustomField(field: string, operator: WhereFilterOp, value: any, collectionSuffix?: string): Observable<T | null> {
         const targetCollection = this.getCollectionRef(collectionSuffix);
-        const whereCondition = where(field, operator, value);
-        const queryWithCondition = query(targetCollection, whereCondition);
+        const docsPromise = runInInjectionContext(this.injector, () => {
+            const whereCondition = where(field, operator, value);
+            const queryWithCondition = query(targetCollection, whereCondition);
+            return getDocs(queryWithCondition);
+        });
 
-        return from(getDocs(queryWithCondition)).pipe(
+        return from(docsPromise).pipe(
             switchMap(async (querySnapshot) => {
                 const data = querySnapshot.docs.map((doc) => {
                     const docData = doc.data();
@@ -334,19 +343,19 @@ export class DbService<T extends IBaseModel> extends GlobalService {
             modifiedAt: now,
         };
 
-        const processedData = this.processDocumentReferences(dataWithCommonFields);
+        const processedData = runInInjectionContext(this.injector, () => this.processDocumentReferences(dataWithCommonFields));
 
         return from(
-            runTransaction(this.firestore, async (transaction) => {
+            runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
                 const targetCollection = this.getCollectionRef(collectionSuffix);
-                const docRef = await addDoc(targetCollection, processedData as WithFieldValue<T>);
+                const docRef = await runInInjectionContext(this.injector, () => addDoc(targetCollection, processedData as WithFieldValue<T>));
                 const updateData = {
                     id: docRef.id,
                     modifiedAt: now,
                 };
                 transaction.update(docRef, updateData);
                 return docRef.id;
-            }),
+            })),
         ).pipe(
             retry(3),
             catchError((error) => {
@@ -363,18 +372,18 @@ export class DbService<T extends IBaseModel> extends GlobalService {
             modifiedAt: now,
         };
 
-        const processedData = this.processDocumentReferences(dataWithUpdatedFields);
+        const processedData = runInInjectionContext(this.injector, () => this.processDocumentReferences(dataWithUpdatedFields));
         const targetCollection = this.getCollectionRef(collectionSuffix);
-        const docRef = doc(targetCollection, id) as DocumentReference<T, T>;
+        const docRef = runInInjectionContext(this.injector, () => doc(targetCollection, id)) as DocumentReference<T, T>;
 
         return from(
-            runTransaction(this.firestore, async (transaction) => {
+            runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
                 const docSnapshot = await transaction.get(docRef);
                 if (!docSnapshot.exists()) {
                     throw new Error('Document does not exist!');
                 }
                 transaction.update(docRef, processedData);
-            }),
+            })),
         );
     }
 
@@ -394,7 +403,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
             const targetCollection = this.getCollectionRef(collectionSuffix);
             for (let i = 0; i < items.length; i += chunkSize) {
                 const chunk = items.slice(i, i + chunkSize);
-                const batch = writeBatch(this.firestore);
+                const batch = runInInjectionContext(this.injector, () => writeBatch(this.firestore));
                 const now = new Date();
 
                 for (const item of chunk) {
@@ -403,9 +412,9 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                         createdAt: now,
                         modifiedAt: now,
                     };
-                    const processedData = this.processDocumentReferences(dataWithCommonFields);
+                    const processedData = runInInjectionContext(this.injector, () => this.processDocumentReferences(dataWithCommonFields));
 
-                    const newDocRef = doc(targetCollection);
+                    const newDocRef = runInInjectionContext(this.injector, () => doc(targetCollection));
                     allIds.push(newDocRef.id);
 
                     batch.set(newDocRef, {
@@ -429,16 +438,16 @@ export class DbService<T extends IBaseModel> extends GlobalService {
 
     delete(id: string, collectionSuffix?: string): Observable<void> {
         const targetCollection = this.getCollectionRef(collectionSuffix);
-        const docRef = doc(targetCollection, id) as DocumentReference<T, T>;
+        const docRef = runInInjectionContext(this.injector, () => doc(targetCollection, id)) as DocumentReference<T, T>;
 
         return from(
-            runTransaction(this.firestore, async (transaction) => {
+            runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
                 const docSnapshot = await transaction.get(docRef);
                 if (!docSnapshot.exists()) {
                     throw new Error('Document does not exist!');
                 }
                 transaction.delete(docRef);
-            }),
+            })),
         ).pipe(
             catchError((error) => {
                 console.error('Error deleting document:', error);
@@ -461,7 +470,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
     async resolveReferences(obj: any): Promise<any> {
         if (obj instanceof DocumentReference) {
             try {
-                const docSnap = await getDoc(obj);
+                const docSnap = await runInInjectionContext(this.injector, () => getDoc(obj));
                 if (docSnap.exists()) {
                     const snapData = docSnap.data();
                     return snapData ? { id: docSnap.id, ...snapData } : null;
@@ -505,16 +514,18 @@ export class DbService<T extends IBaseModel> extends GlobalService {
         let countQuery: Query<T> = targetCollection;
 
         if (queryParams && queryParams.whereConditions) {
-            const constraints: any[] = queryParams.whereConditions.map((condition) =>
-                where(condition.field, condition.operator, condition.value),
-            );
+            runInInjectionContext(this.injector, () => {
+                const constraints: any[] = queryParams.whereConditions!.map((condition) =>
+                    where(condition.field, condition.operator, condition.value),
+                );
 
-            if (constraints.length > 0) {
-                countQuery = query<T, DocumentData>(targetCollection, ...constraints);
-            }
+                if (constraints.length > 0) {
+                    countQuery = query<T, DocumentData>(targetCollection, ...constraints);
+                }
+            });
         }
 
-        return from(getCountFromServer(countQuery).then((snapshot) => snapshot.data().count)).pipe(
+        return from(runInInjectionContext(this.injector, () => getCountFromServer(countQuery)).then((snapshot) => snapshot.data().count)).pipe(
             catchError((error) => {
                 console.warn(`[DbService] getCollectionTotalCount error on "${this.collectionName}":`, error);
                 return of(0);
