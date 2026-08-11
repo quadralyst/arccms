@@ -48,7 +48,7 @@ export const routeMeta: RouteMeta = {
                             <ng-container matColumnDef="userEmail"><th mat-header-cell *matHeaderCellDef>Customer</th><td mat-cell *matCellDef="let t">{{ t.userEmail }}</td></ng-container>
                             <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>Amount</th><td mat-cell *matCellDef="let t">{{ t.currency }} {{ t.amount }}</td></ng-container>
                             <ng-container matColumnDef="premiumType"><th mat-header-cell *matHeaderCellDef>Plan</th><td mat-cell *matCellDef="let t">{{ t.premiumType }}</td></ng-container>
-                            <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>Status</th><td mat-cell *matCellDef="let t"><span class="status status-{{ t.status }}">{{ t.status }}</span></td></ng-container>
+                            <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>Status</th><td mat-cell *matCellDef="let t"><span class="status status-{{ t.status }}">{{ t.status }}</span>@if (t.isTest) {<span class="status status-test" title="Admin test checkout — granted no access or credits">test</span>}</td></ng-container>
                             <ng-container matColumnDef="eventType"><th mat-header-cell *matHeaderCellDef>Event</th><td mat-cell *matCellDef="let t">{{ t.eventType }}</td></ng-container>
                             <tr mat-header-row *matHeaderRowDef="columns"></tr>
                             <tr mat-row *matRowDef="let row; columns: columns"></tr>
@@ -66,6 +66,7 @@ export const routeMeta: RouteMeta = {
         .status-failed { background: #f8d7da; color: #842029; }
         .status-refunded { background: #fff3cd; color: #664d03; }
         .status-pending { background: #e2e3e5; color: #41464b; }
+        .status-test { background: #e7e0f5; color: #432874; margin-left: 6px; }
     `],
 })
 export default class TransactionsPageComponent extends BaseComponent implements OnInit {

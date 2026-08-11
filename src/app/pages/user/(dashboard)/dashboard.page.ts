@@ -57,105 +57,158 @@ interface ActivityItem {
             <div class="dash">
                 <arc-page-header [title]="'Welcome back, ' + firstName()" subtitle="Here's your account at a glance."></arc-page-header>
 
-                <!-- Onboarding empty state: brand-new free user with nothing yet -->
+                <!-- Onboarding empty state -->
                 @if (isNewUser()) {
-                    <mat-card class="welcome">
-                        <div class="w-body">
-                            <i class="fa-solid fa-rocket"></i>
-                            <div>
-                                <h3>Get started</h3>
-                                <p class="text-muted">You're on the Free plan. Explore plans to unlock premium features and credits.</p>
+                    <mat-card class="welcome-banner animate-slide-up">
+                        <mat-card-content class="w-body">
+                            <div class="banner-icon"><i class="fa-solid fa-rocket"></i></div>
+                            <div class="banner-text">
+                                <h3>Get Started</h3>
+                                <p class="text-muted">You are currently on the Free plan. Upgrade to unlock premium features and credit allocation.</p>
                             </div>
-                            <a mat-raised-button color="primary" routerLink="/pricing">See plans</a>
-                        </div>
+                            <a mat-flat-button class="action-accent-btn" routerLink="/pricing">Explore Plans</a>
+                        </mat-card-content>
                     </mat-card>
                 }
 
-                <div class="tiles">
-                    <mat-card class="tile">
-                        <span class="k">Membership</span>
-                        @if (entitlements.isPro()) {
-                            <span class="v pro">{{ entitlements.premiumType() || 'Pro' }}</span>
-                            <span class="sub">{{ entitlements.premiumStatus() || 'active' }}</span>
-                        } @else {
-                            <span class="v">Free</span>
-                            <a class="sub link" routerLink="/pricing">Upgrade →</a>
-                        }
+                <!-- Status Tiles -->
+                <div class="status-tiles-grid animate-slide-up">
+                    <mat-card class="status-tile-card">
+                        <div class="tile-header">
+                            <span class="tile-label">Membership</span>
+                            <span class="tile-icon icon-blue"><i class="fa-solid fa-crown"></i></span>
+                        </div>
+                        <div class="tile-content">
+                            @if (entitlements.isPro()) {
+                                <span class="tile-value value-pro">{{ entitlements.premiumType() || 'Pro' }}</span>
+                                <span class="tile-sub badge-active">{{ entitlements.premiumStatus() || 'active' }}</span>
+                            } @else {
+                                <span class="tile-value">Free Tier</span>
+                                <a class="tile-action-link" routerLink="/pricing">Upgrade Plan →</a>
+                            }
+                        </div>
                     </mat-card>
 
-                    <mat-card class="tile">
-                        <span class="k">Credits</span>
-                        <span class="v">{{ entitlements.creditBalance() }}</span>
-                        <a class="sub link" routerLink="/account">History →</a>
+                    <mat-card class="status-tile-card">
+                        <div class="tile-header">
+                            <span class="tile-label">Available Credits</span>
+                            <span class="tile-icon icon-yellow"><i class="fa-solid fa-coins"></i></span>
+                        </div>
+                        <div class="tile-content">
+                            <span class="tile-value">{{ entitlements.creditBalance() }}</span>
+                            <a class="tile-action-link" routerLink="/account">View Ledger →</a>
+                        </div>
                     </mat-card>
 
-                    <mat-card class="tile">
-                        <span class="k">Plan tier</span>
-                        <span class="v">{{ entitlements.tierRank() >= 0 ? '#' + entitlements.tierRank() : '—' }}</span>
-                        <span class="sub">{{ entitlement()?.premiumTierLabel || 'No active plan' }}</span>
+                    <mat-card class="status-tile-card">
+                        <div class="tile-header">
+                            <span class="tile-label">Plan Tier</span>
+                            <span class="tile-icon icon-purple"><i class="fa-solid fa-arrow-up-right-dots"></i></span>
+                        </div>
+                        <div class="tile-content">
+                            <span class="tile-value">{{ entitlements.tierRank() >= 0 ? '#' + entitlements.tierRank() : '—' }}</span>
+                            <span class="tile-sub text-truncate">{{ entitlement()?.premiumTierLabel || 'No Active Plan' }}</span>
+                        </div>
                     </mat-card>
                 </div>
 
                 <!-- Quick actions -->
-                <div class="actions">
-                    <button mat-raised-button color="primary" type="button" (click)="useCredit()" [disabled]="spending() || entitlements.creditBalance() < 1">
-                        @if (spending()) { <mat-spinner diameter="16" class="me-2"></mat-spinner> }
-                        Use 1 credit
+                <div class="quick-actions-bar animate-slide-up">
+                    <button mat-flat-button class="use-credit-btn" type="button" (click)="useCredit()" [disabled]="spending() || entitlements.creditBalance() < 1">
+                        @if (spending()) { 
+                            <mat-spinner diameter="16" class="me-2 spinner-light"></mat-spinner> 
+                        } @else {
+                            <i class="fa-solid fa-bolt me-1"></i>
+                        }
+                        Use 1 Credit
                     </button>
-                    <a mat-stroked-button routerLink="/pricing"><i class="fa-solid fa-plus me-1"></i>Buy credits / Upgrade</a>
-                    <a mat-stroked-button routerLink="/account"><i class="fa-solid fa-receipt me-1"></i>Manage billing</a>
+                    <a mat-stroked-button class="action-btn" routerLink="/pricing"><i class="fa-solid fa-plus me-1"></i>Buy Credits / Upgrade</a>
+                    <a mat-stroked-button class="action-btn" routerLink="/account"><i class="fa-solid fa-receipt me-1"></i>Billing &amp; Invoices</a>
                 </div>
-                @if (creditError()) { <p class="err">{{ creditError() }}</p> }
+                @if (creditError()) { 
+                    <div class="error-banner animate-fade-in">
+                        <i class="fa-solid fa-circle-exclamation me-2"></i>{{ creditError() }}
+                    </div> 
+                }
 
                 <!-- Compact membership detail (members only) -->
                 @if (entitlements.isPro()) {
-                    <mat-card class="mdetail">
-                        <div class="md"><span class="k">Renews / expires</span><span class="v">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span></div>
-                        <div class="md"><span class="k">Free updates until</span><span class="v">{{ fmtDate(entitlement()?.updatesUntil) }}</span></div>
-                        <div class="md"><span class="k">Deal</span><span class="v">{{ entitlement()?.premiumTierLabel || '—' }}</span></div>
-                        <div class="md"><span class="k">Discount</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '—' }}</span></div>
+                    <mat-card class="membership-details-card animate-slide-up">
+                        <mat-card-content class="md-grid">
+                            <div class="md-item"><span class="k">Renews / expires</span><span class="v font-semibold">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span></div>
+                            <div class="md-item"><span class="k">Free updates until</span><span class="v">{{ fmtDate(entitlement()?.updatesUntil) }}</span></div>
+                            <div class="md-item"><span class="k">Plan Deal</span><span class="v">{{ entitlement()?.premiumTierLabel || '—' }}</span></div>
+                            <div class="md-item"><span class="k">Discount Code</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '—' }}</span></div>
+                        </mat-card-content>
                     </mat-card>
                 }
 
-                <!-- Members-only card (gated by *appIfEntitled) -->
-                <mat-card class="premium-card" *appIfEntitled>
-                    <div class="pc-body">
-                        <i class="fa-solid fa-star pc-icon"></i>
-                        <div>
-                            <h3>Premium tools unlocked</h3>
-                            <p class="text-muted">You have full access to members-only features.</p>
+                <!-- Members-only card -->
+                <mat-card class="welcome-banner premium-banner animate-slide-up" *appIfEntitled>
+                    <mat-card-content class="w-body">
+                        <div class="banner-icon premium-color"><i class="fa-solid fa-circle-check"></i></div>
+                        <div class="banner-text">
+                            <h3>Premium Features Unlocked</h3>
+                            <p class="text-muted">You have full developer & writer access to members-only tools.</p>
                         </div>
-                        <a mat-raised-button color="primary" routerLink="/user/premium">Open premium area</a>
-                    </div>
+                        <a mat-flat-button class="premium-action-btn" routerLink="/user/premium">Open Premium Area</a>
+                    </mat-card-content>
                 </mat-card>
 
-                <!-- Recent activity (summary; full history on /account) -->
-                <div class="section-head">
-                    <h2>Recent activity</h2>
-                    <a routerLink="/account" class="link">View all →</a>
-                </div>
-                @if (loadingActivity()) {
-                    <div class="py-3"><mat-spinner diameter="24"></mat-spinner></div>
-                } @else if (activity().length === 0) {
-                    <p class="text-muted">No activity yet.</p>
-                } @else {
-                    <mat-card class="activity">
-                        @for (a of activity(); track a.id) {
-                            <div class="arow">
-                                <i [class]="a.icon"></i>
-                                <span class="al">{{ a.label }}</span>
-                                <span class="aa" [class.pos]="a.positive" [class.neg]="!a.positive">{{ a.amount }}</span>
-                                <span class="ad">{{ fmtDate(a.date) }}</span>
+                <!-- Recent activity -->
+                <div class="section-layout animate-slide-up">
+                    <div class="section-header">
+                        <h2>Recent Activity</h2>
+                        <a routerLink="/account" class="view-all-link">View Full History →</a>
+                    </div>
+                    
+                    @if (loadingActivity()) {
+                        <div class="loading-container"><mat-spinner diameter="24"></mat-spinner></div>
+                    } @else if (activity().length === 0) {
+                        <div class="empty-state">
+                            <p class="text-muted">No transactions or ledger history yet.</p>
+                        </div>
+                    } @else {
+                        <mat-card class="activity-card">
+                            <div class="activity-list">
+                                @for (a of activity(); track a.id) {
+                                    <div class="activity-row">
+                                        <span class="activity-icon"><i [class]="a.icon"></i></span>
+                                        <span class="activity-label">{{ a.label }}</span>
+                                        <span class="activity-amount" [class.pos]="a.positive" [class.neg]="!a.positive">{{ a.amount }}</span>
+                                        <span class="activity-date">{{ fmtDate(a.date) }}</span>
+                                    </div>
+                                }
                             </div>
-                        }
-                    </mat-card>
-                }
+                        </mat-card>
+                    }
+                </div>
 
-                <h2 class="mt-4">Quick links</h2>
-                <div class="links">
-                    <a class="ql" routerLink="/account"><i class="fa-solid fa-receipt"></i><span class="t">Account &amp; Billing</span><span class="d">Membership, credits, transaction history</span></a>
-                    <a class="ql" routerLink="/user/profile"><i class="fa-solid fa-user"></i><span class="t">Profile</span><span class="d">Name, email, password, photo</span></a>
-                    <a class="ql" routerLink="/pricing"><i class="fa-solid fa-tag"></i><span class="t">Plans &amp; Pricing</span><span class="d">Upgrade or change your plan</span></a>
+                <div class="section-layout animate-slide-up">
+                    <h2 class="section-title">Quick Navigation</h2>
+                    <div class="quick-links-grid">
+                        <a class="quick-link-item" routerLink="/account">
+                            <span class="ql-icon"><i class="fa-solid fa-credit-card"></i></span>
+                            <div class="ql-text">
+                                <span class="ql-title">Account &amp; Billing</span>
+                                <span class="ql-desc">View invoices, subscription, and check credit ledger.</span>
+                            </div>
+                        </a>
+                        <a class="quick-link-item" routerLink="/user/profile">
+                            <span class="ql-icon"><i class="fa-solid fa-user-gear"></i></span>
+                            <div class="ql-text">
+                                <span class="ql-title">Profile Settings</span>
+                                <span class="ql-desc">Update your name, contact email, and security credentials.</span>
+                            </div>
+                        </a>
+                        <a class="quick-link-item" routerLink="/pricing">
+                            <span class="ql-icon"><i class="fa-solid fa-tags"></i></span>
+                            <div class="ql-text">
+                                <span class="ql-title">Membership Plans</span>
+                                <span class="ql-desc">Upgrade, downgrade or adjust your billing frequency.</span>
+                            </div>
+                        </a>
+                    </div>
                 </div>
             </div>
         </app-user-shell>

@@ -209,9 +209,9 @@ export const routeMeta: RouteMeta = {
                             <div class="row">
                                 <div class="col-md-3">
                                     <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>List price</mat-label>
+                                        <mat-label>Base Price / Amount</mat-label>
                                         <input matInput type="number" formControlName="price" />
-                                        <mat-hint>Display only</mat-hint>
+                                        <mat-hint>Base product price (used for display on pricing page)</mat-hint>
                                     </mat-form-field>
                                 </div>
                                 <div class="col-md-3">

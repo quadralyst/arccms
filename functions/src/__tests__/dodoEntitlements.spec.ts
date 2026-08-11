@@ -85,6 +85,97 @@ describe('grantEntitlement — grandfathering audit trail', () => {
         await grantEntitlement(userRef, product, { subscriptionId: 's1' }); // no tierLabel/discountCode
         expect(set.mock.calls[0][1]).toMatchObject({ premiumTierLabel: 'First 100', premiumDiscountCode: 'EARLY' });
     });
+
+    // Dodo round-trips absent checkout metadata as '' (see the renewal payload:
+    // "tierLabel": "", "discountCode": ""), which `??` would happily write through.
+    it('preserves the original deal when the event carries empty-string metadata', async () => {
+        const { set } = withCurrent({ premiumTierLabel: 'First 100', premiumDiscountCode: 'EARLY' });
+        await grantEntitlement(userRef, product, { subscriptionId: 's1', tierLabel: '', discountCode: '' });
+        expect(set.mock.calls[0][1]).toMatchObject({ premiumTierLabel: 'First 100', premiumDiscountCode: 'EARLY' });
+    });
+
+    it('preserves a stored customer id when the event omits one', async () => {
+        const { set } = withCurrent({ providerCustomerId: 'cus_1' });
+        await grantEntitlement(userRef, product, { subscriptionId: 's1' });
+        expect(set.mock.calls[0][1].providerCustomerId).toBe('cus_1');
+    });
+});
+
+describe('grantEntitlement — premiumExpiresAt', () => {
+    const sub = { premiumType: 'gold', tierRank: 2, type: 'subscription', interval: 'month' } as any;
+
+    it('stores the gateway next_billing_date when the event carries one', async () => {
+        const { set } = withCurrent({});
+        await grantEntitlement(userRef, sub, { subscriptionId: 's1', nextBillingDate: '2026-09-03T10:12:33Z' });
+        expect(set.mock.calls[0][1].premiumExpiresAt.ms).toBe(new Date('2026-09-03T10:12:33Z').getTime());
+    });
+
+    // The regression: a Payment-type payload has subscription_id but no
+    // next_billing_date, and used to null out the date subscription.active just set.
+    it('never nulls a still-valid expiry when the event carries no date', async () => {
+        const future = new FakeTimestamp(new Date('2026-09-03T00:00:00Z').getTime());
+        const { set } = withCurrent({ premiumExpiresAt: future });
+        await grantEntitlement(userRef, sub, { subscriptionId: 's1', eventAt: new Date('2026-08-03T10:13:08Z') });
+        expect('premiumExpiresAt' in set.mock.calls[0][1]).toBe(false);
+    });
+
+    it('derives the expiry from the billing interval on a first charge with no date', async () => {
+        const { set } = withCurrent({});
+        await grantEntitlement(userRef, sub, { subscriptionId: 's1', eventAt: new Date('2026-08-03T10:13:08Z') });
+        expect(set.mock.calls[0][1].premiumExpiresAt.ms).toBe(new Date('2026-09-03T10:13:08Z').getTime());
+    });
+
+    it('advances a lapsed expiry on a renewal charge with no date', async () => {
+        const lapsed = new FakeTimestamp(new Date('2026-08-03T00:00:00Z').getTime());
+        const { set } = withCurrent({ premiumExpiresAt: lapsed });
+        await grantEntitlement(userRef, sub, { subscriptionId: 's1', eventAt: new Date('2026-08-03T10:13:08Z') });
+        expect(set.mock.calls[0][1].premiumExpiresAt.ms).toBe(new Date('2026-09-03T10:13:08Z').getTime());
+    });
+
+    it('uses trialDays for the first charge of a trialing subscription', async () => {
+        const trial = { ...sub, trialDays: 14 };
+        const { set } = withCurrent({});
+        await grantEntitlement(userRef, trial, {
+            subscriptionId: 's1', isTrial: true, eventAt: new Date('2026-08-03T00:00:00Z'),
+        });
+        expect(set.mock.calls[0][1].premiumExpiresAt.ms).toBe(new Date('2026-08-17T00:00:00Z').getTime());
+    });
+
+    it('derives a yearly period', async () => {
+        const yearly = { ...sub, interval: 'year' };
+        const { set } = withCurrent({});
+        await grantEntitlement(userRef, yearly, { subscriptionId: 's1', eventAt: new Date('2026-08-03T00:00:00Z') });
+        expect(set.mock.calls[0][1].premiumExpiresAt.ms).toBe(new Date('2027-08-03T00:00:00Z').getTime());
+    });
+
+    it('leaves the expiry alone when no date and no interval can be resolved', async () => {
+        const noInterval = { premiumType: 'gold', tierRank: 2, type: 'subscription' } as any;
+        const { set } = withCurrent({});
+        await grantEntitlement(userRef, noInterval, { subscriptionId: 's1', eventAt: new Date(1000) });
+        expect('premiumExpiresAt' in set.mock.calls[0][1]).toBe(false);
+    });
+
+    it('ignores an unparseable next_billing_date rather than storing Invalid Date', async () => {
+        const { set } = withCurrent({});
+        await grantEntitlement(userRef, sub, {
+            subscriptionId: 's1', nextBillingDate: 'not-a-date', eventAt: new Date('2026-08-03T00:00:00Z'),
+        });
+        expect(set.mock.calls[0][1].premiumExpiresAt.ms).toBe(new Date('2026-09-03T00:00:00Z').getTime());
+    });
+
+    it('deletes the expiry for a one-time product so the sweep can never match it', async () => {
+        const oneTime = { premiumType: 'gold', tierRank: 2, type: 'one_time' } as any;
+        const { set } = withCurrent({});
+        await grantEntitlement(userRef, oneTime, { eventAt: new Date(1000) });
+        expect(set.mock.calls[0][1].premiumExpiresAt).toBe('__DELETE__');
+    });
+
+    it('treats a subscription id as authoritative when the product has no type', async () => {
+        const untyped = { premiumType: 'gold', tierRank: 2, interval: 'month' } as any;
+        const { set } = withCurrent({});
+        await grantEntitlement(userRef, untyped, { subscriptionId: 's1', eventAt: new Date('2026-08-03T00:00:00Z') });
+        expect(set.mock.calls[0][1].premiumExpiresAt.ms).toBe(new Date('2026-09-03T00:00:00Z').getTime());
+    });
 });
 
 describe('grantEntitlement — updatesUntil (one-time free-updates window)', () => {

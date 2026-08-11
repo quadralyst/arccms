@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -43,6 +43,12 @@ export default class ImportFilesPageComponent extends BaseComponent {
     // Manifest mode
     manifestFile = signal<File | null>(null);
     manifestData = signal<Record<string, any> | null>(null);
+    /**
+     * Number of entries in the loaded manifest, 0 when none is loaded.
+     * Templates resolve names against the component, so `Object.keys(...)` cannot
+     * be called inline — the global is not in template scope.
+     */
+    manifestEntryCount = computed(() => Object.keys(this.manifestData() ?? {}).length);
 
     // Upload state
     isUploading = signal(false);
