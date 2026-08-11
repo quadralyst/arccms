@@ -93,10 +93,37 @@ describe('dodoWebhook', () => {
 
   it('is idempotent — duplicate delivery returns 200 without error', async () => {
     mockUnwrap.mockReturnValue({ type: 'payment.succeeded', data: {} });
-    mockCreate.mockRejectedValue(new Error('ALREADY_EXISTS'));
+    // Firestore signals a duplicate create() with gRPC status 6 (ALREADY_EXISTS).
+    mockCreate.mockRejectedValue(Object.assign(new Error('ALREADY_EXISTS'), { code: 6 }));
     const res = makeRes();
     await (dodoWebhook as any)({ headers: validHeaders, rawBody: Buffer.from('{}'), body: {} }, res);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.send).toHaveBeenCalledWith('Already processed');
+  });
+
+  // A 200 here would tell Dodo the event was delivered, losing a paid event for
+  // good. Only a genuine ALREADY_EXISTS may be reported as success.
+  it('returns 500 when the event could not be persisted', async () => {
+    mockUnwrap.mockReturnValue({ type: 'payment.succeeded', data: {} });
+    mockCreate.mockRejectedValue(Object.assign(new Error('UNAVAILABLE'), { code: 14 }));
+    const res = makeRes();
+    await (dodoWebhook as any)({ headers: validHeaders, rawBody: Buffer.from('{}'), body: {} }, res);
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+
+  it('returns 500 — not 401 — when payment settings cannot be loaded', async () => {
+    mockGetSettings.mockRejectedValue(new Error('Settings/dodo-payments missing'));
+    const res = makeRes();
+    await (dodoWebhook as any)({ headers: validHeaders, rawBody: Buffer.from('{}'), body: {} }, res);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(mockUnwrap).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when no webhook secret is configured', async () => {
+    mockGetSettings.mockResolvedValue({ mode: 'test' }); // no webhookSecret
+    const res = makeRes();
+    await (dodoWebhook as any)({ headers: validHeaders, rawBody: Buffer.from('{}'), body: {} }, res);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 });

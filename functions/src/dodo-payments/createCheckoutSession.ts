@@ -3,7 +3,7 @@ import { logger } from 'firebase-functions/v2';
 import { db, owner } from '../init.js';
 import { getDodoClient } from './dodoClient.js';
 import { resolveTier } from './tiers.js';
-import { ProductDoc } from './types.js';
+import { ProductDoc, providerProductId } from './types.js';
 
 /**
  * Callable: create a Dodo hosted-checkout session for the authenticated user.
@@ -40,7 +40,8 @@ export const createCheckoutSession = onCall(async (request) => {
   if (!product.active) {
     throw new HttpsError('failed-precondition', 'Product is not available for purchase.');
   }
-  if (!product.dodoProductId) {
+  const dodoProductId = providerProductId(product);
+  if (!dodoProductId) {
     throw new HttpsError('failed-precondition', 'Product is not linked to a Dodo product.');
   }
 
@@ -66,7 +67,7 @@ export const createCheckoutSession = onCall(async (request) => {
     const { client, settings } = await getDodoClient();
 
     const checkoutParams: Record<string, unknown> = {
-      product_cart: [{ product_id: product.dodoProductId, quantity: 1 }],
+      product_cart: [{ product_id: dodoProductId, quantity: 1 }],
       customer: { email, ...(name ? { name } : {}) },
       return_url: settings.successUrl,
       metadata: {
@@ -75,6 +76,8 @@ export const createCheckoutSession = onCall(async (request) => {
         premiumType: product.premiumType,
         tierRank: String(product.tierRank ?? 0),
         tierLabel: tier?.label ?? '',
+        // Snapshot the applied discount code so the webhook can record the locked-in deal.
+        discountCode: tier?.discountCode ?? '',
       },
     };
 

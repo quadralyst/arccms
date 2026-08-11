@@ -32,6 +32,12 @@ export async function sendPaymentEmail(
     renewalDate?: string;
     trialEndsAt?: string;
   },
+  /**
+   * Stable per-event key. When given, the EmailLogs document id is derived from
+   * it so re-processing the same webhook (the trigger now retries on failure)
+   * can never enqueue a second copy of the same email. Omit for one-shot sends.
+   */
+  dedupeKey?: string,
 ): Promise<void> {
   if (!recipient.email) {
     logger.warn(`sendPaymentEmail(${type}) skipped — no recipient email`);
@@ -85,6 +91,33 @@ export async function sendPaymentEmail(
     trialEndsAt: vars.trialEndsAt || '',
   };
 
-  await db.collection('EmailLogs').add(emailObj);
-  logger.info(`Enqueued payment email ${type} to ${recipient.email}`);
+  if (!dedupeKey) {
+    await db.collection('EmailLogs').add(emailObj);
+    logger.info(`Enqueued payment email ${type} to ${recipient.email}`);
+    return;
+  }
+
+  // create() fails with ALREADY_EXISTS if this email was already enqueued for
+  // this event — the idempotent no-op we want when the trigger retries.
+  try {
+    await db.collection('EmailLogs').doc(emailLogId(type, dedupeKey)).create(emailObj);
+    logger.info(`Enqueued payment email ${type} to ${recipient.email}`);
+  } catch (error) {
+    if (isAlreadyExists(error)) {
+      logger.info(`Payment email ${type} for ${dedupeKey} already enqueued; skipping.`);
+      return;
+    }
+    throw error;
+  }
+}
+
+/** Deterministic EmailLogs doc id. `/` is illegal in a doc id; keys may contain it. */
+function emailLogId(type: PaymentEmailType, dedupeKey: string): string {
+  return `${type}__${dedupeKey}`.replace(/\//g, '_').slice(0, 1500);
+}
+
+/** True for a Firestore ALREADY_EXISTS error (gRPC status 6). */
+function isAlreadyExists(error: unknown): boolean {
+  const code = (error as { code?: unknown })?.code;
+  return code === 6 || code === 'already-exists';
 }

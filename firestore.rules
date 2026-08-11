@@ -120,8 +120,9 @@ service cloud.firestore {
         (isAuthenticated() && resource.data.uid == request.auth.uid
          && !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
-                       'premiumExpiresAt', 'dodoSubscriptionId', 'dodoCustomerId',
-                       'premiumTrialReminderSent']));
+                       'premiumExpiresAt', 'provider', 'providerSubscriptionId', 'providerCustomerId',
+                       'premiumTrialReminderSent', 'premiumEventAt', 'updatesUntil',
+                       'premiumTierLabel', 'premiumDiscountCode', 'creditBalance']));
       allow delete: if isAdmin();
     }
 
@@ -144,6 +145,13 @@ service cloud.firestore {
     // WebhookEvents — raw forensic log. Admin read for debugging; Cloud Functions only write.
     match /WebhookEvents/{docId} {
       allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // CreditLedger — append-only prepaid-credit ledger. Owner or admin read;
+    // never written by clients (Cloud Functions / consumeCredits callable only).
+    match /CreditLedger/{docId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow write: if false;
     }
 

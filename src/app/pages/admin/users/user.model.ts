@@ -31,8 +31,17 @@ export interface IUser extends IBaseModel {
     premiumTierRank?: number;
     premiumStatus?: 'active' | 'trialing' | 'past_due' | 'cancelled' | 'expired';
     premiumExpiresAt?: Date;
-    dodoSubscriptionId?: string;
-    dodoCustomerId?: string;
+    /** One-time purchases: end of the included free-updates window (access is lifetime). */
+    updatesUntil?: Date;
+    /** Grandfathering audit trail — the deal locked in at purchase. */
+    premiumTierLabel?: string;
+    premiumDiscountCode?: string;
+    /** Prepaid credit balance (sum of the CreditLedger; written only by Cloud Functions). */
+    creditBalance?: number;
+    /** Which gateway granted the current entitlement. */
+    provider?: 'dodo' | 'stripe' | 'razorpay';
+    providerSubscriptionId?: string;
+    providerCustomerId?: string;
     /** Set once a trial-ending reminder email has been sent. */
     premiumTrialReminderSent?: boolean;
 }

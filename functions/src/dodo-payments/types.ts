@@ -1,14 +1,25 @@
 import { Timestamp } from 'firebase-admin/firestore';
 
 /**
- * Shared types for the Dodo Payments integration.
+ * Shared types for the payments integration.
+ *
+ * Currently only Dodo Payments is wired up, but the stored records are kept
+ * gateway-neutral (a `provider` discriminator + `provider*` id fields) so a second
+ * gateway (Stripe, Razorpay, …) can be added without a data migration. The raw
+ * Dodo payload shape lives in `DodoWebhookData`; everything we persist is neutral.
  *
  * Collections:
  *   Settings/dodo-payments  → single config document (secrets masked on read in the UI layer)
- *   Products                → mirror of Dodo products + tiering/entitlement metadata
+ *   Products                → mirror of gateway products + tiering/entitlement metadata
  *   Transactions            → normalized payment records (admin UI + user history)
  *   WebhookEvents           → raw, verbatim webhook payloads (forensics + idempotency)
  */
+
+/** Payment gateways the schema is prepared for. Only 'dodo' is active today. */
+export type PaymentProvider = 'dodo' | 'stripe' | 'razorpay';
+
+/** The single active provider. Centralised so records are tagged consistently. */
+export const PAYMENT_PROVIDER: PaymentProvider = 'dodo';
 
 /** Firestore Settings/dodo-payments document. */
 export interface DodoPaymentsSettings {
@@ -18,7 +29,6 @@ export interface DodoPaymentsSettings {
   liveApiKey?: string;
   /** Standard-Webhooks signing secret used by client.webhooks.unwrap(). */
   webhookSecret?: string;
-  brandId?: string;
   successUrl?: string;
   cancelUrl?: string;
   createdAt?: Timestamp;
@@ -42,6 +52,8 @@ export interface PricingTier {
   discountCode: string;
   /** Display-only percentage shown in the admin UI / pricing page. */
   discountPct: number;
+  /** Display-only effective price for this tier (in major units), e.g. 15 for $15/mo. */
+  price?: number;
 }
 
 /** Firestore Products document (the fields the backend relies on). */
@@ -51,17 +63,47 @@ export interface ProductDoc {
   description?: string;
   features?: string[];
   active: boolean;
-  dodoProductId: string;
+  /**
+   * Gateway product id per provider, e.g. { dodo: 'prod_123' }. A product can map
+   * to a different id in each gateway. Use {@link providerProductId} to resolve.
+   */
+  providerProductIds?: Partial<Record<PaymentProvider, string>>;
   type: 'one_time' | 'subscription';
+  /** Display-only list price (major units) and ISO currency, e.g. 29 / 'USD'. */
+  price?: number;
+  currency?: string;
   /** Entitlement granted on successful purchase, e.g. 'plus' | 'gold' | 'platinum'. */
   premiumType: string;
   /** Higher rank wins when a user already holds an entitlement. */
   tierRank: number;
   interval?: 'month' | 'year';
   trialDays?: number;
+  /**
+   * One-time products only: length of the included "free updates" window. Access
+   * itself is lifetime (never auto-revoked); `updatesUntil` on the user is set to
+   * purchase date + this span. Both may be set; they add together.
+   */
+  updatesYears?: number;
+  updatesDays?: number;
+  /**
+   * Prepaid credits granted per successful charge — once for a one-time purchase,
+   * and again on each subscription renewal (a recurring allowance). 0/undefined =
+   * not a credit product.
+   */
+  creditsGranted?: number;
   tiers: PricingTier[];
   /** Count of confirmed purchases — incremented once per successful payment. */
   purchaseCount: number;
+}
+
+/** Resolve a product's gateway product id for a provider (defaults to the active one). */
+export function providerProductId(product: ProductDoc, provider: PaymentProvider = PAYMENT_PROVIDER): string | undefined {
+  return (
+    product.providerProductIds?.[provider] ??
+    // Backward-compat: products created before the provider* rename stored a flat
+    // `dodoProductId`. Fall back to it so existing docs work without a migration.
+    (provider === 'dodo' ? (product as { dodoProductId?: string }).dodoProductId : undefined)
+  );
 }
 
 export type TransactionStatus = 'succeeded' | 'failed' | 'refunded' | 'pending';
@@ -70,8 +112,10 @@ export type TransactionStatus = 'succeeded' | 'failed' | 'refunded' | 'pending';
 export interface TransactionDoc {
   userId: string;
   userEmail: string;
-  dodoPaymentId?: string;
-  dodoSubscriptionId?: string;
+  /** Which gateway processed this charge. */
+  provider: PaymentProvider;
+  providerPaymentId?: string;
+  providerSubscriptionId?: string;
   productId: string;
   premiumType: string;
   amount: number;
@@ -79,12 +123,32 @@ export interface TransactionDoc {
   status: TransactionStatus;
   type: 'one_time' | 'subscription';
   tierApplied?: string;
+  /** Discount code applied at checkout — part of the grandfathering audit trail. */
+  discountCode?: string;
   eventType: string;
+  /**
+   * Set only for charges originating from an admin "test this tier" checkout
+   * (`createTestCheckoutLink`, which stamps `metadata.test`). These are real
+   * charges at the gateway and are recorded for visibility, but they grant no
+   * access, no credits, no emails, and never count toward `purchaseCount`.
+   * Absent on genuine customer transactions.
+   */
+  isTest?: boolean;
+  /**
+   * Stable dedup key, always scoped by event type: `ref:<refund_id>:<eventType>`
+   * for refunds (whose payload repeats the ORIGINAL payment id), else
+   * `pay:<payment_id>:<eventType>`, else `sub:<subscription_id>:<eventType>:<period>`
+   * so subscription-only events (which carry no payment id) still dedup across
+   * redeliveries without collapsing distinct billing periods onto one key.
+   */
+  idempotencyKey: string;
   createdAt: Timestamp;
 }
 
 /** Firestore WebhookEvents document (raw forensic log). */
 export interface WebhookEventDoc {
+  /** Which gateway delivered this event. */
+  provider: PaymentProvider;
   eventType: string;
   rawPayload: unknown;
   headers: Record<string, string>;
@@ -114,9 +178,16 @@ export interface DodoWebhookData {
   currency?: string;
   status?: string;
   next_billing_date?: string;
+  /** Start of the current billing period — used to key a renewal when next_billing_date is absent. */
+  previous_billing_date?: string;
   trial_period_days?: number;
   customer?: { customer_id?: string; email?: string; name?: string };
   metadata?: Record<string, string>;
+  // Refund events (`refund.succeeded`): the refunded amount and whether it is a
+  // partial refund. Full refunds revoke access + claw back credits; partial do not.
+  refund_id?: string;
+  amount?: number;
+  is_partial?: boolean;
   [key: string]: unknown;
 }
 
@@ -126,9 +197,60 @@ export interface UserEntitlement {
   premiumType: string | null;
   premiumTierRank: number | null;
   premiumStatus: 'active' | 'trialing' | 'past_due' | 'cancelled' | 'expired' | null;
-  premiumExpiresAt: Timestamp | null;
-  dodoSubscriptionId: string | null;
-  dodoCustomerId: string | null;
+  /**
+   * Subscriptions only: end of the paid period, refreshed on every successful
+   * charge. Sourced from the gateway's `next_billing_date` when the event carries
+   * one, else derived from the product's billing interval. Absent (not null) on
+   * one-time/lifetime grants — the daily expiry sweep range-matches null, so a
+   * null here would revoke a paying user. Only ever written with a real date.
+   */
+  premiumExpiresAt?: Timestamp | null;
+  /** Which gateway granted the current entitlement. */
+  provider?: PaymentProvider;
+  providerSubscriptionId: string | null;
+  providerCustomerId: string | null;
+  /**
+   * Timestamp of the webhook event that last drove this entitlement. Used to
+   * discard out-of-order deliveries (e.g. a delayed `active` arriving after a
+   * `cancelled`). Null when no ordered event has been applied yet.
+   */
+  premiumEventAt?: Timestamp | null;
+  /**
+   * One-time purchases only: the end of the included free-updates window
+   * (purchase date + product.updatesYears/updatesDays). Access is lifetime; this
+   * date only governs update eligibility and is never used to revoke `isPro`.
+   */
+  updatesUntil?: Timestamp | null;
+  /**
+   * Grandfathering audit trail — the deal the user locked in at purchase. Lets
+   * support answer "what price/tier was I promised?" even if the Dodo discount
+   * code is later changed or removed.
+   */
+  premiumTierLabel?: string | null;
+  premiumDiscountCode?: string | null;
+}
+
+/** Why a credit ledger entry was written. */
+export type CreditLedgerReason = 'purchase' | 'renewal' | 'refund' | 'consume' | 'adjustment';
+
+/**
+ * Append-only prepaid-credit ledger entry. The user's `creditBalance` is the
+ * running sum of these deltas, so the balance is always auditable / rebuildable.
+ */
+export interface CreditLedgerDoc {
+  userId: string;
+  /** Signed change: positive = grant, negative = debit (already clamped so balance ≥ 0). */
+  delta: number;
+  reason: CreditLedgerReason;
+  /** Balance immediately after this entry was applied. */
+  balanceAfter: number;
+  /** Gateway that drove a grant/refund entry; absent for in-app 'consume' entries. */
+  provider?: PaymentProvider;
+  productId?: string;
+  providerPaymentId?: string;
+  providerSubscriptionId?: string;
+  note?: string;
+  createdAt: Timestamp;
 }
 
 export const PAYMENT_EMAIL_TYPES = [

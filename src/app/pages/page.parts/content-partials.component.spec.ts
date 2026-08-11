@@ -53,7 +53,6 @@ describe('ContentPartialsComponent', () => {
         await TestBed.configureTestingModule({
             imports: [ContentPartialsComponent],
             providers: [
-                { provide: ContentsStore, useValue: mockContentsStore },
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: HttpClient, useValue: mockHttpClient },
                 { provide: GlobalService, useValue: mockGlobalService },
@@ -68,7 +67,13 @@ describe('ContentPartialsComponent', () => {
                     }
                 },
             ]
-        }).compileComponents();
+        })
+            // ContentPartialsComponent declares `providers: [ContentsStore]`, so a
+            // component-level instance shadows anything registered above and Angular
+            // would build the real store (→ ContentsService → Firestore). Only
+            // overrideProvider replaces a provider at every injector level.
+            .overrideProvider(ContentsStore, { useValue: mockContentsStore })
+            .compileComponents();
 
         fixture = TestBed.createComponent(ContentPartialsComponent);
         component = fixture.componentInstance;

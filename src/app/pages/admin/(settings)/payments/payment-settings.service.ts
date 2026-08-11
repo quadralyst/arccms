@@ -59,7 +59,6 @@ export class PaymentSettingsService {
                 return {
                     enabled: data['enabled'] ?? false,
                     mode: data['mode'] ?? 'test',
-                    brandId: data['brandId'] ?? '',
                     successUrl: data['successUrl'] ?? '',
                     cancelUrl: data['cancelUrl'] ?? '',
                     // Only indicate whether a secret is set — never expose it.
@@ -82,7 +81,6 @@ export class PaymentSettingsService {
         const dataToSave: Record<string, unknown> = {
             enabled: settings.enabled,
             mode: settings.mode,
-            brandId: settings.brandId,
             successUrl: settings.successUrl,
             cancelUrl: settings.cancelUrl,
             updatedAt: serverTimestamp(),

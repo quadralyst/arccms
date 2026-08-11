@@ -2,6 +2,9 @@ import { IBaseModel } from '../../../../shared/models/base-model';
 
 export const PRODUCTS_COLLECTION = 'Products';
 
+/** Payment gateways the schema is prepared for. Only 'dodo' is active today. */
+export type PaymentProvider = 'dodo' | 'stripe' | 'razorpay';
+
 /** A headcount-based pricing tier (first N buyers get a discount, etc.). */
 export interface IPricingTier {
     label: string;
@@ -11,6 +14,8 @@ export interface IPricingTier {
     discountCode: string;
     /** Display-only percentage. */
     discountPct: number;
+    /** Display-only effective price for this tier (major units), e.g. 15 for $15/mo. */
+    price?: number;
 }
 
 export interface IProduct extends IBaseModel {
@@ -18,15 +23,23 @@ export interface IProduct extends IBaseModel {
     description?: string;
     features?: string[];
     active: boolean;
-    /** Product id from the Dodo dashboard. */
-    dodoProductId: string;
+    /** Gateway product id per provider, e.g. { dodo: 'prod_123' }. */
+    providerProductIds?: Partial<Record<PaymentProvider, string>>;
     type: 'one_time' | 'subscription';
+    /** Display-only list price (major units) and ISO currency, e.g. 29 / 'USD'. */
+    price?: number;
+    currency?: string;
     /** Entitlement granted on purchase, e.g. 'plus' | 'gold' | 'platinum'. */
     premiumType: string;
     /** Higher rank wins when a user already holds an entitlement. */
     tierRank: number;
     interval?: 'month' | 'year';
     trialDays?: number;
+    /** One-time products only: length of the included free-updates window. */
+    updatesYears?: number;
+    updatesDays?: number;
+    /** Prepaid credits granted per charge (one-time once, subscription per renewal). */
+    creditsGranted?: number;
     tiers: IPricingTier[];
     /** Confirmed-purchase counter (incremented by Cloud Functions). */
     purchaseCount: number;
