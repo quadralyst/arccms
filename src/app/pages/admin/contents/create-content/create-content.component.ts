@@ -17,6 +17,7 @@ import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page'
 import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
 import { FieldRepeaterComponent } from '../../../../../shared/components/field-repeater/field-repeater.component';
 import {
+  isRepeaterType,
   normalizeRepeaterRows,
   prepareRepeaterRowsForSave,
   RepeaterRow,
@@ -42,6 +43,8 @@ import {
   IContentTranslation,
   TRANSLATABLE_BUILTIN_FIELDS,
   isTranslatableField,
+  translatableHeadingKey,
+  translatableRepeaterKeys,
   isTranslationEmpty,
 } from '../draft-content-store/content-translation.model';
 
@@ -353,6 +356,15 @@ export class CreateContentComponent extends BaseComponent {
     const schema = this.repeaterSchemaFor(field);
     if (!schema) return [];
 
+    // On a translation tab `customFieldValues` holds only the translation —
+    // for a repeating field, a sparse list of prose keyed by row id. The
+    // editor has to show the default language's actual rows with that prose
+    // laid over them, or a translator would face a list with no images and no
+    // sense of which card is which.
+    if (this.isTranslating()) {
+      return this.translatedRepeaterRows(field, schema);
+    }
+
     const current = this.customFieldValues[field.key];
     if (Array.isArray(current) && current.every((row) => typeof row?.id === 'string')) {
       return current;
@@ -366,6 +378,66 @@ export class CreateContentComponent extends BaseComponent {
     return rows;
   }
 
+  /**
+   * Base rows with the active translation's prose overlaid, for display while
+   * translating.
+   *
+   * Rebuilt on each change-detection pass rather than cached: unlike the
+   * default-language path there is nowhere to store it — `customFieldValues`
+   * has to keep holding the sparse translation, because that is what gets
+   * saved.
+   */
+  private translatedRepeaterRows(field: ContentTypeField, schema: RepeaterSchema): RepeaterRow[] {
+    const base = sortRepeaterRows(
+      normalizeRepeaterRows(this.baseValues().customFields?.[field.key], schema),
+    );
+
+    const translated = Array.isArray(this.customFieldValues[field.key])
+      ? (this.customFieldValues[field.key] as Record<string, unknown>[])
+      : [];
+
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const row of translated) {
+      if (row && typeof row === 'object' && typeof row['id'] === 'string') {
+        byId.set(row['id'] as string, row);
+      }
+    }
+
+    const keys = translatableRepeaterKeys(field).filter((key) => key !== 'id');
+
+    return base.map((row) => {
+      const overlay = byId.get(row.id);
+
+      // Prose starts *empty*, not seeded with the default language. A box
+      // pre-filled with English reads as already translated, and saving it
+      // would store English as the Hindi text. The original shows underneath
+      // as a placeholder instead — the same treatment the built-in fields get.
+      const merged: RepeaterRow = { ...row };
+      for (const key of keys) {
+        const value = overlay?.[key];
+        merged[key] = typeof value === 'string' ? value : '';
+      }
+      return merged;
+    });
+  }
+
+  /**
+   * Default-language row values keyed by row id, so a translator sees the
+   * original text as a ghost placeholder in every box they have not filled in.
+   */
+  baseRepeaterPlaceholders(field: ContentTypeField): Record<string, Record<string, unknown>> {
+    if (!this.isTranslating()) return {};
+
+    const schema = this.repeaterSchemaFor(field);
+    if (!schema) return {};
+
+    const placeholders: Record<string, Record<string, unknown>> = {};
+    for (const row of normalizeRepeaterRows(this.baseValues().customFields?.[field.key], schema)) {
+      placeholders[row.id] = row;
+    }
+    return placeholders;
+  }
+
   /** The stored heading for a repeating field, or ''. */
   repeaterHeading(field: ContentTypeField): string {
     const schema = this.repeaterSchemaFor(field);
@@ -373,6 +445,14 @@ export class CreateContentComponent extends BaseComponent {
 
     const key = repeaterHeadingKey(field.key, schema);
     const value = key ? this.customFieldValues[key] : '';
+    return typeof value === 'string' ? value : '';
+  }
+
+  /** The default language's heading, shown as a placeholder while translating. */
+  baseRepeaterHeading(field: ContentTypeField): string {
+    const schema = this.repeaterSchemaFor(field);
+    const key = schema ? repeaterHeadingKey(field.key, schema) : null;
+    const value = key ? this.baseValues().customFields?.[key] : '';
     return typeof value === 'string' ? value : '';
   }
 
@@ -1071,14 +1151,46 @@ export class CreateContentComponent extends BaseComponent {
     }
   }
 
-  /** Keeps only the custom fields that are translatable for this content type. */
+  /**
+   * Keeps only the custom fields that are translatable for this content type.
+   *
+   * A repeating field is projected down to `{ id, …prose }` per row: the
+   * translation document carries the words and the row id that anchors them,
+   * never the structure. That is what makes the default language the single
+   * owner of how many rows there are, their order, and their images — and what
+   * lets a row be deleted without stranding a translation on the wrong one.
+   */
   private translatableCustomFields(values: { [key: string]: any }): Record<string, unknown> {
     const translatable: Record<string, unknown> = {};
+
     for (const field of this.currentFields) {
-      if (isTranslatableField(field) && values[field.key] !== undefined) {
+      if (!isTranslatableField(field)) continue;
+
+      if (isRepeaterType(field.type)) {
+        const rows = values[field.key];
+        if (Array.isArray(rows)) {
+          const keys = translatableRepeaterKeys(field);
+          translatable[field.key] = rows.map((row: Record<string, unknown>) => {
+            const projected: Record<string, unknown> = {};
+            for (const key of keys) {
+              if (row?.[key] !== undefined) projected[key] = row[key];
+            }
+            return projected;
+          });
+        }
+
+        const headingKey = translatableHeadingKey(field);
+        if (headingKey && values[headingKey] !== undefined) {
+          translatable[headingKey] = values[headingKey];
+        }
+        continue;
+      }
+
+      if (values[field.key] !== undefined) {
         translatable[field.key] = values[field.key];
       }
     }
+
     return translatable;
   }
 

@@ -13,6 +13,7 @@
  */
 
 import { ContentTypeField } from '../content-types/content-types.model';
+import { repeaterHeadingKey, repeaterSchema } from '../../../../../shared/models/repeater.model';
 
 /** Built-in content fields that can be translated (decision M-D5). */
 export const TRANSLATABLE_BUILTIN_FIELDS = [
@@ -55,7 +56,38 @@ export interface IContentTranslation {
  */
 export function isTranslatableField(field: ContentTypeField): boolean {
     if (field.useCollectionRef) return false;
-    return field.type === 'text' || field.type === 'richtext';
+    if (field.type === 'text' || field.type === 'richtext') return true;
+
+    // A repeating field is translatable when any part of a row is prose — an
+    // Info Card's headline, a gallery caption. Its *structure* is not: the
+    // translation tab locks row count, order and media, and supplies only the
+    // words. See `translatableRepeaterKeys`.
+    const schema = repeaterSchema(field.type);
+    if (!schema) return false;
+
+    return schema.subFields.some((sub) => sub.translatable)
+        || schema.heading?.translatable === true;
+}
+
+/**
+ * The row keys a translator may fill in for a repeating field, plus `id` so
+ * the merge can match rows.
+ *
+ * Everything else — position, images, icons, video URLs — belongs to the
+ * default language and is deliberately absent from a translation document.
+ */
+export function translatableRepeaterKeys(field: ContentTypeField): string[] {
+    const schema = repeaterSchema(field.type);
+    if (!schema) return [];
+
+    return ['id', ...schema.subFields.filter((sub) => sub.translatable).map((sub) => sub.key)];
+}
+
+/** The heading key a translator may fill in, or null. */
+export function translatableHeadingKey(field: ContentTypeField): string | null {
+    const schema = repeaterSchema(field.type);
+    if (!schema?.heading?.translatable) return null;
+    return repeaterHeadingKey(field.key, schema);
 }
 
 /** Blank means "not translated" — including whitespace-only and empty HTML. */
@@ -66,6 +98,57 @@ function hasValue(value: unknown): boolean {
         return stripped.length > 0;
     }
     return true;
+}
+
+/**
+ * Overlays a translation's rows onto the base rows of a repeating field.
+ *
+ * The default language owns the *structure* — how many rows there are, their
+ * order, their images and icons. A translation supplies only prose, and only
+ * for rows that still exist.
+ *
+ * Rows are matched by `id`, never by position. An index would move: delete the
+ * second of four cards and every later translation shifts onto the wrong card,
+ * publishing the wrong text under the wrong headline with no error. Matching
+ * by id also means a translation row whose card has since been deleted is
+ * simply ignored rather than resurrected.
+ *
+ * `id` and `position` are never taken from the translation, so a translation
+ * cannot reorder or re-key the list even if its stored document says otherwise.
+ */
+function mergeTranslatedRows(
+    baseRows: unknown[],
+    translatedRows: unknown[],
+): unknown[] {
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const row of translatedRows) {
+        if (row && typeof row === 'object') {
+            const id = (row as Record<string, unknown>)['id'];
+            if (typeof id === 'string') byId.set(id, row as Record<string, unknown>);
+        }
+    }
+
+    return baseRows.map((row) => {
+        if (!row || typeof row !== 'object') return row;
+
+        const base = row as Record<string, unknown>;
+        const id = base['id'];
+        const translated = typeof id === 'string' ? byId.get(id) : undefined;
+        if (!translated) return base;
+
+        const merged: Record<string, unknown> = { ...base };
+        for (const [key, value] of Object.entries(translated)) {
+            if (key === 'id' || key === 'position') continue;
+            if (hasValue(value)) merged[key] = value;
+        }
+        return merged;
+    });
+}
+
+/** Both sides being row arrays is what marks a value as a repeating field. */
+function isRowArray(value: unknown): boolean {
+    return Array.isArray(value)
+        && value.every((row) => !!row && typeof row === 'object' && typeof (row as Record<string, unknown>)['id'] === 'string');
 }
 
 /**
@@ -102,6 +185,16 @@ export function mergeTranslation<T extends object>(
             ...((source['customFields'] as Record<string, unknown>) ?? {}),
         };
         for (const [key, value] of Object.entries(translation.customFields)) {
+            const baseValue = mergedCustom[key];
+
+            // A repeating field merges row by row: structure from the base,
+            // prose from the translation. Replacing it wholesale would let a
+            // translation drop cards or lose their images.
+            if (isRowArray(baseValue) && isRowArray(value)) {
+                mergedCustom[key] = mergeTranslatedRows(baseValue as unknown[], value as unknown[]);
+                continue;
+            }
+
             if (hasValue(value)) mergedCustom[key] = value;
         }
         merged['customFields'] = mergedCustom;

@@ -43,8 +43,25 @@ export class FieldRepeaterComponent {
 
     readonly schema = input.required<RepeaterSchema>();
     readonly rows = input<RepeaterRow[]>([]);
-    /** Locked while translating — structure belongs to the default language. */
+    /** Fully read-only. */
     readonly disabled = input(false);
+
+    /**
+     * Translating: the structure belongs to the default language, the words do
+     * not.
+     *
+     * Rows cannot be added, removed or reordered and media cannot be changed,
+     * but any sub-field the schema marks `translatable` stays editable. This
+     * is what keeps every language's card list identical and lets a row be
+     * deleted without stranding a translation on the wrong one.
+     */
+    readonly translating = input(false);
+
+    /** Default-language values per row id, shown as ghost placeholders. */
+    readonly basePlaceholders = input<Record<string, Record<string, unknown>>>({});
+
+    /** Default-language heading, shown as a ghost placeholder. */
+    readonly baseHeading = input('');
 
     /** The block's heading, when the schema declares one. */
     readonly heading = input('');
@@ -60,11 +77,13 @@ export class FieldRepeaterComponent {
     }
 
     addRow(): void {
+        if (this.isLocked()) return;
         const next = [...this.rows(), newRepeaterRow(this.schema(), this.nextPosition())];
         this.emit(next);
     }
 
     removeRow(id: string): void {
+        if (this.isLocked()) return;
         // Renumbered so the remaining positions stay 1..n rather than leaving
         // a hole that reads as a missing card.
         this.emit(renumberRepeaterRows(this.rows().filter((row) => row.id !== id)));
@@ -82,6 +101,7 @@ export class FieldRepeaterComponent {
      * on the way from "1" to "10". The list settles on blur instead.
      */
     setPosition(id: string, raw: string): void {
+        if (this.isLocked()) return;
         const parsed = Number.parseInt(raw, 10);
         if (Number.isNaN(parsed)) return;
         this.setValue(id, 'position', parsed);
@@ -100,7 +120,7 @@ export class FieldRepeaterComponent {
 
     /** Opens the Media Manager for a media sub-field, scoped to one row. */
     pickMedia(row: RepeaterRow, sub: RepeaterMediaSubField): void {
-        if (this.disabled()) return;
+        if (this.isLocked()) return;
 
         this.openPicker(sub, false).subscribe((result: MediaSelection | null) => {
             if (result?.type !== 'submit') return;
@@ -120,7 +140,7 @@ export class FieldRepeaterComponent {
      * one, which only works if the picker creates the rows itself.
      */
     addFromLibrary(sub: RepeaterMediaSubField): void {
-        if (this.disabled()) return;
+        if (this.isLocked()) return;
 
         this.openPicker(sub, true).subscribe((result: MediaSelection | null) => {
             if (result?.type !== 'submit') return;
@@ -143,7 +163,7 @@ export class FieldRepeaterComponent {
 
     /** Stores a pasted YouTube URL, or clears the slot when the box is emptied. */
     setVideo(row: RepeaterRow, sub: RepeaterMediaSubField, raw: string): void {
-        if (!sub.videoKey) return;
+        if (!sub.videoKey || this.isLocked()) return;
 
         const trimmed = raw.trim();
         if (!trimmed) {
@@ -163,6 +183,7 @@ export class FieldRepeaterComponent {
     }
 
     clearMedia(row: RepeaterRow, sub: RepeaterMediaSubField): void {
+        if (this.isLocked()) return;
         this.videoErrors.update(({ [row.id]: _dropped, ...rest }) => rest);
         this.setMedia(row.id, sub, {});
     }
@@ -252,6 +273,30 @@ export class FieldRepeaterComponent {
     /** String value of a text or textarea sub-field. */
     text(row: RepeaterRow, sub: RepeaterSubField): string {
         const value = row[sub.key];
+        return typeof value === 'string' ? value : '';
+    }
+
+    /** No structural edits: fully disabled, or translating another language. */
+    isLocked(): boolean {
+        return this.disabled() || this.translating();
+    }
+
+    /** Whether this sub-field's box is editable right now. */
+    canEdit(sub: RepeaterSubField): boolean {
+        if (this.disabled()) return false;
+        return this.translating() ? sub.translatable === true : true;
+    }
+
+    /** Whether the heading box is editable right now. */
+    canEditHeading(): boolean {
+        if (this.disabled()) return false;
+        return this.translating() ? this.schema().heading?.translatable === true : true;
+    }
+
+    /** The default-language text for a box, shown when the translation is blank. */
+    placeholderFor(row: RepeaterRow, sub: RepeaterSubField): string {
+        if (!this.translating()) return sub.placeholder ?? '';
+        const value = this.basePlaceholders()[row.id]?.[sub.key];
         return typeof value === 'string' ? value : '';
     }
 
