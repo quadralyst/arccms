@@ -787,6 +787,7 @@ describe('DraftContentsTableComponent', () => {
         const COVER_FIELD = { key: 'coverImage', label: 'Cover Image', type: 'image', required: false, order: 2 };
         const AUTHOR_FIELD = { key: 'author', label: 'Author', type: 'text', required: false, order: 3 };
         const ICON_FIELD = { key: 'card_icon', label: 'Card Icon', type: 'icon', required: false, order: 4 };
+        const CARDS_FIELD = { key: 'info_cards', label: 'Info Cards', type: 'infocard', required: false, order: 5 };
 
         /** A stored icon token, as the picker writes it. */
         const ICON_TOKEN = {
@@ -878,6 +879,26 @@ describe('DraftContentsTableComponent', () => {
             const icon = component.tableColumns.find((c) => c.key === 'card_icon');
             expect(icon?.classFn?.({ customFields: {} })).toBe('');
             expect(icon?.classFn?.({})).toBe('');
+        });
+
+        it('should drop repeating fields, whose rows cannot fit a table cell', () => {
+            useArticleType([CARDS_FIELD, AUTHOR_FIELD]);
+
+            // A row array stringifies to "[object Object]" in a text cell, and
+            // there is no useful one-cell summary of four cards.
+            expect(component.tableColumns.map((c) => c.key)).not.toContain('info_cards');
+            expect(component.availableColumns().map((c) => c.key)).not.toContain('info_cards');
+        });
+
+        it('should drop a repeating field even when a saved preference lists it', () => {
+            mockContentTypesStore.items.set([
+                { id: 'ct1', name: 'Article', slug: 'article', fields: [CARDS_FIELD, AUTHOR_FIELD], listColumns: ['info_cards', 'author'] },
+            ]);
+            component.contentTypeSlug = 'article';
+            component.visibleColumnKeys.set([]);
+            component.updateDynamicColumns();
+
+            expect(component.tableColumns.map((c) => c.key)).not.toContain('info_cards');
         });
 
         it('should still render an icon stored as a bare class string', () => {

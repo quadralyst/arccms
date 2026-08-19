@@ -734,6 +734,15 @@
                                 }
                             </div>
                             }
+
+                            <!-- Repeating rows (Info Cards) -->
+                            @else if (repeaterSchemaFor(field); as repeater) {
+                            <arc-field-repeater
+                                [schema]="repeater"
+                                [rows]="repeaterRows(field)"
+                                (rowsChange)="onRepeaterRowsChange(field.key, $event)">
+                            </arc-field-repeater>
+                            }
                         </div>
                         }
                         }

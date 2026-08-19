@@ -666,7 +666,14 @@
         "unknown_error": "Unknown error",
         "version_restored": "Restored version v{{ version }}. Review and save when ready.",
         "url_copied": "URL copied to clipboard",
-        "url_copy_failed": "Failed to copy URL"
+        "url_copy_failed": "Failed to copy URL",
+        "repeater": {
+          "add": "Add {{ row }}",
+          "empty": "No {{ row }} added yet.",
+          "position": "Position",
+          "choose_media": "Choose an icon or image",
+          "image": "Image"
+        }
       },
       "list": {
         "type_not_found": "Content Type Not Found",

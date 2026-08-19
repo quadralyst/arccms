@@ -15,6 +15,15 @@ import { TagsStore } from '../content-types/tags/tags.store';
 import { ITag } from '../content-types/tags/tags.model';
 import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page';
 import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
+import { FieldRepeaterComponent } from '../../../../../shared/components/field-repeater/field-repeater.component';
+import {
+  normalizeRepeaterRows,
+  prepareRepeaterRowsForSave,
+  RepeaterRow,
+  RepeaterSchema,
+  repeaterSchema,
+  sortRepeaterRows,
+} from '../../../../../shared/models/repeater.model';
 import { MatDialog } from '@angular/material/dialog';
 import { CollectionRefSyncService } from '../content-store/collection-ref-sync.service';
 import { DraftContentsService } from '../draft-content-store/draft-contents.service';
@@ -59,6 +68,7 @@ interface TranslatableValues {
     TiptapEditorComponent,
     VersionHistoryComponent,
     TranslocoPipe,
+    FieldRepeaterComponent,
   ],
   templateUrl: './create-content.component.html',
   styleUrl: './create-content.component.scss',
@@ -320,6 +330,84 @@ export class CreateContentComponent extends BaseComponent {
   getCustomFieldIcon(fieldKey: string): ArcIcon | null {
     const value = this.customFieldValues[fieldKey];
     return isArcIcon(value) ? value : null;
+  }
+
+  // ── Repeating fields (Info Cards, and the types built on the same base) ──
+
+  /** The schema for a repeating field, or null for every other type. */
+  repeaterSchemaFor(field: ContentTypeField): RepeaterSchema | null {
+    return repeaterSchema(field.type);
+  }
+
+  /**
+   * The rows of a repeating field.
+   *
+   * Called from the template, so it runs on every change-detection pass — and
+   * must return the *same array* each time, or the child's input identity
+   * changes on every pass and the row being edited re-renders under the
+   * caret. Repairing once and storing the result back makes the second call
+   * onwards a plain read.
+   */
+  repeaterRows(field: ContentTypeField): RepeaterRow[] {
+    const schema = this.repeaterSchemaFor(field);
+    if (!schema) return [];
+
+    const current = this.customFieldValues[field.key];
+    if (Array.isArray(current) && current.every((row) => typeof row?.id === 'string')) {
+      return current;
+    }
+
+    // First read of a document, an import, or an older row shape. Sorted here
+    // because this is the load — from now on order changes only when the
+    // editor commits a position.
+    const rows = sortRepeaterRows(normalizeRepeaterRows(current, schema));
+    this.customFieldValues[field.key] = rows;
+    return rows;
+  }
+
+  /** Row edits from `arc-field-repeater`. */
+  onRepeaterRowsChange(fieldKey: string, rows: RepeaterRow[]): void {
+    this.customFieldValues[fieldKey] = rows;
+    this.markTranslationDirty();
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * A copy of the custom field values safe to hand to a snapshot.
+   *
+   * A plain `{ ...customFieldValues }` shares every repeater array *and* every
+   * row object with the live editor, so a version-history snapshot would
+   * change under the reader as they kept typing. Scalars never had this
+   * problem, which is why the shallow spread was fine until now.
+   *
+   * Repeater values are also prepared for storage here — sorted by position,
+   * renumbered, and with abandoned blank rows dropped, since the editor adds
+   * an empty row on demand and an unfilled one would publish as an empty card.
+   */
+  private copyCustomFields(values: Record<string, any>): Record<string, any> {
+    const copy: Record<string, any> = { ...values };
+
+    for (const field of this.currentFields) {
+      const schema = this.repeaterSchemaFor(field);
+      if (!schema) continue;
+      if (copy[field.key] === undefined) continue;
+      copy[field.key] = prepareRepeaterRowsForSave(copy[field.key], schema);
+    }
+
+    return copy;
+  }
+
+  /** Custom field values read from a document, draft or version snapshot. */
+  private adoptCustomFields(values: Record<string, any> | undefined): Record<string, any> {
+    const adopted: Record<string, any> = { ...(values ?? {}) };
+
+    for (const field of this.currentFields) {
+      const schema = this.repeaterSchemaFor(field);
+      if (!schema) continue;
+      adopted[field.key] = sortRepeaterRows(normalizeRepeaterRows(adopted[field.key], schema));
+    }
+
+    return adopted;
   }
 
   // Remove image for a custom field
@@ -682,7 +770,7 @@ export class CreateContentComponent extends BaseComponent {
       summary: this.publishForm.get('summary')?.value || '',
       seoTitle: this.seoForm.get('seoTitle')?.value || '',
       metaDescription: this.seoForm.get('metaDescription')?.value || '',
-      customFields: { ...this.customFieldValues },
+      customFields: this.copyCustomFields(this.customFieldValues),
     };
   }
 
@@ -697,7 +785,7 @@ export class CreateContentComponent extends BaseComponent {
     this.publishForm.get('summary')?.setValue(values.summary, { emitEvent: false });
     this.seoForm.get('seoTitle')?.setValue(values.seoTitle, { emitEvent: false });
     this.seoForm.get('metaDescription')?.setValue(values.metaDescription, { emitEvent: false });
-    this.customFieldValues = { ...values.customFields };
+    this.customFieldValues = this.adoptCustomFields(values.customFields);
     this.cdr.detectChanges();
   }
 
@@ -1038,7 +1126,7 @@ export class CreateContentComponent extends BaseComponent {
         summary: contentData?.summary || '',
         seoTitle: contentData?.seoTitle || '',
         metaDescription: contentData?.metaDescription || '',
-        customFields: { ...(contentData?.customFields ?? {}) },
+        customFields: this.copyCustomFields(contentData?.customFields ?? {}),
       };
       return;
     }
@@ -1086,7 +1174,7 @@ export class CreateContentComponent extends BaseComponent {
 
     // Pre-populate custom field values
     if (contentData?.customFields) {
-      this.customFieldValues = { ...contentData.customFields };
+      this.customFieldValues = this.adoptCustomFields(contentData.customFields);
     }
 
     // Pre-populate next content reference
@@ -2224,7 +2312,7 @@ export class CreateContentComponent extends BaseComponent {
 
     // Restore custom fields
     if (version.customFields) {
-      this.customFieldValues = { ...version.customFields };
+      this.customFieldValues = this.adoptCustomFields(version.customFields);
     }
 
     // Close the version preview and switch to basic tab so user sees the restored content

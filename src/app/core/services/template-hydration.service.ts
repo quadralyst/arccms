@@ -100,8 +100,12 @@ export class TemplateHydrationService {
     
     // Helper to replace {{ key }} with value
     const replaceInterpolation = (text: string): string => {
-      // Updated regex to support dot notation (e.g. user.name)
-      return text.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (match, key) => {
+      // Dot notation (user.name) and hyphens, which custom-field keys carry:
+      // the app prefixes every custom field with its content type slug, so a
+      // field on `awards-recognition` is stored as
+      // `awards-recognition_card_icon`. Without the hyphen the binding
+      // rendered as literal text on exactly the types most likely to use one.
+      return text.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, key) => {
         // Use getNestedValue to handle dotted paths
         const value = TemplateHydrationService.getNestedValue(data, key);
         return value !== undefined && value !== null ? String(value) : '';
@@ -294,6 +298,44 @@ export class TemplateHydrationService {
     $('[data-arc-t-params]').removeAttr('data-arc-t-params');
 
     return $.html();
+  }
+
+  /**
+   * Named loop data for the repeating custom fields on a content item.
+   *
+   * `processLoops` is keyed by name, so `data-arc-loop="info_cards"` needs an
+   * `info_cards` entry — this derives one for every array-valued custom field
+   * rather than each call site listing them by hand.
+   *
+   * Rows are sorted by `position` when they carry one. The editor already
+   * stores them in order, so this is for rows that arrived some other way (an
+   * import, a hand-edited document) — sorting twice costs nothing, publishing
+   * cards in the wrong order is very visible.
+   *
+   * Reserved names win: a custom field keyed `tags` or `items` must not
+   * displace the built-in loop a template already relies on.
+   */
+  static arrayLoopData(
+    customFields: Record<string, any> | undefined | null,
+    reserved: string[] = [],
+  ): Record<string, any[]> {
+    const loops: Record<string, any[]> = {};
+    if (!customFields) return loops;
+
+    const taken = new Set(reserved);
+
+    for (const [key, value] of Object.entries(customFields)) {
+      if (taken.has(key) || !Array.isArray(value)) continue;
+
+      const rows = value.filter((row) => !!row && typeof row === 'object');
+      if (rows.length !== value.length) continue;
+
+      loops[key] = rows.every((row) => typeof row['position'] === 'number')
+        ? [...rows].sort((a, b) => a['position'] - b['position'])
+        : rows;
+    }
+
+    return loops;
   }
 
   /**

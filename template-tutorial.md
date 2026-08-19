@@ -206,6 +206,7 @@ In the Content Types admin panel, you can add custom fields with various types:
 - **number**: Numeric values
 - **image**: An image chosen from the Media Manager
 - **icon**: A Font Awesome icon, chosen from a searchable icon picker
+- **infocard**: A repeating list of cards — icon or image, headline and info
 
 Each field has a **key** (used for binding) and a **label** (displayed in admin).
 
@@ -288,9 +289,35 @@ The same field also gives you `{{ card_icon_label }}` for an `aria-label`,
 inline SVG fallback. See the **Icons** section of [TEMPLATES.md](TEMPLATES.md) for
 when you need each.
 
+### Example: An Info Card Field
+
+An `infocard` field holds a *list* of cards, so it renders with a loop rather
+than a single binding. The loop name is the stored field key:
+
+```html
+<section class="info-cards" data-arc-loop="programs_info_cards">
+    <article class="info-card">
+        <img data-arc-if="image" data-arc-bind="image" alt="">
+        <i data-arc-if="icon" class="{{ icon }}" aria-hidden="true"></i>
+        <h3 data-arc-bind="headline">Headline</h3>
+        <p data-arc-bind="info">Info text.</p>
+    </article>
+</section>
+```
+
+Write **one** card inside the container — it is the row template, repeated
+once per card. Each card has an icon or an image, never both, and
+`data-arc-if` drops whichever is unset. See the **Info Cards** section of
+[TEMPLATES.md](TEMPLATES.md) for the full binding list and the limitations.
+
 ### Notes
 
 - Custom fields are available in **list**, **detail**, and **partials** templates
+- **Field keys are stored prefixed with the content type slug** — a key of
+  `subtitle` on `awards-recognition` binds as `awards-recognition_subtitle`.
+  Copy the key shown in the Content Types admin
+- Repeating fields (`infocard`) render on **detail** and **partials**
+  templates only — they cannot be nested inside a list page's `items` loop
 - For dropdown fields, the **selected option value** is displayed (not the key)
 - If a custom field is empty or not set, the placeholder text remains
 - Custom field keys are case-sensitive

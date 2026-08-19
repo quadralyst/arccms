@@ -530,6 +530,166 @@ describe('TemplateHydrationService', () => {
         });
     });
 
+    describe('Hyphenated custom field keys', () => {
+        // Custom fields are stored prefixed with their content type slug, so a
+        // field on `awards-recognition` is keyed `awards-recognition_subtitle`.
+        // Hyphens in an interpolation key used to leave the binding as literal
+        // text on exactly the content types most likely to have one.
+        it('interpolates a slug-prefixed key containing hyphens', () => {
+            const html = '<p>{{ awards-recognition_subtitle }}</p>';
+            const result = TemplateHydrationService.hydrateTemplate(html, {
+                'awards-recognition_subtitle': 'Honoured in 2026',
+            });
+
+            expect(result).toContain('Honoured in 2026');
+            expect(result).not.toContain('{{');
+        });
+
+        it('interpolates a hyphenated key inside an attribute', () => {
+            const html = '<i class="card-icon {{ flagship-programs_icon }}"></i>';
+            const result = TemplateHydrationService.hydrateTemplate(html, {
+                'flagship-programs_icon': { classes: 'fa-solid fa-star', name: 'star' },
+            });
+
+            expect(result).toContain('class="card-icon fa-solid fa-star"');
+        });
+
+        it('loops over a hyphenated repeating field key', () => {
+            const html = '<div data-arc-loop="zz-card-qa_info_cards"><p>{{ headline }}</p></div>';
+            const rows = [{ id: 'r_a', position: 1, headline: 'First card' }];
+
+            const result = TemplateHydrationService.processLoops(
+                html,
+                TemplateHydrationService.arrayLoopData({ 'zz-card-qa_info_cards': rows }),
+            );
+
+            expect(result).toContain('First card');
+        });
+
+        it('still leaves an unknown key resolving to empty', () => {
+            const result = TemplateHydrationService.hydrateTemplate('<p>{{ no-such-key }}</p>', {});
+            expect(result).toContain('<p></p>');
+        });
+    });
+
+    describe('arrayLoopData', () => {
+        const CARDS = [
+            { id: 'r_b', position: 2, headline: 'Second' },
+            { id: 'r_a', position: 1, headline: 'First' },
+        ];
+
+        it('turns an array custom field into a named loop', () => {
+            expect(TemplateHydrationService.arrayLoopData({ info_cards: CARDS }))
+                .toHaveProperty('info_cards');
+        });
+
+        it('sorts rows by position', () => {
+            const loops = TemplateHydrationService.arrayLoopData({ info_cards: CARDS });
+            expect(loops['info_cards'].map((r: any) => r.id)).toEqual(['r_a', 'r_b']);
+        });
+
+        it('leaves rows alone when they carry no position', () => {
+            const rows = [{ id: 'r_b' }, { id: 'r_a' }];
+            const loops = TemplateHydrationService.arrayLoopData({ info_cards: rows });
+            expect(loops['info_cards'].map((r: any) => r.id)).toEqual(['r_b', 'r_a']);
+        });
+
+        it('does not mutate the stored rows', () => {
+            const rows = [...CARDS];
+            TemplateHydrationService.arrayLoopData({ info_cards: rows });
+            expect(rows.map(r => r.id)).toEqual(['r_b', 'r_a']);
+        });
+
+        it('ignores scalar and object custom fields', () => {
+            const loops = TemplateHydrationService.arrayLoopData({
+                title: 'Not a loop',
+                count: 3,
+                cover: { url: 'x' },
+                info_cards: CARDS,
+            });
+            expect(Object.keys(loops)).toEqual(['info_cards']);
+        });
+
+        it('ignores an array of plain strings', () => {
+            // Tag-style arrays are not rows and would hydrate to nothing.
+            expect(TemplateHydrationService.arrayLoopData({ keywords: ['a', 'b'] })).toEqual({});
+        });
+
+        it('never displaces a reserved loop name', () => {
+            // A custom field keyed `tags` must not shadow the built-in loop a
+            // template already relies on.
+            const loops = TemplateHydrationService.arrayLoopData(
+                { tags: [{ name: 'Fake' }], info_cards: CARDS },
+                ['tags', 'items'],
+            );
+            expect(Object.keys(loops)).toEqual(['info_cards']);
+        });
+
+        it('handles a missing customFields object', () => {
+            expect(TemplateHydrationService.arrayLoopData(undefined)).toEqual({});
+            expect(TemplateHydrationService.arrayLoopData(null)).toEqual({});
+        });
+
+        it('renders info card rows, icon and all, through processLoops', () => {
+            const html = '<div data-arc-loop="info_cards">'
+                + '<article><i class="{{ icon }}"></i><h3>{{ headline }}</h3><p>{{ info }}</p></article>'
+                + '</div>';
+            const rows = [
+                {
+                    id: 'r_a', position: 1, headline: 'Find opportunities', info: 'Browse needs.',
+                    image: '', icon: { set: 'fa', name: 'magnifying-glass', classes: 'fa-solid fa-magnifying-glass' },
+                },
+                {
+                    id: 'r_b', position: 2, headline: 'Earn coins', info: 'Redeem them.',
+                    image: '', icon: { set: 'fa', name: 'coins', classes: 'fa-solid fa-coins' },
+                },
+            ];
+
+            const result = TemplateHydrationService.processLoops(
+                html,
+                TemplateHydrationService.arrayLoopData({ info_cards: rows }),
+            );
+
+            expect(result).toContain('class="fa-solid fa-magnifying-glass"');
+            expect(result).toContain('Find opportunities');
+            expect(result).toContain('class="fa-solid fa-coins"');
+            expect(result).toContain('Redeem them.');
+            expect(result).not.toContain('[object Object]');
+        });
+
+        it('drops the visual a row does not have, via data-arc-if', () => {
+            const html = '<div data-arc-loop="info_cards"><article>'
+                + '<img data-arc-if="image" data-arc-bind="image" alt="">'
+                + '<i data-arc-if="icon" class="{{ icon }}"></i>'
+                + '<h3>{{ headline }}</h3></article></div>';
+            const rows = [
+                { id: 'r_a', position: 1, headline: 'Photo card', image: 'https://example.com/a.jpg', icon: null },
+                { id: 'r_b', position: 2, headline: 'Icon card', image: '', icon: { set: 'fa', name: 'star', classes: 'fa-solid fa-star' } },
+            ];
+
+            const result = TemplateHydrationService.processLoops(
+                html,
+                TemplateHydrationService.arrayLoopData({ info_cards: rows }),
+            );
+
+            // One card keeps its <img> and loses the <i>; the other the reverse.
+            expect(result.match(/<img/g)).toHaveLength(1);
+            expect(result).toContain('https://example.com/a.jpg');
+            expect(result).toContain('fa-solid fa-star');
+        });
+
+        it('empties the container when there are no rows', () => {
+            const html = '<div data-arc-loop="info_cards"><article>{{ headline }}</article></div>';
+            const result = TemplateHydrationService.processLoops(
+                html,
+                TemplateHydrationService.arrayLoopData({ info_cards: [] }),
+            );
+
+            // An empty array must clear the placeholder card, not publish it.
+            expect(result).not.toContain('<article>');
+        });
+    });
+
     describe('Icon Token Flattening', () => {
         const icon = {
             set: 'fa',
