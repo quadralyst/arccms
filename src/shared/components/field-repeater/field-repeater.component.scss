@@ -226,3 +226,10 @@
         min-width: 0;
     }
 }
+
+.repeater-locked-note {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--rep-muted);
+    font-style: italic;
+}

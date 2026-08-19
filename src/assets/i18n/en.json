@@ -676,7 +676,8 @@
           "add_photos": "Add photos",
           "video_url": "YouTube link",
           "video_invalid": "That is not a YouTube link.",
-          "video": "Video"
+          "video": "Video",
+          "structure_locked": "Rows, order and images are shared across languages — edit them on the default language tab."
         }
       },
       "list": {

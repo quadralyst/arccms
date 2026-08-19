@@ -455,6 +455,100 @@ describe('FieldRepeaterComponent', () => {
         });
     });
 
+    describe('when translating', () => {
+        const BASE = {
+            a: { id: 'a', position: 1, image: 'https://example.com/a.jpg', icon: null, headline: 'Find opportunities', info: 'Browse needs.' },
+        };
+
+        beforeEach(() => {
+            fixture.componentRef.setInput('translating', true);
+            fixture.componentRef.setInput('basePlaceholders', BASE);
+            setRows([makeRow('a', 1, { image: 'https://example.com/a.jpg', headline: '', info: '' })]);
+        });
+
+        it('hides every control that would change the structure', () => {
+            const host: HTMLElement = fixture.nativeElement;
+
+            expect(host.querySelector('.repeater-add')).toBeNull();
+            expect(host.querySelector('.repeater-actions')).toBeNull();
+            expect(host.querySelector('.repeater-remove')).toBeNull();
+            expect(host.querySelector('.repeater-media-actions')).toBeNull();
+        });
+
+        it('locks the position input', () => {
+            expect(fixture.nativeElement.querySelector('.repeater-position input').disabled).toBe(true);
+        });
+
+        it('explains where the structure is edited', () => {
+            expect(fixture.nativeElement.querySelector('.repeater-locked-note')?.textContent)
+                .toContain('default language');
+        });
+
+        it('leaves the prose boxes editable', () => {
+            // headline and info are the schema's translatable sub-fields.
+            const inputs = [...fixture.nativeElement.querySelectorAll('.repeater-field input[type=text], .repeater-field textarea')];
+            expect(inputs.length).toBeGreaterThan(0);
+            expect(inputs.every((i: any) => !i.disabled)).toBe(true);
+        });
+
+        it('shows the default-language text as a ghost placeholder', () => {
+            const input = fixture.nativeElement.querySelector('.repeater-field input[type=text]');
+            expect(input.placeholder).toBe('Find opportunities');
+        });
+
+        it('refuses structural edits even if something calls them', () => {
+            const seen: RepeaterRow[][] = [];
+            component.rowsChange.subscribe(r => seen.push(r));
+
+            component.addRow();
+            component.removeRow('a');
+            component.setPosition('a', '9');
+            component.clearMedia(makeRow('a', 1), MEDIA);
+
+            // The UI hides these, but the guard is in the component so a stray
+            // caller cannot desynchronise one language's rows from another's.
+            expect(seen).toHaveLength(0);
+        });
+
+        it('does not open the media picker', () => {
+            component.pickMedia(makeRow('a', 1), MEDIA);
+            expect(openSpy).not.toHaveBeenCalled();
+        });
+
+        it('still lets prose through', () => {
+            const seen: RepeaterRow[][] = [];
+            component.rowsChange.subscribe(r => seen.push(r));
+
+            component.setValue('a', 'headline', 'अवसर खोजें');
+
+            expect(seen[0][0]['headline']).toBe('अवसर खोजें');
+        });
+
+        it('locks a non-translatable sub-field', () => {
+            // Gallery captions translate; the YouTube URL does not.
+            const gallerySub = GALLERY.subFields[0];
+            expect(component.canEdit(gallerySub)).toBe(false);
+            expect(component.canEdit(INFOCARD.subFields[1])).toBe(true);
+        });
+
+        it('keeps a heading editable only when the schema says it is prose', () => {
+            expect(component.canEditHeading()).toBe(false);
+
+            fixture.componentRef.setInput('schema', LABELVALUE);
+            fixture.detectChanges();
+            expect(component.canEditHeading()).toBe(true);
+        });
+
+        it('shows the default-language heading as its placeholder', () => {
+            fixture.componentRef.setInput('schema', LABELVALUE);
+            fixture.componentRef.setInput('baseHeading', 'At a glance');
+            fixture.detectChanges();
+
+            expect(fixture.nativeElement.querySelector('.repeater-heading input').placeholder)
+                .toBe('At a glance');
+        });
+    });
+
     describe('when disabled', () => {
         beforeEach(() => {
             fixture.componentRef.setInput('disabled', true);

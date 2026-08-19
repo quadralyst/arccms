@@ -741,6 +741,9 @@
                                 [schema]="repeater"
                                 [rows]="repeaterRows(field)"
                                 [heading]="repeaterHeading(field)"
+                                [translating]="isTranslating()"
+                                [basePlaceholders]="baseRepeaterPlaceholders(field)"
+                                [baseHeading]="baseRepeaterHeading(field)"
                                 (rowsChange)="onRepeaterRowsChange(field.key, $event)"
                                 (headingChange)="onRepeaterHeadingChange(field, $event)">
                             </arc-field-repeater>

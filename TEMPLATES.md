@@ -324,9 +324,12 @@ removed, so there are never gaps.
 - **No nested loops.** A repeating field renders on a **detail** page or in a
   **partial**. It will *not* render inside `data-arc-loop="items"` on a list
   page: rows inside a loop are not looped again.
-- **Not yet translatable.** Headlines and info text stay in the default
-  language on every translated page. Every row carries a stable id ready for
-  this, but the translation tabs do not offer repeating fields yet.
+- **Translated per row, structure shared.** The default language owns how many
+  rows there are, their order and their images; every other language supplies
+  only the words. On a translation tab the rows are locked and the prose boxes
+  show the original as a placeholder. Translations are anchored to a row's
+  stable id, so reordering or deleting a row never strands text on the wrong
+  one — a deleted row's translation is simply dropped.
 - **Not importable.** Bulk CSV import skips repeating fields — one cell
   cannot express a list of rows. Add the cards in the editor.
 - **Not shown in the contents list.** Rows have no useful one-cell summary,
@@ -435,8 +438,8 @@ https://www.youtube.com/embed/dQw4w9WgXcQ
 Vimeo and other providers are not supported.
 
 Galleries share every limitation listed under **Info Cards** — detail and
-partials templates only, not translatable yet, not CSV-importable, and never a
-contents-list column.
+partials templates only, not CSV-importable, and never a contents-list column.
+Captions translate per row; the photos and videos are shared across languages.
 
 ---
 
