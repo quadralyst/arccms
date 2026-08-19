@@ -314,6 +314,43 @@ describe('TemplateHydrationService', () => {
             expect(result).toContain('Tag 1');
             expect(result).toContain('Tag 2');
         });
+    
+
+        it('clears a loop container the caller had no data for', () => {
+            // A shared template carrying a gallery block would otherwise put a
+            // literal "Caption" on every page of a type that has no gallery.
+            const html = '<div data-arc-loop="gallery"><figure>Caption</figure></div>';
+            const result = TemplateHydrationService.processLoops(html, { tags: [] });
+
+            expect(result).not.toContain('<figure>');
+            expect(result).not.toContain('Caption');
+        });
+
+        it('strips the loop attributes from an unmatched container', () => {
+            const html = '<div data-arc-loop="gallery" data-limit="4"><p>x</p></div>';
+            const result = TemplateHydrationService.processLoops(html, {});
+
+            expect(result).not.toContain('data-arc-loop');
+            expect(result).not.toContain('data-limit');
+        });
+
+        it('keeps the container itself, so its styling can hide it', () => {
+            const html = '<div class="gallery" data-arc-loop="gallery"><p>x</p></div>';
+            const result = TemplateHydrationService.processLoops(html, {});
+
+            expect(result).toContain('class="gallery"');
+        });
+
+        it('clears only the containers without data', () => {
+            const html = '<div data-arc-loop="tags"><span>{{ name }}</span></div>'
+                + '<div data-arc-loop="gallery"><figure>Caption</figure></div>';
+            const result = TemplateHydrationService.processLoops(html, {
+                tags: [{ name: 'Real tag' }],
+            });
+
+            expect(result).toContain('Real tag');
+            expect(result).not.toContain('Caption');
+        });
     });
 
     describe('processTemplate', () => {
@@ -683,6 +720,82 @@ describe('TemplateHydrationService', () => {
                 ['tags', 'items'],
             );
             expect(Object.keys(loops)).toEqual(['info_cards']);
+        });
+
+        describe('unprefixed alias', () => {
+            const ROWS = [{ id: 'r_a', position: 1, caption: 'One' }];
+
+            it('publishes a loop under its bare key as well', () => {
+                // A shared template cannot name `events_gallery`, because the
+                // slug differs per content type.
+                const loops = TemplateHydrationService.arrayLoopData(
+                    { events_gallery: ROWS }, ['tags', 'items'], 'events',
+                );
+                expect(Object.keys(loops).sort()).toEqual(['events_gallery', 'gallery']);
+                expect(loops['gallery']).toBe(loops['events_gallery']);
+            });
+
+            it('keeps underscores inside the field key', () => {
+                const loops = TemplateHydrationService.arrayLoopData(
+                    { events_info_cards: ROWS }, ['tags', 'items'], 'events',
+                );
+                expect(loops['info_cards']).toEqual(ROWS);
+            });
+
+            it('handles a hyphenated slug', () => {
+                const loops = TemplateHydrationService.arrayLoopData(
+                    { 'awards-recognition_gallery': ROWS }, ['tags', 'items'], 'awards-recognition',
+                );
+                expect(loops['gallery']).toEqual(ROWS);
+            });
+
+            it('adds no alias without a slug', () => {
+                const loops = TemplateHydrationService.arrayLoopData({ events_gallery: ROWS }, ['tags', 'items']);
+                expect(Object.keys(loops)).toEqual(['events_gallery']);
+            });
+
+            it('adds no alias to a key that lacks the prefix', () => {
+                const loops = TemplateHydrationService.arrayLoopData(
+                    { gallery: ROWS }, ['tags', 'items'], 'events',
+                );
+                expect(Object.keys(loops)).toEqual(['gallery']);
+            });
+
+            it('never aliases onto a reserved loop name', () => {
+                // A field keyed `events_tags` must not shadow the built-in tags
+                // loop every template already relies on.
+                const loops = TemplateHydrationService.arrayLoopData(
+                    { events_tags: ROWS }, ['tags', 'items'], 'events',
+                );
+                expect(loops['tags']).toBeUndefined();
+                expect(loops['events_tags']).toEqual(ROWS);
+            });
+
+            it('lets an explicit key win over an alias for the same name', () => {
+                const explicit = [{ id: 'r_x', position: 1, caption: 'Explicit' }];
+                const loops = TemplateHydrationService.arrayLoopData(
+                    { gallery: explicit, events_gallery: ROWS }, ['tags', 'items'], 'events',
+                );
+                expect(loops['gallery']).toEqual(explicit);
+            });
+
+            it('does not alias a bare slug-prefixed key with nothing after it', () => {
+                const loops = TemplateHydrationService.arrayLoopData(
+                    { events_: ROWS }, ['tags', 'items'], 'events',
+                );
+                expect(Object.keys(loops)).toEqual(['events_']);
+            });
+
+            it('renders a shared template through the alias', () => {
+                const html = '<div data-arc-loop="gallery"><p>{{ caption }}</p></div>';
+                const result = TemplateHydrationService.processLoops(
+                    html,
+                    TemplateHydrationService.arrayLoopData(
+                        { events_gallery: ROWS }, ['tags', 'items'], 'events',
+                    ),
+                );
+                expect(result).toContain('One');
+            });
         });
 
         it('handles a missing customFields object', () => {

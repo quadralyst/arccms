@@ -40,6 +40,44 @@
             <div class="container">
                 <div class="article-content" [innerHTML]="content"></div>
 
+                <!--
+                  Repeating custom fields.
+
+                  These use the *unprefixed* field key. Custom fields are stored
+                  as `<slug>_<key>`, which a shared template cannot name — so
+                  the publish pipeline also publishes each repeating field under
+                  its bare key. A content type with an Info Card field keyed
+                  `info_cards` fills the first block; one with a Gallery keyed
+                  `gallery` fills the second. A type with neither gets nothing:
+                  an empty loop clears its container, so the placeholder rows
+                  below never reach a published page.
+
+                  Rename the loop to match your own key, or copy this folder and
+                  lay them out however you like.
+                -->
+                <div class="arc-info-cards" data-arc-loop="info_cards">
+                    <div class="arc-info-card">
+                        <span class="arc-info-card-visual">
+                            <img data-arc-if="image" data-arc-bind="image" alt="">
+                            <i data-arc-if="icon" class="{{ icon }}" aria-hidden="true"></i>
+                        </span>
+                        <h3 class="arc-info-card-headline" data-arc-bind="headline">Headline</h3>
+                        <p class="arc-info-card-info" data-arc-bind="info">Info</p>
+                    </div>
+                </div>
+
+                <div class="arc-gallery" data-arc-loop="gallery">
+                    <figure class="arc-gallery-item">
+                        <img data-arc-if="image" data-arc-bind="image" alt="">
+                        <button data-arc-if="video_thumb" type="button"
+                                class="arc-gallery-video" data-embed="{{ video_embed }}">
+                            <img data-arc-bind="video_thumb" alt="">
+                            <span class="arc-gallery-play" aria-hidden="true">&#9654;</span>
+                        </button>
+                        <figcaption data-arc-bind="caption">Caption</figcaption>
+                    </figure>
+                </div>
+
                 <div class="article-tags" data-arc-loop="tags">
                     <span class="article-tag">{{ name }}</span>
                 </div>
@@ -360,5 +398,135 @@
         align-items: flex-start;
     }
 }
-    `],
+/* ── Repeating custom fields ─────────────────────────────────────────────── */
+
+/* Both containers are emptied when their field has no rows, so an unused one
+   collapses to nothing rather than leaving a gap. */
+.arc-info-cards,
+.arc-gallery {
+    max-width: 720px;
+    margin: 3rem auto 0;
+}
+
+.arc-info-cards:empty,
+.arc-gallery:empty {
+    display: none;
+    margin: 0;
+}
+
+.arc-info-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.arc-info-card {
+    padding: 1.25rem;
+    border: 1px solid #e8e8ed;
+    border-radius: 12px;
+    background: #fbfbfd;
+}
+
+.arc-info-card-visual i {
+    font-size: 1.35rem;
+    color: #0066cc;
+}
+
+.arc-info-card-visual img {
+    width: 2.5rem;
+    height: 2.5rem;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.arc-info-card-headline {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0.75rem 0 0.35rem;
+}
+
+.arc-info-card-info {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #6e6e73;
+    margin: 0;
+}
+
+.arc-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.arc-gallery-item {
+    margin: 0;
+}
+
+.arc-gallery-item > img,
+.arc-gallery-video img,
+.arc-gallery-item iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 12px;
+    display: block;
+    border: 0;
+}
+
+/* The poster is a button until it is clicked, so the page ships no player
+   JavaScript for videos nobody watches. */
+.arc-gallery-video {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+.arc-gallery-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 1.1rem;
+    line-height: 3rem;
+    text-align: center;
+}
+
+.arc-gallery-video:hover .arc-gallery-play {
+    background: rgba(0, 0, 0, 0.85);
+}
+
+.arc-gallery-item figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #6e6e73;
+}
+
+.arc-gallery-item figcaption:empty {
+    display: none;
+}
 </style>
+
+<script>
+    // Swaps a gallery poster for the real player on click. Ten iframes is
+    // roughly ten megabytes of YouTube JavaScript; this loads one, on demand.
+    document.querySelectorAll('.arc-gallery-video').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var frame = document.createElement('iframe');
+            frame.src = button.dataset.embed + '?autoplay=1';
+            frame.allow = 'accelerated-motion; autoplay; encrypted-media; picture-in-picture';
+            frame.allowFullscreen = true;
+            frame.title = 'Video';
+            button.replaceWith(frame);
+        });
+    });
+</script>

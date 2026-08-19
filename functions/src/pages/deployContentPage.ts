@@ -315,6 +315,7 @@ export async function generateAndDeployContentDetailPage(
             ...TemplateHydrationService.arrayLoopData(
                 localizedContent.customFields as Record<string, any>,
                 ['tags', 'items'],
+                contentType.slug,
             ),
             tags: tagsData,
         });

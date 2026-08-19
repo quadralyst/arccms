@@ -975,6 +975,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             ...TemplateHydrationService.arrayLoopData(
                 (content as any).customFields,
                 ['tags', 'items'],
+                this.contentTypeSlug(),
             ),
             tags: tagsData
         });

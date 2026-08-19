@@ -354,15 +354,28 @@ export class TemplateHydrationService {
    *
    * Reserved names win: a custom field keyed `tags` or `items` must not
    * displace the built-in loop a template already relies on.
+   *
+   * Given `slug`, each loop is also published under its **unprefixed** name.
+   * Custom field keys are stored prefixed with their content type slug, so a
+   * gallery on `events` is keyed `events_media` — and a shared template like
+   * `templates/default/detail.html`, used by every type without a folder of
+   * its own, could never name it. The alias lets that template write
+   * `data-arc-loop="media"` and work for any type with a field keyed `media`.
+   * A page only ever renders one content type, so there is nothing to collide
+   * with; where an alias would shadow a real key or a reserved name, the
+   * explicit one wins.
    */
   static arrayLoopData(
     customFields: Record<string, any> | undefined | null,
     reserved: string[] = [],
+    slug?: string,
   ): Record<string, any[]> {
     const loops: Record<string, any[]> = {};
     if (!customFields) return loops;
 
     const taken = new Set(reserved);
+    const prefix = slug ? `${slug}_` : '';
+    const aliases: Record<string, any[]> = {};
 
     for (const [key, value] of Object.entries(customFields)) {
       if (taken.has(key) || !Array.isArray(value)) continue;
@@ -370,12 +383,20 @@ export class TemplateHydrationService {
       const rows = value.filter((row) => !!row && typeof row === 'object');
       if (rows.length !== value.length) continue;
 
-      loops[key] = rows.every((row) => typeof row['position'] === 'number')
+      const ordered = rows.every((row) => typeof row['position'] === 'number')
         ? [...rows].sort((a, b) => a['position'] - b['position'])
         : rows;
+
+      loops[key] = ordered;
+
+      if (prefix && key.startsWith(prefix) && key.length > prefix.length) {
+        const bare = key.slice(prefix.length);
+        if (!taken.has(bare)) aliases[bare] = ordered;
+      }
     }
 
-    return loops;
+    // Aliases are merged under the real keys, so an explicit key always wins.
+    return { ...aliases, ...loops };
   }
 
   /**
@@ -410,6 +431,17 @@ export class TemplateHydrationService {
         }
       }
     }
+
+    // Any container the caller had no data for still holds its placeholder
+    // rows. Left alone they publish verbatim — a shared template carrying a
+    // gallery block would put a literal "Caption" on every page of a content
+    // type that has no gallery. An absent loop means no rows, so clear it.
+    $('[data-arc-loop]').each((_, element) => {
+      const $container = $(element);
+      $container.empty();
+      $container.removeAttr('data-arc-loop');
+      $container.removeAttr('data-limit');
+    });
 
     return $.html();
   }
