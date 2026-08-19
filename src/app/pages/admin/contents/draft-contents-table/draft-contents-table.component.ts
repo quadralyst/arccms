@@ -47,6 +47,7 @@ import { PageHeaderComponent } from '../../../../../shared/components/page-heade
 
 import { PreviewContentComponent } from './preview-content/preview-content.component';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
+import { iconClasses, iconLabel } from '../../../../../shared/models/icon.model';
 
 @Component({
   selector: 'arc-draft-contents-table',
@@ -487,8 +488,15 @@ export class DraftContentsTableComponent
         header: field.label,
         // Image fields show a thumbnail; a raw storage URL is unreadable and
         // several hundred characters wide.
-        type: field.type === 'image' ? 'image' : 'text',
+        //
+        // Icon fields render the glyph itself. The stored value is a token
+        // object, so the default text cell prints "[object Object]" — and the
+        // glyph is the one thing that identifies an icon at a glance anyway.
+        type: field.type === 'image' ? 'image' : field.type === 'icon' ? 'icon' : 'text',
         ...(field.type === 'image' ? { imageConfig: { height: 40, altKey: 'title' } } : {}),
+        ...(field.type === 'icon'
+            ? { classFn: (row: any) => iconClasses(row?.customFields?.[field.key]) }
+            : {}),
         transformFn: (row: any) => {
           // 1. Handle Collection References
           if (field.useCollectionRef && field.collectionRef) {
@@ -508,7 +516,11 @@ export class DraftContentsTableComponent
 
           // 2. Handle Standard Fields
           if (row.customFields && row.customFields[field.key] !== undefined) {
-            return row.customFields[field.key];
+            const value = row.customFields[field.key];
+            // The icon cell draws from `classFn`, not from here — but this is
+            // still what sorting and any text fallback would read, and an
+            // object stringifies to "[object Object]".
+            return field.type === 'icon' ? iconLabel(value) : value;
           }
           return '';
         },

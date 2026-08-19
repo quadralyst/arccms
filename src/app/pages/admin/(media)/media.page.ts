@@ -34,6 +34,8 @@ import { MediaItem, PaginationInfo } from '../../../../shared/models/media-manag
 import { MediaManagerService } from './media-manager.service';
 import { MediaManagerStore } from './media-manager.store';
 import { roleGuard } from '../../../guards/role.guard';
+import { IconBrowserComponent } from '../../../../shared/components/icon-browser/icon-browser.component';
+import { ArcIcon } from '../../../../shared/models/icon.model';
 
 export const routeMeta: RouteMeta = {
     title: 'Media Manager | Arc CMS',
@@ -55,6 +57,40 @@ interface MediaMenuItem {
     name: string;
     value: string;
     icon?: string;
+    /** What this tab produces. Tabs whose kind the caller cannot use are hidden. */
+    kind?: 'image' | 'icon';
+}
+
+/**
+ * What a caller passes when opening the Media Manager as a dialog.
+ *
+ * The two `allow*` flags describe what the caller can accept back. A caller
+ * that only understands one of them gets a dialog with only those tabs — and
+ * with no tab bar at all, since a single tab is not a choice.
+ */
+export interface MediaDialogData {
+    isDialogOpen: boolean;
+    /** Show the upload and Unsplash tabs. Defaults to true. */
+    allowImages?: boolean;
+    /** Show the Icons tab. Defaults to false. */
+    allowIcons?: boolean;
+    /** Tab to open on, e.g. `icons` for a field that only wants a glyph. */
+    initialTab?: string;
+}
+
+/** What the dialog hands back when the admin confirms a selection. */
+export interface MediaSelection {
+    type: 'submit';
+    /**
+     * The image URL, kept for every existing caller. Empty for an icon
+     * selection — a caller that only understands images sees "nothing chosen"
+     * rather than a URL that does not resolve.
+     */
+    mediaUrl: string;
+    /** Which kind of thing was picked. Absent on older callers' expectations. */
+    kind?: 'image' | 'icon';
+    /** Present only when `kind` is `icon`. */
+    icon?: ArcIcon;
 }
 
 @Component({
@@ -72,7 +108,7 @@ interface MediaMenuItem {
         MatListModule,
         MatCardModule,
         MatDialogClose,
-        MatProgressSpinnerModule, TranslocoPipe],
+        MatProgressSpinnerModule, TranslocoPipe, IconBrowserComponent],
     templateUrl: './media-manager.html',
     styleUrls: ['./media-manager.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -86,7 +122,7 @@ export default class MediaManagerComponent extends BaseComponent {
     mediaStore = inject(MediaManagerStore);
 
     readonly dialog = inject(MatDialog);
-    readonly _DIALOG_DATA = inject<{ isDialogOpen: boolean }>(MAT_DIALOG_DATA, { optional: true }) ?? { isDialogOpen: false };
+    readonly _DIALOG_DATA = inject<MediaDialogData>(MAT_DIALOG_DATA, { optional: true }) ?? { isDialogOpen: false };
     readonly dialogRef = inject(MatDialogRef<MediaManagerComponent>, { optional: true });
     fileUploadService = inject(FileUploadService);
     private firestore = inject(Firestore);
@@ -103,6 +139,8 @@ export default class MediaManagerComponent extends BaseComponent {
     isSearching = false;
     unsplashConfigured: boolean | null = null;
     selectedImageDimensions: string | null = null;
+    /** The icon highlighted in the Icons tab, if any. */
+    selectedIcon: ArcIcon | null = null;
 
     // Multi-file upload tracking
     uploadCurrent = 0;
@@ -126,10 +164,44 @@ export default class MediaManagerComponent extends BaseComponent {
     // Track subscriptions for cleanup
     private subscriptions: Subscription[] = [];
 
+    /**
+     * The tabs this instance shows — only those producing something the caller
+     * can accept.
+     *
+     * A caller asking for neither kind is a mistake, not a request for an
+     * empty dialog, so images win: that is what every caller predating the
+     * flags expects.
+     */
+    get menuItems(): MediaMenuItem[] {
+        const data = this._DIALOG_DATA;
+        const allowIcons = data.allowIcons === true;
+        const allowImages = data.allowImages !== false || !allowIcons;
+
+        const menu = this.constantVariables.mediaManagerMenu as MediaMenuItem[];
+        return menu.filter(item =>
+            item.kind === 'icon' ? allowIcons : allowImages,
+        );
+    }
+
+    /**
+     * Whether to draw the tab bar. One tab is not a choice — showing a lone
+     * highlighted "Icons" tab just implies there are others to switch to.
+     */
+    get showTabBar(): boolean {
+        return this.menuItems.length > 1;
+    }
+
     ngOnInit(): void {
-        this.loadMediaItems();
-        this.loadMediaUploadSettings();
-        this.selectedMenu({ name: 'Uploaded photos', value: 'upload' });
+        const initial = this.menuItems.find(item => item.value === this._DIALOG_DATA.initialTab)
+            ?? this.menuItems[0];
+
+        // Upload limits are only read to validate an upload; an icons-only
+        // dialog cannot upload anything, so skip the Firestore round-trip.
+        if (this.menuItems.some(item => item.kind === 'image')) {
+            this.loadMediaUploadSettings();
+        }
+
+        this.selectedMenu(initial);
     }
 
     ngOnDestroy(): void {
@@ -172,6 +244,7 @@ export default class MediaManagerComponent extends BaseComponent {
         this.searchResults = [];
         this.pagination = null;
         this.selectedMediaUrl = null;
+        this.selectedIcon = null;
         this.selectedItem = event;
         // Reset page tracking when switching menus
         this.pageDocumentStack = [];
@@ -212,6 +285,12 @@ export default class MediaManagerComponent extends BaseComponent {
         this.router.navigate(['/admin/settings/integrations']);
     }
 
+    /** An icon was highlighted in the Icons tab. */
+    public onIconSelected(icon: ArcIcon | null): void {
+        this.selectedIcon = icon;
+        this.ref.detectChanges();
+    }
+
     public selectMedia(selectedMediaUrl: SelectableMedia): void {
         this.selectedMediaUrl = selectedMediaUrl;
         this.selectedImageDimensions = null;
@@ -228,11 +307,36 @@ export default class MediaManagerComponent extends BaseComponent {
         }
     }
 
+    /**
+     * Closes the dialog with whatever is selected.
+     *
+     * `mediaUrl` stays first-class so the four callers that read only that
+     * field keep working untouched. An icon leaves it empty rather than
+     * inventing a URL — a caller that does not know about `kind` then treats
+     * the result as "nothing picked", which is the safe reading.
+     */
     public insertMedia() {
-        const selectedMedia = this.selectedMediaUrl?.url || this.selectedMediaUrl?.urls?.regular || '';
-        if (this.dialogRef) {
-            this.dialogRef.close({ mediaUrl: selectedMedia, type: 'submit' });
+        if (!this.dialogRef) return;
+
+        if (this.isIconsTab && this.selectedIcon) {
+            const selection: MediaSelection = {
+                type: 'submit',
+                mediaUrl: '',
+                kind: 'icon',
+                icon: this.selectedIcon,
+            };
+            this.dialogRef.close(selection);
+            return;
         }
+
+        const selectedMedia = this.selectedMediaUrl?.url || this.selectedMediaUrl?.urls?.regular || '';
+        const selection: MediaSelection = { type: 'submit', mediaUrl: selectedMedia, kind: 'image' };
+        this.dialogRef.close(selection);
+    }
+
+    /** True while the Icons tab is the active one. */
+    get isIconsTab(): boolean {
+        return this.selectedItem?.value === 'icons';
     }
 
     /**

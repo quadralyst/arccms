@@ -71,7 +71,12 @@ describe('IconPickerComponent', () => {
         });
     });
 
-    describe('Icon Filtering', () => {
+    /**
+     * The offline path: what the picker shows before the generated index
+     * resolves, and permanently if it cannot be fetched. `beforeEach` never
+     * awaits `ngOnInit`, so the index signal is still null here.
+     */
+    describe('Icon Filtering (offline fallback)', () => {
         it('should return all icons when search term is empty', () => {
             component.iconSearchTerm.set('');
             expect(component.filteredIcons()).toEqual(FONT_AWESOME_ICONS);
@@ -95,6 +100,44 @@ describe('IconPickerComponent', () => {
             component.iconSearchTerm.set('FOLDER');
             const filtered = component.filteredIcons();
             expect(filtered.length).toBeGreaterThan(0);
+        });
+
+        it('should return empty array when no icons match', () => {
+            component.iconSearchTerm.set('nonexistenticon123');
+            expect(component.filteredIcons()).toEqual([]);
+        });
+    });
+
+    /**
+     * The index path, once the generated library has loaded. The setup file
+     * serves a four-icon stand-in for `/assets/icons/fa-index.json`.
+     */
+    describe('Icon Filtering (generated index)', () => {
+        beforeEach(async () => {
+            await component.ngOnInit();
+        });
+
+        it('should list icons from the index rather than the offline list', () => {
+            component.iconSearchTerm.set('');
+            const names = component.filteredIcons().map(icon => icon.name);
+            expect(names).toContain('magnifying-glass');
+            expect(component.filteredIcons().length).toBeLessThan(FONT_AWESOME_ICONS.length);
+        });
+
+        it('should match an alias that is not in the icon name', () => {
+            component.iconSearchTerm.set('search');
+            expect(component.filteredIcons()[0]).toEqual({
+                name: 'magnifying-glass',
+                class: 'fa-solid fa-magnifying-glass',
+            });
+        });
+
+        it('should offer one row per style an icon exists in', () => {
+            component.iconSearchTerm.set('folder');
+            expect(component.filteredIcons().map(icon => icon.class)).toEqual([
+                'fa-solid fa-folder',
+                'fa-regular fa-folder',
+            ]);
         });
 
         it('should return empty array when no icons match', () => {

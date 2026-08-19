@@ -69,6 +69,7 @@ export default class AddContentTypeComponent extends BaseComponent {
         'date',
         'datetime',
         'image',
+        'icon',
         'boolean',
         'dropdown',
         'checkbox',

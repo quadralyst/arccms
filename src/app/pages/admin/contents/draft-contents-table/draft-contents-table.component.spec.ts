@@ -786,6 +786,14 @@ describe('DraftContentsTableComponent', () => {
         const BODY_FIELD = { key: 'body', label: 'Body', type: 'richtext', required: false, order: 1 };
         const COVER_FIELD = { key: 'coverImage', label: 'Cover Image', type: 'image', required: false, order: 2 };
         const AUTHOR_FIELD = { key: 'author', label: 'Author', type: 'text', required: false, order: 3 };
+        const ICON_FIELD = { key: 'card_icon', label: 'Card Icon', type: 'icon', required: false, order: 4 };
+
+        /** A stored icon token, as the picker writes it. */
+        const ICON_TOKEN = {
+            set: 'fa', name: 'trophy', style: 'solid',
+            classes: 'fa-solid fa-trophy', label: 'Trophy',
+            markup: '<svg viewBox="0 0 576 512"><path d="M400 0z"/></svg>',
+        };
 
         it('should render the Title heading only once when a custom title field shadows the built-in', () => {
             useArticleType([TITLE_FIELD, AUTHOR_FIELD]);
@@ -844,6 +852,42 @@ describe('DraftContentsTableComponent', () => {
 
             const author = component.tableColumns.find((c) => c.key === 'author');
             expect(author?.transformFn?.({ customFields: { author: 'Ada' } })).toBe('Ada');
+        });
+
+        it('should render icon fields as the glyph rather than the stored token', () => {
+            useArticleType([ICON_FIELD]);
+
+            const icon = component.tableColumns.find((c) => c.key === 'card_icon');
+            // A text column here stringifies the token to "[object Object]".
+            expect(icon?.type).toBe('icon');
+            expect(icon?.classFn?.({ customFields: { card_icon: ICON_TOKEN } }))
+                .toBe('fa-solid fa-trophy');
+        });
+
+        it('should fall back to the label as an icon column text value', () => {
+            useArticleType([ICON_FIELD]);
+
+            const icon = component.tableColumns.find((c) => c.key === 'card_icon');
+            expect(icon?.transformFn?.({ customFields: { card_icon: ICON_TOKEN } }))
+                .toBe('Trophy');
+        });
+
+        it('should leave an icon cell empty when nothing is picked', () => {
+            useArticleType([ICON_FIELD]);
+
+            const icon = component.tableColumns.find((c) => c.key === 'card_icon');
+            expect(icon?.classFn?.({ customFields: {} })).toBe('');
+            expect(icon?.classFn?.({})).toBe('');
+        });
+
+        it('should still render an icon stored as a bare class string', () => {
+            useArticleType([ICON_FIELD]);
+
+            // Defensive: a hand-written or imported document may hold the class
+            // list directly rather than the token the picker writes.
+            const icon = component.tableColumns.find((c) => c.key === 'card_icon');
+            expect(icon?.classFn?.({ customFields: { card_icon: 'fa-solid fa-star' } }))
+                .toBe('fa-solid fa-star');
         });
     });
 

@@ -13,7 +13,8 @@ import { ContentType, ContentTypeField, contentTypeFieldLabel } from '../content
 import TiptapEditorComponent from '../../../../../shared/components/tiptap-editor/tiptap-editor.component';
 import { TagsStore } from '../content-types/tags/tags.store';
 import { ITag } from '../content-types/tags/tags.model';
-import MediaManagerComponent from '../../(media)/media.page';
+import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page';
+import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
 import { MatDialog } from '@angular/material/dialog';
 import { CollectionRefSyncService } from '../content-store/collection-ref-sync.service';
 import { DraftContentsService } from '../draft-content-store/draft-contents.service';
@@ -278,12 +279,47 @@ export class CreateContentComponent extends BaseComponent {
       data: { isDialogOpen: true },
     });
 
-    dialogRef.afterClosed().subscribe((result: { mediaUrl: string; type: string } | null) => {
+    dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result && result.type === 'submit' && result.mediaUrl) {
         this.customFieldValues[fieldKey] = result.mediaUrl;
         this.cdr.detectChanges();
       }
     });
+  }
+
+  /**
+   * Opens the Media Manager on its Icons tab for an `icon` field.
+   *
+   * Same dialog as an image field rather than a bespoke one: an admin who has
+   * picked a cover image already knows this window, and the two field types
+   * differ only in what they come back with.
+   */
+  openIconPickerForField(fieldKey: string): void {
+    const dialogRef = this.dialog.open(MediaManagerComponent, {
+      enterAnimationDuration: '450ms',
+      exitAnimationDuration: '300ms',
+      minWidth: '134vh',
+      maxHeight: '90vh',
+      panelClass: 'common-dialog-box',
+      disableClose: true,
+      // Icons only. With the image tabs shown, picking a photo here would
+      // return a URL this field discards — the dialog would close having
+      // silently done nothing.
+      data: { isDialogOpen: true, allowIcons: true, allowImages: false, initialTab: 'icons' },
+    });
+
+    dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
+      if (result?.type === 'submit' && result.kind === 'icon' && result.icon) {
+        this.customFieldValues[fieldKey] = result.icon;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /** The stored icon token for a field, or null when nothing is picked. */
+  getCustomFieldIcon(fieldKey: string): ArcIcon | null {
+    const value = this.customFieldValues[fieldKey];
+    return isArcIcon(value) ? value : null;
   }
 
   // Remove image for a custom field

@@ -200,9 +200,12 @@ Custom fields defined in your content type (via Admin → Contents → Content T
 In the Content Types admin panel, you can add custom fields with various types:
 - **text**: Single-line text input
 - **textarea**: Multi-line text
+- **richtext**: Formatted content, edited in the rich-text editor
 - **dropdown**: Select from predefined options
 - **checkbox**: Boolean true/false
 - **number**: Numeric values
+- **image**: An image chosen from the Media Manager
+- **icon**: A Font Awesome icon chosen from the Media Manager's Icons tab
 
 Each field has a **key** (used for binding) and a **label** (displayed in admin).
 
@@ -263,12 +266,36 @@ Add to article header:
 </div>
 ```
 
+### Example: An Icon Field
+
+An `icon` field is a class list, not an image, so bind it to the `class`
+attribute of an empty `<i>` rather than with `data-arc-bind`:
+
+```html
+<!-- For an icon field with key "card_icon" -->
+<i class="card-icon {{ card_icon }}" aria-hidden="true"></i>
+```
+
+```css
+.card-icon {
+    font-size: 1.5rem;
+    color: #16a34a;  /* the icon takes this colour */
+}
+```
+
+The same field also gives you `{{ card_icon_label }}` for an `aria-label`,
+`{{ card_icon_name }}` for the bare name, and `{{ card_icon_svg }}` for an
+inline SVG fallback. See the **Icons** section of [TEMPLATES.md](TEMPLATES.md) for
+when you need each.
+
 ### Notes
 
 - Custom fields are available in **list**, **detail**, and **partials** templates
 - For dropdown fields, the **selected option value** is displayed (not the key)
 - If a custom field is empty or not set, the placeholder text remains
 - Custom field keys are case-sensitive
+- `icon` fields bind into a `class` attribute, not with `data-arc-bind` — using
+  `data-arc-bind` would print the class list as visible text
 
 ## Special Template Features
 

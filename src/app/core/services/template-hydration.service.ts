@@ -16,6 +16,49 @@ export class TemplateHydrationService {
     return path.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
   }
   /**
+   * Expands stored icon tokens into the plain strings a template binds to.
+   *
+   * An `icon` field stores an object (`{ classes, markup, label, name }`), and
+   * `{{ card_icon }}` on an object renders "[object Object]". Rather than make
+   * every template author write `{{ card_icon.classes }}`, the token is spread
+   * into four flat keys:
+   *
+   *   {{ card_icon }}        fa-solid fa-star  — the class list, the usual case
+   *   {{ card_icon_svg }}    <svg …>           — inline fallback, for a site
+   *                                              that does not load the icon
+   *                                              stylesheet
+   *   {{ card_icon_label }}  Star              — for aria-label
+   *   {{ card_icon_name }}   star              — the bare name
+   *
+   * The suffixes are underscored because field keys are themselves forced to
+   * `^[a-z0-9_]+$`, so `card_iconSvg` would be the odd one out.
+   *
+   * Documented in TEMPLATES.md. Runs on a copy; the caller's data is not
+   * touched.
+   */
+  private static flattenIcons(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    let result = data;
+
+    for (const [key, value] of Object.entries(data)) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+      const icon = value as Record<string, unknown>;
+      if (typeof icon['classes'] !== 'string' || typeof icon['name'] !== 'string') continue;
+
+      // Copy on first hit only, so untouched data keeps its identity.
+      if (result === data) result = { ...data };
+
+      result[key] = icon['classes'];
+      result[`${key}_svg`] = icon['markup'] ?? '';
+      result[`${key}_label`] = icon['label'] ?? icon['name'];
+      result[`${key}_name`] = icon['name'];
+    }
+
+    return result;
+  }
+
+  /**
    * Hydrates a single HTML template with data
    *
    * @param htmlContent - The HTML template string
@@ -48,6 +91,9 @@ export class TemplateHydrationService {
         }
       });
     }
+
+    // Icon tokens are objects; templates bind to strings. See flattenIcons.
+    data = this.flattenIcons(data);
 
 
     // 1. Process Angular-style Interpolation {{ variable }}

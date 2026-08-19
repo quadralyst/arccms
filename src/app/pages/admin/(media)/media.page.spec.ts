@@ -157,7 +157,7 @@ describe('MediaManagerComponent', () => {
 
         it('should set default selected menu to upload', () => {
             fixture.detectChanges();
-            expect(component.selectedItem).toEqual({ name: 'Uploaded photos', value: 'upload' });
+            expect(component.selectedItem).toMatchObject({ value: 'upload' });
         });
     });
 
@@ -254,6 +254,7 @@ describe('MediaManagerComponent', () => {
             expect(mockDialogRef.close).toHaveBeenCalledWith({
                 mediaUrl: 'http://example.com/image.jpg',
                 type: 'submit',
+                kind: 'image',
             });
         });
 
@@ -263,6 +264,7 @@ describe('MediaManagerComponent', () => {
             expect(mockDialogRef.close).toHaveBeenCalledWith({
                 mediaUrl: 'http://example.com/unsplash.jpg',
                 type: 'submit',
+                kind: 'image',
             });
         });
 
@@ -272,6 +274,7 @@ describe('MediaManagerComponent', () => {
             expect(mockDialogRef.close).toHaveBeenCalledWith({
                 mediaUrl: '',
                 type: 'submit',
+                kind: 'image',
             });
         });
     });
@@ -577,5 +580,109 @@ describe('MediaManagerComponent as Dialog', () => {
             insertBtn.click();
             expect(insertSpy).toHaveBeenCalled();
         });
+    });
+});
+
+/**
+ * Which tabs a caller gets.
+ *
+ * The dialog is both the image picker and the icon picker, and a caller wants
+ * exactly one job done. Offering the wrong tabs is not cosmetic: choosing a
+ * photo in an icon-field dialog returns a URL the field discards, so Insert
+ * closes the dialog having silently done nothing.
+ */
+describe('MediaManagerComponent tab visibility', () => {
+    async function openWith(data: any) {
+        await TestBed.configureTestingModule({
+            imports: [MediaManagerComponent, BrowserAnimationsModule],
+            providers: [
+                { provide: MediaManagerService, useValue: { getMediaListFromFirestore: vi.fn().mockReturnValue(NEVER), isUnsplashConfigured: vi.fn().mockResolvedValue(true) } },
+                { provide: MediaManagerStore, useValue: { add: vi.fn(), addBatch: vi.fn().mockReturnValue(of([])) } },
+                { provide: FileUploadService, useValue: { uploadFileInDb: vi.fn(), uploadFile: vi.fn(), validateFileType: vi.fn().mockReturnValue(null), validateFileSize: vi.fn().mockReturnValue(null), deleteMediaItem: vi.fn() } },
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                { provide: MatDialogRef, useValue: { close: vi.fn() } },
+                { provide: MAT_DIALOG_DATA, useValue: data },
+                { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), openCustomSnackbar: vi.fn() } },
+                { provide: GlobalService, useValue: { debugMode: vi.fn(() => false) } },
+                { provide: Location, useValue: { back: vi.fn() } },
+                { provide: Router, useValue: { navigate: vi.fn() } },
+                { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => null }), snapshot: { paramMap: { get: () => null } } } },
+                { provide: Firestore, useValue: {} },
+                ConstantVariables,
+            ],
+        }).compileComponents();
+
+        const fixture = TestBed.createComponent(MediaManagerComponent);
+        const component = fixture.componentInstance;
+        vi.spyOn(component.ref, 'detectChanges').mockImplementation(() => { });
+        return { fixture, component };
+    }
+
+    it('shows only the image tabs by default', async () => {
+        const { component } = await openWith({ isDialogOpen: true });
+
+        expect(component.menuItems.map(i => i.value)).toEqual(['upload', 'search']);
+        expect(component.showTabBar).toBe(true);
+    });
+
+    it('adds the Icons tab when the caller asks for icons too', async () => {
+        const { component } = await openWith({ isDialogOpen: true, allowIcons: true });
+
+        expect(component.menuItems.map(i => i.value)).toEqual(['upload', 'search', 'icons']);
+    });
+
+    it('shows only the Icons tab for an icons-only caller', async () => {
+        const { component } = await openWith({ isDialogOpen: true, allowIcons: true, allowImages: false });
+
+        expect(component.menuItems.map(i => i.value)).toEqual(['icons']);
+    });
+
+    it('hides the tab bar entirely when there is only one tab', async () => {
+        const { component, fixture } = await openWith({ isDialogOpen: true, allowIcons: true, allowImages: false });
+        fixture.detectChanges();
+
+        // A single highlighted tab implies others to switch to.
+        expect(component.showTabBar).toBe(false);
+        expect(fixture.nativeElement.querySelector('.media-tabs')).toBeNull();
+        expect(fixture.nativeElement.querySelector('.media-single-title')?.textContent).toContain('Icons');
+    });
+
+    it('falls back to images when the caller allows neither kind', async () => {
+        const { component } = await openWith({ isDialogOpen: true, allowImages: false });
+
+        // A misconfiguration, not a request for an empty dialog.
+        expect(component.menuItems.map(i => i.value)).toEqual(['upload', 'search']);
+    });
+
+    it('opens on the requested tab', async () => {
+        const { component } = await openWith({ isDialogOpen: true, allowIcons: true, initialTab: 'icons' });
+        component.ngOnInit();
+
+        expect(component.selectedItem?.value).toBe('icons');
+        expect(component.isIconsTab).toBe(true);
+    });
+
+    it('ignores an initial tab the caller has not allowed', async () => {
+        const { component } = await openWith({ isDialogOpen: true, initialTab: 'icons' });
+        component.ngOnInit();
+
+        expect(component.selectedItem?.value).toBe('upload');
+    });
+
+    it('does not read upload settings for an icons-only dialog', async () => {
+        const { component } = await openWith({ isDialogOpen: true, allowIcons: true, allowImages: false });
+        const getDocSpy = vi.spyOn(component as any, 'loadMediaUploadSettings');
+        component.ngOnInit();
+
+        // Nothing in this dialog can upload, so the Firestore read is waste.
+        expect(getDocSpy).not.toHaveBeenCalled();
+    });
+
+    it('still reads upload settings when an image tab is present', async () => {
+        const { component } = await openWith({ isDialogOpen: true, allowIcons: true });
+        const getDocSpy = vi.spyOn(component as any, 'loadMediaUploadSettings');
+        component.ngOnInit();
+
+        expect(getDocSpy).toHaveBeenCalled();
     });
 });

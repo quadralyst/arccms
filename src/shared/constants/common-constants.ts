@@ -12,16 +12,36 @@ export class ConstantVariables {
     public USER = 'user';
     public CUSTOMER = 'customer';
 
+    /**
+     * Media Manager tabs, each tagged with the kind of thing it produces.
+     *
+     * The dialog serves two different jobs — picking an image and picking an
+     * icon — and a caller wants exactly one of them. `kind` is what lets the
+     * component show only the tabs whose result that caller can actually
+     * accept: an icon field offering "Free Images" is a dead end, because
+     * choosing a photo there returns a URL the field will discard.
+     *
+     * Image tabs are on by default so every existing caller is unaffected;
+     * icons are opt-in. See `MediaDialogData`.
+     */
     public mediaManagerMenu: any = [
         {
             name: 'My Uploads',
             value: 'upload',
             icon: 'upload',
+            kind: 'image',
         },
         {
             name: 'Free Images',
             value: 'search',
             icon: 'image',
+            kind: 'image',
+        },
+        {
+            name: 'Icons',
+            value: 'icons',
+            icon: 'icons',
+            kind: 'icon',
         },
     ];
 

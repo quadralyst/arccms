@@ -208,6 +208,125 @@ Any custom fields you define on a content type are automatically available using
 
 ---
 
+## Icons
+
+The **Icon** custom field type lets an editor pick from the full Font Awesome
+Free library (1,873 icons across solid, regular and brands) instead of
+uploading an image. Use it wherever a template needs a small symbol — feature
+cards, list bullets, category markers, callouts.
+
+An icon is not an image. It has no file, no URL and no fixed colour: it takes
+the text colour of whatever it sits inside, so the same icon works on a light
+card, a dark footer and a themed accent without anyone re-exporting anything.
+
+### Adding an Icon field
+
+1. Go to **Admin > Contents > Content Types** and edit your content type.
+2. Add a field, set its **Type** to `icon`, and give it a key (e.g. `card_icon`).
+   Field keys must be lowercase letters, digits and underscores — `^[a-z0-9_]+$`.
+3. When editing content, that field opens the Media Manager on its **Icons**
+   tab. Search by name, by label, or by what the icon *means* — "search",
+   "trophy", "chart" all work.
+
+### Rendering an icon
+
+One picked icon gives you four bindings, all derived from the field key:
+
+| Binding | Contains | Use for |
+|---------|----------|---------|
+| `{{ card_icon }}` | `fa-solid fa-magnifying-glass` | The class list — **this is the usual one** |
+| `{{ card_icon_label }}` | `Magnifying Glass` | An `aria-label` when the icon is meaningful |
+| `{{ card_icon_name }}` | `magnifying-glass` | The bare name, e.g. as a CSS hook |
+| `{{ card_icon_svg }}` | `<svg …>` | Inline SVG fallback — see below |
+
+Substitute your own field key for `card_icon` throughout.
+
+The normal way to render one is an empty `<i>` with the class interpolated:
+
+```html
+<i class="card-icon {{ card_icon }}" aria-hidden="true"></i>
+```
+
+Keep your own classes alongside it — `card-icon` above is yours, and you size
+and colour the icon through it:
+
+```css
+.card-icon {
+    font-size: 1.5rem;
+    color: var(--brand-green);  /* the icon inherits this */
+}
+```
+
+### A complete info card
+
+```html
+<div class="cards" data-arc-loop="items">
+    <a class="card" data-arc-bind="url">
+        <span class="card-icon-badge">
+            <i class="{{ card_icon }}" aria-hidden="true"></i>
+        </span>
+        <h3 data-arc-bind="title">Find volunteering opportunities</h3>
+        <p data-arc-bind="excerpt">Browse verified needs near you.</p>
+    </a>
+</div>
+```
+
+### Accessibility
+
+Decide whether the icon *means* something or merely decorates:
+
+```html
+<!-- Decorative: the heading beside it already says everything -->
+<i class="{{ card_icon }}" aria-hidden="true"></i>
+
+<!-- Meaningful: the icon is the only label -->
+<i class="{{ card_icon }}" role="img" aria-label="{{ card_icon_label }}"></i>
+```
+
+Default to `aria-hidden="true"`. Most template icons sit next to text that
+already carries the meaning, and announcing both makes the page read twice.
+
+### If your site does not load Font Awesome
+
+Icons render from a stylesheet, and by default Arc CMS puts Font Awesome 6.5.1
+on every published page. That list lives in **Settings > Site** as `cssUrls`.
+If you replace it with your own stylesheets and drop Font Awesome, every
+`<i class="{{ card_icon }}">` on the site becomes an empty box.
+
+Every icon also stores its own inline SVG, so a template can render without
+the stylesheet entirely:
+
+```html
+<span class="card-icon" data-arc-bind="card_icon_svg"></span>
+```
+
+```css
+.card-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    /* The SVG uses fill="currentColor", so it inherits this. */
+    color: var(--brand-green);
+}
+```
+
+This is heavier — the markup repeats for every item in a loop — so prefer the
+class binding unless you have actually removed Font Awesome.
+
+### Adding icons to the library
+
+The picker reads generated files under `public/assets/icons/`, built from the
+`@fortawesome/fontawesome-free` package:
+
+```bash
+npm run icons:index
+```
+
+Run it after upgrading that package, and keep the package version in step with
+the Font Awesome stylesheet in `cssUrls` — an index built from a newer release
+offers class names the older stylesheet cannot draw. A test enforces both.
+
+---
+
 ## List Template Example
 
 ```html

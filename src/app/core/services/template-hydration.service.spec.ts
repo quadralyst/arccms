@@ -530,6 +530,91 @@ describe('TemplateHydrationService', () => {
         });
     });
 
+    describe('Icon Token Flattening', () => {
+        const icon = {
+            set: 'fa',
+            name: 'magnifying-glass',
+            style: 'solid',
+            classes: 'fa-solid fa-magnifying-glass',
+            label: 'Magnifying Glass',
+            markup: '<svg viewBox="0 0 512 512" fill="currentColor"><path d="M416 208z"/></svg>',
+        };
+
+        it('should render the class list for the bare key', () => {
+            const html = '<i class="card-icon {{ card_icon }}"></i>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { card_icon: icon });
+
+            expect(result).toContain('class="card-icon fa-solid fa-magnifying-glass"');
+            expect(result).not.toContain('[object Object]');
+        });
+
+        it('should expose the inline svg under a Svg suffix', () => {
+            const html = '<span data-arc-bind="card_icon_svg"></span>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { card_icon: icon });
+
+            expect(result).toContain('<svg viewBox="0 0 512 512"');
+            expect(result).toContain('<path d="M416 208z"');
+        });
+
+        it('should expose the label and name for accessibility', () => {
+            const html = '<i aria-label="{{ card_icon_label }}" data-name="{{ card_icon_name }}"></i>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { card_icon: icon });
+
+            expect(result).toContain('aria-label="Magnifying Glass"');
+            expect(result).toContain('data-name="magnifying-glass"');
+        });
+
+        it('should fall back to the name when the token has no label', () => {
+            const html = '<i aria-label="{{ card_icon_label }}"></i>';
+            const { label, ...unlabelled } = icon;
+            const result = TemplateHydrationService.hydrateTemplate(html, { card_icon: unlabelled });
+
+            expect(result).toContain('aria-label="magnifying-glass"');
+        });
+
+        it('should render an empty string when the token has no markup', () => {
+            const html = '<span data-arc-bind="card_icon_svg">placeholder</span>';
+            const { markup, ...noMarkup } = icon;
+            const result = TemplateHydrationService.hydrateTemplate(html, { card_icon: noMarkup });
+
+            expect(result).not.toContain('placeholder');
+            expect(result).not.toContain('undefined');
+        });
+
+        it('should not mutate the caller data object', () => {
+            const data: Record<string, any> = { card_icon: icon };
+            const originalKeys = Object.keys(data).sort();
+
+            TemplateHydrationService.hydrateTemplate('<i class="{{ card_icon }}"></i>', data);
+
+            expect(Object.keys(data).sort()).toEqual(originalKeys);
+            expect(data['card_icon']).toBe(icon);
+        });
+
+        it('should leave ordinary strings and objects alone', () => {
+            const html = '<h1>{{ title }}</h1><span>{{ author.name }}</span>';
+            const data = { title: 'Hello', author: { name: 'Jane' } };
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            expect(result).toContain('Hello');
+            expect(result).toContain('Jane');
+        });
+
+        it('should flatten icons on each item of a loop', () => {
+            const html = '<div data-arc-loop="cards"><i class="{{ icon }}"></i></div>';
+            const result = TemplateHydrationService.processLoops(html, {
+                cards: [
+                    { icon: { ...icon, classes: 'fa-solid fa-star', name: 'star' } },
+                    { icon: { ...icon, classes: 'fa-solid fa-heart', name: 'heart' } },
+                ],
+            });
+
+            expect(result).toContain('class="fa-solid fa-star"');
+            expect(result).toContain('class="fa-solid fa-heart"');
+        });
+    });
+
     describe('Collection Reference Flattening', () => {
         it('should flatten _ref_author from customFields to ref_author on the data object', () => {
             const html = '<span>{{ ref_author.name }}</span>';

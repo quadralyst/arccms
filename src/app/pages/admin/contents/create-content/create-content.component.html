@@ -698,6 +698,42 @@
                                 }
                             </div>
                             }
+
+                            <!-- Icon (media modal, Icons tab) -->
+                            @else if (field.type === 'icon') {
+                            <div class="custom-icon-field">
+                                @if (!getCustomFieldIcon(field.key)) {
+                                <div class="upload-area" (click)="openIconPickerForField(field.key)">
+                                    <i class="fa-solid fa-icons mb-1" style="font-size: 1.5rem; color: #adb5bd;"></i>
+                                    <p class="mb-1 small">{{ 'admin.contents.editor.click_to_select_icon' | transloco }}</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm">
+                                        {{ 'admin.contents.editor.select_icon' | transloco }}
+                                    </button>
+                                </div>
+                                } @else {
+                                <div class="icon-preview-row">
+                                    <div class="icon-preview-identity">
+                                        <i [class]="getCustomFieldIcon(field.key)!.classes" aria-hidden="true"></i>
+                                        <span class="icon-preview-label"
+                                            [title]="getCustomFieldIcon(field.key)!.label">
+                                            {{ getCustomFieldIcon(field.key)!.label }}
+                                        </span>
+                                    </div>
+                                    <div class="icon-preview-actions">
+                                        <button type="button" class="btn btn-outline-primary btn-sm"
+                                            (click)="openIconPickerForField(field.key)">
+                                            <i class="fa-solid fa-arrows-rotate me-1"></i>
+                                            {{ 'admin.contents.editor.change' | transloco }}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                            (click)="removeCustomFieldImage(field.key)">
+                                            <i class="fa-solid fa-trash me-1"></i> {{ 'common.actions.remove' | transloco }}
+                                        </button>
+                                    </div>
+                                </div>
+                                }
+                            </div>
+                            }
                         </div>
                         }
                         }
