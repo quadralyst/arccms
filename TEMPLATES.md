@@ -224,9 +224,10 @@ card, a dark footer and a themed accent without anyone re-exporting anything.
 1. Go to **Admin > Contents > Content Types** and edit your content type.
 2. Add a field, set its **Type** to `icon`, and give it a key (e.g. `card_icon`).
    Field keys must be lowercase letters, digits and underscores — `^[a-z0-9_]+$`.
-3. When editing content, that field opens the Media Manager on its **Icons**
-   tab. Search by name, by label, or by what the icon *means* — "search",
-   "trophy", "chart" all work.
+3. When editing content, that field opens an icon picker. Search by name, by
+   label, or by what the icon *means* — "search", "trophy", "chart" all work.
+   The picker offers icons only; the image tabs are hidden, because a photo
+   is not something an icon field can store.
 
 ### Rendering an icon
 
