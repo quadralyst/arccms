@@ -216,9 +216,13 @@ Any custom fields you define on a content type are automatically available using
 
 ## Info Cards and other repeating fields
 
-Some fields hold a **list of rows** rather than one value. An **Info Card**
-field is the first: each row is an icon or image, a headline, and a short
-paragraph — the row of feature cards you see under a page hero.
+Some fields hold a **list of rows** rather than one value. **Info Card** and
+**Gallery** are both of these: each row has the same set of sub-fields, and
+you add, reorder and remove rows in the editor.
+
+An **Info Card** row is an icon or image, a headline, and a short paragraph —
+the row of feature cards you see under a page hero. For photos and videos, see
+**Galleries** below.
 
 Repeating fields render with `data-arc-loop`, the same mechanism as `items`
 and `tags`.
@@ -295,6 +299,112 @@ removed, so there are never gaps.
   cannot express a list of rows. Add the cards in the editor.
 - **Not shown in the contents list.** Rows have no useful one-cell summary,
   so a repeating field is never offered as a list column.
+
+---
+
+## Galleries
+
+A **Gallery** field holds a list of photos and YouTube videos with captions —
+event coverage, programme highlights, a photo essay. Like Info Cards it is a
+repeating field, so it renders with `data-arc-loop`.
+
+### Adding a Gallery field
+
+1. **Admin > Contents > Content Types**, edit your type, add a field.
+2. Set **Type** to `gallery` and give it a key, e.g. `media`. The stored key
+   gains the slug prefix — `events_media` on a type slugged `events`.
+3. When editing content, use **Add photos** to pick several images from the
+   library in one go, or **Add Item** for a single row. Paste a YouTube link
+   into a row to make it a video. Each row takes an optional caption.
+
+The picker numbers your selections, and that order becomes the order of the
+rows it creates.
+
+### What a row exposes
+
+An item is a photo **or** a video, never both.
+
+| Binding | Contains |
+|---------|----------|
+| `{{ image }}` | Image URL, or empty on a video row |
+| `{{ caption }}` | The caption |
+| `{{ video }}` | The original YouTube URL, or empty |
+| `{{ video_id }}` | `dQw4w9WgXcQ` |
+| `{{ video_embed }}` | `https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ` |
+| `{{ video_thumb }}` | `https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg` |
+
+Only the URL is stored; the id, embed and poster are worked out at render
+time. Videos embed from **youtube-nocookie.com**, which stops YouTube setting
+tracking cookies on visitors who never press play.
+
+### Don't render ten iframes
+
+A YouTube iframe pulls roughly a megabyte of player JavaScript. A ten-item
+gallery of iframes will make the page crawl. Render the **poster** and swap in
+the player on click:
+
+```html
+<div class="gallery" data-arc-loop="events_media">
+    <figure class="gallery-item">
+        <img data-arc-if="image" data-arc-bind="image" alt="">
+
+        <button data-arc-if="video_thumb" class="gallery-video"
+                type="button" data-embed="{{ video_embed }}">
+            <img data-arc-bind="video_thumb" alt="">
+            <span class="gallery-play" aria-hidden="true">&#9654;</span>
+        </button>
+
+        <figcaption data-arc-bind="caption">Caption</figcaption>
+    </figure>
+</div>
+
+<script>
+    document.querySelectorAll('.gallery-video').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var frame = document.createElement('iframe');
+            frame.src = button.dataset.embed + '?autoplay=1';
+            frame.allow = 'accelerated-motion; autoplay; encrypted-media';
+            frame.allowFullscreen = true;
+            button.replaceWith(frame);
+        });
+    });
+</script>
+```
+
+The simple version, fine for one or two videos:
+
+```html
+<div class="gallery" data-arc-loop="events_media">
+    <figure>
+        <img data-arc-if="image" data-arc-bind="image" alt="">
+        <iframe data-arc-if="video_embed" data-arc-bind="video_embed"
+                loading="lazy" allowfullscreen title="Video"></iframe>
+        <figcaption data-arc-bind="caption">Caption</figcaption>
+    </figure>
+</div>
+```
+
+`data-arc-bind` on an `<iframe>` sets its `src`, and `loading="lazy"` at least
+defers the ones below the fold.
+
+### Accepted YouTube links
+
+Editors can paste any of these; anything else is rejected as they type:
+
+```
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s
+https://youtu.be/dQw4w9WgXcQ
+https://www.youtube.com/shorts/dQw4w9WgXcQ
+https://www.youtube.com/live/dQw4w9WgXcQ
+https://www.youtube.com/embed/dQw4w9WgXcQ
+```
+
+Vimeo and other providers are not supported.
+
+Galleries share every limitation listed under **Info Cards** — detail and
+partials templates only, not translatable yet, not CSV-importable, and never a
+contents-list column.
 
 ---
 

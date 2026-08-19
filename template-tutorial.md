@@ -207,6 +207,7 @@ In the Content Types admin panel, you can add custom fields with various types:
 - **image**: An image chosen from the Media Manager
 - **icon**: A Font Awesome icon, chosen from a searchable icon picker
 - **infocard**: A repeating list of cards — icon or image, headline and info
+- **gallery**: A repeating list of photos and YouTube videos with captions
 
 Each field has a **key** (used for binding) and a **label** (displayed in admin).
 
@@ -310,13 +311,18 @@ once per card. Each card has an icon or an image, never both, and
 `data-arc-if` drops whichever is unset. See the **Info Cards** section of
 [TEMPLATES.md](TEMPLATES.md) for the full binding list and the limitations.
 
+A `gallery` field works the same way, with `{{ image }}`, `{{ caption }}` and
+`{{ video_embed }}` / `{{ video_thumb }}` per row — see **Galleries** in
+[TEMPLATES.md](TEMPLATES.md), which also explains why you should render video
+posters rather than a page full of iframes.
+
 ### Notes
 
 - Custom fields are available in **list**, **detail**, and **partials** templates
 - **Field keys are stored prefixed with the content type slug** — a key of
   `subtitle` on `awards-recognition` binds as `awards-recognition_subtitle`.
   Copy the key shown in the Content Types admin
-- Repeating fields (`infocard`) render on **detail** and **partials**
+- Repeating fields (`infocard`, `gallery`) render on **detail** and **partials**
   templates only — they cannot be nested inside a list page's `items` loop
 - For dropdown fields, the **selected option value** is displayed (not the key)
 - If a custom field is empty or not set, the placeholder text remains

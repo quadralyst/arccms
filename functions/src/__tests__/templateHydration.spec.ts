@@ -123,6 +123,66 @@ describe('TemplateHydrationService', () => {
         });
     });
 
+    describe('Video Flattening', () => {
+        const URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s';
+
+        it('derives the id, embed and poster from a stored URL', () => {
+            const html = '<span>{{ video_id }}|{{ video_embed }}|{{ video_thumb }}</span>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { video: URL });
+
+            expect(result).toContain('dQw4w9WgXcQ');
+            expect(result).toContain('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
+            expect(result).toContain('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+        });
+
+        it('leaves the original URL untouched', () => {
+            const result = TemplateHydrationService.hydrateTemplate('<a data-arc-bind="video">x</a>', { video: URL });
+            // `&` is entity-encoded on the way into the attribute, which is
+            // correct HTML — the value itself is unchanged.
+            expect(result).toContain('href="https://www.youtube.com/watch?v=dQw4w9WgXcQ&amp;t=30s"');
+        });
+
+        it('ignores a string that is not a YouTube link', () => {
+            const html = '<span>[{{ summary_id }}]</span>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { summary: 'https://example.com/page' });
+            // An unrelated field holding a URL must not sprout derived keys.
+            expect(result).toContain('[]');
+        });
+
+        it('does not mutate the caller data object', () => {
+            const data: Record<string, any> = { video: URL };
+            TemplateHydrationService.hydrateTemplate('<span>{{ video_id }}</span>', data);
+            expect(Object.keys(data)).toEqual(['video']);
+        });
+
+        it('derives per row inside a gallery loop', () => {
+            const html = '<div data-arc-loop="gallery">'
+                + '<figure>'
+                + '<img data-arc-if="image" data-arc-bind="image" alt="">'
+                + '<a data-arc-if="video_embed" data-arc-bind="video_embed">'
+                + '<img data-arc-bind="video_thumb" alt=""></a>'
+                + '<figcaption>{{ caption }}</figcaption>'
+                + '</figure></div>';
+            const rows = [
+                { id: 'r_a', position: 1, image: 'https://example.com/photo.jpg', video: '', caption: 'A photo' },
+                { id: 'r_b', position: 2, image: '', video: 'https://youtu.be/dQw4w9WgXcQ', caption: 'A video' },
+            ];
+
+            const result = TemplateHydrationService.processLoops(
+                html,
+                TemplateHydrationService.arrayLoopData({ gallery: rows }),
+            );
+
+            expect(result).toContain('https://example.com/photo.jpg');
+            expect(result).toContain('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+            expect(result).toContain('href="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+            expect(result).toContain('A photo');
+            expect(result).toContain('A video');
+            // The photo row has no video, so its anchor is removed entirely.
+            expect(result.match(/<a /g)).toHaveLength(1);
+        });
+    });
+
     describe('Hyphenated custom field keys', () => {
         // Custom fields are stored prefixed with their content type slug, so a
         // field on `awards-recognition` is keyed `awards-recognition_subtitle`.

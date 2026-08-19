@@ -74,6 +74,14 @@ export interface MediaDialogData {
     allowImages?: boolean;
     /** Show the Icons tab. Defaults to false. */
     allowIcons?: boolean;
+    /**
+     * Let the admin pick several images in one visit.
+     *
+     * For a caller that creates one thing per selection — a gallery row per
+     * photo — where picking twelve images otherwise means opening this dialog
+     * twelve times.
+     */
+    multiple?: boolean;
     /** Tab to open on, e.g. `icons` for a field that only wants a glyph. */
     initialTab?: string;
 }
@@ -91,6 +99,13 @@ export interface MediaSelection {
     kind?: 'image' | 'icon';
     /** Present only when `kind` is `icon`. */
     icon?: ArcIcon;
+    /**
+     * Every image picked, when the caller asked for `multiple`.
+     *
+     * `mediaUrl` still holds the first of them, so a caller that does not know
+     * about this field keeps working rather than receiving nothing.
+     */
+    mediaUrls?: string[];
 }
 
 @Component({
@@ -141,6 +156,13 @@ export default class MediaManagerComponent extends BaseComponent {
     selectedImageDimensions: string | null = null;
     /** The icon highlighted in the Icons tab, if any. */
     selectedIcon: ArcIcon | null = null;
+    /**
+     * Every image picked in multi-select mode, in the order they were chosen.
+     *
+     * Order matters: it becomes the order of the gallery rows created from it,
+     * and an admin clicking photos in sequence expects that sequence.
+     */
+    selectedMediaList: SelectableMedia[] = [];
 
     // Multi-file upload tracking
     uploadCurrent = 0;
@@ -245,6 +267,7 @@ export default class MediaManagerComponent extends BaseComponent {
         this.pagination = null;
         this.selectedMediaUrl = null;
         this.selectedIcon = null;
+        this.selectedMediaList = [];
         this.selectedItem = event;
         // Reset page tracking when switching menus
         this.pageDocumentStack = [];
@@ -291,7 +314,30 @@ export default class MediaManagerComponent extends BaseComponent {
         this.ref.detectChanges();
     }
 
+    /** True when the caller asked to pick more than one image. */
+    get isMultiSelect(): boolean {
+        return this._DIALOG_DATA.multiple === true;
+    }
+
+    /** Whether an item is in the multi-select basket. */
+    public isPicked(item: SelectableMedia): boolean {
+        return this.selectedMediaList.some((picked) => picked.id === item.id);
+    }
+
+    /** Position in the basket, 1-based — shown on the tile so the order is visible. */
+    public pickIndex(item: SelectableMedia): number {
+        return this.selectedMediaList.findIndex((picked) => picked.id === item.id) + 1;
+    }
+
     public selectMedia(selectedMediaUrl: SelectableMedia): void {
+        if (this.isMultiSelect) {
+            // Clicking a picked tile takes it back out, which is the only
+            // way to correct a mis-click without starting over.
+            this.selectedMediaList = this.isPicked(selectedMediaUrl)
+                ? this.selectedMediaList.filter((picked) => picked.id !== selectedMediaUrl.id)
+                : [...this.selectedMediaList, selectedMediaUrl];
+        }
+
         this.selectedMediaUrl = selectedMediaUrl;
         this.selectedImageDimensions = null;
         this.ref.detectChanges();
@@ -326,6 +372,20 @@ export default class MediaManagerComponent extends BaseComponent {
                 icon: this.selectedIcon,
             };
             this.dialogRef.close(selection);
+            return;
+        }
+
+        if (this.isMultiSelect) {
+            const urls = this.selectedMediaList
+                .map((picked) => picked.url || picked.urls?.regular || '')
+                .filter(Boolean);
+
+            this.dialogRef.close({
+                type: 'submit',
+                kind: 'image',
+                mediaUrl: urls[0] ?? '',
+                mediaUrls: urls,
+            } satisfies MediaSelection);
             return;
         }
 

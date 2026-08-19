@@ -3,6 +3,7 @@ import {
     isRepeaterRowEmpty,
     isRepeaterType,
     makeRowId,
+    mediaRowKeys,
     newRepeaterRow,
     normalizeRepeaterRows,
     prepareRepeaterRowsForSave,
@@ -15,6 +16,7 @@ import {
 } from './repeater.model';
 
 const INFOCARD = REPEATER_SCHEMAS['infocard'];
+const GALLERY = REPEATER_SCHEMAS['gallery'];
 
 /** A row with only the keys under test; the rest are filled by the helpers. */
 function row(partial: Partial<RepeaterRow> & { id: string; position: number }): RepeaterRow {
@@ -55,6 +57,82 @@ describe('repeater model', () => {
             // {{ icon }} with no nested access.
             expect(media.key).toBe('image');
             expect(media.iconKey).toBe('icon');
+        });
+    });
+
+    describe('gallery schema', () => {
+        it('recognises gallery as a repeating type', () => {
+            expect(isRepeaterType('gallery')).toBe(true);
+        });
+
+        it('is a photo-or-video slot plus a caption', () => {
+            expect(GALLERY.subFields.map(s => [s.key, s.type])).toEqual([
+                ['image', 'media'],
+                ['caption', 'text'],
+            ]);
+        });
+
+        it('offers images and video but not icons', () => {
+            const media = GALLERY.subFields[0] as any;
+            expect(media.allowImages).toBe(true);
+            expect(media.allowVideo).toBe(true);
+            expect(media.allowIcons).toBeUndefined();
+            expect(media.iconKey).toBeUndefined();
+            expect(media.videoKey).toBe('video');
+        });
+
+        it('offers bulk add, which the info card does not', () => {
+            // Building a twelve-photo gallery one row at a time is the tedium
+            // this removes; an info card needs a headline per row, so bulk
+            // adding would only make blank cards.
+            expect((GALLERY.subFields[0] as any).allowBulkAdd).toBe(true);
+            expect((INFOCARD.subFields[0] as any).allowBulkAdd).toBeUndefined();
+        });
+
+        it('marks the caption translatable', () => {
+            expect(GALLERY.subFields[1].translatable).toBe(true);
+        });
+    });
+
+    describe('mediaRowKeys', () => {
+        it('lists every alternative a media sub-field owns', () => {
+            expect(mediaRowKeys(INFOCARD.subFields[0] as any)).toEqual(['image', 'icon']);
+            expect(mediaRowKeys(GALLERY.subFields[0] as any)).toEqual(['image', 'video']);
+        });
+    });
+
+    describe('gallery rows', () => {
+        it('creates a blank row with both media slots as strings', () => {
+            const created = newRepeaterRow(GALLERY, 1);
+            expect(created['image']).toBe('');
+            expect(created['video']).toBe('');
+            expect(created['caption']).toBe('');
+            // No icon slot: the schema does not offer one.
+            expect('icon' in created).toBe(false);
+        });
+
+        it('counts a video-only row as filled', () => {
+            const withVideo = { ...newRepeaterRow(GALLERY, 1), video: 'https://youtu.be/dQw4w9WgXcQ' };
+            expect(isRepeaterRowEmpty(withVideo, GALLERY)).toBe(false);
+        });
+
+        it('counts a caption-only row as filled', () => {
+            const captionOnly = { ...newRepeaterRow(GALLERY, 1), caption: 'Just words' };
+            expect(isRepeaterRowEmpty(captionOnly, GALLERY)).toBe(false);
+        });
+
+        it('drops a row with neither media nor caption on save', () => {
+            const rows = prepareRepeaterRowsForSave([
+                { id: 'a', position: 1, image: 'https://example.com/a.jpg' },
+                newRepeaterRow(GALLERY, 2),
+            ], GALLERY);
+            expect(rows.map(r => r.id)).toEqual(['a']);
+        });
+
+        it('fills the video slot on a row written before it existed', () => {
+            const [only] = normalizeRepeaterRows([{ id: 'a', position: 1, image: 'x.jpg' }], GALLERY);
+            expect(only['video']).toBe('');
+            expect(only['caption']).toBe('');
         });
     });
 

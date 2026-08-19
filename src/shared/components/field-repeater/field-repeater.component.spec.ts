@@ -9,6 +9,8 @@ import {
 } from '../../models/repeater.model';
 
 const INFOCARD = REPEATER_SCHEMAS['infocard'];
+const GALLERY = REPEATER_SCHEMAS['gallery'];
+const GALLERY_MEDIA = GALLERY.subFields[0] as RepeaterMediaSubField;
 const MEDIA = INFOCARD.subFields[0] as RepeaterMediaSubField;
 
 const ICON = { set: 'fa', name: 'trophy', style: 'solid', classes: 'fa-solid fa-trophy', label: 'Trophy' };
@@ -233,6 +235,140 @@ describe('FieldRepeaterComponent', () => {
             expect(component.hasMedia(withImage, MEDIA)).toBe(true);
 
             expect(component.hasMedia(makeRow('c', 3), MEDIA)).toBe(false);
+        });
+    });
+
+    describe('gallery: video and bulk add', () => {
+        function galleryRow(id: string, position: number, extra: Record<string, unknown> = {}): RepeaterRow {
+            return { id, position, image: '', video: '', caption: '', ...extra };
+        }
+
+        async function useGallery(rows: RepeaterRow[]) {
+            fixture.componentRef.setInput('schema', GALLERY);
+            fixture.componentRef.setInput('rows', rows);
+            fixture.detectChanges();
+        }
+
+        it('offers bulk add for a gallery but not an info card', async () => {
+            await useGallery([]);
+            expect(component.bulkAddField()).toBe(GALLERY_MEDIA);
+
+            fixture.componentRef.setInput('schema', INFOCARD);
+            expect(component.bulkAddField()).toBeNull();
+        });
+
+        it('opens the picker in multi-select mode, icons off', async () => {
+            await useGallery([]);
+            component.addFromLibrary(GALLERY_MEDIA);
+
+            // Icons are meaningless in a photo gallery, and multi-select only
+            // makes sense for images.
+            expect(openSpy.mock.calls[0][1].data).toMatchObject({ multiple: true, allowIcons: false });
+        });
+
+        it('appends one row per picked image, in order', async () => {
+            const seen: RepeaterRow[][] = [];
+            component.rowsChange.subscribe(r => seen.push(r));
+            await useGallery([galleryRow('existing', 1, { image: 'x.jpg' })]);
+
+            dialogResult = { type: 'submit', kind: 'image', mediaUrl: 'a.jpg', mediaUrls: ['a.jpg', 'b.jpg', 'c.jpg'] };
+            component.addFromLibrary(GALLERY_MEDIA);
+
+            expect(seen[0]).toHaveLength(4);
+            expect(seen[0].slice(1).map(r => r['image'])).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
+            expect(seen[0].slice(1).map(r => r.position)).toEqual([2, 3, 4]);
+        });
+
+        it('gives every bulk-added row its own id', async () => {
+            const seen: RepeaterRow[][] = [];
+            component.rowsChange.subscribe(r => seen.push(r));
+            await useGallery([]);
+
+            dialogResult = { type: 'submit', kind: 'image', mediaUrl: 'a.jpg', mediaUrls: ['a.jpg', 'b.jpg'] };
+            component.addFromLibrary(GALLERY_MEDIA);
+
+            const ids = seen[0].map(r => r.id);
+            expect(new Set(ids).size).toBe(2);
+        });
+
+        it('falls back to the single url when the dialog returns no list', async () => {
+            const seen: RepeaterRow[][] = [];
+            component.rowsChange.subscribe(r => seen.push(r));
+            await useGallery([]);
+
+            dialogResult = { type: 'submit', kind: 'image', mediaUrl: 'only.jpg' };
+            component.addFromLibrary(GALLERY_MEDIA);
+
+            expect(seen[0].map(r => r['image'])).toEqual(['only.jpg']);
+        });
+
+        it('adds nothing when the picker is cancelled', async () => {
+            const seen: RepeaterRow[][] = [];
+            component.rowsChange.subscribe(r => seen.push(r));
+            await useGallery([]);
+
+            dialogResult = null;
+            component.addFromLibrary(GALLERY_MEDIA);
+
+            expect(seen).toHaveLength(0);
+        });
+
+        it('stores a valid YouTube link and clears the image slot', async () => {
+            const seen: RepeaterRow[][] = [];
+            component.rowsChange.subscribe(r => seen.push(r));
+            const row = galleryRow('a', 1, { image: 'photo.jpg' });
+            await useGallery([row]);
+
+            component.setVideo(row, GALLERY_MEDIA, 'https://youtu.be/dQw4w9WgXcQ');
+
+            expect(seen[0][0]['video']).toBe('https://youtu.be/dQw4w9WgXcQ');
+            expect(seen[0][0]['image']).toBe('');
+        });
+
+        it('rejects a link that is not YouTube, storing nothing', async () => {
+            const seen: RepeaterRow[][] = [];
+            component.rowsChange.subscribe(r => seen.push(r));
+            const row = galleryRow('a', 1);
+            await useGallery([row]);
+
+            component.setVideo(row, GALLERY_MEDIA, 'https://vimeo.com/123456');
+
+            // Storing it would publish a blank frame with nothing to explain it.
+            expect(seen).toHaveLength(0);
+            expect(component.hasVideoError(row)).toBe(true);
+        });
+
+        it('clears the error once a valid link replaces the bad one', async () => {
+            const row = galleryRow('a', 1);
+            await useGallery([row]);
+
+            component.setVideo(row, GALLERY_MEDIA, 'not a url');
+            expect(component.hasVideoError(row)).toBe(true);
+
+            component.setVideo(row, GALLERY_MEDIA, 'https://youtu.be/dQw4w9WgXcQ');
+            expect(component.hasVideoError(row)).toBe(false);
+        });
+
+        it('empties the slot when the box is cleared', async () => {
+            const seen: RepeaterRow[][] = [];
+            component.rowsChange.subscribe(r => seen.push(r));
+            const row = galleryRow('a', 1, { video: 'https://youtu.be/dQw4w9WgXcQ' });
+            await useGallery([row]);
+
+            component.setVideo(row, GALLERY_MEDIA, '   ');
+
+            expect(seen[0][0]['video']).toBe('');
+        });
+
+        it('previews a video by its poster frame', async () => {
+            const row = galleryRow('a', 1, { video: 'https://youtu.be/dQw4w9WgXcQ' });
+            await useGallery([row]);
+
+            // Not an iframe: the editor should not load a megabyte of player
+            // JS per row.
+            expect(component.videoThumb(row, GALLERY_MEDIA))
+                .toBe('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+            expect(component.hasMedia(row, GALLERY_MEDIA)).toBe(true);
         });
     });
 

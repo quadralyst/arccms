@@ -52,6 +52,13 @@
                     @if (icon(row, asMedia(sub)); as picked) {
                     <i [class]="picked.classes" aria-hidden="true"></i>
                     <span class="repeater-media-name">{{ picked.label }}</span>
+                    } @else if (videoUrl(row, asMedia(sub))) {
+                    <!-- The poster frame, not an iframe: the editor should not
+                         load a megabyte of player JS per row. -->
+                    <img [src]="videoThumb(row, asMedia(sub))" alt="">
+                    <span class="repeater-media-name">
+                        {{ 'admin.contents.editor.repeater.video' | transloco }}
+                    </span>
                     } @else {
                     <img [src]="imageUrl(row, asMedia(sub))" alt="">
                     <span class="repeater-media-name">{{ 'admin.contents.editor.repeater.image' | transloco }}</span>
@@ -59,11 +66,13 @@
 
                     @if (!disabled()) {
                     <div class="repeater-media-actions">
+                        @if (asMedia(sub).allowImages !== false || asMedia(sub).allowIcons) {
                         <button type="button" class="btn btn-outline-primary btn-sm"
                             (click)="pickMedia(row, asMedia(sub))">
                             <i class="fa-solid fa-arrows-rotate me-1" aria-hidden="true"></i>
                             {{ 'admin.contents.editor.change' | transloco }}
                         </button>
+                        }
                         <button type="button" class="btn btn-outline-danger btn-sm"
                             (click)="clearMedia(row, asMedia(sub))">
                             <i class="fa-solid fa-trash me-1" aria-hidden="true"></i>
@@ -78,6 +87,24 @@
                     <i class="fa-solid fa-icons" aria-hidden="true"></i>
                     <span>{{ 'admin.contents.editor.repeater.choose_media' | transloco }}</span>
                 </button>
+                }
+
+                @if (asMedia(sub).allowVideo && !imageUrl(row, asMedia(sub)) && !icon(row, asMedia(sub))) {
+                <!-- A link, not a picker: a YouTube video is not in the media
+                     library, so there is nothing to browse. -->
+                <div class="repeater-video">
+                    <input type="url" class="form-control form-control-sm"
+                        [class.is-invalid]="hasVideoError(row)"
+                        [value]="videoUrl(row, asMedia(sub))" [disabled]="disabled()"
+                        [placeholder]="'admin.contents.editor.repeater.video_url' | transloco"
+                        (change)="setVideo(row, asMedia(sub), $any($event.target).value)"
+                        (blur)="setVideo(row, asMedia(sub), $any($event.target).value)">
+                    @if (hasVideoError(row)) {
+                    <small class="repeater-video-error">
+                        {{ 'admin.contents.editor.repeater.video_invalid' | transloco }}
+                    </small>
+                    }
+                </div>
                 }
             </div>
             }
@@ -104,9 +131,19 @@
     }
 
     @if (!disabled()) {
-    <button type="button" class="btn btn-outline-primary btn-sm repeater-add" (click)="addRow()">
-        <i class="fa-solid fa-plus me-1" aria-hidden="true"></i>
-        {{ 'admin.contents.editor.repeater.add' | transloco:{ row: schema().rowLabel } }}
-    </button>
+    <div class="repeater-actions">
+        <button type="button" class="btn btn-outline-primary btn-sm" (click)="addRow()">
+            <i class="fa-solid fa-plus me-1" aria-hidden="true"></i>
+            {{ 'admin.contents.editor.repeater.add' | transloco:{ row: schema().rowLabel } }}
+        </button>
+
+        @if (bulkAddField(); as bulk) {
+        <!-- One trip to the library instead of one per photo. -->
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="addFromLibrary(bulk)">
+            <i class="fa-solid fa-images me-1" aria-hidden="true"></i>
+            {{ 'admin.contents.editor.repeater.add_photos' | transloco }}
+        </button>
+        }
+    </div>
     }
 </div>

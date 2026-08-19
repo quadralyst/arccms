@@ -664,7 +664,11 @@
           "empty": "अभी तक कोई {{ row }} नहीं जोड़ा गया।",
           "position": "क्रम",
           "choose_media": "आइकन या छवि चुनें",
-          "image": "छवि"
+          "image": "छवि",
+          "add_photos": "फ़ोटो जोड़ें",
+          "video_url": "यूट्यूब लिंक",
+          "video_invalid": "यह यूट्यूब लिंक नहीं है।",
+          "video": "वीडियो"
         }
       },
       "list": {
@@ -814,6 +818,7 @@
       "dimensions": "आयाम",
       "uploaded": "अपलोड किया गया",
       "insert": "मीडिया डालें",
+      "insert_count": "{{ count }} छवि जोड़ें",
       "selected_image_alt": "चयनित छवि",
       "select_page": "पृष्ठ चुनें",
       "search_failed": "छवियाँ खोजी नहीं जा सकीं। कृपया दोबारा प्रयास करें।",
