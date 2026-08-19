@@ -672,7 +672,11 @@
           "empty": "No {{ row }} added yet.",
           "position": "Position",
           "choose_media": "Choose an icon or image",
-          "image": "Image"
+          "image": "Image",
+          "add_photos": "Add photos",
+          "video_url": "YouTube link",
+          "video_invalid": "That is not a YouTube link.",
+          "video": "Video"
         }
       },
       "list": {
@@ -822,6 +826,7 @@
       "dimensions": "Dimensions",
       "uploaded": "Uploaded",
       "insert": "Insert Media",
+      "insert_count": "Insert {{ count }} Image(s)",
       "selected_image_alt": "Selected Image",
       "select_page": "Select page",
       "search_failed": "Failed to search images. Please try again.",

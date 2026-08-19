@@ -1295,3 +1295,37 @@ footer {
     color: var(--secondary-color);
     text-align: center;
 }
+
+/* ── Multi-select ────────────────────────────────────────────────────────── */
+
+/* The pick order, not just a tick: in multi-select the order of picking
+   becomes the order of the rows created from it, so it has to be visible. */
+.pick-badge {
+    position: absolute;
+    top: 0.4rem;
+    left: 0.4rem;
+    min-width: 1.4rem;
+    height: 1.4rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: var(--primary-color);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.4rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+.pick-count {
+    display: inline-block;
+    min-width: 1.3rem;
+    padding: 0 0.35rem;
+    margin-left: 0.4rem;
+    border-radius: 999px;
+    background: var(--primary-color);
+    color: #fff;
+    font-size: 0.72rem;
+    line-height: 1.3rem;
+    text-align: center;
+}

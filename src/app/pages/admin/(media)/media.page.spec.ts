@@ -686,3 +686,126 @@ describe('MediaManagerComponent tab visibility', () => {
         expect(getDocSpy).toHaveBeenCalled();
     });
 });
+
+
+/**
+ * Picking several images in one visit.
+ *
+ * A gallery creates a row per photo, so without this an admin opens the dialog
+ * once per image. The order of picking is the order of the rows, which is why
+ * the basket is a list rather than a set.
+ */
+describe('MediaManagerComponent multi-select', () => {
+    let component: MediaManagerComponent;
+    let closeSpy: ReturnType<typeof vi.fn>;
+
+    const PHOTO_A = { id: 'a', url: 'https://example.com/a.jpg' };
+    const PHOTO_B = { id: 'b', url: 'https://example.com/b.jpg' };
+    const UNSPLASH = { id: 'u', urls: { regular: 'https://images.unsplash.com/u.jpg' } };
+
+    async function open(data: any) {
+        closeSpy = vi.fn();
+        await TestBed.configureTestingModule({
+            imports: [MediaManagerComponent, BrowserAnimationsModule],
+            providers: [
+                { provide: MediaManagerService, useValue: { getMediaListFromFirestore: vi.fn().mockReturnValue(NEVER), isUnsplashConfigured: vi.fn().mockResolvedValue(true) } },
+                { provide: MediaManagerStore, useValue: { add: vi.fn(), addBatch: vi.fn().mockReturnValue(of([])) } },
+                { provide: FileUploadService, useValue: { uploadFileInDb: vi.fn(), uploadFile: vi.fn(), validateFileType: vi.fn().mockReturnValue(null), validateFileSize: vi.fn().mockReturnValue(null), deleteMediaItem: vi.fn() } },
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                { provide: MatDialogRef, useValue: { close: closeSpy } },
+                { provide: MAT_DIALOG_DATA, useValue: data },
+                { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), openCustomSnackbar: vi.fn() } },
+                { provide: GlobalService, useValue: { debugMode: vi.fn(() => false) } },
+                { provide: Location, useValue: { back: vi.fn() } },
+                { provide: Router, useValue: { navigate: vi.fn() } },
+                { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => null }), snapshot: { paramMap: { get: () => null } } } },
+                { provide: Firestore, useValue: {} },
+                ConstantVariables,
+            ],
+        }).compileComponents();
+
+        const fixture = TestBed.createComponent(MediaManagerComponent);
+        component = fixture.componentInstance;
+        vi.spyOn(component.ref, 'detectChanges').mockImplementation(() => { });
+        return component;
+    }
+
+    it('is off unless the caller asks for it', async () => {
+        await open({ isDialogOpen: true });
+        expect(component.isMultiSelect).toBe(false);
+    });
+
+    it('accumulates picks rather than replacing them', async () => {
+        await open({ isDialogOpen: true, multiple: true });
+        component.selectMedia(PHOTO_A);
+        component.selectMedia(PHOTO_B);
+
+        expect(component.selectedMediaList.map(p => p.id)).toEqual(['a', 'b']);
+        expect(component.isPicked(PHOTO_A)).toBe(true);
+    });
+
+    it('unpicks on a second click, so a mis-click is recoverable', async () => {
+        await open({ isDialogOpen: true, multiple: true });
+        component.selectMedia(PHOTO_A);
+        component.selectMedia(PHOTO_B);
+        component.selectMedia(PHOTO_A);
+
+        expect(component.selectedMediaList.map(p => p.id)).toEqual(['b']);
+        expect(component.isPicked(PHOTO_A)).toBe(false);
+    });
+
+    it('numbers picks from one, in the order chosen', async () => {
+        await open({ isDialogOpen: true, multiple: true });
+        component.selectMedia(PHOTO_B);
+        component.selectMedia(PHOTO_A);
+
+        expect(component.pickIndex(PHOTO_B)).toBe(1);
+        expect(component.pickIndex(PHOTO_A)).toBe(2);
+    });
+
+    it('returns every pick, with the first also in mediaUrl', async () => {
+        await open({ isDialogOpen: true, multiple: true });
+        component.selectMedia(PHOTO_A);
+        component.selectMedia(PHOTO_B);
+        component.insertMedia();
+
+        // mediaUrl stays populated so a caller that does not know about
+        // mediaUrls still receives something rather than nothing.
+        expect(closeSpy).toHaveBeenCalledWith({
+            type: 'submit',
+            kind: 'image',
+            mediaUrl: 'https://example.com/a.jpg',
+            mediaUrls: ['https://example.com/a.jpg', 'https://example.com/b.jpg'],
+        });
+    });
+
+    it('resolves an Unsplash result through its regular url', async () => {
+        await open({ isDialogOpen: true, multiple: true });
+        component.selectMedia(UNSPLASH);
+        component.insertMedia();
+
+        expect(closeSpy.mock.calls[0][0].mediaUrls).toEqual(['https://images.unsplash.com/u.jpg']);
+    });
+
+    it('clears the basket when the tab changes', async () => {
+        await open({ isDialogOpen: true, multiple: true });
+        component.selectMedia(PHOTO_A);
+        component.selectedMenu({ name: 'Free Images', value: 'search', kind: 'image' } as any);
+
+        // Carrying picks across tabs would insert photos the admin can no
+        // longer see to deselect.
+        expect(component.selectedMediaList).toEqual([]);
+    });
+
+    it('still returns a single selection when multiple is off', async () => {
+        await open({ isDialogOpen: true });
+        component.selectMedia(PHOTO_A);
+        component.insertMedia();
+
+        expect(closeSpy).toHaveBeenCalledWith({
+            type: 'submit',
+            kind: 'image',
+            mediaUrl: 'https://example.com/a.jpg',
+        });
+    });
+});

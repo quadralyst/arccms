@@ -212,10 +212,15 @@
                                     </figure>
 
                                     @for(element of searchResults; track element.id; let i = $index){
-                                    <figure [ngClass]="{'selected_item': element.id === selectedMediaUrl?.id}">
+                                    <figure [ngClass]="{'selected_item': isMultiSelect ? isPicked(element) : element.id === selectedMediaUrl?.id}">
                                         <img (click)="selectMedia(element)" [src]="element.url" alt="..."
                                             class="search_img" />
                                         <figcaption><a href="#">{{ i + 1 }}</a></figcaption>
+                                        @if(isMultiSelect && isPicked(element)){
+                                        <!-- The number, not just a tick: in multi-select the order of
+                                             picking becomes the order of the rows created from it. -->
+                                        <span class="pick-badge">{{ pickIndex(element) }}</span>
+                                        }
                                         <i class="material-icons text-danger text-gradient position-absolute top-0 end-0 mt-2 me-2 d-none fs-2"
                                             (click)="confirmationToDeleteItem(element)">delete</i>
                                     </figure>
@@ -228,9 +233,12 @@
                                 <div class="img_container mt-2">
                                     @for(element of searchResults; track element.id; let i = $index){
                                     <figure (click)="selectMedia(element)"
-                                        [ngClass]="{'selected_item': element.id === selectedMediaUrl?.id}">
+                                        [ngClass]="{'selected_item': isMultiSelect ? isPicked(element) : element.id === selectedMediaUrl?.id}">
                                         <img [src]="getUrl(element)" alt="..." class="search_img" />
                                         <figcaption><a href="#">{{ i + 1 }}</a></figcaption>
+                                        @if(isMultiSelect && isPicked(element)){
+                                        <span class="pick-badge">{{ pickIndex(element) }}</span>
+                                        }
                                     </figure>
                                     }
                                 </div>
@@ -257,6 +265,9 @@
                     <div class="preview-header">
                         <div class="preview-title">
                             {{ (isIconsTab ? 'admin.media.icons.selected' : 'admin.media.selected') | transloco }}
+                            @if(isMultiSelect && selectedMediaList.length){
+                            <span class="pick-count">{{ selectedMediaList.length }}</span>
+                            }
                         </div>
                         @if(_DIALOG_DATA.isDialogOpen){
                         <button mat-dialog-close class="close-modal-btn" [title]="'common.actions.close' | transloco">
@@ -333,9 +344,13 @@
                          insert has always closed with an empty url, and every caller
                          already guards for that — changing it is not this feature's job. -->
                     <button id="insertMediaBtn" (click)="insertMedia()" class=" btn btn-primary btn-insert"
-                        [disabled]="isIconsTab && !selectedIcon">
+                        [disabled]="(isIconsTab && !selectedIcon) || (isMultiSelect && !selectedMediaList.length)">
                         <i class="fas fa-check me-1 fs-6"></i>
+                        @if(isMultiSelect){
+                        {{ 'admin.media.insert_count' | transloco:{ count: selectedMediaList.length } }}
+                        } @else {
                         {{ (isIconsTab ? 'admin.media.icons.insert' : 'admin.media.insert') | transloco }}
+                        }
                     </button>
                     }
                 </div>

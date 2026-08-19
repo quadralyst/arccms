@@ -52,19 +52,33 @@ export interface RepeaterTextareaSubField extends RepeaterSubFieldBase {
 }
 
 /**
- * An image, an icon, or either — picked through the Media Manager.
+ * The visual for a row — an image, an icon, or a YouTube video, whichever the
+ * schema allows. A row holds exactly one of them; picking one clears the rest.
  *
- * Occupies **two** row keys rather than one nested object: `key` holds the
- * image URL and `iconKey` holds the icon token. Two flat keys mean a template
- * writes `{{ image }}` and `{{ icon }}` with no nested access, and the icon
- * flattening that already runs per loop row resolves the token for free.
+ * Occupies a **separate flat row key per alternative** rather than one nested
+ * object: `key` holds the image URL, `iconKey` the icon token, `videoKey` the
+ * YouTube URL. Flat keys mean a template writes `{{ image }}`, `{{ icon }}`
+ * and `{{ video_embed }}` with no nested access, the icon flattening that
+ * already runs per loop row resolves the token for free, and a template can
+ * pick between them with `data-arc-if`.
  */
 export interface RepeaterMediaSubField extends RepeaterSubFieldBase {
     type: 'media';
-    /** Row key for the icon token. `key` holds the image URL. */
-    iconKey: string;
+    /** Row key for the icon token. Omit when icons are not offered. */
+    iconKey?: string;
+    /** Row key for the YouTube URL. Omit when video is not offered. */
+    videoKey?: string;
     allowImages?: boolean;
     allowIcons?: boolean;
+    allowVideo?: boolean;
+    /**
+     * Offer a field-level "add several at once" button.
+     *
+     * Only worth it where a row is mostly its image — building a twelve-photo
+     * gallery one row at a time is the tedium this removes. An Info Card needs
+     * a headline per row, so bulk-adding would just make blank cards.
+     */
+    allowBulkAdd?: boolean;
 }
 
 export type RepeaterSubField =
@@ -126,7 +140,35 @@ export const REPEATER_SCHEMAS: Record<string, RepeaterSchema> = {
             },
         ],
     },
+    gallery: {
+        rowLabel: 'Item',
+        hint: 'Each item is a photo or a YouTube video, with an optional caption. Use "Add photos" to bring in several images at once.',
+        subFields: [
+            {
+                type: 'media',
+                key: 'image',
+                videoKey: 'video',
+                label: 'Photo or Video',
+                allowImages: true,
+                allowVideo: true,
+                allowBulkAdd: true,
+            },
+            {
+                type: 'text',
+                key: 'caption',
+                label: 'Caption',
+                placeholder: 'Tree plantation drive, Pune — March 2026',
+                translatable: true,
+                maxLength: 200,
+            },
+        ],
+    },
 };
+
+/** Every row key a media sub-field owns, `key` first. */
+export function mediaRowKeys(sub: RepeaterMediaSubField): string[] {
+    return [sub.key, sub.iconKey, sub.videoKey].filter((k): k is string => !!k);
+}
 
 /** Whether a content-type field type stores repeating rows. */
 export function isRepeaterType(type: string | undefined): boolean {
@@ -156,8 +198,14 @@ export function newRepeaterRow(schema: RepeaterSchema, position: number): Repeat
     const row: RepeaterRow = { id: makeRowId(), position };
 
     for (const sub of schema.subFields) {
-        row[sub.key] = '';
-        if (sub.type === 'media') row[sub.iconKey] = null;
+        if (sub.type === 'media') {
+            for (const key of mediaRowKeys(sub)) {
+                // The icon slot holds an object; the URL slots hold strings.
+                row[key] = key === sub.iconKey ? null : '';
+            }
+        } else {
+            row[sub.key] = '';
+        }
     }
 
     return row;
@@ -222,8 +270,14 @@ export function normalizeRepeaterRows(value: unknown, schema: RepeaterSchema): R
             };
 
             for (const sub of schema.subFields) {
-                if (row[sub.key] === undefined) row[sub.key] = '';
-                if (sub.type === 'media' && row[sub.iconKey] === undefined) row[sub.iconKey] = null;
+                if (sub.type === 'media') {
+                    for (const key of mediaRowKeys(sub)) {
+                        if (row[key] !== undefined) continue;
+                        row[key] = key === sub.iconKey ? null : '';
+                    }
+                } else if (row[sub.key] === undefined) {
+                    row[sub.key] = '';
+                }
             }
 
             return row;
@@ -234,12 +288,13 @@ export function normalizeRepeaterRows(value: unknown, schema: RepeaterSchema): R
 
 /** True when a row has nothing an editor typed into it. */
 export function isRepeaterRowEmpty(row: RepeaterRow, schema: RepeaterSchema): boolean {
-    return schema.subFields.every((sub) => {
-        const value = row[sub.key];
-        const blank = value === null || value === undefined || value === '';
-        if (sub.type !== 'media') return blank;
-        return blank && !row[sub.iconKey];
-    });
+    const blank = (value: unknown) => value === null || value === undefined || value === '';
+
+    return schema.subFields.every((sub) =>
+        sub.type === 'media'
+            ? mediaRowKeys(sub).every((key) => blank(row[key]))
+            : blank(row[sub.key]),
+    );
 }
 
 /**

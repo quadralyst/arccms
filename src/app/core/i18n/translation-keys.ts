@@ -82,10 +82,14 @@ export type TranslationKey =
     | 'admin.contents.editor.publish'
     | 'admin.contents.editor.remove_image'
     | 'admin.contents.editor.repeater.add'
+    | 'admin.contents.editor.repeater.add_photos'
     | 'admin.contents.editor.repeater.choose_media'
     | 'admin.contents.editor.repeater.empty'
     | 'admin.contents.editor.repeater.image'
     | 'admin.contents.editor.repeater.position'
+    | 'admin.contents.editor.repeater.video'
+    | 'admin.contents.editor.repeater.video_invalid'
+    | 'admin.contents.editor.repeater.video_url'
     | 'admin.contents.editor.restore_version'
     | 'admin.contents.editor.save_draft'
     | 'admin.contents.editor.select_icon'
@@ -358,6 +362,7 @@ export type TranslationKey =
     | 'admin.media.icons.style_solid'
     | 'admin.media.icons.tab'
     | 'admin.media.insert'
+    | 'admin.media.insert_count'
     | 'admin.media.load_failed'
     | 'admin.media.logo_alt'
     | 'admin.media.metadata_failed'
@@ -1047,10 +1052,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.publish',
     'admin.contents.editor.remove_image',
     'admin.contents.editor.repeater.add',
+    'admin.contents.editor.repeater.add_photos',
     'admin.contents.editor.repeater.choose_media',
     'admin.contents.editor.repeater.empty',
     'admin.contents.editor.repeater.image',
     'admin.contents.editor.repeater.position',
+    'admin.contents.editor.repeater.video',
+    'admin.contents.editor.repeater.video_invalid',
+    'admin.contents.editor.repeater.video_url',
     'admin.contents.editor.restore_version',
     'admin.contents.editor.save_draft',
     'admin.contents.editor.select_icon',
@@ -1323,6 +1332,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.icons.style_solid',
     'admin.media.icons.tab',
     'admin.media.insert',
+    'admin.media.insert_count',
     'admin.media.load_failed',
     'admin.media.logo_alt',
     'admin.media.metadata_failed',

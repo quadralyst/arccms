@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { interpolate, parseParams } from './interpolate.js';
+import { youTubeVideo } from './youtube.js';
 
 /**
  * Template Hydration Service
@@ -20,6 +21,43 @@ export class TemplateHydrationService {
   private static getNestedValue(obj: any, path: string): any {
     return path.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
   }
+  /**
+   * Expands a stored YouTube URL into the strings a template binds to.
+   *
+   * A gallery row stores only the URL an editor pasted; the id, embed and
+   * poster are derived here so a parser fix repairs existing content instead
+   * of needing a migration. For a row key `video`:
+   *
+   *   {{ video }}         the original URL, unchanged
+   *   {{ video_id }}      dQw4w9WgXcQ
+   *   {{ video_embed }}   https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ
+   *   {{ video_thumb }}   https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg
+   *
+   * `video_thumb` is what lets a gallery render posters and swap in the
+   * iframe on click — ten iframes is roughly ten megabytes of player JS.
+   *
+   * Only string values that actually parse as YouTube are touched, so an
+   * unrelated field that happens to hold a URL is left alone.
+   */
+  private static flattenVideos(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    let result = data;
+
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value !== 'string' || !value) continue;
+      const video = youTubeVideo(value);
+      if (!video) continue;
+
+      if (result === data) result = { ...data };
+      result[`${key}_id`] = video.id;
+      result[`${key}_embed`] = video.embed;
+      result[`${key}_thumb`] = video.thumb;
+    }
+
+    return result;
+  }
+
   /**
    * Expands stored icon tokens into the plain strings a template binds to.
    *
@@ -99,6 +137,8 @@ export class TemplateHydrationService {
 
     // Icon tokens are objects; templates bind to strings. See flattenIcons.
     data = this.flattenIcons(data);
+    // YouTube URLs gain their id, embed and poster. See flattenVideos.
+    data = this.flattenVideos(data);
 
 
     // 1. Process Angular-style Interpolation {{ variable }}
