@@ -658,7 +658,14 @@
         "unknown_error": "अज्ञात त्रुटि",
         "version_restored": "संस्करण v{{ version }} पुनर्स्थापित किया गया। जाँचकर तैयार होने पर सहेजें।",
         "url_copied": "URL क्लिपबोर्ड पर कॉपी हो गया",
-        "url_copy_failed": "URL कॉपी नहीं हो सका"
+        "url_copy_failed": "URL कॉपी नहीं हो सका",
+        "repeater": {
+          "add": "{{ row }} जोड़ें",
+          "empty": "अभी तक कोई {{ row }} नहीं जोड़ा गया।",
+          "position": "क्रम",
+          "choose_media": "आइकन या छवि चुनें",
+          "image": "छवि"
+        }
       },
       "list": {
         "type_not_found": "सामग्री प्रकार नहीं मिला",

@@ -48,6 +48,7 @@ import { PageHeaderComponent } from '../../../../../shared/components/page-heade
 import { PreviewContentComponent } from './preview-content/preview-content.component';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { iconClasses, iconLabel } from '../../../../../shared/models/icon.model';
+import { isRepeaterType } from '../../../../../shared/models/repeater.model';
 
 @Component({
   selector: 'arc-draft-contents-table',
@@ -388,6 +389,11 @@ export class DraftContentsTableComponent
    */
   private isListableField(field: ContentTypeField): boolean {
     if (field.type === 'richtext') return false;
+
+    // A repeating field is a list of rows; a cell can show neither the rows
+    // nor a useful summary of them, and the raw value stringifies to
+    // "[object Object]".
+    if (isRepeaterType(field.type)) return false;
 
     const fixedKeys = [
       ...this.baseColumns.map((col) => col.key),

@@ -81,6 +81,11 @@ export type TranslationKey =
     | 'admin.contents.editor.preview'
     | 'admin.contents.editor.publish'
     | 'admin.contents.editor.remove_image'
+    | 'admin.contents.editor.repeater.add'
+    | 'admin.contents.editor.repeater.choose_media'
+    | 'admin.contents.editor.repeater.empty'
+    | 'admin.contents.editor.repeater.image'
+    | 'admin.contents.editor.repeater.position'
     | 'admin.contents.editor.restore_version'
     | 'admin.contents.editor.save_draft'
     | 'admin.contents.editor.select_icon'
@@ -1041,6 +1046,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.preview',
     'admin.contents.editor.publish',
     'admin.contents.editor.remove_image',
+    'admin.contents.editor.repeater.add',
+    'admin.contents.editor.repeater.choose_media',
+    'admin.contents.editor.repeater.empty',
+    'admin.contents.editor.repeater.image',
+    'admin.contents.editor.repeater.position',
     'admin.contents.editor.restore_version',
     'admin.contents.editor.save_draft',
     'admin.contents.editor.select_icon',

@@ -206,6 +206,96 @@ Any custom fields you define on a content type are automatically available using
 <span data-arc-bind="price">0</span>
 ```
 
+> **Field keys are prefixed with the content type slug.** Enter `subtitle` as
+> the key on a content type slugged `awards-recognition` and it is stored — and
+> bound — as `awards-recognition_subtitle`. Check the key shown in
+> **Admin > Contents > Content Types** if a binding renders blank; the examples
+> below use short keys for readability.
+
+---
+
+## Info Cards and other repeating fields
+
+Some fields hold a **list of rows** rather than one value. An **Info Card**
+field is the first: each row is an icon or image, a headline, and a short
+paragraph — the row of feature cards you see under a page hero.
+
+Repeating fields render with `data-arc-loop`, the same mechanism as `items`
+and `tags`.
+
+### Adding an Info Card field
+
+1. **Admin > Contents > Content Types**, edit your type, add a field.
+2. Set **Type** to `infocard` and give it a key, e.g. `info_cards`. Remember
+   the stored key gains the slug prefix — `programs_info_cards` on a type
+   slugged `programs`.
+3. When editing content, add a card, pick an icon *or* an image for it, and
+   fill in the headline and info. **Position** sets the display order; the
+   list re-sorts when you leave the field.
+
+### Rendering the cards
+
+The loop name is the **stored field key**. Inside the loop each row exposes
+its sub-fields by their own short names:
+
+| Binding | Contains |
+|---------|----------|
+| `{{ headline }}` | The card's headline |
+| `{{ info }}` | The card's paragraph |
+| `{{ icon }}` | Icon class list, or empty when the card uses an image |
+| `{{ image }}` | Image URL, or empty when the card uses an icon |
+| `{{ icon_svg }}` | Inline SVG fallback for the icon |
+| `{{ position }}` | The row's sort number |
+
+A card has an icon **or** an image, never both. `data-arc-if` removes the one
+that is not set, so a single template handles either:
+
+```html
+<section class="info-cards" data-arc-loop="programs_info_cards">
+    <article class="info-card">
+        <span class="info-card-visual">
+            <img data-arc-if="image" data-arc-bind="image" alt="">
+            <i data-arc-if="icon" class="{{ icon }}" aria-hidden="true"></i>
+        </span>
+        <h3 data-arc-bind="headline">Find volunteering opportunities</h3>
+        <p data-arc-bind="info">Browse verified needs near you.</p>
+    </article>
+</section>
+```
+
+The container's **first child is the row template** — it is repeated once per
+card and everything else inside the container is discarded. Write exactly one
+card and let the loop multiply it.
+
+An empty field clears the container, so the placeholder card above never
+reaches a published page.
+
+```css
+.info-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.info-card { padding: 1.25rem; border: 1px solid #d8ede0; border-radius: 12px; background: #f2faf5; }
+.info-card-visual i { font-size: 1.25rem; color: #16a34a; }
+.info-card-visual img { width: 2.5rem; height: 2.5rem; object-fit: cover; border-radius: 8px; }
+```
+
+### Ordering
+
+Rows are stored in **Position** order, so a template loops and renders — no
+sorting needed. Positions renumber to 1, 2, 3… whenever a row is reordered or
+removed, so there are never gaps.
+
+### Limitations
+
+- **No nested loops.** A repeating field renders on a **detail** page or in a
+  **partial**. It will *not* render inside `data-arc-loop="items"` on a list
+  page: rows inside a loop are not looped again.
+- **Not yet translatable.** Headlines and info text stay in the default
+  language on every translated page. Every row carries a stable id ready for
+  this, but the translation tabs do not offer repeating fields yet.
+- **Not importable.** Bulk CSV import skips repeating fields — one cell
+  cannot express a list of rows. Add the cards in the editor.
+- **Not shown in the contents list.** Rows have no useful one-cell summary,
+  so a repeating field is never offered as a list column.
+
 ---
 
 ## Icons
@@ -223,7 +313,9 @@ card, a dark footer and a themed accent without anyone re-exporting anything.
 
 1. Go to **Admin > Contents > Content Types** and edit your content type.
 2. Add a field, set its **Type** to `icon`, and give it a key (e.g. `card_icon`).
-   Field keys must be lowercase letters, digits and underscores — `^[a-z0-9_]+$`.
+   Field keys must be lowercase letters, digits and underscores — `^[a-z0-9_]+$`
+   — and are then stored prefixed with the content type slug, so the binding
+   for `card_icon` on `articles` is `articles_card_icon`.
 3. When editing content, that field opens an icon picker. Search by name, by
    label, or by what the icon *means* — "search", "trophy", "chart" all work.
    The picker offers icons only; the image tabs are hidden, because a photo
@@ -240,7 +332,7 @@ One picked icon gives you four bindings, all derived from the field key:
 | `{{ card_icon_name }}` | `magnifying-glass` | The bare name, e.g. as a CSS hook |
 | `{{ card_icon_svg }}` | `<svg …>` | Inline SVG fallback — see below |
 
-Substitute your own field key for `card_icon` throughout.
+Substitute your own **stored** field key for `card_icon` throughout — including the content type slug prefix.
 
 The normal way to render one is an empty `<i>` with the class interpolated:
 

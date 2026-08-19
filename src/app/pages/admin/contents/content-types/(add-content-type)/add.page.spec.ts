@@ -434,6 +434,7 @@ describe('AddContentTypeComponent', () => {
             expect(component.fieldTypes).toContain('date');
             expect(component.fieldTypes).toContain('image');
             expect(component.fieldTypes).toContain('icon');
+            expect(component.fieldTypes).toContain('infocard');
             expect(component.fieldTypes).toContain('boolean');
         });
 
@@ -443,8 +444,8 @@ describe('AddContentTypeComponent', () => {
             expect(component.fieldTypes).toContain('radio');
         });
 
-        it('should have 11 field types total', () => {
-            expect(component.fieldTypes.length).toBe(11);
+        it('should have 12 field types total', () => {
+            expect(component.fieldTypes.length).toBe(12);
         });
 
         it('should include datetime field type', () => {

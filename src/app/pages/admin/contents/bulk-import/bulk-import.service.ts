@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { read, utils, writeFile } from 'xlsx';
 import { ContentTypeField, ContentTypeFieldType } from '../content-types/content-types.model';
 import { DraftContentsData } from '../draft-content-store/draft-contents.model';
+import { isRepeaterType } from '../../../../../shared/models/repeater.model';
 
 export interface ParsedFile {
     headers: string[];
@@ -112,9 +113,13 @@ export class BulkImportService {
             }
 
             // 2. Check custom fields (by label or key)
+            // Repeating fields are skipped: a column of text cannot become
+            // rows of sub-fields, and auto-mapping one would import garbage.
             const customMatch = customFields.find(f =>
-                f.key.toLowerCase() === normalizedHeader ||
-                f.label.toLowerCase() === normalizedHeader
+                !isRepeaterType(f.type) && (
+                    f.key.toLowerCase() === normalizedHeader ||
+                    f.label.toLowerCase() === normalizedHeader
+                )
             );
 
             if (customMatch) {

@@ -310,6 +310,12 @@ export async function generateAndDeployContentDetailPage(
         const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, uiStrings);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, {
+            // Repeating custom fields (Info Cards) become named loops, so a
+            // template can write data-arc-loop="info_cards".
+            ...TemplateHydrationService.arrayLoopData(
+                localizedContent.customFields as Record<string, any>,
+                ['tags', 'items'],
+            ),
             tags: tagsData,
         });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);

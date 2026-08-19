@@ -1,0 +1,112 @@
+<div class="field-repeater">
+    @if (schema().hint) {
+    <p class="repeater-hint">{{ schema().hint }}</p>
+    }
+
+    @if (!rows().length) {
+    <div class="repeater-empty">
+        <p class="mb-2 small text-muted">
+            {{ 'admin.contents.editor.repeater.empty' | transloco:{ row: schema().rowLabel | lowercase } }}
+        </p>
+    </div>
+    }
+
+    @for (row of rows(); track trackRow($index, row)) {
+    <div class="repeater-row">
+        <div class="repeater-row-header">
+            <span class="repeater-row-title">{{ schema().rowLabel }} {{ $index + 1 }}</span>
+
+            <label class="repeater-position">
+                <span>{{ 'admin.contents.editor.repeater.position' | transloco }}</span>
+                <input type="number" min="1" class="form-control form-control-sm"
+                    [value]="row.position" [disabled]="disabled()"
+                    (input)="setPosition(row.id, $any($event.target).value)"
+                    (blur)="commitPositions()"
+                    [attr.aria-label]="'admin.contents.editor.repeater.position' | transloco">
+            </label>
+
+            @if (!disabled()) {
+            <button type="button" class="btn btn-outline-danger btn-sm repeater-remove"
+                (click)="removeRow(row.id)"
+                [title]="'common.actions.remove' | transloco">
+                <i class="fa-solid fa-trash" aria-hidden="true"></i>
+            </button>
+            }
+        </div>
+
+        @for (sub of schema().subFields; track sub.key) {
+        <div class="repeater-field">
+            <label class="form-label">
+                {{ sub.label }}
+                @if (sub.required) {
+                <span class="text-danger">*</span>
+                }
+            </label>
+
+            @switch (sub.type) {
+
+            @case ('media') {
+            <div class="repeater-media">
+                @if (hasMedia(row, asMedia(sub))) {
+                <div class="repeater-media-preview">
+                    @if (icon(row, asMedia(sub)); as picked) {
+                    <i [class]="picked.classes" aria-hidden="true"></i>
+                    <span class="repeater-media-name">{{ picked.label }}</span>
+                    } @else {
+                    <img [src]="imageUrl(row, asMedia(sub))" alt="">
+                    <span class="repeater-media-name">{{ 'admin.contents.editor.repeater.image' | transloco }}</span>
+                    }
+
+                    @if (!disabled()) {
+                    <div class="repeater-media-actions">
+                        <button type="button" class="btn btn-outline-primary btn-sm"
+                            (click)="pickMedia(row, asMedia(sub))">
+                            <i class="fa-solid fa-arrows-rotate me-1" aria-hidden="true"></i>
+                            {{ 'admin.contents.editor.change' | transloco }}
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm"
+                            (click)="clearMedia(row, asMedia(sub))">
+                            <i class="fa-solid fa-trash me-1" aria-hidden="true"></i>
+                            {{ 'common.actions.remove' | transloco }}
+                        </button>
+                    </div>
+                    }
+                </div>
+                } @else {
+                <button type="button" class="repeater-media-empty" [disabled]="disabled()"
+                    (click)="pickMedia(row, asMedia(sub))">
+                    <i class="fa-solid fa-icons" aria-hidden="true"></i>
+                    <span>{{ 'admin.contents.editor.repeater.choose_media' | transloco }}</span>
+                </button>
+                }
+            </div>
+            }
+
+            @case ('textarea') {
+            <textarea class="form-control form-control-sm" [rows]="$any(sub).rows || 3"
+                [value]="text(row, sub)" [disabled]="disabled()"
+                [attr.maxlength]="$any(sub).maxLength || null"
+                [placeholder]="sub.placeholder || ''"
+                (input)="setValue(row.id, sub.key, $any($event.target).value)"></textarea>
+            }
+
+            @default {
+            <input type="text" class="form-control form-control-sm"
+                [value]="text(row, sub)" [disabled]="disabled()"
+                [attr.maxlength]="$any(sub).maxLength || null"
+                [placeholder]="sub.placeholder || ''"
+                (input)="setValue(row.id, sub.key, $any($event.target).value)">
+            }
+            }
+        </div>
+        }
+    </div>
+    }
+
+    @if (!disabled()) {
+    <button type="button" class="btn btn-outline-primary btn-sm repeater-add" (click)="addRow()">
+        <i class="fa-solid fa-plus me-1" aria-hidden="true"></i>
+        {{ 'admin.contents.editor.repeater.add' | transloco:{ row: schema().rowLabel } }}
+    </button>
+    }
+</div>
