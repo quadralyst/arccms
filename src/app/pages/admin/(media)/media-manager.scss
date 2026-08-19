@@ -1246,3 +1246,52 @@ footer {
         }
     }
 }
+/* Stands in for the tab bar in a single-purpose dialog, so the header keeps
+   its shape and Cancel stays on the right. */
+.media-single-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--dark-color);
+
+    i {
+        color: var(--primary-color);
+    }
+}
+
+/* ── Icons tab ───────────────────────────────────────────────────────────── */
+
+/* Unlike .empty_col this must not centre its child — the browser manages its
+   own toolbar/grid/footer layout and needs the full height to scroll in. */
+.icons_col {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.icons_col.asModal {
+    /* Matches the height the image grid gets in dialog mode, so switching
+       tabs does not resize the dialog. */
+    height: 60vh;
+}
+
+.icon-preview-container {
+    /* An icon has no intrinsic size, so the box needs one — chosen to match
+       the 16:9 image preview's height and keep the panel from jumping. */
+    min-height: 160px;
+    padding: 1rem;
+
+    i {
+        font-size: 4rem;
+        color: var(--dark-color);
+    }
+}
+
+.icon-preview-empty {
+    font-size: 0.85rem;
+    color: var(--secondary-color);
+    text-align: center;
+}

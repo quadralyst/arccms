@@ -58,6 +58,7 @@ export type TranslationKey =
     | 'admin.contents.editor.back_to_editor'
     | 'admin.contents.editor.change'
     | 'admin.contents.editor.clear_translation'
+    | 'admin.contents.editor.click_to_select_icon'
     | 'admin.contents.editor.click_to_select_image'
     | 'admin.contents.editor.click_to_upload'
     | 'admin.contents.editor.cover_image'
@@ -82,6 +83,7 @@ export type TranslationKey =
     | 'admin.contents.editor.remove_image'
     | 'admin.contents.editor.restore_version'
     | 'admin.contents.editor.save_draft'
+    | 'admin.contents.editor.select_icon'
     | 'admin.contents.editor.select_image'
     | 'admin.contents.editor.seo_title'
     | 'admin.contents.editor.shared_badge'
@@ -333,6 +335,23 @@ export type TranslationKey =
     | 'admin.media.dimensions'
     | 'admin.media.drop_hint'
     | 'admin.media.empty'
+    | 'admin.media.icons.insert'
+    | 'admin.media.icons.load_failed'
+    | 'admin.media.icons.loading'
+    | 'admin.media.icons.name_label'
+    | 'admin.media.icons.no_results'
+    | 'admin.media.icons.none_selected'
+    | 'admin.media.icons.search_placeholder'
+    | 'admin.media.icons.selected'
+    | 'admin.media.icons.show_more'
+    | 'admin.media.icons.showing'
+    | 'admin.media.icons.style_all'
+    | 'admin.media.icons.style_brands'
+    | 'admin.media.icons.style_filter'
+    | 'admin.media.icons.style_label'
+    | 'admin.media.icons.style_regular'
+    | 'admin.media.icons.style_solid'
+    | 'admin.media.icons.tab'
     | 'admin.media.insert'
     | 'admin.media.load_failed'
     | 'admin.media.logo_alt'
@@ -819,6 +838,7 @@ export type TranslationKey =
     | 'common.actions.add'
     | 'common.actions.back'
     | 'common.actions.cancel'
+    | 'common.actions.clear'
     | 'common.actions.close'
     | 'common.actions.confirm'
     | 'common.actions.copy'
@@ -998,6 +1018,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.back_to_editor',
     'admin.contents.editor.change',
     'admin.contents.editor.clear_translation',
+    'admin.contents.editor.click_to_select_icon',
     'admin.contents.editor.click_to_select_image',
     'admin.contents.editor.click_to_upload',
     'admin.contents.editor.cover_image',
@@ -1022,6 +1043,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.remove_image',
     'admin.contents.editor.restore_version',
     'admin.contents.editor.save_draft',
+    'admin.contents.editor.select_icon',
     'admin.contents.editor.select_image',
     'admin.contents.editor.seo_title',
     'admin.contents.editor.shared_badge',
@@ -1273,6 +1295,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.dimensions',
     'admin.media.drop_hint',
     'admin.media.empty',
+    'admin.media.icons.insert',
+    'admin.media.icons.load_failed',
+    'admin.media.icons.loading',
+    'admin.media.icons.name_label',
+    'admin.media.icons.no_results',
+    'admin.media.icons.none_selected',
+    'admin.media.icons.search_placeholder',
+    'admin.media.icons.selected',
+    'admin.media.icons.show_more',
+    'admin.media.icons.showing',
+    'admin.media.icons.style_all',
+    'admin.media.icons.style_brands',
+    'admin.media.icons.style_filter',
+    'admin.media.icons.style_label',
+    'admin.media.icons.style_regular',
+    'admin.media.icons.style_solid',
+    'admin.media.icons.tab',
     'admin.media.insert',
     'admin.media.load_failed',
     'admin.media.logo_alt',
@@ -1759,6 +1798,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.actions.add',
     'common.actions.back',
     'common.actions.cancel',
+    'common.actions.clear',
     'common.actions.close',
     'common.actions.confirm',
     'common.actions.copy',
