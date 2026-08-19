@@ -296,6 +296,7 @@ An `infocard` field holds a *list* of cards, so it renders with a loop rather
 than a single binding. The loop name is the stored field key:
 
 ```html
+<!-- The bare key also works: data-arc-loop="info_cards" -->
 <section class="info-cards" data-arc-loop="programs_info_cards">
     <article class="info-card">
         <img data-arc-if="image" data-arc-bind="image" alt="">
@@ -322,6 +323,9 @@ posters rather than a page full of iframes.
 - **Field keys are stored prefixed with the content type slug** — a key of
   `subtitle` on `awards-recognition` binds as `awards-recognition_subtitle`.
   Copy the key shown in the Content Types admin
+- **Repeating fields also answer to the bare key** in `data-arc-loop`, which is
+  how the shared default template renders them for any content type. Name your
+  fields `info_cards` and `gallery` and the default template needs no edits
 - Repeating fields (`infocard`, `gallery`) render on **detail** and **partials**
   templates only — they cannot be nested inside a list page's `items` loop
 - For dropdown fields, the **selected option value** is displayed (not the key)

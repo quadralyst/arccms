@@ -211,6 +211,11 @@ Any custom fields you define on a content type are automatically available using
 > bound — as `awards-recognition_subtitle`. Check the key shown in
 > **Admin > Contents > Content Types** if a binding renders blank; the examples
 > below use short keys for readability.
+>
+> **Repeating fields are the exception.** A `data-arc-loop` can use either the
+> full key or the bare one — `awards-recognition_gallery` or just `gallery`.
+> The short form is what lets one shared template serve every content type;
+> see **Info Cards** below.
 
 ---
 
@@ -239,8 +244,20 @@ and `tags`.
 
 ### Rendering the cards
 
-The loop name is the **stored field key**. Inside the loop each row exposes
-its sub-fields by their own short names:
+The loop name is the field key — **with or without the content type slug
+prefix**. Both of these work on a type slugged `programs`:
+
+```html
+<div data-arc-loop="programs_info_cards"> … </div>   <!-- explicit -->
+<div data-arc-loop="info_cards"> … </div>            <!-- portable -->
+```
+
+Use the short form in a template shared by several content types, such as
+`templates/default/detail.html`; use the long form when you want a block that
+only ever fires for one type. If both names somehow exist, the explicit one
+wins.
+
+Inside the loop each row exposes its sub-fields by their own short names:
 
 | Binding | Contains |
 |---------|----------|
@@ -271,8 +288,22 @@ The container's **first child is the row template** — it is repeated once per
 card and everything else inside the container is discarded. Write exactly one
 card and let the loop multiply it.
 
-An empty field clears the container, so the placeholder card above never
-reaches a published page.
+A container whose field is empty — or whose field the content type does not
+even have — is cleared, so the placeholder card above never reaches a
+published page. The empty container element itself remains, which is why the
+default template hides it with `:empty`:
+
+```css
+.info-cards:empty { display: none; }
+```
+
+### It works out of the box on the default template
+
+`public/templates/default/detail.html` — the layout used by any content type
+without a folder of its own — already carries an Info Card block looping
+`info_cards` and a Gallery block looping `gallery`. Name your fields `info_cards`
+and `gallery` and they render with no template work at all. Rename the loop, or
+copy the folder, when you want your own layout.
 
 ```css
 .info-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
