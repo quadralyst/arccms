@@ -208,6 +208,7 @@ In the Content Types admin panel, you can add custom fields with various types:
 - **icon**: A Font Awesome icon, chosen from a searchable icon picker
 - **infocard**: A repeating list of cards — icon or image, headline and info
 - **gallery**: A repeating list of photos and YouTube videos with captions
+- **labelvalue**: A repeating list of label/value pairs, with an editable heading
 
 Each field has a **key** (used for binding) and a **label** (displayed in admin).
 
@@ -323,9 +324,11 @@ posters rather than a page full of iframes.
 - **Field keys are stored prefixed with the content type slug** — a key of
   `subtitle` on `awards-recognition` binds as `awards-recognition_subtitle`.
   Copy the key shown in the Content Types admin
-- **Repeating fields also answer to the bare key** in `data-arc-loop`, which is
-  how the shared default template renders them for any content type. Name your
-  fields `info_cards` and `gallery` and the default template needs no edits
+- **Every custom field also answers to the bare key**, in both `data-arc-loop`
+  and `data-arc-bind` — that is how the shared default template renders them
+  for any content type. Name your fields `info_cards`, `gallery` and `details`
+  and the default template needs no edits. An alias never replaces a built-in
+  binding such as `title`
 - Repeating fields (`infocard`, `gallery`) render on **detail** and **partials**
   templates only — they cannot be nested inside a list page's `items` loop
 - For dropdown fields, the **selected option value** is displayed (not the key)

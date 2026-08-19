@@ -3,6 +3,18 @@
     <p class="repeater-hint">{{ schema().hint }}</p>
     }
 
+    @if (schema().heading; as headingField) {
+    <!-- One value for the whole block, not per row — stored beside the rows
+         rather than inside them, so the field's value stays a plain array. -->
+    <div class="repeater-heading">
+        <label class="form-label">{{ headingField.label }}</label>
+        <input type="text" class="form-control form-control-sm"
+            [value]="heading()" [disabled]="disabled()"
+            [placeholder]="headingField.placeholder || ''"
+            (input)="setHeading($any($event.target).value)">
+    </div>
+    }
+
     @if (!rows().length) {
     <div class="repeater-empty">
         <p class="mb-2 small text-muted">
@@ -34,6 +46,7 @@
             }
         </div>
 
+        <div class="repeater-fields" [class.inline]="isInline()">
         @for (sub of schema().subFields; track sub.key) {
         <div class="repeater-field">
             <label class="form-label">
@@ -127,6 +140,7 @@
             }
         </div>
         }
+        </div>
     </div>
     }
 

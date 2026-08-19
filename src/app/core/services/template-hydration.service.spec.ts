@@ -567,6 +567,83 @@ describe('TemplateHydrationService', () => {
         });
     });
 
+    describe('Custom Field Aliasing', () => {
+        it('exposes a slug-prefixed field under its bare name', () => {
+            const html = '<h3>{{ details_heading }}</h3>';
+            const result = TemplateHydrationService.hydrateTemplate(html, {
+                contentTypeSlug: 'events',
+                events_details_heading: 'At a glance',
+            });
+            expect(result).toContain('At a glance');
+        });
+
+        it('keeps the prefixed name working too', () => {
+            const html = '<h3>{{ events_details_heading }}</h3>';
+            const result = TemplateHydrationService.hydrateTemplate(html, {
+                contentTypeSlug: 'events',
+                events_details_heading: 'At a glance',
+            });
+            expect(result).toContain('At a glance');
+        });
+
+        it('never shadows a built-in binding', () => {
+            // A field keyed `articles_title` must not replace the page title.
+            const html = '<h1>{{ title }}</h1>';
+            const result = TemplateHydrationService.hydrateTemplate(html, {
+                contentTypeSlug: 'articles',
+                title: 'The real title',
+                articles_title: 'A custom field',
+            });
+
+            expect(result).toContain('The real title');
+            expect(result).not.toContain('A custom field');
+        });
+
+        it('does nothing without a content type slug', () => {
+            const result = TemplateHydrationService.hydrateTemplate(
+                '<p>[{{ details_heading }}]</p>',
+                { events_details_heading: 'At a glance' },
+            );
+            expect(result).toContain('[]');
+        });
+
+        it('ignores a key that is only the prefix', () => {
+            const result = TemplateHydrationService.hydrateTemplate(
+                '<p>[{{ x }}]</p>',
+                { contentTypeSlug: 'events', events_: 'nothing' },
+            );
+            expect(result).toContain('[]');
+        });
+
+        it('works with a hyphenated slug', () => {
+            const result = TemplateHydrationService.hydrateTemplate(
+                '<h3>{{ details_heading }}</h3>',
+                { contentTypeSlug: 'awards-recognition', 'awards-recognition_details_heading': 'Key facts' },
+            );
+            expect(result).toContain('Key facts');
+        });
+
+        it('does not mutate the caller data object', () => {
+            const data: Record<string, any> = {
+                contentTypeSlug: 'events',
+                events_details_heading: 'At a glance',
+            };
+            TemplateHydrationService.hydrateTemplate('<h3>{{ details_heading }}</h3>', data);
+            expect(Object.keys(data).sort()).toEqual(['contentTypeSlug', 'events_details_heading']);
+        });
+
+        it('aliases an icon field, and still flattens the token', () => {
+            const result = TemplateHydrationService.hydrateTemplate(
+                '<i class="{{ card_icon }}"></i>',
+                {
+                    contentTypeSlug: 'programs',
+                    programs_card_icon: { classes: 'fa-solid fa-star', name: 'star' },
+                },
+            );
+            expect(result).toContain('class="fa-solid fa-star"');
+        });
+    });
+
     describe('Video Flattening', () => {
         const URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s';
 

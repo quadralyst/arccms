@@ -86,12 +86,38 @@ export type RepeaterSubField =
     | RepeaterTextareaSubField
     | RepeaterMediaSubField;
 
+/**
+ * An editable heading for the whole field, above the rows.
+ *
+ * Not a row and not a sub-field — one value for the entire block, like the
+ * "At a glance" title over a facts list. It is stored as a sibling entry in
+ * `customFields` under `<fieldKey>_<key>` rather than inside the rows array,
+ * so the stored value of a repeating field stays a plain array and every
+ * consumer that assumes that keeps working.
+ */
+export interface RepeaterHeading {
+    /** Suffix on the field key — `heading` gives `details_heading`. */
+    key: string;
+    label: string;
+    placeholder?: string;
+    translatable?: boolean;
+}
+
 export interface RepeaterSchema {
     /** Singular noun for one row, e.g. "Card". Used in the add button and headings. */
     rowLabel: string;
     subFields: RepeaterSubField[];
     /** Shown above the rows — what this field is for, and how many to expect. */
     hint?: string;
+    /**
+     * Lay a row's sub-fields out side by side rather than stacked.
+     *
+     * Worth it only for short paired values: a label and a value stacked in
+     * the ~280px custom-fields sidebar is eight inputs for a four-row card.
+     */
+    layout?: 'stacked' | 'inline';
+    /** An editable title for the whole block. */
+    heading?: RepeaterHeading;
 }
 
 /** One stored row. `id` and `position` are implicit on every repeater. */
@@ -163,11 +189,54 @@ export const REPEATER_SCHEMAS: Record<string, RepeaterSchema> = {
             },
         ],
     },
+    labelvalue: {
+        rowLabel: 'Row',
+        layout: 'inline',
+        hint: 'Short label-and-value pairs, shown as a facts list. Good for age limits, duration, cost, availability.',
+        heading: {
+            key: 'heading',
+            label: 'Section heading',
+            placeholder: 'At a glance',
+            translatable: true,
+        },
+        subFields: [
+            {
+                type: 'text',
+                key: 'label',
+                label: 'Label',
+                required: true,
+                placeholder: 'Minimum age',
+                translatable: true,
+                maxLength: 60,
+            },
+            {
+                type: 'text',
+                key: 'value',
+                label: 'Value',
+                required: true,
+                placeholder: '16 years',
+                translatable: true,
+                maxLength: 80,
+            },
+        ],
+    },
 };
 
 /** Every row key a media sub-field owns, `key` first. */
 export function mediaRowKeys(sub: RepeaterMediaSubField): string[] {
     return [sub.key, sub.iconKey, sub.videoKey].filter((k): k is string => !!k);
+}
+
+/**
+ * The `customFields` key holding a repeating field's heading, or null when the
+ * schema declares none.
+ *
+ * `fieldKey` is the stored key, slug prefix and all — so an `events` type with
+ * a field keyed `events_details` keeps its heading at
+ * `events_details_heading`.
+ */
+export function repeaterHeadingKey(fieldKey: string, schema: RepeaterSchema): string | null {
+    return schema.heading ? `${fieldKey}_${schema.heading.key}` : null;
 }
 
 /** Whether a content-type field type stores repeating rows. */

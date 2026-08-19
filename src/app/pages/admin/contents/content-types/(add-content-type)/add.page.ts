@@ -75,7 +75,8 @@ export default class AddContentTypeComponent extends BaseComponent {
         'checkbox',
         'radio',
         'infocard',
-        'gallery'
+        'gallery',
+        'labelvalue'
     ];
 
     addForm = new FormGroup({

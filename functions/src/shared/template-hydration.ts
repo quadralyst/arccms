@@ -22,6 +22,45 @@ export class TemplateHydrationService {
     return path.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
   }
   /**
+   * Publishes each custom field under its unprefixed name as well.
+   *
+   * Custom field keys are stored prefixed with the content type slug, so a
+   * heading on `events` is `events_details_heading`. A template shared by
+   * every content type — `templates/default/detail.html` — cannot name that,
+   * the same problem `arrayLoopData` solves for loops.
+   *
+   * The guard is that an alias never *replaces* anything: if the bare name is
+   * already in the data it is left alone. That is what stops a field keyed
+   * `articles_title` from shadowing the page's real `title`, and it needs no
+   * list of reserved words to maintain — the built-ins are already present by
+   * the time this runs.
+   *
+   * The slug comes from `contentTypeSlug`, which every template context
+   * carries.
+   */
+  private static aliasCustomFields(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    const slug = typeof data['contentTypeSlug'] === 'string' ? data['contentTypeSlug'] : '';
+    if (!slug) return data;
+
+    const prefix = `${slug}_`;
+    let result = data;
+
+    for (const key of Object.keys(data)) {
+      if (!key.startsWith(prefix) || key.length === prefix.length) continue;
+
+      const bare = key.slice(prefix.length);
+      if (bare in data) continue;
+
+      if (result === data) result = { ...data };
+      result[bare] = data[key];
+    }
+
+    return result;
+  }
+
+  /**
    * Expands a stored YouTube URL into the strings a template binds to.
    *
    * A gallery row stores only the URL an editor pasted; the id, embed and
@@ -135,6 +174,9 @@ export class TemplateHydrationService {
       });
     }
 
+    // Custom fields also answer to their unprefixed name, so a shared
+    // template can name them. See aliasCustomFields.
+    data = this.aliasCustomFields(data);
     // Icon tokens are objects; templates bind to strings. See flattenIcons.
     data = this.flattenIcons(data);
     // YouTube URLs gain their id, embed and poster. See flattenVideos.

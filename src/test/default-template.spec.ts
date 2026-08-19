@@ -27,6 +27,11 @@ const INFO_CARDS = [
     { id: 'r_b', position: 2, image: 'https://example.com/card.jpg', icon: null, headline: 'Second card', info: 'Second body' },
 ];
 
+const DETAILS = [
+    { id: 'r_e', position: 1, label: 'Minimum age', value: '16 years' },
+    { id: 'r_f', position: 2, label: 'Cost', value: 'Free' },
+];
+
 const GALLERY = [
     { id: 'r_c', position: 1, image: 'https://example.com/photo.jpg', video: '', caption: 'A photo' },
     { id: 'r_d', position: 2, image: '', video: 'https://youtu.be/dQw4w9WgXcQ', caption: 'A video' },
@@ -87,11 +92,55 @@ describe('default detail template', () => {
         expect(html).toContain('youtube-nocookie.com/embed/dQw4w9WgXcQ');
     });
 
+    it('renders a label/value list from a slug-prefixed field', () => {
+        const html = render({
+            events_details: DETAILS,
+            events_details_heading: 'At a glance',
+        });
+
+        expect(html).toContain('Minimum age');
+        expect(html).toContain('16 years');
+        expect(html).toContain('Free');
+    });
+
+    it('renders the editable heading through the unprefixed alias', () => {
+        // A shared template cannot name `events_details_heading`, so the
+        // hydration aliases every custom field to its bare key.
+        const html = render({
+            events_details: DETAILS,
+            events_details_heading: 'Key facts',
+        });
+
+        expect(html).toContain('Key facts');
+        expect(html).not.toContain('>At a glance<');
+    });
+
+    it('drops the heading when the editor left it blank', () => {
+        const html = markup(render({ events_details: DETAILS, events_details_heading: '' }));
+
+        expect(html).not.toContain('arc-glance-heading');
+        // The rows still render — only the title is optional.
+        expect(html).toContain('Minimum age');
+    });
+
+    it('drops the whole facts card for a type without the field', () => {
+        const html = markup(render({}));
+
+        expect(html).not.toContain('arc-glance-row');
+        expect(html).not.toContain('>Label<');
+        expect(html).not.toContain('>Value<');
+    });
+
     it('renders exactly one row per item', () => {
         const html = markup(render({ events_info_cards: INFO_CARDS, events_gallery: GALLERY }));
 
         expect(html.match(/class="arc-info-card"/g)).toHaveLength(2);
         expect(html.match(/class="arc-gallery-item"/g)).toHaveLength(2);
+    });
+
+    it('renders one facts row per pair', () => {
+        const html = markup(render({ events_details: DETAILS, events_details_heading: 'At a glance' }));
+        expect(html.match(/class="arc-glance-row"/g)).toHaveLength(2);
     });
 
     it('gives only the video row a play button', () => {
@@ -116,9 +165,11 @@ describe('default detail template', () => {
     });
 
     it('hides an empty container through the stylesheet', () => {
-        // Without this the emptied div would still take its top margin.
+        // Without this the emptied div would still take its top margin, and
+        // the bordered ones would publish as a stray horizontal rule.
         expect(TEMPLATE).toContain('.arc-gallery:empty');
         expect(TEMPLATE).toContain('.arc-info-cards:empty');
+        expect(TEMPLATE).toContain('.article-tags:empty');
     });
 
     it('still renders the rest of the page when a repeating field is absent', () => {
