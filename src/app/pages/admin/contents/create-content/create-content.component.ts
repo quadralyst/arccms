@@ -21,6 +21,7 @@ import {
   prepareRepeaterRowsForSave,
   RepeaterRow,
   RepeaterSchema,
+  repeaterHeadingKey,
   repeaterSchema,
   sortRepeaterRows,
 } from '../../../../../shared/models/repeater.model';
@@ -363,6 +364,27 @@ export class CreateContentComponent extends BaseComponent {
     const rows = sortRepeaterRows(normalizeRepeaterRows(current, schema));
     this.customFieldValues[field.key] = rows;
     return rows;
+  }
+
+  /** The stored heading for a repeating field, or ''. */
+  repeaterHeading(field: ContentTypeField): string {
+    const schema = this.repeaterSchemaFor(field);
+    if (!schema) return '';
+
+    const key = repeaterHeadingKey(field.key, schema);
+    const value = key ? this.customFieldValues[key] : '';
+    return typeof value === 'string' ? value : '';
+  }
+
+  /** Heading edits from `arc-field-repeater`. */
+  onRepeaterHeadingChange(field: ContentTypeField, value: string): void {
+    const schema = this.repeaterSchemaFor(field);
+    const key = schema ? repeaterHeadingKey(field.key, schema) : null;
+    if (!key) return;
+
+    this.customFieldValues[key] = value;
+    this.markTranslationDirty();
+    this.cdr.detectChanges();
   }
 
   /** Row edits from `arc-field-repeater`. */

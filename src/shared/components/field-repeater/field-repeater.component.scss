@@ -195,3 +195,34 @@
     flex-wrap: wrap;
     gap: 0.5rem;
 }
+
+.repeater-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    .form-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--rep-dark);
+        margin: 0;
+    }
+}
+
+.repeater-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+/* Short paired values read better side by side — stacked, a four-row facts
+   list is eight inputs down a 280px column. */
+.repeater-fields.inline {
+    flex-direction: row;
+    gap: 0.5rem;
+
+    .repeater-field {
+        flex: 1;
+        min-width: 0;
+    }
+}

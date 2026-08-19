@@ -740,7 +740,9 @@
                             <arc-field-repeater
                                 [schema]="repeater"
                                 [rows]="repeaterRows(field)"
-                                (rowsChange)="onRepeaterRowsChange(field.key, $event)">
+                                [heading]="repeaterHeading(field)"
+                                (rowsChange)="onRepeaterRowsChange(field.key, $event)"
+                                (headingChange)="onRepeaterHeadingChange(field, $event)">
                             </arc-field-repeater>
                             }
                         </div>

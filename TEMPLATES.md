@@ -212,17 +212,18 @@ Any custom fields you define on a content type are automatically available using
 > **Admin > Contents > Content Types** if a binding renders blank; the examples
 > below use short keys for readability.
 >
-> **Repeating fields are the exception.** A `data-arc-loop` can use either the
-> full key or the bare one — `awards-recognition_gallery` or just `gallery`.
-> The short form is what lets one shared template serve every content type;
-> see **Info Cards** below.
+> **Every custom field also answers to its bare key.** `data-arc-loop` and
+> `data-arc-bind` both accept `awards-recognition_gallery` or just `gallery`.
+> The short form is what lets one shared template serve every content type.
+> The one rule: an alias never replaces a built-in, so a field keyed
+> `articles_title` cannot shadow the page's real `title`.
 
 ---
 
 ## Info Cards and other repeating fields
 
-Some fields hold a **list of rows** rather than one value. **Info Card** and
-**Gallery** are both of these: each row has the same set of sub-fields, and
+Some fields hold a **list of rows** rather than one value. **Info Card**,
+**Gallery** and **Label + Value** are all of these: each row has the same set of sub-fields, and
 you add, reorder and remove rows in the editor.
 
 An **Info Card** row is an icon or image, a headline, and a short paragraph —
@@ -436,6 +437,66 @@ Vimeo and other providers are not supported.
 Galleries share every limitation listed under **Info Cards** — detail and
 partials templates only, not translatable yet, not CSV-importable, and never a
 contents-list column.
+
+---
+
+## Label + Value lists
+
+A **Label + Value** field holds short paired facts — an "At a glance" card,
+a spec sheet, event essentials. Each row is a label and a value, and the block
+takes an editable heading.
+
+### Adding one
+
+1. **Admin > Contents > Content Types**, edit your type, add a field.
+2. Set **Type** to `labelvalue` and give it a key, e.g. `details`.
+3. In the editor, fill in the **Section heading** and add rows. Label and value
+   sit side by side; **Position** orders them.
+
+### Rendering it
+
+| Binding | Contains |
+|---------|----------|
+| `{{ label }}` | The row's label — *inside the loop* |
+| `{{ value }}` | The row's value — *inside the loop* |
+| `{{ details_heading }}` | The block heading — *outside the loop* |
+
+The heading is **not** a row, so it is bound outside the loop. It is stored
+beside the rows as `<fieldkey>_heading`, and like every custom field it also
+answers to its unprefixed name.
+
+```html
+<section class="glance" data-arc-if="details">
+    <h3 data-arc-if="details_heading" data-arc-bind="details_heading">At a glance</h3>
+
+    <dl class="glance-list" data-arc-loop="details">
+        <div class="glance-row">
+            <dt data-arc-bind="label">Label</dt>
+            <dd data-arc-bind="value">Value</dd>
+        </div>
+    </dl>
+</section>
+```
+
+`<div>` inside `<dl>` is valid HTML5 and gives each pair a row to style, which
+the loop needs anyway — the container's first child is the row template.
+
+```css
+.glance-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.6rem 0; border-top: 1px solid #e8e8ed; }
+.glance-row:first-child { border-top: 0; }
+.glance-row dt { color: #6e6e73; }
+.glance-row dd { margin: 0; font-weight: 600; text-align: right; }
+```
+
+Leave the heading blank and `data-arc-if` removes it, leaving the rows.
+
+### On the default template
+
+`public/templates/default/detail.html` already carries this block, after the
+Info Cards and Gallery, looping `details`. Name your field `details` and it
+renders with no template work.
+
+Label + Value shares every limitation listed under **Info Cards**.
 
 ---
 

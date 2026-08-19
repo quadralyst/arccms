@@ -46,10 +46,18 @@ export class FieldRepeaterComponent {
     /** Locked while translating — structure belongs to the default language. */
     readonly disabled = input(false);
 
+    /** The block's heading, when the schema declares one. */
+    readonly heading = input('');
+
     readonly rowsChange = output<RepeaterRow[]>();
+    readonly headingChange = output<string>();
 
     /** Rows whose video box currently holds something that is not a YouTube link. */
     private readonly videoErrors = signal<Record<string, boolean>>({});
+
+    setHeading(value: string): void {
+        this.headingChange.emit(value);
+    }
 
     addRow(): void {
         const next = [...this.rows(), newRepeaterRow(this.schema(), this.nextPosition())];
@@ -245,6 +253,11 @@ export class FieldRepeaterComponent {
     text(row: RepeaterRow, sub: RepeaterSubField): string {
         const value = row[sub.key];
         return typeof value === 'string' ? value : '';
+    }
+
+    /** True when a row's sub-fields sit side by side rather than stacked. */
+    isInline(): boolean {
+        return this.schema().layout === 'inline';
     }
 
     /** Narrowing helper — the template cannot discriminate a union on its own. */

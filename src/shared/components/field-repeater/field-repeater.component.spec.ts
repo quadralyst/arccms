@@ -10,6 +10,7 @@ import {
 
 const INFOCARD = REPEATER_SCHEMAS['infocard'];
 const GALLERY = REPEATER_SCHEMAS['gallery'];
+const LABELVALUE = REPEATER_SCHEMAS['labelvalue'];
 const GALLERY_MEDIA = GALLERY.subFields[0] as RepeaterMediaSubField;
 const MEDIA = INFOCARD.subFields[0] as RepeaterMediaSubField;
 
@@ -369,6 +370,88 @@ describe('FieldRepeaterComponent', () => {
             expect(component.videoThumb(row, GALLERY_MEDIA))
                 .toBe('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
             expect(component.hasMedia(row, GALLERY_MEDIA)).toBe(true);
+        });
+    });
+
+    describe('labelvalue: heading and inline layout', () => {
+        function lvRow(id: string, position: number, extra: Record<string, unknown> = {}): RepeaterRow {
+            return { id, position, label: '', value: '', ...extra };
+        }
+
+        function useLabelValue(rows: RepeaterRow[], heading = '') {
+            fixture.componentRef.setInput('schema', LABELVALUE);
+            fixture.componentRef.setInput('rows', rows);
+            fixture.componentRef.setInput('heading', heading);
+            fixture.detectChanges();
+        }
+
+        it('renders a heading input for a schema that declares one', () => {
+            useLabelValue([]);
+            const input = fixture.nativeElement.querySelector('.repeater-heading input');
+
+            expect(input).not.toBeNull();
+            expect(input.placeholder).toBe('At a glance');
+        });
+
+        it('renders no heading input for a schema without one', () => {
+            fixture.componentRef.setInput('schema', GALLERY);
+            fixture.componentRef.setInput('rows', []);
+            fixture.detectChanges();
+
+            expect(fixture.nativeElement.querySelector('.repeater-heading')).toBeNull();
+        });
+
+        it('shows the stored heading', () => {
+            useLabelValue([], 'Key facts');
+            expect(fixture.nativeElement.querySelector('.repeater-heading input').value).toBe('Key facts');
+        });
+
+        it('emits heading edits separately from the rows', () => {
+            const headings: string[] = [];
+            const rowEmissions: RepeaterRow[][] = [];
+            component.headingChange.subscribe(h => headings.push(h));
+            component.rowsChange.subscribe(r => rowEmissions.push(r));
+            useLabelValue([lvRow('a', 1)]);
+
+            component.setHeading('Key facts');
+
+            // The heading lives beside the rows, not inside them.
+            expect(headings).toEqual(['Key facts']);
+            expect(rowEmissions).toHaveLength(0);
+        });
+
+        it('lays the sub-fields out inline', () => {
+            useLabelValue([lvRow('a', 1)]);
+            const fields = fixture.nativeElement.querySelector('.repeater-fields');
+
+            expect(component.isInline()).toBe(true);
+            expect(fields.classList.contains('inline')).toBe(true);
+        });
+
+        it('stacks the sub-fields for a schema that does not ask for inline', () => {
+            setRows([makeRow('a', 1)]);
+            expect(component.isInline()).toBe(false);
+            expect(fixture.nativeElement.querySelector('.repeater-fields').classList.contains('inline')).toBe(false);
+        });
+
+        it('locks the heading input while translating', () => {
+            useLabelValue([], 'Key facts');
+            fixture.componentRef.setInput('disabled', true);
+            fixture.detectChanges();
+
+            expect(fixture.nativeElement.querySelector('.repeater-heading input').disabled).toBe(true);
+        });
+
+        it('edits a label and a value independently', () => {
+            const seen: RepeaterRow[][] = [];
+            component.rowsChange.subscribe(r => seen.push(r));
+            useLabelValue([lvRow('a', 1)]);
+
+            component.setValue('a', 'label', 'Minimum age');
+            component.setValue('a', 'value', '16 years');
+
+            expect(seen[0][0]['label']).toBe('Minimum age');
+            expect(seen[1][0]['value']).toBe('16 years');
         });
     });
 

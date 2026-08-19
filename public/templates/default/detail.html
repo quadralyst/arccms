@@ -48,9 +48,11 @@
                   the publish pipeline also publishes each repeating field under
                   its bare key. A content type with an Info Card field keyed
                   `info_cards` fills the first block; one with a Gallery keyed
-                  `gallery` fills the second. A type with neither gets nothing:
-                  an empty loop clears its container, so the placeholder rows
-                  below never reach a published page.
+                  `gallery` fills the second; one with a Label + Value field
+                  keyed `details` fills the facts list below them. A type with
+                  none of them gets nothing: an empty loop clears its
+                  container, so the placeholder rows below never reach a
+                  published page.
 
                   Rename the loop to match your own key, or copy this folder and
                   lay them out however you like.
@@ -77,6 +79,17 @@
                         <figcaption data-arc-bind="caption">Caption</figcaption>
                     </figure>
                 </div>
+
+                <section class="arc-glance" data-arc-if="details">
+                    <h3 class="arc-glance-heading" data-arc-if="details_heading"
+                        data-arc-bind="details_heading">At a glance</h3>
+                    <dl class="arc-glance-list" data-arc-loop="details">
+                        <div class="arc-glance-row">
+                            <dt data-arc-bind="label">Label</dt>
+                            <dd data-arc-bind="value">Value</dd>
+                        </div>
+                    </dl>
+                </section>
 
                 <div class="article-tags" data-arc-loop="tags">
                     <span class="article-tag">{{ name }}</span>
@@ -279,6 +292,13 @@
     max-width: 720px;
     margin-left: auto;
     margin-right: auto;
+}
+
+/* An item with no tags leaves this container empty; without :empty its
+   border-top and padding publish as a stray horizontal rule. Same guard the
+   repeating-field containers above use. */
+.article-tags:empty {
+    display: none;
 }
 
 .article-tag {
@@ -513,6 +533,53 @@
 
 .arc-gallery-item figcaption:empty {
     display: none;
+}
+.arc-glance {
+    max-width: 720px;
+    margin: 3rem auto 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid #e8e8ed;
+    border-radius: 12px;
+    background: #fbfbfd;
+}
+
+.arc-glance-heading {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0 0 0.5rem;
+}
+
+.arc-glance-list {
+    margin: 0;
+}
+
+/* A hairline between rows, not around them — the card already has a border. */
+.arc-glance-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    border-top: 1px solid #e8e8ed;
+}
+
+.arc-glance-row:first-child {
+    border-top: 0;
+}
+
+.arc-glance-row dt {
+    color: #6e6e73;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+.arc-glance-row dd {
+    margin: 0;
+    color: #1d1d1f;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: right;
 }
 </style>
 

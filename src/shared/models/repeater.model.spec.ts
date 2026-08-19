@@ -11,12 +11,14 @@ import {
     REPEATER_SCHEMAS,
     RepeaterRow,
     RepeaterSchema,
+    repeaterHeadingKey,
     repeaterSchema,
     sortRepeaterRows,
 } from './repeater.model';
 
 const INFOCARD = REPEATER_SCHEMAS['infocard'];
 const GALLERY = REPEATER_SCHEMAS['gallery'];
+const LABELVALUE = REPEATER_SCHEMAS['labelvalue'];
 
 /** A row with only the keys under test; the rest are filled by the helpers. */
 function row(partial: Partial<RepeaterRow> & { id: string; position: number }): RepeaterRow {
@@ -91,6 +93,73 @@ describe('repeater model', () => {
 
         it('marks the caption translatable', () => {
             expect(GALLERY.subFields[1].translatable).toBe(true);
+        });
+    });
+
+    describe('labelvalue schema', () => {
+        it('recognises labelvalue as a repeating type', () => {
+            expect(isRepeaterType('labelvalue')).toBe(true);
+        });
+
+        it('is a label and a value, both required', () => {
+            expect(LABELVALUE.subFields.map(s => [s.key, s.type, s.required])).toEqual([
+                ['label', 'text', true],
+                ['value', 'text', true],
+            ]);
+        });
+
+        it('marks both sides translatable', () => {
+            // "Minimum age" and "Free" are equally prose.
+            expect(LABELVALUE.subFields.every(s => s.translatable)).toBe(true);
+        });
+
+        it('lays rows out inline', () => {
+            // Stacked, a four-row facts list is eight inputs down a 280px column.
+            expect(LABELVALUE.layout).toBe('inline');
+            expect(INFOCARD.layout).toBeUndefined();
+        });
+
+        it('declares an editable, translatable heading', () => {
+            expect(LABELVALUE.heading).toMatchObject({ key: 'heading', translatable: true });
+            expect(LABELVALUE.heading?.placeholder).toBe('At a glance');
+        });
+
+        it('has no media slot, so no bulk add', () => {
+            expect(LABELVALUE.subFields.some(s => s.type === 'media')).toBe(false);
+        });
+    });
+
+    describe('repeaterHeadingKey', () => {
+        it('hangs the heading off the stored field key', () => {
+            // Stored beside the rows, so the field's own value stays an array.
+            expect(repeaterHeadingKey('events_details', LABELVALUE)).toBe('events_details_heading');
+        });
+
+        it('is null for a schema that declares no heading', () => {
+            expect(repeaterHeadingKey('events_gallery', GALLERY)).toBeNull();
+            expect(repeaterHeadingKey('events_info_cards', INFOCARD)).toBeNull();
+        });
+    });
+
+    describe('labelvalue rows', () => {
+        it('creates a blank row with both text slots', () => {
+            const created = newRepeaterRow(LABELVALUE, 1);
+            expect(created['label']).toBe('');
+            expect(created['value']).toBe('');
+        });
+
+        it('keeps a row with only one side filled', () => {
+            // Half-filled is a work in progress, not an abandoned row.
+            const half = { ...newRepeaterRow(LABELVALUE, 1), label: 'Cost' };
+            expect(isRepeaterRowEmpty(half, LABELVALUE)).toBe(false);
+        });
+
+        it('drops a wholly blank row on save', () => {
+            const rows = prepareRepeaterRowsForSave([
+                { id: 'a', position: 1, label: 'Cost', value: 'Free' },
+                newRepeaterRow(LABELVALUE, 2),
+            ], LABELVALUE);
+            expect(rows.map(r => r.id)).toEqual(['a']);
         });
     });
 
