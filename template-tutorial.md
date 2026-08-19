@@ -205,7 +205,7 @@ In the Content Types admin panel, you can add custom fields with various types:
 - **checkbox**: Boolean true/false
 - **number**: Numeric values
 - **image**: An image chosen from the Media Manager
-- **icon**: A Font Awesome icon chosen from the Media Manager's Icons tab
+- **icon**: A Font Awesome icon, chosen from a searchable icon picker
 
 Each field has a **key** (used for binding) and a **label** (displayed in admin).
 
