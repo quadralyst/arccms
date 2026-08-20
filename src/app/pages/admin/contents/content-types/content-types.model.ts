@@ -1,6 +1,6 @@
 import { IBaseModel } from '../../../../../shared/models/base-model';
 
-export type ContentTypeFieldType = 'text' | 'number' | 'richtext' | 'date' | 'datetime' | 'image' | 'icon' | 'boolean' | 'dropdown' | 'checkbox' | 'radio' | 'infocard' | 'gallery' | 'labelvalue';
+export type ContentTypeFieldType = 'text' | 'number' | 'richtext' | 'date' | 'datetime' | 'image' | 'icon' | 'boolean' | 'dropdown' | 'checkbox' | 'radio' | 'infocard' | 'gallery' | 'labelvalue' | 'maplocation';
 
 export interface CollectionReferenceConfig {
     collectionSlug: string;         // slug of the referenced content type (e.g., "authors")

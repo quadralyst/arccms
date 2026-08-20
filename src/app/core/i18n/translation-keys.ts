@@ -74,6 +74,13 @@ export type TranslationKey =
     | 'admin.contents.editor.history'
     | 'admin.contents.editor.image_recommendation'
     | 'admin.contents.editor.loading_options'
+    | 'admin.contents.editor.map.address'
+    | 'admin.contents.editor.map.address_placeholder'
+    | 'admin.contents.editor.map.bad_coordinates'
+    | 'admin.contents.editor.map.clear'
+    | 'admin.contents.editor.map.coordinates'
+    | 'admin.contents.editor.map.no_results'
+    | 'admin.contents.editor.map.search_placeholder'
     | 'admin.contents.editor.meta_description'
     | 'admin.contents.editor.next_content_hint'
     | 'admin.contents.editor.no_content_found'
@@ -1045,6 +1052,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.history',
     'admin.contents.editor.image_recommendation',
     'admin.contents.editor.loading_options',
+    'admin.contents.editor.map.address',
+    'admin.contents.editor.map.address_placeholder',
+    'admin.contents.editor.map.bad_coordinates',
+    'admin.contents.editor.map.clear',
+    'admin.contents.editor.map.coordinates',
+    'admin.contents.editor.map.no_results',
+    'admin.contents.editor.map.search_placeholder',
     'admin.contents.editor.meta_description',
     'admin.contents.editor.next_content_hint',
     'admin.contents.editor.no_content_found',

@@ -76,7 +76,8 @@ export default class AddContentTypeComponent extends BaseComponent {
         'radio',
         'infocard',
         'gallery',
-        'labelvalue'
+        'labelvalue',
+        'maplocation'
     ];
 
     addForm = new FormGroup({

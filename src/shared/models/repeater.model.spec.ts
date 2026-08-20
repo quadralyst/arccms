@@ -3,6 +3,7 @@ import {
     isRepeaterRowEmpty,
     isRepeaterType,
     makeRowId,
+    locationRowKeys,
     mediaRowKeys,
     newRepeaterRow,
     normalizeRepeaterRows,
@@ -19,6 +20,7 @@ import {
 const INFOCARD = REPEATER_SCHEMAS['infocard'];
 const GALLERY = REPEATER_SCHEMAS['gallery'];
 const LABELVALUE = REPEATER_SCHEMAS['labelvalue'];
+const MAPLOCATION = REPEATER_SCHEMAS['maplocation'];
 
 /** A row with only the keys under test; the rest are filled by the helpers. */
 function row(partial: Partial<RepeaterRow> & { id: string; position: number }): RepeaterRow {
@@ -160,6 +162,87 @@ describe('repeater model', () => {
                 newRepeaterRow(LABELVALUE, 2),
             ], LABELVALUE);
             expect(rows.map(r => r.id)).toEqual(['a']);
+        });
+    });
+
+    describe('maplocation schema', () => {
+        it('recognises maplocation as a repeating type', () => {
+            expect(isRepeaterType('maplocation')).toBe(true);
+        });
+
+        it('is a name plus a location slot', () => {
+            expect(MAPLOCATION.subFields.map(s => [s.key, s.type])).toEqual([
+                ['label', 'text'],
+                ['address', 'location'],
+            ]);
+        });
+
+        it('spreads the location over four flat row keys', () => {
+            const loc = MAPLOCATION.subFields[1] as any;
+            // Flat keys so a template writes {{ lat }} and {{ address }} with
+            // no nested access, and the render-time derivation can find them.
+            expect(loc.key).toBe('address');
+            expect(loc.latKey).toBe('lat');
+            expect(loc.lngKey).toBe('lng');
+            expect(loc.zoomKey).toBe('zoom');
+        });
+
+        it('marks the name and address translatable, not the coordinates', () => {
+            expect(MAPLOCATION.subFields.filter(s => s.translatable).map(s => s.key))
+                .toEqual(['label', 'address']);
+        });
+
+        it('declares an editable heading', () => {
+            expect(MAPLOCATION.heading).toMatchObject({ key: 'heading', translatable: true });
+        });
+    });
+
+    describe('locationRowKeys', () => {
+        it('lists the address and all three coordinate keys', () => {
+            expect(locationRowKeys(MAPLOCATION.subFields[1] as any))
+                .toEqual(['address', 'lat', 'lng', 'zoom']);
+        });
+    });
+
+    describe('maplocation rows', () => {
+        it('nulls the coordinates on a blank row rather than zeroing them', () => {
+            const created = newRepeaterRow(MAPLOCATION, 1);
+
+            // 0,0 is a real place in the Atlantic; null means "not set".
+            expect(created['address']).toBe('');
+            expect(created['lat']).toBeNull();
+            expect(created['lng']).toBeNull();
+            expect(created['zoom']).toBeNull();
+        });
+
+        it('counts a row with only coordinates as filled', () => {
+            const placed = { ...newRepeaterRow(MAPLOCATION, 1), lat: 18.5204, lng: 73.8567 };
+            expect(isRepeaterRowEmpty(placed, MAPLOCATION)).toBe(false);
+        });
+
+        it('counts a wholly blank row as empty', () => {
+            expect(isRepeaterRowEmpty(newRepeaterRow(MAPLOCATION, 1), MAPLOCATION)).toBe(true);
+        });
+
+        it('drops an unplaced row on save', () => {
+            const rows = prepareRepeaterRowsForSave([
+                { id: 'a', position: 1, label: 'Office', address: 'FC Road', lat: 18.5, lng: 73.8, zoom: 15 },
+                newRepeaterRow(MAPLOCATION, 2),
+            ], MAPLOCATION);
+            expect(rows.map(r => r.id)).toEqual(['a']);
+        });
+
+        it('fills the coordinate slots on a row written before they existed', () => {
+            const [only] = normalizeRepeaterRows([{ id: 'a', position: 1, label: 'Office' }], MAPLOCATION);
+            expect(only['address']).toBe('');
+            expect(only['lat']).toBeNull();
+            expect(only['lng']).toBeNull();
+        });
+
+        it('keeps a coordinate of 0 through normalisation', () => {
+            const [only] = normalizeRepeaterRows([{ id: 'a', position: 1, lat: 0, lng: 0 }], MAPLOCATION);
+            expect(only['lat']).toBe(0);
+            expect(only['lng']).toBe(0);
         });
     });
 

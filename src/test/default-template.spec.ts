@@ -32,6 +32,11 @@ const DETAILS = [
     { id: 'r_f', position: 2, label: 'Cost', value: 'Free' },
 ];
 
+const LOCATIONS = [
+    { id: 'r_g', position: 1, label: 'Head office', address: 'FC Road, Pune', lat: 18.5204, lng: 73.8567, zoom: 15 },
+    { id: 'r_h', position: 2, label: 'Not placed', address: '', lat: null, lng: null, zoom: null },
+];
+
 const GALLERY = [
     { id: 'r_c', position: 1, image: 'https://example.com/photo.jpg', video: '', caption: 'A photo' },
     { id: 'r_d', position: 2, image: '', video: 'https://youtu.be/dQw4w9WgXcQ', caption: 'A video' },
@@ -129,6 +134,51 @@ describe('default detail template', () => {
         expect(html).not.toContain('arc-glance-row');
         expect(html).not.toContain('>Label<');
         expect(html).not.toContain('>Value<');
+    });
+
+    it('renders map cards from a slug-prefixed field', () => {
+        const html = render({ events_locations: LOCATIONS, events_locations_heading: 'Find us' });
+
+        expect(html).toContain('Find us');
+        expect(html).toContain('Head office');
+        expect(html).toContain('FC Road, Pune');
+        // Derived at render — keyless, no script.
+        expect(html).toContain('openstreetmap.org/export/embed.html');
+        expect(html).toContain('google.com/maps/dir');
+    });
+
+    it('renders one card per location but a frame only where a point exists', () => {
+        const html = markup(render({ events_locations: LOCATIONS }));
+
+        expect(html.match(/class="arc-location"/g)).toHaveLength(2);
+        // A row with no coordinates gets no map rather than a map of the Atlantic.
+        expect(html.match(/<iframe/g)).toHaveLength(1);
+    });
+
+    it('gives the map frame a real src', () => {
+        const html = render({ events_locations: LOCATIONS });
+        // Binding into an iframe's content instead of its src ships a blank box.
+        expect(html).toMatch(/<iframe[^>]*src="https:\/\/www\.openstreetmap\.org\/export\/embed\.html/);
+    });
+
+    it('loads map frames lazily', () => {
+        // Several map cards on one page should not each fetch tiles up front.
+        const html = render({ events_locations: LOCATIONS });
+        expect(html).toContain('loading="lazy"');
+    });
+
+    it('ships no map library or API key on the page', () => {
+        const html = render({ events_locations: LOCATIONS });
+
+        expect(html).not.toContain('leaflet');
+        expect(html).not.toMatch(/[?&](key|token|apiKey)=/i);
+    });
+
+    it('drops the whole locations block for a type without the field', () => {
+        const html = markup(render({}));
+
+        expect(html).not.toContain('class="arc-location"');
+        expect(html).not.toContain('>Location name<');
     });
 
     it('renders exactly one row per item', () => {

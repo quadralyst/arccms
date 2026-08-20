@@ -209,6 +209,7 @@ In the Content Types admin panel, you can add custom fields with various types:
 - **infocard**: A repeating list of cards — icon or image, headline and info
 - **gallery**: A repeating list of photos and YouTube videos with captions
 - **labelvalue**: A repeating list of label/value pairs, with an editable heading
+- **maplocation**: A repeating list of map locations, each with a name and address
 
 Each field has a **key** (used for binding) and a **label** (displayed in admin).
 
@@ -329,7 +330,7 @@ posters rather than a page full of iframes.
   for any content type. Name your fields `info_cards`, `gallery` and `details`
   and the default template needs no edits. An alias never replaces a built-in
   binding such as `title`
-- Repeating fields (`infocard`, `gallery`) render on **detail** and **partials**
+- Repeating fields (`infocard`, `gallery`, `labelvalue`, `maplocation`) render on **detail** and **partials**
   templates only — they cannot be nested inside a list page's `items` loop
 - For dropdown fields, the **selected option value** is displayed (not the key)
 - If a custom field is empty or not set, the placeholder text remains

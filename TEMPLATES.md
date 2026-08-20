@@ -223,7 +223,7 @@ Any custom fields you define on a content type are automatically available using
 ## Info Cards and other repeating fields
 
 Some fields hold a **list of rows** rather than one value. **Info Card**,
-**Gallery** and **Label + Value** are all of these: each row has the same set of sub-fields, and
+**Gallery**, **Label + Value** and **Map Location** are all of these: each row has the same set of sub-fields, and
 you add, reorder and remove rows in the editor.
 
 An **Info Card** row is an icon or image, a headline, and a short paragraph —
@@ -500,6 +500,87 @@ Info Cards and Gallery, looping `details`. Name your field `details` and it
 renders with no template work.
 
 Label + Value shares every limitation listed under **Info Cards**.
+
+---
+
+## Map locations
+
+A **Map Location** field holds one or more places — an office, a set of
+chapters, event venues. Each row is a name, an address and a point on the map,
+and each renders as a small map card.
+
+### Adding one
+
+1. **Admin > Contents > Content Types**, edit your type, add a field.
+2. Set **Type** to `maplocation` and give it a key, e.g. `locations`.
+3. In the editor, search for an address, then drag the marker — or click the
+   map, or type coordinates directly. The address text is editable on its own,
+   because a geocoder's wording is rarely what a page should print.
+
+### What a row exposes
+
+| Binding | Contains |
+|---------|----------|
+| `{{ label }}` | The location's name |
+| `{{ address }}` | The address, as you edited it |
+| `{{ lat }}` / `{{ lng }}` | The coordinates |
+| `{{ map_embed }}` | An `<iframe src>` showing the point with a marker |
+| `{{ map_directions }}` | A link that opens the visitor's own maps app |
+| `{{ map_view }}` | The point on openstreetmap.org |
+
+Only the coordinates and address are stored; the three URLs are worked out at
+render time.
+
+```html
+<section class="locations" data-arc-if="KEY">
+    <h3 data-arc-if="KEY_heading" data-arc-bind="KEY_heading">Find us</h3>
+
+    <div class="locations-grid" data-arc-loop="KEY">
+        <article class="location">
+            <iframe data-arc-if="map_embed" data-arc-bind="map_embed"
+                    loading="lazy" title="Map"></iframe>
+            <h4 data-arc-bind="label">Location name</h4>
+            <p data-arc-bind="address">Street, City</p>
+            <a data-arc-if="map_directions" data-arc-bind="map_directions"
+               target="_blank" rel="noopener">Get directions</a>
+        </article>
+    </div>
+</section>
+```
+
+Wrap the map in `data-arc-if="map_embed"` so a row where nobody placed a marker
+renders its name and address without a map, rather than a map of the Atlantic.
+Keep `loading="lazy"` — several map cards on one page should not each fetch
+tiles before they are scrolled to.
+
+### No API key, no map library, no cookies
+
+The published map is an OpenStreetMap embed. There is no API key to obtain, no
+billing account to attach, and nothing for a visitor to consent to — the page
+ships no map JavaScript at all. Leaflet is used only in the admin, to aim the
+marker, and never reaches a published page.
+
+Two consequences worth knowing:
+
+- **The frame is pannable inside itself.** It carries no controls of ours, but
+  it is OpenStreetMap's own embed. If you need a frozen image, that requires a
+  keyed static-map provider.
+- **OpenStreetMap's tile servers expect modest traffic.** A high-traffic site
+  should move to a tile provider such as Carto or Stadia, both of which have
+  free tiers.
+
+Attribution to OpenStreetMap ships inside the embed and is a condition of the
+ODbL licence — do not strip it.
+
+### One map with every pin
+
+Not supported. Each location gets its own frame, because combining pins onto a
+single map needs either a map library on the page or a keyed static-map
+service. Say so if you would rather have that trade.
+
+Map Location shares the other limitations listed under **Info Cards** — detail
+and partials templates only, not CSV-importable, and never a contents-list
+column. Names and addresses translate per row; the coordinates are shared.
 
 ---
 

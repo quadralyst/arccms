@@ -122,6 +122,20 @@
             </div>
             }
 
+            @case ('location') {
+            <!-- The picker is admin-only; a published page renders this row as
+                 a keyless OpenStreetMap iframe with no script at all. -->
+            <arc-map-picker
+                [address]="text(row, sub)"
+                [lat]="coordinate(row, asLocation(sub).latKey)"
+                [lng]="coordinate(row, asLocation(sub).lngKey)"
+                [zoom]="coordinate(row, asLocation(sub).zoomKey)"
+                [disabled]="isLocked() && !canEdit(sub)"
+                (picked)="setLocation(row, asLocation(sub), $event)"
+                (cleared)="clearLocation(row, asLocation(sub))">
+            </arc-map-picker>
+            }
+
             @case ('textarea') {
             <textarea class="form-control form-control-sm" [rows]="$any(sub).rows || 3"
                 [value]="text(row, sub)" [disabled]="!canEdit(sub)"

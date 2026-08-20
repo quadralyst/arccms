@@ -644,6 +644,100 @@ describe('TemplateHydrationService', () => {
         });
     });
 
+    describe('iframe binding', () => {
+        it('sets an iframe src rather than its content', () => {
+            // An iframe's payload is its src. Binding into its content leaves
+            // the frame blank — how a gallery video or a map would ship as an
+            // empty box.
+            const html = '<iframe data-arc-bind="embed"></iframe>';
+            const result = TemplateHydrationService.hydrateTemplate(html, {
+                embed: 'https://www.youtube-nocookie.com/embed/abc',
+            });
+
+            expect(result).toContain('src="https://www.youtube-nocookie.com/embed/abc"');
+            expect(result).not.toContain('>https://www.youtube-nocookie.com');
+        });
+
+        it('keeps other iframe attributes intact', () => {
+            const html = '<iframe data-arc-bind="embed" loading="lazy" title="Map"></iframe>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { embed: 'https://example.com/x' });
+
+            expect(result).toContain('loading="lazy"');
+            expect(result).toContain('title="Map"');
+        });
+    });
+
+    describe('Location Flattening', () => {
+        const ROWS = [
+            { id: 'r_a', position: 1, label: 'Head office', address: 'FC Road, Pune', lat: 18.5204, lng: 73.8567, zoom: 15 },
+            { id: 'r_b', position: 2, label: 'Not placed yet', address: '', lat: null, lng: null, zoom: null },
+        ];
+
+        it('derives the embed, directions and view links per row', () => {
+            const html = '<div data-arc-loop="offices">'
+                + '<article data-arc-if="map_embed">'
+                + '<iframe data-arc-bind="map_embed" title="{{ label }}"></iframe>'
+                + '<a data-arc-bind="map_directions">Directions</a>'
+                + '<p data-arc-bind="address">Address</p>'
+                + '</article></div>';
+
+            const result = TemplateHydrationService.processLoops(
+                html,
+                TemplateHydrationService.arrayLoopData({ offices: ROWS }),
+            );
+
+            expect(result).toContain('openstreetmap.org/export/embed.html');
+            expect(result).toContain('google.com/maps/dir');
+            expect(result).toContain('FC Road, Pune');
+        });
+
+        it('drops the block for a row with no point placed', () => {
+            const html = '<div data-arc-loop="offices">'
+                + '<article data-arc-if="map_embed"><iframe data-arc-bind="map_embed"></iframe></article>'
+                + '</div>';
+
+            const result = TemplateHydrationService.processLoops(
+                html,
+                TemplateHydrationService.arrayLoopData({ offices: ROWS }),
+            );
+
+            // One row has coordinates, one does not — a map of the Atlantic
+            // would be worse than no map.
+            expect(result.match(/<iframe/g)).toHaveLength(1);
+        });
+
+        it('leaves the stored coordinates untouched', () => {
+            const result = TemplateHydrationService.hydrateTemplate(
+                '<span>{{ lat }},{{ lng }}</span>',
+                { lat: 18.5204, lng: 73.8567 },
+            );
+            expect(result).toContain('18.5204,73.8567');
+        });
+
+        it('adds nothing when a row has no coordinates at all', () => {
+            const result = TemplateHydrationService.hydrateTemplate(
+                '<span>[{{ map_embed }}]</span>',
+                { address: 'Somewhere' },
+            );
+            expect(result).toContain('[]');
+        });
+
+        it('does not mutate the caller data object', () => {
+            const data: Record<string, any> = { lat: 18.5204, lng: 73.8567 };
+            TemplateHydrationService.hydrateTemplate('<span>{{ map_embed }}</span>', data);
+            expect(Object.keys(data).sort()).toEqual(['lat', 'lng']);
+        });
+
+        it('works for a single location stored at the top level', () => {
+            // A non-repeating location field would flatten the same way.
+            const result = TemplateHydrationService.hydrateTemplate(
+                '<iframe data-arc-bind="map_embed"></iframe>',
+                { lat: 0, lng: 0 },
+            );
+            expect(result).toContain('openstreetmap.org/export/embed.html');
+        });
+    });
+
     describe('Video Flattening', () => {
         const URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s';
 

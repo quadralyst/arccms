@@ -678,6 +678,15 @@
           "video_invalid": "That is not a YouTube link.",
           "video": "Video",
           "structure_locked": "Rows, order and images are shared across languages — edit them on the default language tab."
+        },
+        "map": {
+          "search_placeholder": "Search for an address",
+          "no_results": "No places matched that search. Drag the marker or type coordinates instead.",
+          "address": "Address",
+          "address_placeholder": "How the address should read on the page",
+          "coordinates": "Latitude, longitude",
+          "bad_coordinates": "Enter coordinates as \"18.5204, 73.8567\".",
+          "clear": "Clear location"
         }
       },
       "list": {

@@ -18,10 +18,12 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import MediaManagerComponent, { MediaSelection } from '../../../app/pages/admin/(media)/media.page';
 import { ArcIcon, isArcIcon } from '../../models/icon.model';
 import { isYouTubeUrl, youTubeVideo } from '../../utils/youtube';
+import { MapPickerComponent, PickedLocation } from '../map-picker/map-picker.component';
 import {
     cloneRepeaterRows,
     mediaRowKeys,
     newRepeaterRow,
+    RepeaterLocationSubField,
     RepeaterMediaSubField,
     RepeaterRow,
     RepeaterSchema,
@@ -33,7 +35,7 @@ import {
 @Component({
     selector: 'arc-field-repeater',
     standalone: true,
-    imports: [FormsModule, TranslocoPipe, LowerCasePipe],
+    imports: [FormsModule, TranslocoPipe, LowerCasePipe, MapPickerComponent],
     templateUrl: './field-repeater.component.html',
     styleUrl: './field-repeater.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -186,6 +188,39 @@ export class FieldRepeaterComponent {
         if (this.isLocked()) return;
         this.videoErrors.update(({ [row.id]: _dropped, ...rest }) => rest);
         this.setMedia(row.id, sub, {});
+    }
+
+    /** Stores a point placed in the map picker. */
+    setLocation(row: RepeaterRow, sub: RepeaterLocationSubField, picked: PickedLocation): void {
+        if (this.isLocked() && !this.canEdit(sub)) return;
+
+        this.emit(this.rows().map((r) => (r.id === row.id ? {
+            ...r,
+            [sub.key]: picked.address,
+            [sub.latKey]: picked.lat,
+            [sub.lngKey]: picked.lng,
+            [sub.zoomKey]: picked.zoom,
+        } : r)));
+    }
+
+    clearLocation(row: RepeaterRow, sub: RepeaterLocationSubField): void {
+        if (this.isLocked()) return;
+
+        const cleared: Record<string, unknown> = { [sub.key]: '' };
+        for (const key of [sub.latKey, sub.lngKey, sub.zoomKey]) cleared[key] = null;
+
+        this.emit(this.rows().map((r) => (r.id === row.id ? { ...r, ...cleared } : r)));
+    }
+
+    /** Narrowing helper — the template cannot discriminate a union on its own. */
+    asLocation(sub: RepeaterSubField): RepeaterLocationSubField {
+        return sub as RepeaterLocationSubField;
+    }
+
+    /** A row's stored coordinate, or null when no point is placed. */
+    coordinate(row: RepeaterRow, key: string): number | null {
+        const value = row[key];
+        return typeof value === 'number' ? value : null;
     }
 
     /**

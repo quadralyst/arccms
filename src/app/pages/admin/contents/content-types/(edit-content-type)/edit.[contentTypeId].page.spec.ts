@@ -456,6 +456,7 @@ describe('EditContentTypeComponent', () => {
             expect(component.fieldTypes).toContain('infocard');
             expect(component.fieldTypes).toContain('gallery');
             expect(component.fieldTypes).toContain('labelvalue');
+            expect(component.fieldTypes).toContain('maplocation');
             expect(component.fieldTypes).toContain('boolean');
         });
 
@@ -465,8 +466,8 @@ describe('EditContentTypeComponent', () => {
             expect(component.fieldTypes).toContain('radio');
         });
 
-        it('should have 14 field types total', () => {
-            expect(component.fieldTypes.length).toBe(14);
+        it('should have 15 field types total', () => {
+            expect(component.fieldTypes.length).toBe(15);
         });
 
         it('should include datetime field type', () => {

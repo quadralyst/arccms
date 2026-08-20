@@ -49,7 +49,8 @@
                   its bare key. A content type with an Info Card field keyed
                   `info_cards` fills the first block; one with a Gallery keyed
                   `gallery` fills the second; one with a Label + Value field
-                  keyed `details` fills the facts list below them. A type with
+                  keyed `details` fills the facts list; one with a Map Location
+                  field keyed `locations` fills the map cards. A type with
                   none of them gets nothing: an empty loop clears its
                   container, so the placeholder rows below never reach a
                   published page.
@@ -89,6 +90,23 @@
                             <dd data-arc-bind="value">Value</dd>
                         </div>
                     </dl>
+                </section>
+
+                <section class="arc-locations" data-arc-if="locations">
+                    <h3 class="arc-locations-heading" data-arc-if="locations_heading"
+                        data-arc-bind="locations_heading">Find us</h3>
+                    <div class="arc-locations-grid" data-arc-loop="locations">
+                        <article class="arc-location">
+                            <!-- A keyless OpenStreetMap frame: no API key, no map
+                                 library, and no tracking cookies on the visitor. -->
+                            <iframe data-arc-if="map_embed" data-arc-bind="map_embed"
+                                    loading="lazy" title="Map"></iframe>
+                            <h4 data-arc-bind="label">Location name</h4>
+                            <p data-arc-bind="address">Street, City</p>
+                            <a data-arc-if="map_directions" data-arc-bind="map_directions"
+                               target="_blank" rel="noopener">Get directions</a>
+                        </article>
+                    </div>
                 </section>
 
                 <div class="article-tags" data-arc-loop="tags">
@@ -580,6 +598,74 @@
     font-size: 0.9rem;
     font-weight: 600;
     text-align: right;
+}
+.arc-locations {
+    max-width: 720px;
+    margin: 3rem auto 0;
+}
+
+.arc-locations:empty,
+.arc-locations-grid:empty {
+    display: none;
+}
+
+.arc-locations-heading {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0 0 0.75rem;
+}
+
+.arc-locations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.arc-location {
+    border: 1px solid #e8e8ed;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fbfbfd;
+}
+
+/* The frame carries no controls of its own beyond OpenStreetMap's — the map is
+   a picture of where the place is, not something to explore. */
+.arc-location iframe {
+    display: block;
+    width: 100%;
+    height: 180px;
+    border: 0;
+}
+
+.arc-location h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0.85rem 1rem 0.25rem;
+}
+
+.arc-location h4:empty {
+    display: none;
+}
+
+.arc-location p {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #6e6e73;
+    margin: 0 1rem 0.5rem;
+}
+
+.arc-location a {
+    display: inline-block;
+    margin: 0 1rem 1rem;
+    font-size: 0.85rem;
+    color: #0066cc;
+    text-decoration: none;
+}
+
+.arc-location a:hover {
+    text-decoration: underline;
 }
 </style>
 
