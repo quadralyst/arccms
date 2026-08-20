@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, inject, signal, ViewChild, TemplateRef } from '@angular/core';
+import { Component, inject, signal, ViewChild, TemplateRef, computed } from '@angular/core';
 import { MatSidenavModule, MatDrawer } from '@angular/material/sidenav';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -225,15 +225,34 @@ export default class ContentTypeComponent {
       }
     });
 
+    // No limit and no cursors: the store is shared with the content editor,
+    // which needs every type present to resolve its custom fields. Paging is
+    // done below over what is already loaded.
     this.contentTypesStore.getAll({
       orderByField: this.sortField(),
       orderByDirection: this.sortOrder(),
-      limitCount: this.pageSize(),
-      currentPageNumber: this.currentPage(),
-      previousPageNumber: this.currentPage() - 1,
+      limitCount: 0,
+      currentPageNumber: 0,
+      previousPageNumber: -1,
       whereConditions
     });
   }
+
+  /**
+   * The slice of content types this page shows.
+   *
+   * Client-side because the store deliberately holds them all — see
+   * `ContentTypesStore`. A site has tens of content types, so slicing an array
+   * is cheaper than the Firestore cursor round-trip it replaces, and page
+   * changes become instant.
+   */
+  pagedContentTypes = computed(() => {
+    const start = this.currentPage() * this.pageSize();
+    return this.contentTypesStore.items().slice(start, start + this.pageSize());
+  });
+
+  /** Total across every page, for the paginator and the "showing x of y" line. */
+  totalContentTypes = computed(() => this.contentTypesStore.items().length);
 
   /**
    * Update URL with current state
@@ -307,8 +326,7 @@ export default class ContentTypeComponent {
    * Get starting record number for display
    */
   getStartRecord(): number {
-    const total = this.contentTypesStore.totalRecords();
-    if (total === 0) return 0;
+    if (this.totalContentTypes() === 0) return 0;
     return this.currentPage() * this.pageSize() + 1;
   }
 
@@ -316,9 +334,8 @@ export default class ContentTypeComponent {
    * Get ending record number for display
    */
   getEndRecord(): number {
-    const total = this.contentTypesStore.totalRecords();
     const end = (this.currentPage() + 1) * this.pageSize();
-    return Math.min(end, total);
+    return Math.min(end, this.totalContentTypes());
   }
 
   /**
