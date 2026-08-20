@@ -279,8 +279,8 @@ that is not set, so a single template handles either:
             <img data-arc-if="image" data-arc-bind="image" alt="">
             <i data-arc-if="icon" class="{{ icon }}" aria-hidden="true"></i>
         </span>
-        <h3 data-arc-bind="headline">Find volunteering opportunities</h3>
-        <p data-arc-bind="info">Browse verified needs near you.</p>
+        <h3 data-arc-bind="headline">Headline</h3>
+        <p data-arc-bind="info">Supporting text for this card.</p>
     </article>
 </section>
 ```
@@ -563,8 +563,8 @@ and colour the icon through it:
         <span class="card-icon-badge">
             <i class="{{ card_icon }}" aria-hidden="true"></i>
         </span>
-        <h3 data-arc-bind="title">Find volunteering opportunities</h3>
-        <p data-arc-bind="excerpt">Browse verified needs near you.</p>
+        <h3 data-arc-bind="title">Title</h3>
+        <p data-arc-bind="excerpt">Excerpt</p>
     </a>
 </div>
 ```
