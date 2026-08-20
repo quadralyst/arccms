@@ -156,16 +156,46 @@ describe('ContentTypesPage', () => {
             );
         });
 
+        /**
+         * The loaded array is the count now, not a server total: content types
+         * are fetched unpaginated so the editor can resolve every one of them.
+         */
+        const loadTypes = (count: number) =>
+            mockStore.items.set(Array.from({ length: count }, (_, i) => ({ id: `t${i}` })) as any);
+
+        // The mock store is shared, and `items` is a signal — without this one
+        // test's data silently answers the next one's assertions.
+        beforeEach(() => loadTypes(0));
+
         it('should calculate correct start record', () => {
-            mockStore.totalRecords = vi.fn().mockReturnValue(50);
+            loadTypes(50);
             component.currentPage.set(0);
             component.pageSize.set(10);
 
             expect(component.getStartRecord()).toBe(1);
         });
 
+        it('should show only the current page of types', () => {
+            loadTypes(50);
+            component.currentPage.set(1);
+            component.pageSize.set(10);
+
+            // Paging is client-side over the fully loaded set.
+            expect(component.pagedContentTypes()).toHaveLength(10);
+            expect(component.pagedContentTypes()[0].id).toBe('t10');
+            expect(component.totalContentTypes()).toBe(50);
+        });
+
+        it('should show every type when they fit on one page', () => {
+            loadTypes(13);
+            component.currentPage.set(0);
+            component.pageSize.set(25);
+
+            expect(component.pagedContentTypes()).toHaveLength(13);
+        });
+
         it('should calculate correct end record for full page', () => {
-            mockStore.totalRecords = vi.fn().mockReturnValue(50);
+            loadTypes(50);
             component.currentPage.set(0);
             component.pageSize.set(10);
 
@@ -173,7 +203,7 @@ describe('ContentTypesPage', () => {
         });
 
         it('should calculate correct end record for last partial page', () => {
-            mockStore.totalRecords = vi.fn().mockReturnValue(23);
+            loadTypes(23);
             component.currentPage.set(2); // Page 3
             component.pageSize.set(10);
 
@@ -181,7 +211,7 @@ describe('ContentTypesPage', () => {
         });
 
         it('should return 0 for start record when no data', () => {
-            mockStore.totalRecords = vi.fn().mockReturnValue(0);
+            loadTypes(0);
 
             expect(component.getStartRecord()).toBe(0);
         });
