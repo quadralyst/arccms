@@ -129,7 +129,7 @@
     overflow-y: auto;
     background-color: #fff;
     margin: 1rem;
-    margin-right: 0.5rem;
+    margin-right: 0;
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     display: flex;
@@ -170,7 +170,7 @@
     flex-direction: column;
     overflow: hidden;
     margin: 1rem;
-    margin-right: 0.5rem;
+    margin-right: 0;
 }
 
 .version-preview-header {
@@ -497,10 +497,47 @@
 //     }
 // }
 
+// Sidebar Resize Handle
+.sidebar-resizer {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    align-self: stretch;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none; // Keep touch drags from turning into page scrolls.
+    position: relative;
+    background: transparent;
+
+    // Thin accent that fades in, so the divider reads as grabbable on hover.
+    &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 2px;
+        transform: translateX(-50%);
+        background-color: #4a6cf7;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    &:hover::after,
+    &:focus-visible::after,
+    &.arc-resizing::after {
+        opacity: 1;
+    }
+
+    &:focus-visible {
+        outline: none;
+    }
+}
+
 // Settings Sidebar
 .settings-sidebar {
-    width: 320px;
-    min-width: 320px;
+    width: var(--sidebar-w, 320px);
+    min-width: 0;
+    flex: 0 0 auto;
     background-color: #fff;
     border-left: 1px solid #e9ecef;
     display: flex;
@@ -918,6 +955,10 @@
         flex-direction: column;
         overflow: visible;
         height: auto;
+    }
+
+    .sidebar-resizer {
+        display: none;
     }
 
     .settings-sidebar {

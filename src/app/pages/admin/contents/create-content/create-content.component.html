@@ -236,6 +236,12 @@
         </div>
         }
 
+        <!-- Drag handle — resizes the settings sidebar -->
+        <div class="sidebar-resizer" arcResizable="admin.contentEditor.sidebar"
+            resizeVar="--sidebar-w" [resizeMin]="280" [resizeMax]="640" [resizeDefault]="320"
+            [attr.aria-label]="'admin.contents.editor.resize_sidebar' | transloco"
+            [title]="'admin.contents.editor.resize_sidebar' | transloco"></div>
+
         <!-- Settings Sidebar -->
         <div class="settings-sidebar">
             <div class="sidebar-tabs">

@@ -98,6 +98,7 @@ export type TranslationKey =
     | 'admin.contents.editor.repeater.video'
     | 'admin.contents.editor.repeater.video_invalid'
     | 'admin.contents.editor.repeater.video_url'
+    | 'admin.contents.editor.resize_sidebar'
     | 'admin.contents.editor.restore_version'
     | 'admin.contents.editor.save_draft'
     | 'admin.contents.editor.select_icon'
@@ -1076,6 +1077,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.repeater.video',
     'admin.contents.editor.repeater.video_invalid',
     'admin.contents.editor.repeater.video_url',
+    'admin.contents.editor.resize_sidebar',
     'admin.contents.editor.restore_version',
     'admin.contents.editor.save_draft',
     'admin.contents.editor.select_icon',
