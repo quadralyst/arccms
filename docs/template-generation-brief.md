@@ -86,8 +86,9 @@ field, no "Summary" field.
 | `infocard` | **Rows** of icon-or-image + headline + info | Feature/benefit strips, "how it works" |
 | `gallery` | **Rows** of photo or YouTube video + caption | Event coverage, portfolios, media |
 | `labelvalue` | **Rows** of label + value, with a heading | "At a glance" facts, specs, key figures |
+| `maplocation` | **Rows** of a place — name, address, map point | Offices, venues, chapters, "find us" |
 
-The last three are repeating fields — one field holds a whole list. They are
+The last four are repeating fields — one field holds a whole list. They are
 what make a page look designed rather than typed, so prefer them over inventing
 five separate text fields.
 
@@ -297,6 +298,25 @@ Row bindings: `image`, `caption`, `video`, `video_id`, `video_embed`,
 > megabyte of player JavaScript. Show `video_thumb` as a poster and swap in an
 > iframe on click with a small `<script>`. Use a bare
 > `<iframe data-arc-bind="video_embed">` only if there is at most one video.
+
+**`maplocation`** — map cards. Each row is a name, an address and a point.
+
+```html
+<div class="locations" data-arc-loop="KEY">
+    <article class="location">
+        <iframe data-arc-if="map_embed" data-arc-bind="map_embed"
+                loading="lazy" title="Map"></iframe>
+        <h4 data-arc-bind="label">Location name</h4>
+        <p data-arc-bind="address">Street, City</p>
+        <a data-arc-if="map_directions" data-arc-bind="map_directions">Get directions</a>
+    </article>
+</div>
+```
+
+Row bindings: `label`, `address`, `lat`, `lng`, `map_embed`, `map_directions`,
+`map_view`, `position`. The map is a keyless OpenStreetMap frame — no API key
+and no script. Always wrap it in `data-arc-if="map_embed"`, or a row where no
+marker was placed renders a map of the Atlantic.
 
 **`labelvalue`** — an "at a glance" facts card. Rows of label and value, plus an
 editable heading bound **outside** the loop.

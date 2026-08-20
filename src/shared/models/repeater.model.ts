@@ -23,7 +23,7 @@
  */
 
 /** Sub-field kinds a repeater row can be built from. */
-export type RepeaterSubFieldType = 'text' | 'textarea' | 'media';
+export type RepeaterSubFieldType = 'text' | 'textarea' | 'media' | 'location';
 
 interface RepeaterSubFieldBase {
     /** Row key this sub-field writes to, and the template binding name. */
@@ -81,10 +81,31 @@ export interface RepeaterMediaSubField extends RepeaterSubFieldBase {
     allowBulkAdd?: boolean;
 }
 
+/**
+ * A point on a map, picked by searching an address or dragging a marker.
+ *
+ * Occupies **four** row keys rather than one nested object, for the same
+ * reason the media sub-field does: a template writes `{{ lat }}` and
+ * `{{ address }}` with no nested access, and the render-time derivation that
+ * turns coordinates into an embed URL works on flat keys.
+ *
+ * `key` holds the address, because that is the part a page usually prints.
+ */
+export interface RepeaterLocationSubField extends RepeaterSubFieldBase {
+    type: 'location';
+    /** Row key for the latitude. */
+    latKey: string;
+    /** Row key for the longitude. */
+    lngKey: string;
+    /** Row key for the zoom the editor left the map at. */
+    zoomKey: string;
+}
+
 export type RepeaterSubField =
     | RepeaterTextSubField
     | RepeaterTextareaSubField
-    | RepeaterMediaSubField;
+    | RepeaterMediaSubField
+    | RepeaterLocationSubField;
 
 /**
  * An editable heading for the whole field, above the rows.
@@ -220,7 +241,42 @@ export const REPEATER_SCHEMAS: Record<string, RepeaterSchema> = {
             },
         ],
     },
+    maplocation: {
+        rowLabel: 'Location',
+        hint: 'Each location shows a small map, its address and a directions link. Search for an address or drag the marker to place it exactly.',
+        heading: {
+            key: 'heading',
+            label: 'Section heading',
+            placeholder: 'Find us',
+            translatable: true,
+        },
+        subFields: [
+            {
+                type: 'text',
+                key: 'label',
+                label: 'Name',
+                placeholder: 'What is at this location',
+                translatable: true,
+                maxLength: 80,
+            },
+            {
+                type: 'location',
+                key: 'address',
+                latKey: 'lat',
+                lngKey: 'lng',
+                zoomKey: 'zoom',
+                label: 'Location',
+                required: true,
+                translatable: true,
+            },
+        ],
+    },
 };
+
+/** Every row key a location sub-field owns, `key` (the address) first. */
+export function locationRowKeys(sub: RepeaterLocationSubField): string[] {
+    return [sub.key, sub.latKey, sub.lngKey, sub.zoomKey];
+}
 
 /** Every row key a media sub-field owns, `key` first. */
 export function mediaRowKeys(sub: RepeaterMediaSubField): string[] {
@@ -272,6 +328,13 @@ export function newRepeaterRow(schema: RepeaterSchema, position: number): Repeat
                 // The icon slot holds an object; the URL slots hold strings.
                 row[key] = key === sub.iconKey ? null : '';
             }
+        } else if (sub.type === 'location') {
+            // Coordinates are null, not 0 — 0,0 is a real place in the Atlantic
+            // and would put a marker there rather than showing "not set".
+            row[sub.key] = '';
+            row[sub.latKey] = null;
+            row[sub.lngKey] = null;
+            row[sub.zoomKey] = null;
         } else {
             row[sub.key] = '';
         }
@@ -344,6 +407,11 @@ export function normalizeRepeaterRows(value: unknown, schema: RepeaterSchema): R
                         if (row[key] !== undefined) continue;
                         row[key] = key === sub.iconKey ? null : '';
                     }
+                } else if (sub.type === 'location') {
+                    if (row[sub.key] === undefined) row[sub.key] = '';
+                    for (const key of [sub.latKey, sub.lngKey, sub.zoomKey]) {
+                        if (row[key] === undefined) row[key] = null;
+                    }
                 } else if (row[sub.key] === undefined) {
                     row[sub.key] = '';
                 }
@@ -359,11 +427,11 @@ export function normalizeRepeaterRows(value: unknown, schema: RepeaterSchema): R
 export function isRepeaterRowEmpty(row: RepeaterRow, schema: RepeaterSchema): boolean {
     const blank = (value: unknown) => value === null || value === undefined || value === '';
 
-    return schema.subFields.every((sub) =>
-        sub.type === 'media'
-            ? mediaRowKeys(sub).every((key) => blank(row[key]))
-            : blank(row[sub.key]),
-    );
+    return schema.subFields.every((sub) => {
+        if (sub.type === 'media') return mediaRowKeys(sub).every((key) => blank(row[key]));
+        if (sub.type === 'location') return locationRowKeys(sub).every((key) => blank(row[key]));
+        return blank(row[sub.key]);
+    });
 }
 
 /**

@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { interpolate, parseParams } from '../i18n/interpolate';
 import { TemplateContext } from '../models/cms.types';
 import { youTubeVideo } from '../../../shared/utils/youtube';
+import { renderLocation } from '../../../shared/utils/geo';
 
 /**
  * Template Hydration Service
@@ -53,6 +54,34 @@ export class TemplateHydrationService {
     }
 
     return result;
+  }
+
+  /**
+   * Derives a map embed and a directions link from stored coordinates.
+   *
+   * A location row stores only `lat`, `lng` and an address; the URLs are worked
+   * out here so a fix repairs existing content rather than needing a migration.
+   * For a location keyed `address` beside `lat`/`lng`:
+   *
+   *   {{ map_embed }}       an OpenStreetMap iframe src — no key, no script
+   *   {{ map_directions }}  a link that opens the visitor's own maps app
+   *   {{ map_view }}        the point on openstreetmap.org
+   *
+   * Named from the *coordinate* keys rather than the address key, so a row
+   * with `lat`/`lng` gets `map_*` regardless of what the address is called.
+   */
+  private static flattenLocations(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    const rendered = renderLocation(data['lat'], data['lng'], data['zoom']);
+    if (!rendered) return data;
+
+    return {
+      ...data,
+      map_embed: rendered.embed,
+      map_directions: rendered.directions,
+      map_view: rendered.view,
+    };
   }
 
   /**
@@ -176,6 +205,8 @@ export class TemplateHydrationService {
     data = this.flattenIcons(data);
     // YouTube URLs gain their id, embed and poster. See flattenVideos.
     data = this.flattenVideos(data);
+    // Coordinates gain their map embed and directions link. See flattenLocations.
+    data = this.flattenLocations(data);
 
 
     // 1. Process Angular-style Interpolation {{ variable }}
@@ -271,7 +302,13 @@ export class TemplateHydrationService {
         const value = String(bindValue);
 
         // Smart injection based on element type
-        if ($el.is('img')) {
+        if ($el.is('iframe')) {
+          // An iframe's payload is its src, never its content. Without this
+          // branch a bound embed URL became the frame's inner text and the
+          // frame rendered blank — which is how a gallery video or a map ships
+          // as an empty box.
+          $el.attr('src', value);
+        } else if ($el.is('img')) {
           // For images, set src and alt attributes
           $el.attr('src', value);
           if (data['title']) {
