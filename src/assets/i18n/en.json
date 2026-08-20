@@ -619,6 +619,7 @@
         "publish": "Publish",
         "back_to_editor": "Back to editor",
         "restore_version": "Restore this version",
+        "resize_sidebar": "Resize sidebar (double-click to reset)",
         "tab_basic": "Basic",
         "summary": "Summary",
         "summary_hint": "Used for content lists and default SEO description.",

@@ -16,6 +16,7 @@ import { ITag } from '../content-types/tags/tags.model';
 import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page';
 import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
 import { FieldRepeaterComponent } from '../../../../../shared/components/field-repeater/field-repeater.component';
+import { ResizableDirective } from '../../../../../shared/directives/resizable/resizable.directive';
 import {
   isRepeaterType,
   normalizeRepeaterRows,
@@ -73,6 +74,7 @@ interface TranslatableValues {
     VersionHistoryComponent,
     TranslocoPipe,
     FieldRepeaterComponent,
+    ResizableDirective,
   ],
   templateUrl: './create-content.component.html',
   styleUrl: './create-content.component.scss',
