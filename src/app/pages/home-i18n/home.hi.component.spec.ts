@@ -94,7 +94,7 @@ describe('HomeHiComponent', () => {
                 { provide: ContentTypesStore, useValue: mockStore },
                 { provide: HttpClient, useValue: { get: vi.fn().mockReturnValue(of('<div>Template</div>')) } },
                 { provide: AuthService, useValue: { isFirstRun: vi.fn().mockReturnValue(of(false)) } },
-                { provide: OnboardingSetupService, useValue: { isOnboardingComplete: vi.fn().mockReturnValue(of(true)) } },
+                { provide: OnboardingSetupService, useValue: { shouldShowOnboarding: vi.fn().mockReturnValue(of(false)) } },
                 { provide: LocalizationService, useValue: localization },
                 { provide: UiStringsService, useValue: uiStrings },
             ],

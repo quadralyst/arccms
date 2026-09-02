@@ -22,7 +22,6 @@ import { take, firstValueFrom } from 'rxjs';
 import { Auth } from '@angular/fire/auth';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AuthState } from '../(auth)/auth.store';
-import { AuthService } from '../(auth)/auth.service';
 import { ToastService } from '../../../shared/services/toast.service';
 import { ConstantVariables } from '../../../shared/constants/common-constants';
 import { OnboardingSetupService } from './onboarding-setup.service';
@@ -49,7 +48,6 @@ export const routeMeta: RouteMeta = {
     styleUrls: ['./onboarding.page.scss'],
 })
 export default class OnboardingComponent implements OnInit {
-    private authService = inject(AuthService);
     private auth = inject(Auth);
     authStore = inject(AuthState);
     private router = inject(Router);
@@ -87,6 +85,12 @@ export default class OnboardingComponent implements OnInit {
     // Step 5 signals
     isCompleting = signal(false);
     setupFailed = signal(false);
+    // True once we have given up waiting for the `admin` custom claim to reach
+    // the ID token. Every remaining step writes something isAdmin() guards —
+    // Settings/site, Settings/integrations, Settings/email, the default waitlist —
+    // and the connection-test callable refuses a claimless caller, so each of
+    // those entry points re-checks through `ensureAdminClaim()` before acting.
+    adminClaimPending = signal(false);
 
     // Forms
     onboardingForm!: FormGroup;
@@ -137,40 +141,79 @@ export default class OnboardingComponent implements OnInit {
     }
 
     ngOnInit() {
-        this.authService.isFirstRun().pipe(take(1)).subscribe((firstRun) => {
-            if (!firstRun) {
-                // Admin exists — check if onboarding was completed
-                this.setupService.isOnboardingComplete().pipe(take(1)).subscribe((complete) => {
-                    if (complete) {
-                        this.router.navigate(['/']);
-                    } else {
-                        // Re-entry: admin account exists but wizard wasn't finished
-                        this.signupHandled = true; // prevent effect from re-firing
-                        this.currentStep.set(3);
-                    }
-                });
+        this.setupService.getOnboardingState().pipe(take(1)).subscribe((state) => {
+            if (state === 'complete') {
+                this.router.navigate(['/']);
+            } else if (state === 'in-progress') {
+                // Re-entry: admin account exists but wizard wasn't finished
+                this.signupHandled = true; // prevent effect from re-firing
+                this.currentStep.set(3);
             }
+            // 'first-run' — stay on step 1 and create the admin account.
         });
     }
 
     async checkAdminClaim(attempts: number = 0): Promise<void> {
-        try {
-            const tokenResult = await this.auth.currentUser?.getIdTokenResult(true);
-            if (tokenResult?.claims?.['role'] === 'admin') {
-                this.currentStep.set(3);
-                this.errorMessage.set('');
-                return;
-            }
-        } catch (err) {
-            console.warn('Token refresh failed (non-fatal):', err);
+        if (await this.hasAdminClaim()) {
+            this.adminClaimPending.set(false);
+            this.currentStep.set(3);
+            this.errorMessage.set('');
+            return;
         }
-        
+
         if (attempts < 10) {
             this.signupTimeoutId = setTimeout(() => this.checkAdminClaim(attempts + 1), 2000);
         } else {
+            // Giving up used to be silent, which is how an admin reached step 5
+            // with a claimless token and got a bare "setup failed" out of a
+            // permission error they had no way to interpret. Record it instead.
+            this.adminClaimPending.set(true);
             this.currentStep.set(3);
             this.errorMessage.set('');
         }
+    }
+
+    /**
+     * Force-refresh the ID token and report whether it carries `role: admin`.
+     * The refresh is the point — the claim is set server-side by
+     * `onUserRoleChange` after signup, and a cached token will not show it.
+     */
+    private async hasAdminClaim(): Promise<boolean> {
+        try {
+            const tokenResult = await this.auth?.currentUser?.getIdTokenResult(true);
+            return tokenResult?.claims?.['role'] === 'admin';
+        } catch (err) {
+            console.warn('Token refresh failed (non-fatal):', err);
+            return false;
+        }
+    }
+
+    /**
+     * Gate for every step that touches an admin-only resource.
+     *
+     * `checkAdminClaim` gives up after ten attempts and lets the wizard advance
+     * with `adminClaimPending` set, so from step 3 on the visitor may be holding a
+     * claimless token. Each of those steps now writes something `isAdmin()` guards
+     * — `Settings/site`, `Settings/integrations`, `Settings/email` — and the
+     * connection-test callable rejects a claimless caller outright.
+     *
+     * So try one more forced token refresh at the point of use. The claim usually
+     * has landed by then; the wizard only got here because the *first* few polls
+     * were too early. If it still is not there, say so plainly rather than letting
+     * the caller report a generic failure for a permission error.
+     */
+    private async ensureAdminClaim(): Promise<boolean> {
+        if (!this.adminClaimPending()) return true;
+
+        if (await this.hasAdminClaim()) {
+            this.adminClaimPending.set(false);
+            return true;
+        }
+
+        this.errorMessage.set(
+            'Your administrator permissions have not finished propagating. Wait a few seconds and try again.',
+        );
+        return false;
     }
 
     // ─── Step 1-2: Admin Account (existing logic) ───
@@ -286,6 +329,8 @@ export default class OnboardingComponent implements OnInit {
         this.errorMessage.set('');
 
         try {
+            if (!(await this.ensureAdminClaim())) return;
+
             const { siteName, siteUrl } = this.siteInfoForm.value;
             await this.setupService.saveSiteInfo(siteName.trim(), siteUrl.trim());
             await this.setupService.saveDefaultSettings();
@@ -390,8 +435,17 @@ export default class OnboardingComponent implements OnInit {
         this.testPassed.set(false);
 
         try {
+            // The callable requires a signed-in caller. If the admin claim never
+            // landed, refresh the token here rather than letting it come back as
+            // an opaque `unauthenticated`.
+            if (!(await this.ensureAdminClaim())) {
+                this.toastService.error('Administrator permissions are still propagating. Try again in a moment.');
+                return;
+            }
+
             const settings = this.buildEmailSettings();
-            await this.emailSettingService.testEmailConnection({
+            // The callable returns its verdict directly — no document to poll.
+            const result = await this.emailSettingService.testEmailConnection({
                 config: settings,
                 activeProvider: settings.activeProvider,
                 testEmail: dialogResult.testEmail,
@@ -399,24 +453,20 @@ export default class OnboardingComponent implements OnInit {
                 message: dialogResult.message,
             });
 
-            // Monitor the test results
-            const sub = this.emailSettingService.monitorConnectionTest()
-                .pipe(takeUntilDestroyed(this.destroyRef))
-                .subscribe((result) => {
-                    if (!result || result.status === 'processing') return;
-
-                    this.isTesting.set(false);
-                    if (result.status === 'success') {
-                        this.testPassed.set(true);
-                        this.toastService.success('Connection successful! Test email sent.');
-                    } else {
-                        this.toastService.error(result.message || 'Connection failed');
-                    }
-                    sub.unsubscribe();
-                });
+            if (result.success) {
+                this.testPassed.set(true);
+                this.toastService.success('Connection successful! Test email sent.');
+            } else {
+                this.toastService.error(result.message || 'Connection failed');
+            }
         } catch (error) {
             console.error('Connection test failed:', error);
-            this.toastService.error('Connection test failed. Please check your settings.');
+            this.toastService.error(
+                error instanceof Error && error.message
+                    ? error.message
+                    : 'Connection test failed. Please check your settings.',
+            );
+        } finally {
             this.isTesting.set(false);
         }
     }
@@ -448,6 +498,8 @@ export default class OnboardingComponent implements OnInit {
         this.errorMessage.set('');
 
         try {
+            if (!(await this.ensureAdminClaim())) return;
+
             const settings = this.buildEmailSettings();
             await this.setupService.saveEmailConfig(settings);
             this.errorMessage.set('');
@@ -466,6 +518,8 @@ export default class OnboardingComponent implements OnInit {
         this.errorMessage.set('');
 
         try {
+            if (!(await this.ensureAdminClaim())) return;
+
             await this.setupService.saveEmailSkipped();
             this.currentStep.set(5);
             this.errorMessage.set('');
@@ -486,8 +540,18 @@ export default class OnboardingComponent implements OnInit {
         this.setupFailed.set(false);
 
         try {
-            await this.setupService.completeSetup();
-            this.toastService.success('Setup complete! Welcome to Arc CMS.');
+            // Last chance for the claim: onUserRoleChange may well have landed
+            // while the admin worked through steps 3 and 4.
+            this.adminClaimPending.set(!(await this.hasAdminClaim()));
+
+            const { waitlistCreated } = await this.setupService.completeSetup();
+            if (waitlistCreated) {
+                this.toastService.success('Setup complete! Welcome to Arc CMS.');
+            } else {
+                this.toastService.warning(
+                    'Setup complete — the default waitlist could not be created. You can add one from Waitlists.',
+                );
+            }
             this.router.navigate(['/admin/dashboard'], { replaceUrl: true });
         } catch (error) {
             console.error('Failed to complete setup:', error);

@@ -7,14 +7,25 @@
  */
 
 import { inject, Injectable } from '@angular/core';
-import { Firestore, doc, collection, setDoc, getDoc, serverTimestamp } from '@angular/fire/firestore';
-import { Observable, from, map, of, catchError } from 'rxjs';
+import { Firestore, doc, collection, setDoc, getDoc, getDocs, query, where, serverTimestamp } from '@angular/fire/firestore';
+import { Observable, defer, from, map, of, catchError, switchMap } from 'rxjs';
 import { DEFAULT_CONTENT_TYPES, DEFAULT_WAITLIST, DEFAULT_SITE_CSS_URLS } from './onboarding-defaults';
 import { DEFAULT_EMAIL_SETTINGS, IEmailSettings, hasValidProviderConfig } from '../admin/(settings)/email-setting/email-setting.model';
+import { AuthService } from '../(auth)/auth.service';
+
+/**
+ * Where an install sits relative to the onboarding wizard.
+ *
+ * `first-run`   — no admin exists yet; the wizard starts at step 1.
+ * `in-progress` — an admin exists but the wizard never finished; resume at step 3.
+ * `complete`    — the wizard finished, or this is a legacy install that predates it.
+ */
+export type OnboardingState = 'first-run' | 'in-progress' | 'complete';
 
 @Injectable({ providedIn: 'root' })
 export class OnboardingSetupService {
     private firestore = inject(Firestore);
+    private authService = inject(AuthService);
 
     /**
      * Save site identity info.
@@ -109,12 +120,35 @@ export class OnboardingSetupService {
     }
 
     /**
-     * Create the 3 default content types.
+     * Create the default content types, once and only once.
+     *
+     * This has to be safe to call repeatedly, because it is: step 5 has a Retry
+     * button, and an install whose `onboarding_status` never reached `completed`
+     * drops the admin back at step 3 to walk 3→4→5 again. It used to write with
+     * `doc(colRef)` — a fresh auto-ID every call, no existence check — so each
+     * pass appended a whole new set. Four passes left four "Articles" types, all
+     * sharing `slug: 'articles'`, and `onContentTypeDeleted` cascades on slug:
+     * deleting any one of the duplicates wipes `arc_articles`,
+     * `arc_articles_drafts` and `Tags_articles` for all of them, taking the real
+     * content with it. The duplicate was not a cosmetic mess, it was a trap.
+     *
+     * Two changes make that impossible. The existence check is a slug *query*,
+     * not a `getDoc`, so it also sees the auto-ID types older installs already
+     * have. And new documents are keyed by slug, so even a racing double-call
+     * writes the same document twice rather than two documents.
+     *
+     * An existing type is never overwritten — by the time this re-runs the admin
+     * may have renamed it or added fields, and a seed has no business
+     * reverting that.
      */
     async createDefaultContentTypes(): Promise<void> {
+        const colRef = collection(this.firestore, 'ContentTypes');
         for (const ct of DEFAULT_CONTENT_TYPES) {
-            const colRef = collection(this.firestore, 'ContentTypes');
-            const docRef = doc(colRef);
+            const existing = await getDocs(query(colRef, where('slug', '==', ct.slug)));
+            if (!existing.empty) {
+                continue;
+            }
+            const docRef = doc(colRef, ct.slug);
             await setDoc(docRef, {
                 ...ct,
                 id: docRef.id,
@@ -144,11 +178,35 @@ export class OnboardingSetupService {
     /**
      * Complete the setup: create content types, waitlist, and mark onboarding done.
      * Call this after email settings have been saved (step 4).
+     *
+     * **The waitlist is not allowed to block the completion flag.** `Waitlists`
+     * is `allow create: if isAdmin()` in the rules — the `admin` *custom claim*
+     * on the ID token, which `onUserRoleChange` sets asynchronously after the
+     * admin's user document is written. `checkAdminClaim()` polls for it and
+     * then gives up and lets the admin reach step 5 regardless, so the token may
+     * genuinely not carry the claim yet when this runs. It used to run between
+     * the content types and `markOnboardingComplete()`, so a denied waitlist
+     * write threw past the flag: `completed` stayed `false`, every later visit
+     * bounced back into the wizard, and every bounce seeded another set of
+     * content types. One optional convenience document held the whole install
+     * hostage.
+     *
+     * Now it is best-effort. `waitlistCreated: false` tells step 5 to say so;
+     * the admin can create a waitlist from the admin UI whenever they want one.
      */
-    async completeSetup(): Promise<void> {
+    async completeSetup(): Promise<{ waitlistCreated: boolean }> {
         await this.createDefaultContentTypes();
-        await this.createDefaultWaitlist();
+
+        let waitlistCreated = true;
+        try {
+            await this.createDefaultWaitlist();
+        } catch (err) {
+            console.warn('Default waitlist could not be created (non-fatal):', err);
+            waitlistCreated = false;
+        }
+
         await this.markOnboardingComplete();
+        return { waitlistCreated };
     }
 
     /**
@@ -174,24 +232,73 @@ export class OnboardingSetupService {
     }
 
     /**
-     * Check whether onboarding has been completed.
+     * Where this install sits relative to the wizard. The single gate every
+     * caller should use — see `shouldShowOnboarding()` for the common case.
      *
-     * Returns true if:
-     * - The document doesn't exist (legacy install or pre-onboarding state)
-     * - The document exists with completed === true
-     * - The read fails (assume complete to avoid blocking)
+     * **`Settings/onboarding_status` is authoritative whenever it exists.**
+     * Callers used to ask `AuthService.isFirstRun()` first and only consult this
+     * document if that came back false. `isFirstRun()` reports whether the
+     * `email_lookup` collection is empty, and nothing on the client fills that
+     * collection any more — the `onUserCreated` Cloud Function does, after the
+     * fact. So on any install where that trigger is undeployed or failing,
+     * `isFirstRun()` answers "yes, first run" forever, no matter how many admins
+     * exist, and the wizard reappears on every visit. A flag this app writes
+     * itself, synchronously, at the moment setup finishes is the more truthful
+     * signal, and it is checked first.
      *
-     * Returns false only when the document exists with completed === false
-     * (wizard was started but not finished).
+     * `isFirstRun()` is still the fallback, for the two cases the flag cannot
+     * speak to: a *missing* document (a brand-new install, or one predating the
+     * flag), and a document we could not read.
+     *
+     * That second case is not hypothetical — it is what this app looks like
+     * between shipping the frontend and deploying `firestore.rules`. Reading
+     * this document without being signed in needs the public-read entry those
+     * rules now carry; until it lands, an anonymous visitor's read is denied.
+     * Answering "complete" there would leave a genuinely fresh install with no
+     * wizard at all, so a denied read falls through to the old signal rather
+     * than to an assumption. Only when *both* are unavailable do we give up and
+     * say complete: at that point we cannot tell, and locking someone out of
+     * their own site is worse than skipping a wizard they can still reach at
+     * `/onboarding` by hand.
      */
-    isOnboardingComplete(): Observable<boolean> {
+    getOnboardingState(): Observable<OnboardingState> {
         const docRef = doc(this.firestore, 'Settings', 'onboarding_status');
         return from(getDoc(docRef)).pipe(
-            map((snapshot) => {
-                if (!snapshot.exists()) return true;
-                return snapshot.data()?.['completed'] === true;
+            switchMap((snapshot): Observable<OnboardingState> => {
+                if (snapshot.exists()) {
+                    return of(snapshot.data()?.['completed'] === true ? 'complete' : 'in-progress');
+                }
+                return this.detectFirstRun();
             }),
-            catchError(() => of(true)),
+            catchError(() => this.detectFirstRun()),
         );
+    }
+
+    /**
+     * Fallback signal: is there an admin account yet?
+     *
+     * `defer` is load-bearing, not styling. This runs from inside a `catchError`,
+     * i.e. after an async Firestore read has already rejected — and under SSR
+     * that can be after the request's injector is gone. `isFirstRun()` opens with
+     * `runInInjectionContext`, which throws NG0205 synchronously on a destroyed
+     * injector, and a synchronous throw inside a `catchError` selector is not
+     * catchable by the operators after it: RxJS reports it as an unhandled error,
+     * which takes the SSR process down with it. Deferring moves the call inside
+     * the subscription, where the throw becomes an ordinary error notification
+     * that the `catchError` below turns into 'complete'.
+     */
+    private detectFirstRun(): Observable<OnboardingState> {
+        return defer(() => this.authService.isFirstRun()).pipe(
+            map((firstRun): OnboardingState => (firstRun ? 'first-run' : 'complete')),
+            catchError(() => of<OnboardingState>('complete')),
+        );
+    }
+
+    /**
+     * Should this visitor be redirected into the wizard?
+     * True for both `first-run` and `in-progress`.
+     */
+    shouldShowOnboarding(): Observable<boolean> {
+        return this.getOnboardingState().pipe(map((state) => state !== 'complete'));
     }
 }
