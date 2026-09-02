@@ -67,6 +67,7 @@ export const routeMeta: RouteMeta = {
         .status-failed { background: #f8d7da; color: #842029; }
         .status-refunded { background: #fff3cd; color: #664d03; }
         .status-pending { background: #e2e3e5; color: #41464b; }
+        .status-test { background: #e7e0f5; color: #432874; margin-left: 6px; }
     `],
 })
 export default class TransactionsPageComponent extends BaseComponent implements OnInit {

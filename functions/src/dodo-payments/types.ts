@@ -127,9 +127,19 @@ export interface TransactionDoc {
   discountCode?: string;
   eventType: string;
   /**
-   * Stable dedup key. `pay:<payment_id>` when a payment id is present, otherwise
-   * `sub:<subscription_id>:<eventType>:<period>` so subscription-only events
-   * (which carry no payment id) are still idempotent across redeliveries.
+   * Set only for charges originating from an admin "test this tier" checkout
+   * (`createTestCheckoutLink`, which stamps `metadata.test`). These are real
+   * charges at the gateway and are recorded for visibility, but they grant no
+   * access, no credits, no emails, and never count toward `purchaseCount`.
+   * Absent on genuine customer transactions.
+   */
+  isTest?: boolean;
+  /**
+   * Stable dedup key, always scoped by event type: `ref:<refund_id>:<eventType>`
+   * for refunds (whose payload repeats the ORIGINAL payment id), else
+   * `pay:<payment_id>:<eventType>`, else `sub:<subscription_id>:<eventType>:<period>`
+   * so subscription-only events (which carry no payment id) still dedup across
+   * redeliveries without collapsing distinct billing periods onto one key.
    */
   idempotencyKey: string;
   createdAt: Timestamp;
@@ -168,6 +178,8 @@ export interface DodoWebhookData {
   currency?: string;
   status?: string;
   next_billing_date?: string;
+  /** Start of the current billing period — used to key a renewal when next_billing_date is absent. */
+  previous_billing_date?: string;
   trial_period_days?: number;
   customer?: { customer_id?: string; email?: string; name?: string };
   metadata?: Record<string, string>;
@@ -185,7 +197,14 @@ export interface UserEntitlement {
   premiumType: string | null;
   premiumTierRank: number | null;
   premiumStatus: 'active' | 'trialing' | 'past_due' | 'cancelled' | 'expired' | null;
-  premiumExpiresAt: Timestamp | null;
+  /**
+   * Subscriptions only: end of the paid period, refreshed on every successful
+   * charge. Sourced from the gateway's `next_billing_date` when the event carries
+   * one, else derived from the product's billing interval. Absent (not null) on
+   * one-time/lifetime grants — the daily expiry sweep range-matches null, so a
+   * null here would revoke a paying user. Only ever written with a real date.
+   */
+  premiumExpiresAt?: Timestamp | null;
   /** Which gateway granted the current entitlement. */
   provider?: PaymentProvider;
   providerSubscriptionId: string | null;

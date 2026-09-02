@@ -62,6 +62,25 @@ describe('EmailSettingPageComponent', () => {
         expect(component).toBeTruthy();
     });
 
+    it('should handle invalid activeProvider gracefully', () => {
+        mockEmailSettingService.getEmailSettings.mockReturnValue(of({
+            ...DEFAULT_EMAIL_SETTINGS,
+            isEnabled: true, // force form rendering
+            activeProvider: 'invalid-provider' as any
+        }));
+        
+        const localFixture = TestBed.createComponent(EmailSettingPageComponent);
+        const localComponent = localFixture.componentInstance;
+        
+        // This should run without throwing a RuntimeError
+        localFixture.detectChanges();
+        
+        expect(localComponent.emailForm).toBeDefined();
+        const group = localComponent.getActiveProviderRateLimitGroup();
+        expect(group).toBeDefined();
+        expect(group instanceof FormGroup).toBe(true);
+    });
+
     it('should have a form with shared fields', () => {
         expect(component.emailForm).toBeDefined();
         expect(component.emailForm.get('isEnabled')).toBeDefined();
@@ -336,4 +355,44 @@ describe('EmailSettingPageComponent', () => {
         expect(mockDialog.open).toHaveBeenCalled();
         expect(mockEmailSettingService.testEmailConnection).not.toHaveBeenCalled();
     });
+
+    it('should handle null or missing providerRateLimits gracefully', () => {
+        // Create a fresh page component where getEmailSettings returns null/undefined providerRateLimits
+        mockEmailSettingService.getEmailSettings.mockReturnValue(of({
+            ...DEFAULT_EMAIL_SETTINGS,
+            isEnabled: true, // force form rendering
+            providerRateLimits: null
+        }));
+        
+        const localFixture = TestBed.createComponent(EmailSettingPageComponent);
+        const localComponent = localFixture.componentInstance;
+        
+        // This should not throw RuntimeError and the rate limit group should still be defined
+        localFixture.detectChanges();
+        
+        expect(localComponent.emailForm).toBeDefined();
+        const group = localComponent.getActiveProviderRateLimitGroup();
+        expect(group).toBeDefined();
+        expect(group instanceof FormGroup).toBe(true);
+    });
+
+    it('should handle invalid activeProvider gracefully', () => {
+        mockEmailSettingService.getEmailSettings.mockReturnValue(of({
+            ...DEFAULT_EMAIL_SETTINGS,
+            isEnabled: true, // force form rendering
+            activeProvider: 'invalid-provider' as any
+        }));
+        
+        const localFixture = TestBed.createComponent(EmailSettingPageComponent);
+        const localComponent = localFixture.componentInstance;
+        
+        // This should run without throwing a RuntimeError
+        localFixture.detectChanges();
+        
+        expect(localComponent.emailForm).toBeDefined();
+        const group = localComponent.getActiveProviderRateLimitGroup();
+        expect(group).toBeDefined();
+        expect(group instanceof FormGroup).toBe(true);
+    });
 });
+

@@ -55,6 +55,29 @@ describe('ImportFilesPageComponent', () => {
         expect(component.mode()).toBe('manifest');
     });
 
+    describe('manifestEntryCount', () => {
+        // The template used to call Object.keys() inline, which JIT tolerates but
+        // AOT rejects — templates resolve names against the component, and the
+        // global Object is not in scope. It broke `ng build`, not the test run.
+        it('counts the entries in a loaded manifest', () => {
+            component.manifestData.set({ a: {}, b: {}, c: {} });
+            expect(component.manifestEntryCount()).toBe(3);
+        });
+
+        it('is 0 when no manifest is loaded', () => {
+            component.manifestData.set(null);
+            expect(component.manifestEntryCount()).toBe(0);
+        });
+
+        it('renders the count in manifest mode', () => {
+            component.mode.set('manifest');
+            component.manifestData.set({ a: {}, b: {} });
+            fixture.detectChanges();
+
+            expect(fixture.nativeElement.textContent).toContain('2 entries found in manifest');
+        });
+    });
+
     it('should accept multiple files via file input', () => {
         const files = [
             new File(['1'], 'img1.jpg', { type: 'image/jpeg' }),
