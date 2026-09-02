@@ -2,8 +2,9 @@ import { inject, Injectable, PLATFORM_ID, runInInjectionContext } from '@angular
 import { isPlatformBrowser } from '@angular/common';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IContents } from './published-contents.model';
-import { CollectionReference, collection, doc, onSnapshot, query, orderBy, limit, getDocs } from '@angular/fire/firestore';
+import { CollectionReference, collection, doc, getDoc, onSnapshot, query, orderBy, limit, getDocs } from '@angular/fire/firestore';
 import { EMPTY, Observable, from, map } from 'rxjs';
+import { IContentTranslation } from '../draft-content-store/content-translation.model';
 
 export interface DeployStatusUpdate {
     deployStatus: 'deployed' | 'failed' | 'pending' | null;
@@ -29,6 +30,33 @@ export class ContentsService extends DbService<IContents> {
             return runInInjectionContext(this.injector, () => collection(this.firestore, `arc_${collectionSuffix}`)) as CollectionReference<IContents>;
         }
         return super.getCollectionRef();
+    }
+
+    /**
+     * Reads a published language variant: `arc_{slug}/{docId}/translations/{lang}`.
+     *
+     * Mirrors `DraftContentsService.getTranslation` on the published side. Used
+     * by the SPA fallback renderer; statically deployed pages already have the
+     * translation baked in.
+     */
+    async getTranslation(
+        contentTypeSlug: string,
+        docId: string,
+        lang: string,
+    ): Promise<IContentTranslation | null> {
+        try {
+            const ref = runInInjectionContext(this.injector, () =>
+                doc(this.firestore, `arc_${contentTypeSlug}`, docId, 'translations', lang),
+            );
+            const snap = await runInInjectionContext(this.injector, () => getDoc(ref));
+            if (!snap.exists()) return null;
+            return { ...(snap.data() as IContentTranslation), lang };
+        } catch (error) {
+            // A missing translation must never break the page — it simply
+            // renders in the default language.
+            console.error(`Error loading published "${lang}" translation:`, error);
+            return null;
+        }
     }
 
     /**

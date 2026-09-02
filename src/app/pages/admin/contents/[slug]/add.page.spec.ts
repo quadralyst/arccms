@@ -17,6 +17,9 @@ import { CollectionRefSyncService } from '../content-store/collection-ref-sync.s
 import { MatDialog } from '@angular/material/dialog';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { ContentsService } from '../content-store/published-contents.service';
+import { LocalizationService } from '../../../../core/services/localization.service';
+import { AuthState } from '../../../(auth)/auth.store';
+import { signal } from '@angular/core';
 
 describe('AddContentPage', () => {
     let component: AddContentPage;
@@ -102,7 +105,7 @@ describe('AddContentPage', () => {
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: TagsStore, useValue: mockTagsStore },
                 { provide: Firestore, useValue: mockFirestore },
-                { provide: DraftContentsService, useValue: { dbCollection: {}, checkExistingSlugUrl: vi.fn(), getContentsByType: vi.fn() } },
+                { provide: DraftContentsService, useValue: { dbCollection: {}, checkExistingSlugUrl: vi.fn(), getContentsByType: vi.fn(), getTranslatedLanguages: vi.fn().mockResolvedValue([]), getTranslation: vi.fn().mockResolvedValue(null) } },
                 { provide: CollectionRefSyncService, useValue: { syncReferencedData: vi.fn() } },
                 { provide: Router, useValue: mockRouter },
                 {
@@ -117,6 +120,21 @@ describe('AddContentPage', () => {
                 { provide: MatDialog, useValue: { open: vi.fn().mockReturnValue({ afterClosed: () => of(null) }) } },
                 { provide: PublishQueueService, useValue: { enqueue: vi.fn().mockResolvedValue(undefined) } },
                 { provide: ContentsService, useValue: { pollDeployStatus: vi.fn().mockReturnValue(of({})), getPublishedHistory: vi.fn().mockReturnValue(of([])) } },
+                // Single-language site: CreateContentComponent's language bar
+                // stays hidden and no translation reads are attempted.
+                {
+                    provide: LocalizationService,
+                    useValue: {
+                        load: vi.fn().mockResolvedValue(undefined),
+                        settings: signal({ defaultLanguage: 'en', enabledLanguages: [{ code: 'en', label: 'English', nativeLabel: 'English' }] }),
+                        defaultLanguage: signal('en'),
+                        enabledLanguages: signal([{ code: 'en', label: 'English', nativeLabel: 'English' }]),
+                        extraLanguages: signal([]),
+                        isMultilingual: signal(false),
+                        find: vi.fn(),
+                    },
+                },
+                { provide: AuthState, useValue: { currentUser: signal({ id: 'admin-1' }) } },
             ]
         }).compileComponents();
 

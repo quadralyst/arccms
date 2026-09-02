@@ -1,6 +1,6 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, OnInit, PLATFORM_ID, signal, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
@@ -15,6 +15,14 @@ import { TagsStore } from '../admin/contents/content-types/tags/tags.store';
 import { FooterComponent } from './footer.component';
 import { HeaderComponent } from './header.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
+import { LocalizationService } from '../../core/services/localization.service';
+import { UiStringsService } from '../../core/services/ui-strings.service';
+import { ArcTranslateDirective } from '../../core/directives/arc-translate.directive';
+import { ContentsService } from '../admin/contents/content-store/published-contents.service';
+import {
+    IContentTranslation,
+    mergeTranslation,
+} from '../admin/contents/draft-content-store/content-translation.model';
 
 /**
  * Dynamic Content List Component
@@ -23,7 +31,7 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
 @Component({
     selector: 'arc-content-list',
     standalone: true,
-    imports: [CommonModule, HeaderComponent, FooterComponent, SafeHtmlPipe],
+    imports: [CommonModule, HeaderComponent, FooterComponent, SafeHtmlPipe, ArcTranslateDirective],
     template: `
     <arc-header></arc-header>
     
@@ -64,13 +72,13 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
                     @if(filteredContents().length === 0) {
                         <div class="empty-state">
                             <i class="fas fa-newspaper"></i>
-                            <h3>No Content Yet</h3>
-                            <p>Check back soon for new content.</p>
+                            <h3 data-arc-t="empty_title">No Content Yet</h3>
+                            <p data-arc-t="empty_body">Check back soon for new content.</p>
                         </div>
                     } @else {
                         <div class="content-grid">
                             @for(content of filteredContents(); track content.id) {
-                                <a [href]="'/' + contentTypeSlug() + '/' + content.urlSlug" class="content-card">
+                                <a [href]="itemUrl(content.urlSlug)" class="content-card">
                                     <div class="content-card-image" [style.background-image]="content.coverImage ? 'url(' + content.coverImage + ')' : ''">
                                         @if(!content.coverImage) {
                                             <div class="content-card-placeholder"></div>
@@ -80,11 +88,11 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
                                         <div class="content-card-meta">
                                             <time>{{ formatContentDate(content.publishedOn) }}</time>
                                             <span class="meta-separator">•</span>
-                                            <span>{{ getReadTime(content) }} min read</span>
+                                            <span data-arc-t="min_read" [data-arc-t-params]="{ readTime: getReadTime(content) }">{{ getReadTime(content) }} min read</span>
                                         </div>
                                         <h2 class="content-card-title">{{ content.title }}</h2>
                                         <p class="content-card-excerpt">{{ getExcerpt(content) }}</p>
-                                        <span class="content-card-read-more">Read Article <i class="fas fa-arrow-right"></i></span>
+                                        <span class="content-card-read-more"><span data-arc-t="read_more">Read Article</span> <i class="fas fa-arrow-right"></i></span>
                                     </div>
                                 </a>
                             }
@@ -300,7 +308,7 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
     changeDetection: ChangeDetectionStrategy.OnPush,
     encapsulation: ViewEncapsulation.None,
 })
-export class ContentListComponent extends BaseComponent implements OnInit {
+export class ContentListComponent extends BaseComponent implements OnInit, OnDestroy {
     private document = inject(DOCUMENT);
     // Router and ActivatedRoute are already injected in BaseComponent as 'router' and 'activatedRoute'
     private http = inject(HttpClient);
@@ -311,6 +319,11 @@ export class ContentListComponent extends BaseComponent implements OnInit {
 
     contentTypesStore = inject(ContentTypesStore);
     contentsStore = inject(ContentsStore);
+    // Resolved lazily — only the /{lang}/ route needs it. See
+    // ContentDetailComponent for why this is not injected eagerly.
+    private injector = inject(Injector);
+    private localization = inject(LocalizationService);
+    private uiStrings = inject(UiStringsService);
     tagsStore = inject(TagsStore);
     private gaTracking = inject(GaTrackingService);
     private trackedContentTypes = new Set<string>();
@@ -341,12 +354,26 @@ export class ContentListComponent extends BaseComponent implements OnInit {
         return types.find((ct: ContentType) => ct.slug === slug) || null;
     });
 
+    /** Language prefix of the current URL — '' on the default-language route. */
+    pageLang = signal<string>('');
+    /** Translations for the listed items, keyed by document id. */
+    private translations = signal<Record<string, IContentTranslation>>({});
+
     filteredContents = computed(() => {
         const contentType = this.currentContentType();
         if (!contentType) return [];
-        const items = this.contentsStore.items().filter((content: IContents) =>
-            content.type === contentType.slug && content.publishedStatus
-        );
+        const translations = this.translations();
+        const lang = this.pageLang();
+        const items = this.contentsStore.items()
+            .filter((content: IContents) =>
+                content.type === contentType.slug && content.publishedStatus
+            )
+            // Untranslated items keep their default-language card rather than
+            // dropping out — a half-empty list reads as a broken site, and
+            // partial translation is the normal state. Matches the deploy.
+            .map((content: IContents): IContents =>
+                lang ? mergeTranslation(content, translations[content.id] ?? null) : content
+            );
 
         // Sort by publishedOn descending (newest first).
         // Handles Firestore Timestamps ({seconds, nanoseconds}), Date objects, and ISO strings.
@@ -364,6 +391,21 @@ export class ContentListComponent extends BaseComponent implements OnInit {
         if (!isPlatformBrowser(this.platformId)) {
             this.hydrated.set(true);
         }
+
+        // Load the listed items' translations once the store has filled — ids
+        // are not known before then. Reads only the store and the language, so
+        // writing `translations` below cannot re-trigger it.
+        effect(() => {
+            const lang = this.pageLang();
+            const items = this.contentsStore.items();
+            if (!lang || this.translationsRequested) return;
+
+            const forType = items.filter((content: IContents) => content.type === this.contentTypeSlug());
+            if (forType.length === 0) return;
+
+            this.translationsRequested = true;
+            untracked(() => this.loadTranslations(lang, this.contentTypeSlug(), forType));
+        });
 
         // Watch for content type and contents to load, then trigger template loading and SEO updates
         effect(() => {
@@ -394,16 +436,73 @@ export class ContentListComponent extends BaseComponent implements OnInit {
 
     ngOnInit() {
         const slug = this.activatedRoute.snapshot.paramMap.get('contentTypeSlug') || '';
+        // Present only on the /{lang}/... route; absent means default language.
+        const lang = this.activatedRoute.snapshot.paramMap.get('lang') || '';
         this.contentTypeSlug.set(slug);
+        this.pageLang.set(lang);
+        // Content pages are published per language, so the switcher applies here.
+        this.localization.hasLanguageVariants.set(true);
+        // Chrome for this page's language; '' restores the authored English.
+        this.uiStrings.use(lang);
 
         if (!slug) {
             return;
         }
 
+
         // Subscribe to stores to load data
         this.subscribeToData(this.contentTypesStore);
         // Load published contents from the per-type collection
         this.contentsStore.getAll(undefined, slug || undefined);
+    }
+
+    /**
+     * Open Graph locale for the current page. Open Graph wants
+     * `language_TERRITORY`; a bare language subtag is emitted when the
+     * configured code carries no region. Mirrors toOgLocale() in
+     * functions/src/shared/html-document.ts.
+     */
+    ogLocale(): string {
+        const lang = this.pageLang();
+        if (!lang) return 'en_US';
+        const [language, region] = lang.toLowerCase().split('-');
+        return region ? `${language}_${region.toUpperCase()}` : language;
+    }
+
+    /** Keeps card links inside the language currently being viewed. */
+    itemUrl(urlSlug: string): string {
+        const prefix = this.pageLang() ? `/${this.pageLang()}` : '';
+        return `${prefix}/${this.contentTypeSlug()}/${urlSlug}`;
+    }
+
+    ngOnDestroy(): void {
+        // The next page may not have language variants.
+        this.localization.hasLanguageVariants.set(false);
+    }
+
+    /**
+     * Reads the language variant of every listed item.
+     *
+     * Waits for the store to fill, since the ids are only known then. One read
+     * per item is acceptable here: the SPA path is a fallback for previews and
+     * pages that are not yet deployed, not the production render.
+     */
+    private translationsRequested = false;
+
+    private async loadTranslations(lang: string, typeSlug: string, items: IContents[]): Promise<void> {
+        try {
+
+            const service = this.injector.get(ContentsService);
+            const loaded: Record<string, IContentTranslation> = {};
+            await Promise.all(items.map(async (content: IContents) => {
+                const translation = await service.getTranslation(typeSlug, content.id, lang);
+                if (translation) loaded[content.id] = translation;
+            }));
+            this.translations.set(loaded);
+        } catch (error) {
+            // Rendering the list in the default language is correct degradation.
+            console.error('Error loading list translations:', error);
+        }
     }
 
     /**
@@ -495,7 +594,9 @@ export class ContentListComponent extends BaseComponent implements OnInit {
         });
 
         // First process loops with list data
-        let hydratedHtml = TemplateHydrationService.processLoops(templateHtml, { items: listData });
+        // See ContentDetailComponent — chrome before loops and bindings.
+        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings());
+        let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
 
         // Then hydrate with page-level data
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
@@ -550,7 +651,9 @@ export class ContentListComponent extends BaseComponent implements OnInit {
         this.metaService.updateTag({ property: 'og:description', content: description });
         this.metaService.updateTag({ property: 'og:type', content: 'website' });
         this.metaService.updateTag({ property: 'og:site_name', content: 'Arc CMS' });
-        this.metaService.updateTag({ property: 'og:locale', content: 'en_US' });
+        // Reflects the language prefix in the URL; the default language
+        // keeps en_US, matching what the publish pipeline emits.
+        this.metaService.updateTag({ property: 'og:locale', content: this.ogLocale() });
 
         // Robots — allow indexing of all published content list pages
         this.metaService.updateTag({ name: 'robots', content: 'index, follow' });

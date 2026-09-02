@@ -26,6 +26,16 @@
                 <i class="fa-regular fa-eye"></i> <span class="btn-text">Preview</span>
             </button>
 
+            @if(isTranslating()){
+            <!-- Removing a translation is the one action scoped to a single
+                 language; saving and publishing always cover them all. -->
+            <button type="button" class="btn btn-outline-danger btn-sm me-2" (click)="clearTranslation()"
+                [disabled]="isSavingTranslation() || isSavingDraft || !hasTranslation(activeLang())"
+                [title]="'Delete the ' + activeLanguageLabel() + ' translation'">
+                <i class="fa-solid fa-eraser"></i> <span class="btn-text">Clear translation</span>
+            </button>
+            }
+
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="saveAsDraft()"
                 [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
                 @if(isSavingDraft){
@@ -174,10 +184,45 @@
 
         <!-- NORMAL EDITOR MODE -->
         <div class="editor-area">
+            <!-- Language tabs — only on multilingual sites -->
+            @if(showLanguageBar()){
+            <div class="language-bar">
+                <div class="language-tabs">
+                    @for(lang of enabledLanguages(); track lang.code){
+                    <button type="button" class="lang-tab" [class.active]="activeLang() === lang.code"
+                        (click)="switchLanguage(lang.code)"
+                        [title]="lang.code === defaultLang() ? lang.label + ' (default language)' : lang.label">
+                        {{ lang.label }}
+                        @if(lang.code === defaultLang()){
+                        <span class="lang-badge default">default</span>
+                        } @else if(hasTranslation(lang.code)){
+                        <span class="lang-badge translated" title="Translated"><i
+                                class="fa-solid fa-check"></i></span>
+                        }
+                    </button>
+                    }
+                </div>
+
+                @if(isTranslating()){
+                <div class="language-hint">
+                    <i class="fa-solid fa-language me-1"></i>
+                    Editing the <strong>{{ activeLanguageLabel() }}</strong> translation. Empty fields fall back to
+                    {{ defaultLang() }}. The URL, cover image, tags and dates are shared across languages.
+                    <strong>Save as draft</strong> and <strong>Publish</strong> apply to every language at once.
+                    @if(translationDirty()){
+                    <span class="unsaved-badge"><i class="fa-solid fa-circle"></i> Unsaved changes</span>
+                    }
+                </div>
+                }
+            </div>
+            }
+
             <!-- Title Input - Immediately above content -->
             <div class="title-input-wrapper">
-                <input type="text" placeholder="Enter title here..." [(ngModel)]="pageTitle" class="page-title-input"
-                    (input)="createSlag(); triggerAutoSave()" [disabled]="checkingSlug" />
+                <input type="text"
+                    [placeholder]="isTranslating() ? (basePlaceholder('title') || 'Enter title here...') : 'Enter title here...'"
+                    [(ngModel)]="pageTitle" class="page-title-input" (input)="createSlag(); triggerAutoSave()"
+                    [disabled]="checkingSlug" />
             </div>
 
             <div class="editor-wrapper">
@@ -266,9 +311,25 @@
                 @if(activeTab === 'basic'){
                 <div class="tab-panel">
                     <form [formGroup]="publishForm">
-                        <!-- Cover Image -->
+                        <!-- Cover Image (shared across languages) -->
                         <div class="form-group">
-                            <label class="form-label">Cover Image</label>
+                            <label class="form-label">
+                                Cover Image
+                                @if(isTranslating()){
+                                <span class="shared-badge" title="Shared across all languages">shared</span>
+                                }
+                            </label>
+                            @if(isTranslating()){
+                            <div class="shared-field-preview">
+                                @if(coverImage){
+                                <img [src]="coverImage" class="img-fluid rounded border"
+                                    style="max-height: 120px; object-fit: cover;">
+                                } @else {
+                                <span class="text-muted">No cover image</span>
+                                }
+                                <small class="text-muted d-block mt-1">Edit on the {{ defaultLang() }} tab.</small>
+                            </div>
+                            } @else {
                             <div class="cover-image-upload" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
                                 @if (!coverImage) {
                                 <div class="upload-area" (click)="openMediaManager()">
@@ -291,6 +352,7 @@
                                 </div>
                                 }
                             </div>
+                            }
 
                             <small class="text-danger d-block mt-1">{{ errorMessage }}</small>
 
@@ -300,7 +362,8 @@
                         <div class="form-group mb-3">
                             <label class="form-label">Summary</label>
                             <textarea class="form-control form-control-sm" formControlName="summary" rows="3"
-                                placeholder="Enter content summary (auto-generated from content)"></textarea>
+                                [placeholder]="isTranslating() ? (basePlaceholder('summary') || 'Enter content summary') : 'Enter content summary (auto-generated from content)'"
+                                (input)="markTranslationDirty()"></textarea>
                             <small class="text-muted">Used for content lists and default SEO description.</small>
                         </div>
 
@@ -309,6 +372,9 @@
                         <div class="form-group">
                             <label class="form-label">
                                 URL
+                                @if(isTranslating()){
+                                <span class="shared-badge" title="Shared across all languages">shared</span>
+                                }
                                 @if (isEditingSlug()) {
                                 <span class="text-danger ms-2" style="font-size: 0.8em;">
                                     <i class="fa-solid fa-triangle-exclamation"></i>
@@ -317,7 +383,17 @@
                                 }
                             </label>
 
-                            @if (!isEditingSlug() && publishForm.get('urlSlug')?.value) {
+                            @if(isTranslating()){
+                            <!-- The slug is identical in every language; only the
+                                 /{lang}/ prefix differs (decision M-D2). -->
+                            <div class="url-display">
+                                <span class="url-link">
+                                    {{ domain }}{{ activeLang() }}/{{ contentTypeSlug }}/{{
+                                    publishForm.get('urlSlug')?.value }}
+                                </span>
+                            </div>
+                            }
+                            @else if (!isEditingSlug() && publishForm.get('urlSlug')?.value) {
                             <div class="url-display">
                                 <a [href]="domain + contentTypeSlug + '/' + publishForm.get('urlSlug')?.value"
                                     target="_blank" class="url-link">
@@ -414,14 +490,26 @@
                                 @if (field.required) {
                                 <span class="text-danger">*</span>
                                 }
+                                @if(isFieldLocked(field)){
+                                <span class="shared-badge" title="Shared across all languages">shared</span>
+                                }
                             </label>
 
+                            @if(isFieldLocked(field)){
+                            <!-- Not prose: numbers, dates, options and references are
+                                 language-independent, so they stay on the base document. -->
+                            <div class="shared-field-preview">
+                                <span class="text-muted">{{ baseCustomFieldValue(field.key) || '—' }}</span>
+                                <small class="text-muted d-block mt-1">Edit on the {{ defaultLang() }} tab.</small>
+                            </div>
+                            }
+
                             <!-- Text input -->
-                            @if (field.type === 'text') {
+                            @else if (field.type === 'text') {
                             <input type="text" class="form-control form-control-sm"
                                 [value]="customFieldValues[field.key] || ''"
                                 (input)="onCustomFieldChange(field.key, $any($event.target).value)"
-                                placeholder="Enter {{ field.label | lowercase }}">
+                                [placeholder]="isTranslating() ? (baseCustomFieldValue(field.key) || ('Enter ' + field.label)) : ('Enter ' + field.label)">
                             }
                             
                             <!-- Number input -->
@@ -683,17 +771,25 @@
                         <div class="form-group">
                             <label class="form-label">SEO Title</label>
                             <input type="text" class="form-control form-control-sm" formControlName="seoTitle"
-                                placeholder="Enter SEO title" (input)="triggerAutoSave()">
+                                [placeholder]="isTranslating() ? (basePlaceholder('seoTitle') || 'Enter SEO title') : 'Enter SEO title'"
+                                (input)="triggerAutoSave()">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Meta Description</label>
                             <textarea class="form-control form-control-sm" formControlName="metaDescription" rows="3"
-                                placeholder="Enter meta description" (input)="triggerAutoSave()"></textarea>
+                                [placeholder]="isTranslating() ? (basePlaceholder('metaDescription') || 'Enter meta description') : 'Enter meta description'"
+                                (input)="triggerAutoSave()"></textarea>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Canonical URL</label>
+                            <label class="form-label">
+                                Canonical URL
+                                @if(isTranslating()){
+                                <span class="shared-badge" title="Shared across all languages">shared</span>
+                                }
+                            </label>
                             <input type="url" class="form-control form-control-sm" formControlName="canonicalUrl"
-                                placeholder="https://yourdomain.com/original-post-url" (input)="triggerAutoSave()">
+                                placeholder="https://yourdomain.com/original-post-url" (input)="triggerAutoSave()"
+                                [readonly]="isTranslating()">
                         </div>
 
                         <!-- Social Sharing Preview -->

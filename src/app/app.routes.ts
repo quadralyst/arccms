@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { roleGuard } from './guards/role.guard';
+import { languageRouteGuard } from './guards/language.guard';
 import { userGuard, entitledGuard } from './pages/user/user.guards';
 
 export const routes: Routes = [
@@ -127,6 +128,11 @@ export const routes: Routes = [
             path: 'payments',
             loadComponent: () =>
               import('./pages/admin/(settings)/payments/payments-setting.page').then((m) => m.default),
+          },
+          {
+            path: 'localization',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/localization/localization-settings.page').then((m) => m.LocalizationSettingsPage),
           },
           {
             path: 'misc',
@@ -443,6 +449,28 @@ export const routes: Routes = [
     path: 'p/:fileName',
     loadComponent: () =>
       import('./pages/public-page-renderer/public-page-renderer.component').then((m) => m.PublicPageRendererComponent),
+  },
+
+  // Translated public content: /{lang}/{contentTypeSlug}[/{urlSlug}].
+  //
+  // Published pages are served as static HTML straight from Hosting; these
+  // routes are the SPA fallback that renders drafts, previews, and anything
+  // not yet deployed — the same role the unprefixed content routes play.
+  //
+  // `canMatch` is what makes a wildcard first segment safe: a URL like
+  // /admin/settings/localization has the right shape but 'admin' is not a
+  // language, so the route is skipped rather than matched-and-broken.
+  {
+    path: ':lang/:contentTypeSlug/:urlSlug',
+    canMatch: [languageRouteGuard],
+    loadComponent: () =>
+      import('./pages/page.parts/content-detail.component').then((m) => m.ContentDetailComponent),
+  },
+  {
+    path: ':lang/:contentTypeSlug',
+    canMatch: [languageRouteGuard],
+    loadComponent: () =>
+      import('./pages/page.parts/content-list.component').then((m) => m.ContentListComponent),
   },
 
 ];

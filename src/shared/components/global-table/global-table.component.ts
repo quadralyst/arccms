@@ -16,13 +16,15 @@ export interface TableAction {
 export interface TableColumn {
     key: string;
     header: string;
-    type?: 'text' | 'badge' | 'actions' | 'code' | 'index' | 'date' | 'tags' | 'html' | 'icon'; // Added 'html' and 'icon'
+    type?: 'text' | 'badge' | 'actions' | 'code' | 'index' | 'date' | 'tags' | 'html' | 'icon' | 'image'; // Added 'html', 'icon' and 'image'
     sortable?: boolean;
 
     // Config-driven options replacing TemplateRef
     dateFormat?: string; // for 'date' type
     transformFn?: (row: any) => any;
     classFn?: (row: any) => string;
+    /** Hover text for the cell — useful when a short label needs explaining. */
+    titleFn?: (row: any) => string;
     clickable?: boolean;
 
     actions?: TableAction[];
@@ -44,6 +46,13 @@ export interface TableColumn {
         labelKey?: string;
         colorKey?: string;
         class?: string;
+    };
+    /** For 'image' columns — a thumbnail is far more readable than a raw URL. */
+    imageConfig?: {
+        /** Rendered thumbnail height in px (default 40). */
+        height?: number;
+        /** Row field to use as alt text; falls back to the column header. */
+        altKey?: string;
     };
 }
 
@@ -181,5 +190,21 @@ export class GlobalTableComponent {
         }
 
         return date;
+    }
+
+    /**
+     * Image URL for an 'image' column. Returns '' for anything that is not a
+     * usable src, so the template falls back to a dash instead of rendering a
+     * broken image.
+     */
+    resolveImageUrl(col: TableColumn, row: any): string {
+        const value = col.transformFn ? col.transformFn(row) : row[col.key];
+        return typeof value === 'string' && value.trim() ? value.trim() : '';
+    }
+
+    resolveImageAlt(col: TableColumn, row: any): string {
+        const altKey = col.imageConfig?.altKey;
+        const alt = altKey ? row[altKey] : '';
+        return typeof alt === 'string' && alt.trim() ? alt : col.header;
     }
 }

@@ -30,7 +30,7 @@
                         <p class="article-excerpt arc-skeleton">{{ excerpt }}</p>
                         <div class="article-tags-inline" [innerHTML]="tagsHtml">
                         </div>
-                        <span class="article-read-more">Read Article <i class="fas fa-arrow-right"></i></span>
+                        <span class="article-read-more" data-arc-t="read_more">Read Article <i class="fas fa-arrow-right"></i></span>
                     </div>
                 </a>
             </div>
@@ -38,8 +38,8 @@
             <!-- Empty State -->
             <div class="empty-state" id="emptyState">
                 <i class="fas fa-newspaper"></i>
-                <h3>No Articles Yet</h3>
-                <p>Check back soon for new content.</p>
+                <h3 data-arc-t="empty_title">No Articles Yet</h3>
+                <p data-arc-t="empty_body">Check back soon for new content.</p>
             </div>
         </div>
     </section>
