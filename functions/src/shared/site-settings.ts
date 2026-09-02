@@ -21,12 +21,39 @@ export interface AboutConfig {
     address: string;
 }
 
+/**
+ * A language this site publishes in. `code` is a BCP-47 primary subtag and
+ * doubles as the URL prefix for non-default languages.
+ * Mirrors `ILanguage` in src/shared/models/localization.model.ts.
+ */
+export interface Language {
+    code: string;
+    label: string;
+    nativeLabel: string;
+    rtl?: boolean;
+}
+
+export interface LocalizationSettings {
+    defaultLanguage: string;
+    enabledLanguages: Language[];
+}
+
+const DEFAULT_LANGUAGE_CODE = 'en';
+
+const DEFAULT_LOCALIZATION: LocalizationSettings = {
+    defaultLanguage: DEFAULT_LANGUAGE_CODE,
+    enabledLanguages: [{ code: DEFAULT_LANGUAGE_CODE, label: 'English', nativeLabel: 'English' }],
+};
+
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 let partialsCache: { data: Partials; timestamp: number } | null = null;
 let siteConfigCache: { data: SiteConfig; timestamp: number } | null = null;
 let aboutConfigCache: { data: AboutConfig; timestamp: number } | null = null;
 let miscSettingsCache: { data: MiscSettings; timestamp: number } | null = null;
+let localizationCache: { data: LocalizationSettings; timestamp: number } | null = null;
+/** Per-language UI strings, keyed by language code. */
+const uiStringsCache = new Map<string, { data: Record<string, string>; timestamp: number }>();
 
 function isCacheValid(cache: { timestamp: number } | null): boolean {
     if (!cache) return false;
@@ -180,6 +207,136 @@ export async function getMiscSettings(): Promise<MiscSettings> {
 }
 
 /**
+ * Normalizes the raw `Settings/localization` document.
+ *
+ * Guarantees: at least one enabled language; no duplicate codes; the default
+ * language is always present and always listed first. The publish pipeline
+ * relies on these invariants, so an admin-mangled document degrades to a
+ * single-language site rather than deploying broken URLs.
+ *
+ * Mirrors `normalizeLocalizationSettings` in
+ * src/shared/models/localization.model.ts — keep the two in step.
+ */
+export function normalizeLocalization(raw: unknown): LocalizationSettings {
+    const data = (raw ?? {}) as Partial<LocalizationSettings>;
+
+    const seen = new Set<string>();
+    const languages: Language[] = [];
+    for (const entry of Array.isArray(data.enabledLanguages) ? data.enabledLanguages : []) {
+        const code = typeof entry?.code === 'string' ? entry.code.trim().toLowerCase() : '';
+        if (!code || seen.has(code)) continue;
+        seen.add(code);
+        languages.push({
+            code,
+            label: entry.label?.trim() || code,
+            nativeLabel: entry.nativeLabel?.trim() || entry.label?.trim() || code,
+            ...(entry.rtl ? { rtl: true } : {}),
+        });
+    }
+
+    const requested =
+        typeof data.defaultLanguage === 'string' ? data.defaultLanguage.trim().toLowerCase() : '';
+
+    // Only an *absent* default is inferred, from the first enabled language.
+    // A stored default missing from the list is honoured and re-added instead:
+    // it says which language the base content is written in, so silently
+    // switching it would mislabel every existing document.
+    const defaultLanguage = requested || languages[0]?.code || DEFAULT_LANGUAGE_CODE;
+    if (!seen.has(defaultLanguage)) {
+        languages.unshift(
+            defaultLanguage === DEFAULT_LANGUAGE_CODE
+                ? { ...DEFAULT_LOCALIZATION.enabledLanguages[0] }
+                : { code: defaultLanguage, label: defaultLanguage, nativeLabel: defaultLanguage },
+        );
+    }
+
+    const ordered = [
+        languages.find((l) => l.code === defaultLanguage)!,
+        ...languages.filter((l) => l.code !== defaultLanguage),
+    ];
+
+    return { defaultLanguage, enabledLanguages: ordered };
+}
+
+/**
+ * Reads the site's language registry from Settings/localization.
+ * Falls back to a single-language (English) site when the doc is absent.
+ * Cached for 5 minutes per Cloud Function instance.
+ */
+export async function getLocalizationSettings(): Promise<LocalizationSettings> {
+    if (isCacheValid(localizationCache)) {
+        return localizationCache!.data;
+    }
+
+    let settings: LocalizationSettings;
+    try {
+        const snap = await db.doc('Settings/localization').get();
+        settings = normalizeLocalization(snap.exists ? snap.data() : null);
+    } catch (error) {
+        // Never let a settings read failure abort a publish — a single-language
+        // deploy is the safe degradation.
+        console.error('Error reading Settings/localization:', error);
+        settings = DEFAULT_LOCALIZATION;
+    }
+
+    localizationCache = { data: settings, timestamp: Date.now() };
+    return settings;
+}
+
+/**
+ * Static UI strings for a language, used by `data-arc-t` in templates and
+ * partials. Committed to the repo at `public/i18n/{lang}/strings.json` and
+ * therefore served from hosting — they ship with the templates and must exist
+ * at publish time (decision M-D18).
+ *
+ * The default language has no file: its text is the English authored into the
+ * templates, which doubles as the fallback for any missing key.
+ *
+ * Cached for 5 minutes per instance, like the partials.
+ */
+export async function getUiStrings(lang: string): Promise<Record<string, string>> {
+    if (!lang) return {};
+
+    const cached = uiStringsCache.get(lang);
+    if (cached && isCacheValid(cached)) return cached.data;
+
+    const projectId = process.env.GCLOUD_PROJECT || '';
+    let strings: Record<string, string> = {};
+
+    if (projectId) {
+        try {
+            const res = await fetch(`https://${projectId}.web.app/i18n/${lang}/strings.json`);
+            if (res.ok) {
+                const parsed = await res.json();
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    strings = parsed as Record<string, string>;
+                }
+            }
+        } catch (error) {
+            // A missing or malformed file leaves the authored English in place,
+            // which is the designed fallback — never fail a publish over it.
+            console.warn(`Could not load UI strings for "${lang}":`, error);
+        }
+    }
+
+    uiStringsCache.set(lang, { data: strings, timestamp: Date.now() });
+    return strings;
+}
+
+/** Languages other than the default — the ones that need translations. */
+export function getExtraLanguages(settings: LocalizationSettings): Language[] {
+    return settings.enabledLanguages.filter((l) => l.code !== settings.defaultLanguage);
+}
+
+/**
+ * URL prefix for a language: '' for the default language (its URLs are
+ * unchanged), '/{code}' for every other language.
+ */
+export function languagePathPrefix(settings: LocalizationSettings, code: string): string {
+    return code && code !== settings.defaultLanguage ? `/${code}` : '';
+}
+
+/**
  * Clears the in-memory cache. Call before operations
  * that need guaranteed fresh data (e.g., seed function).
  */
@@ -188,4 +345,6 @@ export function clearSettingsCache(): void {
     siteConfigCache = null;
     aboutConfigCache = null;
     miscSettingsCache = null;
+    localizationCache = null;
+    uiStringsCache.clear();
 }

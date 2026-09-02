@@ -20,6 +20,8 @@ const {
     mockGenerateListPage,
     mockRemoveContentPage,
     mockContentTypeGet,
+    mockSubCollectionGet,
+    mockBatchDelete,
 } = vi.hoisted(() => ({
     mockCollection: vi.fn(),
     mockDoc: vi.fn(),
@@ -35,6 +37,8 @@ const {
     mockGenerateListPage: vi.fn(),
     mockRemoveContentPage: vi.fn(),
     mockContentTypeGet: vi.fn(),
+    mockSubCollectionGet: vi.fn(),
+    mockBatchDelete: vi.fn(),
 }));
 
 vi.mock('../init', () => ({
@@ -43,6 +47,7 @@ vi.mock('../init', () => ({
         batch: () => ({
             set: mockBatchSet,
             update: mockBatchUpdate,
+            delete: mockBatchDelete,
             commit: mockBatchCommit,
         }),
     },
@@ -90,7 +95,13 @@ const handler = processPublishQueue as unknown as (event: any) => Promise<void>;
 
 function buildChain(contentTypeData: any = { hasPublicUrl: true }) {
     const subCollectionAdd = mockAdd.mockResolvedValue({ id: 'log1' });
-    const subCollectionRef = { add: subCollectionAdd, doc: vi.fn().mockReturnValue({ id: 'auto-id' }) };
+    // `get` supports the translations subcollection (M3); PublishedHistory
+    // only ever writes, so the same shape serves both.
+    const subCollectionRef = {
+        add: subCollectionAdd,
+        doc: vi.fn().mockReturnValue({ id: 'auto-id', ref: { id: 'auto-id' } }),
+        get: mockSubCollectionGet,
+    };
 
     const docRef = {
         get: mockGet,
@@ -145,6 +156,8 @@ describe('processPublishQueue', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         buildChain();
+        mockSubCollectionGet.mockResolvedValue({ docs: [], empty: true });
+        mockBatchDelete.mockReturnValue(undefined);
         mockSet.mockResolvedValue(undefined);
         mockUpdate.mockResolvedValue(undefined);
         mockDelete.mockResolvedValue(undefined);
@@ -510,5 +523,64 @@ describe('processPublishQueue — batched writes', () => {
         expect(fileContent).toMatch(/publishBatch\.commit\(\)/);
         expect(fileContent).toMatch(/updateBatch\.set\(/);
         expect(fileContent).toMatch(/updateBatch\.commit\(\)/);
+    });
+    // ── Translation syncing (M3) ────────────────────────────────────────────
+
+    describe('translation syncing', () => {
+        /** First get() is the draft's translations, second the published copy. */
+        function withTranslations(draftLangs: string[], publishedLangs: string[] = draftLangs) {
+            mockSubCollectionGet
+                .mockResolvedValueOnce({
+                    docs: draftLangs.map(lang => ({ id: lang, data: () => ({ lang, title: `${lang} title` }) })),
+                    empty: draftLangs.length === 0,
+                })
+                .mockResolvedValueOnce({
+                    docs: publishedLangs.map(lang => ({ id: lang, ref: { id: lang }, data: () => ({ lang }) })),
+                    empty: publishedLangs.length === 0,
+                });
+        }
+
+        it('should copy draft translations to the published document on publish', async () => {
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ urlSlug: 'a', title: 'A' }) });
+            withTranslations(['hi']);
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            // The published doc itself, its history entry, and the hi variant.
+            const written = mockBatchSet.mock.calls.map(call => call[1]);
+            expect(written).toContainEqual(expect.objectContaining({ lang: 'hi', title: 'hi title' }));
+        });
+
+        it('should delete published languages the draft no longer has', async () => {
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ urlSlug: 'a', title: 'A' }) });
+            withTranslations([], ['hi']); // translation cleared in the editor
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockBatchDelete).toHaveBeenCalled();
+        });
+
+        it('should still publish when the translation sync fails', async () => {
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ urlSlug: 'a', title: 'A' }) });
+            mockSubCollectionGet.mockRejectedValue(new Error('denied'));
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
+            consoleSpy.mockRestore();
+        });
+
+        it('should remove translations when unpublishing', async () => {
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ urlSlug: 'a' }) });
+            mockSubCollectionGet.mockResolvedValue({
+                docs: [{ id: 'hi', ref: { id: 'hi' } }],
+                empty: false,
+            });
+
+            await handler(createEvent('unpublish', 'articles', 'doc1'));
+
+            expect(mockBatchDelete).toHaveBeenCalled();
+        });
     });
 });

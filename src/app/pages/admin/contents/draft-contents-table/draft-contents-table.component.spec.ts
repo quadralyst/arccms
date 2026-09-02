@@ -765,5 +765,114 @@ describe('DraftContentsTableComponent', () => {
             expect(result).not.toBe('--');
         });
     });
-});
+    describe('Dynamic list columns', () => {
+        /** A content type whose custom fields shadow the built-ins, as real ones do. */
+        function useArticleType(fields: any[]): void {
+            mockContentTypesStore.items.set([
+                { id: 'ct1', name: 'Article', slug: 'article', fields },
+            ]);
+            component.contentTypeSlug = 'article';
+            component.visibleColumnKeys.set([]);
+            component.updateDynamicColumns();
+        }
 
+        const TITLE_FIELD = { key: 'title', label: 'Title', type: 'text', required: false, order: 0 };
+        const BODY_FIELD = { key: 'body', label: 'Body', type: 'richtext', required: false, order: 1 };
+        const COVER_FIELD = { key: 'coverImage', label: 'Cover Image', type: 'image', required: false, order: 2 };
+        const AUTHOR_FIELD = { key: 'author', label: 'Author', type: 'text', required: false, order: 3 };
+
+        it('should render the Title heading only once when a custom title field shadows the built-in', () => {
+            useArticleType([TITLE_FIELD, AUTHOR_FIELD]);
+
+            const titleColumns = component.tableColumns.filter((c) => c.header === 'Title');
+            expect(titleColumns).toHaveLength(1);
+            expect(component.tableColumns.map((c) => c.key)).toContain('author');
+        });
+
+        it('should not offer a shadowing field in the column picker either', () => {
+            useArticleType([TITLE_FIELD, AUTHOR_FIELD]);
+
+            expect(component.availableColumns().map((c) => c.key)).not.toContain('title');
+            expect(component.availableColumns().map((c) => c.key)).toContain('author');
+        });
+
+        it('should drop rich-text fields, which are too long for a table cell', () => {
+            useArticleType([BODY_FIELD, AUTHOR_FIELD]);
+
+            expect(component.tableColumns.map((c) => c.key)).not.toContain('body');
+            expect(component.availableColumns().map((c) => c.key)).not.toContain('body');
+        });
+
+        it('should drop rich text even when a saved preference still lists it', () => {
+            mockContentTypesStore.items.set([
+                { id: 'ct1', name: 'Article', slug: 'article', fields: [BODY_FIELD, AUTHOR_FIELD], listColumns: ['body', 'author'] },
+            ]);
+            component.contentTypeSlug = 'article';
+            component.visibleColumnKeys.set([]);
+            component.updateDynamicColumns();
+
+            expect(component.tableColumns.map((c) => c.key)).not.toContain('body');
+        });
+
+        it('should render image fields as thumbnails rather than raw URLs', () => {
+            useArticleType([COVER_FIELD]);
+
+            const cover = component.tableColumns.find((c) => c.key === 'coverImage');
+            expect(cover?.type).toBe('image');
+            expect(cover?.imageConfig?.height).toBe(40);
+        });
+
+        it('should keep ordinary fields as text columns', () => {
+            useArticleType([AUTHOR_FIELD]);
+
+            const author = component.tableColumns.find((c) => c.key === 'author');
+            expect(author?.type).toBe('text');
+        });
+
+        it('should still resolve values for the columns it keeps', () => {
+            useArticleType([AUTHOR_FIELD]);
+
+            const author = component.tableColumns.find((c) => c.key === 'author');
+            expect(author?.transformFn?.({ customFields: { author: 'Ada' } })).toBe('Ada');
+        });
+    });
+
+    describe('Status column (three states)', () => {
+        function statusColumn(): any {
+            component.contentTypeSlug = 'article';
+            component.visibleColumnKeys.set([]);
+            component.updateDynamicColumns();
+            return component.tableColumns.find((c) => c.key === 'publishedStatus');
+        }
+
+        const PUBLISHED_AT = new Date('2026-07-20T10:00:00Z');
+        const LATER = new Date('2026-07-21T10:00:00Z');
+
+        it('should label an unpublished item Draft', () => {
+            const col = statusColumn();
+            const row = { publishedStatus: false };
+            expect(col.badgeConfig.textFn(row)).toBe('Draft');
+            expect(col.classFn(row)).toBe('inactive');
+        });
+
+        it('should label an in-sync item Published', () => {
+            const col = statusColumn();
+            const row = { publishedStatus: true, lastPublishedAt: PUBLISHED_AT, modifiedAt: PUBLISHED_AT };
+            expect(col.badgeConfig.textFn(row)).toBe('Published');
+            expect(col.classFn(row)).toBe('active');
+        });
+
+        it('should label a published item with newer draft changes Edited', () => {
+            const col = statusColumn();
+            const row = { publishedStatus: true, lastPublishedAt: PUBLISHED_AT, modifiedAt: LATER };
+            expect(col.badgeConfig.textFn(row)).toBe('Edited');
+            expect(col.classFn(row)).toBe('pending');
+        });
+
+        it('should explain each state on hover', () => {
+            const col = statusColumn();
+            expect(col.titleFn({ publishedStatus: true, lastPublishedAt: PUBLISHED_AT, modifiedAt: LATER }))
+                .toContain('not live yet');
+        });
+    });
+});

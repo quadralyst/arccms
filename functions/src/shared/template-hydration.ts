@@ -196,6 +196,58 @@ export class TemplateHydrationService {
   }
 
   /**
+   * Replaces static template text with the active language's strings.
+   *
+   *   <span data-arc-t="read_more">Read Article</span>
+   *
+   * The element's existing content is the English default, so an untranslated
+   * key simply stays as authored and the template remains a valid, previewable
+   * English document. Attributes are annotated as
+   * `data-arc-t-attr="placeholder:key"`.
+   *
+   * Mirrored in src/app/core/services/template-hydration.service.ts — the
+   * static publish and the SPA must render the same chrome.
+   *
+   * @param htmlContent - Hydrated template HTML
+   * @param strings - Flat key → text map for the target language ({} for the default)
+   */
+  static applyStrings(htmlContent: string, strings: Record<string, string> | null | undefined): string {
+    if (!htmlContent) return htmlContent;
+    const $ = cheerio.load(htmlContent, { xmlMode: false });
+    const table = strings || {};
+
+    $('[data-arc-t]').each((_, element) => {
+      const $el = $(element);
+      const key = $el.attr('data-arc-t') || '';
+      const translated = table[key];
+      // Only replace when a translation exists; otherwise the authored English
+      // stands. Empty strings are treated as "not translated" so a blank entry
+      // cannot silently erase a label.
+      if (typeof translated === 'string' && translated.trim()) {
+        $el.text(translated);
+      }
+      $el.removeAttr('data-arc-t');
+    });
+
+    $('[data-arc-t-attr]').each((_, element) => {
+      const $el = $(element);
+      const spec = $el.attr('data-arc-t-attr') || '';
+      // "placeholder:key" or several, comma separated.
+      spec.split(',').forEach(pair => {
+        const [attr, key] = pair.split(':').map(part => part.trim());
+        if (!attr || !key) return;
+        const translated = table[key];
+        if (typeof translated === 'string' && translated.trim()) {
+          $el.attr(attr, translated);
+        }
+      });
+      $el.removeAttr('data-arc-t-attr');
+    });
+
+    return $.html();
+  }
+
+  /**
    * Processes loop templates (data-arc-loop)
    *
    * @param htmlContent - The HTML template containing loop containers

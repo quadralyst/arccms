@@ -31,6 +31,13 @@ export interface IDraftContents extends IBaseModel {
     canonicalUrl: string;
     publishedOn: Date | null;
     publishedStatus: boolean;
+    /**
+     * When this draft was last copied to the published collection. Stamped by
+     * the publish pipeline *after* the copy, so `modifiedAt > lastPublishedAt`
+     * means "edited since publishing". Absent on items published before this
+     * field existed — see `deriveContentStatus`.
+     */
+    lastPublishedAt?: Date;
     isFeatured: boolean;
     readTime?: number; // Reading time in minutes
     // IBaseModel fields are inherited: id, createdBy, createdAt, modifiedBy, modifiedAt

@@ -1,7 +1,8 @@
 import { db } from '../init.js';
-import { getSiteConfig } from '../shared/site-settings.js';
+import { getSiteConfig, getLocalizationSettings } from '../shared/site-settings.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { deploySeoFileToHosting } from './deploySeoFile.js';
+import { detailUrl, listUrl } from '../shared/content-translation.js';
 
 /** Known static pages to include in the sitemap. */
 const STATIC_PAGES = ['privacy-policy', 'cookie-policy'];
@@ -59,13 +60,24 @@ export async function generateAndDeploySitemap(): Promise<void> {
               [key: string]: any;
           }>;
 
-    // 3. For each content type: add list page + individual content pages
+    // 3. For each content type: add list page + individual content pages,
+    //    one entry per language the page exists in.
+    const localization = await getLocalizationSettings();
+    const defaultLang = localization.defaultLanguage;
+    const languages = localization.enabledLanguages;
+
     for (const contentType of contentTypes) {
         const slug = contentType.slug;
         const collectionName = getPublishedCollectionName(slug);
 
-        // List page
-        urls.push(buildUrlEntry(`${baseUrl}/${slug}`, toIsoDate(null), 'daily', '0.6'));
+        // List pages exist in every enabled language.
+        const listAlternates = languages.map(lang => ({
+            lang: lang.code,
+            url: listUrl(baseUrl, lang.code, defaultLang, slug),
+        }));
+        for (const alternate of listAlternates) {
+            urls.push(buildUrlEntry(alternate.url, toIsoDate(null), 'daily', '0.6', listAlternates));
+        }
 
         // Individual content pages
         const contentsSnap = await db
@@ -75,13 +87,33 @@ export async function generateAndDeploySitemap(): Promise<void> {
 
         for (const doc of contentsSnap.docs) {
             const data = doc.data();
-            if (data.urlSlug) {
+            if (!data.urlSlug) continue;
+
+            // A detail page exists in the default language plus every language
+            // it has been translated into — mirroring what the deploy does.
+            let translatedLangs: string[] = [];
+            try {
+                const translationsSnap = await doc.ref.collection('translations').get();
+                translatedLangs = translationsSnap.docs.map(t => t.id);
+            } catch (error) {
+                console.error(`Could not read translations for sitemap entry ${collectionName}/${doc.id}:`, error);
+            }
+
+            const detailAlternates = languages
+                .filter(lang => lang.code === defaultLang || translatedLangs.includes(lang.code))
+                .map(lang => ({
+                    lang: lang.code,
+                    url: detailUrl(baseUrl, lang.code, defaultLang, slug, data.urlSlug),
+                }));
+
+            for (const alternate of detailAlternates) {
                 urls.push(
                     buildUrlEntry(
-                        `${baseUrl}/${slug}/${data.urlSlug}`,
+                        alternate.url,
                         toIsoDate(data.publishedOn || data.modifiedAt),
                         'weekly',
                         '0.8',
+                        detailAlternates,
                     ),
                 );
             }
@@ -96,7 +128,9 @@ export async function generateAndDeploySitemap(): Promise<void> {
     // 5. Build XML
     const xml = [
         '<?xml version="1.0" encoding="UTF-8"?>',
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        // xhtml namespace is required for the <xhtml:link> hreflang alternates
+        // emitted by buildUrlEntry on multilingual pages.
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
         ...urls,
         '</urlset>',
         '',
@@ -111,10 +145,20 @@ function buildUrlEntry(
     lastmod: string,
     changefreq: string,
     priority: string,
+    alternates: { lang: string; url: string }[] = [],
 ): string {
+    // Each language variant is listed inside every variant's <url> entry, per
+    // the sitemap hreflang spec — search engines expect the set to be complete
+    // and reciprocal. Omitted entirely for single-language pages.
+    const alternateLinks = alternates.length > 1
+        ? alternates.map(alt =>
+            `    <xhtml:link rel="alternate" hreflang="${escapeXml(alt.lang)}" href="${escapeXml(alt.url)}"/>`)
+        : [];
+
     return [
         '  <url>',
         `    <loc>${escapeXml(loc)}</loc>`,
+        ...alternateLinks,
         `    <lastmod>${lastmod}</lastmod>`,
         `    <changefreq>${changefreq}</changefreq>`,
         `    <priority>${priority}</priority>`,

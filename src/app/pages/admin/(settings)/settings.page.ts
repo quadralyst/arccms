@@ -312,6 +312,13 @@ export default class SettingsPageComponent extends BaseComponent {
             description: 'Site usage banner message and style',
         },
         {
+            id: 'localization',
+            label: 'Localization',
+            icon: 'fa-solid fa-language',
+            route: '/admin/settings/localization',
+            description: 'Site languages & default language',
+        },
+        {
             id: 'misc',
             label: 'Miscellaneous',
             icon: 'fa-solid fa-cog',

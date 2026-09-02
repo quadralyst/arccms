@@ -54,6 +54,15 @@
                             <code>{{ col.transformFn ? col.transformFn(row) : row[col.key] }}</code>
                         </ng-container>
 
+                        <!-- Image Type — thumbnail rather than a raw URL -->
+                        <ng-container *ngIf="col.type === 'image'">
+                            <ng-container *ngIf="resolveImageUrl(col, row) as imageUrl; else noImage">
+                                <img [src]="imageUrl" [alt]="resolveImageAlt(col, row)" class="table-thumb"
+                                    [style.height.px]="col.imageConfig?.height || 40" loading="lazy" />
+                            </ng-container>
+                            <ng-template #noImage><span class="text-muted">—</span></ng-template>
+                        </ng-container>
+
                         <!-- HTML Type -->
                         <ng-container *ngIf="col.type === 'html'">
                             <div [innerHTML]="col.transformFn ? col.transformFn(row) : row[col.key]"></div>
@@ -64,7 +73,8 @@
                             <span class="status-badge"
                                 [class.active]="!col.badgeConfig?.textFn && badgeValue(col, row)"
                                 [class.inactive]="!col.badgeConfig?.textFn && !badgeValue(col, row)"
-                                [ngClass]="col.classFn ? col.classFn(row) : ''">
+                                [ngClass]="col.classFn ? col.classFn(row) : ''"
+                                [attr.title]="col.titleFn ? col.titleFn(row) : null">
                                 {{ badgeText(col, row) }}
                             </span>
                         </ng-container>
