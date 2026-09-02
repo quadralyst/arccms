@@ -58,6 +58,7 @@ export type TranslationKey =
     | 'admin.contents.editor.back_to_editor'
     | 'admin.contents.editor.change'
     | 'admin.contents.editor.clear_translation'
+    | 'admin.contents.editor.click_to_select_icon'
     | 'admin.contents.editor.click_to_select_image'
     | 'admin.contents.editor.click_to_upload'
     | 'admin.contents.editor.cover_image'
@@ -73,6 +74,13 @@ export type TranslationKey =
     | 'admin.contents.editor.history'
     | 'admin.contents.editor.image_recommendation'
     | 'admin.contents.editor.loading_options'
+    | 'admin.contents.editor.map.address'
+    | 'admin.contents.editor.map.address_placeholder'
+    | 'admin.contents.editor.map.bad_coordinates'
+    | 'admin.contents.editor.map.clear'
+    | 'admin.contents.editor.map.coordinates'
+    | 'admin.contents.editor.map.no_results'
+    | 'admin.contents.editor.map.search_placeholder'
     | 'admin.contents.editor.meta_description'
     | 'admin.contents.editor.next_content_hint'
     | 'admin.contents.editor.no_content_found'
@@ -80,8 +88,20 @@ export type TranslationKey =
     | 'admin.contents.editor.preview'
     | 'admin.contents.editor.publish'
     | 'admin.contents.editor.remove_image'
+    | 'admin.contents.editor.repeater.add'
+    | 'admin.contents.editor.repeater.add_photos'
+    | 'admin.contents.editor.repeater.choose_media'
+    | 'admin.contents.editor.repeater.empty'
+    | 'admin.contents.editor.repeater.image'
+    | 'admin.contents.editor.repeater.position'
+    | 'admin.contents.editor.repeater.structure_locked'
+    | 'admin.contents.editor.repeater.video'
+    | 'admin.contents.editor.repeater.video_invalid'
+    | 'admin.contents.editor.repeater.video_url'
+    | 'admin.contents.editor.resize_sidebar'
     | 'admin.contents.editor.restore_version'
     | 'admin.contents.editor.save_draft'
+    | 'admin.contents.editor.select_icon'
     | 'admin.contents.editor.select_image'
     | 'admin.contents.editor.seo_title'
     | 'admin.contents.editor.shared_badge'
@@ -333,7 +353,25 @@ export type TranslationKey =
     | 'admin.media.dimensions'
     | 'admin.media.drop_hint'
     | 'admin.media.empty'
+    | 'admin.media.icons.insert'
+    | 'admin.media.icons.load_failed'
+    | 'admin.media.icons.loading'
+    | 'admin.media.icons.name_label'
+    | 'admin.media.icons.no_results'
+    | 'admin.media.icons.none_selected'
+    | 'admin.media.icons.search_placeholder'
+    | 'admin.media.icons.selected'
+    | 'admin.media.icons.show_more'
+    | 'admin.media.icons.showing'
+    | 'admin.media.icons.style_all'
+    | 'admin.media.icons.style_brands'
+    | 'admin.media.icons.style_filter'
+    | 'admin.media.icons.style_label'
+    | 'admin.media.icons.style_regular'
+    | 'admin.media.icons.style_solid'
+    | 'admin.media.icons.tab'
     | 'admin.media.insert'
+    | 'admin.media.insert_count'
     | 'admin.media.load_failed'
     | 'admin.media.logo_alt'
     | 'admin.media.metadata_failed'
@@ -819,6 +857,7 @@ export type TranslationKey =
     | 'common.actions.add'
     | 'common.actions.back'
     | 'common.actions.cancel'
+    | 'common.actions.clear'
     | 'common.actions.close'
     | 'common.actions.confirm'
     | 'common.actions.copy'
@@ -998,6 +1037,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.back_to_editor',
     'admin.contents.editor.change',
     'admin.contents.editor.clear_translation',
+    'admin.contents.editor.click_to_select_icon',
     'admin.contents.editor.click_to_select_image',
     'admin.contents.editor.click_to_upload',
     'admin.contents.editor.cover_image',
@@ -1013,6 +1053,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.history',
     'admin.contents.editor.image_recommendation',
     'admin.contents.editor.loading_options',
+    'admin.contents.editor.map.address',
+    'admin.contents.editor.map.address_placeholder',
+    'admin.contents.editor.map.bad_coordinates',
+    'admin.contents.editor.map.clear',
+    'admin.contents.editor.map.coordinates',
+    'admin.contents.editor.map.no_results',
+    'admin.contents.editor.map.search_placeholder',
     'admin.contents.editor.meta_description',
     'admin.contents.editor.next_content_hint',
     'admin.contents.editor.no_content_found',
@@ -1020,8 +1067,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.preview',
     'admin.contents.editor.publish',
     'admin.contents.editor.remove_image',
+    'admin.contents.editor.repeater.add',
+    'admin.contents.editor.repeater.add_photos',
+    'admin.contents.editor.repeater.choose_media',
+    'admin.contents.editor.repeater.empty',
+    'admin.contents.editor.repeater.image',
+    'admin.contents.editor.repeater.position',
+    'admin.contents.editor.repeater.structure_locked',
+    'admin.contents.editor.repeater.video',
+    'admin.contents.editor.repeater.video_invalid',
+    'admin.contents.editor.repeater.video_url',
+    'admin.contents.editor.resize_sidebar',
     'admin.contents.editor.restore_version',
     'admin.contents.editor.save_draft',
+    'admin.contents.editor.select_icon',
     'admin.contents.editor.select_image',
     'admin.contents.editor.seo_title',
     'admin.contents.editor.shared_badge',
@@ -1273,7 +1332,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.dimensions',
     'admin.media.drop_hint',
     'admin.media.empty',
+    'admin.media.icons.insert',
+    'admin.media.icons.load_failed',
+    'admin.media.icons.loading',
+    'admin.media.icons.name_label',
+    'admin.media.icons.no_results',
+    'admin.media.icons.none_selected',
+    'admin.media.icons.search_placeholder',
+    'admin.media.icons.selected',
+    'admin.media.icons.show_more',
+    'admin.media.icons.showing',
+    'admin.media.icons.style_all',
+    'admin.media.icons.style_brands',
+    'admin.media.icons.style_filter',
+    'admin.media.icons.style_label',
+    'admin.media.icons.style_regular',
+    'admin.media.icons.style_solid',
+    'admin.media.icons.tab',
     'admin.media.insert',
+    'admin.media.insert_count',
     'admin.media.load_failed',
     'admin.media.logo_alt',
     'admin.media.metadata_failed',
@@ -1759,6 +1836,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.actions.add',
     'common.actions.back',
     'common.actions.cancel',
+    'common.actions.clear',
     'common.actions.close',
     'common.actions.confirm',
     'common.actions.copy',

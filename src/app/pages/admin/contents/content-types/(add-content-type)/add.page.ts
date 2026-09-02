@@ -69,10 +69,15 @@ export default class AddContentTypeComponent extends BaseComponent {
         'date',
         'datetime',
         'image',
+        'icon',
         'boolean',
         'dropdown',
         'checkbox',
-        'radio'
+        'radio',
+        'infocard',
+        'gallery',
+        'labelvalue',
+        'maplocation'
     ];
 
     addForm = new FormGroup({

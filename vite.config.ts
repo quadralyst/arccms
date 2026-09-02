@@ -10,6 +10,17 @@ export default defineConfig(({ mode }) => {
     build: {
       target: ['es2020'],
     },
+    server: {
+      /**
+       * Honour an assigned port.
+       *
+       * Vite otherwise hardcodes 5173 and silently increments when that is
+       * taken, which leaves a supervising process watching a port nothing is
+       * listening on. Reading PORT lets a second dev server be started
+       * alongside a running one. Unset falls back to Vite's own default.
+       */
+      port: process.env['PORT'] ? Number(process.env['PORT']) : undefined,
+    },
     resolve: {
       mainFields: ['module'],
       alias: {

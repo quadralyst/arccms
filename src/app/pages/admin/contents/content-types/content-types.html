@@ -45,7 +45,7 @@
                         </div>
                     </div> -->
 
-                    <app-global-table [data]="contentTypesStore.items()" [columns]="tableColumns"
+                    <app-global-table [data]="pagedContentTypes()" [columns]="tableColumns"
                         [loading]="contentTypesStore.isLoading()" [sortField]="sortField()" [sortOrder]="sortOrder()"
                         (sortChange)="setSortField($event)" [pageIndex]="currentPage()" [pageSize]="pageSize()"
                         [emptyTitle]="'admin.contents.types.empty_title' | transloco"
@@ -58,17 +58,17 @@
                     <div class="pagination-footer d-flex justify-content-between align-items-center">
                         @if(!contentTypesStore.isLoading()) {
                         <div class="record-count text-muted">
-                            @if(contentTypesStore.totalRecords() > 0) {
+                            @if(totalContentTypes() > 0) {
                             @if(hasActiveFilters()) {
-                            {{ 'common.table.showing_range_filtered' | transloco: { start: getStartRecord(), end: getEndRecord(), total: contentTypesStore.totalRecords() } }}
+                            {{ 'common.table.showing_range_filtered' | transloco: { start: getStartRecord(), end: getEndRecord(), total: totalContentTypes() } }}
                             } @else {
-                            {{ 'common.table.showing_range' | transloco: { start: getStartRecord(), end: getEndRecord(), total: contentTypesStore.totalRecords() } }}
+                            {{ 'common.table.showing_range' | transloco: { start: getStartRecord(), end: getEndRecord(), total: totalContentTypes() } }}
                             }
                             } @else {
                             {{ 'common.table.no_records' | transloco }}
                             }
                         </div>
-                        <mat-paginator [length]="contentTypesStore.totalRecords()" [pageSize]="pageSize()"
+                        <mat-paginator [length]="totalContentTypes()" [pageSize]="pageSize()"
                             [pageIndex]="currentPage()" [pageSizeOptions]="[5, 10, 25, 50]"
                             [showFirstLastButtons]="true" (page)="onPageChange($event)">
                         </mat-paginator>

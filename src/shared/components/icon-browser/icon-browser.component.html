@@ -1,0 +1,72 @@
+<div class="icon-browser">
+    <div class="icon-browser-toolbar">
+        <div class="icon-search-box">
+            <i class="fas fa-search text-muted" aria-hidden="true"></i>
+            <input
+                type="text"
+                [ngModel]="searchTerm()"
+                (ngModelChange)="onSearchChange($event)"
+                [placeholder]="'admin.media.icons.search_placeholder' | transloco"
+                [attr.aria-label]="'admin.media.icons.search_placeholder' | transloco">
+            @if (searchTerm()) {
+            <button type="button" class="icon-search-clear" (click)="onSearchChange('')"
+                [attr.aria-label]="'common.actions.clear' | transloco">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+            }
+        </div>
+
+        <div class="icon-style-filter" role="group"
+            [attr.aria-label]="'admin.media.icons.style_filter' | transloco">
+            <button type="button" class="icon-style-btn" [class.active]="activeStyle() === 'all'"
+                [attr.aria-pressed]="activeStyle() === 'all'" (click)="setStyle('all')">
+                {{ 'admin.media.icons.style_all' | transloco }}
+            </button>
+            @for (style of styles; track style) {
+            <button type="button" class="icon-style-btn" [class.active]="activeStyle() === style"
+                [attr.aria-pressed]="activeStyle() === style" (click)="setStyle(style)">
+                {{ 'admin.media.icons.style_' + style | transloco }}
+            </button>
+            }
+        </div>
+    </div>
+
+    @if (loading()) {
+    <div class="icon-browser-state">
+        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>{{ 'admin.media.icons.loading' | transloco }}</span>
+    </div>
+    } @else if (failed()) {
+    <div class="icon-browser-state icon-browser-error">
+        <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+        <span>{{ 'admin.media.icons.load_failed' | transloco }}</span>
+    </div>
+    } @else if (!results().length) {
+    <div class="icon-browser-state">
+        <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+        <span>{{ 'admin.media.icons.no_results' | transloco }}</span>
+    </div>
+    } @else {
+    <div class="icon-grid">
+        @for (result of results(); track trackByKey($index, result)) {
+        <button type="button" class="icon-cell" [class.selected]="selectedKey() === keyFor(result)"
+            [attr.aria-pressed]="selectedKey() === keyFor(result)"
+            [title]="labelFor(result.entry) + ' · ' + result.style" (click)="select(result)">
+            <i [class]="result.classes" aria-hidden="true"></i>
+            <span class="icon-cell-name">{{ result.entry.n }}</span>
+        </button>
+        }
+    </div>
+
+    <div class="icon-browser-footer">
+        <span class="icon-browser-count">
+            {{ 'admin.media.icons.showing' | transloco:{ shown: results().length, total: totalMatches() } }}
+        </span>
+        @if (hasMore()) {
+        <button type="button" class="btn btn-outline-primary btn-sm" (click)="showMore()">
+            {{ 'admin.media.icons.show_more' | transloco }}
+        </button>
+        }
+    </div>
+    }
+</div>

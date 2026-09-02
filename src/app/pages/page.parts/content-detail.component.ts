@@ -970,6 +970,13 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
         // Always processing loops to ensure cleanup of placeholders if empty
         hydratedHtml = TemplateHydrationService.processLoops(hydratedHtml, {
+            // Mirrors the publish pipeline: repeating custom fields become
+            // named loops so a preview shows the same cards the live page will.
+            ...TemplateHydrationService.arrayLoopData(
+                (content as any).customFields,
+                ['tags', 'items'],
+                this.contentTypeSlug(),
+            ),
             tags: tagsData
         });
 

@@ -61,7 +61,13 @@ Rendering is `{...baseDoc, ...translationDoc}` — anything untranslated falls
 back to the default language automatically. That is why a half-translated site
 always works.
 
-Only `text` and `richtext` fields are translatable. Numbers, dates, booleans,
+Repeating fields (`infocard`, `gallery`, `labelvalue`) are translatable **row
+by row**: the default language owns the row list, its order and any images, and
+each other language fills in only the prose. Rows are matched by a stable id
+rather than by position, so reordering or deleting a row in the default
+language cannot shift a translation onto the wrong one.
+
+Otherwise only `text` and `richtext` fields are translatable. Numbers, dates, booleans,
 images and dropdown *values* are shared: they are the same fact in every
 language.
 

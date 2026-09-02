@@ -170,7 +170,11 @@ export function createGenericStore<T extends IBaseModel>(
                     next: (result) => {
                         patchState(store, {
                             items: result.collectionData,
-                            totalPages: Math.ceil(result.totalCount / queryParams!.limitCount!),
+                            // limitCount 0 means "no limit", so everything is
+                            // one page — dividing by it would give Infinity.
+                            totalPages: queryParams!.limitCount
+                                ? Math.ceil(result.totalCount / queryParams!.limitCount)
+                                : 1,
                             totalRecords: result.totalCount,
                             isLoading: false,
                             isSuccess: true,
