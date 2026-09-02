@@ -43,6 +43,12 @@ export default class ImportFilesPageComponent extends BaseComponent {
     // Manifest mode
     manifestFile = signal<File | null>(null);
     manifestData = signal<Record<string, any> | null>(null);
+    /**
+     * Number of entries in the loaded manifest, 0 when none is loaded.
+     * Templates resolve names against the component, so `Object.keys(...)` cannot
+     * be called inline — the global is not in template scope.
+     */
+    manifestEntryCount = computed(() => Object.keys(this.manifestData() ?? {}).length);
 
     /**
      * How many entries the uploaded manifest holds.
@@ -51,7 +57,6 @@ export default class ImportFilesPageComponent extends BaseComponent {
      * `{{ Object.keys(...) }}`, which the compiler rejects under
      * strictTemplates. Counting here is what the template meant to say.
      */
-    manifestEntryCount = computed(() => Object.keys(this.manifestData() ?? {}).length);
 
     // Upload state
     isUploading = signal(false);
