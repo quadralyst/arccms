@@ -5,9 +5,12 @@ import {
     TRANSLATABLE_BUILTIN_FIELDS,
     detailFilePath,
     detailUrl,
+    langPrefix,
+    localizedPageTitle,
     mergeTranslation,
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
+import { contentTypeName } from '../shared/content-type-names.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -17,7 +20,8 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { deployFileToHosting, removeFileFromHosting } from './deployToHosting.js';
+import { prefixAnchorHrefs } from '../shared/language-links.js';
+import { HostingBatch, deployBatchToHosting, removeFileFromHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 
 // ─── Fallback Template ──────────────────────────────────────────────────────
@@ -142,7 +146,9 @@ function buildTemplateData(
     const shareUrl =
         content.canonicalUrl ||
         detailUrl(siteConfig.baseUrl, lang, defaultLang, contentType.slug, content.urlSlug);
-    const shareTitle = content.seoTitle || content.title || '';
+    // Same crossed-language trap as the <title>: share text must not fall back
+    // to the base language's seoTitle on a translated page.
+    const shareTitle = localizedPageTitle(content, translation);
     const shareSummary = content.summary || content.metaDescription || '';
 
     const share = {
@@ -168,9 +174,13 @@ function buildTemplateData(
         }
     }
 
+    // The type's name shows up in the page ("Back to Articles"), so it is
+    // translated like any other visible noun (M-D19).
+    const typeName = contentTypeName(contentType, lang);
+
     return {
-        contentType: contentType.name,
-        cat: contentType.name,
+        contentType: typeName,
+        cat: typeName,
         contentTypeSlug: contentType.slug,
         ...content,
         publishedOn,
@@ -182,7 +192,7 @@ function buildTemplateData(
         share,
         // Available to templates that want to build their own language links.
         lang,
-        langPrefix: lang === defaultLang ? '' : `/${lang}`,
+        langPrefix: langPrefix(lang, defaultLang),
     };
 }
 
@@ -204,7 +214,11 @@ function buildTemplateData(
 export async function generateAndDeployContentDetailPage(
     contentTypeSlug: string,
     docId: string,
+    batch?: HostingBatch,
 ): Promise<void> {
+    // When the caller supplies a batch, files join it and are released with the
+    // rest of the publish in one version — see HostingBatch for why.
+    const target = batch ?? new HostingBatch();
     const siteId = process.env.GCLOUD_PROJECT || '';
 
     // 1. Read published content
@@ -301,10 +315,19 @@ export async function generateAndDeployContentDetailPage(
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
         // Replace arc components (header, footer, admin buttons, partials)
+        // The partials are one file shared by every language, so their links
+        // are root-relative and have to be pointed at this language — without
+        // it the page reads in Hindi and its chrome navigates to English.
+        const chrome = (html: string) =>
+            prefixAnchorHrefs(
+                TemplateHydrationService.applyStrings(html, uiStrings),
+                langPrefix(lang, defaultLang),
+            );
+
         hydratedHtml = replaceArcComponents(
             hydratedHtml,
-            TemplateHydrationService.applyStrings(partials.headerHtml, uiStrings),
-            TemplateHydrationService.applyStrings(partials.footerHtml, uiStrings),
+            chrome(partials.headerHtml),
+            chrome(partials.footerHtml),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
         );
 
@@ -312,7 +335,7 @@ export async function generateAndDeployContentDetailPage(
         const { body, styles, scripts } = extractStylesAndScripts(hydratedHtml);
 
         const meta: PageMeta = {
-            title: localizedContent.seoTitle || localizedContent.title || '',
+            title: localizedPageTitle(localizedContent, translations.get(lang)),
             metaDescription: localizedContent.metaDescription || '',
             // An author-set canonical applies to the default-language page it
             // was written for. Reusing it on every variant would point them all
@@ -335,8 +358,11 @@ export async function generateAndDeployContentDetailPage(
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
         const fullHtml = buildHtmlDocument(body, meta, '', '', styles, scripts, poweredBy);
 
-        const filePath = detailFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug);
-        await deployFileToHosting(siteId, filePath, fullHtml, collectionName, docId);
+        target.add(detailFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug), fullHtml);
+    }
+
+    if (!batch) {
+        await deployBatchToHosting(siteId, target, collectionName, docId);
     }
 
     if (languages.length > 1) {
@@ -358,13 +384,20 @@ export async function generateAndDeployContentDetailPage(
 export async function removeContentPage(
     contentTypeSlug: string,
     urlSlug: string,
+    batch?: HostingBatch,
 ): Promise<void> {
     const siteId = process.env.GCLOUD_PROJECT || '';
     const localization = await getLocalizationSettings();
     const defaultLang = localization.defaultLanguage;
+    const target = batch ?? new HostingBatch();
 
     for (const language of localization.enabledLanguages) {
-        const filePath = detailFilePath(language.code, defaultLang, contentTypeSlug, urlSlug);
-        await removeFileFromHosting(siteId, filePath);
+        target.remove(detailFilePath(language.code, defaultLang, contentTypeSlug, urlSlug));
+    }
+
+    if (!batch) {
+        for (const path of target.removedPaths) {
+            await removeFileFromHosting(siteId, path);
+        }
     }
 }

@@ -9,7 +9,7 @@
                     <th *ngFor="let col of columns" [class.sortable-header]="col.sortable" (click)="onHeaderClick(col)"
                         [class.text-center]="col.type === 'actions'">
                         <div class="d-flex align-items-center">
-                            <span>{{ col.header }}</span>
+                            <span>{{ col.header | translatable }}</span>
                             <i *ngIf="col.sortable && sortField === col.key" class="fas ms-2"
                                 [class.fa-arrow-up]="sortOrder === 'asc'" [class.fa-arrow-down]="sortOrder === 'desc'">
                             </i>
@@ -100,7 +100,7 @@
                             <ng-container *ngFor="let action of col.actions">
                                 <button *ngIf="!action.hide || !action.hide(row)" class="action-btn"
                                     [class]="action.class || ''"
-                                    [title]="action.labelFn ? action.labelFn(row) : action.label"
+                                    [title]="action.labelFn ? action.labelFn(row) : (action.label | translatable)"
                                     (click)="onActionClick(action, row); $event.stopPropagation()">
                                     <i [class]="action.iconFn ? action.iconFn(row) : action.icon"></i>
                                 </button>
@@ -129,7 +129,7 @@
     @else {
     <div class="loading-state">
         <div class="spinner"></div>
-        <p>Loading...</p>
+        <p>{{ 'common.state.loading' | transloco }}</p>
     </div>
     }
 </div>

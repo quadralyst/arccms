@@ -14,6 +14,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { LocalizationService } from '../../../../core/services/localization.service';
 import {
     ILanguage,
@@ -29,32 +30,32 @@ import {
 @Component({
     selector: 'arc-localization-settings',
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <div class="settings-section">
-      <h3 class="mb-4">Localization</h3>
+      <h3 class="mb-4">{{ 'admin.settings.localization.title' | transloco }}</h3>
 
-      <h4>Languages</h4>
+      <h4>{{ 'admin.settings.localization.languages' | transloco }}</h4>
       <p class="text-muted mb-4">
-        Choose the languages this site publishes in. The <strong>default language</strong> is the one you
-        write content in — its pages keep their existing URLs. Every other language is authored as a
-        translation and published under a URL prefix, e.g. <code>/hi/articles/my-post</code>.
+        {{ 'admin.settings.localization.intro_1' | transloco }}
+        <strong>{{ 'admin.settings.localization.intro_default_language' | transloco }}</strong>
+        {{ 'admin.settings.localization.intro_2' | transloco }} <code>/hi/articles/my-post</code>.
       </p>
 
       @if (isLoading()) {
-        <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i> Loading…</p>
+        <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.state.loading' | transloco }}</p>
       } @else {
 
         <div class="table-responsive mb-3">
           <table class="table table-sm align-middle">
             <thead>
               <tr>
-                <th style="width: 90px;">Code</th>
-                <th>Language</th>
-                <th style="width: 120px;">URL prefix</th>
-                <th style="width: 110px;">Default</th>
-                <th style="width: 130px;" class="text-end">Order</th>
+                <th style="width: 90px;">{{ 'admin.settings.localization.col_code' | transloco }}</th>
+                <th>{{ 'admin.settings.localization.col_language' | transloco }}</th>
+                <th style="width: 120px;">{{ 'admin.settings.localization.col_url_prefix' | transloco }}</th>
+                <th style="width: 110px;">{{ 'admin.settings.localization.col_default' | transloco }}</th>
+                <th style="width: 130px;" class="text-end">{{ 'admin.settings.localization.col_order' | transloco }}</th>
                 <th style="width: 60px;"></th>
               </tr>
             </thead>
@@ -68,12 +69,12 @@ import {
                       <span class="text-muted">· {{ lang.nativeLabel }}</span>
                     }
                     @if (lang.rtl) {
-                      <span class="badge bg-secondary ms-2">RTL</span>
+                      <span class="badge bg-secondary ms-2">{{ 'admin.settings.localization.rtl_badge' | transloco }}</span>
                     }
                   </td>
                   <td>
                     @if (lang.code === defaultLanguage()) {
-                      <span class="text-muted">— (root)</span>
+                      <span class="text-muted">{{ 'admin.settings.localization.root_prefix' | transloco }}</span>
                     } @else {
                       <code>/{{ lang.code }}</code>
                     }
@@ -89,7 +90,7 @@ import {
                         (change)="setDefaultLanguage(lang.code)"
                       />
                       <label class="form-check-label visually-hidden" [for]="'default-' + lang.code">
-                        Make {{ lang.label }} the default language
+                        {{ 'admin.settings.localization.make_default' | transloco: { language: lang.label } }}
                       </label>
                     </div>
                   </td>
@@ -99,7 +100,7 @@ import {
                       type="button"
                       [disabled]="i === 0"
                       (click)="move(i, -1)"
-                      [attr.aria-label]="'Move ' + lang.label + ' up'"
+                      [attr.aria-label]="'admin.settings.localization.move_up' | transloco: { language: lang.label }"
                     >
                       <i class="fas fa-arrow-up"></i>
                     </button>
@@ -108,7 +109,7 @@ import {
                       type="button"
                       [disabled]="i === enabledLanguages().length - 1"
                       (click)="move(i, 1)"
-                      [attr.aria-label]="'Move ' + lang.label + ' down'"
+                      [attr.aria-label]="'admin.settings.localization.move_down' | transloco: { language: lang.label }"
                     >
                       <i class="fas fa-arrow-down"></i>
                     </button>
@@ -119,10 +120,10 @@ import {
                       type="button"
                       [disabled]="lang.code === defaultLanguage()"
                       [title]="lang.code === defaultLanguage()
-                        ? 'The default language cannot be removed'
-                        : 'Remove ' + lang.label"
+                        ? ('admin.settings.localization.cannot_remove_default' | transloco)
+                        : ('admin.settings.localization.remove_language' | transloco: { language: lang.label })"
                       (click)="removeLanguage(lang.code)"
-                      [attr.aria-label]="'Remove ' + lang.label"
+                      [attr.aria-label]="'admin.settings.localization.remove_language' | transloco: { language: lang.label }"
                     >
                       <i class="fas fa-trash"></i>
                     </button>
@@ -135,40 +136,40 @@ import {
 
         <div class="row g-2 align-items-end mb-2">
           <div class="col-md-6">
-            <label class="form-label" for="addLanguage">Add a language</label>
+            <label class="form-label" for="addLanguage">{{ 'admin.settings.localization.add_a_language' | transloco }}</label>
             <select
               class="form-select"
               id="addLanguage"
               [ngModel]="languageToAdd()"
               (ngModelChange)="languageToAdd.set($event)"
             >
-              <option value="">Select a language…</option>
+              <option value="">{{ 'admin.settings.localization.select_a_language' | transloco }}</option>
               @for (lang of availableToAdd(); track lang.code) {
                 <option [value]="lang.code">{{ lang.label }} ({{ lang.nativeLabel }}) — {{ lang.code }}</option>
               }
-              <option value="__custom__">Other (enter a code)…</option>
+              <option value="__custom__">{{ 'admin.settings.localization.other_enter_code' | transloco }}</option>
             </select>
           </div>
 
           @if (languageToAdd() === '__custom__') {
             <div class="col-md-2">
-              <label class="form-label" for="customCode">Code</label>
+              <label class="form-label" for="customCode">{{ 'admin.settings.localization.custom_code' | transloco }}</label>
               <input
                 type="text"
                 class="form-control"
                 id="customCode"
-                placeholder="e.g. sw"
+                [placeholder]="'admin.settings.localization.custom_code_placeholder' | transloco"
                 [ngModel]="customCode()"
                 (ngModelChange)="customCode.set($event)"
               />
             </div>
             <div class="col-md-3">
-              <label class="form-label" for="customLabel">Name</label>
+              <label class="form-label" for="customLabel">{{ 'admin.settings.localization.custom_name' | transloco }}</label>
               <input
                 type="text"
                 class="form-control"
                 id="customLabel"
-                placeholder="e.g. Swahili"
+                [placeholder]="'admin.settings.localization.custom_name_placeholder' | transloco"
                 [ngModel]="customLabel()"
                 (ngModelChange)="customLabel.set($event)"
               />
@@ -177,7 +178,7 @@ import {
 
           <div class="col-md-auto">
             <button class="btn btn-outline-primary" type="button" [disabled]="!canAdd()" (click)="addLanguage()">
-              <i class="fas fa-plus me-1"></i> Add
+              <i class="fas fa-plus me-1"></i> {{ 'common.actions.add' | transloco }}
             </button>
           </div>
         </div>
@@ -187,16 +188,15 @@ import {
         }
 
         <p class="text-muted small mb-4">
-          Removing a language stops new pages being published for it. Pages already deployed for that
-          language stay online until the content is republished or unpublished.
+          {{ 'admin.settings.localization.removal_note' | transloco }}
         </p>
 
         <div class="mt-4">
           <button class="btn btn-primary" (click)="save()" [disabled]="isSaving()">
             @if (isSaving()) {
-              <i class="fas fa-spinner fa-spin me-1"></i> Saving...
+              <i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.actions.saving' | transloco }}
             } @else {
-              <i class="fas fa-save me-1"></i> Save Languages
+              <i class="fas fa-save me-1"></i> {{ 'admin.settings.localization.save_languages' | transloco }}
             }
           </button>
 
@@ -235,6 +235,7 @@ import {
 })
 export class LocalizationSettingsPage implements OnInit {
     private localization = inject(LocalizationService);
+    private transloco = inject(TranslocoService);
 
     /** Working copy — only written to Firestore on Save. */
     settings = signal<ILocalizationSettings>(DEFAULT_LOCALIZATION_SETTINGS);
@@ -286,7 +287,7 @@ export class LocalizationSettingsPage implements OnInit {
         if (selection === '__custom__') {
             const code = this.customCode().trim().toLowerCase();
             if (!isValidLanguageCode(code)) {
-                this.addError.set('Enter a valid language code, e.g. "sw" or "pt-br".');
+                this.addError.set(this.transloco.translate('admin.settings.localization.invalid_code'));
                 return;
             }
             // A custom code may still be a catalogue language typed by hand —
@@ -301,11 +302,11 @@ export class LocalizationSettingsPage implements OnInit {
         }
 
         if (!language) {
-            this.addError.set('Could not resolve that language.');
+            this.addError.set(this.transloco.translate('admin.settings.localization.unresolved_language'));
             return;
         }
         if (this.enabledLanguages().some((l) => l.code === language!.code)) {
-            this.addError.set(`${language.label} is already enabled.`);
+            this.addError.set(this.transloco.translate('admin.settings.localization.already_enabled', { language: language.label }));
             return;
         }
 
@@ -344,11 +345,11 @@ export class LocalizationSettingsPage implements OnInit {
             // Re-read the normalized result so the table reflects exactly what
             // was stored (default language pinned first, codes lower-cased).
             this.settings.set(this.localization.settings());
-            this.saveMessage.set('Languages saved successfully');
+            this.saveMessage.set(this.transloco.translate('admin.settings.localization.saved'));
             setTimeout(() => this.saveMessage.set(''), 3000);
         } catch (error) {
             console.error('Error saving localization settings:', error);
-            this.saveError.set('Could not save languages. Please try again.');
+            this.saveError.set(this.transloco.translate('admin.settings.localization.save_failed'));
         } finally {
             this.isSaving.set(false);
         }

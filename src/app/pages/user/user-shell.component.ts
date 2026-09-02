@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, inject, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,7 +16,7 @@ import { EntitlementService } from './entitlement.service';
 @Component({
     selector: 'app-user-shell',
     standalone: true,
-    imports: [CommonModule, RouterLink, RouterLinkActive, MatButtonModule],
+    imports: [CommonModule, RouterLink, RouterLinkActive, MatButtonModule, TranslocoPipe],
     template: `
         <div class="shell">
             <aside class="sidebar">
@@ -28,22 +29,22 @@ import { EntitlementService } from './entitlement.service';
                         @if (entitlements.isPro()) {
                             <span class="badge pro">{{ entitlements.premiumType() || 'Pro' }}</span>
                         } @else {
-                            <span class="badge free">Free</span>
+                            <span class="badge free">{{ 'user.free' | transloco }}</span>
                         }
                     </div>
                 </div>
 
                 <nav class="menu">
-                    <a routerLink="/user/dashboard" routerLinkActive="active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
-                    <a routerLink="/account" routerLinkActive="active"><i class="fa-solid fa-receipt"></i> Account &amp; Billing</a>
-                    <a routerLink="/user/premium" routerLinkActive="active"><i class="fa-solid fa-star"></i> Premium</a>
-                    <a routerLink="/user/profile" routerLinkActive="active"><i class="fa-solid fa-user"></i> Profile</a>
-                    <a routerLink="/pricing" routerLinkActive="active"><i class="fa-solid fa-tag"></i> Plans</a>
+                    <a routerLink="/user/dashboard" routerLinkActive="active"><i class="fa-solid fa-gauge"></i> {{ 'user.nav.dashboard' | transloco }}</a>
+                    <a routerLink="/account" routerLinkActive="active"><i class="fa-solid fa-receipt"></i> {{ 'user.nav.account' | transloco }}</a>
+                    <a routerLink="/user/premium" routerLinkActive="active"><i class="fa-solid fa-star"></i> {{ 'user.nav.premium' | transloco }}</a>
+                    <a routerLink="/user/profile" routerLinkActive="active"><i class="fa-solid fa-user"></i> {{ 'user.nav.profile' | transloco }}</a>
+                    <a routerLink="/pricing" routerLinkActive="active"><i class="fa-solid fa-tag"></i> {{ 'user.nav.plans' | transloco }}</a>
                 </nav>
 
                 <div class="foot">
-                    <span class="credits"><i class="fa-solid fa-coins me-1"></i>{{ entitlements.creditBalance() }} credits</span>
-                    <button mat-stroked-button type="button" (click)="signOut()">Sign out</button>
+                    <span class="credits"><i class="fa-solid fa-coins me-1"></i>{{ entitlements.creditBalance() }} {{ 'user.credits' | transloco }}</span>
+                    <button mat-stroked-button type="button" (click)="signOut()">{{ 'user.nav.sign_out' | transloco }}</button>
                 </div>
             </aside>
 

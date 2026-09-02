@@ -119,32 +119,25 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       return;
     }
 
-    // Redirect to onboarding wizard if no users exist yet (first run)
-    this.authService.isFirstRun().pipe(take(1)).subscribe((firstRun) => {
-      if (firstRun) {
+    // Redirect to the onboarding wizard on first run, or when it was started
+    // but never finished.
+    this.setupService.shouldShowOnboarding().pipe(take(1)).subscribe((showOnboarding) => {
+      if (showOnboarding) {
         this.router.navigate(['/onboarding']);
         return;
       }
 
-      // Also redirect if onboarding wizard was started but not completed
-      this.setupService.isOnboardingComplete().pipe(take(1)).subscribe((complete) => {
-        if (!complete) {
-          this.router.navigate(['/onboarding']);
-          return;
+      // Check if signups are enabled
+      this.userSettingService.getSettings().subscribe(settings => {
+        this.signupSettings = settings;
+        this.defaultRole = settings.defaultRole || 'user';
+      });
+
+      // Listen for auth state changes on initial load
+      this.authStore.initAuthStateListener().subscribe((user: any) => {
+        if (user && user.isActive) {
+          this.handleLoginSuccess();
         }
-
-        // Check if signups are enabled
-        this.userSettingService.getSettings().subscribe(settings => {
-          this.signupSettings = settings;
-          this.defaultRole = settings.defaultRole || 'user';
-        });
-
-        // Listen for auth state changes on initial load
-        this.authStore.initAuthStateListener().subscribe((user: any) => {
-          if (user && user.isActive) {
-            this.handleLoginSuccess();
-          }
-        });
       });
     });
   }

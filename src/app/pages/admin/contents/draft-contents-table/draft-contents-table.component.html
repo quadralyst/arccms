@@ -4,15 +4,15 @@
         {{ row.title || 'Untitled' }}
     </a>
     @if (row.isFeatured) {
-    <span class="badge bg-warning ms-1">Featured</span>
+    <span class="badge bg-warning ms-1">{{ 'common.status.featured' | transloco }}</span>
     }
 </ng-template>
 
 <ng-template #statusTemplate let-row>
     @if (row.publishedStatus) {
-    <span class="badge bg-success">Published</span>
+    <span class="badge bg-success">{{ 'common.status.published' | transloco }}</span>
     } @else {
-    <span class="badge bg-secondary">Draft</span>
+    <span class="badge bg-secondary">{{ 'common.status.draft' | transloco }}</span>
     }
 </ng-template>
 
@@ -28,34 +28,34 @@
             <div class="alert alert-danger d-flex align-items-center" role="alert">
                 <i class="fa-solid fa-triangle-exclamation me-2"></i>
                 <div>
-                    <strong>Content Type Not Found</strong><br>
+                    <strong>{{ 'admin.contents.list.type_not_found' | transloco }}</strong><br>
                     {{ invalidSlugMessage() }}
                 </div>
             </div>
             <a routerLink="/admin/contents/content-types" class="btn btn-primary">
-                <i class="fa-solid fa-arrow-left me-1"></i> Go to Content Types
+                <i class="fa-solid fa-arrow-left me-1"></i> {{ 'admin.contents.list.go_to_types' | transloco }}
             </a>
         </div>
     </div>
     } @else {
     <arc-page-header [title]="getContentTypePluralName()"
-        [subtitle]="'Manage your ' + (getContentTypePluralName() | lowercase)">
+        [subtitle]="'admin.contents.list.manage_subtitle' | transloco: { type: (getContentTypePluralName() | lowercase) }">
         <button mat-raised-button color="primary" (click)="openContent('')">
-            <mat-icon>add</mat-icon> Add {{ getContentTypeSingularName() }}
+            <mat-icon>add</mat-icon> {{ 'admin.contents.list.add_item' | transloco: { type: getContentTypeSingularName() } }}
         </button>
         <button mat-stroked-button class="ms-2" (click)="openBulkImport()">
-            <mat-icon>upload_file</mat-icon> Bulk Import
+            <mat-icon>upload_file</mat-icon> {{ 'admin.contents.list.bulk_import' | transloco }}
         </button>
         <button mat-stroked-button class="ms-2" [matMenuTriggerFor]="columnsMenu">
-            <mat-icon>view_column</mat-icon> Columns
+            <mat-icon>view_column</mat-icon> {{ 'admin.contents.list.columns' | transloco }}
         </button>
 
         <mat-menu #columnsMenu="matMenu">
                 <div class="px-3 py-2" (click)="$event.stopPropagation()">
                     <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
-                        <span class="fw-bold small">Visible Columns</span>
+                        <span class="fw-bold small">{{ 'admin.contents.list.visible_columns' | transloco }}</span>
                         @if(isSavingColumns()) {
-                            <small class="text-muted"><i class="fa-solid fa-circle-notch fa-spin me-1"></i>Saving...</small>
+                            <small class="text-muted"><i class="fa-solid fa-circle-notch fa-spin me-1"></i>{{ 'common.actions.saving' | transloco }}</small>
                         }
                     </div>
                     
@@ -75,7 +75,7 @@
 
                     <div class="mt-2 pt-2 border-top">
                         <button mat-button color="warn" class="w-100" (click)="resetColumnPreferences()">
-                            Reset to Default
+                            {{ 'admin.contents.list.reset_columns' | transloco }}
                         </button>
                     </div>
                 </div>
@@ -86,20 +86,20 @@
     <div class="filter-bar mb-3">
         <div class="row g-2 align-items-center">
             <div class="col-auto">
-                <label class="form-label mb-0 me-2">Status:</label>
+                <label class="form-label mb-0 me-2">{{ 'common.filters.status' | transloco }}</label>
             </div>
             <div class="col-md-3">
                 <select class="form-select form-select-sm" [value]="statusFilter()"
                     (change)="onStatusFilterChange($event)">
-                    <option value="">All</option>
-                    <option value="published">Published</option>
-                    <option value="draft">Draft</option>
+                    <option value="">{{ 'common.filters.all' | transloco }}</option>
+                    <option value="published">{{ 'common.status.published' | transloco }}</option>
+                    <option value="draft">{{ 'common.status.draft' | transloco }}</option>
                 </select>
             </div>
             @if(hasActiveFilters()) {
             <div class="col-auto">
                 <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()">
-                    Clear Filters
+                    {{ 'common.filters.clear' | transloco }}
                 </button>
             </div>
             }
@@ -110,7 +110,7 @@
         [sortField]="sortField()" [sortOrder]="sortOrder()" (sortChange)="setSortField($event)"
         (cellClick)="onCellClick($event)" emptyTitle="No Items Found"
         [emptyDescription]="'No ' + (getContentTypePluralName() | lowercase) + ' yet. Click Add New to get started.'"
-        emptyActionLabel="Add {{ getContentTypeSingularName() }}" (emptyActionClick)="openContent('')"
+        [emptyActionLabel]="'admin.contents.list.add_item' | transloco: { type: getContentTypeSingularName() }" (emptyActionClick)="openContent('')"
         [showEmptyAction]="true"
         [trackByFn]="trackByContentId">
     </app-global-table>
@@ -124,7 +124,7 @@
             Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
             <strong>{{ filteredTotalRecords() }}</strong>
             @if(hasActiveFilters()) {
-            <span class="text-primary ms-2">filtered</span>
+            <span class="text-primary ms-2">{{ 'common.filters.filtered' | transloco }}</span>
             }
             records
             } @else {

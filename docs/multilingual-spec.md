@@ -242,7 +242,7 @@ differ (decisions M-D17/M-D18):
 | `public/_partials/*` (~15 strings) | `data-arc-t` keys | Nav labels; also shared by both render engines, so one annotation covers static pages and the SPA. |
 | Home page (~167 nodes, ~950 words) | **Per-language file** | Structure *is* the content. Prose carries inline markup and word order that per-node keys cannot express, and marketing pages legitimately diverge per market. |
 
-#### M5.1 — `data-arc-t` for templates and partials
+#### M5.1 — `data-arc-t` for templates and partials ✅ done
 
 1. Annotate translatable text in place, English left as the fallback:
    `<span data-arc-t="read_more">Read Article</span>`. The element's existing content
@@ -265,7 +265,7 @@ differ (decisions M-D17/M-D18):
 **Manual test:** publish an article → `/hi/articles/{slug}` shows Hindi chrome; delete a
 key from `strings.json` → that one string falls back to English, page still fine.
 
-#### M5.2 — Content-type names per language
+#### M5.2 — Content-type names per language ✅ done
 
 Without this, "Back to **Articles**" stays half-English however well the chrome is
 translated, because the noun comes from the `ContentTypes` document.
@@ -279,7 +279,7 @@ translated, because the noun comes from the `ContentTypes` document.
    `buildTemplateData` (`contentType`, `cat`), the list/detail SPA components, and page
    titles.
 
-#### M5.3 — Per-language home page
+#### M5.3 — Per-language home page ✅
 
 1. `public/i18n/{lang}/index.html` — a full translated copy of `public/index.html`.
    Same directory as that language's `strings.json`, so a language is one folder.
@@ -296,7 +296,7 @@ translated, because the noun comes from the `ContentTypes` document.
    translation lags. Whole-file translation trades single-source structure for
    translator freedom; the marker makes that trade *visible* rather than silent.
 
-#### M5.4 — Switcher honesty
+#### M5.4 — Switcher honesty ✅
 
 `LocalizationService.hasLanguageVariants` becomes `languageVariants: string[] | null` —
 the languages *this page* actually exists in, not merely those enabled site-wide. The
@@ -308,6 +308,49 @@ a language whose page was never deployed.
 **Deploy:** hosting (new i18n assets, annotated templates/partials) + functions.
 **Exit criteria:** a Hindi article page contains no English chrome; `/hi` serves a
 translated home page; the switcher offers exactly the languages a page exists in.
+
+**As built.** Two things surfaced during M5.3 that the plan above did not anticipate:
+
+- A translated page also needs translated *head* metadata. The shell (`index.html`) is
+  one file shared by every route, so `/hi` was served with an English `<title>` and
+  `lang="en"`. `HomeBaseComponent` now sets `lang`, title and description from the page's
+  own language, during prerendering as well, and restores the shell's `lang` on destroy
+  so a later SPA route is not mislabelled.
+- A `.md` file placed under `src/` is picked up by the Analog content plugin and fails
+  the rollup parse, which is why `public/i18n/README.md` documents the per-language
+  components rather than a README beside them.
+
+The drift guard (item 4) is the marker only — no build check yet; the mismatch is
+visible on inspection. Worth automating when a third language lands.
+
+#### M5.5 — Language-aware links ✅
+
+Reported after M5.4 shipped: a Hindi page read in Hindi and every link in its chrome
+navigated to English.
+
+The content templates were never the problem — `detail.html` and `list.html` build their
+links from `{{ langPrefix }}` and `{{ url }}`. The **partials** were: `_header.html` and
+`_footer.html` are one file shared by every language, so their links are written
+root-relative (`/articles`, `/#features`) and nothing pointed them at the language being
+rendered. The home page's `<arc-content-partials>` cards had the same gap, with no notion
+of language at all.
+
+`withLangPrefix` / `prefixAnchorHrefs` (`functions/src/shared/language-links.ts`, mirrored
+in `src/app/core/utils/`) hold the rule; the publish pipeline applies it where it bakes the
+partials in, and `LangHrefDirective` applies it to the Angular copies. The directive is
+scoped by import to the header and footer rather than applied to every anchor — the
+switcher and the content templates already build their own prefixed URLs, and rewriting
+those would double the prefix.
+
+The rule is conservative on purpose: only a single leading `/`, never `//`, `mailto:`,
+`#anchor` or an already-prefixed path, and `<a>` only — assets are served from one place
+whatever the page's language. It is idempotent, because the SPA directive re-applies
+whenever the language signal changes.
+
+**Not done: remembering the choice.** A visitor landing on `/` gets the default language
+even if they were reading Hindi yesterday. `LANG_STORAGE_KEY` in the switcher is still
+written and never read. Deliberate for now — a redirect at the root would flash the
+default language first, since `/` is prerendered and served statically.
 
 ### Phase M6 — Admin UI i18n foundation (M)
 
@@ -354,8 +397,49 @@ Rules of the sweep: extraction only — no behavioral edits ride along; every ba
 per directory, human-reviewed. Track per-directory progress with checkboxes below as
 batches land:
 
-- [ ] contents/ · [ ] (settings)/ · [ ] users/ · [ ] audience pages · [ ] (media)/ ·
-  [ ] dashboards · [ ] snackbars wrapper + sweep · [ ] shared components · [ ] dialogs
+- [x] **contents/** — content types (list + add/edit drawers), the content editor
+  including its language tabs and deploy status, the draft table every type renders.
+  Not done: `bulk-import/`, `preview-slug/`, `content-types/tags/`, `[slug]/`.
+- [x] **(settings)/** — complete. All ten pages: the hub, localization, about, misc,
+  user, message, site-usage, email (with its test-connection dialog), integrations
+  and analytics, including the two long Setup Guide walkthroughs.
+- [x] **users/** — list, columns, actions, empty state. The add/edit/view drawers are not
+  done.
+- [x] **audience pages** — Contacts, Lists, Tags, Fields: headers, empty states, toolbar
+  buttons, every table column. Their drawers are not done.
+- [x] **snackbars wrapper + sweep** — `NotifyService` exists and every call site in the
+  swept areas uses it. ~30 call sites elsewhere still pass English strings.
+- [x] **shared components** — the two that every page renders through: `GlobalTableComponent`
+  (headings, action tooltips, loading) and `ConfirmationPopupComponent`. The other ~17 in
+  `src/shared/components` are not done.
+- [x] **dialogs** — the shared confirmation dialog, via `titleKey`. Feature-specific
+  dialogs (bulk import, test send, new email) are not done.
+- [x] **admin dashboard** — banners, the analytics panel and its empty states, the
+  content/media and growth cards, the recent-signups table and the GA4 property dialog.
+  Google Analytics metric names are left as the API returns them: they are lookup keys
+  for the icon/colour map, not our strings.
+- [x] **(media)/** — the media manager, its Unsplash search and metadata panel.
+- [x] **(data)/** — the hub and all four wizards (export/import data, export/import
+  files), including step labels, progress lines and result summaries.
+- [x] **products** · [x] **transactions**
+- [x] **the signed-in user area** (`src/app/pages/user/`, `src/app/pages/account/`) —
+  its own shell nav, dashboard, profile, premium and account/billing. Keys live under
+  `user.*`; the two areas share only `common.*`.
+- [ ] **(waitlists)/** · [ ] email areas (composer, broadcasts, drips, announcements,
+  brand kit, logs) · [ ] feature-specific drawers and dialogs
+
+**Two traps worth knowing before continuing the sweep.**
+
+Table columns and action labels are built in *field initialisers*, which run before the
+translation file has loaded — `translate()` there returns the key it was handed. They
+now hold the key and `GlobalTableComponent` resolves it, which is also what makes a
+language switch update them. Any new list page should follow that, not call
+`translate()` when defining columns.
+
+A spec that does `overrideComponent(..., { set: { imports: [] } })` to keep Material out
+of the way also strips the transloco pipe, and `NO_ERRORS_SCHEMA` does not cover an
+unknown pipe — the template fails to render entirely. Keep `TranslocoPipe` in the
+override.
 
 **Manual test per batch:** flip to the second admin language, walk the swept pages, no
 `missing key` console warnings, no English leakage on swept pages.

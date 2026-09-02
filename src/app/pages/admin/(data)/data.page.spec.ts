@@ -36,12 +36,14 @@ describe('DataPageComponent', () => {
         expect(component.dataCategories().length).toBe(4);
     });
 
-    it('should have correct category labels', () => {
+        it('should have correct category labels', () => {
+        // Labels hold translation keys; the template resolves them with
+        // `| translatable`, the same contract as a table column header.
         const categories = component.dataCategories();
-        expect(categories[0].label).toBe('Export Data');
-        expect(categories[1].label).toBe('Import Data');
-        expect(categories[2].label).toBe('Export Files');
-        expect(categories[3].label).toBe('Import Files');
+        expect(categories[0].label).toBe('admin.nav.export_data');
+        expect(categories[1].label).toBe('admin.nav.import_data');
+        expect(categories[2].label).toBe('admin.nav.export_files');
+        expect(categories[3].label).toBe('admin.nav.import_files');
     });
 
     it('should have correct routes for all categories', () => {

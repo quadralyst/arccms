@@ -1,7 +1,7 @@
 {
   "back_to": "वापस {{ contentType }} पर",
   "all_of_type": "सभी {{ contentType }}",
-  "share_this_article": "यह लेख साझा करें",
+  "share_this_article": "यह लेख Share करें",
   "reading_time": "{{ readingTime }}",
   "min_read": "{{ readTime }} मिनट का पठन",
   "read_more": "लेख पढ़ें",

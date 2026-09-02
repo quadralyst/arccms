@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { BrowserAnimationsModule, NoopAnimationsModule } from '@angular/platform-browser/animations';
@@ -90,7 +91,10 @@ describe('UsersComponent', () => {
         })
             .overrideComponent(UsersComponent, {
                 set: {
-                    imports: [], // Remove all imports to avoid Angular Material mock issues
+                    // Everything but the transloco pipe, which the template
+                    // needs and which NO_ERRORS_SCHEMA cannot stand in for —
+                    // an unknown *pipe* is an error, not an unknown element.
+                    imports: [TranslocoPipe],
                     schemas: [NO_ERRORS_SCHEMA],
                 }
             })

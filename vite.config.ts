@@ -36,7 +36,11 @@ export default defineConfig(({ mode }) => {
           // The SPA fallback for all other routes is __shell.html, copied from
           // dist/client/index.html by the post-build step (see package.json "build" script).
           // Firebase hosting serves __shell.html for non-file routes (see firebase.json rewrites).
-          routes: ['/'],
+          // '/' plus every translated home page that exists as a file under
+          // public/i18n/{lang}/index.html. Hand-maintained: the language list
+          // is runtime data in Firestore, but prerendering is a build-time
+          // decision and only a real file can be prerendered.
+          routes: ['/', '/hi'],
         },
         nitro: {
           preset: 'firebase',

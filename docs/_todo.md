@@ -62,10 +62,24 @@ HTTP 200, so a status-code check reports the pages as healthy. Verify by content
 the site silently degrades from static pages to client-rendered ones — losing the SEO
 those static pages exist for.
 
-Worth building: a `republishAll` admin callable that walks every published item and
-enqueues it, so recovery is one action rather than opening each item. It would also
-serve template changes, which have the same problem — a new template only reaches live
-pages when each item is republished.
+**Recovery, as built (2026-07-27).** The `redeploy-all` queue action does exactly this:
+one queue item rebuilds every published page of every content type with a public URL,
+plus the sitemap and feeds, and releases them as a single Hosting version. It reads the
+*published* documents and never touches drafts — the drafts behind those pages may hold
+unreviewed edits, so a repair must not double as a publish. `PublishQueueService.
+redeployAll()` enqueues it; there is no admin button yet, which is the remaining work
+here. It also serves template changes, which have the same problem — a new template only
+reaches live pages when each item is rebuilt.
+
+Two things learned building it, both worth not relearning:
+
+- **One item, not one per page.** The first attempt enqueued 24 single-document
+  `redeploy` items 1.5s apart. Every one reported success and not one page appeared:
+  they raced exactly as item 3c describes, each release rebuilding from a manifest that
+  did not yet contain the last. Site-wide repair has to be a single release.
+- **It needs a longer timeout.** Rebuilding every page (template fetches included) does
+  not fit in the 60s default, so `processPublishQueue` now runs with
+  `timeoutSeconds: 540` and 512MiB.
 
 Closely related to item 4 below: the home page is the one page that *cannot* be
 pipeline-owned, because `/index.html` is a build artifact that hosting will always
@@ -94,13 +108,23 @@ shell.
 Pre-existing, but M3 made it far more likely: a publish used to deploy 2 files
 (detail + list) and now deploys 2 x languages.
 
-**Fix: batch one publish into one Hosting version.** `deployFileToHosting` should take
-multiple files and run read-release → populate → finalize → release once. That removes
-the race by construction (one version from one snapshot), and also cuts releases per
-publish from N to 1 — the cost already flagged when M3 shipped.
+**Fixed in 9712146** — `HostingBatch` collects every file a queue item touches and
+`deployBatchToHosting` runs read-release → populate → finalize → release once. One
+version from one snapshot removes the race by construction, and cuts releases per
+publish from N to 1.
 
-Until then, a publish may need repeating, and success cannot be trusted without
-checking the deployed pages by content.
+**Still true between queue items.** The batch is per queue item, so two publishes
+finishing within a second of each other race the same way. Rare by hand, certain in a
+loop — which is why site-wide repair is the single `redeploy-all` item in 3b rather
+than one item per page. A real fix would serialize releases (a lock, or a single
+draining worker); worth doing if publishes ever become automated.
+
+**A related bug this hid, fixed 2026-07-27.** That refactor passed the Firestore
+collection name where `deployBatchToHosting` expects the Hosting **site id**, so every
+release went to a site that does not exist. Nothing threw, `Released N file(s)` was
+logged, and no page reached the live site. Regression test:
+`functions/src/__tests__/publishQueue.spec.ts` → "should release to the project site,
+not to the Firestore collection".
 
 ### 4. Updating the pre-rendered home page after deployment
 The home page is pre-rendered at deploy time. Investigate whether it can be updated

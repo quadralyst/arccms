@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { interpolate, parseParams } from '../i18n/interpolate';
 import { TemplateContext } from '../models/cms.types';
 
 /**
@@ -198,7 +199,9 @@ export class TemplateHydrationService {
    * The element's existing content is the English default, so an untranslated
    * key simply stays as authored and the template remains a valid, previewable
    * English document. Attributes are annotated as
-   * `data-arc-t-attr="placeholder:key"`.
+   * `data-arc-t-attr="placeholder:key"`, and `{{ }}` tokens inside a translated
+   * string are filled from `data-arc-t-params` (JSON) — the same three
+   * annotations the Angular directive understands.
    *
    * Mirrored in functions/src/shared/template-hydration.ts — the static
    * publish and the SPA must render the same chrome.
@@ -219,7 +222,7 @@ export class TemplateHydrationService {
       // stands. Empty strings are treated as "not translated" so a blank entry
       // cannot silently erase a label.
       if (typeof translated === 'string' && translated.trim()) {
-        $el.text(translated);
+        $el.text(interpolate(translated, parseParams($el.attr('data-arc-t-params'))));
       }
       $el.removeAttr('data-arc-t');
     });
@@ -227,17 +230,22 @@ export class TemplateHydrationService {
     $('[data-arc-t-attr]').each((_, element) => {
       const $el = $(element);
       const spec = $el.attr('data-arc-t-attr') || '';
+      const params = parseParams($el.attr('data-arc-t-params'));
       // "placeholder:key" or several, comma separated.
       spec.split(',').forEach(pair => {
         const [attr, key] = pair.split(':').map(part => part.trim());
         if (!attr || !key) return;
         const translated = table[key];
         if (typeof translated === 'string' && translated.trim()) {
-          $el.attr(attr, translated);
+          $el.attr(attr, interpolate(translated, params));
         }
       });
       $el.removeAttr('data-arc-t-attr');
     });
+
+    // Always stripped, even where it carried no usable JSON — the annotation is
+    // ours and must never reach a published page.
+    $('[data-arc-t-params]').removeAttr('data-arc-t-params');
 
     return $.html();
   }

@@ -80,11 +80,14 @@ export class LanguageSwitcherComponent {
      * served from a `/{code}` prefix.
      */
     links = computed(() => {
-        const languages = this.localization.enabledLanguages();
+        // Only the languages this page actually exists in — see
+        // LocalizationService.languageVariants.
+        const available = this.localization.languageVariants();
+        if (!available || available.length < 2) return [];
+
+        const languages = this.localization.enabledLanguages()
+            .filter(language => available.includes(language.code));
         if (languages.length < 2) return [];
-        // Nothing to switch to unless this page is actually published per
-        // language — see LocalizationService.hasLanguageVariants.
-        if (!this.localization.hasLanguageVariants()) return [];
 
         const defaultLang = this.localization.defaultLanguage();
         const { path, activeLang } = this.splitLanguage(this.currentUrl(), languages, defaultLang);

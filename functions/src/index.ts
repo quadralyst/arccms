@@ -127,7 +127,6 @@ export * from './email-log/scheduledPurgeEmailLogs.js';
 
 export * from './mail-config/testSmtpConfigConnection.js';
 export * from './mail-config/testProviderConnection.js';
-export * from './mail-config/onEmailConnectionTestCreate.js';
 export * from './AnalyticsDashboard/testAnalyticsConnection.js';
 export * from './AnalyticsDashboard/connectGoogleAnalytics.js';
 export * from './AnalyticsDashboard/refreshAnalyticsData.js';

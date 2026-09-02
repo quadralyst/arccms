@@ -1,20 +1,24 @@
 <!-- Page Header -->
-<arc-page-header title="Dashboard"
-    [subtitle]="analyticsConnectionStatus.isConnected() ? ('Last sync: ' + (formatDate(analyticsConnectionStatus.lastSyncDate()) || 'N/A')) : ''">
+<arc-page-header [title]="'admin.dashboard.title' | transloco"
+    [subtitle]="analyticsConnectionStatus.isConnected()
+        ? ('admin.dashboard.last_sync' | transloco: {
+            date: (formatDate(analyticsConnectionStatus.lastSyncDate()) || ('common.not_available' | transloco))
+          })
+        : ''">
     @if (analyticsConnectionStatus.isConnected()) {
     <button class="btn btn-outline-secondary" (click)="refreshAnalytics()"
         [disabled]="isRefreshing()">
         @if (isRefreshing()) {
-        <span class="spinner-border spinner-border-sm me-1"></span> Refreshing...
+        <span class="spinner-border spinner-border-sm me-1"></span> {{ 'admin.dashboard.refreshing' | transloco }}
         } @else {
-        <i class="bi bi-arrow-clockwise"></i> Refresh
+        <i class="bi bi-arrow-clockwise"></i> {{ 'admin.dashboard.refresh' | transloco }}
         }
     </button>
     }
     @if (analyticsConnectionStatus.isConnected() && analyticsConnectionStatus.propertyId()) {
     <a [href]="getGa4Url()" target="_blank" rel="noopener noreferrer"
         class="btn btn-link text-decoration-none p-0">
-        View Full Analytics <i class="bi bi-box-arrow-up-right"></i>
+        {{ 'admin.dashboard.view_full_analytics' | transloco }} <i class="bi bi-box-arrow-up-right"></i>
     </a>
     }
 </arc-page-header>
@@ -24,10 +28,10 @@
 <div class="alert alert-danger d-flex align-items-center justify-content-between mb-4" role="alert">
     <div class="d-flex align-items-center gap-2">
         <i class="bi bi-bug-fill"></i>
-        <span><strong>Debug Provider (Log Only) is active.</strong> No emails are actually being sent — every message is recorded in Email Logs only. Switch to a real provider before going live.</span>
+        <span [innerHTML]="'admin.dashboard.debug_banner' | transloco"></span>
     </div>
     <a routerLink="/admin/settings/email" class="btn btn-danger btn-sm text-nowrap">
-        <i class="bi bi-gear me-1"></i> Email Settings
+        <i class="bi bi-gear me-1"></i> {{ 'admin.dashboard.email_settings' | transloco }}
     </a>
 </div>
 }
@@ -37,11 +41,11 @@
 <div class="alert alert-warning d-flex align-items-center justify-content-between mb-4" role="alert">
     <div class="d-flex align-items-center gap-2">
         <i class="bi bi-exclamation-triangle-fill"></i>
-        <span><strong>Email not configured.</strong> Waitlist OTP verification and emails are currently disabled.</span>
+        <span><strong>{{ 'admin.dashboard.email_not_configured' | transloco }}</strong> {{ 'admin.dashboard.email_disabled_note' | transloco }}</span>
     </div>
     <div class="d-flex align-items-center gap-2">
         <a routerLink="/admin/settings/email" class="btn btn-warning btn-sm">
-            <i class="bi bi-gear me-1"></i> Configure Email
+            <i class="bi bi-gear me-1"></i> {{ 'admin.dashboard.configure_email' | transloco }}
         </a>
         <button type="button" class="btn-close" aria-label="Dismiss"
             (click)="emailConfigService.dismissBanner()"></button>
@@ -52,7 +56,7 @@
 <div class="arc p-4">
     <!-- Analytics Summary Section -->
     <div class="section-header">
-        <h2>Google Analytics Overview</h2>
+        <h2>{{ 'admin.dashboard.ga_overview' | transloco }}</h2>
         @if (analyticsData()[0]?.dateRange) {
         <span class="date-range-badge">
             {{ formatShortDate(analyticsData()[0]?.dateRange?.startDate) }}
@@ -110,7 +114,7 @@
                         </div>
                     </div>
                     } @empty {
-                    <div class="text-center text-muted" style="font-size: 0.85rem;">No data available</div>
+                    <div class="text-center text-muted" style="font-size: 0.85rem;">{{ 'admin.dashboard.no_data' | transloco }}</div>
                     }
                 </div>
             </div>
@@ -150,7 +154,7 @@
             @if (analyticsConnectionStatus.isLoading()) {
             <div class="text-center py-4">
                 <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
+                    <span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span>
                 </div>
             </div>
             } @else if (!analyticsConnectionStatus.isConnected()) {
@@ -158,24 +162,21 @@
                 <div class="mb-3">
                     <i class="fa-solid fa-chart-line" style="font-size: 2.5rem; color: #94a3b8;"></i>
                 </div>
-                <h5>Google Analytics Not Connected</h5>
+                <h5>{{ 'admin.dashboard.ga_not_connected' | transloco }}</h5>
                 <p class="text-muted mb-4" style="max-width: 400px; margin: 0 auto;">
-                    Set up Google Analytics to see real-time website metrics like sessions, users, and bounce rate.
+                    {{ 'admin.dashboard.ga_setup_hint' | transloco }}
                 </p>
                 <a routerLink="/admin/settings/analytics" class="btn btn-primary">
-                    <i class="bi bi-gear me-2"></i> Set Up Analytics
+                    <i class="bi bi-gear me-2"></i> {{ 'admin.dashboard.setup_analytics' | transloco }}
                 </a>
                 <p class="text-muted mt-4 mb-0" style="font-size: 0.875rem;">
-                    You can also view basic analytics directly on your
-                    <a [href]="getGa4Url()" target="_blank" rel="noopener noreferrer">
-                        Firebase console <i class="bi bi-box-arrow-up-right" style="font-size: 0.75rem;"></i>
-                    </a>
+                    <span [innerHTML]="'admin.dashboard.firebase_console_note' | transloco: { url: getGa4Url() }"></span>
                 </p>
             </div>
             } @else {
             <div class="alert alert-info">
                 <i class="bi bi-info-circle me-2"></i>
-                No analytics data available yet. Click <strong>Refresh</strong> to fetch data from Google Analytics.
+                <span [innerHTML]="'admin.dashboard.no_analytics_yet' | transloco: { refresh: ('admin.dashboard.refresh' | transloco) }"></span>
             </div>
             }
         </div>
@@ -185,7 +186,7 @@
     <!-- Content & Media Section -->
     <div class="section-header">
         <div class="d-flex align-items-center gap-2">
-            <h2>Content & Media</h2>
+            <h2>{{ 'admin.dashboard.content_media' | transloco }}</h2>
         </div>
         <div class="alert alert-info py-1 px-3 mb-0" style="font-size: 0.9rem;">
             Managing {{ contentTypes().length + 1 }} content type{{ contentTypes().length + 1 > 1 ? 's' : '' }}
@@ -205,8 +206,8 @@
                 </div>
                 <div class="metric-value">{{ getContentCount(contentType.slug).total }}</div>
                 <div class="metric-subtitle">
-                    <span class="text-success">{{ getContentCount(contentType.slug).published }} Published</span> •
-                    <span class="text-warning">{{ getContentCount(contentType.slug).draft }} Draft</span>
+                    <span class="text-success">{{ 'admin.dashboard.count_published' | transloco: { count: getContentCount(contentType.slug).published } }}</span> •
+                    <span class="text-warning">{{ 'admin.dashboard.count_draft' | transloco: { count: getContentCount(contentType.slug).draft } }}</span>
                 </div>
             </div>
         </div>
@@ -217,11 +218,11 @@
                     <div class="metric-icon green">
                         <i class="bi bi-image"></i>
                     </div>
-                    <div class="metric-title">Media</div>
+                    <div class="metric-title">{{ 'admin.dashboard.media' | transloco }}</div>
                 </div>
                 <div class="metric-value">{{ mediaCount() }}</div>
                 <div class="metric-subtitle">
-                    Media files in library
+                    {{ 'admin.dashboard.media_files' | transloco }}
                 </div>
             </div>
         </div>
@@ -229,23 +230,23 @@
 
     <!-- Growth & Leads Section -->
     <div class="section-header">
-        <h2>Growth & Leads</h2>
-        <a routerLink="/admin/waitlists">View All →</a>
+        <h2>{{ 'admin.dashboard.growth_leads' | transloco }}</h2>
+        <a routerLink="/admin/waitlists">{{ 'admin.dashboard.view_all' | transloco }}</a>
     </div>
 
     <div class="scrollable-row mb-4">
-        <!-- Total Signups Summary Card -->
+        <!-- {{ 'admin.dashboard.total_signups' | transloco }} Summary Card -->
         <div class="scrollable-card" (click)="navigateToWaitlists()">
             <div class="metric-card clickable">
                 <div class="metric-card-header">
                     <div class="metric-icon teal">
                         <i class="bi bi-people-fill"></i>
                     </div>
-                    <div class="metric-title">Total Signups</div>
+                    <div class="metric-title">{{ 'admin.dashboard.total_signups' | transloco }}</div>
                 </div>
                 <div class="metric-value">{{ totalWaitlistCount() | number }}</div>
                 <div class="metric-subtitle card-footer-row">
-                    <span class="text-primary">+{{ last7DaysWaitlistCount() | number }} this week</span>
+                    <span class="text-primary">{{ 'admin.dashboard.count_this_week' | transloco: { count: (last7DaysWaitlistCount() | number) } }}</span>
                 </div>
             </div>
         </div>
@@ -263,13 +264,13 @@
                 <div class="metric-subtitle card-footer-row">
                     <span class="text-primary">
                         @if (getWaitlistCount(waitlist.id!).thisWeek > 0) {
-                        +{{ getWaitlistCount(waitlist.id!).thisWeek | number }} this week
+                        {{ 'admin.dashboard.count_this_week' | transloco: { count: (getWaitlistCount(waitlist.id!).thisWeek | number) } }}
                         }
                     </span>
                     @if (waitlist.isActive) {
-                    <span class="badge bg-success">Active</span>
+                    <span class="badge bg-success">{{ 'admin.dashboard.active' | transloco }}</span>
                     } @else {
-                    <span class="badge bg-secondary">Inactive</span>
+                    <span class="badge bg-secondary">{{ 'admin.dashboard.inactive' | transloco }}</span>
                     }
                 </div>
             </div>
@@ -277,21 +278,21 @@
         }
     </div>
 
-    <!-- Waitlist Signups & Recent Activity Section -->
+    <!-- Waitlist Signups & {{ 'admin.dashboard.recent_activity' | transloco }} Section -->
     <div class="row g-3 mb-4">
         <div class="col-md-8 d-flex flex-column">
             <div class="section-header mt-0">
-                <h2>Recent Waitlist Signups</h2>
-                <a routerLink="/admin/waitlists">View All →</a>
+                <h2>{{ 'admin.dashboard.recent_signups' | transloco }}</h2>
+                <a routerLink="/admin/waitlists">{{ 'admin.dashboard.view_all' | transloco }}</a>
             </div>
             <div class="activity-table flex-grow-1">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Email</th>
-                            <th>Date</th>
-                            <th>Waitlist</th>
-                            <th>Referrals</th>
+                            <th>{{ 'common.table.email' | transloco }}</th>
+                            <th>{{ 'admin.dashboard.col_date' | transloco }}</th>
+                            <th>{{ 'admin.dashboard.col_waitlist' | transloco }}</th>
+                            <th>{{ 'admin.dashboard.col_referrals' | transloco }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -304,7 +305,7 @@
                         </tr>
                         } @empty {
                         <tr>
-                            <td colspan="4" class="text-center text-muted">No recent signups</td>
+                            <td colspan="4" class="text-center text-muted">{{ 'admin.dashboard.no_recent_signups' | transloco }}</td>
                         </tr>
                         }
                     </tbody>
@@ -313,7 +314,7 @@
         </div>
         <div class="col-md-4 d-flex flex-column">
             <div class="section-header mt-0">
-                <h2>Recent Activity</h2>
+                <h2>{{ 'admin.dashboard.recent_activity' | transloco }}</h2>
             </div>
             <div class="activity-log-card flex-grow-1">
                 @for (activity of recentActivity(); track activity.id) {
@@ -331,7 +332,7 @@
                             <span>{{ activity._contentTypeName }}</span>
                             <span class="activity-separator">·</span>
                             <span class="activity-status" [class.text-success]="activity.status === 'publish'" [class.text-warning]="activity.status !== 'publish'">
-                                {{ activity.status === 'publish' ? 'Published' : 'Draft' }}
+                                {{ (activity.status === 'publish' ? 'common.status.published' : 'common.status.draft') | transloco }}
                             </span>
                             <span class="activity-separator">·</span>
                             <span>{{ getTimeAgo(activity.modifiedAt) }}</span>
@@ -339,7 +340,7 @@
                     </div>
                 </div>
                 } @empty {
-                <div class="text-center text-muted py-4">No recent activity</div>
+                <div class="text-center text-muted py-4">{{ 'admin.dashboard.no_recent_activity' | transloco }}</div>
                 }
             </div>
         </div>

@@ -59,20 +59,21 @@ export class LocalizationService {
     readonly loaded = this.loadedSignal.asReadonly();
 
     /**
-     * Whether the page currently being rendered actually exists in other
-     * languages.
+     * The languages the page currently on screen actually exists in — not
+     * merely those enabled site-wide. `null` means "no variants", which hides
+     * the switcher entirely.
      *
-     * Only content pages are published per language. The home page and the
-     * static pages are single-language, so offering to switch there would link
-     * to a URL that does not exist — `/hi` is not a route and falls through to
-     * the content-list route, rendering an empty page for a content type
-     * called "hi".
+     * Enabled is not the same as available: a language can be configured
+     * without this particular page existing in it. Offering it would link to a
+     * URL that 404s on the deployed site, or falls through to the content-list
+     * route in the SPA and renders an empty page for a content type named
+     * after the language code.
      *
-     * Content components set this while they are on screen; the switcher hides
-     * itself otherwise. This mirrors the static pipeline, which only injects a
-     * switcher into content pages.
+     * Pages declare their own availability while on screen: the home page
+     * reports the languages it has a file for, a content page the default plus
+     * its stored translations.
      */
-    readonly hasLanguageVariants = signal(false);
+    readonly languageVariants = signal<string[] | null>(null);
 
     readonly defaultLanguage = computed(() => this.settingsSignal().defaultLanguage);
     readonly enabledLanguages = computed(() => this.settingsSignal().enabledLanguages);

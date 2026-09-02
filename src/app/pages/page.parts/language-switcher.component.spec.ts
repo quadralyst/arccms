@@ -18,12 +18,13 @@ describe('LanguageSwitcherComponent', () => {
     let localization: any;
     let router: any;
 
-    function build(url: string, languages = [ENGLISH, HINDI], defaultLang = 'en', hasVariants = true) {
+    function build(url: string, languages = [ENGLISH, HINDI], defaultLang = 'en',
+                   variants: string[] | null = ['en', 'hi']) {
         localization = {
             load: vi.fn().mockResolvedValue(undefined),
             enabledLanguages: signal(languages),
             defaultLanguage: signal(defaultLang),
-            hasLanguageVariants: signal(hasVariants),
+            languageVariants: signal(variants),
         };
         router = { url, events: of() };
 
@@ -85,7 +86,7 @@ describe('LanguageSwitcherComponent', () => {
     });
 
     it('renders nothing on a single-language site', () => {
-        build('/articles/my-post', [ENGLISH]);
+        build('/articles/my-post', [ENGLISH], 'en', ['en']);
 
         expect(component.links()).toEqual([]);
         expect(fixture.nativeElement.querySelector('.arc-lang-switcher')).toBeNull();
@@ -127,19 +128,33 @@ describe('LanguageSwitcherComponent', () => {
         // switch there links to /hi, which is not a route — it falls through to
         // the content-list route and renders an empty list for a content type
         // called "hi".
-        build('/', [ENGLISH, HINDI], 'en', false);
+        build('/', [ENGLISH, HINDI], 'en', null);
 
         expect(component.links()).toEqual([]);
         expect(fixture.nativeElement.querySelector('.arc-lang-switcher')).toBeNull();
     });
 
     it('appears again once a content page declares variants', () => {
-        build('/articles', [ENGLISH, HINDI], 'en', false);
+        build('/articles', [ENGLISH, HINDI], 'en', null);
         expect(component.links()).toEqual([]);
 
-        localization.hasLanguageVariants.set(true);
+        localization.languageVariants.set(['en', 'hi']);
         fixture.detectChanges();
 
         expect(component.links()).toHaveLength(2);
+    });
+    it('offers only the languages this page exists in', () => {
+        // French is enabled site-wide but this page was never translated into
+        // it — offering it would link to a URL that does not exist.
+        const FRENCH = { code: 'fr', label: 'French', nativeLabel: 'Français' };
+        build('/articles/my-post', [ENGLISH, HINDI, FRENCH], 'en', ['en', 'hi']);
+
+        expect(component.links().map(l => l.code)).toEqual(['en', 'hi']);
+    });
+
+    it('renders nothing when only the default language is available', () => {
+        build('/articles/my-post', [ENGLISH, HINDI], 'en', ['en']);
+
+        expect(component.links()).toEqual([]);
     });
 });

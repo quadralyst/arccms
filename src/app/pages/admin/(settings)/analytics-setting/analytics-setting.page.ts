@@ -1,6 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -10,7 +11,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RouterLink } from '@angular/router';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { AnalyticsConnectionStatusService } from '../../../../../shared/services/analytics-connection-status.service';
 import { GoogleOAuthService } from '../../../../../shared/services/google-oauth.service';
@@ -29,15 +29,13 @@ export const routeMeta: RouteMeta = {
     imports: [
         CommonModule,
         ReactiveFormsModule,
-        RouterLink,
         MatCardModule,
         MatFormFieldModule,
         MatInputModule,
         MatButtonModule,
         MatIconModule,
         MatProgressSpinnerModule,
-        MatTooltipModule,
-    ],
+        MatTooltipModule, TranslocoPipe],
     template: `
         <div class="analytics-settings">
             @if (isLoading()) {
@@ -53,26 +51,25 @@ export const routeMeta: RouteMeta = {
                         <div class="disabled-icon">
                             <i class="fa-solid fa-chart-line"></i>
                         </div>
-                        <h3>Analytics Not Connected</h3>
+                        <h3>{{ 'admin.settings.analytics.not_connected' | transloco }}</h3>
                         <p class="text-muted">
-                            Connect your Google Analytics property to see real-time website metrics
-                            like sessions, users, and bounce rate on the dashboard.
+                            {{ 'admin.settings.analytics.connect_intro' | transloco }}
                         </p>
                         <button mat-flat-button color="primary" (click)="showSetup.set(true)">
                             <i class="fa-solid fa-gear me-2"></i>
-                            Configure Analytics
+                            {{ 'admin.settings.analytics.configure' | transloco }}
                         </button>
                     </div>
                 </div>
             } @else {
-                <h3 class="settings-title">Google Analytics</h3>
-                <p class="text-muted mb-4">Connect your GA4 property to see website analytics on the dashboard.</p>
+                <h3 class="settings-title">{{ 'admin.settings.analytics.title' | transloco }}</h3>
+                <p class="text-muted mb-4">{{ 'admin.settings.analytics.subtitle' | transloco }}</p>
 
                 <!-- Panel 1: Setup Guide -->
                 <mat-card class="mb-4 setup-guide-card">
                     <div class="setup-guide-header" (click)="showSetupGuide.set(!showSetupGuide())">
                         <i class="fa-solid fa-book-open me-2"></i>
-                        <span class="setup-guide-title">Setup Guide</span>
+                        <span class="setup-guide-title">{{ 'admin.settings.analytics.guide' | transloco }}</span>
                         <button mat-icon-button type="button" class="toggle-btn">
                             <mat-icon>{{ showSetupGuide() ? 'expand_less' : 'expand_more' }}</mat-icon>
                         </button>
@@ -81,33 +78,20 @@ export const routeMeta: RouteMeta = {
                     @if (showSetupGuide()) {
                     <mat-card-content class="pt-3">
                         <p class="guide-intro">
-                            Follow these 3 steps to connect Google Analytics to your dashboard. This is a one-time setup that takes about 5 minutes.
+                            {{ 'admin.settings.analytics.intro' | transloco }}
                         </p>
 
                         <!-- Step 1 -->
                         <div class="setup-step">
                             <div class="step-number-badge">1</div>
                             <div class="step-content">
-                                <h6 class="step-title">Enable the Google Analytics API</h6>
+                                <h6 class="step-title">{{ 'admin.settings.analytics.s1_title' | transloco }}</h6>
                                 <ol class="step-instructions">
-                                    <li>
-                                        Open the
-                                        <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a>
-                                    </li>
-                                    <li>
-                                        Select your Firebase project from the project dropdown at the top (it has the same name as your Firebase project)
-                                    </li>
-                                    <li>
-                                        Go to <strong>APIs &amp; Services</strong> &rarr; <strong>Library</strong>
-                                        (or
-                                        <a href="https://console.cloud.google.com/apis/library" target="_blank" rel="noopener noreferrer">click here</a>)
-                                    </li>
-                                    <li>
-                                        Search for <strong>"Google Analytics API"</strong>, click on it and press <strong>Enable</strong>
-                                    </li>
-                                    <li>
-                                        Go back to the Library and also search for and enable <strong>"Google Analytics Admin API"</strong>
-                                    </li>
+                                    <li [innerHTML]="'admin.settings.analytics.s1_a' | transloco"></li>
+                                    <li>{{ 'admin.settings.analytics.s1_b' | transloco }}</li>
+                                    <li [innerHTML]="'admin.settings.analytics.s1_c' | transloco"></li>
+                                    <li [innerHTML]="'admin.settings.analytics.s1_d' | transloco"></li>
+                                    <li [innerHTML]="'admin.settings.analytics.s1_e' | transloco"></li>
                                 </ol>
                             </div>
                         </div>
@@ -116,83 +100,67 @@ export const routeMeta: RouteMeta = {
                         <div class="setup-step">
                             <div class="step-number-badge">2</div>
                             <div class="step-content">
-                                <h6 class="step-title">Create OAuth Credentials</h6>
+                                <h6 class="step-title">{{ 'admin.settings.analytics.s2_title' | transloco }}</h6>
                                 <ol class="step-instructions">
+                                    <li [innerHTML]="'admin.settings.analytics.s2_a' | transloco"></li>
+                                    <li [innerHTML]="'admin.settings.analytics.s2_b' | transloco"></li>
                                     <li>
-                                        In Google Cloud Console, go to <strong>APIs &amp; Services</strong> &rarr; <strong>Credentials</strong>
-                                        (or
-                                        <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">click here</a>)
-                                    </li>
-                                    <li>
-                                        Click <strong>+ Create Credentials</strong> at the top and select <strong>OAuth client ID</strong>
-                                    </li>
-                                    <li>
-                                        If prompted to configure the <strong>OAuth consent screen</strong> first:
+                                        <span [innerHTML]="'admin.settings.analytics.s2_c' | transloco"></span>
                                         <ul>
-                                            <li>Choose <strong>External</strong> user type and click Create</li>
-                                            <li>Fill in your <strong>App name</strong> and <strong>User support email</strong></li>
-                                            <li>Add your email under <strong>Developer contact information</strong></li>
-                                            <li>Click <strong>Save and Continue</strong> through the remaining steps</li>
+                                            <li [innerHTML]="'admin.settings.analytics.s2_c1' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.analytics.s2_c2' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.analytics.s2_c3' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.analytics.s2_c4' | transloco"></li>
                                         </ul>
                                     </li>
+                                    <li [innerHTML]="'admin.settings.analytics.s2_d' | transloco"></li>
+                                    <li>{{ 'admin.settings.analytics.s2_e' | transloco }}</li>
                                     <li>
-                                        For <strong>Application type</strong>, select <strong>Web application</strong>
-                                    </li>
-                                    <li>
-                                        Give it a name (e.g. "Arc CMS Analytics")
-                                    </li>
-                                    <li>
-                                        Under <strong>Authorized JavaScript origins</strong>, click <strong>+ Add URI</strong> and add these URLs:
+                                        <span [innerHTML]="'admin.settings.analytics.s2_f' | transloco"></span>
                                         <ul>
                                             <li>
                                                 <code>{{ siteOrigin }}</code>
-                                                <button class="copy-btn" type="button" (click)="copyToClipboard(siteOrigin)" matTooltip="Copy">
+                                                <button class="copy-btn" type="button" (click)="copyToClipboard(siteOrigin)" [matTooltip]="'common.actions.copy' | transloco">
                                                     <i class="fa-regular fa-copy"></i>
                                                 </button>
-                                                (your live site)
+                                                {{ 'admin.settings.analytics.live_site' | transloco }}
                                             </li>
                                             <li>
                                                 <code>http://localhost:5173</code>
-                                                <button class="copy-btn" type="button" (click)="copyToClipboard('http://localhost:5173')" matTooltip="Copy">
+                                                <button class="copy-btn" type="button" (click)="copyToClipboard('http://localhost:5173')" [matTooltip]="'common.actions.copy' | transloco">
                                                     <i class="fa-regular fa-copy"></i>
                                                 </button>
-                                                (for local development)
+                                                {{ 'admin.settings.analytics.local_dev' | transloco }}
                                             </li>
                                             <li>
                                                 <code>http://localhost</code>
-                                                <button class="copy-btn" type="button" (click)="copyToClipboard('http://localhost')" matTooltip="Copy">
+                                                <button class="copy-btn" type="button" (click)="copyToClipboard('http://localhost')" [matTooltip]="'common.actions.copy' | transloco">
                                                     <i class="fa-regular fa-copy"></i>
                                                 </button>
-                                                (required by Google)
+                                                {{ 'admin.settings.analytics.required_by_google' | transloco }}
                                             </li>
                                         </ul>
                                     </li>
                                     <li>
-                                        Under <strong>Authorized redirect URIs</strong>, click <strong>+ Add URI</strong> and add the same URLs:
+                                        <span [innerHTML]="'admin.settings.analytics.s2_g' | transloco"></span>
                                         <ul>
                                             <li>
                                                 <code>{{ siteOrigin }}</code>
-                                                <button class="copy-btn" type="button" (click)="copyToClipboard(siteOrigin)" matTooltip="Copy">
+                                                <button class="copy-btn" type="button" (click)="copyToClipboard(siteOrigin)" [matTooltip]="'common.actions.copy' | transloco">
                                                     <i class="fa-regular fa-copy"></i>
                                                 </button>
                                             </li>
                                             <li>
                                                 <code>http://localhost:5173</code>
-                                                <button class="copy-btn" type="button" (click)="copyToClipboard('http://localhost:5173')" matTooltip="Copy">
+                                                <button class="copy-btn" type="button" (click)="copyToClipboard('http://localhost:5173')" [matTooltip]="'common.actions.copy' | transloco">
                                                     <i class="fa-regular fa-copy"></i>
                                                 </button>
                                             </li>
                                         </ul>
                                     </li>
-                                    <li>
-                                        Click <strong>Create</strong>
-                                    </li>
-                                    <li>
-                                        A dialog will show your <strong>Client ID</strong> and <strong>Client Secret</strong> — copy both values
-                                    </li>
-                                    <li>
-                                        Google will also offer to download a JSON file. You don't need the JSON file — just the Client ID and Client Secret values that you copied above
-                                    </li>
+                                    <li [innerHTML]="'admin.settings.analytics.s2_h' | transloco"></li>
+                                    <li [innerHTML]="'admin.settings.analytics.s2_i' | transloco"></li>
+                                    <li>{{ 'admin.settings.analytics.s2_j' | transloco }}</li>
                                 </ol>
                             </div>
                         </div>
@@ -201,26 +169,16 @@ export const routeMeta: RouteMeta = {
                         <div class="setup-step last">
                             <div class="step-number-badge">3</div>
                             <div class="step-content">
-                                <h6 class="step-title">Save &amp; Connect</h6>
+                                <h6 class="step-title">{{ 'admin.settings.analytics.s3_title' | transloco }}</h6>
                                 <ol class="step-instructions">
-                                    <li>
-                                        Paste the <strong>Client ID</strong> and <strong>Client Secret</strong> in the <strong>OAuth Credentials</strong> form below and click <strong>Save Credentials</strong>
-                                    </li>
-                                    <li>
-                                        Click the <strong>Connect Google Analytics</strong> button at the bottom of this page
-                                    </li>
-                                    <li>
-                                        A Google popup will appear — sign in with the Google account that has access to your Analytics property and click <strong>Allow</strong>
-                                    </li>
-                                    <li>
-                                        Your GA4 property will be detected automatically and analytics data will appear on the dashboard
-                                    </li>
+                                    <li [innerHTML]="'admin.settings.analytics.s3_a' | transloco"></li>
+                                    <li [innerHTML]="'admin.settings.analytics.s3_b' | transloco"></li>
+                                    <li [innerHTML]="'admin.settings.analytics.s3_c' | transloco"></li>
+                                    <li>{{ 'admin.settings.analytics.s3_d' | transloco }}</li>
                                 </ol>
                                 <p class="step-note">
                                     <i class="fa-solid fa-circle-info me-1"></i>
-                                    <strong>Why is this step needed?</strong> Saving the credentials identifies your app to Google.
-                                    The Connect button opens a Google popup where you grant permission for your app to read your Analytics data.
-                                    This is a one-time authorization.
+                                    <span [innerHTML]="'admin.settings.analytics.why_note' | transloco"></span>
                                 </p>
                             </div>
                         </div>
@@ -228,22 +186,21 @@ export const routeMeta: RouteMeta = {
                     }
                 </mat-card>
 
-                <!-- Panel 2: OAuth Credentials Form -->
+                <!-- Panel 2: {{ 'admin.settings.analytics.oauth_credentials' | transloco }} Form -->
                 <form [formGroup]="analyticsForm" (ngSubmit)="onSubmit()">
                     <mat-card class="mb-4">
                         <mat-card-header>
                             <mat-card-title>
                                 <i class="fa-brands fa-google me-2"></i>
-                                OAuth Credentials
+                                {{ 'admin.settings.analytics.oauth_credentials' | transloco }}
                                 @if (hasCredentials()) {
                                     <span class="configured-badge">
-                                        <i class="fa-solid fa-check-circle me-1"></i> Configured
+                                        <i class="fa-solid fa-check-circle me-1"></i> {{ 'admin.settings.analytics.configured' | transloco }}
                                     </span>
                                 }
                             </mat-card-title>
                             <mat-card-subtitle>
-                                Enter the credentials from the Google Cloud Console.
-                                They are stored securely and only used server-side.
+                                {{ 'admin.settings.analytics.creds_hint' | transloco }}
                             </mat-card-subtitle>
                         </mat-card-header>
 
@@ -251,28 +208,28 @@ export const routeMeta: RouteMeta = {
                             <div class="row">
                                 <div class="col-md-6">
                                     <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>OAuth Client ID</mat-label>
+                                        <mat-label>{{ 'admin.settings.analytics.client_id' | transloco }}</mat-label>
                                         <input
                                             matInput
                                             formControlName="clientId"
-                                            placeholder="xxxx.apps.googleusercontent.com"
+                                            [placeholder]="'admin.settings.analytics.client_id_placeholder' | transloco"
                                             autocomplete="off"
                                         />
                                         @if (analyticsForm.get('oauth.clientId')?.hasError('required') &&
                                              analyticsForm.get('oauth.clientId')?.touched) {
-                                            <mat-error>Client ID is required</mat-error>
+                                            <mat-error>{{ 'admin.settings.analytics.client_id_required' | transloco }}</mat-error>
                                         }
                                     </mat-form-field>
                                 </div>
 
                                 <div class="col-md-6">
                                     <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>OAuth Client Secret</mat-label>
+                                        <mat-label>{{ 'admin.settings.analytics.client_secret' | transloco }}</mat-label>
                                         <input
                                             matInput
                                             formControlName="clientSecret"
                                             [type]="showSecret() ? 'text' : 'password'"
-                                            placeholder="Your Client Secret"
+                                            [placeholder]="'admin.settings.analytics.client_secret_placeholder' | transloco"
                                             autocomplete="off"
                                         />
                                         <button
@@ -287,7 +244,7 @@ export const routeMeta: RouteMeta = {
                                         </button>
                                         @if (analyticsForm.get('oauth.clientSecret')?.hasError('required') &&
                                              analyticsForm.get('oauth.clientSecret')?.touched) {
-                                            <mat-error>Client Secret is required</mat-error>
+                                            <mat-error>{{ 'admin.settings.analytics.client_secret_required' | transloco }}</mat-error>
                                         }
                                     </mat-form-field>
                                 </div>
@@ -303,7 +260,7 @@ export const routeMeta: RouteMeta = {
                             (click)="resetForm()"
                             [disabled]="isSaving() || analyticsForm.pristine"
                         >
-                            Cancel
+                            {{ 'common.actions.cancel' | transloco }}
                         </button>
                         <button
                             mat-raised-button
@@ -313,10 +270,10 @@ export const routeMeta: RouteMeta = {
                         >
                             @if (isSaving()) {
                                 <mat-spinner diameter="20" class="me-2"></mat-spinner>
-                                Saving...
+                                {{ 'common.actions.saving' | transloco }}
                             } @else {
                                 <i class="fa-solid fa-floppy-disk me-2"></i>
-                                Save Credentials
+                                {{ 'admin.settings.analytics.save_credentials' | transloco }}
                             }
                         </button>
                     </div>
@@ -327,18 +284,18 @@ export const routeMeta: RouteMeta = {
                     <mat-card-header>
                         <mat-card-title>
                             <i class="fa-solid fa-plug me-2"></i>
-                            Google Analytics Connection
+                            {{ 'admin.settings.analytics.connection' | transloco }}
                         </mat-card-title>
                     </mat-card-header>
                     <mat-card-content class="pt-3">
                         @if (connectionStatus.isConnected()) {
                             <div class="d-flex align-items-center gap-3 flex-wrap">
                                 <span class="badge bg-success py-2 px-3">
-                                    <i class="fa-solid fa-check-circle me-1"></i> Connected
+                                    <i class="fa-solid fa-check-circle me-1"></i> {{ 'admin.settings.analytics.connected' | transloco }}
                                 </span>
                                 @if (connectionStatus.propertyName()) {
                                     <span class="text-muted">
-                                        Property: <strong>{{ connectionStatus.propertyName() }}</strong>
+                                        {{ 'admin.settings.analytics.property' | transloco }} <strong>{{ connectionStatus.propertyName() }}</strong>
                                         ({{ connectionStatus.propertyId() }})
                                     </span>
                                 }
@@ -352,16 +309,16 @@ export const routeMeta: RouteMeta = {
                                 >
                                     @if (isDisconnecting()) {
                                         <mat-spinner diameter="18" class="me-1"></mat-spinner>
-                                        Disconnecting...
+                                        {{ 'admin.settings.analytics.disconnecting' | transloco }}
                                     } @else {
-                                        <i class="fa-solid fa-unlink me-1"></i> Disconnect
+                                        <i class="fa-solid fa-unlink me-1"></i> {{ 'admin.settings.analytics.disconnect' | transloco }}
                                     }
                                 </button>
                             </div>
                         } @else if (hasCredentials()) {
                             <div class="text-center py-4">
                                 <p class="text-muted mb-3">
-                                    Your OAuth credentials are saved. Click below to authorize access to your Google Analytics data.
+                                    {{ 'admin.settings.analytics.saved_hint' | transloco }}
                                 </p>
                                 <button
                                     class="btn btn-primary btn-lg"
@@ -369,21 +326,21 @@ export const routeMeta: RouteMeta = {
                                     [disabled]="isConnecting()"
                                 >
                                     @if (isConnecting()) {
-                                        <span class="spinner-border spinner-border-sm me-2"></span> Connecting...
+                                        <span class="spinner-border spinner-border-sm me-2"></span> {{ 'admin.settings.analytics.connecting' | transloco }}
                                     } @else {
-                                        <i class="fa-brands fa-google me-2"></i> Connect Google Analytics
+                                        <i class="fa-brands fa-google me-2"></i> {{ 'admin.settings.analytics.connect_button' | transloco }}
                                     }
                                 </button>
                                 <p class="gmail-hint mt-3">
                                     <i class="fa-solid fa-circle-info me-1"></i>
-                                    Use the same Google account that you used to create your Firebase project.
+                                    {{ 'admin.settings.analytics.same_account' | transloco }}
                                 </p>
                             </div>
                         } @else {
                             <div class="text-center py-4">
                                 <p class="text-muted mb-0">
                                     <i class="fa-solid fa-circle-info me-2"></i>
-                                    Please save your OAuth credentials above first, then you can connect to Google Analytics.
+                                    {{ 'admin.settings.analytics.save_first' | transloco }}
                                 </p>
                             </div>
                         }
@@ -700,10 +657,10 @@ export default class AnalyticsSettingPageComponent extends BaseComponent impleme
             this.analyticsForm.markAsPristine();
             this.hasCredentials.set(true);
             this.showSetupGuide.set(false);
-            this.toastService.success('Analytics credentials saved successfully.');
+            this.notify.success('admin.settings.analytics.creds_saved');
         } catch (error) {
             console.error('Error saving analytics settings:', error);
-            this.toastService.error('Failed to save analytics settings. Please try again.');
+            this.notify.error('admin.settings.analytics.creds_save_failed');
         } finally {
             this.isSaving.set(false);
         }
@@ -717,10 +674,10 @@ export default class AnalyticsSettingPageComponent extends BaseComponent impleme
         this.isDisconnecting.set(true);
         try {
             await this.googleOAuthService.disconnectAnalytics();
-            this.toastService.success('Google Analytics disconnected.');
+            this.notify.success('admin.settings.analytics.disconnected');
         } catch (error) {
             console.error('Error disconnecting analytics:', error);
-            this.toastService.error('Failed to disconnect. Please try again.');
+            this.notify.error('admin.settings.analytics.disconnect_failed');
         } finally {
             this.isDisconnecting.set(false);
         }
@@ -731,7 +688,7 @@ export default class AnalyticsSettingPageComponent extends BaseComponent impleme
         try {
             const clientId = this.analyticsForm.get('oauth.clientId')?.value;
             if (!clientId) {
-                this.toastService.error('Please save your OAuth credentials first.');
+                this.notify.error('admin.settings.analytics.save_creds_first');
                 return;
             }
 
@@ -748,16 +705,16 @@ export default class AnalyticsSettingPageComponent extends BaseComponent impleme
 
             // Handle result
             if (result.selectedProperty) {
-                this.toastService.success(`Connected to ${result.selectedProperty.displayName}`);
+                this.notify.success('admin.settings.analytics.connected_to', { property: result.selectedProperty.displayName });
             } else if (result.allProperties?.length) {
                 this.openPropertySelectionDialog(result.allProperties);
             } else {
-                this.toastService.success('Google Analytics connected.');
+                this.notify.success('admin.settings.analytics.connect_success');
             }
         } catch (error: any) {
             if (error?.message === 'popup_closed_by_user') return;
             console.error('Connect GA error:', error);
-            this.toastService.error(error?.message || 'Failed to connect Google Analytics.');
+            error?.message ? this.notify.raw(error.message, 'error') : this.notify.error('admin.settings.analytics.connect_failed');
         } finally {
             this.isConnecting.set(false);
         }
@@ -776,9 +733,9 @@ export default class AnalyticsSettingPageComponent extends BaseComponent impleme
                             propertyId: selected.propertyId,
                             displayName: selected.displayName,
                         });
-                        this.toastService.success(`Connected to ${selected.displayName}`);
+                        this.notify.success('admin.settings.analytics.connected_to', { property: selected.displayName });
                     } catch (error: any) {
-                        this.toastService.error(error?.message || 'Failed to select property.');
+                        error?.message ? this.notify.raw(error.message, 'error') : this.notify.error('admin.settings.analytics.select_property_failed');
                     }
                 }
             });
@@ -787,9 +744,9 @@ export default class AnalyticsSettingPageComponent extends BaseComponent impleme
 
     copyToClipboard(text: string): void {
         navigator.clipboard.writeText(text).then(() => {
-            this.toastService.success('Copied to clipboard');
+            this.notify.success('admin.settings.analytics.copied');
         }).catch(() => {
-            this.toastService.error('Failed to copy');
+            this.notify.error('admin.settings.analytics.copy_failed');
         });
     }
 }

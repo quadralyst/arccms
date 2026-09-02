@@ -3,35 +3,35 @@
     <div class="step-indicator">
         <div class="step" [class.active]="currentStep() >= 1" [class.completed]="currentStep() > 1">
             <span class="step-number">1</span>
-            <span class="step-label">Upload</span>
+            <span class="step-label">{{ 'admin.data.import.step_upload' | transloco }}</span>
         </div>
         <div class="step-line" [class.active]="currentStep() > 1"></div>
         <div class="step" [class.active]="currentStep() >= 2" [class.completed]="currentStep() > 2">
             <span class="step-number">2</span>
-            <span class="step-label">Preview</span>
+            <span class="step-label">{{ 'admin.data.import.step_preview' | transloco }}</span>
         </div>
         <div class="step-line" [class.active]="currentStep() > 2"></div>
         <div class="step" [class.active]="currentStep() >= 3">
             <span class="step-number">3</span>
-            <span class="step-label">Import</span>
+            <span class="step-label">{{ 'admin.data.import.step_import' | transloco }}</span>
         </div>
     </div>
 
     <!-- Step 1: File Upload -->
     @if (currentStep() === 1) {
         <div class="step-content">
-            <h2>Upload Export File</h2>
-            <p class="text-muted">Select a JSON file exported from ArcCMS.</p>
+            <h2>{{ 'admin.data.import.upload_title' | transloco }}</h2>
+            <p class="text-muted">{{ 'admin.data.import.upload_hint' | transloco }}</p>
 
             <div class="drop-zone"
                  (dragover)="onDragOver($event)"
                  (drop)="onDrop($event)">
                 <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
-                <p>Drag and drop your JSON file here</p>
+                <p>{{ 'admin.data.import.drag_drop' | transloco }}</p>
                 <p class="text-muted">or</p>
                 <label class="file-input-label">
                     <input type="file" accept=".json" (change)="onFileSelected($event)" hidden>
-                    <span class="browse-btn">Browse Files</span>
+                    <span class="browse-btn">{{ 'admin.data.import.browse' | transloco }}</span>
                 </label>
             </div>
 
@@ -51,19 +51,18 @@
         </div>
     }
 
-    <!-- Step 2: Preview & Configure -->
+    <!-- Step 2: {{ 'admin.data.import.preview_title' | transloco }} -->
     @if (currentStep() === 2) {
         <div class="step-content">
-            <h2>Preview & Configure</h2>
+            <h2>{{ 'admin.data.import.preview_title' | transloco }}</h2>
             <p class="text-muted">
-                Version: {{ validationResult()?.version }} |
-                Collections: {{ validationResult()?.collectionSummary?.length }}
+                {{ 'admin.data.import.version_collections' | transloco: { version: validationResult()?.version, count: validationResult()?.collectionSummary?.length } }}
             </p>
 
-            <!-- Warnings -->
+            <!-- {{ 'admin.data.import.warnings' | transloco }} -->
             @if (validationResult()?.warnings?.length) {
                 <div class="warnings-box">
-                    <h4><i class="fa-solid fa-triangle-exclamation me-2"></i>Warnings</h4>
+                    <h4><i class="fa-solid fa-triangle-exclamation me-2"></i>{{ 'admin.data.import.warnings' | transloco }}</h4>
                     @for (warning of validationResult()!.warnings; track warning) {
                         <p class="warning-item">{{ warning }}</p>
                     }
@@ -72,11 +71,11 @@
 
             <!-- Conflict Mode -->
             <div class="config-section">
-                <h4>When a document already exists:</h4>
+                <h4>{{ 'admin.data.import.on_conflict' | transloco }}</h4>
                 <mat-radio-group [(ngModel)]="conflictMode" class="conflict-options">
-                    <mat-radio-button value="skip">Skip existing</mat-radio-button>
-                    <mat-radio-button value="overwrite">Overwrite</mat-radio-button>
-                    <mat-radio-button value="merge">Merge</mat-radio-button>
+                    <mat-radio-button value="skip">{{ 'admin.data.import.skip' | transloco }}</mat-radio-button>
+                    <mat-radio-button value="overwrite">{{ 'admin.data.import.overwrite' | transloco }}</mat-radio-button>
+                    <mat-radio-button value="merge">{{ 'admin.data.import.merge' | transloco }}</mat-radio-button>
                 </mat-radio-group>
             </div>
 
@@ -87,7 +86,7 @@
                         [checked]="selectedCount === validationResult()?.collectionSummary?.length"
                         [indeterminate]="selectedCount > 0 && selectedCount < (validationResult()?.collectionSummary?.length || 0)"
                         (change)="toggleAllCollections($event.checked)">
-                        Select All ({{ selectedCount }} selected)
+                        {{ 'admin.data.import.select_all' | transloco: { count: selectedCount } }}
                     </mat-checkbox>
                 </div>
 
@@ -100,7 +99,7 @@
                                 (change)="toggleImportGroup(group, $event.checked)">
                                 <span class="import-group-label">
                                     <i [class]="group.icon" class="import-group-icon"></i>
-                                    {{ group.label }}
+                                    {{ group.label | translatable }}
                                 </span>
                             </mat-checkbox>
                         </div>
@@ -125,21 +124,21 @@
             <!-- Navigation -->
             <div class="step-actions">
                 <button mat-stroked-button (click)="goBack()">
-                    <i class="fa-solid fa-arrow-left me-2"></i> Back
+                    <i class="fa-solid fa-arrow-left me-2"></i> {{ 'admin.data.import.back' | transloco }}
                 </button>
                 <button mat-flat-button color="primary"
                         (click)="startImport()"
                         [disabled]="selectedCount === 0">
-                    <i class="fa-solid fa-file-import me-2"></i> Import Selected ({{ selectedCount }})
+                    <i class="fa-solid fa-file-import me-2"></i> {{ 'admin.data.import.import_selected' | transloco: { count: selectedCount } }}
                 </button>
             </div>
         </div>
     }
 
-    <!-- Step 3: Import Progress -->
+    <!-- Step 3: {{ 'admin.data.import.progress_title' | transloco }} -->
     @if (currentStep() === 3) {
         <div class="step-content">
-            <h2>Import Progress</h2>
+            <h2>{{ 'admin.data.import.progress_title' | transloco }}</h2>
 
             @if (isImporting()) {
                 <div class="import-progress">
@@ -148,32 +147,29 @@
                         [value]="importProgress() ? (importProgress()!.collectionsCompleted / importProgress()!.totalCollections) * 100 : 0">
                     </mat-progress-bar>
                     <p class="progress-text">
-                        Importing: {{ importProgress()?.currentCollection }}
-                        ({{ importProgress()?.collectionsCompleted }}/{{ importProgress()?.totalCollections }})
+                        {{ 'admin.data.import.importing' | transloco: { collection: importProgress()?.currentCollection, done: importProgress()?.collectionsCompleted, total: importProgress()?.totalCollections } }}
                     </p>
                     <p class="progress-stats">
-                        Imported: {{ importProgress()?.documentsImported }} |
-                        Skipped: {{ importProgress()?.documentsSkipped }} |
-                        Errors: {{ importProgress()?.documentsErrored }}
+                        {{ 'admin.data.import.counts' | transloco: { imported: importProgress()?.documentsImported, skipped: importProgress()?.documentsSkipped, errors: importProgress()?.documentsErrored } }}
                     </p>
                 </div>
             }
 
             @if (importResult()) {
                 <div class="import-summary">
-                    <h3>Import Complete</h3>
+                    <h3>{{ 'admin.data.import.complete' | transloco }}</h3>
                     <div class="summary-stats">
                         <div class="stat success">
                             <span class="stat-value">{{ importResult()!.totalImported }}</span>
-                            <span class="stat-label">Imported</span>
+                            <span class="stat-label">{{ 'admin.data.import.imported' | transloco }}</span>
                         </div>
                         <div class="stat skipped">
                             <span class="stat-value">{{ importResult()!.totalSkipped }}</span>
-                            <span class="stat-label">Skipped</span>
+                            <span class="stat-label">{{ 'admin.data.import.skipped' | transloco }}</span>
                         </div>
                         <div class="stat error">
                             <span class="stat-value">{{ importResult()!.totalErrored }}</span>
-                            <span class="stat-label">Errors</span>
+                            <span class="stat-label">{{ 'admin.data.import.errors' | transloco }}</span>
                         </div>
                     </div>
 
@@ -183,7 +179,7 @@
                             <div class="result-row">
                                 <span class="result-name">{{ cr.name }}</span>
                                 <span class="result-stats">
-                                    {{ cr.imported }} imported, {{ cr.skipped }} skipped, {{ cr.errors }} errors
+                                    {{ 'admin.data.import.per_collection' | transloco: { imported: cr.imported, skipped: cr.skipped, errors: cr.errors } }}
                                 </span>
                             </div>
                         }
@@ -192,7 +188,7 @@
                     <!-- Errors -->
                     @if (importResult()!.errors.length > 0) {
                         <div class="error-log">
-                            <h4>Error Details</h4>
+                            <h4>{{ 'admin.data.import.error_details' | transloco }}</h4>
                             @for (err of importResult()!.errors; track err) {
                                 <p class="error-item">{{ err }}</p>
                             }
@@ -202,7 +198,7 @@
 
                 <div class="step-actions">
                     <button mat-flat-button color="primary" (click)="resetImport()">
-                        <i class="fa-solid fa-redo me-2"></i> New Import
+                        <i class="fa-solid fa-redo me-2"></i> {{ 'admin.data.import.new_import' | transloco }}
                     </button>
                 </div>
             }

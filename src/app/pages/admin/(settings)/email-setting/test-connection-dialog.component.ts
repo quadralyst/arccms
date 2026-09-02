@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, model } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Auth } from '@angular/fire/auth';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -27,50 +28,48 @@ import { MatInputModule } from '@angular/material/input';
         MatButtonModule,
         MatFormFieldModule,
         MatInputModule,
-        MatIconModule,
-    ],
+        MatIconModule, TranslocoPipe],
     template: `
-        <h2 mat-dialog-title>Test Email Connection</h2>
+        <h2 mat-dialog-title>{{ 'admin.settings.test_connection.title' | transloco }}</h2>
         <mat-dialog-content>
             <p class="mb-3 text-muted">
-                Enter an email address to receive a test email. This verifies that your SMTP configuration is correct and can send emails.
+                {{ 'admin.settings.test_connection.intro' | transloco }}
             </p>
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>To Email</mat-label>
+                <mat-label>{{ 'admin.settings.test_connection.to' | transloco }}</mat-label>
                 <input matInput type="email" [formControl]="emailControl" placeholder="name@example.com">
                 @if (emailControl.hasError('required')) {
-                    <mat-error>Email is required</mat-error>
+                    <mat-error>{{ 'admin.settings.test_connection.email_required' | transloco }}</mat-error>
                 }
                 @if (emailControl.hasError('email')) {
-                    <mat-error>Please enter a valid email</mat-error>
+                    <mat-error>{{ 'admin.settings.test_connection.email_invalid' | transloco }}</mat-error>
                 }
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>Subject</mat-label>
+                <mat-label>{{ 'admin.settings.test_connection.subject' | transloco }}</mat-label>
                 <input matInput [formControl]="subjectControl" placeholder="SMTP Test">
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>Message</mat-label>
+                <mat-label>{{ 'admin.settings.test_connection.message' | transloco }}</mat-label>
                 <textarea matInput [formControl]="messageControl" rows="4" placeholder="Enter test message"></textarea>
             </mat-form-field>
 
             <div class="alert alert-info d-flex align-items-center mb-0 mt-2">
                 <i class="fa-solid fa-circle-info me-2 fs-5"></i>
                 <div class="small">
-                    Please check your <strong>Inbox</strong> and <strong>Spam/Junk</strong> folder after sending. 
-                    If you don't receive it, check your SMTP settings.
+                    <span [innerHTML]="'admin.settings.test_connection.check_folders' | transloco"></span>
                 </div>
             </div>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-button mat-dialog-close>Cancel</button>
+            <button mat-button mat-dialog-close>{{ 'common.actions.cancel' | transloco }}</button>
             <button mat-flat-button color="primary" 
                 [disabled]="emailControl.invalid"
                 (click)="onSend()">
                 <mat-icon class="me-2">send</mat-icon>
-                Send Test Email
+                {{ 'admin.settings.test_connection.send' | transloco }}
             </button>
         </mat-dialog-actions>
     `,

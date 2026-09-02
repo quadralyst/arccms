@@ -65,3 +65,26 @@ silent.
 
 A language folder without an `index.html` simply has no translated home page —
 the language switcher will not offer one there.
+
+### Adding a translated home page
+
+`templateUrl` is resolved at build time, so a translated home page cannot be one
+component choosing a file at runtime — each language needs its own component.
+All behaviour (waitlist wiring, the onboarding redirect, the article cards)
+lives in `HomeBaseComponent`, so those components are a few lines each.
+
+1. `public/i18n/{lang}/index.html` — translate `public/index.html`, keeping the
+   `arc-source-version` marker in step.
+2. A component in `src/app/pages/home-i18n/`, copying `home.hi.component.ts`
+   and changing `pageLang` and `templateUrl`.
+3. Add the code to `HOME_PAGE_LANGUAGES` in
+   `src/app/pages/page.parts/home-base.component.ts`, which is what the
+   switcher offers.
+4. A route in `src/app/app.routes.ts` (`path: '{lang}'`).
+5. The path in `vite.config.ts`'s `prerender.routes`, so it is crawlable
+   like `/`.
+
+Steps 3–5 are hand-maintained on purpose: the enabled-language list is runtime
+data in Firestore, but prerendering is decided at build time and only a real
+file can be prerendered. Enabling a language in settings does not conjure a
+translated home page.

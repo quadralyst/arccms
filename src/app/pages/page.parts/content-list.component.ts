@@ -9,7 +9,7 @@ import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
-import { ContentType } from '../admin/contents/content-types/content-types.model';
+import { ContentType, contentTypeDescription, contentTypeName } from '../admin/contents/content-types/content-types.model';
 import { IContents } from '../admin/contents/content-store/published-contents.model';
 import { TagsStore } from '../admin/contents/content-types/tags/tags.store';
 import { FooterComponent } from './footer.component';
@@ -61,8 +61,8 @@ import {
             <!-- Hero Section - Compact -->
             <section class="content-hero">
                 <div class="container">
-                    <h1 class="content-hero-title">{{ currentContentType()?.name }}</h1>
-                    <p class="content-hero-subtitle">{{ currentContentType()?.description || 'Discover insights, tutorials, and updates.' }}</p>
+                    <h1 class="content-hero-title">{{ typeName() }}</h1>
+                    <p class="content-hero-subtitle">{{ typeDescription() || 'Discover insights, tutorials, and updates.' }}</p>
                 </div>
             </section>
 
@@ -354,6 +354,18 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         return types.find((ct: ContentType) => ct.slug === slug) || null;
     });
 
+    /** The content type's name in the page's language (M-D19). */
+    typeName = computed(() => {
+        const type = this.currentContentType();
+        return type ? contentTypeName(type, this.pageLang()) : '';
+    });
+
+    /**
+     * The type's description in the page's language — the subtitle under the
+     * heading, and the most visible English left if it goes untranslated.
+     */
+    typeDescription = computed(() => contentTypeDescription(this.currentContentType(), this.pageLang()));
+
     /** Language prefix of the current URL — '' on the default-language route. */
     pageLang = signal<string>('');
     /** Translations for the listed items, keyed by document id. */
@@ -440,8 +452,11 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         const lang = this.activatedRoute.snapshot.paramMap.get('lang') || '';
         this.contentTypeSlug.set(slug);
         this.pageLang.set(lang);
-        // Content pages are published per language, so the switcher applies here.
-        this.localization.hasLanguageVariants.set(true);
+        // List pages are deployed for every enabled language, so all of them
+        // are genuinely reachable here.
+        this.localization.languageVariants.set(
+            this.localization.enabledLanguages().map(language => language.code),
+        );
         // Chrome for this page's language; '' restores the authored English.
         this.uiStrings.use(lang);
 
@@ -476,8 +491,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     }
 
     ngOnDestroy(): void {
-        // The next page may not have language variants.
-        this.localization.hasLanguageVariants.set(false);
+        // The next page may have no variants at all.
+        this.localization.languageVariants.set(null);
     }
 
     /**
@@ -555,11 +570,13 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
      */
     private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, contents: IContents[]): void {
         // Prepare data for template hydration
+        const lang = this.pageLang();
+        const typeDescription = contentTypeDescription(contentType, lang);
         const templateData = {
-            contentType: contentType.name,
+            contentType: contentTypeName(contentType, lang),
             contentTypeSlug: contentType.slug,
-            contentTypeDescription: contentType.description || '',
-            description: contentType.description || '', // Keep for backward compatibility
+            contentTypeDescription: typeDescription,
+            description: typeDescription, // Keep for backward compatibility
         };
 
         // Prepare list data for loops - transform content items
@@ -629,14 +646,18 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
      * Update page SEO meta tags from content type data
      */
     private updateSeoMeta(contentType: ContentType): void {
-        // Set page title from content type name
-        const pageTitle = contentType.name;
+        // Title and description follow the page's language, like the heading
+        // and subtitle they describe.
+        const lang = this.pageLang();
+        const typeName = contentTypeName(contentType, lang);
+        const pageTitle = typeName;
         if (pageTitle) {
             this.titleService.setTitle(pageTitle);
         }
 
         // Set meta description from content type description or generate one
-        const description = contentType.description || `Browse all ${contentType.name?.toLowerCase() || 'content'}`;
+        const description = contentTypeDescription(contentType, lang)
+            || `Browse all ${typeName?.toLowerCase() || 'content'}`;
         this.metaService.updateTag({ name: 'description', content: description });
 
         // Build canonical/og:url for the list page

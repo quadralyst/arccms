@@ -1,4 +1,6 @@
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslatablePipe } from '../../../app/core/i18n/translatable.pipe';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 export interface TableAction {
@@ -15,6 +17,17 @@ export interface TableAction {
 
 export interface TableColumn {
     key: string;
+    /**
+     * The column heading.
+     *
+     * A translation key is resolved by the table (`| translatable`); anything
+     * else — a content type's custom field label, say — is rendered as-is.
+     *
+     * Do not call `translate()` when defining columns: they are built in a
+     * field initialiser, which runs before the translation file has loaded, so
+     * you would store the key itself. Resolving here also means a language
+     * switch updates the headings without every page rebuilding its columns.
+     */
     header: string;
     type?: 'text' | 'badge' | 'actions' | 'code' | 'index' | 'date' | 'tags' | 'html' | 'icon' | 'image'; // Added 'html', 'icon' and 'image'
     sortable?: boolean;
@@ -61,7 +74,7 @@ export interface TableColumn {
     templateUrl: './global-table.component.html',
     styleUrls: ['./global-table.component.scss'],
     standalone: true,
-    imports: [CommonModule]
+    imports: [CommonModule, TranslocoPipe, TranslatablePipe]
 })
 export class GlobalTableComponent {
     /**

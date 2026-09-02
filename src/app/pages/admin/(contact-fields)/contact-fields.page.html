@@ -67,14 +67,14 @@
 
     <mat-drawer-content>
         <div class="page-container">
-            <arc-page-header title="Fields"
-                subtitle="Data your forms collect, stored on the contact so any send to any list can use it.">
+            <arc-page-header [title]="'admin.audience.fields.title' | transloco"
+                [subtitle]="'admin.audience.fields.subtitle' | transloco">
                 <button mat-stroked-button (click)="runMigration()" [disabled]="busy()"
                     matTooltip="Copy values from past form submissions onto contacts, using each form's field mapping. Safe to run more than once.">
-                    <mat-icon>download</mat-icon> Import past form data
+                    <mat-icon>download</mat-icon> {{ 'admin.audience.fields.import' | transloco }}
                 </button>
                 <button mat-flat-button color="primary" (click)="openAdd()">
-                    <mat-icon>add</mat-icon> New field
+                    <mat-icon>add</mat-icon> {{ 'admin.audience.fields.new' | transloco }}
                 </button>
             </arc-page-header>
 
@@ -86,8 +86,8 @@
             </p>
 
             <app-global-table [data]="fields()" [columns]="columns" [loading]="loading()"
-                emptyIcon="fas fa-table-columns" emptyTitle="No custom fields yet"
-                emptyDescription="Create a field like Company or Role, then map a form input to it."
+                emptyIcon="fas fa-table-columns" [emptyTitle]="'admin.audience.fields.empty_title' | transloco"
+                [emptyDescription]="'admin.audience.fields.empty_description' | transloco"
                 emptyActionLabel="New field" emptyActionIcon="fas fa-plus"
                 (emptyActionClick)="openAdd()">
             </app-global-table>

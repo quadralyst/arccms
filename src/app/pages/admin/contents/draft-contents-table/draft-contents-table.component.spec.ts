@@ -81,11 +81,14 @@ describe('DraftContentsTableComponent', () => {
             debugMode: false,
         };
 
+        // NotifyService translates a key and hands the finished text here, so
+        // these assertions still check what a person actually reads.
         mockToastService = {
             success: vi.fn(),
             error: vi.fn(),
             warning: vi.fn(),
             info: vi.fn(),
+            openCustomSnackbar: vi.fn(),
         };
 
         mockSanitizer = {
@@ -542,7 +545,8 @@ describe('DraftContentsTableComponent', () => {
             component.deleteItem(sampleContents[0]);
             await fixture.whenStable();
 
-            expect(mockToastService.success).toHaveBeenCalledWith('Content deleted successfully.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Content deleted successfully.', 'success', 'check_circle');
         });
 
         it('should not delete when cancelled', async () => {
@@ -582,7 +586,8 @@ describe('DraftContentsTableComponent', () => {
             component.contentTypeSlug = '';
             component.openContent('content-123');
 
-            expect(mockToastService.error).toHaveBeenCalledWith('Cannot determine content type for editing.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Cannot determine content type for editing.', 'error', 'error');
             expect(mockRouter.navigate).not.toHaveBeenCalled();
         });
 
@@ -621,7 +626,8 @@ describe('DraftContentsTableComponent', () => {
             component.confirmUnpublishContent('content-123');
             await fixture.whenStable();
 
-            expect(mockToastService.success).toHaveBeenCalledWith('Content unpublished.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Content unpublished.', 'success', 'check_circle');
         });
     });
 
@@ -784,8 +790,12 @@ describe('DraftContentsTableComponent', () => {
         it('should render the Title heading only once when a custom title field shadows the built-in', () => {
             useArticleType([TITLE_FIELD, AUTHOR_FIELD]);
 
-            const titleColumns = component.tableColumns.filter((c) => c.header === 'Title');
+            // Headings are translation keys now — the table resolves them, so a
+            // custom field shadowing `title` shows up as a second column with the
+            // same key rather than the same literal text.
+            const titleColumns = component.tableColumns.filter((c) => c.key === 'title');
             expect(titleColumns).toHaveLength(1);
+            expect(titleColumns[0].header).toBe('admin.contents.list.col_title');
             expect(component.tableColumns.map((c) => c.key)).toContain('author');
         });
 

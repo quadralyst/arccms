@@ -7,6 +7,7 @@ import { MatListModule } from '@angular/material/list';
 import { RouterModule, RouterOutlet } from '@angular/router';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { roleGuard } from '../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
@@ -33,11 +34,13 @@ interface SettingCategory {
         MatIconModule,
         MatListModule,
         PageHeaderComponent,
+        TranslocoPipe,
     ],
     template: `
         <div class="settings-container">
             <!-- Settings Header -->
-            <arc-page-header title="Settings" subtitle="Manage your application settings"></arc-page-header>
+            <arc-page-header [title]="'admin.settings.hub.title' | transloco"
+                [subtitle]="'admin.settings.hub.subtitle' | transloco"></arc-page-header>
 
             <div class="settings-layout">
                 <!-- Left Panel: Settings Navigation -->
@@ -51,9 +54,9 @@ interface SettingCategory {
                                 <div class="setting-item-content">
                                     <div class="setting-item-header">
                                         <i [class]="category.icon + ' me-2'"></i>
-                                        <span class="setting-label">{{ category.label }}</span>
+                                        <span class="setting-label">{{ 'admin.settings.hub.' + category.id + '.label' | transloco }}</span>
                                     </div>
-                                    <span class="setting-description">{{ category.description }}</span>
+                                    <span class="setting-description">{{ 'admin.settings.hub.' + category.id + '.description' | transloco }}</span>
                                 </div>
                             </a>
                         }

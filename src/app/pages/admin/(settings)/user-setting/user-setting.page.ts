@@ -1,6 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { FormBuilder, FormControl, FormGroup, FormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -33,8 +34,7 @@ export const routeMeta: RouteMeta = {
         MatFormFieldModule,
         MatProgressSpinnerModule,
         MatButtonModule,
-        PageHeaderComponent,
-    ],
+        PageHeaderComponent, TranslocoPipe],
     templateUrl: './user-setting.page.html',
     styleUrl: './user-setting.page.scss',
 })

@@ -1,6 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
 import { Component, computed, DestroyRef, effect, inject, Injector, runInInjectionContext, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Firestore, collection, query, where, getCountFromServer } from '@angular/fire/firestore';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
@@ -28,7 +29,7 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'arc-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, PageHeaderComponent],
+  imports: [CommonModule, RouterLink, PageHeaderComponent, TranslocoPipe],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
 })
@@ -453,7 +454,7 @@ export default class DashboardComponent extends BaseComponent {
    */
   getFormFieldColumnName(): string {
     const signups = this.recentWaitlistSignups();
-    if (!signups?.length) return 'Details';
+    if (!signups?.length) return this.t('admin.dashboard.col_details');
 
     for (const signup of signups) {
       if (signup.formData) {
@@ -466,7 +467,7 @@ export default class DashboardComponent extends BaseComponent {
         }
       }
     }
-    return 'Details';
+    return this.t('admin.dashboard.col_details');
   }
 
   /**
@@ -549,7 +550,7 @@ export default class DashboardComponent extends BaseComponent {
       await this.googleOAuthService.refreshAnalyticsData();
     } catch (error: any) {
       console.error('Refresh analytics error:', error);
-      this.toastService.error(error?.message || 'Failed to refresh analytics data.');
+      error?.message ? this.notify.raw(error.message, 'error') : this.notify.error('admin.dashboard.refresh_failed');
     } finally {
       this.isRefreshing.set(false);
     }

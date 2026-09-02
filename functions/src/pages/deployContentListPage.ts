@@ -8,6 +8,7 @@ import {
     mergeTranslation,
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
+import { contentTypeDescription, contentTypeName } from '../shared/content-type-names.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -17,7 +18,8 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { deployFileToHosting } from './deployToHosting.js';
+import { prefixAnchorHrefs } from '../shared/language-links.js';
+import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 
 // ─── Fallback Template ──────────────────────────────────────────────────────
@@ -130,7 +132,10 @@ async function loadListTemplate(templateFolder: string | undefined, siteId: stri
  */
 export async function generateAndDeployContentListPage(
     contentTypeSlug: string,
+    batch?: HostingBatch,
 ): Promise<void> {
+    // See generateAndDeployContentDetailPage.
+    const target = batch ?? new HostingBatch();
     const siteId = process.env.GCLOUD_PROJECT || '';
 
     // 1. Read ContentType
@@ -214,11 +219,13 @@ export async function generateAndDeployContentListPage(
         const lang = language.code;
         const prefix = langPrefix(lang, defaultLang);
 
+        const typeName = contentTypeName(contentType, lang);
+        const typeDescription = contentTypeDescription(contentType, lang);
         const templateData = {
-            contentType: contentType.name,
+            contentType: typeName,
             contentTypeSlug: contentType.slug,
-            contentTypeDescription: contentType.description || '',
-            description: contentType.description || '',
+            contentTypeDescription: typeDescription,
+            description: typeDescription,
             lang,
             langPrefix: prefix,
         };
@@ -254,8 +261,8 @@ export async function generateAndDeployContentListPage(
                 tags: tagsData,
                 tagsHtml,
                 tagsDisplay: (localized.tags || []).slice(0, 3).join(', '),
-                contentType: contentType.name,
-                cat: contentType.name,
+                contentType: typeName,
+                cat: typeName,
                 ...((localized.customFields as Record<string, any>) || {}),
             };
         });
@@ -272,10 +279,16 @@ export async function generateAndDeployContentListPage(
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
         // Replace arc components
+        // The partials are one file shared by every language, so their links
+        // are root-relative and have to be pointed at this language — without
+        // it the page reads in Hindi and its chrome navigates to English.
+        const chrome = (html: string) =>
+            prefixAnchorHrefs(TemplateHydrationService.applyStrings(html, uiStrings), prefix);
+
         hydratedHtml = replaceArcComponents(
             hydratedHtml,
-            TemplateHydrationService.applyStrings(partials.headerHtml, uiStrings),
-            TemplateHydrationService.applyStrings(partials.footerHtml, uiStrings),
+            chrome(partials.headerHtml),
+            chrome(partials.footerHtml),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
         );
 
@@ -283,8 +296,8 @@ export async function generateAndDeployContentListPage(
         const { body, styles, scripts } = extractStylesAndScripts(hydratedHtml);
 
         const meta: PageMeta = {
-            title: contentType.name || 'Content',
-            metaDescription: contentType.description || `Browse all ${contentType.name?.toLowerCase() || 'content'}`,
+            title: typeName || 'Content',
+            metaDescription: typeDescription || `Browse all ${typeName?.toLowerCase() || 'content'}`,
             canonicalUrl: listUrl(baseUrl, lang, defaultLang, contentTypeSlug),
             ogImage: '',
             ogType: 'website',
@@ -293,7 +306,7 @@ export async function generateAndDeployContentListPage(
             // The feed stays default-language only — per-language RSS is a
             // deliberate non-goal until someone asks for it.
             rssUrl: `${baseUrl}/${contentTypeSlug}/feed.xml`,
-            rssTitle: `${siteConfig.siteName} - ${contentType.name || 'Content'} RSS Feed`,
+            rssTitle: `${siteConfig.siteName} - ${typeName || 'Content'} RSS Feed`,
             lang,
             rtl: language.rtl,
             alternates,
@@ -303,9 +316,13 @@ export async function generateAndDeployContentListPage(
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
         const fullHtml = buildHtmlDocument(body, meta, '', '', styles, scripts, poweredBy);
 
-        // Deploy to hosting — use a synthetic doc reference for deployment logging
+        target.add(listFilePath(lang, defaultLang, contentTypeSlug), fullHtml);
+    }
+
+    if (!batch) {
+        // Deployment logging needs a doc reference; use the newest item, or a
+        // placeholder when the type has no published content yet.
         const deployDocId = contents.length > 0 ? (contents[0] as any).id : '_list_index';
-        const filePath = listFilePath(lang, defaultLang, contentTypeSlug);
-        await deployFileToHosting(siteId, filePath, fullHtml, collectionName, deployDocId);
+        await deployBatchToHosting(siteId, target, collectionName, deployDocId);
     }
 }

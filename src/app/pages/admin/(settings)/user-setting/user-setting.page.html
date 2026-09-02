@@ -6,20 +6,20 @@
             <div class="disabled-icon">
                 <i class="fa-solid fa-bullhorn"></i>
             </div>
-            <h3>User Settings</h3>
+            <h3>{{ 'admin.settings.user.title' | transloco }}</h3>
             <p class="text-muted">
-                Configure user signup and role settings
+                {{ 'admin.settings.user.subtitle' | transloco }}
                 <br>
-                Enable it to configure your user settings.
+                {{ 'admin.settings.enable_to_configure' | transloco }}
             </p>
             <button mat-flat-button color="primary" (click)="enableUserSetting()">
                 <i class="fa-solid fa-power-off me-2"></i>
-                Enable User Settings
+                {{ 'admin.settings.user.enable' | transloco }}
             </button>
         </div>
     </div>
     } @else {
-    <arc-page-header title="User Settings" subtitle="Configure user signup and role settings"></arc-page-header>
+    <arc-page-header [title]="'admin.settings.user.title' | transloco" [subtitle]="'admin.settings.user.subtitle' | transloco"></arc-page-header>
 
     @if (isLoading()) {
     <div class="loading-container">
@@ -33,10 +33,10 @@
                 <div class="setting-info">
                     <div class="setting-label">
                         <i class="fa-solid fa-user-plus me-2"></i>
-                        Enable User Signups
+                        {{ 'admin.settings.user.enable_signups' | transloco }}
                     </div>
                     <div class="setting-description">
-                        Allow new users to create accounts from the /signup page
+                        {{ 'admin.settings.user.enable_signups_hint' | transloco }}
                     </div>
                 </div>
                 <div class="setting-control">
@@ -52,10 +52,10 @@
                 <div class="setting-info">
                     <div class="setting-label">
                         <i class="fa-solid fa-user-tag me-2"></i>
-                        Default Role for New Users
+                        {{ 'admin.settings.user.default_role' | transloco }}
                     </div>
                     <div class="setting-description">
-                        Role assigned to users who sign up
+                        {{ 'admin.settings.user.default_role_hint' | transloco }}
                     </div>
                 </div>
                 <div class="setting-control">
@@ -78,13 +78,13 @@
                 @if (userSettings?.isSignupEnabled) {
                 <i class="fa-solid fa-circle-info me-2"></i>
                 <span>
-                    New users signing up will be assigned the <strong>{{ getRoleLabel(userSettings?.defaultRole)
-                        }}</strong> role.
+                    {{ 'admin.settings.user.assigned_note' | transloco }} <strong>{{ getRoleLabel(userSettings?.defaultRole)
+                        }}</strong> {{ 'admin.settings.user.assigned_note_end' | transloco }}
                 </span>
                 } @else {
                 <i class="fa-solid fa-lock me-2"></i>
                 <span>
-                    User signups are currently disabled. Only existing users can log in.
+                    {{ 'admin.settings.user.signups_disabled' | transloco }}
                 </span>
                 }
             </div>

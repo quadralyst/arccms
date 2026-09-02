@@ -8,6 +8,7 @@ const __dirname = dirname(__filename);
 const {
     mockFetch,
     mockDeployFileToHosting,
+    mockDeployBatchToHosting,
     mockGetPartials,
     mockGetSiteConfig,
     mockGetMiscSettings,
@@ -24,6 +25,7 @@ const {
 } = vi.hoisted(() => ({
     mockFetch: vi.fn(),
     mockDeployFileToHosting: vi.fn(),
+    mockDeployBatchToHosting: vi.fn(),
     mockGetPartials: vi.fn(),
     mockGetSiteConfig: vi.fn(),
     mockGetMiscSettings: vi.fn(),
@@ -48,9 +50,16 @@ vi.mock('../init', () => ({
     },
 }));
 
-vi.mock('../pages/deployToHosting', () => ({
-    deployFileToHosting: mockDeployFileToHosting,
-}));
+vi.mock('../pages/deployToHosting', async (importOriginal) => {
+    // HostingBatch stays real: the generators collect into one and the
+    // assertions below inspect it. Only the network-touching release is mocked.
+    const actual = await importOriginal<typeof import('../pages/deployToHosting.js')>();
+    return {
+        ...actual,
+        deployBatchToHosting: mockDeployBatchToHosting,
+        deployFileToHosting: mockDeployFileToHosting,
+    };
+});
 
 vi.mock('../shared/site-settings', () => ({
     getPartials: mockGetPartials,
@@ -138,6 +147,7 @@ function restoreMockImplementations() {
     // No translated chrome by default — the authored English stands.
     mockGetUiStrings.mockResolvedValue({});
     mockDeployFileToHosting.mockResolvedValue(undefined);
+    mockDeployBatchToHosting.mockResolvedValue(undefined);
 
     // ContentTypes query chain
     mockContentTypeLimitGet.mockResolvedValue({
@@ -240,7 +250,7 @@ describe('deployContentListPage', () => {
 
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Articles');
         });
 
@@ -260,8 +270,8 @@ describe('deployContentListPage', () => {
 
             await generateAndDeployContentListPage('articles');
 
-            expect(mockDeployFileToHosting).toHaveBeenCalled();
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(mockDeployBatchToHosting).toHaveBeenCalled();
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('First Article');
         });
 
@@ -275,7 +285,7 @@ describe('deployContentListPage', () => {
             await generateAndDeployContentListPage('articles');
 
             expect(mockTopDoc).toHaveBeenCalledWith('templates/default:list');
-            expect(mockDeployFileToHosting).toHaveBeenCalled();
+            expect(mockDeployBatchToHosting).toHaveBeenCalled();
         });
     });
 
@@ -283,21 +293,21 @@ describe('deployContentListPage', () => {
         it('should hydrate content type name into template', async () => {
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Articles');
         });
 
         it('should hydrate content type description', async () => {
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Latest news and updates');
         });
 
         it('should include all content items in the loop', async () => {
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('First Article');
             expect(deployedHtml).toContain('Second Article');
         });
@@ -305,7 +315,7 @@ describe('deployContentListPage', () => {
         it('should generate correct URLs for content items', async () => {
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('/articles/first-article');
             expect(deployedHtml).toContain('/articles/second-article');
         });
@@ -313,7 +323,7 @@ describe('deployContentListPage', () => {
         it('should format dates in short format', async () => {
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             // Short format: "Jan 15, 2024" (not "January 15, 2024")
             expect(deployedHtml).toContain('Jan 15, 2024');
         });
@@ -321,7 +331,7 @@ describe('deployContentListPage', () => {
         it('should include excerpt from metaDescription', async () => {
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('First article description');
         });
     });
@@ -330,19 +340,18 @@ describe('deployContentListPage', () => {
         it('should deploy to /{slug}/index.html', async () => {
             await generateAndDeployContentListPage('articles');
 
-            expect(mockDeployFileToHosting).toHaveBeenCalledWith(
-                'test-project',
-                '/articles/index.html',
-                expect.any(String),
-                'arc_articles',
-                'doc1',
-            );
+            const [siteId, releasedBatch, collection, deployDocId] =
+                mockDeployBatchToHosting.mock.calls[0];
+            expect(siteId).toBe('test-project');
+            expect(releasedBatch.files.map((f: any) => f.path)).toContain('/articles/index.html');
+            expect(collection).toBe('arc_articles');
+            expect(deployDocId).toBe('doc1');
         });
 
         it('should build HTML with SEO meta tags', async () => {
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('<title>Articles</title>');
             expect(deployedHtml).toContain('Latest news and updates');
             expect(deployedHtml).toContain('arc-served-by');
@@ -352,7 +361,7 @@ describe('deployContentListPage', () => {
         it('should use canonical URL based on content type slug', async () => {
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('https://example.com/articles');
         });
     });
@@ -369,7 +378,7 @@ describe('deployContentListPage', () => {
 
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Powered by');
             expect(deployedHtml).toContain('arccms.com');
         });
@@ -379,7 +388,7 @@ describe('deployContentListPage', () => {
 
             await generateAndDeployContentListPage('articles');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).not.toContain('Powered by');
             expect(deployedHtml).not.toContain('arccms.com');
         });
@@ -400,9 +409,9 @@ describe('deployContentListPage', () => {
             await generateAndDeployContentListPage('articles');
 
             // Should still deploy (empty list page)
-            expect(mockDeployFileToHosting).toHaveBeenCalled();
+            expect(mockDeployBatchToHosting).toHaveBeenCalled();
             // Deploy doc ID should be placeholder since no content docs
-            expect(mockDeployFileToHosting.mock.calls[0][4]).toBe('_list_index');
+            expect(mockDeployBatchToHosting.mock.calls[0][3]).toBe('_list_index');
         });
     });
     // ── Multilingual list pages (M3) ────────────────────────────────────────
@@ -416,13 +425,18 @@ describe('deployContentListPage', () => {
             ],
         };
 
+        /** Files the generator collected into its batch, in order. */
+        function batchFiles(): Array<{ path: string; content: string }> {
+            const call = mockDeployBatchToHosting.mock.calls[0];
+            return call ? call[1].files : [];
+        }
+
         function deployedPaths(): string[] {
-            return mockDeployFileToHosting.mock.calls.map(call => call[1]);
+            return batchFiles().map(file => file.path);
         }
 
         function htmlFor(path: string): string {
-            const call = mockDeployFileToHosting.mock.calls.find(c => c[1] === path);
-            return call ? call[2] : '';
+            return batchFiles().find(file => file.path === path)?.content ?? '';
         }
 
         it('should deploy a list page for every enabled language', async () => {

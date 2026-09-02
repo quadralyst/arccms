@@ -1,4 +1,9 @@
-import { CollectionReferenceConfig, ContentType, ContentTypeField, ContentTypeFieldType } from './content-types.model';
+import { CollectionReferenceConfig, ContentType, ContentTypeField, ContentTypeFieldType, contentTypeDescription, contentTypeName, contentTypeSingularName, pruneNameTranslations, contentTypeFieldLabel, pruneFieldLabelTranslations } from './content-types.model';
+import {
+    contentTypeDescription as contentTypeDescriptionServer,
+    contentTypeName as contentTypeNameServer,
+    contentTypeSingularName as contentTypeSingularNameServer,
+} from '../../../../../../functions/src/shared/content-type-names';
 
 describe('ContentTypes Model', () => {
     describe('ContentTypeFieldType', () => {
@@ -624,5 +629,203 @@ describe('ContentTypes Model', () => {
             expect(contentType.fields[1].useCollectionRef).toBe(true);
             expect(contentType.fields[1].collectionRef!.collectionSlug).toBe('authors');
         });
+    });
+});
+
+// ── Per-language names (M5.2) ───────────────────────────────────────────────
+
+describe('contentTypeName', () => {
+    const type = {
+        name: 'Articles',
+        singularName: 'Article',
+        nameTranslations: { hi: { name: 'लेख', singularName: 'लेख' } },
+    };
+
+    it('returns the translated name for a language', () => {
+        expect(contentTypeName(type, 'hi')).toBe('लेख');
+    });
+
+    it('falls back to the default name for an untranslated language', () => {
+        expect(contentTypeName(type, 'fr')).toBe('Articles');
+    });
+
+    it('falls back when no language is given', () => {
+        expect(contentTypeName(type)).toBe('Articles');
+        expect(contentTypeName(type, '')).toBe('Articles');
+    });
+
+    it('treats a blank translation as absent', () => {
+        expect(contentTypeName({ ...type, nameTranslations: { hi: { name: '  ' } } }, 'hi'))
+            .toBe('Articles');
+    });
+
+    it('copes with no translations at all', () => {
+        expect(contentTypeName({ name: 'Articles' }, 'hi')).toBe('Articles');
+    });
+});
+
+describe('contentTypeSingularName', () => {
+    const type = {
+        name: 'Articles',
+        singularName: 'Article',
+        nameTranslations: { hi: { name: 'लेख' } },
+    };
+
+    it('falls back to the default singular when only the plural is translated', () => {
+        expect(contentTypeSingularName(type, 'hi')).toBe('Article');
+    });
+
+    it('returns the translated singular when present', () => {
+        expect(contentTypeSingularName(
+            { ...type, nameTranslations: { hi: { singularName: 'एक लेख' } } }, 'hi',
+        )).toBe('एक लेख');
+    });
+
+    it('falls back to the plural when no singular is set at all', () => {
+        expect(contentTypeSingularName({ name: 'Articles' }, 'hi')).toBe('Articles');
+    });
+});
+
+describe('contentTypeDescription', () => {
+    const type = {
+        description: 'Blog posts, news, and announcements',
+        nameTranslations: { hi: { description: 'ब्लॉग पोस्ट, समाचार और घोषणाएँ' } },
+    };
+
+    it('returns the translated description', () => {
+        expect(contentTypeDescription(type, 'hi')).toBe('ब्लॉग पोस्ट, समाचार और घोषणाएँ');
+    });
+
+    it('falls back for a language with no translation', () => {
+        expect(contentTypeDescription(type, 'fr')).toBe('Blog posts, news, and announcements');
+    });
+
+    it('falls back with no language', () => {
+        expect(contentTypeDescription(type)).toBe('Blog posts, news, and announcements');
+        expect(contentTypeDescription(type, '')).toBe('Blog posts, news, and announcements');
+    });
+
+    it('treats a blank translation as absent', () => {
+        expect(contentTypeDescription({ ...type, nameTranslations: { hi: { description: '  ' } } }, 'hi'))
+            .toBe('Blog posts, news, and announcements');
+    });
+
+    it('copes with a type that has no description at all', () => {
+        expect(contentTypeDescription({}, 'hi')).toBe('');
+        expect(contentTypeDescription(null, 'hi')).toBe('');
+        expect(contentTypeDescription(undefined)).toBe('');
+    });
+
+    it('does not disturb the name when only the description is translated', () => {
+        // Both live in nameTranslations; a language may translate either.
+        expect(contentTypeName({ name: 'Articles', nameTranslations: type.nameTranslations }, 'hi'))
+            .toBe('Articles');
+    });
+});
+
+describe('pruneNameTranslations', () => {
+    it('drops blank entries so they fall back to the default', () => {
+        expect(pruneNameTranslations({
+            hi: { name: 'लेख', singularName: '  ' },
+            fr: { name: '', singularName: '' },
+        })).toEqual({ hi: { name: 'लेख' } });
+    });
+
+    it('trims values', () => {
+        expect(pruneNameTranslations({ hi: { name: '  लेख  ' } })).toEqual({ hi: { name: 'लेख' } });
+    });
+
+    it('keeps a language that translated only the description', () => {
+        expect(pruneNameTranslations({ hi: { name: '', description: '  विवरण  ' } }))
+            .toEqual({ hi: { description: 'विवरण' } });
+    });
+
+    it('copes with null and undefined', () => {
+        expect(pruneNameTranslations(null)).toEqual({});
+        expect(pruneNameTranslations(undefined)).toEqual({});
+    });
+});
+
+// ── Custom field label translations ─────────────────────────────────────────
+
+describe('contentTypeFieldLabel', () => {
+    const type = { fieldLabelTranslations: { hi: { articles_title: 'शीर्षक' } } };
+
+    it('returns the translated label', () => {
+        expect(contentTypeFieldLabel(type, 'articles_title', 'Title', 'hi')).toBe('शीर्षक');
+    });
+
+    it('falls back to the authored label', () => {
+        expect(contentTypeFieldLabel(type, 'articles_body', 'Body', 'hi')).toBe('Body');
+        expect(contentTypeFieldLabel(type, 'articles_title', 'Title', 'fr')).toBe('Title');
+        expect(contentTypeFieldLabel(type, 'articles_title', 'Title')).toBe('Title');
+    });
+
+    it('treats a blank translation as absent', () => {
+        expect(contentTypeFieldLabel(
+            { fieldLabelTranslations: { hi: { articles_title: '   ' } } }, 'articles_title', 'Title', 'hi',
+        )).toBe('Title');
+    });
+
+    it('copes with a type that has no translations', () => {
+        expect(contentTypeFieldLabel(null, 'k', 'Fallback', 'hi')).toBe('Fallback');
+        expect(contentTypeFieldLabel({}, 'k', 'Fallback', 'hi')).toBe('Fallback');
+    });
+});
+
+describe('pruneFieldLabelTranslations', () => {
+    it('drops labels for fields that no longer exist', () => {
+        // The type's fields are the source of truth; a removed field must not
+        // leave a stale translation behind.
+        expect(pruneFieldLabelTranslations(
+            { hi: { kept: 'रखा', removed: 'हटाया' } },
+            ['kept'],
+        )).toEqual({ hi: { kept: 'रखा' } });
+    });
+
+    it('drops blank labels so they fall back', () => {
+        expect(pruneFieldLabelTranslations({ hi: { a: '  ', b: 'ख' } }, ['a', 'b']))
+            .toEqual({ hi: { b: 'ख' } });
+    });
+
+    it('drops a language left entirely empty', () => {
+        expect(pruneFieldLabelTranslations({ hi: { a: '' } }, ['a'])).toEqual({});
+    });
+
+    it('trims values', () => {
+        expect(pruneFieldLabelTranslations({ hi: { a: '  क  ' } }, ['a'])).toEqual({ hi: { a: 'क' } });
+    });
+
+    it('copes with null and undefined', () => {
+        expect(pruneFieldLabelTranslations(null, ['a'])).toEqual({});
+        expect(pruneFieldLabelTranslations(undefined, [])).toEqual({});
+    });
+});
+
+// ── Client/server mirror ────────────────────────────────────────────────────
+
+describe('content-type display text agrees with the publish pipeline', () => {
+    // A statically published page and its SPA fallback are the same page; a
+    // difference here means the two render different words for the same type.
+    const type = {
+        name: 'Articles',
+        singularName: 'Article',
+        description: 'Blog posts, news, and announcements',
+        nameTranslations: {
+            hi: { name: 'लेख', singularName: 'लेख', description: 'ब्लॉग पोस्ट' },
+            fr: { name: 'Articles FR' },
+        },
+    };
+
+    it.each(['hi', 'fr', 'de', '', undefined])('matches for %j', (lang) => {
+        expect(contentTypeName(type, lang)).toBe(contentTypeNameServer(type, lang));
+        expect(contentTypeSingularName(type, lang)).toBe(contentTypeSingularNameServer(type, lang));
+        expect(contentTypeDescription(type, lang)).toBe(contentTypeDescriptionServer(type, lang));
+    });
+
+    it('matches when the type has no translations at all', () => {
+        const plain = { name: 'Notes', description: 'Just notes' };
+        expect(contentTypeDescription(plain, 'hi')).toBe(contentTypeDescriptionServer(plain, 'hi'));
+        expect(contentTypeName(plain, 'hi')).toBe(contentTypeNameServer(plain, 'hi'));
     });
 });

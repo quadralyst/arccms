@@ -101,7 +101,7 @@ export class CollectionRefSyncService {
             [field.collectionRef!.displayField]: updatedData[field.collectionRef!.displayField] || updatedData['title'] || sourceDocId
         };
 
-        for (const syncKey of field.collectionRef!.syncFields) {
+        for (const syncKey of field.collectionRef!.syncFields ?? []) {
             if (updatedData[syncKey] !== undefined) {
                 syncData[syncKey] = updatedData[syncKey];
             } else if (updatedData['customFields'] && updatedData['customFields'][syncKey] !== undefined) {

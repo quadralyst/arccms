@@ -15,6 +15,7 @@
 
 import { Directive, ElementRef, effect, inject, input } from '@angular/core';
 import { UiStringsService } from '../services/ui-strings.service';
+import { interpolate } from '../i18n/interpolate';
 
 @Directive({
     selector: '[data-arc-t]',
@@ -53,16 +54,54 @@ export class ArcTranslateDirective {
             // Restores the English when strings are cleared (switching back to
             // the default language), rather than leaving the last translation.
             const text = this.uiStrings.translate(this.key(), this.original);
-            element.textContent = this.interpolate(text, this.params());
+            element.textContent = interpolate(text, this.params());
         });
     }
+}
 
-    /** Replaces `{{ name }}` tokens; an unknown token is left as authored. */
-    private interpolate(text: string, params: Record<string, unknown> | undefined): string {
-        if (!params || !text.includes('{{')) return text;
-        return text.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (match, name: string) => {
-            const value = params[name];
-            return value === undefined || value === null ? match : String(value);
+/**
+ * `data-arc-t-attr` for Angular component templates — the attribute-translating
+ * half of the same annotation, so the two shared partials can translate a
+ * placeholder or a title the way `public/templates/**` already can.
+ *
+ *   <input data-arc-t-attr="placeholder:search_placeholder" placeholder="Search">
+ *
+ * A separate directive rather than a second input on the one above, because an
+ * element may carry either annotation without the other.
+ */
+@Directive({
+    selector: '[data-arc-t-attr]',
+    standalone: true,
+})
+export class ArcTranslateAttrDirective {
+    private element = inject(ElementRef<HTMLElement>);
+    private uiStrings = inject(UiStringsService);
+
+    /** `"placeholder:key"`, or several comma-separated. */
+    readonly spec = input.required<string>({ alias: 'data-arc-t-attr' });
+
+    readonly params = input<Record<string, unknown> | undefined>(undefined, {
+        alias: 'data-arc-t-params',
+    });
+
+    /** The authored values, captured per attribute before the first rewrite. */
+    private original = new Map<string, string>();
+
+    constructor() {
+        effect(() => {
+            const element = this.element.nativeElement as HTMLElement;
+            for (const pair of this.spec().split(',')) {
+                const [attr, key] = pair.split(':').map(part => part.trim());
+                if (!attr || !key) continue;
+                if (!this.original.has(attr)) {
+                    this.original.set(attr, element.getAttribute(attr) ?? '');
+                }
+                const authored = this.original.get(attr) ?? '';
+                // Same fallback as the text directive: the authored value
+                // stands until a translation for that key exists.
+                const text = this.uiStrings.translate(key, authored);
+                element.setAttribute(attr, interpolate(text, this.params()));
+            }
         });
     }
 }
