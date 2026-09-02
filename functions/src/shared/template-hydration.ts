@@ -1,5 +1,7 @@
 import * as cheerio from 'cheerio';
 import { interpolate, parseParams } from './interpolate.js';
+import { youTubeVideo } from './youtube.js';
+import { renderLocation } from './geo.js';
 
 /**
  * Template Hydration Service
@@ -20,6 +22,153 @@ export class TemplateHydrationService {
   private static getNestedValue(obj: any, path: string): any {
     return path.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
   }
+  /**
+   * Publishes each custom field under its unprefixed name as well.
+   *
+   * Custom field keys are stored prefixed with the content type slug, so a
+   * heading on `events` is `events_details_heading`. A template shared by
+   * every content type — `templates/default/detail.html` — cannot name that,
+   * the same problem `arrayLoopData` solves for loops.
+   *
+   * The guard is that an alias never *replaces* anything: if the bare name is
+   * already in the data it is left alone. That is what stops a field keyed
+   * `articles_title` from shadowing the page's real `title`, and it needs no
+   * list of reserved words to maintain — the built-ins are already present by
+   * the time this runs.
+   *
+   * The slug comes from `contentTypeSlug`, which every template context
+   * carries.
+   */
+  private static aliasCustomFields(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    const slug = typeof data['contentTypeSlug'] === 'string' ? data['contentTypeSlug'] : '';
+    if (!slug) return data;
+
+    const prefix = `${slug}_`;
+    let result = data;
+
+    for (const key of Object.keys(data)) {
+      if (!key.startsWith(prefix) || key.length === prefix.length) continue;
+
+      const bare = key.slice(prefix.length);
+      if (bare in data) continue;
+
+      if (result === data) result = { ...data };
+      result[bare] = data[key];
+    }
+
+    return result;
+  }
+
+  /**
+   * Derives a map embed and a directions link from stored coordinates.
+   *
+   * A location row stores only `lat`, `lng` and an address; the URLs are worked
+   * out here so a fix repairs existing content rather than needing a migration.
+   * For a location keyed `address` beside `lat`/`lng`:
+   *
+   *   {{ map_embed }}       an OpenStreetMap iframe src — no key, no script
+   *   {{ map_directions }}  a link that opens the visitor's own maps app
+   *   {{ map_view }}        the point on openstreetmap.org
+   *
+   * Named from the *coordinate* keys rather than the address key, so a row
+   * with `lat`/`lng` gets `map_*` regardless of what the address is called.
+   */
+  private static flattenLocations(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    const rendered = renderLocation(data['lat'], data['lng'], data['zoom']);
+    if (!rendered) return data;
+
+    return {
+      ...data,
+      map_embed: rendered.embed,
+      map_directions: rendered.directions,
+      map_view: rendered.view,
+    };
+  }
+
+  /**
+   * Expands a stored YouTube URL into the strings a template binds to.
+   *
+   * A gallery row stores only the URL an editor pasted; the id, embed and
+   * poster are derived here so a parser fix repairs existing content instead
+   * of needing a migration. For a row key `video`:
+   *
+   *   {{ video }}         the original URL, unchanged
+   *   {{ video_id }}      dQw4w9WgXcQ
+   *   {{ video_embed }}   https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ
+   *   {{ video_thumb }}   https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg
+   *
+   * `video_thumb` is what lets a gallery render posters and swap in the
+   * iframe on click — ten iframes is roughly ten megabytes of player JS.
+   *
+   * Only string values that actually parse as YouTube are touched, so an
+   * unrelated field that happens to hold a URL is left alone.
+   */
+  private static flattenVideos(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    let result = data;
+
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value !== 'string' || !value) continue;
+      const video = youTubeVideo(value);
+      if (!video) continue;
+
+      if (result === data) result = { ...data };
+      result[`${key}_id`] = video.id;
+      result[`${key}_embed`] = video.embed;
+      result[`${key}_thumb`] = video.thumb;
+    }
+
+    return result;
+  }
+
+  /**
+   * Expands stored icon tokens into the plain strings a template binds to.
+   *
+   * An `icon` field stores an object (`{ classes, markup, label, name }`), and
+   * `{{ card_icon }}` on an object renders "[object Object]". Rather than make
+   * every template author write `{{ card_icon.classes }}`, the token is spread
+   * into four flat keys:
+   *
+   *   {{ card_icon }}        fa-solid fa-star  — the class list, the usual case
+   *   {{ card_icon_svg }}    <svg …>           — inline fallback, for a site
+   *                                              that does not load the icon
+   *                                              stylesheet
+   *   {{ card_icon_label }}  Star              — for aria-label
+   *   {{ card_icon_name }}   star              — the bare name
+   *
+   * The suffixes are underscored because field keys are themselves forced to
+   * `^[a-z0-9_]+$`, so `card_iconSvg` would be the odd one out.
+   *
+   * Documented in TEMPLATES.md. Runs on a copy; the caller's data is not
+   * touched.
+   */
+  private static flattenIcons(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    let result = data;
+
+    for (const [key, value] of Object.entries(data)) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+      const icon = value as Record<string, unknown>;
+      if (typeof icon['classes'] !== 'string' || typeof icon['name'] !== 'string') continue;
+
+      // Copy on first hit only, so untouched data keeps its identity.
+      if (result === data) result = { ...data };
+
+      result[key] = icon['classes'];
+      result[`${key}_svg`] = icon['markup'] ?? '';
+      result[`${key}_label`] = icon['label'] ?? icon['name'];
+      result[`${key}_name`] = icon['name'];
+    }
+
+    return result;
+  }
+
   /**
    * Hydrates a single HTML template with data
    *
@@ -54,13 +203,27 @@ export class TemplateHydrationService {
       });
     }
 
+    // Custom fields also answer to their unprefixed name, so a shared
+    // template can name them. See aliasCustomFields.
+    data = this.aliasCustomFields(data);
+    // Icon tokens are objects; templates bind to strings. See flattenIcons.
+    data = this.flattenIcons(data);
+    // YouTube URLs gain their id, embed and poster. See flattenVideos.
+    data = this.flattenVideos(data);
+    // Coordinates gain their map embed and directions link. See flattenLocations.
+    data = this.flattenLocations(data);
+
 
     // 1. Process Angular-style Interpolation {{ variable }}
 
     // Helper to replace {{ key }} with value
     const replaceInterpolation = (text: string): string => {
-      // Updated regex to support dot notation (e.g. user.name)
-      return text.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_match, key) => {
+      // Dot notation (user.name) and hyphens, which custom-field keys carry:
+      // the app prefixes every custom field with its content type slug, so a
+      // field on `awards-recognition` is stored as
+      // `awards-recognition_card_icon`. Without the hyphen the binding
+      // rendered as literal text on exactly the types most likely to use one.
+      return text.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_match, key) => {
         // Use getNestedValue to handle dotted paths
         const value = TemplateHydrationService.getNestedValue(data, key);
         return value !== undefined && value !== null ? String(value) : '';
@@ -144,7 +307,13 @@ export class TemplateHydrationService {
         const value = String(bindValue);
 
         // Smart injection based on element type
-        if ($el.is('img')) {
+        if ($el.is('iframe')) {
+          // An iframe's payload is its src, never its content. Without this
+          // branch a bound embed URL became the frame's inner text and the
+          // frame rendered blank — which is how a gallery video or a map ships
+          // as an empty box.
+          $el.attr('src', value);
+        } else if ($el.is('img')) {
           // For images, set src and alt attributes
           $el.attr('src', value);
           if (data['title']) {
@@ -256,6 +425,65 @@ export class TemplateHydrationService {
   }
 
   /**
+   * Named loop data for the repeating custom fields on a content item.
+   *
+   * `processLoops` is keyed by name, so `data-arc-loop="info_cards"` needs an
+   * `info_cards` entry — this derives one for every array-valued custom field
+   * rather than each call site listing them by hand.
+   *
+   * Rows are sorted by `position` when they carry one. The editor already
+   * stores them in order, so this is for rows that arrived some other way (an
+   * import, a hand-edited document) — sorting twice costs nothing, publishing
+   * cards in the wrong order is very visible.
+   *
+   * Reserved names win: a custom field keyed `tags` or `items` must not
+   * displace the built-in loop a template already relies on.
+   *
+   * Given `slug`, each loop is also published under its **unprefixed** name.
+   * Custom field keys are stored prefixed with their content type slug, so a
+   * gallery on `events` is keyed `events_media` — and a shared template like
+   * `templates/default/detail.html`, used by every type without a folder of
+   * its own, could never name it. The alias lets that template write
+   * `data-arc-loop="media"` and work for any type with a field keyed `media`.
+   * A page only ever renders one content type, so there is nothing to collide
+   * with; where an alias would shadow a real key or a reserved name, the
+   * explicit one wins.
+   */
+  static arrayLoopData(
+    customFields: Record<string, any> | undefined | null,
+    reserved: string[] = [],
+    slug?: string,
+  ): Record<string, any[]> {
+    const loops: Record<string, any[]> = {};
+    if (!customFields) return loops;
+
+    const taken = new Set(reserved);
+    const prefix = slug ? `${slug}_` : '';
+    const aliases: Record<string, any[]> = {};
+
+    for (const [key, value] of Object.entries(customFields)) {
+      if (taken.has(key) || !Array.isArray(value)) continue;
+
+      const rows = value.filter((row) => !!row && typeof row === 'object');
+      if (rows.length !== value.length) continue;
+
+      const ordered = rows.every((row) => typeof row['position'] === 'number')
+        ? [...rows].sort((a, b) => a['position'] - b['position'])
+        : rows;
+
+      loops[key] = ordered;
+
+      if (prefix && key.startsWith(prefix) && key.length > prefix.length) {
+        const bare = key.slice(prefix.length);
+        if (!taken.has(bare)) aliases[bare] = ordered;
+      }
+    }
+
+    // Aliases are merged under the real keys, so an explicit key always wins.
+    return { ...aliases, ...loops };
+  }
+
+  /**
    * Processes loop templates (data-arc-loop)
    *
    * @param htmlContent - The HTML template containing loop containers
@@ -287,6 +515,17 @@ export class TemplateHydrationService {
         }
       }
     }
+
+    // Any container the caller had no data for still holds its placeholder
+    // rows. Left alone they publish verbatim — a shared template carrying a
+    // gallery block would put a literal "Caption" on every page of a content
+    // type that has no gallery. An absent loop means no rows, so clear it.
+    $('[data-arc-loop]').each((_, element) => {
+      const $container = $(element);
+      $container.empty();
+      $container.removeAttr('data-arc-loop');
+      $container.removeAttr('data-limit');
+    });
 
     return $.html();
   }

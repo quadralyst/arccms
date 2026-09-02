@@ -77,8 +77,24 @@ describe('ConstantVariables', () => {
     });
 
     describe('Media Manager Menu', () => {
-        it('should have two menu items', () => {
-            expect(constants.mediaManagerMenu).toHaveLength(2);
+        it('should have three menu items', () => {
+            expect(constants.mediaManagerMenu).toHaveLength(3);
+        });
+
+        it('should have an icons menu item', () => {
+            const iconsItem = constants.mediaManagerMenu.find((m: any) => m.value === 'icons');
+            expect(iconsItem).toBeDefined();
+            expect(iconsItem.name).toBe('Icons');
+        });
+
+        it('should tag every tab with the kind of result it produces', () => {
+            // The dialog hides tabs whose kind the caller cannot accept, so an
+            // untagged tab would show up in a picker that has no use for it.
+            expect(constants.mediaManagerMenu.map((m: any) => [m.value, m.kind])).toEqual([
+                ['upload', 'image'],
+                ['search', 'image'],
+                ['icons', 'icon'],
+            ]);
         });
 
         it('should have upload menu item', () => {

@@ -57,7 +57,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     // Store pending templateFolder value to apply after templates load
     private pendingTemplateFolder = 'default';
 
-    fieldTypes: ContentTypeFieldType[] = ['text', 'number', 'richtext', 'date', 'datetime', 'image', 'boolean', 'dropdown', 'checkbox', 'radio'];
+    fieldTypes: ContentTypeFieldType[] = ['text', 'number', 'richtext', 'date', 'datetime', 'image', 'icon', 'boolean', 'dropdown', 'checkbox', 'radio', 'infocard', 'gallery', 'labelvalue', 'maplocation'];
 
     public isEditingSlug = signal(false);
     private originalSlug = '';

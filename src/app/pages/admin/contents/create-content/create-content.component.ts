@@ -13,7 +13,20 @@ import { ContentType, ContentTypeField, contentTypeFieldLabel } from '../content
 import TiptapEditorComponent from '../../../../../shared/components/tiptap-editor/tiptap-editor.component';
 import { TagsStore } from '../content-types/tags/tags.store';
 import { ITag } from '../content-types/tags/tags.model';
-import MediaManagerComponent from '../../(media)/media.page';
+import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page';
+import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
+import { FieldRepeaterComponent } from '../../../../../shared/components/field-repeater/field-repeater.component';
+import { ResizableDirective } from '../../../../../shared/directives/resizable/resizable.directive';
+import {
+  isRepeaterType,
+  normalizeRepeaterRows,
+  prepareRepeaterRowsForSave,
+  RepeaterRow,
+  RepeaterSchema,
+  repeaterHeadingKey,
+  repeaterSchema,
+  sortRepeaterRows,
+} from '../../../../../shared/models/repeater.model';
 import { MatDialog } from '@angular/material/dialog';
 import { CollectionRefSyncService } from '../content-store/collection-ref-sync.service';
 import { DraftContentsService } from '../draft-content-store/draft-contents.service';
@@ -31,6 +44,8 @@ import {
   IContentTranslation,
   TRANSLATABLE_BUILTIN_FIELDS,
   isTranslatableField,
+  translatableHeadingKey,
+  translatableRepeaterKeys,
   isTranslationEmpty,
 } from '../draft-content-store/content-translation.model';
 
@@ -58,6 +73,8 @@ interface TranslatableValues {
     TiptapEditorComponent,
     VersionHistoryComponent,
     TranslocoPipe,
+    FieldRepeaterComponent,
+    ResizableDirective,
   ],
   templateUrl: './create-content.component.html',
   styleUrl: './create-content.component.scss',
@@ -278,12 +295,223 @@ export class CreateContentComponent extends BaseComponent {
       data: { isDialogOpen: true },
     });
 
-    dialogRef.afterClosed().subscribe((result: { mediaUrl: string; type: string } | null) => {
+    dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result && result.type === 'submit' && result.mediaUrl) {
         this.customFieldValues[fieldKey] = result.mediaUrl;
         this.cdr.detectChanges();
       }
     });
+  }
+
+  /**
+   * Opens the Media Manager on its Icons tab for an `icon` field.
+   *
+   * Same dialog as an image field rather than a bespoke one: an admin who has
+   * picked a cover image already knows this window, and the two field types
+   * differ only in what they come back with.
+   */
+  openIconPickerForField(fieldKey: string): void {
+    const dialogRef = this.dialog.open(MediaManagerComponent, {
+      enterAnimationDuration: '450ms',
+      exitAnimationDuration: '300ms',
+      minWidth: '134vh',
+      maxHeight: '90vh',
+      panelClass: 'common-dialog-box',
+      disableClose: true,
+      // Icons only. With the image tabs shown, picking a photo here would
+      // return a URL this field discards — the dialog would close having
+      // silently done nothing.
+      data: { isDialogOpen: true, allowIcons: true, allowImages: false, initialTab: 'icons' },
+    });
+
+    dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
+      if (result?.type === 'submit' && result.kind === 'icon' && result.icon) {
+        this.customFieldValues[fieldKey] = result.icon;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /** The stored icon token for a field, or null when nothing is picked. */
+  getCustomFieldIcon(fieldKey: string): ArcIcon | null {
+    const value = this.customFieldValues[fieldKey];
+    return isArcIcon(value) ? value : null;
+  }
+
+  // ── Repeating fields (Info Cards, and the types built on the same base) ──
+
+  /** The schema for a repeating field, or null for every other type. */
+  repeaterSchemaFor(field: ContentTypeField): RepeaterSchema | null {
+    return repeaterSchema(field.type);
+  }
+
+  /**
+   * The rows of a repeating field.
+   *
+   * Called from the template, so it runs on every change-detection pass — and
+   * must return the *same array* each time, or the child's input identity
+   * changes on every pass and the row being edited re-renders under the
+   * caret. Repairing once and storing the result back makes the second call
+   * onwards a plain read.
+   */
+  repeaterRows(field: ContentTypeField): RepeaterRow[] {
+    const schema = this.repeaterSchemaFor(field);
+    if (!schema) return [];
+
+    // On a translation tab `customFieldValues` holds only the translation —
+    // for a repeating field, a sparse list of prose keyed by row id. The
+    // editor has to show the default language's actual rows with that prose
+    // laid over them, or a translator would face a list with no images and no
+    // sense of which card is which.
+    if (this.isTranslating()) {
+      return this.translatedRepeaterRows(field, schema);
+    }
+
+    const current = this.customFieldValues[field.key];
+    if (Array.isArray(current) && current.every((row) => typeof row?.id === 'string')) {
+      return current;
+    }
+
+    // First read of a document, an import, or an older row shape. Sorted here
+    // because this is the load — from now on order changes only when the
+    // editor commits a position.
+    const rows = sortRepeaterRows(normalizeRepeaterRows(current, schema));
+    this.customFieldValues[field.key] = rows;
+    return rows;
+  }
+
+  /**
+   * Base rows with the active translation's prose overlaid, for display while
+   * translating.
+   *
+   * Rebuilt on each change-detection pass rather than cached: unlike the
+   * default-language path there is nowhere to store it — `customFieldValues`
+   * has to keep holding the sparse translation, because that is what gets
+   * saved.
+   */
+  private translatedRepeaterRows(field: ContentTypeField, schema: RepeaterSchema): RepeaterRow[] {
+    const base = sortRepeaterRows(
+      normalizeRepeaterRows(this.baseValues().customFields?.[field.key], schema),
+    );
+
+    const translated = Array.isArray(this.customFieldValues[field.key])
+      ? (this.customFieldValues[field.key] as Record<string, unknown>[])
+      : [];
+
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const row of translated) {
+      if (row && typeof row === 'object' && typeof row['id'] === 'string') {
+        byId.set(row['id'] as string, row);
+      }
+    }
+
+    const keys = translatableRepeaterKeys(field).filter((key) => key !== 'id');
+
+    return base.map((row) => {
+      const overlay = byId.get(row.id);
+
+      // Prose starts *empty*, not seeded with the default language. A box
+      // pre-filled with English reads as already translated, and saving it
+      // would store English as the Hindi text. The original shows underneath
+      // as a placeholder instead — the same treatment the built-in fields get.
+      const merged: RepeaterRow = { ...row };
+      for (const key of keys) {
+        const value = overlay?.[key];
+        merged[key] = typeof value === 'string' ? value : '';
+      }
+      return merged;
+    });
+  }
+
+  /**
+   * Default-language row values keyed by row id, so a translator sees the
+   * original text as a ghost placeholder in every box they have not filled in.
+   */
+  baseRepeaterPlaceholders(field: ContentTypeField): Record<string, Record<string, unknown>> {
+    if (!this.isTranslating()) return {};
+
+    const schema = this.repeaterSchemaFor(field);
+    if (!schema) return {};
+
+    const placeholders: Record<string, Record<string, unknown>> = {};
+    for (const row of normalizeRepeaterRows(this.baseValues().customFields?.[field.key], schema)) {
+      placeholders[row.id] = row;
+    }
+    return placeholders;
+  }
+
+  /** The stored heading for a repeating field, or ''. */
+  repeaterHeading(field: ContentTypeField): string {
+    const schema = this.repeaterSchemaFor(field);
+    if (!schema) return '';
+
+    const key = repeaterHeadingKey(field.key, schema);
+    const value = key ? this.customFieldValues[key] : '';
+    return typeof value === 'string' ? value : '';
+  }
+
+  /** The default language's heading, shown as a placeholder while translating. */
+  baseRepeaterHeading(field: ContentTypeField): string {
+    const schema = this.repeaterSchemaFor(field);
+    const key = schema ? repeaterHeadingKey(field.key, schema) : null;
+    const value = key ? this.baseValues().customFields?.[key] : '';
+    return typeof value === 'string' ? value : '';
+  }
+
+  /** Heading edits from `arc-field-repeater`. */
+  onRepeaterHeadingChange(field: ContentTypeField, value: string): void {
+    const schema = this.repeaterSchemaFor(field);
+    const key = schema ? repeaterHeadingKey(field.key, schema) : null;
+    if (!key) return;
+
+    this.customFieldValues[key] = value;
+    this.markTranslationDirty();
+    this.cdr.detectChanges();
+  }
+
+  /** Row edits from `arc-field-repeater`. */
+  onRepeaterRowsChange(fieldKey: string, rows: RepeaterRow[]): void {
+    this.customFieldValues[fieldKey] = rows;
+    this.markTranslationDirty();
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * A copy of the custom field values safe to hand to a snapshot.
+   *
+   * A plain `{ ...customFieldValues }` shares every repeater array *and* every
+   * row object with the live editor, so a version-history snapshot would
+   * change under the reader as they kept typing. Scalars never had this
+   * problem, which is why the shallow spread was fine until now.
+   *
+   * Repeater values are also prepared for storage here — sorted by position,
+   * renumbered, and with abandoned blank rows dropped, since the editor adds
+   * an empty row on demand and an unfilled one would publish as an empty card.
+   */
+  private copyCustomFields(values: Record<string, any>): Record<string, any> {
+    const copy: Record<string, any> = { ...values };
+
+    for (const field of this.currentFields) {
+      const schema = this.repeaterSchemaFor(field);
+      if (!schema) continue;
+      if (copy[field.key] === undefined) continue;
+      copy[field.key] = prepareRepeaterRowsForSave(copy[field.key], schema);
+    }
+
+    return copy;
+  }
+
+  /** Custom field values read from a document, draft or version snapshot. */
+  private adoptCustomFields(values: Record<string, any> | undefined): Record<string, any> {
+    const adopted: Record<string, any> = { ...(values ?? {}) };
+
+    for (const field of this.currentFields) {
+      const schema = this.repeaterSchemaFor(field);
+      if (!schema) continue;
+      adopted[field.key] = sortRepeaterRows(normalizeRepeaterRows(adopted[field.key], schema));
+    }
+
+    return adopted;
   }
 
   // Remove image for a custom field
@@ -646,7 +874,7 @@ export class CreateContentComponent extends BaseComponent {
       summary: this.publishForm.get('summary')?.value || '',
       seoTitle: this.seoForm.get('seoTitle')?.value || '',
       metaDescription: this.seoForm.get('metaDescription')?.value || '',
-      customFields: { ...this.customFieldValues },
+      customFields: this.copyCustomFields(this.customFieldValues),
     };
   }
 
@@ -661,7 +889,7 @@ export class CreateContentComponent extends BaseComponent {
     this.publishForm.get('summary')?.setValue(values.summary, { emitEvent: false });
     this.seoForm.get('seoTitle')?.setValue(values.seoTitle, { emitEvent: false });
     this.seoForm.get('metaDescription')?.setValue(values.metaDescription, { emitEvent: false });
-    this.customFieldValues = { ...values.customFields };
+    this.customFieldValues = this.adoptCustomFields(values.customFields);
     this.cdr.detectChanges();
   }
 
@@ -925,14 +1153,46 @@ export class CreateContentComponent extends BaseComponent {
     }
   }
 
-  /** Keeps only the custom fields that are translatable for this content type. */
+  /**
+   * Keeps only the custom fields that are translatable for this content type.
+   *
+   * A repeating field is projected down to `{ id, …prose }` per row: the
+   * translation document carries the words and the row id that anchors them,
+   * never the structure. That is what makes the default language the single
+   * owner of how many rows there are, their order, and their images — and what
+   * lets a row be deleted without stranding a translation on the wrong one.
+   */
   private translatableCustomFields(values: { [key: string]: any }): Record<string, unknown> {
     const translatable: Record<string, unknown> = {};
+
     for (const field of this.currentFields) {
-      if (isTranslatableField(field) && values[field.key] !== undefined) {
+      if (!isTranslatableField(field)) continue;
+
+      if (isRepeaterType(field.type)) {
+        const rows = values[field.key];
+        if (Array.isArray(rows)) {
+          const keys = translatableRepeaterKeys(field);
+          translatable[field.key] = rows.map((row: Record<string, unknown>) => {
+            const projected: Record<string, unknown> = {};
+            for (const key of keys) {
+              if (row?.[key] !== undefined) projected[key] = row[key];
+            }
+            return projected;
+          });
+        }
+
+        const headingKey = translatableHeadingKey(field);
+        if (headingKey && values[headingKey] !== undefined) {
+          translatable[headingKey] = values[headingKey];
+        }
+        continue;
+      }
+
+      if (values[field.key] !== undefined) {
         translatable[field.key] = values[field.key];
       }
     }
+
     return translatable;
   }
 
@@ -1002,7 +1262,7 @@ export class CreateContentComponent extends BaseComponent {
         summary: contentData?.summary || '',
         seoTitle: contentData?.seoTitle || '',
         metaDescription: contentData?.metaDescription || '',
-        customFields: { ...(contentData?.customFields ?? {}) },
+        customFields: this.copyCustomFields(contentData?.customFields ?? {}),
       };
       return;
     }
@@ -1050,7 +1310,7 @@ export class CreateContentComponent extends BaseComponent {
 
     // Pre-populate custom field values
     if (contentData?.customFields) {
-      this.customFieldValues = { ...contentData.customFields };
+      this.customFieldValues = this.adoptCustomFields(contentData.customFields);
     }
 
     // Pre-populate next content reference
@@ -2188,7 +2448,7 @@ export class CreateContentComponent extends BaseComponent {
 
     // Restore custom fields
     if (version.customFields) {
-      this.customFieldValues = { ...version.customFields };
+      this.customFieldValues = this.adoptCustomFields(version.customFields);
     }
 
     // Close the version preview and switch to basic tab so user sees the restored content

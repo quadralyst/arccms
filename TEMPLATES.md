@@ -206,6 +206,504 @@ Any custom fields you define on a content type are automatically available using
 <span data-arc-bind="price">0</span>
 ```
 
+> **Field keys are prefixed with the content type slug.** Enter `subtitle` as
+> the key on a content type slugged `awards-recognition` and it is stored — and
+> bound — as `awards-recognition_subtitle`. Check the key shown in
+> **Admin > Contents > Content Types** if a binding renders blank; the examples
+> below use short keys for readability.
+>
+> **Every custom field also answers to its bare key.** `data-arc-loop` and
+> `data-arc-bind` both accept `awards-recognition_gallery` or just `gallery`.
+> The short form is what lets one shared template serve every content type.
+> The one rule: an alias never replaces a built-in, so a field keyed
+> `articles_title` cannot shadow the page's real `title`.
+
+---
+
+## Info Cards and other repeating fields
+
+Some fields hold a **list of rows** rather than one value. **Info Card**,
+**Gallery**, **Label + Value** and **Map Location** are all of these: each row has the same set of sub-fields, and
+you add, reorder and remove rows in the editor.
+
+An **Info Card** row is an icon or image, a headline, and a short paragraph —
+the row of feature cards you see under a page hero. For photos and videos, see
+**Galleries** below.
+
+Repeating fields render with `data-arc-loop`, the same mechanism as `items`
+and `tags`.
+
+### Adding an Info Card field
+
+1. **Admin > Contents > Content Types**, edit your type, add a field.
+2. Set **Type** to `infocard` and give it a key, e.g. `info_cards`. Remember
+   the stored key gains the slug prefix — `programs_info_cards` on a type
+   slugged `programs`.
+3. When editing content, add a card, pick an icon *or* an image for it, and
+   fill in the headline and info. **Position** sets the display order; the
+   list re-sorts when you leave the field.
+
+### Rendering the cards
+
+The loop name is the field key — **with or without the content type slug
+prefix**. Both of these work on a type slugged `programs`:
+
+```html
+<div data-arc-loop="programs_info_cards"> … </div>   <!-- explicit -->
+<div data-arc-loop="info_cards"> … </div>            <!-- portable -->
+```
+
+Use the short form in a template shared by several content types, such as
+`templates/default/detail.html`; use the long form when you want a block that
+only ever fires for one type. If both names somehow exist, the explicit one
+wins.
+
+Inside the loop each row exposes its sub-fields by their own short names:
+
+| Binding | Contains |
+|---------|----------|
+| `{{ headline }}` | The card's headline |
+| `{{ info }}` | The card's paragraph |
+| `{{ icon }}` | Icon class list, or empty when the card uses an image |
+| `{{ image }}` | Image URL, or empty when the card uses an icon |
+| `{{ icon_svg }}` | Inline SVG fallback for the icon |
+| `{{ position }}` | The row's sort number |
+
+A card has an icon **or** an image, never both. `data-arc-if` removes the one
+that is not set, so a single template handles either:
+
+```html
+<section class="info-cards" data-arc-loop="programs_info_cards">
+    <article class="info-card">
+        <span class="info-card-visual">
+            <img data-arc-if="image" data-arc-bind="image" alt="">
+            <i data-arc-if="icon" class="{{ icon }}" aria-hidden="true"></i>
+        </span>
+        <h3 data-arc-bind="headline">Headline</h3>
+        <p data-arc-bind="info">Supporting text for this card.</p>
+    </article>
+</section>
+```
+
+The container's **first child is the row template** — it is repeated once per
+card and everything else inside the container is discarded. Write exactly one
+card and let the loop multiply it.
+
+A container whose field is empty — or whose field the content type does not
+even have — is cleared, so the placeholder card above never reaches a
+published page. The empty container element itself remains, which is why the
+default template hides it with `:empty`:
+
+```css
+.info-cards:empty { display: none; }
+```
+
+### It works out of the box on the default template
+
+`public/templates/default/detail.html` — the layout used by any content type
+without a folder of its own — already carries an Info Card block looping
+`info_cards` and a Gallery block looping `gallery`. Name your fields `info_cards`
+and `gallery` and they render with no template work at all. Rename the loop, or
+copy the folder, when you want your own layout.
+
+```css
+.info-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.info-card { padding: 1.25rem; border: 1px solid #d8ede0; border-radius: 12px; background: #f2faf5; }
+.info-card-visual i { font-size: 1.25rem; color: #16a34a; }
+.info-card-visual img { width: 2.5rem; height: 2.5rem; object-fit: cover; border-radius: 8px; }
+```
+
+### Ordering
+
+Rows are stored in **Position** order, so a template loops and renders — no
+sorting needed. Positions renumber to 1, 2, 3… whenever a row is reordered or
+removed, so there are never gaps.
+
+### Limitations
+
+- **No nested loops.** A repeating field renders on a **detail** page or in a
+  **partial**. It will *not* render inside `data-arc-loop="items"` on a list
+  page: rows inside a loop are not looped again.
+- **Translated per row, structure shared.** The default language owns how many
+  rows there are, their order and their images; every other language supplies
+  only the words. On a translation tab the rows are locked and the prose boxes
+  show the original as a placeholder. Translations are anchored to a row's
+  stable id, so reordering or deleting a row never strands text on the wrong
+  one — a deleted row's translation is simply dropped.
+- **Not importable.** Bulk CSV import skips repeating fields — one cell
+  cannot express a list of rows. Add the cards in the editor.
+- **Not shown in the contents list.** Rows have no useful one-cell summary,
+  so a repeating field is never offered as a list column.
+
+---
+
+## Galleries
+
+A **Gallery** field holds a list of photos and YouTube videos with captions —
+event coverage, programme highlights, a photo essay. Like Info Cards it is a
+repeating field, so it renders with `data-arc-loop`.
+
+### Adding a Gallery field
+
+1. **Admin > Contents > Content Types**, edit your type, add a field.
+2. Set **Type** to `gallery` and give it a key, e.g. `media`. The stored key
+   gains the slug prefix — `events_media` on a type slugged `events`.
+3. When editing content, use **Add photos** to pick several images from the
+   library in one go, or **Add Item** for a single row. Paste a YouTube link
+   into a row to make it a video. Each row takes an optional caption.
+
+The picker numbers your selections, and that order becomes the order of the
+rows it creates.
+
+### What a row exposes
+
+An item is a photo **or** a video, never both.
+
+| Binding | Contains |
+|---------|----------|
+| `{{ image }}` | Image URL, or empty on a video row |
+| `{{ caption }}` | The caption |
+| `{{ video }}` | The original YouTube URL, or empty |
+| `{{ video_id }}` | `dQw4w9WgXcQ` |
+| `{{ video_embed }}` | `https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ` |
+| `{{ video_thumb }}` | `https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg` |
+
+Only the URL is stored; the id, embed and poster are worked out at render
+time. Videos embed from **youtube-nocookie.com**, which stops YouTube setting
+tracking cookies on visitors who never press play.
+
+### Don't render ten iframes
+
+A YouTube iframe pulls roughly a megabyte of player JavaScript. A ten-item
+gallery of iframes will make the page crawl. Render the **poster** and swap in
+the player on click:
+
+```html
+<div class="gallery" data-arc-loop="events_media">
+    <figure class="gallery-item">
+        <img data-arc-if="image" data-arc-bind="image" alt="">
+
+        <button data-arc-if="video_thumb" class="gallery-video"
+                type="button" data-embed="{{ video_embed }}">
+            <img data-arc-bind="video_thumb" alt="">
+            <span class="gallery-play" aria-hidden="true">&#9654;</span>
+        </button>
+
+        <figcaption data-arc-bind="caption">Caption</figcaption>
+    </figure>
+</div>
+
+<script>
+    document.querySelectorAll('.gallery-video').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var frame = document.createElement('iframe');
+            frame.src = button.dataset.embed + '?autoplay=1';
+            frame.allow = 'accelerated-motion; autoplay; encrypted-media';
+            frame.allowFullscreen = true;
+            button.replaceWith(frame);
+        });
+    });
+</script>
+```
+
+The simple version, fine for one or two videos:
+
+```html
+<div class="gallery" data-arc-loop="events_media">
+    <figure>
+        <img data-arc-if="image" data-arc-bind="image" alt="">
+        <iframe data-arc-if="video_embed" data-arc-bind="video_embed"
+                loading="lazy" allowfullscreen title="Video"></iframe>
+        <figcaption data-arc-bind="caption">Caption</figcaption>
+    </figure>
+</div>
+```
+
+`data-arc-bind` on an `<iframe>` sets its `src`, and `loading="lazy"` at least
+defers the ones below the fold.
+
+### Accepted YouTube links
+
+Editors can paste any of these; anything else is rejected as they type:
+
+```
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s
+https://youtu.be/dQw4w9WgXcQ
+https://www.youtube.com/shorts/dQw4w9WgXcQ
+https://www.youtube.com/live/dQw4w9WgXcQ
+https://www.youtube.com/embed/dQw4w9WgXcQ
+```
+
+Vimeo and other providers are not supported.
+
+Galleries share every limitation listed under **Info Cards** — detail and
+partials templates only, not CSV-importable, and never a contents-list column.
+Captions translate per row; the photos and videos are shared across languages.
+
+---
+
+## Label + Value lists
+
+A **Label + Value** field holds short paired facts — an "At a glance" card,
+a spec sheet, event essentials. Each row is a label and a value, and the block
+takes an editable heading.
+
+### Adding one
+
+1. **Admin > Contents > Content Types**, edit your type, add a field.
+2. Set **Type** to `labelvalue` and give it a key, e.g. `details`.
+3. In the editor, fill in the **Section heading** and add rows. Label and value
+   sit side by side; **Position** orders them.
+
+### Rendering it
+
+| Binding | Contains |
+|---------|----------|
+| `{{ label }}` | The row's label — *inside the loop* |
+| `{{ value }}` | The row's value — *inside the loop* |
+| `{{ details_heading }}` | The block heading — *outside the loop* |
+
+The heading is **not** a row, so it is bound outside the loop. It is stored
+beside the rows as `<fieldkey>_heading`, and like every custom field it also
+answers to its unprefixed name.
+
+```html
+<section class="glance" data-arc-if="details">
+    <h3 data-arc-if="details_heading" data-arc-bind="details_heading">At a glance</h3>
+
+    <dl class="glance-list" data-arc-loop="details">
+        <div class="glance-row">
+            <dt data-arc-bind="label">Label</dt>
+            <dd data-arc-bind="value">Value</dd>
+        </div>
+    </dl>
+</section>
+```
+
+`<div>` inside `<dl>` is valid HTML5 and gives each pair a row to style, which
+the loop needs anyway — the container's first child is the row template.
+
+```css
+.glance-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.6rem 0; border-top: 1px solid #e8e8ed; }
+.glance-row:first-child { border-top: 0; }
+.glance-row dt { color: #6e6e73; }
+.glance-row dd { margin: 0; font-weight: 600; text-align: right; }
+```
+
+Leave the heading blank and `data-arc-if` removes it, leaving the rows.
+
+### On the default template
+
+`public/templates/default/detail.html` already carries this block, after the
+Info Cards and Gallery, looping `details`. Name your field `details` and it
+renders with no template work.
+
+Label + Value shares every limitation listed under **Info Cards**.
+
+---
+
+## Map locations
+
+A **Map Location** field holds one or more places — an office, a set of
+chapters, event venues. Each row is a name, an address and a point on the map,
+and each renders as a small map card.
+
+### Adding one
+
+1. **Admin > Contents > Content Types**, edit your type, add a field.
+2. Set **Type** to `maplocation` and give it a key, e.g. `locations`.
+3. In the editor, search for an address, then drag the marker — or click the
+   map, or type coordinates directly. The address text is editable on its own,
+   because a geocoder's wording is rarely what a page should print.
+
+### What a row exposes
+
+| Binding | Contains |
+|---------|----------|
+| `{{ label }}` | The location's name |
+| `{{ address }}` | The address, as you edited it |
+| `{{ lat }}` / `{{ lng }}` | The coordinates |
+| `{{ map_embed }}` | An `<iframe src>` showing the point with a marker |
+| `{{ map_directions }}` | A link that opens the visitor's own maps app |
+| `{{ map_view }}` | The point on openstreetmap.org |
+
+Only the coordinates and address are stored; the three URLs are worked out at
+render time.
+
+```html
+<section class="locations" data-arc-if="KEY">
+    <h3 data-arc-if="KEY_heading" data-arc-bind="KEY_heading">Find us</h3>
+
+    <div class="locations-grid" data-arc-loop="KEY">
+        <article class="location">
+            <iframe data-arc-if="map_embed" data-arc-bind="map_embed"
+                    loading="lazy" title="Map"></iframe>
+            <h4 data-arc-bind="label">Location name</h4>
+            <p data-arc-bind="address">Street, City</p>
+            <a data-arc-if="map_directions" data-arc-bind="map_directions"
+               target="_blank" rel="noopener">Get directions</a>
+        </article>
+    </div>
+</section>
+```
+
+Wrap the map in `data-arc-if="map_embed"` so a row where nobody placed a marker
+renders its name and address without a map, rather than a map of the Atlantic.
+Keep `loading="lazy"` — several map cards on one page should not each fetch
+tiles before they are scrolled to.
+
+### No API key, no map library, no cookies
+
+The published map is an OpenStreetMap embed. There is no API key to obtain, no
+billing account to attach, and nothing for a visitor to consent to — the page
+ships no map JavaScript at all. Leaflet is used only in the admin, to aim the
+marker, and never reaches a published page.
+
+Two consequences worth knowing:
+
+- **The frame is pannable inside itself.** It carries no controls of ours, but
+  it is OpenStreetMap's own embed. If you need a frozen image, that requires a
+  keyed static-map provider.
+- **OpenStreetMap's tile servers expect modest traffic.** A high-traffic site
+  should move to a tile provider such as Carto or Stadia, both of which have
+  free tiers.
+
+Attribution to OpenStreetMap ships inside the embed and is a condition of the
+ODbL licence — do not strip it.
+
+### One map with every pin
+
+Not supported. Each location gets its own frame, because combining pins onto a
+single map needs either a map library on the page or a keyed static-map
+service. Say so if you would rather have that trade.
+
+Map Location shares the other limitations listed under **Info Cards** — detail
+and partials templates only, not CSV-importable, and never a contents-list
+column. Names and addresses translate per row; the coordinates are shared.
+
+---
+
+## Icons
+
+The **Icon** custom field type lets an editor pick from the full Font Awesome
+Free library (1,873 icons across solid, regular and brands) instead of
+uploading an image. Use it wherever a template needs a small symbol — feature
+cards, list bullets, category markers, callouts.
+
+An icon is not an image. It has no file, no URL and no fixed colour: it takes
+the text colour of whatever it sits inside, so the same icon works on a light
+card, a dark footer and a themed accent without anyone re-exporting anything.
+
+### Adding an Icon field
+
+1. Go to **Admin > Contents > Content Types** and edit your content type.
+2. Add a field, set its **Type** to `icon`, and give it a key (e.g. `card_icon`).
+   Field keys must be lowercase letters, digits and underscores — `^[a-z0-9_]+$`
+   — and are then stored prefixed with the content type slug, so the binding
+   for `card_icon` on `articles` is `articles_card_icon`.
+3. When editing content, that field opens an icon picker. Search by name, by
+   label, or by what the icon *means* — "search", "trophy", "chart" all work.
+   The picker offers icons only; the image tabs are hidden, because a photo
+   is not something an icon field can store.
+
+### Rendering an icon
+
+One picked icon gives you four bindings, all derived from the field key:
+
+| Binding | Contains | Use for |
+|---------|----------|---------|
+| `{{ card_icon }}` | `fa-solid fa-magnifying-glass` | The class list — **this is the usual one** |
+| `{{ card_icon_label }}` | `Magnifying Glass` | An `aria-label` when the icon is meaningful |
+| `{{ card_icon_name }}` | `magnifying-glass` | The bare name, e.g. as a CSS hook |
+| `{{ card_icon_svg }}` | `<svg …>` | Inline SVG fallback — see below |
+
+Substitute your own **stored** field key for `card_icon` throughout — including the content type slug prefix.
+
+The normal way to render one is an empty `<i>` with the class interpolated:
+
+```html
+<i class="card-icon {{ card_icon }}" aria-hidden="true"></i>
+```
+
+Keep your own classes alongside it — `card-icon` above is yours, and you size
+and colour the icon through it:
+
+```css
+.card-icon {
+    font-size: 1.5rem;
+    color: var(--brand-green);  /* the icon inherits this */
+}
+```
+
+### A complete info card
+
+```html
+<div class="cards" data-arc-loop="items">
+    <a class="card" data-arc-bind="url">
+        <span class="card-icon-badge">
+            <i class="{{ card_icon }}" aria-hidden="true"></i>
+        </span>
+        <h3 data-arc-bind="title">Title</h3>
+        <p data-arc-bind="excerpt">Excerpt</p>
+    </a>
+</div>
+```
+
+### Accessibility
+
+Decide whether the icon *means* something or merely decorates:
+
+```html
+<!-- Decorative: the heading beside it already says everything -->
+<i class="{{ card_icon }}" aria-hidden="true"></i>
+
+<!-- Meaningful: the icon is the only label -->
+<i class="{{ card_icon }}" role="img" aria-label="{{ card_icon_label }}"></i>
+```
+
+Default to `aria-hidden="true"`. Most template icons sit next to text that
+already carries the meaning, and announcing both makes the page read twice.
+
+### If your site does not load Font Awesome
+
+Icons render from a stylesheet, and by default Arc CMS puts Font Awesome 6.5.1
+on every published page. That list lives in **Settings > Site** as `cssUrls`.
+If you replace it with your own stylesheets and drop Font Awesome, every
+`<i class="{{ card_icon }}">` on the site becomes an empty box.
+
+Every icon also stores its own inline SVG, so a template can render without
+the stylesheet entirely:
+
+```html
+<span class="card-icon" data-arc-bind="card_icon_svg"></span>
+```
+
+```css
+.card-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    /* The SVG uses fill="currentColor", so it inherits this. */
+    color: var(--brand-green);
+}
+```
+
+This is heavier — the markup repeats for every item in a loop — so prefer the
+class binding unless you have actually removed Font Awesome.
+
+### Adding icons to the library
+
+The picker reads generated files under `public/assets/icons/`, built from the
+`@fortawesome/fontawesome-free` package:
+
+```bash
+npm run icons:index
+```
+
+Run it after upgrading that package, and keep the package version in step with
+the Font Awesome stylesheet in `cssUrls` — an index built from a newer release
+offers class names the older stylesheet cannot draw. A test enforces both.
+
 ---
 
 ## List Template Example

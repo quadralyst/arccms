@@ -1,0 +1,63 @@
+<div class="map-picker">
+    <div class="map-search">
+        <input type="text" class="form-control form-control-sm"
+            [ngModel]="query()" (ngModelChange)="query.set($event)"
+            [disabled]="disabled()"
+            [placeholder]="'admin.contents.editor.map.search_placeholder' | transloco"
+            (keyup.enter)="runSearch()">
+        <button type="button" class="btn btn-outline-primary btn-sm"
+            [disabled]="disabled() || searching() || !query().trim()"
+            (click)="runSearch()">
+            @if (searching()) {
+            <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+            } @else {
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            }
+        </button>
+    </div>
+
+    @if (results().length) {
+    <ul class="map-results">
+        @for (result of results(); track result.lat + ',' + result.lng) {
+        <li>
+            <button type="button" (click)="chooseResult(result)">{{ result.address }}</button>
+        </li>
+        }
+    </ul>
+    } @else if (searched() && !searching()) {
+    <p class="map-note">{{ 'admin.contents.editor.map.no_results' | transloco }}</p>
+    }
+
+    <!-- Leaflet draws into this. It stays in the DOM so the map survives a
+         search returning nothing. -->
+    <div #mapHost class="map-canvas" [class.disabled]="disabled()"></div>
+
+    <div class="map-fields">
+        <label class="map-field">
+            <span>{{ 'admin.contents.editor.map.address' | transloco }}</span>
+            <input type="text" class="form-control form-control-sm"
+                [value]="address()" [disabled]="disabled() || !hasPoint()"
+                [placeholder]="'admin.contents.editor.map.address_placeholder' | transloco"
+                (change)="setAddress($any($event.target).value)">
+        </label>
+
+        <label class="map-field">
+            <span>{{ 'admin.contents.editor.map.coordinates' | transloco }}</span>
+            <input type="text" class="form-control form-control-sm"
+                [class.is-invalid]="coordinateError()"
+                [value]="coordinateText()" [disabled]="disabled()"
+                placeholder="18.520400, 73.856700"
+                (change)="setCoordinates($any($event.target).value)">
+            @if (coordinateError()) {
+            <small class="map-error">{{ 'admin.contents.editor.map.bad_coordinates' | transloco }}</small>
+            }
+        </label>
+    </div>
+
+    @if (hasPoint() && !disabled()) {
+    <button type="button" class="btn btn-outline-danger btn-sm map-clear" (click)="clear()">
+        <i class="fa-solid fa-trash me-1" aria-hidden="true"></i>
+        {{ 'admin.contents.editor.map.clear' | transloco }}
+    </button>
+    }
+</div>

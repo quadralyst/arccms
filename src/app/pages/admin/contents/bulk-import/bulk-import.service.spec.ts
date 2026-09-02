@@ -59,6 +59,17 @@ describe('BulkImportService', () => {
             
             expect(mapping[2].targetField).toBe(''); // Unmapped
         });
+
+        it('should never auto-map a column onto a repeating field', () => {
+            const repeating = [
+                { key: 'info_cards', label: 'Info Cards', type: 'infocard', required: false, order: 0 },
+            ] as any;
+            const mapping = service.autoMapColumns(['info_cards', 'Info Cards'], repeating);
+
+            // One spreadsheet cell cannot become rows of sub-fields; mapping it
+            // would import a string where the template expects an array.
+            expect(mapping.map(m => m.targetField)).toEqual(['', '']);
+        });
     });
 
     describe('validateRow', () => {

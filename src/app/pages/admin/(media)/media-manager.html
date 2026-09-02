@@ -4,14 +4,24 @@
             <div class="modal-body">
                 <div class="main-content">
                     <div class="tabs-and-actions-container">
+                        @if(showTabBar){
                         <div class="media-tabs">
-                            @for(item of constantVariables.mediaManagerMenu; track item){
+                            @for(item of menuItems; track item.value){
                             <div (click)="selectedMenu(item)" [ngClass]="{'active': selectedItem?.value === item.value}"
                                 class="media-tab">
                                 <i class="fas fa-{{item.icon}} fs-6"></i> {{item.name}}
                             </div>
                             }
                         </div>
+                        } @else {
+                        <!-- Single-purpose dialog: a lone tab would imply others to
+                             switch to, so it becomes a plain heading. Something has
+                             to sit here — the container is space-between and Cancel
+                             would otherwise jump to the left edge. -->
+                        <div class="media-single-title">
+                            <i class="fas fa-{{selectedItem?.icon}} fs-6"></i> {{ selectedItem?.name }}
+                        </div>
+                        }
                         <div class="action-elements">
                             @if(selectedItem?.value === 'search' && searchResults && searchResults.length){
                             <div class="header-search-container">
@@ -50,7 +60,11 @@
                         <div class="main_second_div">
                             <div class="row mt-2">
                                 <div class="col-12 col-md-4">
+                                    <!-- Suppressed without the tab bar: the header already
+                                         carries this exact name as the dialog's title. -->
+                                    @if(showTabBar){
                                     <label class="fs-5">{{ selectedItem?.name}}</label>
+                                    }
                                 </div>
 
                                 @if(searchResults && searchResults.length){
@@ -62,7 +76,17 @@
 
 
 
-                            @if(searchResults && !searchResults.length){
+                            <!-- Icons: browses the generated Font Awesome index. Keeps its
+                                 own pane because it neither paginates nor uses searchResults. -->
+                            @if(isIconsTab){
+                            <div class="row">
+                                <div class="col-12 mt-2 icons_col" [ngClass]="{'asModal': _DIALOG_DATA.isDialogOpen}">
+                                    <arc-icon-browser (iconSelected)="onIconSelected($event)"></arc-icon-browser>
+                                </div>
+                            </div>
+                            }
+
+                            @if(!isIconsTab && searchResults && !searchResults.length){
                             <div class="row">
                                 <div class="col-12 mt-2 empty_col" [ngClass]="{'asModal': _DIALOG_DATA.isDialogOpen}">
                                     @if(selectedItem?.value === 'upload'){
@@ -154,7 +178,7 @@
                             </div>
                             }
 
-                            @if(searchResults && searchResults.length){
+                            @if(!isIconsTab && searchResults && searchResults.length){
                             <div class="second_div" [ngClass]="{'asModal': _DIALOG_DATA.isDialogOpen}">
 
                                 @if(selectedItem?.value === 'upload'){
@@ -188,10 +212,15 @@
                                     </figure>
 
                                     @for(element of searchResults; track element.id; let i = $index){
-                                    <figure [ngClass]="{'selected_item': element.id === selectedMediaUrl?.id}">
+                                    <figure [ngClass]="{'selected_item': isMultiSelect ? isPicked(element) : element.id === selectedMediaUrl?.id}">
                                         <img (click)="selectMedia(element)" [src]="element.url" alt="..."
                                             class="search_img" />
                                         <figcaption><a href="#">{{ i + 1 }}</a></figcaption>
+                                        @if(isMultiSelect && isPicked(element)){
+                                        <!-- The number, not just a tick: in multi-select the order of
+                                             picking becomes the order of the rows created from it. -->
+                                        <span class="pick-badge">{{ pickIndex(element) }}</span>
+                                        }
                                         <i class="material-icons text-danger text-gradient position-absolute top-0 end-0 mt-2 me-2 d-none fs-2"
                                             (click)="confirmationToDeleteItem(element)">delete</i>
                                     </figure>
@@ -204,9 +233,12 @@
                                 <div class="img_container mt-2">
                                     @for(element of searchResults; track element.id; let i = $index){
                                     <figure (click)="selectMedia(element)"
-                                        [ngClass]="{'selected_item': element.id === selectedMediaUrl?.id}">
+                                        [ngClass]="{'selected_item': isMultiSelect ? isPicked(element) : element.id === selectedMediaUrl?.id}">
                                         <img [src]="getUrl(element)" alt="..." class="search_img" />
                                         <figcaption><a href="#">{{ i + 1 }}</a></figcaption>
+                                        @if(isMultiSelect && isPicked(element)){
+                                        <span class="pick-badge">{{ pickIndex(element) }}</span>
+                                        }
                                     </figure>
                                     }
                                 </div>
@@ -231,13 +263,29 @@
                 </div>
                 <div class="side-preview">
                     <div class="preview-header">
-                        <div class="preview-title">{{ 'admin.media.selected' | transloco }}</div>
+                        <div class="preview-title">
+                            {{ (isIconsTab ? 'admin.media.icons.selected' : 'admin.media.selected') | transloco }}
+                            @if(isMultiSelect && selectedMediaList.length){
+                            <span class="pick-count">{{ selectedMediaList.length }}</span>
+                            }
+                        </div>
                         @if(_DIALOG_DATA.isDialogOpen){
                         <button mat-dialog-close class="close-modal-btn" [title]="'common.actions.close' | transloco">
                             <i class="fas fa-times"></i>
                         </button>
                         }
                     </div>
+                    @if(isIconsTab) {
+                    <!-- The glyph is previewed at the size a template would actually
+                         use it, on the plain background it will sit on. -->
+                    <div class="preview-container icon-preview-container">
+                        @if(selectedIcon) {
+                        <i [class]="selectedIcon.classes" aria-hidden="true"></i>
+                        } @else {
+                        <span class="icon-preview-empty">{{ 'admin.media.icons.none_selected' | transloco }}</span>
+                        }
+                    </div>
+                    } @else {
                     <div class="preview-container" [class.clickable]="selectedMediaUrl"
                         (click)="selectedMediaUrl && openFullImage()"
                         [title]="selectedMediaUrl ? 'Click to open full-size image in new tab' : ''">
@@ -250,7 +298,26 @@
                         </div>
                         }
                     </div>
-                    @if(selectedMediaUrl) {
+                    }
+
+                    @if(isIconsTab && selectedIcon) {
+                    <div class="preview-metadata">
+                        <div class="metadata-row">
+                            <span class="metadata-label">{{ 'admin.media.icons.name_label' | transloco }}</span>
+                            <span class="metadata-value" [title]="selectedIcon.name">{{ selectedIcon.name }}</span>
+                        </div>
+                        <div class="metadata-row">
+                            <span class="metadata-label">{{ 'admin.media.icons.style_label' | transloco }}</span>
+                            <span class="metadata-value">{{ selectedIcon.style }}</span>
+                        </div>
+                        <div class="metadata-row">
+                            <span class="metadata-label">CSS</span>
+                            <span class="metadata-value" [title]="selectedIcon.classes">{{ selectedIcon.classes }}</span>
+                        </div>
+                    </div>
+                    }
+
+                    @if(!isIconsTab && selectedMediaUrl) {
                     <div class="preview-metadata">
                         @if(selectedMediaUrl.name) {
                         <div class="metadata-row">
@@ -273,8 +340,17 @@
                     </div>
                     }
                     @if(_DIALOG_DATA.isDialogOpen){
-                    <button id="insertMediaBtn" (click)="insertMedia()" class=" btn btn-primary btn-insert">
-                        <i class="fas fa-check me-1 fs-6"></i> {{ 'admin.media.insert' | transloco }}
+                    <!-- Only the Icons tab gates the button. On the image tabs an empty
+                         insert has always closed with an empty url, and every caller
+                         already guards for that — changing it is not this feature's job. -->
+                    <button id="insertMediaBtn" (click)="insertMedia()" class=" btn btn-primary btn-insert"
+                        [disabled]="(isIconsTab && !selectedIcon) || (isMultiSelect && !selectedMediaList.length)">
+                        <i class="fas fa-check me-1 fs-6"></i>
+                        @if(isMultiSelect){
+                        {{ 'admin.media.insert_count' | transloco:{ count: selectedMediaList.length } }}
+                        } @else {
+                        {{ (isIconsTab ? 'admin.media.icons.insert' : 'admin.media.insert') | transloco }}
+                        }
                     </button>
                     }
                 </div>
