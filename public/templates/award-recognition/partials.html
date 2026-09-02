@@ -1,0 +1,26 @@
+<div class="recognition__col recognition__col--awards award-separter">
+    <header class="section-head">
+        <h2 class="section-head__title section-head__title--sm" data-arc-bind="sectionTitle">Awards &amp; Recognition
+        </h2>
+        <p class="section-head__sub section-head__sub--left">Honored to be recognized.</p>
+    </header>
+
+    <ul class="recognition__awards" data-arc-loop="items" data-limit="5">
+        <li class="recognition__award">
+            <a href="{{url}}">
+                <div class="recognition__logo-wrapper">
+                    <img class="recognition__logo" src="{{coverImage}}" alt="{{title}}" loading="lazy" decoding="async">
+                </div>
+                <p class="recognition__award-name" data-arc-bind="title">YOLOPreneur</p>
+                <p class="recognition__award-prize" data-arc-bind="awards-recognition_prize">Winner</p>
+            </a>
+        </li>
+    </ul>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="partialsEmptyState">
+        <i class="fas fa-award"></i>
+        <h3>No Awards Yet</h3>
+        <p>Check back soon for content.</p>
+    </div>
+</div>

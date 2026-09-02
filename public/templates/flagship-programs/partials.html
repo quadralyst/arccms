@@ -1,0 +1,27 @@
+<div class="flagship-div">
+
+    <div class="flagship-programs-header">
+        <h2 class="flagship-programs-partials-title" data-arc-bind="sectionTitle"></h2>
+        <a href="/flagship-programs" class="view-all">
+            Explore All Programs
+            <i class="fa-solid fa-arrow-right"></i>
+        </a>
+    </div>
+
+    <section class="flagship-programs-partials-section">
+        <div data-arc-loop="items" class="flagship-programs-grid">
+            <a href="{{url}}" class="flagship-programs-grid-link">
+                <div class="flagship-card" style="--program-color: {{flagship-programs_background_color}};">
+                    <div class="flagship-icon">
+                        <img src="{{coverImage}}" alt="{{title}}">
+                    </div>
+                    <div class="flagship-content">
+                        <h3 class="flagship-card-title" data-arc-bind="title"></h3>
+                        <div class="flagship-description" data-arc-bind="content">
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </section>
+</div>

@@ -83,7 +83,7 @@ Use `data-arc-bind` to inject content values into elements:
 
 The placeholder text is replaced with actual content at render time.
 
-### Loops
+### Loops (Collections)
 
 Use `data-arc-loop` to repeat elements for collections:
 
@@ -99,6 +99,56 @@ Use `data-arc-loop` to repeat elements for collections:
 - `data-arc-loop="items"` — Loops over content items
 - `data-arc-loop="tags"` — Loops over tags
 - `data-limit="N"` — Limits the number of items displayed
+
+### Numeric Precision & Multi-State Repetition (`data-arc-repeat`)
+
+`data-arc-repeat` is a universal directive for rendering numbers, float decimals (e.g. `3.5`), progress bars, steppers, battery meters, pagination indicators, and star ratings:
+
+#### 1. Floating-Point Ratings & Precision Icons (Full / Half / Empty)
+Supply 2 or 3 child elements to automatically represent **Full**, **Half/Partial**, and **Empty** states:
+
+```html
+<!-- Rating: 3.5 out of 5 stars (Renders 3 full + 1 half + 1 empty) -->
+<div class="voices__stars" data-arc-repeat="voices-of-impact_rating" data-max="5">
+    <i class="fa-solid fa-star"></i>             <!-- Template 1: Full -->
+    <i class="fa-solid fa-star-half-stroke"></i>  <!-- Template 2: Half / Partial -->
+    <i class="fa-regular fa-star"></i>           <!-- Template 3: Empty -->
+</div>
+```
+
+#### 2. Progress Steppers & Milestone Gauges
+Use `data-max` with `@state`, `@percent`, and `@itemPercent` metadata variables:
+
+```html
+<!-- Progress: 2.5 of 4 steps -->
+<div class="stepper" data-arc-repeat="progress" data-max="4">
+    <div class="step step--{{ @state }}" style="width: {{ @itemPercent }}%">
+        Step {{ @number }} ({{ @state }}) - Overall {{ @percent }}%
+    </div>
+</div>
+```
+
+#### 3. Meter & Battery Bars (Active / Half / Inactive)
+```html
+<!-- Battery: 2.5 of 4 bars -->
+<div class="battery-meter" data-arc-repeat="batteryLevel" data-max="4">
+    <span class="bar bar--active"></span>
+    <span class="bar bar--half"></span>
+    <span class="bar bar--inactive"></span>
+</div>
+```
+
+#### Available Template Metadata Variables:
+| Variable | Description | Example |
+|---|---|---|
+| `{{ @index }}` | 0-based index | `0, 1, 2...` |
+| `{{ @number }}` | 1-based index | `1, 2, 3...` |
+| `{{ @state }}` | Slot state | `'full'`, `'half'`, `'empty'` |
+| `{{ @value }}` | The raw numeric value | `3.5`, `75` |
+| `{{ @max }}` / `{{ @total }}` | Maximum/total capacity | `5`, `100` |
+| `{{ @percent }}` | Overall progress percentage | `70` (for 3.5 / 5) |
+| `{{ @itemPercent }}` | Step-specific percentage | `20, 40, 60...` |
+| `{{ @fraction }}` | Fractional remainder | `0.50`, `0.00` |
 
 ### Style Binding
 

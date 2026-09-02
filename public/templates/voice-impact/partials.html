@@ -1,0 +1,52 @@
+<div class="recognition__col recognition__col--voices">
+    <header class="section-head">
+        <h2 class="section-head__title section-head__title--sm" data-arc-bind="sectionTitle">Voices of Impact</h2>
+        <p class="section-head__sub section-head__sub--left">Hear from our community.</p>
+    </header>
+
+    <div class="voices" data-carousel data-carousel-page data-carousel-loop>
+        <button class="carousel-btn carousel-btn--prev" type="button" data-carousel-prev
+            aria-label="Previous testimonial">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6" />
+            </svg>
+            <span class="visually-hidden">Previous testimonial</span>
+        </button>
+
+        <ul class="voices__track" data-carousel-track data-arc-loop="items" data-limit="10">
+            <li class="voices__slide">
+                <figure class="voices__card">
+                    <img class="voices__avatar" src="{{coverImage}}" alt="Profile photo" width="68" height="68"
+                        loading="lazy" decoding="async">
+                    <div class="voices__body">
+                        <div class="voices__stars" data-arc-repeat="voices-of-impact_rating" data-max="5">
+                            <i class="fa-solid fa-star"></i>
+                            <i class="fa-solid fa-star-half"></i>
+                        </div>
+                        <blockquote class="voices__quote" data-arc-bind="voices-of-impact_comment">GoWow has helped our
+                            students discover purpose through volunteering. The platform is easy to use and the impact
+                            is real.</blockquote>
+                        <figcaption class="voices__author">– <span data-arc-bind="voices-of-impact_name">Prof. Ritu
+                                Sharma</span><span class="voices__role"
+                                data-arc-bind="voices-of-impact_designation">Dean, Student Affairs, JD College,
+                                Nagpur</span></figcaption>
+                    </div>
+                </figure>
+            </li>
+        </ul>
+
+        <button class="carousel-btn carousel-btn--next" type="button" data-carousel-next aria-label="Next testimonial">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" />
+            </svg>
+            <span class="visually-hidden">Next testimonial</span>
+        </button>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="partialsEmptyState">
+        <i class="fas fa-comments"></i>
+        <h3>No Testimonials Yet</h3>
+        <p>Check back soon for content.</p>
+    </div>
+</div>
