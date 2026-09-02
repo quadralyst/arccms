@@ -38,6 +38,18 @@ Arc CMS uses Firestore and Cloud Storage security rules to control data access. 
 | `Settings/users` | Public | Admin | Signup toggle |
 | `Settings/email` | Admin | Admin | Contains SMTP credentials |
 | `Settings/integrations` | Admin | Admin | Contains API keys (Unsplash) |
+| `Settings/analytics` | Admin | Admin | Contains the Google OAuth client secret |
+| `Settings/dodo-payments` | Admin | Admin | Contains payment API keys + webhook secret |
+
+> **`Settings/emailTestingConnection` no longer exists.** Testing an email provider
+> used to write the provider configuration — SMTP password, Gmail password, Resend
+> API key — into that document for a Firestore trigger to act on, and nothing ever
+> cleared it. It is now the `testSmtpConfigConnection` callable, which authenticates
+> the caller and keeps the credentials in the request body. Do not add a rule for
+> the document: the one that used to be here was a nested `match` that silently
+> granted nothing, and a downstream fork "fixed" it into an unauthenticated
+> read/write grant over live credentials. See `scripts/purge-email-testing-doc.mjs`
+> for cleaning up deployments that still hold the document.
 | `users/{id}` | Authenticated | Owner or Admin | User profiles |
 | `_publish_queue/{id}` | None (Cloud Functions only) | Authenticated | Processed by Cloud Functions |
 | `AnalyticsDashboards/{id}` | Admin | Admin | |
