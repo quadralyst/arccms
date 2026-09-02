@@ -34,6 +34,12 @@ export async function sendPaymentEmail(
     /** ##UPDATES_END_DATE## — used by the updates-ending reminder (E2). */
     updatesEndDate?: string;
   },
+  /**
+   * Stable per-event key. When given, the EmailLogs document id is derived from
+   * it so re-processing the same webhook (the trigger now retries on failure)
+   * can never enqueue a second copy of the same email. Omit for one-shot sends.
+   */
+  dedupeKey?: string,
 ): Promise<void> {
   if (!recipient.email) {
     logger.warn(`sendPaymentEmail(${type}) skipped — no recipient email`);
