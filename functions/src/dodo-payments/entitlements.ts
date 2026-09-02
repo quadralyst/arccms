@@ -83,27 +83,28 @@ export async function grantEntitlement(
       return;
     }
 
-    const expiresAt = opts.nextBillingDate ? Timestamp.fromDate(new Date(opts.nextBillingDate)) : null;
-
-    const entitlement: UserEntitlement = {
+    const entitlement: Omit<UserEntitlement, 'premiumExpiresAt'> = {
       isPro: true,
       premiumType: product.premiumType,
       premiumTierRank: newRank,
       premiumStatus: mapStatus(opts.rawStatus, opts.isTrial),
-      premiumExpiresAt: expiresAt,
       provider: PAYMENT_PROVIDER,
       providerSubscriptionId: opts.subscriptionId ?? null,
-      providerCustomerId: opts.customerId ?? null,
+      // A customer id is stable for the life of the account, so an event that
+      // omits it must never blank out the one we already hold.
+      providerCustomerId: opts.customerId ?? (current['providerCustomerId'] as string | undefined) ?? null,
       // Grandfathering audit trail — the deal locked in at purchase. Preserve the
       // original values on renewals whose webhook omits the checkout metadata.
-      premiumTierLabel: opts.tierLabel ?? (current['premiumTierLabel'] as string | undefined) ?? null,
-      premiumDiscountCode: opts.discountCode ?? (current['premiumDiscountCode'] as string | undefined) ?? null,
+      // Checkout metadata round-trips absent fields as '', so treat empty as absent.
+      premiumTierLabel: firstNonEmpty(opts.tierLabel, current['premiumTierLabel']),
+      premiumDiscountCode: firstNonEmpty(opts.discountCode, current['premiumDiscountCode']),
     };
 
     tx.set(
       userRef,
       {
         ...entitlement,
+        ...expiresAtPatch(product, current, opts),
         ...updatesUntilPatch(product, current, opts.eventAt),
         ...eventAtPatch(current, opts.eventAt),
         modifiedAt: Timestamp.now(),
@@ -111,6 +112,73 @@ export async function grantEntitlement(
       { merge: true },
     );
   });
+}
+
+/** First of `incoming`/`stored` that is a non-empty string, else null. */
+function firstNonEmpty(incoming: string | undefined, stored: unknown): string | null {
+  if (typeof incoming === 'string' && incoming !== '') return incoming;
+  if (typeof stored === 'string' && stored !== '') return stored;
+  return null;
+}
+
+/**
+ * Resolve the subscription expiry (`premiumExpiresAt`) for this event.
+ *
+ * Returns a merge patch, and — critically — `{}` (leave the stored value alone)
+ * rather than ever writing `null` over a date we already know. Dodo's `Payment`
+ * payloads carry a `subscription_id` but no `next_billing_date`, so the
+ * `payment.succeeded` that accompanies every `subscription.active`/`.renewed`
+ * would otherwise wipe the expiry it just set.
+ *
+ * Precedence:
+ *  1. the gateway's own `next_billing_date` — authoritative, always wins;
+ *  2. an already-stored expiry still in the future — the current period is intact,
+ *     so a date-less event for the same charge changes nothing;
+ *  3. derived from the event time + the product's trial/billing interval — this is
+ *     what advances the expiry on a charge the gateway sent no date for;
+ *  4. nothing we can compute (no interval configured) — leave it alone.
+ *
+ * One-time products have no expiry: the field is deleted so a lifetime grant can
+ * never be picked up by the daily expiry sweep.
+ */
+function expiresAtPatch(
+  product: ProductDoc,
+  current: Record<string, unknown>,
+  opts: { subscriptionId?: string; nextBillingDate?: string; eventAt?: Date; isTrial?: boolean },
+): Record<string, unknown> {
+  // Trust the event over the product doc: anything carrying a subscription id is a
+  // subscription, whatever `type` says (older products may have no `type` at all).
+  const isSubscription = !!opts.subscriptionId || product.type === 'subscription';
+  if (!isSubscription) {
+    return product.type === 'one_time' ? { premiumExpiresAt: FieldValue.delete() } : {};
+  }
+
+  if (opts.nextBillingDate) {
+    const gatewayDate = new Date(opts.nextBillingDate);
+    if (!isNaN(gatewayDate.getTime())) return { premiumExpiresAt: Timestamp.fromDate(gatewayDate) };
+    logger.warn('Ignoring unparseable next_billing_date', { nextBillingDate: opts.nextBillingDate });
+  }
+
+  const base = opts.eventAt ?? new Date();
+  const stored = current['premiumExpiresAt'];
+  if (stored instanceof Timestamp && stored.toDate().getTime() > base.getTime()) return {};
+
+  const derived = new Date(base.getTime());
+  if (opts.isTrial && (product.trialDays ?? 0) > 0) {
+    derived.setDate(derived.getDate() + (product.trialDays as number));
+  } else if (product.interval === 'year') {
+    derived.setFullYear(derived.getFullYear() + 1);
+  } else if (product.interval === 'month') {
+    // Month-end overflow (Jan 31 → Mar 3) rounds the period *up*, which errs
+    // toward keeping access — the safe direction for a fallback estimate.
+    derived.setMonth(derived.getMonth() + 1);
+  } else {
+    logger.warn('No next_billing_date and no product interval — leaving premiumExpiresAt unchanged', {
+      premiumType: product.premiumType,
+    });
+    return {};
+  }
+  return { premiumExpiresAt: Timestamp.fromDate(derived) };
 }
 
 /**

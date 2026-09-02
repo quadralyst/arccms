@@ -31,7 +31,12 @@ function normalizeMax(maxCount: number): number {
  */
 export function displayPrice(product: Pick<IProduct, 'tiers' | 'purchaseCount' | 'price'>): number | null {
     const tier = resolveDisplayTier(product);
-    if (tier && typeof tier.price === 'number') return tier.price;
+    if (tier) {
+        if (typeof tier.price === 'number') return tier.price;
+        if (typeof tier.discountPct === 'number' && typeof product.price === 'number') {
+            return product.price * (1 - tier.discountPct / 100);
+        }
+    }
     return typeof product.price === 'number' ? product.price : null;
 }
 

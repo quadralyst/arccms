@@ -126,6 +126,50 @@ export function refundCredits(
 }
 
 /**
+ * How many credits a refunded charge should claw back.
+ *
+ * Reads the allowance that charge actually granted rather than assuming the
+ * product's current per-charge figure: a subscription refunded after several
+ * renewals granted its allowance once per charge, so `product.creditsGranted`
+ * describes one period, not the balance — and if the product's allowance was
+ * edited since purchase, it no longer describes even that.
+ *
+ * A one-time purchase resolves exactly (its grant has a deterministic ledger id
+ * keyed on the payment). Subscription payloads carry no payment id on the grant,
+ * so the refunded charge maps to the most recent allowance for that subscription.
+ * Falls back to the product figure when no ledger entry can be found.
+ */
+export async function refundableCreditAmount(opts: {
+  providerPaymentId?: string;
+  providerSubscriptionId?: string;
+  fallback: number;
+}): Promise<number> {
+  if (opts.providerPaymentId) {
+    const direct = await db.collection(LEDGER).doc(`grant:pay:${opts.providerPaymentId}`).get();
+    const delta = direct.exists ? (direct.data()?.['delta'] as number | undefined) : undefined;
+    if (typeof delta === 'number' && delta > 0) return delta;
+  }
+
+  if (opts.providerSubscriptionId) {
+    const recent = await db
+      .collection(LEDGER)
+      .where('providerSubscriptionId', '==', opts.providerSubscriptionId)
+      .orderBy('createdAt', 'desc')
+      .limit(GRANT_LOOKBACK)
+      .get();
+    const grant = recent.docs
+      .map((d) => d.data() as CreditLedgerDoc)
+      .find((e) => e.delta > 0 && (e.reason === 'purchase' || e.reason === 'renewal'));
+    if (grant) return grant.delta;
+  }
+
+  return opts.fallback;
+}
+
+/** Ledger entries scanned back from a subscription's newest entry to find its last grant. */
+const GRANT_LOOKBACK = 20;
+
+/**
  * Spend credits (app usage). Rejects with Error('insufficient-credits') when the
  * balance is too low. Not idempotent — each call is a distinct debit.
  */

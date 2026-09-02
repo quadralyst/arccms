@@ -53,7 +53,6 @@ describe('ContentPartialsComponent', () => {
         await TestBed.configureTestingModule({
             imports: [ContentPartialsComponent],
             providers: [
-                { provide: ContentsStore, useValue: mockContentsStore },
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: HttpClient, useValue: mockHttpClient },
                 { provide: GlobalService, useValue: mockGlobalService },
