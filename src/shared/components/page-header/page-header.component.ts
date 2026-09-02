@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
+import { AdminLanguagePickerComponent } from '../admin-language-picker/admin-language-picker.component';
 
 /**
  * Unified page header used across the admin AND signed-in user areas.
@@ -18,7 +19,7 @@ import { NotificationBellComponent } from '../notification-bell/notification-bel
 @Component({
     selector: 'arc-page-header',
     standalone: true,
-    imports: [NotificationBellComponent],
+    imports: [NotificationBellComponent, AdminLanguagePickerComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <header class="arc-page-header">
@@ -35,6 +36,9 @@ import { NotificationBellComponent } from '../notification-bell/notification-bel
             </div>
             <div class="actions">
                 <ng-content></ng-content>
+                @if (showLanguagePicker) {
+                <arc-admin-language-picker></arc-admin-language-picker>
+                }
                 @if (showBell) {
                 <span class="bell-slot"><arc-notification-bell></arc-notification-bell></span>
                 }
@@ -112,6 +116,12 @@ export class PageHeaderComponent {
     @Input() subtitle?: string;
     /** Bell shows by default; set false for contexts without notifications (e.g. onboarding). */
     @Input() showBell = true;
+    /**
+     * The admin UI language picker, shown by default so someone who has landed
+     * in a language they cannot read can get out of it from wherever they are.
+     * Turn it off alongside the bell in contexts with no signed-in admin.
+     */
+    @Input() showLanguagePicker = true;
     /** Show an inline back button before the title (for detail/sub pages). */
     @Input() showBack = false;
     @Output() back = new EventEmitter<void>();

@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -29,7 +30,7 @@ export const routeMeta: RouteMeta = {
     standalone: true,
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatDialogModule,
-        MatSidenavModule, MatTooltipModule, GlobalTableComponent, TagDrawerComponent, PageHeaderComponent,
+        MatSidenavModule, MatTooltipModule, GlobalTableComponent, TagDrawerComponent, PageHeaderComponent, TranslocoPipe,
     ],
     templateUrl: './contact-tags.page.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -56,28 +57,28 @@ export default class ContactTagsPageComponent implements OnInit {
         // `tags` type renders label+colour through Angular bindings, so labels
         // never need hand-escaping into markup.
         {
-            key: 'label', header: 'Tag', type: 'tags',
+            key: 'label', header: 'admin.audience.tags.tag', type: 'tags',
             transformFn: (r) => [r],
             tagConfig: { class: 'tag-label' },
         },
-        { key: 'id', header: 'ID', type: 'code', classFn: () => 'small text-muted' },
+        { key: 'id', header: 'common.table.id', type: 'code', classFn: () => 'small text-muted' },
         {
-            key: 'usageCount', header: 'Contacts', type: 'text',
+            key: 'usageCount', header: 'admin.audience.tags.contacts', type: 'text',
             transformFn: (r) => r.usageCount || 0,
         },
         {
-            key: 'actions', header: 'Actions', type: 'actions',
+            key: 'actions', header: 'common.table.actions', type: 'actions',
             actions: [
                 {
-                    action: 'view', icon: 'fas fa-user-group text-primary', label: 'View contacts', class: 'edit',
+                    action: 'view', icon: 'fas fa-user-group text-primary', label: 'admin.audience.tags.view_contacts', class: 'edit',
                     hide: (row) => !row.usageCount, onAction: (row) => this.viewContacts(row),
                 },
                 {
-                    action: 'edit', icon: 'fas fa-pen text-primary', label: 'Edit', class: 'edit',
+                    action: 'edit', icon: 'fas fa-pen text-primary', label: 'common.actions.edit', class: 'edit',
                     isRowClick: true, onAction: (row) => this.openEdit(row),
                 },
                 {
-                    action: 'delete', icon: 'fas fa-trash text-danger', label: 'Delete', class: 'delete',
+                    action: 'delete', icon: 'fas fa-trash text-danger', label: 'common.actions.delete', class: 'delete',
                     onAction: (row) => this.confirmDelete(row),
                 },
             ],

@@ -3,15 +3,56 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
 import { generateAndDeployContentDetailPage, removeContentPage } from '../pages/deployContentPage.js';
+import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
 import { generateAndDeploySitemap } from '../pages/generateSitemap.js';
 import { generateAndDeployRssFeeds } from '../pages/generateRssFeed.js';
 
 interface QueueItem {
-    action: 'publish' | 'unpublish' | 'update' | 'delete';
+    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all';
     contentTypeSlug: string;
     docId: string;
     timestamp: Timestamp;
+}
+
+/**
+ * Rebuilds every published page into one batch.
+ *
+ * One batch, and therefore one Hosting release, is the whole point. Releases
+ * are built from the *previous* release's file list, so two of them finishing
+ * within a second of each other silently drop one another's files — which is
+ * exactly what a per-document repair loop does. Site-wide repair has to be a
+ * single queue item.
+ */
+async function collectAllPublishedPages(batch: HostingBatch): Promise<number> {
+    const contentTypes = await db.collection('ContentTypes').get();
+    let pages = 0;
+
+    for (const typeDoc of contentTypes.docs) {
+        const { slug, hasPublicUrl } = typeDoc.data() as { slug?: string; hasPublicUrl?: boolean };
+        if (!slug || hasPublicUrl === false) continue;
+
+        const published = await db.collection(getPublishedCollectionName(slug)).get();
+        if (published.empty) continue;
+
+        for (const doc of published.docs) {
+            try {
+                await generateAndDeployContentDetailPage(slug, doc.id, batch);
+                pages++;
+            } catch (error) {
+                // One unbuildable page must not cost the other 23 their repair.
+                console.error(`Could not rebuild ${slug}/${doc.id}:`, error);
+            }
+        }
+
+        try {
+            await generateAndDeployContentListPage(slug, batch);
+        } catch (error) {
+            console.error(`Could not rebuild the ${slug} list page:`, error);
+        }
+    }
+
+    return pages;
 }
 
 /**
@@ -98,15 +139,47 @@ async function stampLastPublishedAt(draftCollection: string, docId: string): Pro
  *
  * This replaces the old wildcard triggers that fired for every Firestore write.
  */
-export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}', async (event) => {
+export const processPublishQueue = onDocumentCreated({
+    document: '_publish_queue/{queueId}',
+    // A 'redeploy-all' rebuilds every published page in one invocation —
+    // template fetches and all — which does not fit in the 60s default.
+    timeoutSeconds: 540,
+    memory: '512MiB',
+}, async (event) => {
     const queueData = event.data?.data() as QueueItem | undefined;
     if (!queueData) return;
 
     const { action, contentTypeSlug, docId } = queueData;
     const queueDocRef = event.data?.ref;
 
-    if (!contentTypeSlug || !docId || !action) {
+    // 'redeploy-all' is site-wide, so it names no content type and no document.
+    if (!action || (action !== 'redeploy-all' && (!contentTypeSlug || !docId))) {
         console.error('Invalid queue item — missing required fields:', queueData);
+        if (queueDocRef) await queueDocRef.delete();
+        return;
+    }
+
+    // Everything this queue item touches — every language variant, the list
+    // pages, the sitemap and the feeds — goes out as ONE Hosting release.
+    // Deploying them one at a time raced: a later deploy could be built from
+    // a release list that had not caught up and silently drop an earlier
+    // file, which cost a translated page (docs/_todo.md item 3c).
+    const batch = new HostingBatch();
+
+    // Handled ahead of the per-document setup below, which needs a document to
+    // point at. This one is about the site, not about a document.
+    if (action === 'redeploy-all') {
+        try {
+            const pages = await collectAllPublishedPages(batch);
+            await generateAndDeploySitemap(batch);
+            await generateAndDeployRssFeeds(batch);
+            if (!batch.isEmpty) {
+                await deployBatchToHosting(process.env.GCLOUD_PROJECT || '', batch, '', '');
+            }
+            console.log(`Redeployed ${pages} page(s) in ${batch.size} file(s)`);
+        } catch (error) {
+            console.error('Site-wide redeploy failed:', error);
+        }
         if (queueDocRef) await queueDocRef.delete();
         return;
     }
@@ -146,11 +219,33 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 // Skip entirely when ContentType.hasPublicUrl is false
                 if (hasPublicUrl) {
                     try {
-                        await generateAndDeployContentDetailPage(contentTypeSlug, docId);
-                        await generateAndDeployContentListPage(contentTypeSlug);
+                        await generateAndDeployContentDetailPage(contentTypeSlug, docId, batch);
+                        await generateAndDeployContentListPage(contentTypeSlug, batch);
                     } catch (deployErr) {
                         console.error(`Static HTML deployment failed for publish ${contentTypeSlug}/${docId}:`, deployErr);
                     }
+                }
+                break;
+            }
+
+            case 'redeploy': {
+                // Regenerate the static pages from what is already published.
+                //
+                // A `firebase deploy --only hosting` builds its new version
+                // from the previous *release's* file list, which contains only
+                // what the CLI uploaded — so every page this pipeline wrote
+                // disappears from the live site (docs/_todo.md item 3b). The
+                // pages still need restoring, but the drafts behind them may
+                // hold unreviewed edits, so 'publish' is the wrong repair:
+                // it would push those edits live. This reads the published
+                // document and touches no draft.
+                if (!(await publishedRef.get()).exists) {
+                    console.warn(`Nothing published to redeploy: ${publishedCollection}/${docId}`);
+                    break;
+                }
+                if (hasPublicUrl) {
+                    await generateAndDeployContentDetailPage(contentTypeSlug, docId, batch);
+                    await generateAndDeployContentListPage(contentTypeSlug, batch);
                 }
                 break;
             }
@@ -201,8 +296,8 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 // Skip entirely when ContentType.hasPublicUrl is false
                 if (hasPublicUrl) {
                     try {
-                        await generateAndDeployContentDetailPage(contentTypeSlug, docId);
-                        await generateAndDeployContentListPage(contentTypeSlug);
+                        await generateAndDeployContentDetailPage(contentTypeSlug, docId, batch);
+                        await generateAndDeployContentListPage(contentTypeSlug, batch);
                     } catch (deployErr) {
                         console.error(`Static HTML deployment failed for update ${contentTypeSlug}/${docId}:`, deployErr);
                     }
@@ -225,9 +320,9 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 if (hasPublicUrl) {
                     try {
                         if (urlSlug) {
-                            await removeContentPage(contentTypeSlug, urlSlug);
+                            await removeContentPage(contentTypeSlug, urlSlug, batch);
                         }
-                        await generateAndDeployContentListPage(contentTypeSlug);
+                        await generateAndDeployContentListPage(contentTypeSlug, batch);
                     } catch (deployErr) {
                         console.error(`Static HTML removal failed for unpublish ${contentTypeSlug}/${docId}:`, deployErr);
                     }
@@ -264,9 +359,9 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
                 if (hasPublicUrl) {
                     try {
                         if (delUrlSlug) {
-                            await removeContentPage(contentTypeSlug, delUrlSlug);
+                            await removeContentPage(contentTypeSlug, delUrlSlug, batch);
                         }
-                        await generateAndDeployContentListPage(contentTypeSlug);
+                        await generateAndDeployContentListPage(contentTypeSlug, batch);
                     } catch (deployErr) {
                         console.error(`Static HTML removal failed for delete ${contentTypeSlug}/${docId}:`, deployErr);
                     }
@@ -282,18 +377,31 @@ export const processPublishQueue = onDocumentCreated('_publish_queue/{queueId}',
         // so SEO files stay current with published content.
         if (hasPublicUrl) {
             try {
-                await generateAndDeploySitemap();
+                await generateAndDeploySitemap(batch);
             } catch (sitemapErr) {
                 console.error('Sitemap regeneration failed:', sitemapErr);
             }
             try {
-                await generateAndDeployRssFeeds();
+                await generateAndDeployRssFeeds(batch);
             } catch (rssErr) {
                 console.error('RSS feed regeneration failed:', rssErr);
             }
         }
     } catch (error) {
         console.error(`Error processing queue item (${action} ${publishedCollection}/${docId}):`, error);
+    }
+
+    // Single release for the whole queue item.
+    if (!batch.isEmpty) {
+        try {
+            // First argument is the Hosting *site*, not the collection — the
+            // deploy silently targets a site that does not exist otherwise.
+            const siteId = process.env.GCLOUD_PROJECT || '';
+            await deployBatchToHosting(siteId, batch, publishedCollection, docId);
+            console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
+        } catch (deployErr) {
+            console.error(`Hosting release failed for ${action} ${contentTypeSlug}/${docId}:`, deployErr);
+        }
     }
 
     // Always clean up the queue document

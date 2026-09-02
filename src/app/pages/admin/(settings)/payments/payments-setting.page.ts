@@ -1,6 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -44,12 +45,11 @@ export const routeMeta: RouteMeta = {
         MatExpansionModule,
         MatTooltipModule,
         MatDialogModule,
-        EmailTemplateEditorComponent,
-    ],
+        EmailTemplateEditorComponent, TranslocoPipe],
     template: `
         <div class="payments-settings">
-            <h3 class="settings-title">Payments</h3>
-            <p class="text-muted mb-4">Configure Dodo Payments and the emails sent on payment events.</p>
+            <h3 class="settings-title">{{ 'admin.settings.hub.payments' | transloco }}</h3>
+            <p class="text-muted mb-4">{{ 'admin.settings.payments.subtitle' | transloco }}</p>
 
             @if (isLoading()) {
                 <div class="d-flex justify-content-center py-5"><mat-spinner diameter="40"></mat-spinner></div>
@@ -57,22 +57,22 @@ export const routeMeta: RouteMeta = {
                 <!-- ═══════════ Connection ═══════════ -->
                 <mat-card class="mb-4 integration-card">
                     <mat-card-header>
-                        <mat-card-title><i class="fa-solid fa-credit-card me-2"></i>Dodo Payments</mat-card-title>
-                        <mat-card-subtitle>API keys and webhook secret are stored server-side and never returned to the browser.</mat-card-subtitle>
+                        <mat-card-title><i class="fa-solid fa-credit-card me-2"></i>{{ 'admin.settings.payments.dodo' | transloco }}</mat-card-title>
+                        <mat-card-subtitle>{{ 'admin.settings.payments.keys_note' | transloco }}</mat-card-subtitle>
                     </mat-card-header>
                     <mat-card-content class="pt-3">
                         <form [formGroup]="form" (ngSubmit)="save()">
                             <div class="mb-3">
-                                <mat-slide-toggle formControlName="enabled" color="primary">Enable Dodo Payments</mat-slide-toggle>
+                                <mat-slide-toggle formControlName="enabled" color="primary">{{ 'admin.settings.payments.enable' | transloco }}</mat-slide-toggle>
                             </div>
 
                             <div class="row">
                                 <div class="col-md-6">
                                     <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>Mode</mat-label>
+                                        <mat-label>{{ 'admin.settings.payments.mode' | transloco }}</mat-label>
                                         <mat-select formControlName="mode">
-                                            <mat-option value="test">Test</mat-option>
-                                            <mat-option value="live">Live</mat-option>
+                                            <mat-option value="test">{{ 'admin.settings.payments.test' | transloco }}</mat-option>
+                                            <mat-option value="live">{{ 'admin.settings.payments.live' | transloco }}</mat-option>
                                         </mat-select>
                                     </mat-form-field>
                                 </div>
@@ -81,13 +81,13 @@ export const routeMeta: RouteMeta = {
                             <div class="row">
                                 <div class="col-md-6">
                                     <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>Test API Key</mat-label>
+                                        <mat-label>{{ 'admin.settings.payments.test_key' | transloco }}</mat-label>
                                         <input matInput formControlName="testApiKey" type="password" autocomplete="off" placeholder="dodo_test_..." />
                                     </mat-form-field>
                                 </div>
                                 <div class="col-md-6">
                                     <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>Live API Key</mat-label>
+                                        <mat-label>{{ 'admin.settings.payments.live_key' | transloco }}</mat-label>
                                         <input matInput formControlName="liveApiKey" type="password" autocomplete="off" placeholder="dodo_live_..." />
                                     </mat-form-field>
                                 </div>
@@ -96,7 +96,7 @@ export const routeMeta: RouteMeta = {
                             <div class="row">
                                 <div class="col-md-6">
                                     <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>Webhook Signing Secret</mat-label>
+                                        <mat-label>{{ 'admin.settings.payments.webhook_secret' | transloco }}</mat-label>
                                         <input matInput formControlName="webhookSecret" type="password" autocomplete="off" placeholder="whsec_..." />
                                     </mat-form-field>
                                 </div>
@@ -105,13 +105,13 @@ export const routeMeta: RouteMeta = {
                             <div class="row">
                                 <div class="col-md-6">
                                     <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>Success / Return URL</mat-label>
+                                        <mat-label>{{ 'admin.settings.payments.success_url' | transloco }}</mat-label>
                                         <input matInput formControlName="successUrl" autocomplete="off" placeholder="https://your-site.com/checkout/success" />
                                     </mat-form-field>
                                 </div>
                                 <div class="col-md-6">
                                     <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>Cancel URL</mat-label>
+                                        <mat-label>{{ 'admin.settings.payments.cancel_url' | transloco }}</mat-label>
                                         <input matInput formControlName="cancelUrl" autocomplete="off" placeholder="https://your-site.com/pricing" />
                                     </mat-form-field>
                                 </div>
@@ -119,19 +119,18 @@ export const routeMeta: RouteMeta = {
 
                             <div class="webhook-hint">
                                 <i class="fa-solid fa-circle-info me-1"></i>
-                                Configure this endpoint in your Dodo dashboard as the webhook URL — the deployed
-                                <code>dodoWebhook</code> Cloud Function (find its URL in the Firebase Console → Functions).
-                                Then paste the webhook's signing secret above.
+                                {{ 'admin.settings.payments.webhook_note' | transloco }}
+                                <code>dodoWebhook</code> {{ 'admin.settings.payments.webhook_note_end' | transloco }}
                             </div>
 
                             <div class="d-flex justify-content-end gap-2 mt-3">
                                 <button mat-stroked-button type="button" (click)="testConnection()" [disabled]="isTesting()">
-                                    @if (isTesting()) { <mat-spinner diameter="18" class="me-2"></mat-spinner> Testing… }
-                                    @else { <i class="fa-solid fa-plug me-2"></i> Test Connection }
+                                    @if (isTesting()) { <mat-spinner diameter="18" class="me-2"></mat-spinner> {{ 'admin.settings.payments.testing' | transloco }} }
+                                    @else { <i class="fa-solid fa-plug me-2"></i> {{ 'admin.settings.payments.test_connection' | transloco }} }
                                 </button>
                                 <button mat-raised-button color="primary" type="submit" [disabled]="isSaving() || form.pristine">
-                                    @if (isSaving()) { <mat-spinner diameter="18" class="me-2"></mat-spinner> Saving… }
-                                    @else { <i class="fa-solid fa-floppy-disk me-2"></i> Save }
+                                    @if (isSaving()) { <mat-spinner diameter="18" class="me-2"></mat-spinner> {{ 'common.actions.saving' | transloco }} }
+                                    @else { <i class="fa-solid fa-floppy-disk me-2"></i> {{ 'common.actions.save' | transloco }} }
                                 </button>
                             </div>
                         </form>
@@ -141,8 +140,8 @@ export const routeMeta: RouteMeta = {
                 <!-- ═══════════ Email templates ═══════════ -->
                 <mat-card class="mb-4 integration-card">
                     <mat-card-header>
-                        <mat-card-title><i class="fa-solid fa-envelope me-2"></i>Payment Emails</mat-card-title>
-                        <mat-card-subtitle>Each email is optional — toggle it on and customize its content. Supports tags like ##NAME##, ##PAYMENT_AMOUNT##, ##SUBSCRIPTION_PLAN##.</mat-card-subtitle>
+                        <mat-card-title><i class="fa-solid fa-envelope me-2"></i>{{ 'admin.settings.payments.emails' | transloco }}</mat-card-title>
+                        <mat-card-subtitle>{{ 'admin.settings.payments.emails_note' | transloco }}</mat-card-subtitle>
                     </mat-card-header>
                     <mat-card-content class="pt-3">
                         <mat-accordion>
@@ -157,28 +156,28 @@ export const routeMeta: RouteMeta = {
 
                                     <div class="mb-2">
                                         <mat-slide-toggle [(ngModel)]="templates[def.type].isActive" color="primary">
-                                            Send this email
+                                            {{ 'admin.settings.payments.send_this' | transloco }}
                                         </mat-slide-toggle>
                                     </div>
                                     <div class="row">
                                         <div class="col-md-6">
                                             <mat-form-field appearance="outline" class="w-100">
-                                                <mat-label>Sender Name</mat-label>
+                                                <mat-label>{{ 'admin.settings.email.sender_name' | transloco }}</mat-label>
                                                 <input matInput [ngModel]="templates[def.type].senderName" (ngModelChange)="onFieldChange(def.type, 'senderName', $event)" />
                                             </mat-form-field>
                                         </div>
                                         <div class="col-md-6">
                                             <mat-form-field appearance="outline" class="w-100">
-                                                <mat-label>Sender Email</mat-label>
+                                                <mat-label>{{ 'admin.settings.email.sender_email' | transloco }}</mat-label>
                                                 <input matInput [ngModel]="templates[def.type].senderEmail" (ngModelChange)="onFieldChange(def.type, 'senderEmail', $event)" />
                                             </mat-form-field>
                                         </div>
                                     </div>
                                     <mat-form-field appearance="outline" class="w-100">
-                                        <mat-label>Subject</mat-label>
+                                        <mat-label>{{ 'admin.settings.payments.subject' | transloco }}</mat-label>
                                         <input matInput [ngModel]="templates[def.type].subject" (ngModelChange)="onFieldChange(def.type, 'subject', $event)" />
                                     </mat-form-field>
-                                    <label class="editor-label">Email body</label>
+                                    <label class="editor-label">{{ 'admin.settings.payments.body' | transloco }}</label>
                                     <arc-email-template-editor
                                         [placeholders]="paymentTags"
                                         [value]="templates[def.type].template"
@@ -189,28 +188,28 @@ export const routeMeta: RouteMeta = {
                                     <div class="template-footer">
                                         @if (awaitingConfirm()[def.type]) {
                                             <div class="confirm-box">
-                                                <span class="confirm-q"><mat-icon class="me-1">mark_email_read</mat-icon> Did you receive the test email?</span>
+                                                <span class="confirm-q"><mat-icon class="me-1">mark_email_read</mat-icon> {{ 'admin.settings.payments.received_question' | transloco }}</span>
                                                 <span class="confirm-actions">
-                                                    <button mat-stroked-button type="button" (click)="confirmReceived(def.type, false)">Not yet</button>
-                                                    <button mat-raised-button color="primary" type="button" (click)="confirmReceived(def.type, true)">Yes, I received it</button>
+                                                    <button mat-stroked-button type="button" (click)="confirmReceived(def.type, false)">{{ 'admin.settings.payments.not_yet' | transloco }}</button>
+                                                    <button mat-raised-button color="primary" type="button" (click)="confirmReceived(def.type, true)">{{ 'admin.settings.payments.received_yes' | transloco }}</button>
                                                 </span>
                                             </div>
                                         }
                                         <div class="footer-row">
                                             <span class="confirm-hint">
                                                 @if (confirmed()[def.type]) {
-                                                    <mat-icon class="ok">check_circle</mat-icon> Test confirmed — you can save.
+                                                    <mat-icon class="ok">check_circle</mat-icon> {{ 'admin.settings.payments.test_confirmed' | transloco }}
                                                 } @else {
-                                                    Send a test email and confirm receipt to enable saving.
+                                                    {{ 'admin.settings.payments.test_prompt' | transloco }}
                                                 }
                                             </span>
                                             <span class="footer-actions">
                                                 <button mat-stroked-button type="button" (click)="sendTest(def)" [disabled]="!templates[def.type].template">
-                                                    <mat-icon class="me-1">send</mat-icon> Test email
+                                                    <mat-icon class="me-1">send</mat-icon> {{ 'admin.settings.payments.test_email' | transloco }}
                                                 </button>
                                                 <button mat-raised-button color="primary" type="button" (click)="saveTemplate(def.type)" [disabled]="savingType() === def.type || !confirmed()[def.type]">
-                                                    @if (savingType() === def.type) { <mat-spinner diameter="18" class="me-2"></mat-spinner> Saving… }
-                                                    @else { Save Template }
+                                                    @if (savingType() === def.type) { <mat-spinner diameter="18" class="me-2"></mat-spinner> {{ 'common.actions.saving' | transloco }} }
+                                                    @else { {{ 'admin.settings.payments.save_template' | transloco }} }
                                                 </button>
                                             </span>
                                         </div>
@@ -333,10 +332,10 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
                 webhookSecret: this.form.value.webhookSecret ? MASKED_VALUE : '',
             });
             this.form.markAsPristine();
-            this.toastService.success('Payment settings saved.');
+            this.notify.success('admin.settings.payments.saved');
         } catch (e) {
             console.error(e);
-            this.toastService.error('Failed to save payment settings.');
+            this.notify.error('admin.settings.payments.save_failed');
         } finally {
             this.isSaving.set(false);
         }
@@ -347,9 +346,9 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
         try {
             const result = await this.service.testConnection();
             if (result.success) {
-                this.toastService.success(`Connected to Dodo Payments (${result.mode} mode).`);
+                this.notify.success('admin.settings.payments.connected', { mode: result.mode });
             } else {
-                this.toastService.error(`Connection failed: ${result.error ?? 'unknown error'}`);
+                this.notify.error('admin.settings.payments.connect_failed', { error: result.error ?? this.t('admin.settings.payments.unknown_error') });
             }
         } catch (e) {
             console.error(e);

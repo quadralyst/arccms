@@ -150,6 +150,28 @@ export interface IEmailSettings {
 }
 
 /**
+ * Payload for the `testSmtpConfigConnection` callable.
+ *
+ * Provider credentials travel in the request body and are never persisted.
+ * This replaced a Firestore round-trip through `Settings/emailTestingConnection`,
+ * which left the SMTP password / Resend API key sitting in the database
+ * indefinitely — nothing ever cleared them.
+ */
+export interface IConnectionTestPayload {
+    config: IEmailSettings;
+    activeProvider: EmailProvider;
+    testEmail?: string;
+    subject?: string;
+    message?: string;
+}
+
+/** Result returned by the `testSmtpConfigConnection` callable. */
+export interface IConnectionTestResult {
+    success: boolean;
+    message: string;
+}
+
+/**
  * Whether `settings` carries a valid provider configuration.
  * Mirrors the Email Settings page's `isProviderConfigValid()` but operates on
  * plain data so callers without a live provider component (e.g. the onboarding

@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Functions, httpsCallable } from '@angular/fire/functions';
@@ -34,8 +35,7 @@ import { toJsDate } from '../payments-ui/date-utils';
         MatTableModule,
         MatChipsModule,
         UserShellComponent,
-        PageHeaderComponent,
-    ],
+        PageHeaderComponent, TranslocoPipe],
     template: `
         <app-user-shell>
         <div class="account-container animate-fade-in">

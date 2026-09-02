@@ -6,7 +6,6 @@ import { take } from 'rxjs';
 import { ConstantVariables } from '../../shared/constants';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { AuthState } from './(auth)/auth.store';
-import { AuthService } from './(auth)/auth.service';
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
 
 export const routeMeta: RouteMeta = {
@@ -22,7 +21,6 @@ export const routeMeta: RouteMeta = {
 })
 export default class AuthCheckerComponent implements OnInit {
     authStore = inject(AuthState);
-    authService = inject(AuthService);
     private setupService = inject(OnboardingSetupService);
     constantVariables = inject(ConstantVariables);
     router = inject(Router);
@@ -37,30 +35,22 @@ export default class AuthCheckerComponent implements OnInit {
             return;
         }
 
-        // Check for first run before role-based routing
-        this.authService.isFirstRun().pipe(take(1)).subscribe((firstRun) => {
-            if (firstRun) {
+        // Send first-run and abandoned-wizard installs to onboarding before
+        // role-based routing.
+        this.setupService.shouldShowOnboarding().pipe(take(1)).subscribe((showOnboarding) => {
+            if (showOnboarding) {
                 this.router.navigate(['/onboarding']);
                 this.isLoading = false;
                 return;
             }
 
-            // Also redirect if onboarding wizard was started but not completed
-            this.setupService.isOnboardingComplete().pipe(take(1)).subscribe((complete) => {
-                if (!complete) {
-                    this.router.navigate(['/onboarding']);
-                    this.isLoading = false;
-                    return;
+            this.authStore.initAuthStateListener().subscribe((res: any) => {
+                if (res?.role === this.constantVariables.ADMIN) {
+                    this.router.navigate(['/admin/dashboard']);
+                } else {
+                    this.router.navigate(['/signup']);
                 }
-
-                this.authStore.initAuthStateListener().subscribe((res: any) => {
-                    if (res?.role === this.constantVariables.ADMIN) {
-                        this.router.navigate(['/admin/dashboard']);
-                    } else {
-                        this.router.navigate(['/signup']);
-                    }
-                    this.isLoading = false;
-                });
+                this.isLoading = false;
             });
         });
     }

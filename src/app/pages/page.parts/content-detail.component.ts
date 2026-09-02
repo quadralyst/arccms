@@ -9,7 +9,7 @@ import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
-import { ContentType } from '../admin/contents/content-types/content-types.model';
+import { ContentType, contentTypeName } from '../admin/contents/content-types/content-types.model';
 import { IContents } from '../admin/contents/content-store/published-contents.model';
 import { DraftContentsStore } from '../admin/contents/draft-content-store/draft-contents.store';
 import { Auth, authState } from '@angular/fire/auth';
@@ -25,6 +25,7 @@ import { ContentsService } from '../admin/contents/content-store/published-conte
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
 import {
     IContentTranslation,
+    localizedPageTitle,
     mergeTranslation,
 } from '../admin/contents/draft-content-store/content-translation.model';
 
@@ -73,7 +74,7 @@ import {
             <header class="article-header">
                 <div class="container">
                     <a class="article-back-link" [href]="listUrl()">
-                        <i class="fas fa-arrow-left"></i> <span data-arc-t="back_to" [data-arc-t-params]="{ contentType: currentContentType()?.name }">Back to {{ currentContentType()?.name }}</span>
+                        <i class="fas fa-arrow-left"></i> <span data-arc-t="back_to" [data-arc-t-params]="{ contentType: typeName() }">Back to {{ typeName() }}</span>
                     </a>
                     <h1 class="article-title">{{ currentContent()?.title }}</h1>
                     <div class="article-meta">
@@ -132,7 +133,7 @@ import {
                     <nav class="article-navigation">
                         <a [href]="listUrl()" class="nav-back">
                             <i class="fas fa-th-large"></i>
-                            <span data-arc-t="all_of_type" [data-arc-t-params]="{ contentType: currentContentType()?.name }">All {{ currentContentType()?.name }}</span>
+                            <span data-arc-t="all_of_type" [data-arc-t-params]="{ contentType: typeName() }">All {{ typeName() }}</span>
                         </a>
                     </nav>
                 </div>
@@ -497,6 +498,12 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         return `${prefix}/${this.contentTypeSlug()}`;
     }
 
+    /** The content type's name in the page's language (M-D19). */
+    typeName = computed(() => {
+        const type = this.currentContentType();
+        return type ? contentTypeName(type, this.pageLang()) : '';
+    });
+
     /** Language prefix of the current URL — '' on the default-language routes. */
     pageLang = signal<string>('');
     /** Translation for `pageLang`, once loaded. */
@@ -541,6 +548,19 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     /** Guards against re-reading the translation on every store emission. */
     private translationRequested = false;
 
+    /** Tells the switcher which languages this item actually exists in. */
+    private async announceVariants(typeSlug: string, docId: string): Promise<void> {
+        const defaultLang = this.localization.defaultLanguage();
+        try {
+            const translated = await this.injector
+                .get(ContentsService)
+                .getTranslatedLanguages(typeSlug, docId);
+            this.localization.languageVariants.set([defaultLang, ...translated]);
+        } catch {
+            this.localization.languageVariants.set([defaultLang]);
+        }
+    }
+
     /**
      * Reads the language variant for this page. Published content first; a
      * preview falls back to the draft variant, so an unpublished translation
@@ -581,16 +601,21 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // document id is not known before then. Reads only the store and the
         // language, so writing `translation` below cannot re-trigger it.
         effect(() => {
-            const lang = this.pageLang();
             const items = this.contentsStore.items();
-            if (!lang || this.translationRequested) return;
+            if (this.translationRequested) return;
 
             const match = items.find((content: IContents) =>
                 content.urlSlug === this.urlSlug() && content.type === this.contentTypeSlug());
             if (!match?.id) return;
 
             this.translationRequested = true;
-            untracked(() => this.loadTranslation(lang, this.contentTypeSlug(), match.id));
+            const lang = this.pageLang();
+            untracked(() => {
+                if (lang) this.loadTranslation(lang, this.contentTypeSlug(), match.id);
+                // The switcher may now offer exactly the languages this item
+                // has, rather than everything enabled site-wide.
+                this.announceVariants(this.contentTypeSlug(), match.id);
+            });
         });
 
         effect(() => {
@@ -668,8 +693,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         this.urlSlug.set(contentSlug);
         this.isPreview.set(isPreview);
         this.pageLang.set(lang);
-        // Content pages are published per language, so the switcher applies here.
-        this.localization.hasLanguageVariants.set(true);
+        // Filled in once the published translations are known; until then the
+        // default language alone, so no dead link is ever offered.
+        this.localization.languageVariants.set(
+            [this.localization.defaultLanguage()],
+        );
         // Chrome for this page's language; '' restores the authored English.
         this.uiStrings.use(lang);
 
@@ -702,8 +730,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     }
 
     ngOnDestroy(): void {
-        // The next page may not have language variants.
-        this.localization.hasLanguageVariants.set(false);
+        // The next page may have no variants at all.
+        this.localization.languageVariants.set(null);
         if (this.notFoundTimer !== null) {
             clearTimeout(this.notFoundTimer);
             this.notFoundTimer = null;
@@ -737,8 +765,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // This ensures share links point to the correct canonical address.
         const shareUrl = content.canonicalUrl ||
             (typeof window !== 'undefined' ? window.location.href : '');
-        // Prefer seoTitle for share text — consistent with what OG tags use.
-        const shareTitle = (content as any).seoTitle || content.title || '';
+        // Prefer seoTitle for share text — consistent with what OG tags use,
+        // but never across languages: an untranslated seoTitle must not put the
+        // base language back on a translated page.
+        const shareTitle = localizedPageTitle(content, this.translation());
         const shareSummary = content.metaDescription || '';
 
         switch (platform) {
@@ -759,8 +789,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
      * Update page SEO meta tags from content data
      */
     private updateSeoMeta(content: IContents): void {
-        // Set page title - prefer seoTitle, fallback to title
-        const pageTitle = content.seoTitle || content.title;
+        // Set page title - prefer seoTitle, fallback to title, but never let an
+        // untranslated seoTitle outrank a translated title (localizedPageTitle).
+        const pageTitle = localizedPageTitle(content, this.translation());
         if (pageTitle) {
             this.titleService.setTitle(pageTitle);
         }
@@ -884,10 +915,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
         // Prepare share URLs (SSR-safe).
         // Prefer canonicalUrl when set — consistent with what og:url uses.
-        // Prefer seoTitle for share text — consistent with what og:title uses.
+        // Prefer seoTitle for share text — consistent with what og:title uses,
+        // but never across languages (see localizedPageTitle).
         const shareUrl = content.canonicalUrl ||
             (isPlatformBrowser(this.platformId) ? window.location.href : '');
-        const shareTitle = (content as any).seoTitle || content.title || '';
+        const shareTitle = localizedPageTitle(content, this.translation());
         const shareSummary = content.summary || content.metaDescription || '';
 
         const share = {

@@ -7,6 +7,7 @@
 
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, DatePipe } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, ViewChild, TemplateRef } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -53,7 +54,8 @@ export const routeMeta: RouteMeta = {
         EditUserComponent,
         ViewUserComponent,
         GlobalTableComponent,
-        PageHeaderComponent
+        PageHeaderComponent,
+        TranslocoPipe
     ],
     providers: [DatePipe, ConstantVariables],
     templateUrl: './users.html',
@@ -344,28 +346,28 @@ export default class UsersComponent {
         this.tableColumns = [
             {
                 key: 'index',
-                header: '#',
+                header: 'common.table.index',
                 type: 'index'
             },
             {
                 key: 'name',
-                header: 'Name',
+                header: 'common.table.name',
                 clickable: true,
                 classFn: () => 'fw-bold cursor-pointer text-primary'
             },
             {
                 key: 'email',
-                header: 'Email',
+                header: 'common.table.email',
                 type: 'text'
             },
             {
                 key: 'role',
-                header: 'Role',
+                header: 'common.table.role',
                 type: 'text'
             },
             {
                 key: 'isActive',
-                header: 'Status',
+                header: 'common.table.status',
                 type: 'badge',
                 badgeConfig: {
                     trueClass: 'active',
@@ -376,26 +378,26 @@ export default class UsersComponent {
             },
             {
                 key: 'createdAt', // Using creationTime directly
-                header: 'Joined',
+                header: 'common.table.joined',
                 type: 'date',
                 dateFormat: 'EEE, MMM d, y'
             },
             {
                 key: 'actions',
-                header: 'Actions',
+                header: 'common.table.actions',
                 type: 'actions',
                 actions: [
                     {
                         action: 'view',
                         icon: 'fas fa-eye text-secondary',
-                        label: 'View',
+                        label: 'common.actions.view',
                         class: 'view',
                         onAction: (row) => this.openView(row.id)
                     },
                     {
                         action: 'edit',
                         icon: 'fas fa-pen text-primary',
-                        label: 'Edit',
+                        label: 'common.actions.edit',
                         class: 'edit',
                         onAction: (row) => this.openEdit(row.id)
                     },
@@ -410,7 +412,7 @@ export default class UsersComponent {
                     {
                         action: 'verify',
                         icon: 'fas fa-user-check',
-                        label: 'Verify',
+                        label: 'admin.users.verify',
                         class: 'verify',
                         hide: (row) => !!row.emailVerified,
                         onAction: (row) => this.openVerify(row)
@@ -418,7 +420,7 @@ export default class UsersComponent {
                     {
                         action: 'delete',
                         icon: 'fas fa-trash text-danger', // Using fas as in Waitlists
-                        label: 'Delete',
+                        label: 'common.actions.delete',
                         class: 'delete',
                         onAction: (row) => this.deleteItem(row)
                     }

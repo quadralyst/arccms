@@ -2,6 +2,7 @@ import { db } from '../init.js';
 import { getSiteConfig, getLocalizationSettings } from '../shared/site-settings.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { deploySeoFileToHosting } from './deploySeoFile.js';
+import { HostingBatch } from './deployToHosting.js';
 import { detailUrl, listUrl } from '../shared/content-translation.js';
 
 /** Known static pages to include in the sitemap. */
@@ -38,7 +39,7 @@ function toIsoDate(date: any): string {
  *  - Individual published content pages (priority 0.8)
  *  - Known static pages (priority 0.4)
  */
-export async function generateAndDeploySitemap(): Promise<void> {
+export async function generateAndDeploySitemap(batch?: HostingBatch): Promise<void> {
     const siteConfig = await getSiteConfig();
     const baseUrl = siteConfig.baseUrl.replace(/\/+$/, '');
 
@@ -137,7 +138,7 @@ export async function generateAndDeploySitemap(): Promise<void> {
     ].join('\n');
 
     // 6. Deploy
-    await deploySeoFileToHosting('/sitemap.xml', xml);
+    await deploySeoFileToHosting('/sitemap.xml', xml, batch);
 }
 
 function buildUrlEntry(

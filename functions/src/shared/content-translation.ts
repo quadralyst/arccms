@@ -128,3 +128,28 @@ export function mergeTranslation<T extends object>(
 
     return merged as T;
 }
+
+/**
+ * The page title for one language variant.
+ *
+ * `seoTitle || title` is the right precedence *within* a language and the
+ * wrong one across two: a translator who filled in the title but left the SEO
+ * title blank would get the base language's `seoTitle` — English chrome on an
+ * otherwise translated page, which is what a translated page exists to avoid.
+ * So the translation is asked first, in full, and only a language with nothing
+ * to say falls back.
+ *
+ * Mirrors localizedPageTitle in
+ * src/app/pages/admin/contents/draft-content-store/content-translation.model.ts,
+ * so the static page and the SPA fallback title a page the same way.
+ */
+export function localizedPageTitle(
+    localizedContent: { seoTitle?: string; title?: string },
+    translation?: { seoTitle?: string; title?: string } | null,
+): string {
+    return translation?.seoTitle
+        || translation?.title
+        || localizedContent.seoTitle
+        || localizedContent.title
+        || '';
+}

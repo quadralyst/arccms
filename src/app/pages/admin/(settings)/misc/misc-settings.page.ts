@@ -7,6 +7,8 @@
  */
 
 import { Component, inject, Injector, runInInjectionContext, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { injectT } from '../../../../core/i18n/inject-t';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
@@ -16,16 +18,16 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
   selector: 'arc-misc-settings',
   template: `
     <div class="settings-section">
-      <h3 class="mb-4">Miscellaneous</h3>
+      <h3 class="mb-4">{{ 'admin.settings.hub.misc.label' | transloco }}</h3>
 
-      <h4>Media Upload</h4>
+      <h4>{{ 'admin.settings.misc.media_upload' | transloco }}</h4>
       <p class="text-muted mb-4">
-        Configure constraints for uploaded media images. Images exceeding the max dimensions will be automatically resized before upload.
+        {{ 'admin.settings.misc.media_intro' | transloco }}
       </p>
 
       <div class="row mb-3">
         <div class="col-md-4 mb-3">
-          <label class="form-label" for="mediaMaxFileSize">Max File Size (MB)</label>
+          <label class="form-label" for="mediaMaxFileSize">{{ 'admin.settings.misc.max_file_size' | transloco }}</label>
           <input
             type="number"
             class="form-control"
@@ -35,11 +37,11 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
             min="1"
             max="50"
           />
-          <small class="text-muted d-block mt-1">Maximum allowed file size before upload (default: 5 MB).</small>
+          <small class="text-muted d-block mt-1">{{ 'admin.settings.misc.max_file_size_hint' | transloco }}</small>
         </div>
 
         <div class="col-md-4 mb-3">
-          <label class="form-label" for="mediaMaxWidth">Max Width (px)</label>
+          <label class="form-label" for="mediaMaxWidth">{{ 'admin.settings.misc.max_width' | transloco }}</label>
           <input
             type="number"
             class="form-control"
@@ -49,11 +51,11 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
             min="100"
             max="7680"
           />
-          <small class="text-muted d-block mt-1">Images wider than this will be resized (default: 1920).</small>
+          <small class="text-muted d-block mt-1">{{ 'admin.settings.misc.max_width_hint' | transloco }}</small>
         </div>
 
         <div class="col-md-4 mb-3">
-          <label class="form-label" for="mediaMaxHeight">Max Height (px)</label>
+          <label class="form-label" for="mediaMaxHeight">{{ 'admin.settings.misc.max_height' | transloco }}</label>
           <input
             type="number"
             class="form-control"
@@ -63,7 +65,7 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
             min="100"
             max="4320"
           />
-          <small class="text-muted d-block mt-1">Images taller than this will be resized (default: 1080).</small>
+          <small class="text-muted d-block mt-1">{{ 'admin.settings.misc.max_height_hint' | transloco }}</small>
         </div>
       </div>
 
@@ -77,11 +79,11 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
             (change)="updateField('mediaConvertToWebp', $any($event.target).checked)"
           />
           <label class="form-check-label" for="mediaConvertToWebp">
-            Convert all images to WebP
+            {{ 'admin.settings.misc.convert_webp' | transloco }}
           </label>
         </div>
         <small class="text-muted d-block mt-1">
-          When enabled, all uploaded images (except GIFs) are automatically converted to WebP format for faster page loads and smaller file sizes.
+          {{ 'admin.settings.misc.webp_note' | transloco }}
         </small>
       </div>
 
@@ -92,9 +94,9 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
           [disabled]="isSavingMedia()"
         >
           @if(isSavingMedia()) {
-          <i class="fas fa-spinner fa-spin me-1"></i> Saving...
+          <i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.actions.saving' | transloco }}
           } @else {
-          <i class="fas fa-save me-1"></i> Save Media Settings
+          <i class="fas fa-save me-1"></i> {{ 'admin.settings.misc.save_media' | transloco }}
           }
         </button>
 
@@ -107,9 +109,9 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
 
       <hr class="my-4" />
 
-      <h4>Branding</h4>
+      <h4>{{ 'admin.settings.misc.branding' | transloco }}</h4>
       <p class="text-muted mb-4">
-        Control branding elements shown on public pages.
+        {{ 'admin.settings.misc.branding_hint' | transloco }}
       </p>
 
       <div class="form-group mb-4">
@@ -122,11 +124,11 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
             (change)="updateField('showPoweredBy', $any($event.target).checked)"
           />
           <label class="form-check-label" for="showPoweredBy">
-            Show "Powered by Arc CMS"
+            {{ 'admin.settings.misc.powered_by' | transloco }}
           </label>
         </div>
         <small class="text-muted d-block mt-1">
-          When enabled, a small "Powered by Arc CMS" text is shown at the bottom of all public pages and outgoing emails.
+          {{ 'admin.settings.misc.powered_by_note' | transloco }}
         </small>
       </div>
 
@@ -137,9 +139,9 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
           [disabled]="isSavingBranding()"
         >
           @if(isSavingBranding()) {
-          <i class="fas fa-spinner fa-spin me-1"></i> Saving...
+          <i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.actions.saving' | transloco }}
           } @else {
-          <i class="fas fa-save me-1"></i> Save Branding
+          <i class="fas fa-save me-1"></i> {{ 'admin.settings.misc.save_branding' | transloco }}
           }
         </button>
 
@@ -166,10 +168,11 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
       margin-bottom: 0.5rem;
     }
   `],
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslocoPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MiscSettingsPage implements OnInit {
+    private t = injectT();
   private firestore = inject(Firestore);
   private injector = inject(Injector);
 
@@ -205,7 +208,7 @@ export class MiscSettingsPage implements OnInit {
     try {
       const docRef = doc(this.firestore, 'Settings', 'misc');
       await setDoc(docRef, { showPoweredBy: this.settings().showPoweredBy }, { merge: true });
-      this.brandingSaveMessage.set('Branding saved successfully');
+      this.brandingSaveMessage.set(this.t('admin.settings.misc.branding_saved'));
       setTimeout(() => this.brandingSaveMessage.set(''), 3000);
     } catch (error) {
       console.error('Error saving branding settings:', error);
@@ -220,7 +223,7 @@ export class MiscSettingsPage implements OnInit {
       const docRef = doc(this.firestore, 'Settings', 'misc');
       const { mediaMaxFileSize, mediaMaxWidth, mediaMaxHeight, mediaConvertToWebp } = this.settings();
       await setDoc(docRef, { mediaMaxFileSize, mediaMaxWidth, mediaMaxHeight, mediaConvertToWebp }, { merge: true });
-      this.mediaSaveMessage.set('Media settings saved successfully');
+      this.mediaSaveMessage.set(this.t('admin.settings.misc.media_saved'));
       setTimeout(() => this.mediaSaveMessage.set(''), 3000);
     } catch (error) {
       console.error('Error saving media settings:', error);

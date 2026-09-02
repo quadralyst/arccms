@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -29,7 +30,7 @@ export const routeMeta: RouteMeta = {
     standalone: true,
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatDialogModule,
-        MatSidenavModule, MatTooltipModule, GlobalTableComponent, ListDrawerComponent, PageHeaderComponent,
+        MatSidenavModule, MatTooltipModule, GlobalTableComponent, ListDrawerComponent, PageHeaderComponent, TranslocoPipe,
     ],
     templateUrl: './lists.page.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -53,36 +54,36 @@ export default class ListsPageComponent implements OnInit {
     currentList = signal<IList | null>(null);
 
     columns: TableColumn[] = [
-        { key: 'name', header: 'Name', type: 'text', classFn: () => 'fw-medium' },
-        { key: 'description', header: 'Description', type: 'text', classFn: () => 'small text-muted', transformFn: (r) => r.description || '—' },
+        { key: 'name', header: 'common.table.name', type: 'text', classFn: () => 'fw-medium' },
+        { key: 'description', header: 'common.table.description', type: 'text', classFn: () => 'small text-muted', transformFn: (r) => r.description || '—' },
         {
-            key: 'type', header: 'Type', type: 'html',
+            key: 'type', header: 'common.table.type', type: 'html',
             // Static markup only — never interpolate list-supplied values here.
             transformFn: (r) => r.formId
                 ? '<span class="status-badge is-info">Form</span>'
                 : `<span class="status-badge ${r.type === 'system' ? 'is-info' : 'is-neutral'}">${r.type}</span>`,
         },
-        { key: 'memberCount', header: 'Members', type: 'text', transformFn: (r) => r.memberCount || 0 },
+        { key: 'memberCount', header: 'admin.audience.lists.members', type: 'text', transformFn: (r) => r.memberCount || 0 },
         {
-            key: 'actions', header: 'Actions', type: 'actions',
+            key: 'actions', header: 'common.table.actions', type: 'actions',
             actions: [
                 {
-                    action: 'open', icon: 'fas fa-arrow-right text-primary', label: 'Open', class: 'edit',
+                    action: 'open', icon: 'fas fa-arrow-right text-primary', label: 'common.actions.open', class: 'edit',
                     // Row click opens the hub for every list — including system
                     // lists, which have no editable settings but do have members,
                     // broadcasts and sequences worth seeing.
                     isRowClick: true, onAction: (row) => this.openHub(row),
                 },
                 {
-                    action: 'view-form', icon: 'fas fa-arrow-up-right-from-square text-primary', label: 'View form', class: 'edit',
+                    action: 'view-form', icon: 'fas fa-arrow-up-right-from-square text-primary', label: 'admin.audience.lists.view_form', class: 'edit',
                     hide: (row) => !row.formId, onAction: (row) => this.viewForm(row),
                 },
                 {
-                    action: 'edit', icon: 'fas fa-pen text-primary', label: 'Edit', class: 'edit',
+                    action: 'edit', icon: 'fas fa-pen text-primary', label: 'common.actions.edit', class: 'edit',
                     hide: (row) => row.type === 'system', onAction: (row) => this.openEdit(row),
                 },
                 {
-                    action: 'delete', icon: 'fas fa-trash text-danger', label: 'Delete', class: 'delete',
+                    action: 'delete', icon: 'fas fa-trash text-danger', label: 'common.actions.delete', class: 'delete',
                     hide: (row) => row.type === 'system', onAction: (row) => this.confirmDelete(row),
                 },
             ],

@@ -65,10 +65,21 @@ export function deriveContentStatus(row: Record<string, unknown> | null | undefi
     return modifiedAt.getTime() > lastPublishedAt.getTime() ? 'edited' : 'published';
 }
 
+/**
+ * The English labels, kept as the source of truth for tests and for anything
+ * that needs a state's name without an injector to hand.
+ */
 export const CONTENT_STATUS_LABEL: Record<ContentPublishState, string> = {
     draft: 'Draft',
     published: 'Published',
     edited: 'Edited',
+};
+
+/** Translation keys for the same three states, for anything user-facing. */
+export const CONTENT_STATUS_LABEL_KEY: Record<ContentPublishState, string> = {
+    draft: 'common.status.draft',
+    published: 'common.status.published',
+    edited: 'common.status.edited',
 };
 
 /**
@@ -85,4 +96,10 @@ export const CONTENT_STATUS_TOOLTIP: Record<ContentPublishState, string> = {
     draft: 'Not published yet',
     published: 'Live and up to date',
     edited: 'Published, with draft changes that are not live yet',
+};
+
+export const CONTENT_STATUS_TOOLTIP_KEY: Record<ContentPublishState, string> = {
+    draft: 'common.status.tooltip.draft',
+    published: 'common.status.tooltip.published',
+    edited: 'common.status.tooltip.edited',
 };

@@ -190,11 +190,11 @@ export const COLLECTION_GROUP_MAP: Record<string, CollectionGroupId> = {
 
 /** Group display order and metadata */
 export const COLLECTION_GROUP_DEFS: { id: CollectionGroupId; label: string; icon: string }[] = [
-    { id: 'content',          label: 'Content',            icon: 'fa-solid fa-file-lines' },
-    { id: 'users-waitlists',  label: 'Users & Waitlists',  icon: 'fa-solid fa-users' },
-    { id: 'audience',         label: 'Audience',           icon: 'fa-solid fa-address-book' },
-    { id: 'settings-media',   label: 'Settings & Media',   icon: 'fa-solid fa-gear' },
-    { id: 'email',            label: 'Email',              icon: 'fa-solid fa-envelope' },
+    { id: 'content',          label: 'admin.data.group_content',            icon: 'fa-solid fa-file-lines' },
+    { id: 'users-waitlists',  label: 'admin.data.group_users',  icon: 'fa-solid fa-users' },
+    { id: 'audience',         label: 'admin.data.group_audience',           icon: 'fa-solid fa-address-book' },
+    { id: 'settings-media',   label: 'admin.data.group_settings',   icon: 'fa-solid fa-gear' },
+    { id: 'email',            label: 'admin.data.group_email',              icon: 'fa-solid fa-envelope' },
 ];
 
 // ---------------------------------------------------------------------------

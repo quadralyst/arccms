@@ -8,6 +8,8 @@
  */
 
 import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { injectT } from '../../../../core/i18n/inject-t';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IAboutSettings, DEFAULT_ABOUT_SETTINGS } from './about-settings.model';
@@ -17,54 +19,53 @@ import { AboutSettingsService } from './about-settings.service';
     selector: 'arc-about-settings',
     template: `
         <div class="settings-section">
-            <h3 class="mb-4">About</h3>
+            <h3 class="mb-4">{{ 'admin.settings.hub.about.label' | transloco }}</h3>
             <p class="text-muted mb-4">
-                Configure your site's identity. These values are used in SEO meta tags,
-                canonical URLs, and email footers.
+                {{ 'admin.settings.about.intro' | transloco }}
             </p>
 
             <div class="form-group mb-3">
-                <label class="form-label" for="siteName">Site Name</label>
+                <label class="form-label" for="siteName">{{ 'admin.settings.about.site_name' | transloco }}</label>
                 <input
                     type="text"
                     class="form-control"
                     id="siteName"
-                    placeholder="e.g. My Awesome Site"
+                    [placeholder]="'admin.settings.about.site_name_placeholder' | transloco"
                     [value]="settings().name"
                     (input)="updateField('name', $any($event.target).value)"
                 />
                 <small class="text-muted">
-                    Displayed in browser tabs, social media shares, and email templates.
+                    {{ 'admin.settings.about.site_name_hint' | transloco }}
                 </small>
             </div>
 
             <div class="form-group mb-3">
-                <label class="form-label" for="finalUrl">Production URL</label>
+                <label class="form-label" for="finalUrl">{{ 'admin.settings.about.production_url' | transloco }}</label>
                 <input
                     type="url"
                     class="form-control"
                     id="finalUrl"
-                    placeholder="e.g. https://www.example.com"
+                    [placeholder]="'admin.settings.about.production_url_placeholder' | transloco"
                     [value]="settings().finalUrl"
                     (input)="updateField('finalUrl', $any($event.target).value)"
                 />
                 <small class="text-muted">
-                    The public base URL of your site. Used for canonical links, sitemaps, and SEO.
+                    {{ 'admin.settings.about.production_url_hint' | transloco }}
                 </small>
             </div>
 
             <div class="form-group mb-3">
-                <label class="form-label" for="address">Address</label>
+                <label class="form-label" for="address">{{ 'admin.settings.about.address' | transloco }}</label>
                 <textarea
                     class="form-control"
                     id="address"
                     rows="3"
-                    placeholder="e.g. 123 Main St, City, Country"
+                    [placeholder]="'admin.settings.about.address_placeholder' | transloco"
                     [value]="settings().address"
                     (input)="updateField('address', $any($event.target).value)"
                 ></textarea>
                 <small class="text-muted">
-                    Physical address shown in the footer of outgoing emails (required by anti-spam laws).
+                    {{ 'admin.settings.about.address_hint' | transloco }}
                 </small>
             </div>
 
@@ -75,9 +76,9 @@ import { AboutSettingsService } from './about-settings.service';
                     [disabled]="isSaving()"
                 >
                     @if (isSaving()) {
-                        <i class="fas fa-spinner fa-spin me-1"></i> Saving...
+                        <i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.actions.saving' | transloco }}
                     } @else {
-                        <i class="fas fa-save me-1"></i> Save Settings
+                        <i class="fas fa-save me-1"></i> {{ 'common.actions.save_settings' | transloco }}
                     }
                 </button>
 
@@ -100,10 +101,11 @@ import { AboutSettingsService } from './about-settings.service';
             color: #212529;
         }
     `],
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class AboutSettingsPage implements OnInit {
+    private t = injectT();
     private aboutService = inject(AboutSettingsService);
 
     settings = signal<IAboutSettings>(DEFAULT_ABOUT_SETTINGS);
@@ -135,11 +137,11 @@ export default class AboutSettingsPage implements OnInit {
         this.saveError.set(false);
         try {
             await this.aboutService.save(this.settings());
-            this.saveMessage.set('Settings saved successfully');
+            this.saveMessage.set(this.t('common.messages.saved'));
             setTimeout(() => this.saveMessage.set(''), 3000);
         } catch (error) {
             console.error('Error saving about settings:', error);
-            this.saveMessage.set('Failed to save settings');
+            this.saveMessage.set(this.t('common.messages.save_failed'));
             this.saveError.set(true);
         } finally {
             this.isSaving.set(false);

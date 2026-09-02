@@ -1,9 +1,10 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { filter, firstValueFrom, Subscription } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
@@ -48,8 +49,7 @@ import { DebugProviderComponent } from './providers/debug-provider.component';
         SmtpProviderComponent,
         GmailProviderComponent,
         ResendProviderComponent,
-        DebugProviderComponent,
-    ],
+        DebugProviderComponent, TranslocoPipe],
     templateUrl: './email-setting.page.html',
     styleUrls: ['./email-setting.page.scss'],
 })
@@ -387,35 +387,29 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
 
         try {
             const settings: IEmailSettings = this.buildSettings();
-            const newObj: any = {
+            // The callable returns its verdict directly — no document to poll.
+            const result = await this.emailSettingService.testEmailConnection({
                 config: settings,
                 activeProvider: settings.activeProvider,
                 testEmail: dialogResult.testEmail,
                 subject: dialogResult.subject,
-                message: dialogResult.message
-            };
+                message: dialogResult.message,
+            });
 
-            await this.emailSettingService.testEmailConnection(newObj);
-
-            // Monitor the test results
-            this.emailSettingService.monitorConnectionTest()
-                .pipe(
-                    takeUntilDestroyed(this.destroyRef),
-                    filter((result: any) => result && result.status !== 'processing')
-                )
-                .subscribe((result: any) => {
-                    this.isTesting.set(false);
-                    if (result.status === 'success') {
-                        this.testPassed.set(true);
-                        this.toastService.openCustomSnackbar('Connection successful! Test email sent.', 'success', 'check_circle');
-                    } else {
-                        this.toastService.openCustomSnackbar(result.message || 'Connection failed', 'error', 'error');
-                    }
-                });
-
+            if (result.success) {
+                this.testPassed.set(true);
+                this.toastService.openCustomSnackbar('Connection successful! Test email sent.', 'success', 'check_circle');
+            } else {
+                this.toastService.openCustomSnackbar(result.message || 'Connection failed', 'error', 'error');
+            }
         } catch (error) {
             console.error('Connection test failed:', error);
-            this.toastService.openCustomSnackbar('Connection test failed', 'error', 'error');
+            this.toastService.openCustomSnackbar(
+                error instanceof Error && error.message ? error.message : 'Connection test failed',
+                'error',
+                'error',
+            );
+        } finally {
             this.isTesting.set(false);
         }
     }

@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -19,19 +20,19 @@ export const routeMeta: RouteMeta = {
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent],
+    imports: [CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent, TranslocoPipe],
     template: `
         <div class="transactions-page">
-            <arc-page-header title="Transactions"
-                subtitle="Payment records from Dodo. Raw webhook payloads are stored in the WebhookEvents collection for debugging.">
+            <arc-page-header [title]="'admin.transactions.title' | transloco"
+                [subtitle]="'admin.transactions.subtitle' | transloco">
                 <mat-form-field appearance="outline" class="mb-0">
-                    <mat-label>Status</mat-label>
+                    <mat-label>{{ 'common.table.status' | transloco }}</mat-label>
                     <mat-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
-                        <mat-option value="">All</mat-option>
-                        <mat-option value="succeeded">Succeeded</mat-option>
-                        <mat-option value="failed">Failed</mat-option>
-                        <mat-option value="refunded">Refunded</mat-option>
-                        <mat-option value="pending">Pending</mat-option>
+                        <mat-option value="">{{ 'common.filters.all' | transloco }}</mat-option>
+                        <mat-option value="succeeded">{{ 'admin.transactions.succeeded' | transloco }}</mat-option>
+                        <mat-option value="failed">{{ 'admin.transactions.failed' | transloco }}</mat-option>
+                        <mat-option value="refunded">{{ 'admin.transactions.refunded' | transloco }}</mat-option>
+                        <mat-option value="pending">{{ 'admin.transactions.pending' | transloco }}</mat-option>
                     </mat-select>
                 </mat-form-field>
             </arc-page-header>
@@ -39,17 +40,17 @@ export const routeMeta: RouteMeta = {
             <mat-card>
                 <mat-card-content class="pt-3">
                     @if (store.isLoading()) {
-                        <p class="text-muted">Loading…</p>
+                        <p class="text-muted">{{ 'common.state.loading' | transloco }}</p>
                     } @else if (filtered().length === 0) {
-                        <p class="text-muted">No transactions.</p>
+                        <p class="text-muted">{{ 'admin.transactions.none' | transloco }}</p>
                     } @else {
                         <table mat-table [dataSource]="filtered()" class="w-100">
-                            <ng-container matColumnDef="createdAt"><th mat-header-cell *matHeaderCellDef>Date</th><td mat-cell *matCellDef="let t">{{ t.createdAt.seconds * 1000 | date:'short' }}</td></ng-container>
-                            <ng-container matColumnDef="userEmail"><th mat-header-cell *matHeaderCellDef>Customer</th><td mat-cell *matCellDef="let t">{{ t.userEmail }}</td></ng-container>
-                            <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>Amount</th><td mat-cell *matCellDef="let t">{{ t.currency }} {{ t.amount }}</td></ng-container>
-                            <ng-container matColumnDef="premiumType"><th mat-header-cell *matHeaderCellDef>Plan</th><td mat-cell *matCellDef="let t">{{ t.premiumType }}</td></ng-container>
-                            <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>Status</th><td mat-cell *matCellDef="let t"><span class="status status-{{ t.status }}">{{ t.status }}</span>@if (t.isTest) {<span class="status status-test" title="Admin test checkout — granted no access or credits">test</span>}</td></ng-container>
-                            <ng-container matColumnDef="eventType"><th mat-header-cell *matHeaderCellDef>Event</th><td mat-cell *matCellDef="let t">{{ t.eventType }}</td></ng-container>
+                            <ng-container matColumnDef="createdAt"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_date' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.createdAt.seconds * 1000 | date:'short' }}</td></ng-container>
+                            <ng-container matColumnDef="userEmail"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_customer' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.userEmail }}</td></ng-container>
+                            <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_amount' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.currency }} {{ t.amount }}</td></ng-container>
+                            <ng-container matColumnDef="premiumType"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_plan' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.premiumType }}</td></ng-container>
+                            <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>{{ 'common.table.status' | transloco }}</th><td mat-cell *matCellDef="let t"><span class="status status-{{ t.status }}">{{ t.status }}</span></td></ng-container>
+                            <ng-container matColumnDef="eventType"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_event' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.eventType }}</td></ng-container>
                             <tr mat-header-row *matHeaderRowDef="columns"></tr>
                             <tr mat-row *matRowDef="let row; columns: columns"></tr>
                         </table>

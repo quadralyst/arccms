@@ -82,7 +82,20 @@ export class WaitlistFormService {
     }
 
     /**
-     * Fetch geolocation settings from integrations
+     * Fetch geolocation settings from integrations.
+     *
+     * `Settings/integrations` is admin-only: it holds the Unsplash secretKey and
+     * the geo API key, so it cannot be public-read. This lookup therefore falls
+     * back to defaults for everyone except an admin browsing their own site —
+     * which is close to what already happened, since the rule before this was
+     * `isAuthenticated()` and the visitors hitting a public waitlist form are
+     * overwhelmingly signed out.
+     *
+     * Restoring geo for real visitors means separating the public-safe flags from
+     * the secrets — either a public `Settings/*` document holding only
+     * `geoEnabled`/`geoApiProvider`, or resolving geo server-side in a callable so
+     * the API key never reaches the browser at all. Left as follow-up work; a
+     * silent key leak is the worse of the two failures.
      */
     private async getGeoSettings(): Promise<IGeoConfig> {
         if (!isPlatformBrowser(this.platformId)) return DEFAULT_INTEGRATIONS_SETTINGS.geo;

@@ -19,6 +19,7 @@ const {
     mockGenerateDetailPage,
     mockGenerateListPage,
     mockRemoveContentPage,
+    mockDeployBatchToHosting,
     mockContentTypeGet,
     mockSubCollectionGet,
     mockBatchDelete,
@@ -36,6 +37,7 @@ const {
     mockGenerateDetailPage: vi.fn(),
     mockGenerateListPage: vi.fn(),
     mockRemoveContentPage: vi.fn(),
+    mockDeployBatchToHosting: vi.fn(),
     mockContentTypeGet: vi.fn(),
     mockSubCollectionGet: vi.fn(),
     mockBatchDelete: vi.fn(),
@@ -52,6 +54,13 @@ vi.mock('../init', () => ({
         }),
     },
 }));
+
+vi.mock('../pages/deployToHosting', async (importOriginal) => {
+    // HostingBatch stays real — the queue collects into one; only the
+    // network-touching release is mocked.
+    const actual = await importOriginal<typeof import('../pages/deployToHosting.js')>();
+    return { ...actual, deployBatchToHosting: mockDeployBatchToHosting };
+});
 
 vi.mock('firebase-functions/v2/firestore', () => ({
     onDocumentCreated: vi.fn((_path: string, handler: any) => handler),
@@ -157,6 +166,7 @@ describe('processPublishQueue', () => {
         vi.clearAllMocks();
         buildChain();
         mockSubCollectionGet.mockResolvedValue({ docs: [], empty: true });
+        mockDeployBatchToHosting.mockResolvedValue(undefined);
         mockBatchDelete.mockReturnValue(undefined);
         mockSet.mockResolvedValue(undefined);
         mockUpdate.mockResolvedValue(undefined);
@@ -189,7 +199,7 @@ describe('processPublishQueue', () => {
             expect(fileContent).not.toContain("'{collectionId}/{docId}'");
         });
 
-        it('should handle all four actions: publish, unpublish, update, delete', async () => {
+        it('should handle all five actions: publish, unpublish, update, delete, redeploy', async () => {
             const fs = await import('fs');
             const path = await import('path');
             const fileContent = fs.readFileSync(
@@ -200,6 +210,7 @@ describe('processPublishQueue', () => {
             expect(fileContent).toContain("case 'unpublish':");
             expect(fileContent).toContain("case 'update':");
             expect(fileContent).toContain("case 'delete':");
+            expect(fileContent).toContain("case 'redeploy':");
         });
 
         it('should import static HTML deployment functions', async () => {
@@ -239,7 +250,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('publish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
         });
 
         it('should generate list page after publishing', async () => {
@@ -255,7 +266,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('publish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
 
         it('should not block Firestore sync when deployment fails', async () => {
@@ -280,6 +291,143 @@ describe('processPublishQueue', () => {
         });
     });
 
+    describe('redeploy-all action — repairing the whole site in one release', () => {
+        beforeEach(() => {
+            mockCollection.mockImplementation((name: string) => {
+                if (name === 'ContentTypes') {
+                    return {
+                        where: vi.fn().mockReturnValue({ limit: vi.fn().mockReturnValue({ get: mockContentTypeGet }) }),
+                        get: vi.fn().mockResolvedValue({
+                            docs: [
+                                { data: () => ({ slug: 'articles', hasPublicUrl: true }) },
+                                { data: () => ({ slug: 'notes', hasPublicUrl: false }) },
+                            ],
+                        }),
+                    };
+                }
+                return {
+                    doc: mockDoc,
+                    get: vi.fn().mockResolvedValue({
+                        empty: false,
+                        docs: [{ id: 'doc1' }, { id: 'doc2' }],
+                    }),
+                };
+            });
+        });
+
+        it('should rebuild every published page of every public content type', async () => {
+            await handler(createEvent('redeploy-all', '', ''));
+
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc2', expect.anything());
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
+        });
+
+        it('should skip content types without a public URL', async () => {
+            await handler(createEvent('redeploy-all', '', ''));
+
+            expect(mockGenerateDetailPage).not.toHaveBeenCalledWith('notes', expect.anything(), expect.anything());
+        });
+
+        it('should release everything as a single Hosting version', async () => {
+            mockGenerateDetailPage.mockImplementation(async (slug: string, id: string, batch: any) => {
+                batch.add(`/${slug}/${id}.html`, '<html></html>');
+            });
+
+            await handler(createEvent('redeploy-all', '', ''));
+
+            // Two releases would rebuild the second from a file list that does
+            // not yet contain the first, dropping it — the race this exists to
+            // avoid.
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+        });
+
+        it('should keep going when one page cannot be rebuilt', async () => {
+            mockGenerateDetailPage.mockImplementation(async (_slug: string, id: string) => {
+                if (id === 'doc1') throw new Error('template missing');
+            });
+
+            await handler(createEvent('redeploy-all', '', ''));
+
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc2', expect.anything());
+        });
+    });
+
+    describe('the Hosting release target', () => {
+        it('should release to the project site, not to the Firestore collection', async () => {
+            process.env.GCLOUD_PROJECT = 'my-site';
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Test', content: '<p>body</p>', urlSlug: 'test' }),
+            });
+            // An empty batch is never released, so the page generator has to
+            // put something in it for there to be a release to inspect.
+            mockGenerateDetailPage.mockImplementation(async (_slug: string, _id: string, batch: any) => {
+                batch.add('/articles/test.html', '<html></html>');
+            });
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            // Passing 'arc_articles' here aims the deploy at a site that does
+            // not exist, and nothing reaches the live site.
+            expect(mockDeployBatchToHosting).toHaveBeenCalledWith(
+                'my-site', expect.anything(), 'arc_articles', 'doc1',
+            );
+        });
+    });
+
+    describe('redeploy action — restoring pages a hosting deploy dropped', () => {
+        it('should regenerate the detail and list pages', async () => {
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Live', content: '<p>body</p>', urlSlug: 'test' }),
+            });
+
+            await handler(createEvent('redeploy', 'articles', 'doc1'));
+
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
+        });
+
+        it('should not touch the draft or the published document', async () => {
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Live', content: '<p>body</p>', urlSlug: 'test' }),
+            });
+
+            await handler(createEvent('redeploy', 'articles', 'doc1'));
+
+            // The whole point: a draft may hold unreviewed edits, so restoring
+            // the site must not publish them.
+            expect(mockSet).not.toHaveBeenCalled();
+            expect(mockUpdate).not.toHaveBeenCalled();
+            expect(mockBatchCommit).not.toHaveBeenCalled();
+        });
+
+        it('should do nothing when the document was never published', async () => {
+            mockGet.mockResolvedValue({ exists: false });
+
+            const event = createEvent('redeploy', 'articles', 'ghost');
+            await handler(event);
+
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('should skip deployment for content types without a public URL', async () => {
+            buildChain({ hasPublicUrl: false });
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Live', urlSlug: 'test' }),
+            });
+
+            await handler(createEvent('redeploy', 'internal-notes', 'doc1'));
+
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
+        });
+    });
+
     describe('update action — static HTML deployment', () => {
         it('should generate detail page after update', async () => {
             mockGet.mockResolvedValue({
@@ -294,7 +442,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('update', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
         });
 
         it('should generate list page after update', async () => {
@@ -310,7 +458,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('update', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
 
         it('should not block Firestore sync when deployment fails on update', async () => {
@@ -374,8 +522,8 @@ describe('processPublishQueue', () => {
             const event = createEvent('publish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
 
         it('should deploy static HTML when ContentType.hasPublicUrl is true', async () => {
@@ -388,8 +536,8 @@ describe('processPublishQueue', () => {
             const event = createEvent('publish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
     });
 
@@ -403,7 +551,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('unpublish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockRemoveContentPage).toHaveBeenCalledWith('articles', 'my-article');
+            expect(mockRemoveContentPage).toHaveBeenCalledWith('articles', 'my-article', expect.anything());
         });
 
         it('should regenerate list page on unpublish', async () => {
@@ -415,7 +563,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('unpublish', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
 
         it('should skip page removal when urlSlug is missing', async () => {
@@ -429,7 +577,7 @@ describe('processPublishQueue', () => {
 
             expect(mockRemoveContentPage).not.toHaveBeenCalled();
             // But list should still regenerate
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
     });
 
@@ -443,7 +591,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('delete', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockRemoveContentPage).toHaveBeenCalledWith('articles', 'my-article');
+            expect(mockRemoveContentPage).toHaveBeenCalledWith('articles', 'my-article', expect.anything());
         });
 
         it('should regenerate list page on delete', async () => {
@@ -455,7 +603,7 @@ describe('processPublishQueue', () => {
             const event = createEvent('delete', 'articles', 'doc1');
             await handler(event);
 
-            expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
+            expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
         });
 
         it('should not block on removal failure during delete', async () => {
@@ -567,7 +715,7 @@ describe('processPublishQueue — batched writes', () => {
 
             await handler(createEvent('publish', 'articles', 'doc1'));
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1');
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
             consoleSpy.mockRestore();
         });
 
