@@ -81,11 +81,14 @@ describe('DraftContentsTableComponent', () => {
             debugMode: false,
         };
 
+        // NotifyService translates a key and hands the finished text here, so
+        // these assertions still check what a person actually reads.
         mockToastService = {
             success: vi.fn(),
             error: vi.fn(),
             warning: vi.fn(),
             info: vi.fn(),
+            openCustomSnackbar: vi.fn(),
         };
 
         mockSanitizer = {
@@ -542,7 +545,8 @@ describe('DraftContentsTableComponent', () => {
             component.deleteItem(sampleContents[0]);
             await fixture.whenStable();
 
-            expect(mockToastService.success).toHaveBeenCalledWith('Content deleted successfully.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Content deleted successfully.', 'success', 'check_circle');
         });
 
         it('should not delete when cancelled', async () => {
@@ -582,7 +586,8 @@ describe('DraftContentsTableComponent', () => {
             component.contentTypeSlug = '';
             component.openContent('content-123');
 
-            expect(mockToastService.error).toHaveBeenCalledWith('Cannot determine content type for editing.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Cannot determine content type for editing.', 'error', 'error');
             expect(mockRouter.navigate).not.toHaveBeenCalled();
         });
 
@@ -621,7 +626,8 @@ describe('DraftContentsTableComponent', () => {
             component.confirmUnpublishContent('content-123');
             await fixture.whenStable();
 
-            expect(mockToastService.success).toHaveBeenCalledWith('Content unpublished.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                'Content unpublished.', 'success', 'check_circle');
         });
     });
 
@@ -765,5 +771,183 @@ describe('DraftContentsTableComponent', () => {
             expect(result).not.toBe('--');
         });
     });
-});
+    describe('Dynamic list columns', () => {
+        /** A content type whose custom fields shadow the built-ins, as real ones do. */
+        function useArticleType(fields: any[]): void {
+            mockContentTypesStore.items.set([
+                { id: 'ct1', name: 'Article', slug: 'article', fields },
+            ]);
+            component.contentTypeSlug = 'article';
+            component.visibleColumnKeys.set([]);
+            component.updateDynamicColumns();
+        }
 
+        const TITLE_FIELD = { key: 'title', label: 'Title', type: 'text', required: false, order: 0 };
+        const BODY_FIELD = { key: 'body', label: 'Body', type: 'richtext', required: false, order: 1 };
+        const COVER_FIELD = { key: 'coverImage', label: 'Cover Image', type: 'image', required: false, order: 2 };
+        const AUTHOR_FIELD = { key: 'author', label: 'Author', type: 'text', required: false, order: 3 };
+        const ICON_FIELD = { key: 'card_icon', label: 'Card Icon', type: 'icon', required: false, order: 4 };
+        const CARDS_FIELD = { key: 'info_cards', label: 'Info Cards', type: 'infocard', required: false, order: 5 };
+
+        /** A stored icon token, as the picker writes it. */
+        const ICON_TOKEN = {
+            set: 'fa', name: 'trophy', style: 'solid',
+            classes: 'fa-solid fa-trophy', label: 'Trophy',
+            markup: '<svg viewBox="0 0 576 512"><path d="M400 0z"/></svg>',
+        };
+
+        it('should render the Title heading only once when a custom title field shadows the built-in', () => {
+            useArticleType([TITLE_FIELD, AUTHOR_FIELD]);
+
+            // Headings are translation keys now — the table resolves them, so a
+            // custom field shadowing `title` shows up as a second column with the
+            // same key rather than the same literal text.
+            const titleColumns = component.tableColumns.filter((c) => c.key === 'title');
+            expect(titleColumns).toHaveLength(1);
+            expect(titleColumns[0].header).toBe('admin.contents.list.col_title');
+            expect(component.tableColumns.map((c) => c.key)).toContain('author');
+        });
+
+        it('should not offer a shadowing field in the column picker either', () => {
+            useArticleType([TITLE_FIELD, AUTHOR_FIELD]);
+
+            expect(component.availableColumns().map((c) => c.key)).not.toContain('title');
+            expect(component.availableColumns().map((c) => c.key)).toContain('author');
+        });
+
+        it('should drop rich-text fields, which are too long for a table cell', () => {
+            useArticleType([BODY_FIELD, AUTHOR_FIELD]);
+
+            expect(component.tableColumns.map((c) => c.key)).not.toContain('body');
+            expect(component.availableColumns().map((c) => c.key)).not.toContain('body');
+        });
+
+        it('should drop rich text even when a saved preference still lists it', () => {
+            mockContentTypesStore.items.set([
+                { id: 'ct1', name: 'Article', slug: 'article', fields: [BODY_FIELD, AUTHOR_FIELD], listColumns: ['body', 'author'] },
+            ]);
+            component.contentTypeSlug = 'article';
+            component.visibleColumnKeys.set([]);
+            component.updateDynamicColumns();
+
+            expect(component.tableColumns.map((c) => c.key)).not.toContain('body');
+        });
+
+        it('should render image fields as thumbnails rather than raw URLs', () => {
+            useArticleType([COVER_FIELD]);
+
+            const cover = component.tableColumns.find((c) => c.key === 'coverImage');
+            expect(cover?.type).toBe('image');
+            expect(cover?.imageConfig?.height).toBe(40);
+        });
+
+        it('should keep ordinary fields as text columns', () => {
+            useArticleType([AUTHOR_FIELD]);
+
+            const author = component.tableColumns.find((c) => c.key === 'author');
+            expect(author?.type).toBe('text');
+        });
+
+        it('should still resolve values for the columns it keeps', () => {
+            useArticleType([AUTHOR_FIELD]);
+
+            const author = component.tableColumns.find((c) => c.key === 'author');
+            expect(author?.transformFn?.({ customFields: { author: 'Ada' } })).toBe('Ada');
+        });
+
+        it('should render icon fields as the glyph rather than the stored token', () => {
+            useArticleType([ICON_FIELD]);
+
+            const icon = component.tableColumns.find((c) => c.key === 'card_icon');
+            // A text column here stringifies the token to "[object Object]".
+            expect(icon?.type).toBe('icon');
+            expect(icon?.classFn?.({ customFields: { card_icon: ICON_TOKEN } }))
+                .toBe('fa-solid fa-trophy');
+        });
+
+        it('should fall back to the label as an icon column text value', () => {
+            useArticleType([ICON_FIELD]);
+
+            const icon = component.tableColumns.find((c) => c.key === 'card_icon');
+            expect(icon?.transformFn?.({ customFields: { card_icon: ICON_TOKEN } }))
+                .toBe('Trophy');
+        });
+
+        it('should leave an icon cell empty when nothing is picked', () => {
+            useArticleType([ICON_FIELD]);
+
+            const icon = component.tableColumns.find((c) => c.key === 'card_icon');
+            expect(icon?.classFn?.({ customFields: {} })).toBe('');
+            expect(icon?.classFn?.({})).toBe('');
+        });
+
+        it('should drop repeating fields, whose rows cannot fit a table cell', () => {
+            useArticleType([CARDS_FIELD, AUTHOR_FIELD]);
+
+            // A row array stringifies to "[object Object]" in a text cell, and
+            // there is no useful one-cell summary of four cards.
+            expect(component.tableColumns.map((c) => c.key)).not.toContain('info_cards');
+            expect(component.availableColumns().map((c) => c.key)).not.toContain('info_cards');
+        });
+
+        it('should drop a repeating field even when a saved preference lists it', () => {
+            mockContentTypesStore.items.set([
+                { id: 'ct1', name: 'Article', slug: 'article', fields: [CARDS_FIELD, AUTHOR_FIELD], listColumns: ['info_cards', 'author'] },
+            ]);
+            component.contentTypeSlug = 'article';
+            component.visibleColumnKeys.set([]);
+            component.updateDynamicColumns();
+
+            expect(component.tableColumns.map((c) => c.key)).not.toContain('info_cards');
+        });
+
+        it('should still render an icon stored as a bare class string', () => {
+            useArticleType([ICON_FIELD]);
+
+            // Defensive: a hand-written or imported document may hold the class
+            // list directly rather than the token the picker writes.
+            const icon = component.tableColumns.find((c) => c.key === 'card_icon');
+            expect(icon?.classFn?.({ customFields: { card_icon: 'fa-solid fa-star' } }))
+                .toBe('fa-solid fa-star');
+        });
+    });
+
+    describe('Status column (three states)', () => {
+        function statusColumn(): any {
+            component.contentTypeSlug = 'article';
+            component.visibleColumnKeys.set([]);
+            component.updateDynamicColumns();
+            return component.tableColumns.find((c) => c.key === 'publishedStatus');
+        }
+
+        const PUBLISHED_AT = new Date('2026-07-20T10:00:00Z');
+        const LATER = new Date('2026-07-21T10:00:00Z');
+
+        it('should label an unpublished item Draft', () => {
+            const col = statusColumn();
+            const row = { publishedStatus: false };
+            expect(col.badgeConfig.textFn(row)).toBe('Draft');
+            expect(col.classFn(row)).toBe('inactive');
+        });
+
+        it('should label an in-sync item Published', () => {
+            const col = statusColumn();
+            const row = { publishedStatus: true, lastPublishedAt: PUBLISHED_AT, modifiedAt: PUBLISHED_AT };
+            expect(col.badgeConfig.textFn(row)).toBe('Published');
+            expect(col.classFn(row)).toBe('active');
+        });
+
+        it('should label a published item with newer draft changes Edited', () => {
+            const col = statusColumn();
+            const row = { publishedStatus: true, lastPublishedAt: PUBLISHED_AT, modifiedAt: LATER };
+            expect(col.badgeConfig.textFn(row)).toBe('Edited');
+            expect(col.classFn(row)).toBe('pending');
+        });
+
+        it('should explain each state on hover', () => {
+            const col = statusColumn();
+            expect(col.titleFn({ publishedStatus: true, lastPublishedAt: PUBLISHED_AT, modifiedAt: LATER }))
+                .toContain('not live yet');
+        });
+    });
+});

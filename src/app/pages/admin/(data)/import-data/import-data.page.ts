@@ -1,5 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslatablePipe } from '../../../../core/i18n/translatable.pipe';
 import { Component, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -43,8 +45,7 @@ export interface ImportCollectionGroup {
         MatCheckboxModule,
         MatIconModule,
         MatProgressBarModule,
-        MatRadioModule,
-    ],
+        MatRadioModule, TranslatablePipe, TranslocoPipe],
     templateUrl: './import-data.page.html',
     styleUrls: ['./import-data.page.scss'],
 })
@@ -109,7 +110,7 @@ export default class ImportDataPageComponent extends BaseComponent {
         if (unknownItems && unknownItems.length > 0) {
             groups.push({
                 id: 'unknown',
-                label: 'Other Collections',
+                label: 'admin.data.other_collections',
                 icon: 'fa-solid fa-question-circle',
                 items: unknownItems,
             });
@@ -271,11 +272,7 @@ export default class ImportDataPageComponent extends BaseComponent {
                 result.totalErrored > 0 ? 'warning' : 'check_circle',
             );
         } catch (error: any) {
-            this.toastService.openCustomSnackbar(
-                'Import failed: ' + (error.message || 'Unknown error'),
-                'error',
-                'error',
-            );
+            this.notify.error('admin.data.import.failed', { error: error.message || this.t('common.unknown_error') });
         } finally {
             this.isImporting.set(false);
         }

@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -33,7 +34,7 @@ export const routeMeta: RouteMeta = {
         CommonModule, FormsModule, MatButtonModule, MatIconModule,
         MatInputModule, MatFormFieldModule, MatPaginatorModule, MatSelectModule,
         MatTooltipModule, MatSidenavModule,
-        GlobalTableComponent, ContactDrawerComponent, PageHeaderComponent,
+        GlobalTableComponent, ContactDrawerComponent, PageHeaderComponent, TranslocoPipe,
     ],
     templateUrl: './contacts.page.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -102,12 +103,12 @@ export default class ContactsPageComponent implements OnInit {
     });
 
     columns: TableColumn[] = [
-        { key: 'email', header: 'Email', type: 'text' },
-        { key: 'name', header: 'Name', type: 'text', transformFn: (r) => r.name || '—' },
-        { key: 'sources', header: 'Sources', type: 'text', classFn: () => 'small', transformFn: (r) => (r.sources || []).join(', ') || '—' },
-        { key: 'listIds', header: 'Lists', type: 'text', transformFn: (r) => (r.listIds || []).length },
+        { key: 'email', header: 'common.table.email', type: 'text' },
+        { key: 'name', header: 'common.table.name', type: 'text', transformFn: (r) => r.name || '—' },
+        { key: 'sources', header: 'admin.audience.contacts.sources', type: 'text', classFn: () => 'small', transformFn: (r) => (r.sources || []).join(', ') || '—' },
+        { key: 'listIds', header: 'admin.audience.contacts.lists', type: 'text', transformFn: (r) => (r.listIds || []).length },
         {
-            key: 'tags', header: 'Tags', type: 'tags',
+            key: 'tags', header: 'admin.audience.contacts.tags', type: 'tags',
             // Resolve ids to the live tag docs so labels/colours follow renames.
             transformFn: (r) => (r.tags || [])
                 .map((id: string) => this.tagsById().get(id))
@@ -115,7 +116,7 @@ export default class ContactsPageComponent implements OnInit {
         },
         {
             key: 'consent',
-            header: 'Consent',
+            header: 'admin.audience.contacts.consent',
             type: 'html',
             transformFn: (r) => {
                 const c = r.consent?.marketing || 'pending';
@@ -124,11 +125,11 @@ export default class ContactsPageComponent implements OnInit {
         },
         {
             key: 'actions',
-            header: 'Actions',
+            header: 'common.table.actions',
             type: 'actions',
             actions: [
                 {
-                    action: 'view', icon: 'fas fa-eye text-secondary', label: 'View', class: 'view',
+                    action: 'view', icon: 'fas fa-eye text-secondary', label: 'common.actions.view', class: 'view',
                     isRowClick: true, onAction: (row) => this.openView(row),
                 },
             ],

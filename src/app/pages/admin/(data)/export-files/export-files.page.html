@@ -1,8 +1,8 @@
 <div class="export-files-container">
     <div class="export-header">
         <div class="export-header-left">
-            <h2>Export Media</h2>
-            <p class="text-muted">Select media files to export. The download includes both the files and a JSON manifest with metadata.</p>
+            <h2>{{ 'admin.data.export_files.title' | transloco }}</h2>
+            <p class="text-muted">{{ 'admin.data.export_files.subtitle' | transloco }}</p>
         </div>
         @if (!isLoading() && !loadError() && mediaItems().length > 0) {
             <button mat-flat-button color="primary"
@@ -10,10 +10,10 @@
                     (click)="downloadAsZip()"
                     [disabled]="selectedCount === 0 || isDownloading()">
                 @if (isDownloading()) {
-                    <i class="fa-solid fa-spinner fa-spin me-2"></i> Downloading...
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i> {{ 'admin.data.export_files.downloading' | transloco }}
                 } @else {
                     <i class="fa-solid fa-file-zipper me-2"></i>
-                    Download ZIP ({{ selectedCount }} files)
+                    {{ 'admin.data.export_files.download_zip' | transloco: { count: selectedCount } }}
                 }
             </button>
         }
@@ -23,7 +23,7 @@
     @if (isLoading()) {
         <div class="loading-state">
             <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            <p>Loading media from collection...</p>
+            <p>{{ 'admin.data.export_files.loading' | transloco }}</p>
         </div>
     }
 
@@ -40,20 +40,20 @@
         @if (mediaItems().length === 0) {
             <div class="empty-state">
                 <i class="fa-solid fa-images"></i>
-                <p>No media files found in the collection.</p>
+                <p>{{ 'admin.data.export_files.none' | transloco }}</p>
             </div>
         } @else {
-            <!-- Select All Bar -->
+            <!-- {{ 'admin.data.export_files.select_all' | transloco }} Bar -->
             <div class="select-bar">
                 <mat-checkbox
                     [checked]="allSelected"
                     [indeterminate]="someSelected"
                     (change)="toggleAll($event.checked)"
                     [disabled]="isDownloading()">
-                    Select All
+                                        {{ 'admin.data.export_files.select_all' | transloco }}
                 </mat-checkbox>
                 <span class="selection-summary">
-                    {{ selectedCount }} of {{ totalCount }} selected
+                    {{ 'admin.data.export_files.of_selected' | transloco: { selected: selectedCount, total: totalCount } }}
                 </span>
             </div>
 
@@ -104,8 +104,7 @@
                         [value]="(downloadProgress()!.filesCompleted / downloadProgress()!.totalFiles) * 100">
                     </mat-progress-bar>
                     <p class="progress-text">
-                        Downloading: {{ downloadProgress()!.currentFile }}
-                        ({{ downloadProgress()!.filesCompleted }}/{{ downloadProgress()!.totalFiles }} files)
+                        {{ 'admin.data.export_files.progress' | transloco: { current: downloadProgress()!.filesCompleted, total: downloadProgress()!.totalFiles } }}
                     </p>
                 </div>
             }

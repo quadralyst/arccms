@@ -9,20 +9,20 @@
 
     <mat-drawer-content>
         <div class="page-container">
-            <arc-page-header title="Tags"
-                subtitle="Tags label contacts across every list and form — use them to target sends by type.">
+            <arc-page-header [title]="'admin.audience.tags.title' | transloco"
+                [subtitle]="'admin.audience.tags.subtitle' | transloco">
                 <button mat-stroked-button (click)="runMigration()" [disabled]="busy()"
                     matTooltip="Import tags from your waitlists into the global audience. Safe to run more than once.">
-                    <mat-icon>download</mat-icon> Import waitlist tags
+                    <mat-icon>download</mat-icon> {{ 'admin.audience.tags.import' | transloco }}
                 </button>
                 <button mat-flat-button color="primary" (click)="openAdd()">
-                    <mat-icon>add</mat-icon> Create tag
+                    <mat-icon>add</mat-icon> {{ 'admin.audience.tags.create' | transloco }}
                 </button>
             </arc-page-header>
 
             <app-global-table [data]="tags()" [columns]="columns" [loading]="loading()"
-                emptyIcon="fas fa-tags" emptyTitle="No tags yet"
-                emptyDescription="Create a tag to label contacts, or import the tags from your existing waitlists."
+                emptyIcon="fas fa-tags" [emptyTitle]="'admin.audience.tags.empty_title' | transloco"
+                [emptyDescription]="'admin.audience.tags.empty_description' | transloco"
                 emptyActionLabel="Create tag" emptyActionIcon="fas fa-plus"
                 (emptyActionClick)="openAdd()">
             </app-global-table>

@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Functions, httpsCallable } from '@angular/fire/functions';
@@ -50,12 +51,11 @@ interface ActivityItem {
         MatProgressSpinnerModule,
         UserShellComponent,
         IfEntitledDirective,
-        PageHeaderComponent,
-    ],
+        PageHeaderComponent, TranslocoPipe],
     template: `
         <app-user-shell>
             <div class="dash">
-                <arc-page-header [title]="'Welcome back, ' + firstName()" subtitle="Here's your account at a glance."></arc-page-header>
+                <arc-page-header [title]="'user.dashboard.welcome' | transloco: { name: firstName() }" [subtitle]="'user.dashboard.subtitle' | transloco"></arc-page-header>
 
                 <!-- Onboarding empty state -->
                 @if (isNewUser()) {
@@ -122,8 +122,8 @@ interface ActivityItem {
                         }
                         Use 1 Credit
                     </button>
-                    <a mat-stroked-button class="action-btn" routerLink="/pricing"><i class="fa-solid fa-plus me-1"></i>Buy Credits / Upgrade</a>
-                    <a mat-stroked-button class="action-btn" routerLink="/account"><i class="fa-solid fa-receipt me-1"></i>Billing &amp; Invoices</a>
+                    <a mat-stroked-button routerLink="/pricing"><i class="fa-solid fa-plus me-1"></i>{{ 'user.dashboard.buy_credits' | transloco }}</a>
+                    <a mat-stroked-button routerLink="/account"><i class="fa-solid fa-receipt me-1"></i>{{ 'user.dashboard.manage_billing' | transloco }}</a>
                 </div>
                 @if (creditError()) { 
                     <div class="error-banner animate-fade-in">
@@ -133,56 +133,47 @@ interface ActivityItem {
 
                 <!-- Compact membership detail (members only) -->
                 @if (entitlements.isPro()) {
-                    <mat-card class="membership-details-card animate-slide-up">
-                        <mat-card-content class="md-grid">
-                            <div class="md-item"><span class="k">Renews / expires</span><span class="v font-semibold">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span></div>
-                            <div class="md-item"><span class="k">Free updates until</span><span class="v">{{ fmtDate(entitlement()?.updatesUntil) }}</span></div>
-                            <div class="md-item"><span class="k">Plan Deal</span><span class="v">{{ entitlement()?.premiumTierLabel || '—' }}</span></div>
-                            <div class="md-item"><span class="k">Discount Code</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '—' }}</span></div>
-                        </mat-card-content>
+                    <mat-card class="mdetail">
+                        <div class="md"><span class="k">{{ 'user.dashboard.renews' | transloco }}</span><span class="v">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span></div>
+                        <div class="md"><span class="k">{{ 'user.dashboard.updates_until' | transloco }}</span><span class="v">{{ fmtDate(entitlement()?.updatesUntil) }}</span></div>
+                        <div class="md"><span class="k">{{ 'user.dashboard.deal' | transloco }}</span><span class="v">{{ entitlement()?.premiumTierLabel || '—' }}</span></div>
+                        <div class="md"><span class="k">{{ 'user.dashboard.discount' | transloco }}</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '—' }}</span></div>
                     </mat-card>
                 }
 
-                <!-- Members-only card -->
-                <mat-card class="welcome-banner premium-banner animate-slide-up" *appIfEntitled>
-                    <mat-card-content class="w-body">
-                        <div class="banner-icon premium-color"><i class="fa-solid fa-circle-check"></i></div>
-                        <div class="banner-text">
-                            <h3>Premium Features Unlocked</h3>
-                            <p class="text-muted">You have full developer & writer access to members-only tools.</p>
+                <!-- Members-only card (gated by *appIfEntitled) -->
+                <mat-card class="premium-card" *appIfEntitled>
+                    <div class="pc-body">
+                        <i class="fa-solid fa-star pc-icon"></i>
+                        <div>
+                            <h3>{{ 'user.dashboard.premium_unlocked' | transloco }}</h3>
+                            <p class="text-muted">{{ 'user.dashboard.premium_note' | transloco }}</p>
                         </div>
-                        <a mat-flat-button class="premium-action-btn" routerLink="/user/premium">Open Premium Area</a>
-                    </mat-card-content>
+                        <a mat-raised-button color="primary" routerLink="/user/premium">{{ 'user.dashboard.open_premium' | transloco }}</a>
+                    </div>
                 </mat-card>
 
-                <!-- Recent activity -->
-                <div class="section-layout animate-slide-up">
-                    <div class="section-header">
-                        <h2>Recent Activity</h2>
-                        <a routerLink="/account" class="view-all-link">View Full History →</a>
-                    </div>
-                    
-                    @if (loadingActivity()) {
-                        <div class="loading-container"><mat-spinner diameter="24"></mat-spinner></div>
-                    } @else if (activity().length === 0) {
-                        <div class="empty-state">
-                            <p class="text-muted">No transactions or ledger history yet.</p>
-                        </div>
-                    } @else {
-                        <mat-card class="activity-card">
-                            <div class="activity-list">
-                                @for (a of activity(); track a.id) {
-                                    <div class="activity-row">
-                                        <span class="activity-icon"><i [class]="a.icon"></i></span>
-                                        <span class="activity-label">{{ a.label }}</span>
-                                        <span class="activity-amount" [class.pos]="a.positive" [class.neg]="!a.positive">{{ a.amount }}</span>
-                                        <span class="activity-date">{{ fmtDate(a.date) }}</span>
-                                    </div>
-                                }
-                            </div>
-                        </mat-card>
-                    }
+                <!-- {{ 'user.dashboard.recent_activity' | transloco }} (summary; full history on /account) -->
+                <div class="section-head">
+                    <h2>{{ 'user.dashboard.recent_activity' | transloco }}</h2>
+                    <a routerLink="/account" class="link">{{ 'user.dashboard.view_all' | transloco }}</a>
                 </div>
+                @if (loadingActivity()) {
+                    <div class="py-3"><mat-spinner diameter="24"></mat-spinner></div>
+                } @else if (activity().length === 0) {
+                    <p class="text-muted">{{ 'user.dashboard.no_activity' | transloco }}</p>
+                } @else {
+                    <mat-card class="activity">
+                        @for (a of activity(); track a.id) {
+                            <div class="arow">
+                                <i [class]="a.icon"></i>
+                                <span class="al">{{ a.label }}</span>
+                                <span class="aa" [class.pos]="a.positive" [class.neg]="!a.positive">{{ a.amount }}</span>
+                                <span class="ad">{{ fmtDate(a.date) }}</span>
+                            </div>
+                        }
+                    </mat-card>
+                }
 
                 <div class="section-layout animate-slide-up">
                     <h2 class="section-title">Quick Navigation</h2>

@@ -1,4 +1,6 @@
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslatablePipe } from '../../../app/core/i18n/translatable.pipe';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 export interface TableAction {
@@ -15,14 +17,27 @@ export interface TableAction {
 
 export interface TableColumn {
     key: string;
+    /**
+     * The column heading.
+     *
+     * A translation key is resolved by the table (`| translatable`); anything
+     * else — a content type's custom field label, say — is rendered as-is.
+     *
+     * Do not call `translate()` when defining columns: they are built in a
+     * field initialiser, which runs before the translation file has loaded, so
+     * you would store the key itself. Resolving here also means a language
+     * switch updates the headings without every page rebuilding its columns.
+     */
     header: string;
-    type?: 'text' | 'badge' | 'actions' | 'code' | 'index' | 'date' | 'tags' | 'html' | 'icon'; // Added 'html' and 'icon'
+    type?: 'text' | 'badge' | 'actions' | 'code' | 'index' | 'date' | 'tags' | 'html' | 'icon' | 'image'; // Added 'html', 'icon' and 'image'
     sortable?: boolean;
 
     // Config-driven options replacing TemplateRef
     dateFormat?: string; // for 'date' type
     transformFn?: (row: any) => any;
     classFn?: (row: any) => string;
+    /** Hover text for the cell — useful when a short label needs explaining. */
+    titleFn?: (row: any) => string;
     clickable?: boolean;
 
     actions?: TableAction[];
@@ -45,6 +60,13 @@ export interface TableColumn {
         colorKey?: string;
         class?: string;
     };
+    /** For 'image' columns — a thumbnail is far more readable than a raw URL. */
+    imageConfig?: {
+        /** Rendered thumbnail height in px (default 40). */
+        height?: number;
+        /** Row field to use as alt text; falls back to the column header. */
+        altKey?: string;
+    };
 }
 
 @Component({
@@ -52,7 +74,7 @@ export interface TableColumn {
     templateUrl: './global-table.component.html',
     styleUrls: ['./global-table.component.scss'],
     standalone: true,
-    imports: [CommonModule]
+    imports: [CommonModule, TranslocoPipe, TranslatablePipe]
 })
 export class GlobalTableComponent {
     /**
@@ -181,5 +203,21 @@ export class GlobalTableComponent {
         }
 
         return date;
+    }
+
+    /**
+     * Image URL for an 'image' column. Returns '' for anything that is not a
+     * usable src, so the template falls back to a dash instead of rendering a
+     * broken image.
+     */
+    resolveImageUrl(col: TableColumn, row: any): string {
+        const value = col.transformFn ? col.transformFn(row) : row[col.key];
+        return typeof value === 'string' && value.trim() ? value.trim() : '';
+    }
+
+    resolveImageAlt(col: TableColumn, row: any): string {
+        const altKey = col.imageConfig?.altKey;
+        const alt = altKey ? row[altKey] : '';
+        return typeof alt === 'string' && alt.trim() ? alt : col.header;
     }
 }

@@ -1,5 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslatablePipe } from '../../../../core/i18n/translatable.pipe';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -65,8 +67,7 @@ export interface ExportPreset {
         MatButtonModule,
         MatCheckboxModule,
         MatIconModule,
-        MatProgressBarModule,
-    ],
+        MatProgressBarModule, TranslatablePipe, TranslocoPipe],
     templateUrl: './export-data.page.html',
     styleUrls: ['./export-data.page.scss'],
 })
@@ -80,9 +81,9 @@ export default class ExportDataPageComponent extends BaseComponent implements On
     exportError = signal<string | null>(null);
 
     presets: ExportPreset[] = [
-        { id: 'all', label: 'Everything', icon: 'fa-solid fa-check-double' },
-        { id: 'all-content', label: 'All Content', icon: 'fa-solid fa-file-lines' },
-        { id: 'all-settings', label: 'All Settings', icon: 'fa-solid fa-gear' },
+        { id: 'all', label: 'admin.data.preset_everything', icon: 'fa-solid fa-check-double' },
+        { id: 'all-content', label: 'admin.data.preset_all_content', icon: 'fa-solid fa-file-lines' },
+        { id: 'all-settings', label: 'admin.data.preset_all_settings', icon: 'fa-solid fa-gear' },
     ];
 
     // -----------------------------------------------------------------------
@@ -441,11 +442,7 @@ export default class ExportDataPageComponent extends BaseComponent implements On
             );
         } catch (error: any) {
             this.exportError.set(error.message || 'Export failed');
-            this.toastService.openCustomSnackbar(
-                'Export failed: ' + (error.message || 'Unknown error'),
-                'error',
-                'error',
-            );
+            this.notify.error('admin.data.export.failed', { error: error.message || this.t('common.unknown_error') });
         } finally {
             this.isExporting.set(false);
         }

@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, inject, signal, ViewChild, TemplateRef } from '@angular/core';
+import { Component, inject, signal, ViewChild, TemplateRef, computed } from '@angular/core';
 import { MatSidenavModule, MatDrawer } from '@angular/material/sidenav';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,6 +9,8 @@ import { MatDialog } from '@angular/material/dialog';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ContentTypesStore } from './content-types.store';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { NotifyService } from '../../../../../shared/services/notify.service';
 import { ContentType } from './content-types.model';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import AddContentTypeComponent from './(add-content-type)/add.page';
@@ -38,7 +40,8 @@ export const routeMeta: RouteMeta = {
     EditContentTypeComponent,
     ViewContentTypeComponent,
     GlobalTableComponent,
-    PageHeaderComponent
+    PageHeaderComponent,
+    TranslocoPipe
   ],
   providers: [DatePipe],
   templateUrl: './content-types.html',
@@ -52,6 +55,8 @@ export default class ContentTypeComponent {
   route = inject(ActivatedRoute);
   router = inject(Router);
   toastService = inject(ToastService);
+  notify = inject(NotifyService);
+  transloco = inject(TranslocoService);
   @ViewChild('drawer') drawer!: MatDrawer;
 
   currentAction = signal<'add' | 'edit' | 'view' | ''>('');
@@ -66,8 +71,8 @@ export default class ContentTypeComponent {
   // Filters
   filters = signal<{ [key: string]: string }>({});
   filterableColumns = [
-    { label: 'Name', field: 'name' },
-    { label: 'Slug', field: 'slug' }
+    { label: 'common.table.name', field: 'name' },
+    { label: 'common.table.slug', field: 'slug' }
   ];
 
   // Table Config
@@ -152,13 +157,16 @@ export default class ContentTypeComponent {
   }
 
   deleteItem(item: ContentType) {
-    const msg = this.sanitizer.bypassSecurityTrustHtml(`Are you sure you want to delete "${item.name}"?`);
+    const msg = this.sanitizer.bypassSecurityTrustHtml(
+      this.transloco.translate('common.actions.delete_confirm', { name: item.name }),
+    );
     const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
       width: '350px',
       data: {
         dialogType: 'Delete',
+        titleKey: 'common.dialog.delete',
         dialogMessage: msg,
-        btnText: 'Delete',
+        btnText: this.transloco.translate('common.actions.delete'),
         panelType: 'warn',
       },
     });
@@ -166,11 +174,11 @@ export default class ContentTypeComponent {
       if (result) {
         this.contentTypesStore.delete(item.id!).subscribe({
           next: () => {
-            this.toastService.success('Content type deleted successfully.');
+            this.notify.success('admin.contents.types.deleted');
           },
           error: (error) => {
             console.error('Error deleting content type:', error);
-            this.toastService.error('Failed to delete content type. Please try again.');
+            this.notify.error('admin.contents.types.delete_failed');
           },
         });
       }
@@ -217,15 +225,34 @@ export default class ContentTypeComponent {
       }
     });
 
+    // No limit and no cursors: the store is shared with the content editor,
+    // which needs every type present to resolve its custom fields. Paging is
+    // done below over what is already loaded.
     this.contentTypesStore.getAll({
       orderByField: this.sortField(),
       orderByDirection: this.sortOrder(),
-      limitCount: this.pageSize(),
-      currentPageNumber: this.currentPage(),
-      previousPageNumber: this.currentPage() - 1,
+      limitCount: 0,
+      currentPageNumber: 0,
+      previousPageNumber: -1,
       whereConditions
     });
   }
+
+  /**
+   * The slice of content types this page shows.
+   *
+   * Client-side because the store deliberately holds them all — see
+   * `ContentTypesStore`. A site has tens of content types, so slicing an array
+   * is cheaper than the Firestore cursor round-trip it replaces, and page
+   * changes become instant.
+   */
+  pagedContentTypes = computed(() => {
+    const start = this.currentPage() * this.pageSize();
+    return this.contentTypesStore.items().slice(start, start + this.pageSize());
+  });
+
+  /** Total across every page, for the paginator and the "showing x of y" line. */
+  totalContentTypes = computed(() => this.contentTypesStore.items().length);
 
   /**
    * Update URL with current state
@@ -299,8 +326,7 @@ export default class ContentTypeComponent {
    * Get starting record number for display
    */
   getStartRecord(): number {
-    const total = this.contentTypesStore.totalRecords();
-    if (total === 0) return 0;
+    if (this.totalContentTypes() === 0) return 0;
     return this.currentPage() * this.pageSize() + 1;
   }
 
@@ -308,9 +334,8 @@ export default class ContentTypeComponent {
    * Get ending record number for display
    */
   getEndRecord(): number {
-    const total = this.contentTypesStore.totalRecords();
     const end = (this.currentPage() + 1) * this.pageSize();
-    return Math.min(end, total);
+    return Math.min(end, this.totalContentTypes());
   }
 
   /**
@@ -339,65 +364,66 @@ export default class ContentTypeComponent {
       },
       {
         key: 'name',
-        header: 'Name',
+        header: 'common.table.name',
         type: 'text',
         sortable: true
       },
       {
         key: 'slug',
-        header: 'Slug',
+        header: 'common.table.slug',
         type: 'text',
         sortable: true
       },
       {
         key: 'fields',
-        header: 'Fields',
-        transformFn: (row: ContentType) => (row.fields && row.fields.length || 0) + ' field(s)'
+        header: 'admin.contents.types.col_fields',
+        transformFn: (row: ContentType) =>
+          this.transloco.translate('admin.contents.types.field_count', { count: row.fields?.length || 0 })
       },
       {
         key: 'hasPublicUrl',
-        header: 'Public Pages',
+        header: 'admin.contents.types.col_public_pages',
         type: 'html',
         transformFn: (row: ContentType) => row.hasPublicUrl !== false
-          ? '<span class="badge bg-success-subtle text-success"><i class="fas fa-globe me-1"></i>Yes</span>'
-          : '<span class="badge bg-secondary-subtle text-secondary"><i class="fas fa-lock me-1"></i>No</span>'
+          ? `<span class="badge bg-success-subtle text-success"><i class="fas fa-globe me-1"></i>${this.transloco.translate('common.yes')}</span>`
+          : `<span class="badge bg-secondary-subtle text-secondary"><i class="fas fa-lock me-1"></i>${this.transloco.translate('common.no')}</span>`
       },
       {
         key: 'modifiedAt',
-        header: 'Last Updated',
+        header: 'common.table.last_updated',
         sortable: true,
         transformFn: (row: ContentType) => this.formatDate(row.modifiedAt)
       },
       {
         key: 'actions',
-        header: 'Actions',
+        header: 'common.table.actions',
         type: 'actions',
         actions: [
           {
             action: 'view',
             icon: 'fas fa-eye text-secondary',
-            label: 'View',
+            label: 'common.actions.view',
             class: 'view',
             onAction: (row) => this.openView(row.id)
           },
           {
             action: 'edit',
             icon: 'fas fa-pen text-primary',
-            label: 'Edit',
+            label: 'common.actions.edit',
             class: 'edit',
             onAction: (row) => this.openEdit(row.id)
           },
           {
             action: 'tags',
             icon: 'fas fa-tags text-warning',
-            label: 'Manage Tags',
+            label: 'admin.contents.types.manage_tags',
             class: 'edit',
             onAction: (row) => this.openTags(row)
           },
           {
             action: 'delete',
             icon: 'fas fa-trash text-danger',
-            label: 'Delete',
+            label: 'common.actions.delete',
             class: 'delete',
             onAction: (row) => this.deleteItem(row)
           }

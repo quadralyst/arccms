@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -35,8 +36,7 @@ export interface SelectableMedia extends MediaDocInfo {
         MatButtonModule,
         MatCheckboxModule,
         MatIconModule,
-        MatProgressBarModule,
-    ],
+        MatProgressBarModule, TranslocoPipe],
     templateUrl: './export-files.page.html',
     styleUrls: ['./export-files.page.scss'],
 })
@@ -137,11 +137,7 @@ export default class ExportFilesPageComponent extends BaseComponent implements O
                 'check_circle',
             );
         } catch (error: any) {
-            this.toastService.openCustomSnackbar(
-                'Download failed: ' + (error.message || 'Unknown error'),
-                'error',
-                'error',
-            );
+            this.notify.error('admin.data.export_files.failed', { error: error.message || this.t('common.unknown_error') });
         } finally {
             this.isDownloading.set(false);
             this.downloadProgress.set(null);

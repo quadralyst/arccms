@@ -4,10 +4,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const {
     mockFetch,
     mockDeployFileToHosting,
+    mockDeployBatchToHosting,
     mockRemoveFileFromHosting,
     mockGetPartials,
     mockGetSiteConfig,
     mockGetMiscSettings,
+    mockGetLocalizationSettings,
+    mockGetUiStrings,
+    mockTranslationsGet,
     // Firestore mocks
     mockDocGet,
     mockCollectionDocGet,
@@ -18,10 +22,14 @@ const {
 } = vi.hoisted(() => ({
     mockFetch: vi.fn(),
     mockDeployFileToHosting: vi.fn(),
+    mockDeployBatchToHosting: vi.fn(),
     mockRemoveFileFromHosting: vi.fn(),
     mockGetPartials: vi.fn(),
     mockGetSiteConfig: vi.fn(),
     mockGetMiscSettings: vi.fn(),
+    mockGetLocalizationSettings: vi.fn(),
+    mockGetUiStrings: vi.fn(),
+    mockTranslationsGet: vi.fn(),
     // Firestore chain mocks
     mockDocGet: vi.fn(),
     mockCollectionDocGet: vi.fn(),
@@ -42,15 +50,24 @@ vi.mock('../init', () => ({
     },
 }));
 
-vi.mock('../pages/deployToHosting', () => ({
-    deployFileToHosting: mockDeployFileToHosting,
-    removeFileFromHosting: mockRemoveFileFromHosting,
-}));
+vi.mock('../pages/deployToHosting', async (importOriginal) => {
+    // HostingBatch stays real: the generators collect into one and the
+    // assertions below inspect it. Only the network-touching release is mocked.
+    const actual = await importOriginal<typeof import('../pages/deployToHosting.js')>();
+    return {
+        ...actual,
+        deployBatchToHosting: mockDeployBatchToHosting,
+        deployFileToHosting: mockDeployFileToHosting,
+        removeFileFromHosting: mockRemoveFileFromHosting,
+    };
+});
 
 vi.mock('../shared/site-settings', () => ({
     getPartials: mockGetPartials,
     getSiteConfig: mockGetSiteConfig,
     getMiscSettings: mockGetMiscSettings,
+    getLocalizationSettings: mockGetLocalizationSettings,
+    getUiStrings: mockGetUiStrings,
 }));
 
 // Let template-hydration and html-document run unmocked (real logic)
@@ -119,9 +136,18 @@ function restoreMockImplementations() {
     mockGetPartials.mockResolvedValue(MOCK_PARTIALS);
     mockGetSiteConfig.mockResolvedValue(MOCK_SITE_CONFIG);
     mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
+    // Single-language site by default, so the pre-M3 expectations hold.
+    mockGetLocalizationSettings.mockResolvedValue({
+        defaultLanguage: 'en',
+        enabledLanguages: [{ code: 'en', label: 'English', nativeLabel: 'English' }],
+    });
+    mockTranslationsGet.mockResolvedValue({ docs: [] });
+    // No translated chrome by default — the authored English stands.
+    mockGetUiStrings.mockResolvedValue({});
 
     // Deploy functions
     mockDeployFileToHosting.mockResolvedValue(undefined);
+    mockDeployBatchToHosting.mockResolvedValue(undefined);
     mockRemoveFileFromHosting.mockResolvedValue(undefined);
 
     // Firestore: db.collection('arc_articles').doc('doc123').get()
@@ -152,6 +178,7 @@ function restoreMockImplementations() {
         return {
             doc: vi.fn().mockReturnValue({
                 get: mockCollectionDocGet,
+                collection: vi.fn().mockReturnValue({ get: mockTranslationsGet }),
             }),
         };
     });
@@ -214,7 +241,7 @@ describe('deployContentPage', () => {
             // Verify template doc was read
             expect(mockTopDoc).toHaveBeenCalledWith('templates/articles:detail');
             // Verify the deployed HTML contains hydrated content from the custom template
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Test Article');
         });
 
@@ -227,7 +254,7 @@ describe('deployContentPage', () => {
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Test Article');
         });
 
@@ -250,7 +277,7 @@ describe('deployContentPage', () => {
             expect(mockFetch).toHaveBeenCalledWith(
                 'https://test-project.web.app/templates/articles/detail.html',
             );
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Test Article');
         });
 
@@ -263,13 +290,16 @@ describe('deployContentPage', () => {
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             // Fallback template has data-arc-bind="title" which gets hydrated
             expect(deployedHtml).toContain('Test Article');
         });
 
-        it('should skip Tier 1+2 when templateFolder is "default"', async () => {
-            // ContentType with templateFolder = 'default'
+        it('should load the shared default template when templateFolder is "default"', async () => {
+            // "default" names a real template folder — public/templates/default —
+            // rather than meaning "no template". It used to short-circuit to the
+            // bare built-in skeleton, which is why a deployed page looked
+            // nothing like the same content previewed locally.
             mockContentTypeLimitGet.mockResolvedValue({
                 empty: false,
                 docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, templateFolder: 'default' }) }],
@@ -277,15 +307,11 @@ describe('deployContentPage', () => {
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            // Should not read template doc or fetch from hosting
-            expect(mockTopDoc).not.toHaveBeenCalled();
-            expect(mockFetch).not.toHaveBeenCalled();
-            // Should still deploy successfully
-            expect(mockDeployFileToHosting).toHaveBeenCalled();
+            expect(mockTopDoc).toHaveBeenCalledWith('templates/default:detail');
+            expect(mockDeployBatchToHosting).toHaveBeenCalled();
         });
 
-        it('should skip Tier 1+2 when templateFolder is empty', async () => {
-            // ContentType with no templateFolder
+        it('should fall back to the default folder when templateFolder is empty', async () => {
             mockContentTypeLimitGet.mockResolvedValue({
                 empty: false,
                 docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, templateFolder: '' }) }],
@@ -293,9 +319,8 @@ describe('deployContentPage', () => {
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            expect(mockTopDoc).not.toHaveBeenCalled();
-            expect(mockFetch).not.toHaveBeenCalled();
-            expect(mockDeployFileToHosting).toHaveBeenCalled();
+            expect(mockTopDoc).toHaveBeenCalledWith('templates/default:detail');
+            expect(mockDeployBatchToHosting).toHaveBeenCalled();
         });
     });
 
@@ -305,7 +330,7 @@ describe('deployContentPage', () => {
         it('should include share URLs with proper URL encoding', async () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             // The template has <a data-arc-bind="share.facebook"> which gets hydrated
             expect(deployedHtml).toContain('facebook.com/sharer/sharer.php');
         });
@@ -313,7 +338,7 @@ describe('deployContentPage', () => {
         it('should include readTime calculated from content', async () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             // readTime is injected into <span data-arc-bind="readTime"> → <span>N</span> min read
             expect(deployedHtml).toMatch(/<span>\d+<\/span> min read/);
         });
@@ -321,7 +346,7 @@ describe('deployContentPage', () => {
         it('should include formatted date from Firestore Timestamp', async () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             // Jan 15, 2024 — the Firestore timestamp we set (seconds: 1705334400)
             expect(deployedHtml).toContain('January 15, 2024');
         });
@@ -329,7 +354,7 @@ describe('deployContentPage', () => {
         it('should process tags loop via tagsWithColors', async () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('javascript');
             expect(deployedHtml).toContain('testing');
         });
@@ -341,13 +366,12 @@ describe('deployContentPage', () => {
         it('should deploy to correct file path /{slug}/{urlSlug}.html', async () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            expect(mockDeployFileToHosting).toHaveBeenCalledWith(
-                'test-project',
-                '/articles/test-article.html',
-                expect.any(String),
-                'arc_articles',
-                'doc123',
-            );
+            const [siteId, releasedBatch, collection, deployDocId] =
+                mockDeployBatchToHosting.mock.calls[0];
+            expect(siteId).toBe('test-project');
+            expect(releasedBatch.files.map((f: any) => f.path)).toContain('/articles/test-article.html');
+            expect(collection).toBe('arc_articles');
+            expect(deployDocId).toBe('doc123');
         });
 
         it('should pass correct collectionName and docId to deployFileToHosting', async () => {
@@ -355,8 +379,8 @@ describe('deployContentPage', () => {
 
             // Need to set up mocks for the blog-posts content
             // Already handled by generic mockCollection implementation
-            expect(mockDeployFileToHosting.mock.calls[0][3]).toBe('arc_blog-posts');
-            expect(mockDeployFileToHosting.mock.calls[0][4]).toBe('abc456');
+            expect(mockDeployBatchToHosting.mock.calls[0][2]).toBe('arc_blog-posts');
+            expect(mockDeployBatchToHosting.mock.calls[0][3]).toBe('abc456');
         });
 
         it('should pass siteId from GCLOUD_PROJECT', async () => {
@@ -364,13 +388,13 @@ describe('deployContentPage', () => {
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            expect(mockDeployFileToHosting.mock.calls[0][0]).toBe('my-custom-project');
+            expect(mockDeployBatchToHosting.mock.calls[0][0]).toBe('my-custom-project');
         });
 
         it('should build HTML containing SEO meta tags', async () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('<title>Test Article - SEO Title</title>');
             expect(deployedHtml).toContain('A test article for unit testing');
             expect(deployedHtml).toContain('arc-served-by');
@@ -434,8 +458,8 @@ describe('deployContentPage', () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
             // Should still deploy successfully even with no tags
-            expect(mockDeployFileToHosting).toHaveBeenCalled();
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(mockDeployBatchToHosting).toHaveBeenCalled();
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Test Article');
         });
     });
@@ -445,10 +469,16 @@ describe('deployContentPage', () => {
     describe('Powered-by footer', () => {
         it('should include "Powered by Arc CMS" when showPoweredBy is true', async () => {
             mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
+    // Single-language site by default, so the pre-M3 expectations hold.
+    mockGetLocalizationSettings.mockResolvedValue({
+        defaultLanguage: 'en',
+        enabledLanguages: [{ code: 'en', label: 'English', nativeLabel: 'English' }],
+    });
+    mockTranslationsGet.mockResolvedValue({ docs: [] });
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Powered by');
             expect(deployedHtml).toContain('arccms.com');
         });
@@ -458,7 +488,7 @@ describe('deployContentPage', () => {
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).not.toContain('Powered by');
             expect(deployedHtml).not.toContain('arccms.com');
         });
@@ -482,6 +512,321 @@ describe('deployContentPage', () => {
             await removeContentPage('articles', 'test-article');
 
             expect(mockRemoveFileFromHosting.mock.calls[0][0]).toBe('custom-project');
+        });
+    });
+    // ── Multilingual publishing (M3) ────────────────────────────────────────
+
+    describe('language variants', () => {
+        const EN_HI = {
+            defaultLanguage: 'en',
+            enabledLanguages: [
+                { code: 'en', label: 'English', nativeLabel: 'English' },
+                { code: 'hi', label: 'Hindi', nativeLabel: 'Hindi' },
+            ],
+        };
+
+        function withHindiTranslation(translation: Record<string, unknown> = {}) {
+            mockGetLocalizationSettings.mockResolvedValue(EN_HI);
+            mockTranslationsGet.mockResolvedValue({
+                docs: [{ id: 'hi', data: () => ({ lang: 'hi', title: 'Hindi title', ...translation }) }],
+            });
+        }
+
+        /** Files the generator collected into its batch, in order. */
+        function batchFiles(): Array<{ path: string; content: string }> {
+            const call = mockDeployBatchToHosting.mock.calls[0];
+            return call ? call[1].files : [];
+        }
+
+        function deployedPaths(): string[] {
+            return batchFiles().map(file => file.path);
+        }
+
+        function htmlFor(path: string): string {
+            return batchFiles().find(file => file.path === path)?.content ?? '';
+        }
+
+        it('should deploy only the default language when nothing is translated', async () => {
+            mockGetLocalizationSettings.mockResolvedValue(EN_HI);
+            mockTranslationsGet.mockResolvedValue({ docs: [] });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(deployedPaths()).toEqual(['/articles/test-article.html']);
+        });
+
+        it('should deploy one page per translated language', async () => {
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(deployedPaths()).toEqual([
+                '/articles/test-article.html',
+                '/hi/articles/test-article.html',
+            ]);
+        });
+
+        it('should keep the default language URL unprefixed', async () => {
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(deployedPaths()).toContain('/articles/test-article.html');
+            expect(deployedPaths()).not.toContain('/en/articles/test-article.html');
+        });
+
+        it('should render translated fields in the translated page', async () => {
+            withHindiTranslation({ content: '<p>Hindi body</p>' });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const hindi = htmlFor('/hi/articles/test-article.html');
+            expect(hindi).toContain('Hindi title');
+            expect(hindi).toContain('Hindi body');
+        });
+
+        it('should fall back to default-language content for untranslated fields', async () => {
+            withHindiTranslation(); // only `title` translated
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const hindi = htmlFor('/hi/articles/test-article.html');
+            expect(hindi).toContain('This is the article body');
+        });
+
+        it('should set html lang per variant', async () => {
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/articles/test-article.html')).toContain('<html lang="en">');
+            expect(htmlFor('/hi/articles/test-article.html')).toContain('<html lang="hi">');
+        });
+
+        it('should emit reciprocal hreflang alternates on every variant', async () => {
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            for (const path of ['/articles/test-article.html', '/hi/articles/test-article.html']) {
+                const html = htmlFor(path);
+                expect(html).toContain('hreflang="en" href="https://example.com/articles/test-article"');
+                expect(html).toContain('hreflang="hi" href="https://example.com/hi/articles/test-article"');
+                // x-default points at the site default language.
+                expect(html).toContain('hreflang="x-default" href="https://example.com/articles/test-article"');
+            }
+        });
+
+        it('should not emit hreflang on a single-language site', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/articles/test-article.html')).not.toContain('hreflang');
+        });
+
+        it('should give each variant a self-referential canonical', async () => {
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html'))
+                .toContain('<link rel="canonical" href="https://example.com/hi/articles/test-article">');
+        });
+
+        it('should mark right-to-left languages', async () => {
+            mockGetLocalizationSettings.mockResolvedValue({
+                defaultLanguage: 'en',
+                enabledLanguages: [
+                    { code: 'en', label: 'English', nativeLabel: 'English' },
+                    { code: 'ar', label: 'Arabic', nativeLabel: 'Arabic', rtl: true },
+                ],
+            });
+            mockTranslationsGet.mockResolvedValue({
+                docs: [{ id: 'ar', data: () => ({ lang: 'ar', title: 'Arabic title' }) }],
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/ar/articles/test-article.html')).toContain('<html lang="ar" dir="rtl">');
+        });
+
+        it('should still deploy the default page when translations cannot be read', async () => {
+            mockGetLocalizationSettings.mockResolvedValue(EN_HI);
+            mockTranslationsGet.mockRejectedValue(new Error('permission denied'));
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(deployedPaths()).toEqual(['/articles/test-article.html']);
+            consoleSpy.mockRestore();
+        });
+
+        it('should remove every enabled language variant on unpublish', async () => {
+            mockGetLocalizationSettings.mockResolvedValue(EN_HI);
+
+            await removeContentPage('articles', 'test-article');
+
+            const removed = mockRemoveFileFromHosting.mock.calls.map(call => call[1]);
+            expect(removed).toEqual([
+                '/articles/test-article.html',
+                '/hi/articles/test-article.html',
+            ]);
+        });
+        it('should let a translated field win over a shadowing custom field', async () => {
+            // Content types commonly define a custom field whose key shadows a
+            // built-in (`title`). The custom field is spread last, so without
+            // care an untranslated one silently overrides the translated title.
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, customFields: { title: 'English custom title' } }),
+            });
+            withHindiTranslation({ title: 'Hindi title' });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const hindi = htmlFor('/hi/articles/test-article.html');
+            expect(hindi).toContain('Hindi title');
+            expect(hindi).not.toContain('English custom title');
+        });
+
+        it('should leave the shadowing custom field in place when untranslated', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, customFields: { title: 'English custom title' } }),
+            });
+            mockGetLocalizationSettings.mockResolvedValue(EN_HI);
+            mockTranslationsGet.mockResolvedValue({
+                docs: [{ id: 'hi', data: () => ({ lang: 'hi', content: '<p>Hindi body</p>' }) }],
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html')).toContain('English custom title');
+        });
+
+        it('should not reuse an author canonical on translated variants', async () => {
+            // A shared canonical would contradict hreflang and deindex the
+            // translations.
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, canonicalUrl: 'https://elsewhere.com/original' }),
+            });
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/articles/test-article.html'))
+                .toContain('<link rel="canonical" href="https://elsewhere.com/original">');
+            expect(htmlFor('/hi/articles/test-article.html'))
+                .toContain('<link rel="canonical" href="https://example.com/hi/articles/test-article">');
+        });
+        it('should link the switcher relatively but hreflang absolutely', async () => {
+            // hreflang must be absolute for search engines; the switcher must
+            // not be, or clicking a language on a preview channel or the
+            // .web.app domain throws the visitor onto the configured baseUrl.
+            mockGetPartials.mockResolvedValue({
+                headerHtml: '<header><arc-language-switcher></arc-language-switcher></header>',
+                footerHtml: '<footer></footer>',
+            });
+            // The switcher lives inside the header partial, so the template
+            // must actually place the header.
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: `<arc-header></arc-header>${MOCK_TEMPLATE_HTML}` }),
+            });
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const html = htmlFor('/articles/test-article.html');
+            expect(html).toContain('<a href="/hi/articles/test-article" hreflang="hi"');
+            expect(html).toContain(
+                '<link rel="alternate" hreflang="hi" href="https://example.com/hi/articles/test-article">',
+            );
+        });
+        it('should translate static template chrome on the translated page only', async () => {
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<article><span data-arc-t="read_more">Read Article</span></article>' }),
+            });
+            mockGetUiStrings.mockImplementation(async (lang: string) =>
+                lang === 'hi' ? { read_more: 'लेख पढ़ें' } : {});
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html')).toContain('लेख पढ़ें');
+            // The default language keeps the authored English and is never asked
+            // for a strings file.
+            expect(htmlFor('/articles/test-article.html')).toContain('Read Article');
+            expect(mockGetUiStrings).not.toHaveBeenCalledWith('en');
+        });
+
+        it('should keep English chrome when a key is untranslated', async () => {
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<article><span data-arc-t="read_more">Read Article</span></article>' }),
+            });
+            mockGetUiStrings.mockResolvedValue({ other_key: 'x' });
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html')).toContain('Read Article');
+        });
+
+        it('should resolve interpolation carried by a translated string', async () => {
+            // Strings are applied before hydration, so "back_to" can hold its own
+            // {{ contentType }} and still end up with the real value.
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<article><span data-arc-t="back_to">Back to {{ contentType }}</span></article>' }),
+            });
+            mockGetUiStrings.mockImplementation(async (lang: string) =>
+                lang === 'hi' ? { back_to: 'वापस {{ contentType }} पर' } : {});
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const hindi = htmlFor('/hi/articles/test-article.html');
+            expect(hindi).toContain('वापस Articles पर');
+            expect(hindi).not.toContain('{{');
+        });
+        it('should use the translated content-type name on the translated page', async () => {
+            // Without this a Hindi page still reads "Back to Articles" (M-D19).
+            mockContentTypeLimitGet.mockResolvedValue({
+                empty: false,
+                docs: [{
+                    data: () => ({
+                        ...MOCK_CONTENT_TYPE,
+                        nameTranslations: { hi: { name: 'लेख' } },
+                    }),
+                }],
+            });
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<article><span>{{ contentType }}</span></article>' }),
+            });
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html')).toContain('लेख');
+            expect(htmlFor('/articles/test-article.html')).toContain('Articles');
+        });
+
+        it('should keep the default name when the type is untranslated', async () => {
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<article><span>{{ contentType }}</span></article>' }),
+            });
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html')).toContain('Articles');
         });
     });
 });

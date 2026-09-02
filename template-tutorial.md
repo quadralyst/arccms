@@ -200,9 +200,16 @@ Custom fields defined in your content type (via Admin → Contents → Content T
 In the Content Types admin panel, you can add custom fields with various types:
 - **text**: Single-line text input
 - **textarea**: Multi-line text
+- **richtext**: Formatted content, edited in the rich-text editor
 - **dropdown**: Select from predefined options
 - **checkbox**: Boolean true/false
 - **number**: Numeric values
+- **image**: An image chosen from the Media Manager
+- **icon**: A Font Awesome icon, chosen from a searchable icon picker
+- **infocard**: A repeating list of cards — icon or image, headline and info
+- **gallery**: A repeating list of photos and YouTube videos with captions
+- **labelvalue**: A repeating list of label/value pairs, with an editable heading
+- **maplocation**: A repeating list of map locations, each with a name and address
 
 Each field has a **key** (used for binding) and a **label** (displayed in admin).
 
@@ -263,12 +270,73 @@ Add to article header:
 </div>
 ```
 
+### Example: An Icon Field
+
+An `icon` field is a class list, not an image, so bind it to the `class`
+attribute of an empty `<i>` rather than with `data-arc-bind`:
+
+```html
+<!-- For an icon field with key "card_icon" -->
+<i class="card-icon {{ card_icon }}" aria-hidden="true"></i>
+```
+
+```css
+.card-icon {
+    font-size: 1.5rem;
+    color: #16a34a;  /* the icon takes this colour */
+}
+```
+
+The same field also gives you `{{ card_icon_label }}` for an `aria-label`,
+`{{ card_icon_name }}` for the bare name, and `{{ card_icon_svg }}` for an
+inline SVG fallback. See the **Icons** section of [TEMPLATES.md](TEMPLATES.md) for
+when you need each.
+
+### Example: An Info Card Field
+
+An `infocard` field holds a *list* of cards, so it renders with a loop rather
+than a single binding. The loop name is the stored field key:
+
+```html
+<!-- The bare key also works: data-arc-loop="info_cards" -->
+<section class="info-cards" data-arc-loop="programs_info_cards">
+    <article class="info-card">
+        <img data-arc-if="image" data-arc-bind="image" alt="">
+        <i data-arc-if="icon" class="{{ icon }}" aria-hidden="true"></i>
+        <h3 data-arc-bind="headline">Headline</h3>
+        <p data-arc-bind="info">Info text.</p>
+    </article>
+</section>
+```
+
+Write **one** card inside the container — it is the row template, repeated
+once per card. Each card has an icon or an image, never both, and
+`data-arc-if` drops whichever is unset. See the **Info Cards** section of
+[TEMPLATES.md](TEMPLATES.md) for the full binding list and the limitations.
+
+A `gallery` field works the same way, with `{{ image }}`, `{{ caption }}` and
+`{{ video_embed }}` / `{{ video_thumb }}` per row — see **Galleries** in
+[TEMPLATES.md](TEMPLATES.md), which also explains why you should render video
+posters rather than a page full of iframes.
+
 ### Notes
 
 - Custom fields are available in **list**, **detail**, and **partials** templates
+- **Field keys are stored prefixed with the content type slug** — a key of
+  `subtitle` on `awards-recognition` binds as `awards-recognition_subtitle`.
+  Copy the key shown in the Content Types admin
+- **Every custom field also answers to the bare key**, in both `data-arc-loop`
+  and `data-arc-bind` — that is how the shared default template renders them
+  for any content type. Name your fields `info_cards`, `gallery` and `details`
+  and the default template needs no edits. An alias never replaces a built-in
+  binding such as `title`
+- Repeating fields (`infocard`, `gallery`, `labelvalue`, `maplocation`) render on **detail** and **partials**
+  templates only — they cannot be nested inside a list page's `items` loop
 - For dropdown fields, the **selected option value** is displayed (not the key)
 - If a custom field is empty or not set, the placeholder text remains
 - Custom field keys are case-sensitive
+- `icon` fields bind into a `class` attribute, not with `data-arc-bind` — using
+  `data-arc-bind` would print the class list as visible text
 
 ## Special Template Features
 

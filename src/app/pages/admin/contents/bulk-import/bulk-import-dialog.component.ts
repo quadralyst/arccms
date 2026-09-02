@@ -19,6 +19,7 @@ import { ContentTypesStore } from '../content-types/content-types.store';
 import { ContentTypeField } from '../content-types/content-types.model';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
+import { isRepeaterType } from '../../../../../shared/models/repeater.model';
 
 @Component({
     selector: 'app-bulk-import-dialog',
@@ -90,10 +91,14 @@ export class BulkImportDialogComponent {
             { key: 'isFeatured', label: 'Featured' }
         ];
         
-        const custom = ct.fields.map(f => ({
-            key: f.key,
-            label: `${f.label} (${f.type})` + (f.required ? ' *' : '')
-        }));
+        // Repeating fields hold rows of sub-fields; a single spreadsheet cell
+        // cannot express one, so they are not offered as an import target.
+        const custom = ct.fields
+            .filter(f => !isRepeaterType(f.type))
+            .map(f => ({
+                key: f.key,
+                label: `${f.label} (${f.type})` + (f.required ? ' *' : '')
+            }));
         
         return [...standard, ...custom];
     });

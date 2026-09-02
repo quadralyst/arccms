@@ -1,7 +1,9 @@
 import { CommonModule, DatePipe, LowerCasePipe } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import {
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   Input,
@@ -12,6 +14,7 @@ import {
   ViewChild,
   TemplateRef,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -27,7 +30,13 @@ import { ContentsStore } from '../content-store/published-contents.store';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
 import { ContentTypesStore } from '../content-types/content-types.store';
 import { ContentTypesService } from '../content-types/content-types.service';
-import { ContentType } from '../content-types/content-types.model';
+import { ContentType, ContentTypeField, contentTypeName, contentTypeSingularName } from '../content-types/content-types.model';
+import {
+  CONTENT_STATUS_CLASS,
+  CONTENT_STATUS_LABEL_KEY,
+  CONTENT_STATUS_TOOLTIP_KEY,
+  deriveContentStatus,
+} from '../draft-content-store/content-status';
 import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import {
   GlobalTableComponent,
@@ -38,6 +47,8 @@ import { PageHeaderComponent } from '../../../../../shared/components/page-heade
 
 import { PreviewContentComponent } from './preview-content/preview-content.component';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
+import { iconClasses, iconLabel } from '../../../../../shared/models/icon.model';
+import { isRepeaterType } from '../../../../../shared/models/repeater.model';
 
 @Component({
   selector: 'arc-draft-contents-table',
@@ -55,6 +66,7 @@ import { PublishQueueService } from '../publish-queue/publish-queue.service';
     RouterLink,
     GlobalTableComponent,
     PreviewContentComponent,
+    TranslocoPipe,
     PageHeaderComponent
   ],
   providers: [DatePipe],
@@ -90,7 +102,7 @@ export class DraftContentsTableComponent
   // Filters
   filters = signal<{ [key: string]: string }>({});
   statusFilter = signal<string>(''); // '', 'published', 'draft'
-  filterableColumns = [{ label: 'Title', field: 'title' }];
+  filterableColumns = [{ label: 'admin.contents.list.col_title', field: 'title' }];
   
   // Preview
   previewItem = signal<any>(null);
@@ -104,10 +116,19 @@ export class DraftContentsTableComponent
     const found = contentTypes.find(
       (ct: ContentType) => ct.slug === this.contentTypeSlug,
     );
-    return found ? found.name : this.formatSlugAsName(this.contentTypeSlug);
+    return found
+      ? contentTypeName(found, this.adminLang())
+      : this.formatSlugAsName(this.contentTypeSlug);
   }
 
-  // Get the singular name for the content type (e.g., "Article")
+  /**
+   * The type's singular name for this reader.
+   *
+   * The admin authored these translations for the public pages (M-D19); a
+   * reader who set the admin to that language gets them here too, and an
+   * untranslated type keeps its authored name. Reads `adminLang` so the
+   * heading re-renders when the language changes.
+   */
   getContentTypeSingularName(): string {
     if (!this.contentTypeSlug) return 'Content';
     const contentTypes = this.contentTypesStore.items();
@@ -116,8 +137,7 @@ export class DraftContentsTableComponent
     );
     if (found) {
       return (
-        found.singularName ||
-        found.name ||
+        contentTypeSingularName(found, this.adminLang()) ||
         this.formatSlugAsName(this.contentTypeSlug)
       );
     }
@@ -132,7 +152,7 @@ export class DraftContentsTableComponent
       (ct: ContentType) => ct.slug === this.contentTypeSlug,
     );
     if (found) {
-      return found.name || this.formatSlugAsName(this.contentTypeSlug);
+      return contentTypeName(found, this.adminLang()) || this.formatSlugAsName(this.contentTypeSlug);
     }
     return this.formatSlugAsName(this.contentTypeSlug);
   }
@@ -219,7 +239,7 @@ export class DraftContentsTableComponent
   baseColumns: TableColumn[] = [
     {
       key: 'title',
-      header: 'Title',
+      header: 'admin.contents.list.col_title',
       clickable: true,
       classFn: () => 'text-primary fw-bold cursor-pointer',
     },
@@ -229,38 +249,40 @@ export class DraftContentsTableComponent
   endColumns: TableColumn[] = [
     {
       key: 'publishedStatus',
-      header: 'Status',
+      header: 'common.table.status',
       type: 'badge',
+      // Three states rather than a published/draft boolean — a live page whose
+      // draft has moved on is neither. `textFn` puts the badge in multi-state
+      // mode, leaving the tone to classFn.
       badgeConfig: {
-        trueText: 'Published',
-        falseText: 'Draft',
-        trueClass: 'active',
-        falseClass: 'inactive',
+        textFn: (row) => this.transloco.translate(CONTENT_STATUS_LABEL_KEY[deriveContentStatus(row)]),
       },
+      classFn: (row) => CONTENT_STATUS_CLASS[deriveContentStatus(row)],
+      titleFn: (row) => this.transloco.translate(CONTENT_STATUS_TOOLTIP_KEY[deriveContentStatus(row)]),
     },
     {
       key: 'modifiedAt',
-      header: 'Last Updated',
+      header: 'common.table.last_updated',
       type: 'date',
       sortable: true,
     },
     {
       key: 'actions',
-      header: 'Actions',
+      header: 'common.table.actions',
       type: 'actions',
       sortable: false,
       actions: [
         {
           action: 'preview',
           icon: 'fa-solid fa-eye text-muted',
-          label: 'Preview',
+          label: 'admin.contents.list.preview',
           class: 'preview',
           onAction: (row) => this.previewItem.set(row),
         },
         {
           action: 'edit',
           icon: 'fa-solid fa-pen text-primary',
-          label: 'Edit',
+          label: 'common.actions.edit',
           class: 'edit',
           isRowClick: true,
           onAction: (row) => this.openContent(row.id),
@@ -268,7 +290,7 @@ export class DraftContentsTableComponent
         {
           action: 'unpublish',
           icon: 'fa-solid fa-eye-slash text-warning',
-          label: 'Unpublish',
+          label: 'admin.contents.list.unpublish',
           class: 'edit',
           hide: (row) => !row.publishedStatus,
           onAction: (row) => this.confirmUnpublishContent(row.id),
@@ -276,7 +298,7 @@ export class DraftContentsTableComponent
         {
           action: 'history',
           icon: 'fa-solid fa-clock-rotate-left text-info',
-          label: 'View History',
+          label: 'admin.contents.list.view_history',
           class: 'edit',
           hide: (row) => !row.publishedStatus,
           onAction: (row) => this.openPublishHistory(row),
@@ -284,7 +306,7 @@ export class DraftContentsTableComponent
         {
           action: 'delete',
           icon: 'fa-solid fa-trash text-danger',
-          label: 'Delete',
+          label: 'common.actions.delete',
           class: 'delete',
           onAction: (row) => this.deleteItem(row),
         },
@@ -315,7 +337,17 @@ export class DraftContentsTableComponent
     }, { allowSignalWrites: true });
   }
 
+  /**
+   * The admin UI language, as a signal so the headings re-render when it
+   * changes rather than waiting for the next navigation.
+   */
+  private destroyRef = inject(DestroyRef);
+  readonly adminLang = signal<string>(this.transloco.getActiveLang());
+
   ngOnInit(): void {
+    this.transloco.langChanges$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(lang => this.adminLang.set(lang));
     // Initial data fetch
     this.fetchData();
   }
@@ -342,6 +374,34 @@ export class DraftContentsTableComponent
   /**
    * Update table columns based on the current content type
    */
+  /**
+   * Whether a content-type field should be offered as a list column.
+   *
+   * Excluded:
+   *  - keys already rendered by a fixed column. Content types commonly define
+   *    their own `title` / `urlSlug` fields alongside the built-ins, which
+   *    produced two identically-headed columns side by side.
+   *  - `richtext`, which holds the article body. A table cell cannot show it
+   *    usefully and it squeezes every other column out of view.
+   *
+   * Excluded fields are still fully editable in the content editor — this
+   * only governs the list view.
+   */
+  private isListableField(field: ContentTypeField): boolean {
+    if (field.type === 'richtext') return false;
+
+    // A repeating field is a list of rows; a cell can show neither the rows
+    // nor a useful summary of them, and the raw value stringifies to
+    // "[object Object]".
+    if (isRepeaterType(field.type)) return false;
+
+    const fixedKeys = [
+      ...this.baseColumns.map((col) => col.key),
+      ...this.endColumns.map((col) => col.key),
+    ];
+    return !fixedKeys.includes(field.key);
+  }
+
   updateDynamicColumns() {
     if (!this.contentTypeSlug) {
       this.tableColumns = [...this.baseColumns, ...this.endColumns];
@@ -361,8 +421,16 @@ export class DraftContentsTableComponent
     // 1. Identify all potential columns (excluding Title and Actions which are fixed)
     const potentialColumns: { key: string; label: string }[] = [];
 
-    // Custom Fields
-    currentType.fields.forEach(field => {
+    // Custom Fields — but not every field earns a column:
+    //  - a field whose key collides with a fixed column (e.g. a custom "title"
+    //    on top of the built-in one) would render the same heading twice
+    //  - rich text is a whole article body; it cannot be read in a table cell
+    //    and pushes every other column off-screen
+    const listableFields = currentType.fields.filter(
+      (field) => this.isListableField(field),
+    );
+
+    listableFields.forEach(field => {
       potentialColumns.push({ key: field.key, label: field.label });
     });
 
@@ -420,11 +488,21 @@ export class DraftContentsTableComponent
     const activeKeys = this.visibleColumnKeys();
     
     // Generate Custom Columns definitions
-    const customColumnDefs: TableColumn[] = currentType.fields.map((field) => {
+    const customColumnDefs: TableColumn[] = listableFields.map((field) => {
       return {
         key: field.key,
         header: field.label,
-        type: 'text',
+        // Image fields show a thumbnail; a raw storage URL is unreadable and
+        // several hundred characters wide.
+        //
+        // Icon fields render the glyph itself. The stored value is a token
+        // object, so the default text cell prints "[object Object]" — and the
+        // glyph is the one thing that identifies an icon at a glance anyway.
+        type: field.type === 'image' ? 'image' : field.type === 'icon' ? 'icon' : 'text',
+        ...(field.type === 'image' ? { imageConfig: { height: 40, altKey: 'title' } } : {}),
+        ...(field.type === 'icon'
+            ? { classFn: (row: any) => iconClasses(row?.customFields?.[field.key]) }
+            : {}),
         transformFn: (row: any) => {
           // 1. Handle Collection References
           if (field.useCollectionRef && field.collectionRef) {
@@ -444,7 +522,11 @@ export class DraftContentsTableComponent
 
           // 2. Handle Standard Fields
           if (row.customFields && row.customFields[field.key] !== undefined) {
-            return row.customFields[field.key];
+            const value = row.customFields[field.key];
+            // The icon cell draws from `classFn`, not from here — but this is
+            // still what sorting and any text fallback would read, and an
+            // object stringifies to "[object Object]".
+            return field.type === 'icon' ? iconLabel(value) : value;
           }
           return '';
         },
@@ -496,7 +578,7 @@ export class DraftContentsTableComponent
         },
         error: (err) => {
           console.error('Error saving column preferences:', err);
-          this.toastService.error('Failed to save view preferences.');
+          this.notify.error('admin.contents.list.view_save_failed');
           this.isSavingColumns.set(false);
         }
       });
@@ -718,14 +800,15 @@ export class DraftContentsTableComponent
 
   public deleteItem(item: any) {
     const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-      `Are you sure you want to remove "${item.title}"?`,
+      this.transloco.translate('admin.contents.list.remove_confirm', { title: item.title }),
     );
     const dialogRef = this.dialogService.open(ConfirmationPopupComponent, {
       width: '350px',
       data: {
         dialogType: 'Delete',
+        titleKey: 'common.dialog.delete',
         dialogMessage: msg,
-        btnText: 'Delete',
+        btnText: this.transloco.translate('common.actions.delete'),
         panelType: 'warn',
       },
     });
@@ -737,13 +820,11 @@ export class DraftContentsTableComponent
             if (item.publishedStatus || item.status === this.constantVariables.PUBLISH) {
               this.publishQueueService.enqueue('delete', this.contentTypeSlug, item.id);
             }
-            this.toastService.success('Content deleted successfully.');
+            this.notify.success('admin.contents.list.deleted');
           },
           error: (error) => {
             console.error('Error deleting content:', error);
-            this.toastService.error(
-              'Failed to delete content. Please try again.',
-            );
+            this.notify.error('admin.contents.list.delete_failed');
           },
         });
       }
@@ -752,7 +833,7 @@ export class DraftContentsTableComponent
 
   public openBulkImport() {
     if (!this.contentTypeSlug) {
-      this.toastService.error('Cannot determine content type for import.');
+      this.notify.error('admin.contents.list.no_type_import');
       return;
     }
 
@@ -783,7 +864,7 @@ export class DraftContentsTableComponent
           contentId,
         ]);
       } else {
-        this.toastService.error('Cannot determine content type for editing.');
+        this.notify.error('admin.contents.list.no_type_edit');
       }
     } else {
       // Navigate to add page for this content type
@@ -797,14 +878,15 @@ export class DraftContentsTableComponent
 
   public confirmUnpublishContent(contentId: string) {
     const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-      'Are you sure you want to unpublish this content?',
+      this.transloco.translate('admin.contents.list.unpublish_confirm'),
     );
     const dialogRef = this.dialogService.open(ConfirmationPopupComponent, {
       width: '350px',
       data: {
         dialogType: 'Unpublish',
+        titleKey: 'common.dialog.unpublish',
         dialogMessage: msg,
-        btnText: 'Unpublish',
+        btnText: this.transloco.translate('admin.contents.list.unpublish'),
         panelType: 'warn',
       },
     });
@@ -824,12 +906,12 @@ export class DraftContentsTableComponent
         next: () => {
           // Enqueue unpublish so the Cloud Function removes the published doc
           this.publishQueueService.enqueue('unpublish', this.contentTypeSlug, contentId);
-          this.toastService.success('Content unpublished.');
+          this.notify.success('admin.contents.list.unpublished');
           this.fetchData();
         },
         error: (error) => {
           console.error('Error unpublishing content:', error);
-          this.toastService.error('Failed to unpublish content.');
+          this.notify.error('admin.contents.list.unpublish_failed');
         },
       });
   }

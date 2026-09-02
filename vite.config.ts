@@ -10,6 +10,17 @@ export default defineConfig(({ mode }) => {
     build: {
       target: ['es2020'],
     },
+    server: {
+      /**
+       * Honour an assigned port.
+       *
+       * Vite otherwise hardcodes 5173 and silently increments when that is
+       * taken, which leaves a supervising process watching a port nothing is
+       * listening on. Reading PORT lets a second dev server be started
+       * alongside a running one. Unset falls back to Vite's own default.
+       */
+      port: process.env['PORT'] ? Number(process.env['PORT']) : undefined,
+    },
     resolve: {
       mainFields: ['module'],
       alias: {
@@ -36,7 +47,11 @@ export default defineConfig(({ mode }) => {
           // The SPA fallback for all other routes is __shell.html, copied from
           // dist/client/index.html by the post-build step (see package.json "build" script).
           // Firebase hosting serves __shell.html for non-file routes (see firebase.json rewrites).
-          routes: ['/'],
+          // '/' plus every translated home page that exists as a file under
+          // public/i18n/{lang}/index.html. Hand-maintained: the language list
+          // is runtime data in Firestore, but prerendering is a build-time
+          // decision and only a real file can be prerendered.
+          routes: ['/', '/hi'],
         },
         nitro: {
           preset: 'firebase',

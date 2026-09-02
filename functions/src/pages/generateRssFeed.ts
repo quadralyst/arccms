@@ -2,6 +2,7 @@ import { db } from '../init.js';
 import { getSiteConfig } from '../shared/site-settings.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { deploySeoFileToHosting } from './deploySeoFile.js';
+import { HostingBatch } from './deployToHosting.js';
 
 /** Maximum number of items per RSS feed. */
 const RSS_ITEM_LIMIT = 20;
@@ -46,7 +47,7 @@ function getExcerpt(content: Record<string, any>): string {
  * Deploys one feed per content type at `/{slug}/feed.xml`.
  * Each feed contains the 20 most recent published items.
  */
-export async function generateAndDeployRssFeeds(): Promise<void> {
+export async function generateAndDeployRssFeeds(batch?: HostingBatch): Promise<void> {
     const siteConfig = await getSiteConfig();
     const baseUrl = siteConfig.baseUrl.replace(/\/+$/, '');
     const siteName = siteConfig.siteName || 'Arc CMS';
@@ -116,6 +117,6 @@ export async function generateAndDeployRssFeeds(): Promise<void> {
             '',
         ].join('\n');
 
-        await deploySeoFileToHosting(`/${slug}/feed.xml`, rssXml);
+        await deploySeoFileToHosting(`/${slug}/feed.xml`, rssXml, batch);
     }
 }

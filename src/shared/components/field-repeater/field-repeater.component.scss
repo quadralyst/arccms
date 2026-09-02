@@ -1,0 +1,235 @@
+/**
+ * Sized for the ~280px custom-fields sidebar in the content editor, which is
+ * why everything stacks and nothing sits side by side except the row header.
+ */
+.field-repeater {
+    --rep-border: #dee2e6;
+    --rep-muted: #6c757d;
+    --rep-dark: #1f2937;
+    --rep-primary: #4a6cf7;
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.repeater-hint {
+    font-size: 0.75rem;
+    color: var(--rep-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.repeater-empty {
+    border: 2px dashed var(--rep-border);
+    border-radius: 0.5rem;
+    padding: 0.9rem;
+    text-align: center;
+
+    p {
+        margin: 0;
+    }
+}
+
+.repeater-row {
+    border: 1px solid var(--rep-border);
+    border-radius: 0.5rem;
+    padding: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    background: #fff;
+}
+
+.repeater-row-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rep-border);
+}
+
+.repeater-row-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--rep-dark);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.repeater-position {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    font-size: 0.7rem;
+    color: var(--rep-muted);
+
+    input {
+        /* Just wide enough for three digits — any wider and it crowds out the
+           row title in the sidebar. */
+        width: 3.5rem;
+        padding: 0.15rem 0.35rem;
+        font-size: 0.78rem;
+    }
+}
+
+.repeater-remove {
+    flex: none;
+    padding: 0.15rem 0.45rem;
+    line-height: 1.4;
+}
+
+.repeater-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    .form-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--rep-dark);
+        margin: 0;
+    }
+}
+
+.repeater-media-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px dashed var(--rep-border);
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--rep-muted);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    i {
+        font-size: 1.25rem;
+        color: #adb5bd;
+    }
+
+    &:hover:not(:disabled) {
+        border-color: var(--rep-primary);
+        background: #f8f9ff;
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+}
+
+.repeater-media-preview {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border: 1px solid var(--rep-border);
+    border-radius: 0.5rem;
+
+    > i {
+        font-size: 1.4rem;
+        color: var(--rep-dark);
+        width: 1.6rem;
+        text-align: center;
+        flex: none;
+    }
+
+    img {
+        width: 2.2rem;
+        height: 2.2rem;
+        object-fit: cover;
+        border-radius: 0.3rem;
+        flex: none;
+    }
+}
+
+.repeater-media-name {
+    font-size: 0.75rem;
+    color: var(--rep-dark);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.repeater-media-actions {
+    display: flex;
+    gap: 0.4rem;
+    width: 100%;
+
+    .btn {
+        flex: 1;
+        white-space: nowrap;
+    }
+}
+
+
+.repeater-video {
+    margin-top: 0.4rem;
+
+    input.is-invalid {
+        border-color: #ef4444;
+    }
+}
+
+.repeater-video-error {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.72rem;
+    color: #ef4444;
+}
+
+.repeater-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.repeater-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    .form-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--rep-dark);
+        margin: 0;
+    }
+}
+
+.repeater-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+/* Short paired values read better side by side — stacked, a four-row facts
+   list is eight inputs down a 280px column. */
+.repeater-fields.inline {
+    flex-direction: row;
+    gap: 0.5rem;
+
+    .repeater-field {
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+.repeater-locked-note {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--rep-muted);
+    font-style: italic;
+}

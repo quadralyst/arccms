@@ -1,6 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -35,12 +36,11 @@ export const routeMeta: RouteMeta = {
         MatProgressSpinnerModule,
         MatTooltipModule,
         MatSelectModule,
-        MatSlideToggleModule,
-    ],
+        MatSlideToggleModule, TranslocoPipe],
     template: `
         <div class="integrations-settings">
-            <h3 class="settings-title">Integrations</h3>
-            <p class="text-muted mb-4">Configure third-party API keys and services used by Arc CMS.</p>
+            <h3 class="settings-title">{{ 'admin.settings.hub.integrations.label' | transloco }}</h3>
+            <p class="text-muted mb-4">{{ 'admin.settings.integrations.subtitle' | transloco }}</p>
 
             @if (isLoading()) {
                 <div class="d-flex justify-content-center py-5">
@@ -53,11 +53,10 @@ export const routeMeta: RouteMeta = {
                     <mat-card-header>
                         <mat-card-title>
                             <i class="fa-solid fa-image me-2"></i>
-                            Unsplash
+                            {{ 'admin.settings.integrations.unsplash' | transloco }}
                         </mat-card-title>
                         <mat-card-subtitle>
-                            Free stock photo search used in the Media Manager.
-                            Keys are stored server-side and never sent to the browser.
+                            {{ 'admin.settings.integrations.unsplash_subtitle' | transloco }}
                         </mat-card-subtitle>
                     </mat-card-header>
 
@@ -66,7 +65,7 @@ export const routeMeta: RouteMeta = {
                         <div class="setup-guide-section">
                             <div class="setup-guide-header" (click)="showUnsplashGuide.set(!showUnsplashGuide())">
                                 <i class="fa-solid fa-image guide-icon unsplash-accent me-2"></i>
-                                <span class="setup-guide-title">Unsplash Setup Guide</span>
+                                <span class="setup-guide-title">{{ 'admin.settings.integrations.unsplash_guide' | transloco }}</span>
                                 <button mat-icon-button type="button" class="toggle-btn">
                                     <mat-icon>{{ showUnsplashGuide() ? 'expand_less' : 'expand_more' }}</mat-icon>
                                 </button>
@@ -75,20 +74,17 @@ export const routeMeta: RouteMeta = {
                             @if (showUnsplashGuide()) {
                             <div class="setup-guide-body">
                                 <p class="guide-intro unsplash-intro">
-                                    Follow these steps to get your Unsplash API key. This is a one-time setup that takes about 2 minutes.
+                                    {{ 'admin.settings.integrations.unsplash_intro' | transloco }}
                                 </p>
 
                                 <div class="setup-step">
                                     <div class="step-number-badge unsplash-badge">1</div>
                                     <div class="step-content">
-                                        <h6 class="step-title">Create an Unsplash Developer Account</h6>
+                                        <h6 class="step-title">{{ 'admin.settings.integrations.unsplash_s1_title' | transloco }}</h6>
                                         <ol class="step-instructions">
-                                            <li>
-                                                Go to
-                                                <a href="https://unsplash.com/developers" target="_blank" rel="noopener noreferrer">unsplash.com/developers</a>
-                                            </li>
-                                            <li>Click <strong>Register as a developer</strong> (or log in if you already have an Unsplash account)</li>
-                                            <li>Accept the API Use and Guidelines</li>
+                                            <li [innerHTML]="'admin.settings.integrations.unsplash_s1_a' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.integrations.unsplash_s1_b' | transloco"></li>
+                                            <li>{{ 'admin.settings.integrations.unsplash_s1_c' | transloco }}</li>
                                         </ol>
                                     </div>
                                 </div>
@@ -96,12 +92,12 @@ export const routeMeta: RouteMeta = {
                                 <div class="setup-step">
                                     <div class="step-number-badge unsplash-badge">2</div>
                                     <div class="step-content">
-                                        <h6 class="step-title">Create a New Application</h6>
+                                        <h6 class="step-title">{{ 'admin.settings.integrations.unsplash_s2_title' | transloco }}</h6>
                                         <ol class="step-instructions">
-                                            <li>On the developer dashboard, click <strong>New Application</strong></li>
-                                            <li>Accept the API Use and Guidelines checkboxes and click <strong>Accept</strong></li>
-                                            <li>Fill in a name (e.g. "My CMS") and a short description</li>
-                                            <li>Click <strong>Create application</strong></li>
+                                            <li [innerHTML]="'admin.settings.integrations.unsplash_s2_a' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.integrations.unsplash_s2_b' | transloco"></li>
+                                            <li>{{ 'admin.settings.integrations.unsplash_s2_c' | transloco }}</li>
+                                            <li [innerHTML]="'admin.settings.integrations.unsplash_s2_d' | transloco"></li>
                                         </ol>
                                     </div>
                                 </div>
@@ -109,16 +105,15 @@ export const routeMeta: RouteMeta = {
                                 <div class="setup-step last">
                                     <div class="step-number-badge unsplash-badge">3</div>
                                     <div class="step-content">
-                                        <h6 class="step-title">Copy Your Keys</h6>
+                                        <h6 class="step-title">{{ 'admin.settings.integrations.unsplash_s3_title' | transloco }}</h6>
                                         <ol class="step-instructions">
-                                            <li>On the application page, scroll down to the <strong>Keys</strong> section</li>
-                                            <li>Copy the <strong>Access Key</strong> and <strong>Secret Key</strong></li>
-                                            <li>Paste them into the fields below and click <strong>Save</strong></li>
+                                            <li [innerHTML]="'admin.settings.integrations.unsplash_s3_a' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.integrations.unsplash_s3_b' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.integrations.unsplash_s3_c' | transloco"></li>
                                         </ol>
                                         <p class="step-note">
                                             <i class="fa-solid fa-circle-info me-1"></i>
-                                            The free tier allows 50 requests per hour, which is sufficient for most CMS usage.
-                                            Keys are stored server-side and never exposed to the browser.
+                                            {{ 'admin.settings.integrations.unsplash_note' | transloco }}
                                         </p>
                                     </div>
                                 </div>
@@ -132,12 +127,12 @@ export const routeMeta: RouteMeta = {
                                 <div class="row">
                                     <div class="col-md-6">
                                         <mat-form-field appearance="outline" class="w-100">
-                                            <mat-label>Access Key</mat-label>
+                                            <mat-label>{{ 'admin.settings.integrations.access_key' | transloco }}</mat-label>
                                             <input
                                                 matInput
                                                 formControlName="accessKey"
                                                 [type]="showAccessKey() ? 'text' : 'password'"
-                                                placeholder="Your Unsplash Access Key"
+                                                [placeholder]="'admin.settings.integrations.access_key_placeholder' | transloco"
                                                 autocomplete="off"
                                             />
                                             <button
@@ -145,7 +140,7 @@ export const routeMeta: RouteMeta = {
                                                 matSuffix
                                                 type="button"
                                                 (click)="showAccessKey.set(!showAccessKey())"
-                                                [matTooltip]="showAccessKey() ? 'Hide' : 'Show'"
+                                                [matTooltip]="(showAccessKey() ? 'common.actions.hide' : 'common.actions.show') | transloco"
                                                 aria-label="Toggle access key visibility"
                                             >
                                                 <mat-icon>{{ showAccessKey() ? 'visibility_off' : 'visibility' }}</mat-icon>
@@ -155,12 +150,12 @@ export const routeMeta: RouteMeta = {
 
                                     <div class="col-md-6">
                                         <mat-form-field appearance="outline" class="w-100">
-                                            <mat-label>Secret Key</mat-label>
+                                            <mat-label>{{ 'admin.settings.integrations.secret_key' | transloco }}</mat-label>
                                             <input
                                                 matInput
                                                 formControlName="secretKey"
                                                 [type]="showSecretKey() ? 'text' : 'password'"
-                                                placeholder="Your Unsplash Secret Key"
+                                                [placeholder]="'admin.settings.integrations.secret_key_placeholder' | transloco"
                                                 autocomplete="off"
                                             />
                                             <button
@@ -168,7 +163,7 @@ export const routeMeta: RouteMeta = {
                                                 matSuffix
                                                 type="button"
                                                 (click)="showSecretKey.set(!showSecretKey())"
-                                                [matTooltip]="showSecretKey() ? 'Hide' : 'Show'"
+                                                [matTooltip]="(showSecretKey() ? 'common.actions.hide' : 'common.actions.show') | transloco"
                                                 aria-label="Toggle secret key visibility"
                                             >
                                                 <mat-icon>{{ showSecretKey() ? 'visibility_off' : 'visibility' }}</mat-icon>
@@ -179,10 +174,7 @@ export const routeMeta: RouteMeta = {
 
                                 <p class="hint-text">
                                     <i class="fa-solid fa-circle-info me-1"></i>
-                                    Get your keys at
-                                    <a href="https://unsplash.com/developers" target="_blank" rel="noopener noreferrer">
-                                        unsplash.com/developers
-                                    </a>
+                                    <span [innerHTML]="'admin.settings.integrations.unsplash_hint' | transloco"></span>
                                 </p>
                             </div>
 
@@ -194,7 +186,7 @@ export const routeMeta: RouteMeta = {
                                     (click)="resetUnsplash()"
                                     [disabled]="isSavingUnsplash() || unsplashForm.pristine"
                                 >
-                                    Cancel
+                                    {{ 'common.actions.cancel' | transloco }}
                                 </button>
                                 <button
                                     mat-raised-button
@@ -204,10 +196,10 @@ export const routeMeta: RouteMeta = {
                                 >
                                     @if (isSavingUnsplash()) {
                                         <mat-spinner diameter="20" class="me-2"></mat-spinner>
-                                        Saving…
+                                        {{ 'common.actions.saving' | transloco }}
                                     } @else {
                                         <i class="fa-solid fa-floppy-disk me-2"></i>
-                                        Save Unsplash Settings
+                                        {{ 'admin.settings.integrations.save_unsplash' | transloco }}
                                     }
                                 </button>
                             </div>
@@ -220,11 +212,10 @@ export const routeMeta: RouteMeta = {
                     <mat-card-header>
                         <mat-card-title>
                             <i class="fa-solid fa-location-dot me-2"></i>
-                            Geolocation
+                            {{ 'admin.settings.integrations.geo' | transloco }}
                         </mat-card-title>
                         <mat-card-subtitle>
-                            IP-based geolocation to capture country, region, and city for leads.
-                            Data is collected at signup time and stored with user metadata.
+                            {{ 'admin.settings.integrations.geo_subtitle' | transloco }}
                         </mat-card-subtitle>
                     </mat-card-header>
 
@@ -233,7 +224,7 @@ export const routeMeta: RouteMeta = {
                         <div class="setup-guide-section">
                             <div class="setup-guide-header" (click)="showGeoGuide.set(!showGeoGuide())">
                                 <i class="fa-solid fa-location-dot guide-icon geo-accent me-2"></i>
-                                <span class="setup-guide-title">Geolocation Setup Guide</span>
+                                <span class="setup-guide-title">{{ 'admin.settings.integrations.geo_guide' | transloco }}</span>
                                 <button mat-icon-button type="button" class="toggle-btn">
                                     <mat-icon>{{ showGeoGuide() ? 'expand_less' : 'expand_more' }}</mat-icon>
                                 </button>
@@ -242,18 +233,17 @@ export const routeMeta: RouteMeta = {
                             @if (showGeoGuide()) {
                             <div class="setup-guide-body">
                                 <p class="guide-intro geo-intro">
-                                    Set up IP-based geolocation to automatically capture location data for your leads.
-                                    The default provider works out of the box with no signup required.
+                                    {{ 'admin.settings.integrations.geo_intro' | transloco }}
                                 </p>
 
                                 <div class="setup-step">
                                     <div class="step-number-badge geo-badge">1</div>
                                     <div class="step-content">
-                                        <h6 class="step-title">Choose a Provider</h6>
+                                        <h6 class="step-title">{{ 'admin.settings.integrations.geo_s1_title' | transloco }}</h6>
                                         <ol class="step-instructions">
-                                            <li><strong>ipapi.co</strong> — Free: 1,000 requests/day, 30,000/month. <strong>No API key needed</strong> — works instantly</li>
-                                            <li><strong>ipinfo.io</strong> — Free "Lite" tier with unlimited basic lookups. Requires a free account to get a token</li>
-                                            <li><strong>Custom Endpoint</strong> — Use your own API that returns JSON with <code>country</code>, <code>region</code>, <code>city</code>, <code>timezone</code></li>
+                                            <li [innerHTML]="'admin.settings.integrations.geo_s1_a' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.integrations.geo_s1_b' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.integrations.geo_s1_c' | transloco"></li>
                                         </ol>
                                     </div>
                                 </div>
@@ -261,11 +251,11 @@ export const routeMeta: RouteMeta = {
                                 <div class="setup-step">
                                     <div class="step-number-badge geo-badge">2</div>
                                     <div class="step-content">
-                                        <h6 class="step-title">Get an API Token (only if using ipinfo.io or custom)</h6>
+                                        <h6 class="step-title">{{ 'admin.settings.integrations.geo_s2_title' | transloco }}</h6>
                                         <ol class="step-instructions">
-                                            <li>If using <strong>ipapi.co</strong> — skip this step, no key required</li>
-                                            <li>If using <strong>ipinfo.io</strong> — sign up at <a href="https://ipinfo.io/signup" target="_blank" rel="noopener noreferrer">ipinfo.io/signup</a> and copy your token from the dashboard</li>
-                                            <li>If using <strong>Custom</strong> — use whatever key your endpoint requires</li>
+                                            <li [innerHTML]="'admin.settings.integrations.geo_s2_a' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.integrations.geo_s2_b' | transloco"></li>
+                                            <li [innerHTML]="'admin.settings.integrations.geo_s2_c' | transloco"></li>
                                         </ol>
                                     </div>
                                 </div>
@@ -273,15 +263,15 @@ export const routeMeta: RouteMeta = {
                                 <div class="setup-step last">
                                     <div class="step-number-badge geo-badge">3</div>
                                     <div class="step-content">
-                                        <h6 class="step-title">Enable &amp; Save</h6>
+                                        <h6 class="step-title">{{ 'admin.settings.integrations.geo_s3_title' | transloco }}</h6>
                                         <ol class="step-instructions">
-                                            <li>Toggle <strong>Enable Geolocation</strong> on</li>
-                                            <li>Select your provider (ipapi.co is the default — it just works)</li>
-                                            <li>Click <strong>Save</strong></li>
+                                            <li [innerHTML]="'admin.settings.integrations.geo_s3_a' | transloco"></li>
+                                            <li>{{ 'admin.settings.integrations.geo_s3_b' | transloco }}</li>
+                                            <li [innerHTML]="'admin.settings.integrations.geo_s3_c' | transloco"></li>
                                         </ol>
                                         <p class="step-note">
                                             <i class="fa-solid fa-circle-info me-1"></i>
-                                            When disabled, geographic data is simply not collected — no errors or broken functionality.
+                                            {{ 'admin.settings.integrations.geo_note' | transloco }}
                                         </p>
                                     </div>
                                 </div>
@@ -297,10 +287,10 @@ export const routeMeta: RouteMeta = {
                                         formControlName="geoEnabled"
                                         color="primary"
                                     >
-                                        Enable Geolocation
+                                        {{ 'admin.settings.integrations.geo_enable' | transloco }}
                                     </mat-slide-toggle>
                                     <p class="hint-text mt-1">
-                                        When disabled, geographic data will not be collected (graceful degradation).
+                                        {{ 'admin.settings.integrations.geo_disabled_hint' | transloco }}
                                     </p>
                                 </div>
 
@@ -308,11 +298,11 @@ export const routeMeta: RouteMeta = {
                                 <div class="row">
                                     <div class="col-md-6">
                                         <mat-form-field appearance="outline" class="w-100">
-                                            <mat-label>API Provider</mat-label>
+                                            <mat-label>{{ 'admin.settings.integrations.geo_provider' | transloco }}</mat-label>
                                             <mat-select formControlName="geoApiProvider">
-                                                <mat-option value="ipapi">ipapi.co (No key needed)</mat-option>
-                                                <mat-option value="ipinfo">ipinfo.io (Token required)</mat-option>
-                                                <mat-option value="custom">Custom Endpoint</mat-option>
+                                                <mat-option value="ipapi">{{ 'admin.settings.integrations.geo_ipapi_option' | transloco }}</mat-option>
+                                                <mat-option value="ipinfo">{{ 'admin.settings.integrations.geo_ipinfo_option' | transloco }}</mat-option>
+                                                <mat-option value="custom">{{ 'admin.settings.integrations.geo_custom_option' | transloco }}</mat-option>
                                             </mat-select>
                                         </mat-form-field>
                                     </div>
@@ -321,7 +311,7 @@ export const routeMeta: RouteMeta = {
                                     <div class="col-md-6 d-flex align-items-center">
                                         <p class="hint-text mb-0">
                                             <i class="fa-solid fa-circle-check text-success me-1"></i>
-                                            ipapi.co works without an API key. Free tier: 1,000 lookups/day.
+                                            {{ 'admin.settings.integrations.geo_ipapi_hint' | transloco }}
                                         </p>
                                     </div>
                                     }
@@ -329,17 +319,14 @@ export const routeMeta: RouteMeta = {
                                     @if (geoForm.get('geoApiProvider')?.value === 'ipinfo') {
                                     <div class="col-md-6">
                                         <mat-form-field appearance="outline" class="w-100">
-                                            <mat-label>API Token</mat-label>
+                                            <mat-label>{{ 'admin.settings.integrations.geo_token' | transloco }}</mat-label>
                                             <input
                                                 matInput
                                                 formControlName="geoApiKey"
-                                                placeholder="Your ipinfo.io token"
+                                                [placeholder]="'admin.settings.integrations.geo_token_placeholder' | transloco"
                                                 autocomplete="off"
                                             />
-                                            <mat-hint>
-                                                Get your token at
-                                                <a href="https://ipinfo.io/account/token" target="_blank" rel="noopener noreferrer">ipinfo.io/account/token</a>
-                                            </mat-hint>
+                                            <mat-hint [innerHTML]="'admin.settings.integrations.geo_token_hint' | transloco"></mat-hint>
                                         </mat-form-field>
                                     </div>
                                     }
@@ -347,11 +334,11 @@ export const routeMeta: RouteMeta = {
                                     @if (geoForm.get('geoApiProvider')?.value === 'custom') {
                                     <div class="col-md-6">
                                         <mat-form-field appearance="outline" class="w-100">
-                                            <mat-label>API Key (if required)</mat-label>
+                                            <mat-label>{{ 'admin.settings.integrations.geo_key' | transloco }}</mat-label>
                                             <input
                                                 matInput
                                                 formControlName="geoApiKey"
-                                                placeholder="Enter your API key"
+                                                [placeholder]="'admin.settings.integrations.geo_key_placeholder' | transloco"
                                                 autocomplete="off"
                                             />
                                         </mat-form-field>
@@ -363,14 +350,14 @@ export const routeMeta: RouteMeta = {
                                 <div class="row">
                                     <div class="col-12">
                                         <mat-form-field appearance="outline" class="w-100">
-                                            <mat-label>Custom Endpoint URL</mat-label>
+                                            <mat-label>{{ 'admin.settings.integrations.geo_endpoint' | transloco }}</mat-label>
                                             <input
                                                 matInput
                                                 formControlName="geoApiEndpoint"
-                                                placeholder="https://your-api.com/geo"
+                                                [placeholder]="'admin.settings.integrations.geo_endpoint_placeholder' | transloco"
                                                 autocomplete="off"
                                             />
-                                            <mat-hint>Endpoint should return JSON with: country, region, city, timezone</mat-hint>
+                                            <mat-hint>{{ 'admin.settings.integrations.geo_endpoint_hint' | transloco }}</mat-hint>
                                         </mat-form-field>
                                     </div>
                                 </div>
@@ -386,7 +373,7 @@ export const routeMeta: RouteMeta = {
                                     (click)="resetGeo()"
                                     [disabled]="isSavingGeo() || geoForm.pristine"
                                 >
-                                    Cancel
+                                    {{ 'common.actions.cancel' | transloco }}
                                 </button>
                                 <button
                                     mat-raised-button
@@ -396,10 +383,10 @@ export const routeMeta: RouteMeta = {
                                 >
                                     @if (isSavingGeo()) {
                                         <mat-spinner diameter="20" class="me-2"></mat-spinner>
-                                        Saving…
+                                        {{ 'common.actions.saving' | transloco }}
                                     } @else {
                                         <i class="fa-solid fa-floppy-disk me-2"></i>
-                                        Save Geolocation Settings
+                                        {{ 'admin.settings.integrations.save_geo' | transloco }}
                                     }
                                 </button>
                             </div>
@@ -692,10 +679,10 @@ export default class IntegrationsSettingPageComponent extends BaseComponent impl
             await this.integrationsSettingService.saveIntegrationsSettings(payload);
             this.originalUnsplash = this.unsplashForm.getRawValue();
             this.unsplashForm.markAsPristine();
-            this.toastService.success('Unsplash settings saved successfully.');
+            this.notify.success('admin.settings.integrations.unsplash_saved');
         } catch (error) {
             console.error('Error saving Unsplash settings:', error);
-            this.toastService.error('Failed to save Unsplash settings. Please try again.');
+            this.notify.error('admin.settings.integrations.unsplash_save_failed');
         } finally {
             this.isSavingUnsplash.set(false);
         }
@@ -713,10 +700,10 @@ export default class IntegrationsSettingPageComponent extends BaseComponent impl
             await this.integrationsSettingService.saveIntegrationsSettings(payload);
             this.originalGeo = this.geoForm.getRawValue();
             this.geoForm.markAsPristine();
-            this.toastService.success('Geolocation settings saved successfully.');
+            this.notify.success('admin.settings.integrations.geo_saved');
         } catch (error) {
             console.error('Error saving Geolocation settings:', error);
-            this.toastService.error('Failed to save Geolocation settings. Please try again.');
+            this.notify.error('admin.settings.integrations.geo_save_failed');
         } finally {
             this.isSavingGeo.set(false);
         }

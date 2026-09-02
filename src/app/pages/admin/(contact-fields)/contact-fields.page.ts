@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -30,7 +31,7 @@ import { IContactField, fieldKeyFromLabel } from '../(audience)/audience.model';
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule,
         MatFormFieldModule, MatSelectModule, MatTooltipModule, MatDialogModule,
-        MatSidenavModule, GlobalTableComponent, PageHeaderComponent,
+        MatSidenavModule, GlobalTableComponent, PageHeaderComponent, TranslocoPipe,
     ],
     templateUrl: './contact-fields.page.html',
     styleUrls: ['./contact-fields.page.scss'],
@@ -58,29 +59,29 @@ export default class ContactFieldsPageComponent implements OnInit {
     optionsText = '';
 
     columns: TableColumn[] = [
-        { key: 'label', header: 'Field', type: 'text', classFn: () => 'fw-medium' },
+        { key: 'label', header: 'admin.audience.fields.field', type: 'text', classFn: () => 'fw-medium' },
         {
-            key: 'key', header: 'Merge tag', type: 'code', classFn: () => 'small',
+            key: 'key', header: 'admin.audience.fields.merge_tag', type: 'code', classFn: () => 'small',
             transformFn: (r) => `##FIELD:${r.key}##`,
         },
-        { key: 'type', header: 'Type', type: 'text', classFn: () => 'small text-muted' },
+        { key: 'type', header: 'common.table.type', type: 'text', classFn: () => 'small text-muted' },
         {
-            key: 'writePolicy', header: 'On re-submit', type: 'text', classFn: () => 'small',
+            key: 'writePolicy', header: 'admin.audience.fields.on_resubmit', type: 'text', classFn: () => 'small',
             transformFn: (r) => (r.writePolicy === 'overwrite' ? 'Overwrite' : 'Keep existing'),
         },
         {
-            key: 'defaultValue', header: 'Fallback', type: 'text', classFn: () => 'small text-muted',
+            key: 'defaultValue', header: 'admin.audience.fields.fallback', type: 'text', classFn: () => 'small text-muted',
             transformFn: (r) => r.defaultValue || '—',
         },
         {
-            key: 'actions', header: 'Actions', type: 'actions',
+            key: 'actions', header: 'common.table.actions', type: 'actions',
             actions: [
                 {
-                    action: 'edit', icon: 'fas fa-pen text-primary', label: 'Edit', class: 'edit',
+                    action: 'edit', icon: 'fas fa-pen text-primary', label: 'common.actions.edit', class: 'edit',
                     isRowClick: true, onAction: (row) => this.openEdit(row),
                 },
                 {
-                    action: 'delete', icon: 'fas fa-trash text-danger', label: 'Delete', class: 'delete',
+                    action: 'delete', icon: 'fas fa-trash text-danger', label: 'common.actions.delete', class: 'delete',
                     onAction: (row) => this.confirmDelete(row),
                 },
             ],

@@ -32,8 +32,8 @@ describe('SettingsPageComponent', () => {
         expect(component).toBeTruthy();
     });
 
-    it('should have nine setting categories', () => {
-        expect(component.settingCategories().length).toBe(9);
+    it('should have ten setting categories', () => {
+        expect(component.settingCategories().length).toBe(10);
     });
 
     it('should have about as first category', () => {
@@ -76,6 +76,12 @@ describe('SettingsPageComponent', () => {
         expect(categories[5].route).toBe('/admin/settings/user');
         expect(categories[6].route).toBe('/admin/settings/message');
         expect(categories[7].route).toBe('/admin/settings/site-usage');
-        expect(categories[8].route).toBe('/admin/settings/misc');
+        expect(categories[8].route).toBe('/admin/settings/localization');
+        expect(categories[9].route).toBe('/admin/settings/misc');
+    });
+
+    it('should have localization as ninth category', () => {
+        expect(component.settingCategories()[8].id).toBe('localization');
+        expect(component.settingCategories()[8].label).toBe('Localization');
     });
 });

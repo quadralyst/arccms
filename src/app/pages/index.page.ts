@@ -1,20 +1,28 @@
 import { RouteMeta } from '@analogjs/router';
 import { AfterViewInit, Component, ElementRef, inject, OnDestroy, PLATFORM_ID, ViewEncapsulation } from '@angular/core';
 import { isPlatformBrowser, NgOptimizedImage } from '@angular/common';
-import { Router } from '@angular/router';
-import { take } from 'rxjs';
-import { BaseComponent } from '../../shared/components/base/base.component';
 import { HeaderComponent } from './page.parts/header.component';
 import { FooterComponent } from './page.parts/footer.component';
 import { ContentPartialsComponent } from './page.parts/content-partials.component';
+import { HomeBaseComponent } from './page.parts/home-base.component';
+import { BaseComponent } from 'src/shared/components/base/base.component';
 import { WaitlistFormService } from './page.parts/waitlist-form.service';
 import { AuthService } from './(auth)/auth.service';
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
+import { Router } from '@angular/router';
+import { take } from 'rxjs';
 
 export const routeMeta: RouteMeta = {
   title: 'Home | Arc CMS',
 };
 
+/**
+ * The default-language home page.
+ *
+ * Its behaviour lives in HomeBaseComponent so a translated home page is a
+ * template swap rather than a copy of the waitlist and onboarding logic —
+ * see src/app/pages/home-i18n/.
+ */
 @Component({
   selector: 'arc-home',
   standalone: true,
@@ -56,13 +64,13 @@ export default class HomeComponent extends BaseComponent implements AfterViewIni
         return;
       }
       // Also redirect if onboarding wizard was started but not completed
-      this.setupService.isOnboardingComplete().pipe(take(1)).subscribe((complete) => {
-        if (!complete) {
-          this.homeRouter.navigate(['/onboarding']);
-          return;
-        }
-        this.waitlistFormService.initWaitlistForms(this.elementRef.nativeElement, 'index.html');
-      });
+      // this.setupService.isOnboardingComplete().pipe(take(1)).subscribe((complete) => {
+      //   if (!complete) {
+      //     this.homeRouter.navigate(['/onboarding']);
+      //     return;
+      //   }
+      //   this.waitlistFormService.initWaitlistForms(this.elementRef.nativeElement, 'index.html');
+      // });
     });
   }
 

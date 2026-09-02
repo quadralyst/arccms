@@ -1,12 +1,22 @@
 import { TestBed } from '@angular/core/testing';
 import { Firestore } from '@angular/fire/firestore';
+import { Observable, of } from 'rxjs';
+import { AuthService } from '../(auth)/auth.service';
 import { OnboardingSetupService } from './onboarding-setup.service';
 
 // Mock firebase/firestore functions
 const mockSetDoc = vi.fn().mockResolvedValue(undefined);
 const mockGetDoc = vi.fn().mockResolvedValue({ exists: () => false, data: () => undefined });
-const mockDoc = vi.fn().mockReturnValue({ id: 'mock-doc-id' });
+// Empty by default: nothing has been seeded, so createDefaultContentTypes writes.
+const mockGetDocs = vi.fn().mockResolvedValue({ empty: true });
+// `doc()` is called both as doc(firestore, 'Settings', 'about') and as
+// doc(colRef, slug); echo back whichever trailing segment was given so tests can
+// assert that content types are keyed by slug.
+const mockDoc = vi.fn((...args: any[]) =>
+    ({ id: args.length > 2 ? args[2] : args.length > 1 ? args[1] : 'mock-doc-id' }));
 const mockCollection = vi.fn().mockReturnValue('mock-collection-ref');
+const mockQuery = vi.fn().mockReturnValue('mock-query');
+const mockWhere = vi.fn().mockReturnValue('mock-where');
 const mockServerTimestamp = vi.fn().mockReturnValue('server-timestamp');
 
 vi.mock('@angular/fire/firestore', async () => {
@@ -17,6 +27,9 @@ vi.mock('@angular/fire/firestore', async () => {
         collection: (...args: any[]) => mockCollection(...args),
         setDoc: (...args: any[]) => mockSetDoc(...args),
         getDoc: (...args: any[]) => mockGetDoc(...args),
+        getDocs: (...args: any[]) => mockGetDocs(...args),
+        query: (...args: any[]) => mockQuery(...args),
+        where: (...args: any[]) => mockWhere(...args),
         serverTimestamp: () => mockServerTimestamp(),
     };
 });
@@ -24,14 +37,18 @@ vi.mock('@angular/fire/firestore', async () => {
 describe('OnboardingSetupService', () => {
     let service: OnboardingSetupService;
     const mockFirestore = {};
+    const mockAuthService = { isFirstRun: vi.fn().mockReturnValue(of(false)) };
 
     beforeEach(() => {
         vi.clearAllMocks();
+        mockGetDocs.mockResolvedValue({ empty: true });
+        mockAuthService.isFirstRun.mockReturnValue(of(false));
 
         TestBed.configureTestingModule({
             providers: [
                 OnboardingSetupService,
                 { provide: Firestore, useValue: mockFirestore },
+                { provide: AuthService, useValue: mockAuthService },
             ],
         });
 
@@ -242,27 +259,45 @@ describe('OnboardingSetupService', () => {
     });
 
     describe('createDefaultContentTypes', () => {
-        it('should create 3 content type documents', async () => {
+        it('should create Articles and nothing else', async () => {
             await service.createDefaultContentTypes();
 
-            // 3 content types
-            expect(mockSetDoc).toHaveBeenCalledTimes(3);
+            expect(mockSetDoc).toHaveBeenCalledTimes(1);
 
-            // Verify each has required fields
-            for (const call of mockSetDoc.mock.calls) {
-                const data = call[1];
-                expect(data).toHaveProperty('name');
-                expect(data).toHaveProperty('slug');
-                expect(data).toHaveProperty('fields');
-                expect(data).toHaveProperty('createdBy', 'system');
-            }
+            const data = mockSetDoc.mock.calls[0][1];
+            expect(data).toHaveProperty('slug', 'articles');
+            expect(data).toHaveProperty('name', 'Articles');
+            expect(data).toHaveProperty('fields');
+            expect(data).toHaveProperty('createdBy', 'system');
         });
 
-        it('should create Articles, User Manuals, and Release Notes', async () => {
+        it('should key the document by slug so a re-run cannot duplicate it', async () => {
             await service.createDefaultContentTypes();
 
-            const slugs = mockSetDoc.mock.calls.map((call: any) => call[1].slug);
-            expect(slugs).toEqual(['articles', 'user-manuals', 'release-notes']);
+            // doc(colRef, 'articles') — not doc(colRef) with an auto-ID.
+            expect(mockDoc).toHaveBeenCalledWith('mock-collection-ref', 'articles');
+            expect(mockSetDoc.mock.calls[0][1].id).toBe('articles');
+        });
+
+        it('should skip a content type whose slug already exists', async () => {
+            // The install already has an "articles" type — possibly an auto-ID one
+            // seeded by an older build, which is exactly why the check is a query.
+            mockGetDocs.mockResolvedValue({ empty: false });
+
+            await service.createDefaultContentTypes();
+
+            expect(mockWhere).toHaveBeenCalledWith('slug', '==', 'articles');
+            expect(mockSetDoc).not.toHaveBeenCalled();
+        });
+
+        it('should be safe to call repeatedly (retry and re-entry)', async () => {
+            await service.createDefaultContentTypes();
+            expect(mockSetDoc).toHaveBeenCalledTimes(1);
+
+            // Second pass: the type is there now, so nothing more is written.
+            mockGetDocs.mockResolvedValue({ empty: false });
+            await service.createDefaultContentTypes();
+            expect(mockSetDoc).toHaveBeenCalledTimes(1);
         });
 
         it('should use serverTimestamp for content type timestamps', async () => {
@@ -275,15 +310,10 @@ describe('OnboardingSetupService', () => {
             }
         });
 
-        it('should propagate Firestore errors mid-loop', async () => {
-            // First call succeeds, second fails
-            mockSetDoc
-                .mockResolvedValueOnce(undefined)
-                .mockRejectedValueOnce(new Error('write failed'));
+        it('should propagate Firestore errors', async () => {
+            mockSetDoc.mockRejectedValueOnce(new Error('write failed'));
 
             await expect(service.createDefaultContentTypes()).rejects.toThrow('write failed');
-            // Only 2 calls made (first succeeded, second threw)
-            expect(mockSetDoc).toHaveBeenCalledTimes(2);
         });
     });
 
@@ -318,10 +348,11 @@ describe('OnboardingSetupService', () => {
 
     describe('completeSetup', () => {
         it('should create content types, waitlist, and mark onboarding complete', async () => {
-            await service.completeSetup();
+            const result = await service.completeSetup();
 
-            // 3 content types + 1 waitlist + 1 onboarding_status = 5
-            expect(mockSetDoc).toHaveBeenCalledTimes(5);
+            // 1 content type + 1 waitlist + 1 onboarding_status = 3
+            expect(mockSetDoc).toHaveBeenCalledTimes(3);
+            expect(result).toEqual({ waitlistCreated: true });
         });
 
         it('should not create waitlist if content types fail', async () => {
@@ -332,16 +363,23 @@ describe('OnboardingSetupService', () => {
             expect(mockSetDoc).toHaveBeenCalledTimes(1);
         });
 
-        it('should propagate waitlist creation error', async () => {
-            // 3 content types succeed, waitlist fails
+        it('should still mark onboarding complete when the waitlist write is denied', async () => {
+            // The regression this guards: Waitlists is isAdmin()-gated, and a
+            // denied create used to throw past markOnboardingComplete(), leaving
+            // `completed: false` and trapping the admin in the wizard forever —
+            // re-seeding content types on every lap.
             mockSetDoc
-                .mockResolvedValueOnce(undefined)
-                .mockResolvedValueOnce(undefined)
-                .mockResolvedValueOnce(undefined)
-                .mockRejectedValueOnce(new Error('waitlist failed'));
+                .mockResolvedValueOnce(undefined)                                  // content type
+                .mockRejectedValueOnce(new Error('permission-denied'))             // waitlist
+                .mockResolvedValueOnce(undefined);                                 // onboarding_status
 
-            await expect(service.completeSetup()).rejects.toThrow('waitlist failed');
-            expect(mockSetDoc).toHaveBeenCalledTimes(4);
+            const result = await service.completeSetup();
+
+            expect(result).toEqual({ waitlistCreated: false });
+            expect(mockSetDoc).toHaveBeenCalledTimes(3);
+
+            const statusWrite = mockSetDoc.mock.calls[2][1];
+            expect(statusWrite).toEqual({ completed: true, completedAt: 'server-timestamp' });
         });
     });
 
@@ -382,37 +420,81 @@ describe('OnboardingSetupService', () => {
         });
     });
 
-    describe('isOnboardingComplete', () => {
-        it('should return true when document does not exist (legacy install)', async () => {
-            mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
-            const result = await new Promise<boolean>((resolve) => {
-                service.isOnboardingComplete().subscribe(resolve);
-            });
-            expect(result).toBe(true);
+    describe('getOnboardingState', () => {
+        const read = () => new Promise<string>((resolve) => {
+            service.getOnboardingState().subscribe(resolve);
         });
 
-        it('should return true when document exists with completed: true', async () => {
+        it('should be complete when the flag says completed: true', async () => {
             mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ completed: true }) });
-            const result = await new Promise<boolean>((resolve) => {
-                service.isOnboardingComplete().subscribe(resolve);
-            });
-            expect(result).toBe(true);
+            expect(await read()).toBe('complete');
         });
 
-        it('should return false when document exists with completed: false', async () => {
+        it('should be in-progress when the flag says completed: false', async () => {
             mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ completed: false }) });
-            const result = await new Promise<boolean>((resolve) => {
-                service.isOnboardingComplete().subscribe(resolve);
-            });
-            expect(result).toBe(false);
+            expect(await read()).toBe('in-progress');
         });
 
-        it('should return true on Firestore read error (fail-open)', async () => {
+        it('should trust the flag over isFirstRun', async () => {
+            // The whole point of the change: email_lookup is filled by a Cloud
+            // Function after the fact, so an undeployed trigger makes isFirstRun()
+            // claim "first run" forever. A written flag outranks it.
+            mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ completed: true }) });
+            mockAuthService.isFirstRun.mockReturnValue(of(true));
+
+            expect(await read()).toBe('complete');
+            expect(mockAuthService.isFirstRun).not.toHaveBeenCalled();
+        });
+
+        it('should fall back to isFirstRun when no flag has been written', async () => {
+            mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
+            mockAuthService.isFirstRun.mockReturnValue(of(true));
+            expect(await read()).toBe('first-run');
+        });
+
+        it('should be complete for a legacy install with no flag but existing users', async () => {
+            mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
+            mockAuthService.isFirstRun.mockReturnValue(of(false));
+            expect(await read()).toBe('complete');
+        });
+
+        it('should fall back to isFirstRun when the flag cannot be read', async () => {
+            // This is the frontend-shipped-before-rules-deployed window: reading
+            // the flag signed out is denied until the public-read rule lands, and
+            // answering "complete" there would leave a fresh install with no wizard.
             mockGetDoc.mockRejectedValueOnce(new Error('permission denied'));
-            const result = await new Promise<boolean>((resolve) => {
-                service.isOnboardingComplete().subscribe(resolve);
-            });
-            expect(result).toBe(true);
+            mockAuthService.isFirstRun.mockReturnValue(of(true));
+            expect(await read()).toBe('first-run');
+        });
+
+        it('should fail open when neither signal is available', async () => {
+            mockGetDoc.mockRejectedValueOnce(new Error('permission denied'));
+            mockAuthService.isFirstRun.mockReturnValue(
+                new Observable((subscriber) => subscriber.error(new Error('permission denied'))),
+            );
+            expect(await read()).toBe('complete');
+        });
+    });
+
+    describe('shouldShowOnboarding', () => {
+        const read = () => new Promise<boolean>((resolve) => {
+            service.shouldShowOnboarding().subscribe(resolve);
+        });
+
+        it('should be false when setup is complete', async () => {
+            mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ completed: true }) });
+            expect(await read()).toBe(false);
+        });
+
+        it('should be true when the wizard was started but never finished', async () => {
+            mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ completed: false }) });
+            expect(await read()).toBe(true);
+        });
+
+        it('should be true on a genuine first run', async () => {
+            mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
+            mockAuthService.isFirstRun.mockReturnValue(of(true));
+            expect(await read()).toBe(true);
         });
     });
 });
