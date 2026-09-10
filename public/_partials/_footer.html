@@ -1,11 +1,132 @@
-<footer>
-    <div class="container">
-        <p>&copy; 2026 Arc CMS. Open source and free forever. Built with <i class="fas fa-heart heart-icon"></i> for
-            pre-seed founders.</p>
-        <p class="mt-2">
-            <a href="/">Documentation <span class="footer-coming-soon">(Coming Soon)</span></a>
-            <a href="/" style="margin: 0 15px;">GitHub <span class="footer-coming-soon">(Coming Soon)</span></a>
-            <a href="/">Community <span class="footer-coming-soon">(Coming Soon)</span></a>
-        </p>
+<footer class="site-footer" id="partner">
+    <div class="site-footer__inner">
+        <div class="site-footer__connect">
+            <div class="site-footer__connect-text">
+                <h2 class="site-footer__connect-title">Stay Connected</h2>
+                <p class="site-footer__connect-sub">Follow us for impact stories, updates &amp; opportunities.</p>
+                <ul class="site-footer__social">
+                    <li class="site-footer__social-item">
+                        <a class="site-footer__social-link" target="_blank"
+                            href="https://www.linkedin.com/company/gowow/" aria-label="LinkedIn">
+                            <i class="fa-brands fa-linkedin-in footer-icon"></i>
+                            <span class="visually-hidden">LinkedIn</span>
+                        </a>
+                    </li>
+                    <li class="site-footer__social-item">
+                        <a class="site-footer__social-link" target="_blank"
+                            href="https://www.facebook.com/people/GoWow-The-Social-Service-App/100082444574154/"
+                            aria-label="Facebook">
+                            <i class="fa-brands fa-facebook-f footer-icon"></i>
+                            <span class="visually-hidden">Facebook</span>
+                        </a>
+                    </li>
+                    <li class="site-footer__social-item">
+                        <a class="site-footer__social-link" target="_blank" href="https://www.instagram.com/gowowapp/"
+                            aria-label="Instagram">
+                            <i class="fa-brands fa-instagram footer-icon"></i>
+                            <span class="visually-hidden">Instagram</span>
+                        </a>
+                    </li>
+                    <li class="site-footer__social-item">
+                        <a class="site-footer__social-link" target="_blank"
+                            href="https://www.youtube.com/@GoWow-TheSocialServiceApp" aria-label="YouTube">
+                            <i class="fa-brands fa-youtube footer-icon"></i>
+                            <span class="visually-hidden">YouTube</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <ul class="site-footer__stores">
+                <li class="site-footer__store"><a
+                        href="https://play.google.com/store/apps/details?id=com.quadralyst.GoWow&pcampaignid=web_share"
+                        target="_blank"><img src="assets/images/Google Play.png" alt="Get it on Google Play" width="180"
+                            height="54" loading="lazy" decoding="async"></a>
+                </li>
+                <li class="site-footer__store"><a
+                        href="https://apps.apple.com/in/app/gowow-the-social-service-app/id6745549820"
+                        target="_blank"><img src="assets/images/App Store.png" alt="Download on the App Store"
+                            width="180" height="54" loading="lazy" decoding="async"></a>
+                </li>
+            </ul>
+        </div>
+
+        <nav class="site-footer__nav" aria-label="Footer">
+            <div class="site-footer__col">
+                <h3 class="site-footer__col-title">GoWow</h3>
+                <ul class="site-footer__links">
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#why">Why GoWow</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#about">About Us</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#team">Our Team</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#careers">Careers</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#press">Press &amp; Media</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="site-footer__col">
+                <h3 class="site-footer__col-title">For You</h3>
+                <arc-content-partials [contentType]="'entry-points'" [count]="10"
+                    [sectionTitle]="'Find your entry point'" [templateFolder]="'entry-point'"></arc-content-partials>
+
+                <!-- Hard coded footer links -->
+                <!-- <ul class="site-footer__links">
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#volunteers">Volunteers</a>
+                    </li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#corporates">Corporates
+                            (CSR)</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#donors">Donors &amp; HNIs</a>
+                    </li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#ngos">NGOs</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#academia">Academia</a></li>
+                </ul> -->
+            </div>
+            <div class="site-footer__col">
+                <h3 class="site-footer__col-title">Programs</h3>
+
+                <arc-content-partials [contentType]="'flagship-programs'" [count]="5"
+                    [templateFolder]="'flagship-programs'">
+                </arc-content-partials>
+                <!-- Hard coded footer links -->
+                <!-- <ul class="site-footer__links">
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#shc">Social Hero
+                            Championship</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#kpl">Karma Premier League</a>
+                    </li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#bogo">Buy One Give One</a>
+                    </li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#aidvertising">Social
+                            AIDvertising</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#marketplace">eMarketplace</a>
+                    </li>
+                </ul> -->
+            </div>
+            <div class="site-footer__col">
+                <h3 class="site-footer__col-title">Impact</h3>
+                <ul class="site-footer__links">
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#dashboard">Impact
+                            Dashboard</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#stories">Stories</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#gallery">Photo &amp; Video
+                            Gallery</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#reports">Reports &amp;
+                            Resources</a></li>
+                </ul>
+            </div>
+            <div class="site-footer__col">
+                <h3 class="site-footer__col-title">Support</h3>
+                <ul class="site-footer__links">
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#help">Help Center</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#contact">Contact Us</a></li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#privacy">Privacy Policy</a>
+                    </li>
+                    <li class="site-footer__link-item"><a class="site-footer__link" href="#terms">Terms &amp;
+                            Conditions</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <div class="site-footer__legal">
+            <p class="site-footer__copy">© 2025 GoWow. All rights reserved.</p>
+            <p class="site-footer__made">Made with <span class="site-footer__heart">❤</span> for a better world</p>
+        </div>
     </div>
 </footer>

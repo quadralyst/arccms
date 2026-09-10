@@ -1,0 +1,344 @@
+<div class="arc-cms-template">
+    <main class="epl-page">
+        <section class="epl-intro">
+            <div class="epl-shell">
+                <nav class="epl-crumbs" aria-label="Breadcrumb">
+                    <ol class="epl-crumbs__list">
+                        <li class="epl-crumbs__item"><a class="epl-crumbs__link" href="/"><i class="fa-solid fa-house"
+                                    aria-hidden="true"></i>Home</a></li>
+                        <li class="epl-crumbs__item epl-crumbs__item--current" aria-current="page"
+                            data-arc-bind="contentType"></li>
+                    </ol>
+                </nav>
+
+                <h1 class="epl-intro__title" data-arc-bind="contentType"></h1>
+                <p class="epl-intro__sub" data-arc-bind="description"></p>
+            </div>
+        </section>
+        <section class="epl-grid-wrap">
+            <div class="epl-shell">
+                <div class="epl-grid" data-arc-loop="items" data-limit="24">
+
+                    <article class="epl-card"
+                        style="--themeColor: {{entry-points_color}}; --theme-color: {{entry-points_color}};">
+                        <a class="epl-card__link" data-arc-bind="url" href="detail.html">
+                            <figure class="epl-card__figure" data-arc-if="coverImage">
+                                <img class="epl-card__media" src={{coverImage}} alt={{title}} width="640" height="400">
+                            </figure>
+                            <div class="epl-card__body">
+                                <p class="epl-card__pill" data-arc-if="entry-points_sub_title">
+                                    <span class="epl-card__pill-icon"><i class="fa-solid" [class]="entry-points_icon"
+                                            aria-hidden="true"></i></span>
+                                    <span data-arc-bind="entry-points_sub_title"></span>
+                                </p>
+                                <h2 class="epl-card__title" data-arc-bind="title"></h2>
+                                <p class="epl-card__text" data-arc-bind="entry-points_sub_description"></p>
+                                <p class="epl-card__tags" data-arc-if="entry-points_community"
+                                    data-arc-bind="entry-points_community">
+                                </p>
+                                <span class="epl-card__cta">
+                                    Read more
+                                    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                                </span>
+                            </div>
+                        </a>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<style>
+    @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css");
+
+    .epl-page {
+        --epl-ink: #0f172a;
+        --epl-body: #4b5563;
+        --epl-muted: #6b7280;
+        --epl-line: #e5e9f0;
+        --epl-surface: #ffffff;
+        --epl-surface-2: #f8fafc;
+
+        --themeColor: var(--theme-color, #16a34a);
+        --ep-accent: var(--themeColor);
+
+        --epl-fs-xs: .6875rem;
+        --epl-fs-sm: .75rem;
+        --epl-fs-md: .875rem;
+        --epl-fs-lg: 1rem;
+        --epl-fs-3xl: clamp(1.5rem, 1.05rem + 2vw, 2.25rem);
+
+        --epl-2: .5rem;
+        --epl-3: .75rem;
+        --epl-4: 1rem;
+        --epl-5: 1.25rem;
+        --epl-8: 2rem;
+        --epl-12: 3rem;
+        --epl-section: 3.5rem;
+        /* vertical rhythm between bands */
+
+        --epl-r-sm: 8px;
+        --epl-r-md: 12px;
+        --epl-r-pill: 999px;
+        --epl-sh-sm: 0 1px 2px rgba(15, 23, 42, .06);
+        --epl-sh-lg: 0 12px 32px rgba(15, 23, 42, .10);
+
+        --epl-w: 75rem;
+        --epl-gutter: 1.25rem;
+
+        font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        font-size: var(--epl-fs-md);
+        line-height: 1.6;
+        color: var(--epl-body);
+        background: var(--epl-surface);
+    }
+
+    .epl-page *,
+    .epl-page *::before,
+    .epl-page *::after {
+        box-sizing: border-box;
+    }
+
+    .epl-page :where(h1, h2) {
+        margin: 0;
+        line-height: 1.18;
+        font-weight: 700;
+    }
+
+    .epl-page :where(p) {
+        margin: 0;
+    }
+
+    .epl-page :where(ul, ol) {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .epl-page :where(img) {
+        display: block;
+        max-width: 100%;
+        height: auto;
+    }
+
+    .epl-page :where(a) {
+        text-decoration: none;
+    }
+
+    .epl-shell {
+        width: 100%;
+        max-width: var(--epl-w);
+        margin-inline: auto;
+        padding-inline: var(--epl-gutter);
+    }
+
+    /* --- Intro --------------------------------------------------- */
+    .epl-intro {
+        padding: var(--epl-8) 0 var(--epl-section);
+        background: linear-gradient(180deg, var(--epl-surface-2) 0%, var(--epl-surface) 100%);
+        text-align: center;
+    }
+
+    .epl-crumbs {
+        margin-bottom: var(--epl-8);
+    }
+
+    .epl-crumbs__list {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: var(--epl-2);
+    }
+
+    .epl-crumbs__item {
+        display: flex;
+        align-items: center;
+        gap: var(--epl-2);
+        font-size: var(--epl-fs-sm);
+        color: var(--epl-muted);
+    }
+
+    .epl-crumbs__item::after {
+        content: "/";
+        color: #94a3b8;
+    }
+
+    .epl-crumbs__item--current {
+        color: var(--epl-ink);
+        font-weight: 600;
+    }
+
+    .epl-crumbs__item--current::after {
+        content: none;
+    }
+
+    .epl-crumbs__link {
+        color: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--epl-2);
+    }
+
+    .epl-crumbs__link:hover {
+        color: var(--ep-accent);
+    }
+
+    .epl-intro__title {
+        color: var(--epl-ink);
+        font-size: var(--epl-fs-3xl);
+        font-weight: 800;
+        letter-spacing: -.02em;
+        text-wrap: balance;
+    }
+
+    .epl-intro__sub {
+        margin: var(--epl-4) auto 0;
+        max-width: 38rem;
+        text-wrap: balance;
+        font-size: var(--epl-fs-lg);
+        color: var(--epl-muted);
+    }
+
+    /* --- Grid ---------------------------------------------------- */
+    .epl-grid-wrap {
+        padding: 0 0 var(--epl-section);
+    }
+
+    .epl-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+        gap: var(--epl-5);
+    }
+
+    .epl-grid:empty {
+        display: none;
+    }
+
+    .epl-card {
+        --ep-accent: var(--themeColor, var(--theme-color, #16a34a));
+        --ep-accent-dark: color-mix(in srgb, var(--ep-accent), #000 20%);
+        --ep-accent-soft: color-mix(in srgb, var(--ep-accent) 10%, #fff);
+        --ep-accent-line: color-mix(in srgb, var(--ep-accent) 25%, #fff);
+
+        border: 1px solid var(--epl-line);
+        border-radius: var(--epl-r-md);
+        background: var(--epl-surface);
+        overflow: hidden;
+        box-shadow: var(--epl-sh-sm);
+        transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
+    }
+
+    .epl-card:hover {
+        border-color: var(--ep-accent-line);
+        box-shadow: var(--epl-sh-lg);
+        transform: translateY(-2px);
+    }
+
+    .epl-card__link {
+        color: inherit;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        height: 100%;
+    }
+
+    .epl-card__figure {
+        margin: 0;
+        background: var(--ep-accent-soft);
+    }
+
+    .epl-card__media {
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        object-fit: cover;
+    }
+
+    .epl-card__body {
+        display: flex;
+        flex-direction: column;
+        gap: var(--epl-3);
+        padding: var(--epl-5);
+    }
+
+    .epl-card__pill {
+        align-self: flex-start;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--epl-2);
+        padding: .15rem .6rem;
+        border-radius: var(--epl-r-pill);
+        background: var(--ep-accent-soft);
+        color: var(--ep-accent-dark);
+        font-size: var(--epl-fs-xs);
+        font-weight: 600;
+    }
+
+    .epl-card__pill-icon {
+        display: inline-flex;
+        font-size: .9em;
+    }
+
+    .epl-card__title {
+        color: var(--ep-accent-dark);
+        font-size: var(--epl-fs-lg);
+        font-weight: 700;
+    }
+
+    .epl-card__text {
+        font-size: var(--epl-fs-sm);
+        color: var(--epl-body);
+    }
+
+    .epl-card__tags {
+        font-size: var(--epl-fs-xs);
+        color: var(--epl-muted);
+    }
+
+    .epl-card__cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--epl-2);
+        margin-top: auto;
+        padding: .7rem var(--epl-4);
+        border-radius: var(--epl-r-sm);
+        background: var(--ep-accent);
+        color: #ffffff;
+        font-size: var(--epl-fs-md);
+        font-weight: 600;
+        transition: background-color .18s ease;
+    }
+
+    .epl-card__link:hover .epl-card__cta {
+        background: var(--ep-accent-dark);
+    }
+
+
+    /* --- Breakpoints --------------------------------------------- */
+    @media (min-width: 48em) {
+        .epl-page {
+            --epl-gutter: 1.5rem;
+        }
+    }
+
+    @media (min-width: 64em) {
+        .epl-page {
+            --epl-section: 5.5rem;
+        }
+
+        .epl-intro {
+            padding-top: var(--epl-12);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .epl-card:hover {
+            transform: none;
+        }
+
+        .epl-page * {
+            transition: none !important;
+        }
+    }
+</style>

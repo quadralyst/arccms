@@ -1,21 +1,38 @@
-<nav class="navbar navbar-expand-lg">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">Arc CMS</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-            <ul class="navbar-nav">
-                <li class="nav-item"><a class="nav-link" href="/#features" data-arc-t="nav_features">Features</a></li>
-                <li class="nav-item"><a class="nav-link" href="/#how" data-arc-t="nav_how_it_works">How It Works</a></li>
-                <li class="nav-item"><a class="nav-link" href="/#ownership" data-arc-t="nav_ownership">Ownership</a></li>
-                <li class="nav-item"><a class="nav-link" href="/#waitlist" data-arc-t="nav_get_access">Get Access</a></li>
-                <li class="nav-item"><a class="nav-link" href="/articles" data-arc-t="nav_articles">Articles</a></li>
-                <li class="nav-item"><a class="nav-link" href="/#contact" data-arc-t="nav_contact">Contact</a></li>
+<header class="site-header">
+    <div class="site-header__inner">
+
+        <a class="site-header__brand" href="/">
+            <span class="site-header__logo"><img src="/public/assets/images/main_logo.png" alt="GoWow Logo" /></span>
+            <!-- <span class="site-header__tagline">Infrastructure for Goodness</span> -->
+        </a>
+
+        <nav class="site-header__nav" [class.site-header__nav--open]="isMenuOpen()" aria-label="Primary">
+            <ul class="site-header__menu">
+                <li class="site-header__item"><a class="site-header__link" href="#why">Why GoWow</a></li>
+                <li class="site-header__item"><a class="site-header__link site-header__link--has-menu"
+                        href="#for-you">For You <i class="fa-solid fa-chevron-down"></i></a></li>
+                <li class="site-header__item"><a class="site-header__link site-header__link--has-menu"
+                        href="#impact">Impact <i class="fa-solid fa-chevron-down"></i></a></li>
+                <li class="site-header__item"><a class="site-header__link site-header__link--has-menu"
+                        href="#programs">Programs <i class="fa-solid fa-chevron-down"></i></a></li>
+                <li class="site-header__item"><a class="site-header__link" href="#academia">Academia</a></li>
+                <li class="site-header__item"><a class="site-header__link site-header__link--has-menu"
+                        href="#about">About Us <i class="fa-solid fa-chevron-down"></i></a></li>
             </ul>
-            <!-- Replaced at publish time with links to this page's other
-                 languages. Removed entirely on single-language sites. -->
-            <arc-language-switcher></arc-language-switcher>
+        </nav>
+
+        <div class="site-header__actions">
+            <a class="btn btn--primary btn--pill"
+                href="https://play.google.com/store/apps/details?id=com.quadralyst.GoWow&pcampaignid=web_share"
+                target="_blank">Download App</a>
+            <a class="btn btn--outline btn--pill" href="#partner">Partner With Us</a>
         </div>
+
+        <button class="site-header__toggle" type="button" aria-expanded="false" aria-controls="site-menu"
+            (click)="toggleMenu()">
+            <span class="site-header__toggle-bar"></span>
+            <span class="visually-hidden">Menu</span>
+        </button>
+
     </div>
-</nav>
+</header>

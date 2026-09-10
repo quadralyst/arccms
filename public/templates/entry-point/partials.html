@@ -1,0 +1,56 @@
+<section class="personas" id="for-you">
+    <div class="personas__inner">
+
+        <header class="section-head section-head--center">
+            <h2 class="section-head__title" data-arc-bind="sectionTitle">Find your entry point</h2>
+            <p class="section-head__sub">{{ contentTypeDescription }}</p>
+        </header>
+
+        <div class="personas__carousel" data-carousel>
+            <button class="carousel-btn carousel-btn--prev" type="button" data-carousel-prev aria-label="Previous">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
+                <span class="visually-hidden">Previous</span>
+            </button>
+
+            <ul class="personas__track" data-carousel-track data-arc-loop="items" data-limit="10">
+                <li class="personas__slide">
+                    <!-- Entry Point / Personas Card Template -->
+                    <article class="personas__card" style="--theme-color: {{entry-points_color}};">
+                        <div class="personas__media">
+                            <img class="personas__image" src="{{coverImage}}" alt="{{title}}" width="640" height="360"
+                                loading="lazy" decoding="async">
+                            <h3 class="personas__title" data-arc-bind="title"></h3>
+                            <a href="{{url}}">
+                                <p class="personas__role" data-arc-bind="entry-points_sub_title">Audience</p>
+                            </a>
+                        </div>
+                        <div class="personas__list" [innerHTML]="content">
+                        </div>
+                        <a class="personas__cta" data-arc-style-background="entry-points_color" href="{{url}}">
+                            <span data-arc-bind="entry-points_button_label"></span>
+                            <svg class="icon icon--chevron" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M9 6l6 6-6 6" />
+                            </svg>
+                        </a>
+                    </article>
+                </li>
+            </ul>
+
+            <button class="carousel-btn carousel-btn--next" type="button" data-carousel-next aria-label="Next">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 6l6 6-6 6" />
+                </svg>
+                <span class="visually-hidden">Next</span>
+            </button>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="partialsEmptyState">
+            <i class="fa-solid fa-circle-question"></i>
+            <h3>No Entry Points Yet</h3>
+            <p>Check back soon for content.</p>
+        </div>
+    </div>
+</section>

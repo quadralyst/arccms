@@ -1,0 +1,41 @@
+<section class="gallery">
+    <div class="gallery__inner">
+
+        <header class="section-head section-head--row">
+            <div class="section-head__group">
+                <h2 class="section-head__title section-head__title--sm" data-arc-bind="sectionTitle">Impact in Action
+                </h2>
+                <p class="section-head__sub section-head__sub--left">Real stories from real people.</p>
+            </div>
+            <a class="view-all" href="/impact-actions">View Full Gallery
+                <svg class="icon icon--arrow" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+            </a>
+        </header>
+
+        <ul class="gallery__grid" data-arc-loop="items" data-limit="6">
+            <li class="gallery__item">
+                <a class="gallery__link" href="{{ url }}">
+                    <img class="gallery__media" src="{{coverImage}}" alt="{{ title }}" width="480" height="360"
+                        loading="lazy" decoding="async">
+                    <span class="gallery__play">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M9 6l9 6-9 6z" />
+                        </svg>
+                    </span>
+                    <span class="gallery__caption" data-arc-bind="title">Teaching Session</span>
+                    <span class="gallery__location" data-arc-bind="impact-actions_place_or_work"></span>
+                </a>
+            </li>
+        </ul>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="partialsEmptyState">
+            <i class="fas fa-images"></i>
+            <h3>No Stories Yet</h3>
+            <p>Check back soon for new impact stories.</p>
+        </div>
+
+    </div>
+</section>

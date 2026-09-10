@@ -1,0 +1,9 @@
+<div class="stat-cards-dynamic-container" data-arc-loop="items" data-limit="4" style="display: contents;">
+    <div class="stat-card {{}}  text-decoration-none">
+        <div class="stat-icon" style="--theme-color: {{mobile-card_bg_color}}">
+            <i data-arc-if="mobile-card_icon" class="{{ mobile-card_icon }}" aria-hidden="true"></i>
+        </div>
+        <strong data-arc-bind="mobile-card_user_count">{{ mobile-card_user_count }}</strong>
+        <span data-arc-bind="mobile-card_description">{{ mobile-card_description }}</span>
+    </div>
+</div>
