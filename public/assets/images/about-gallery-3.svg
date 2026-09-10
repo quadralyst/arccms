@@ -1,0 +1,41 @@
+<svg viewBox="0 0 280 180" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+    <!-- Warm Background -->
+    <rect width="280" height="180" fill="#f8fafc"/>
+    <rect width="280" height="180" fill="#fef3c7" opacity="0.3"/>
+
+    <!-- Green Chalkboard -->
+    <rect x="36" y="24" width="94" height="62" rx="4" fill="#15803d" stroke="#166534" stroke-width="1.5"/>
+    <line x1="48" y1="44" x2="108" y2="44" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+    <line x1="48" y1="56" x2="120" y2="56" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.75"/>
+
+    <!-- Wooden Table -->
+    <rect x="94" y="112" width="138" height="10" rx="2" fill="#b45309" opacity="0.8"/>
+    <rect x="106" y="122" width="5" height="28" fill="#78350f" opacity="0.8"/>
+    <rect x="216" y="122" width="5" height="28" fill="#78350f" opacity="0.8"/>
+
+    <!-- Person 1 (Green shirt, standing by board) -->
+    <g>
+        <circle cx="62" cy="98" r="7" fill="#fed7aa"/>
+        <rect x="54" y="106" width="16" height="25" rx="2" fill="#16a34a"/>
+        <path d="M70 111 L82 110" stroke="#16a34a" stroke-width="4" stroke-linecap="round"/>
+        <path d="M54 111 L48 122" stroke="#16a34a" stroke-width="4" stroke-linecap="round"/>
+        <rect x="56" y="131" width="5" height="30" fill="#334155"/>
+        <rect x="63" y="131" width="5" height="30" fill="#334155"/>
+    </g>
+
+    <!-- Person 2 (Blue shirt, sitting at table) -->
+    <g>
+        <circle cx="138" cy="100" r="6.5" fill="#fbcfe8"/>
+        <rect x="131" y="107" width="14" height="18" rx="2" fill="#2563eb"/>
+        <rect x="133" y="122" width="4.5" height="28" fill="#334155"/>
+        <rect x="138.5" y="122" width="4.5" height="28" fill="#334155"/>
+    </g>
+
+    <!-- Person 3 (Orange shirt, sitting at table) -->
+    <g>
+        <circle cx="188" cy="100" r="6.5" fill="#fde68a"/>
+        <rect x="181" y="107" width="14" height="18" rx="2" fill="#ea580c"/>
+        <rect x="183" y="122" width="4.5" height="28" fill="#334155"/>
+        <rect x="188.5" y="122" width="4.5" height="28" fill="#334155"/>
+    </g>
+</svg>
