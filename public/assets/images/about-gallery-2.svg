@@ -1,0 +1,65 @@
+<svg viewBox="0 0 280 180" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+    <!-- Sky Background -->
+    <rect width="280" height="180" fill="#e0f2fe"/>
+
+    <!-- Sun in Top Right -->
+    <circle cx="232" cy="38" r="18" fill="#fde047"/>
+
+    <!-- Soft Green/Grey Ground -->
+    <rect y="126" width="280" height="54" fill="#64748b" opacity="0.6"/>
+
+    <!-- Tree on the Left -->
+    <rect x="28" y="104" width="6" height="24" fill="#78350f"/>
+    <circle cx="31" cy="95" r="14" fill="#16a34a"/>
+
+    <!-- Team Members standing side by side -->
+    <!-- Person 1 (Blue shirt, hands raised) -->
+    <g>
+        <circle cx="78" cy="104" r="6" fill="#fed7aa"/>
+        <rect x="73" y="111" width="10" height="20" rx="2" fill="#2563eb"/>
+        <path d="M73 115 L66 101" stroke="#2563eb" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M83 115 L90 101" stroke="#2563eb" stroke-width="3.5" stroke-linecap="round"/>
+        <rect x="74" y="131" width="3.5" height="24" fill="#334155"/>
+        <rect x="79.5" y="131" width="3.5" height="24" fill="#334155"/>
+    </g>
+
+    <!-- Person 2 (Green shirt, hands raised) -->
+    <g>
+        <circle cx="106" cy="104" r="6" fill="#fbcfe8"/>
+        <rect x="101" y="111" width="10" height="20" rx="2" fill="#16a34a"/>
+        <path d="M101 115 L95 102" stroke="#16a34a" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M111 115 L117 102" stroke="#16a34a" stroke-width="3.5" stroke-linecap="round"/>
+        <rect x="102" y="131" width="3.5" height="24" fill="#334155"/>
+        <rect x="107.5" y="131" width="3.5" height="24" fill="#334155"/>
+    </g>
+
+    <!-- Person 3 (Orange shirt, hands down) -->
+    <g>
+        <circle cx="132" cy="104" r="6" fill="#fde68a"/>
+        <rect x="127" y="111" width="10" height="20" rx="2" fill="#ea580c"/>
+        <path d="M127 114 L123 126" stroke="#ea580c" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M137 114 L141 126" stroke="#ea580c" stroke-width="3.5" stroke-linecap="round"/>
+        <rect x="128" y="131" width="3.5" height="24" fill="#334155"/>
+        <rect x="133.5" y="131" width="3.5" height="24" fill="#334155"/>
+    </g>
+
+    <!-- Person 4 (Purple shirt, hands down) -->
+    <g>
+        <circle cx="158" cy="104" r="6" fill="#fed7aa"/>
+        <rect x="153" y="111" width="10" height="20" rx="2" fill="#9333ea"/>
+        <path d="M153 114 L149 126" stroke="#9333ea" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M163 114 L167 126" stroke="#9333ea" stroke-width="3.5" stroke-linecap="round"/>
+        <rect x="154" y="131" width="3.5" height="24" fill="#334155"/>
+        <rect x="159.5" y="131" width="3.5" height="24" fill="#334155"/>
+    </g>
+
+    <!-- Person 5 (Sky blue shirt, hands down) -->
+    <g>
+        <circle cx="184" cy="104" r="6" fill="#fbcfe8"/>
+        <rect x="179" y="111" width="10" height="20" rx="2" fill="#0284c7"/>
+        <path d="M179 114 L175 126" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M189 114 L193 126" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round"/>
+        <rect x="180" y="131" width="3.5" height="24" fill="#334155"/>
+        <rect x="185.5" y="131" width="3.5" height="24" fill="#334155"/>
+    </g>
+</svg>
