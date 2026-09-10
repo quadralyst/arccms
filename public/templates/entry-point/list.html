@@ -1,317 +1,344 @@
 <div class="arc-cms-template">
-    <arc-header></arc-header>
+    <main class="epl-page">
+        <section class="epl-intro">
+            <div class="epl-shell">
+                <nav class="epl-crumbs" aria-label="Breadcrumb">
+                    <ol class="epl-crumbs__list">
+                        <li class="epl-crumbs__item"><a class="epl-crumbs__link" href="/"><i class="fa-solid fa-house"
+                                    aria-hidden="true"></i>Home</a></li>
+                        <li class="epl-crumbs__item epl-crumbs__item--current" aria-current="page"
+                            data-arc-bind="contentType"></li>
+                    </ol>
+                </nav>
 
-    <!-- personas Hero Section - Compact Apple-inspired design -->
-    <section class="personas-hero">
-        <div class="container">
-            <h1 class="personas-title arc-skeleton">{{ contentType }}</h1>
-            <p class="personas-subtitle arc-skeleton">{{ contentTypeDescription }}</p>
-        </div>
-    </section>
-
-    <!-- personas Grid Section -->
-    <section class="personas-section">
-        <div class="container">
-            <div class="personas-grid" data-arc-loop="items" data-limit="12">
-                <!-- personas Card Template -->
-                <a class="personas-card" href="{{ url }}">
-                    <div class="personas-image-wrapper">
-                        <img class="personas-image" src="{{ coverImage }}" alt="{{ title }}">
-                    </div>
-                    <div class="personas-content">
-                        <div class="personas-meta">
-                            <time datetime="{{ publishedOn }}" class="arc-skeleton">{{ publishedOn }}</time>
-                            <span class="meta-separator">•</span>
-                            <span class="arc-skeleton">{{ readTime }}</span> min read
-                            <span class="meta-separator category-separator">•</span>
-                            <span class="category-badge arc-skeleton">{{ cat }}</span>
-                        </div>
-                        <h2 class="personas-title arc-skeleton">{{ title }}</h2>
-                        <p class="personas-excerpt arc-skeleton">{{ excerpt }}</p>
-                        <span class="personas-read-more">Read personas <i class="fas fa-arrow-right"></i></span>
-                    </div>
-                </a>
+                <h1 class="epl-intro__title" data-arc-bind="contentType"></h1>
+                <p class="epl-intro__sub" data-arc-bind="description"></p>
             </div>
+        </section>
+        <section class="epl-grid-wrap">
+            <div class="epl-shell">
+                <div class="epl-grid" data-arc-loop="items" data-limit="24">
 
-            <!-- Empty State -->
-            <div class="empty-state" id="emptyState">
-                <i class="fas fa-newspaper"></i>
-                <h3>No personas Yet</h3>
-                <p>Check back soon for new content.</p>
+                    <article class="epl-card"
+                        style="--themeColor: {{entry-points_color}}; --theme-color: {{entry-points_color}};">
+                        <a class="epl-card__link" data-arc-bind="url" href="detail.html">
+                            <figure class="epl-card__figure" data-arc-if="coverImage">
+                                <img class="epl-card__media" src={{coverImage}} alt={{title}} width="640" height="400">
+                            </figure>
+                            <div class="epl-card__body">
+                                <p class="epl-card__pill" data-arc-if="entry-points_sub_title">
+                                    <span class="epl-card__pill-icon"><i class="fa-solid" [class]="entry-points_icon"
+                                            aria-hidden="true"></i></span>
+                                    <span data-arc-bind="entry-points_sub_title"></span>
+                                </p>
+                                <h2 class="epl-card__title" data-arc-bind="title"></h2>
+                                <p class="epl-card__text" data-arc-bind="entry-points_sub_description"></p>
+                                <p class="epl-card__tags" data-arc-if="entry-points_community"
+                                    data-arc-bind="entry-points_community">
+                                </p>
+                                <span class="epl-card__cta">
+                                    Read more
+                                    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                                </span>
+                            </div>
+                        </a>
+                    </article>
+                </div>
             </div>
-        </div>
-    </section>
-
-    <arc-footer></arc-footer>
+        </section>
+    </main>
 </div>
 
 <style>
-    /* Apple-inspired personas List Styles - Compact */
-    .personas-hero {
-        padding: 3rem 0 2rem;
-        text-align: center;
-        background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
-    }
+    @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css");
 
-    .personas-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1d1d1f;
-        margin-bottom: 0.5rem;
-        letter-spacing: -0.02em;
-    }
+    .epl-page {
+        --epl-ink: #0f172a;
+        --epl-body: #4b5563;
+        --epl-muted: #6b7280;
+        --epl-line: #e5e9f0;
+        --epl-surface: #ffffff;
+        --epl-surface-2: #f8fafc;
 
-    .personas-subtitle {
-        font-size: 1rem;
-        color: #6e6e73;
-        max-width: 600px;
-        margin: 0 auto;
-        line-height: 1.4;
-    }
+        --themeColor: var(--theme-color, #16a34a);
+        --ep-accent: var(--themeColor);
 
-    .personas-section {
-        padding: 2rem 0 4rem;
-        background: #ffffff;
-    }
+        --epl-fs-xs: .6875rem;
+        --epl-fs-sm: .75rem;
+        --epl-fs-md: .875rem;
+        --epl-fs-lg: 1rem;
+        --epl-fs-3xl: clamp(1.5rem, 1.05rem + 2vw, 2.25rem);
 
-    .personas-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-        gap: 2rem;
-    }
+        --epl-2: .5rem;
+        --epl-3: .75rem;
+        --epl-4: 1rem;
+        --epl-5: 1.25rem;
+        --epl-8: 2rem;
+        --epl-12: 3rem;
+        --epl-section: 3.5rem;
+        /* vertical rhythm between bands */
 
-    .personas-card {
-        display: flex;
-        flex-direction: column;
-        background: #ffffff;
-        border-radius: 20px;
-        overflow: hidden;
-        text-decoration: none;
-        color: inherit;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-        box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
-        height: 100%;
-    }
+        --epl-r-sm: 8px;
+        --epl-r-md: 12px;
+        --epl-r-pill: 999px;
+        --epl-sh-sm: 0 1px 2px rgba(15, 23, 42, .06);
+        --epl-sh-lg: 0 12px 32px rgba(15, 23, 42, .10);
 
-    .personas-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-    }
+        --epl-w: 75rem;
+        --epl-gutter: 1.25rem;
 
-    .personas-card:hover .personas-read-more {
-        color: #0066cc;
-    }
-
-    .personas-card:hover .personas-read-more i {
-        transform: translateX(4px);
-    }
-
-    .personas-image-wrapper {
-        position: relative;
-        width: 100%;
-        height: 200px;
-        overflow: hidden;
-        background: #f5f5f7;
-    }
-
-    .personas-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: transform 0.5s ease;
-    }
-
-    .personas-card:hover .personas-image {
-        transform: scale(1.05);
-    }
-
-
-    .personas-content {
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-    }
-
-    .personas-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.85rem;
-        color: #6e6e73;
-        margin-bottom: 0.75rem;
-    }
-
-    .meta-separator {
-        color: #d2d2d7;
-    }
-
-    .category-badge {
-        display: inline-block;
-        padding: 0.15rem 0.5rem;
-        background: linear-gradient(135deg, #e8e8ed 0%, #d2d2d7 100%);
-        border-radius: 100px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: #6e6e73;
-    }
-
-    .category-badge:empty,
-    .category-separator:has(+ .category-badge:empty) {
-        display: none;
-    }
-
-    .personas-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #1d1d1f;
-        line-height: 1.3;
-        margin-bottom: 0.75rem;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-
-    .personas-excerpt {
-        font-size: 0.95rem;
-        color: #6e6e73;
+        font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        font-size: var(--epl-fs-md);
         line-height: 1.6;
-        margin-bottom: 1.25rem;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        flex: 1;
+        color: var(--epl-body);
+        background: var(--epl-surface);
     }
 
-    .personas-read-more {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: #1d1d1f;
-        transition: color 0.2s ease;
-        margin-top: auto;
+    .epl-page *,
+    .epl-page *::before,
+    .epl-page *::after {
+        box-sizing: border-box;
     }
 
-    .personas-read-more i {
-        font-size: 0.75rem;
-        transition: transform 0.2s ease;
+    .epl-page :where(h1, h2) {
+        margin: 0;
+        line-height: 1.18;
+        font-weight: 700;
     }
 
-    /* Tags in cards */
-    .personas-tags-inline {
-        margin-bottom: 0.75rem;
+    .epl-page :where(p) {
+        margin: 0;
+    }
+
+    .epl-page :where(ul, ol) {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .epl-page :where(img) {
+        display: block;
+        max-width: 100%;
+        height: auto;
+    }
+
+    .epl-page :where(a) {
+        text-decoration: none;
+    }
+
+    .epl-shell {
+        width: 100%;
+        max-width: var(--epl-w);
+        margin-inline: auto;
+        padding-inline: var(--epl-gutter);
+    }
+
+    /* --- Intro --------------------------------------------------- */
+    .epl-intro {
+        padding: var(--epl-8) 0 var(--epl-section);
+        background: linear-gradient(180deg, var(--epl-surface-2) 0%, var(--epl-surface) 100%);
+        text-align: center;
+    }
+
+    .epl-crumbs {
+        margin-bottom: var(--epl-8);
+    }
+
+    .epl-crumbs__list {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.35rem;
+        align-items: center;
+        justify-content: center;
+        gap: var(--epl-2);
     }
 
-    .personas-tags-inline:empty {
+    .epl-crumbs__item {
+        display: flex;
+        align-items: center;
+        gap: var(--epl-2);
+        font-size: var(--epl-fs-sm);
+        color: var(--epl-muted);
+    }
+
+    .epl-crumbs__item::after {
+        content: "/";
+        color: #94a3b8;
+    }
+
+    .epl-crumbs__item--current {
+        color: var(--epl-ink);
+        font-weight: 600;
+    }
+
+    .epl-crumbs__item--current::after {
+        content: none;
+    }
+
+    .epl-crumbs__link {
+        color: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--epl-2);
+    }
+
+    .epl-crumbs__link:hover {
+        color: var(--ep-accent);
+    }
+
+    .epl-intro__title {
+        color: var(--epl-ink);
+        font-size: var(--epl-fs-3xl);
+        font-weight: 800;
+        letter-spacing: -.02em;
+        text-wrap: balance;
+    }
+
+    .epl-intro__sub {
+        margin: var(--epl-4) auto 0;
+        max-width: 38rem;
+        text-wrap: balance;
+        font-size: var(--epl-fs-lg);
+        color: var(--epl-muted);
+    }
+
+    /* --- Grid ---------------------------------------------------- */
+    .epl-grid-wrap {
+        padding: 0 0 var(--epl-section);
+    }
+
+    .epl-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+        gap: var(--epl-5);
+    }
+
+    .epl-grid:empty {
         display: none;
     }
 
-    .tag-pill {
-        font-size: 0.7rem;
-        padding: 0.2rem 0.5rem;
-        border-radius: 100px;
-        font-weight: 500;
+    .epl-card {
+        --ep-accent: var(--themeColor, var(--theme-color, #16a34a));
+        --ep-accent-dark: color-mix(in srgb, var(--ep-accent), #000 20%);
+        --ep-accent-soft: color-mix(in srgb, var(--ep-accent) 10%, #fff);
+        --ep-accent-line: color-mix(in srgb, var(--ep-accent) 25%, #fff);
+
+        border: 1px solid var(--epl-line);
+        border-radius: var(--epl-r-md);
+        background: var(--epl-surface);
+        overflow: hidden;
+        box-shadow: var(--epl-sh-sm);
+        transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
     }
 
-    /* Empty State */
-    .empty-state {
-        display: none;
-        text-align: center;
-        padding: 6rem 2rem;
+    .epl-card:hover {
+        border-color: var(--ep-accent-line);
+        box-shadow: var(--epl-sh-lg);
+        transform: translateY(-2px);
     }
 
-    .empty-state i {
-        font-size: 4rem;
-        color: #d2d2d7;
-        margin-bottom: 1.5rem;
+    .epl-card__link {
+        color: inherit;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        height: 100%;
     }
 
-    .empty-state h3 {
-        font-size: 1.5rem;
-        color: #1d1d1f;
-        margin-bottom: 0.5rem;
+    .epl-card__figure {
+        margin: 0;
+        background: var(--ep-accent-soft);
     }
 
-    .empty-state p {
-        color: #6e6e73;
-        font-size: 1rem;
+    .epl-card__media {
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        object-fit: cover;
     }
 
-    /* Show empty state when grid is empty */
-    .personas-grid:empty+.empty-state {
-        display: block;
+    .epl-card__body {
+        display: flex;
+        flex-direction: column;
+        gap: var(--epl-3);
+        padding: var(--epl-5);
     }
 
-    /* Responsive */
-    @media (max-width: 768px) {
-        .personas-hero {
-            padding: 4rem 0 3rem;
+    .epl-card__pill {
+        align-self: flex-start;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--epl-2);
+        padding: .15rem .6rem;
+        border-radius: var(--epl-r-pill);
+        background: var(--ep-accent-soft);
+        color: var(--ep-accent-dark);
+        font-size: var(--epl-fs-xs);
+        font-weight: 600;
+    }
+
+    .epl-card__pill-icon {
+        display: inline-flex;
+        font-size: .9em;
+    }
+
+    .epl-card__title {
+        color: var(--ep-accent-dark);
+        font-size: var(--epl-fs-lg);
+        font-weight: 700;
+    }
+
+    .epl-card__text {
+        font-size: var(--epl-fs-sm);
+        color: var(--epl-body);
+    }
+
+    .epl-card__tags {
+        font-size: var(--epl-fs-xs);
+        color: var(--epl-muted);
+    }
+
+    .epl-card__cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--epl-2);
+        margin-top: auto;
+        padding: .7rem var(--epl-4);
+        border-radius: var(--epl-r-sm);
+        background: var(--ep-accent);
+        color: #ffffff;
+        font-size: var(--epl-fs-md);
+        font-weight: 600;
+        transition: background-color .18s ease;
+    }
+
+    .epl-card__link:hover .epl-card__cta {
+        background: var(--ep-accent-dark);
+    }
+
+
+    /* --- Breakpoints --------------------------------------------- */
+    @media (min-width: 48em) {
+        .epl-page {
+            --epl-gutter: 1.5rem;
+        }
+    }
+
+    @media (min-width: 64em) {
+        .epl-page {
+            --epl-section: 5.5rem;
         }
 
-        .personas-title {
-            font-size: 2.5rem;
+        .epl-intro {
+            padding-top: var(--epl-12);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .epl-card:hover {
+            transform: none;
         }
 
-        .personas-grid {
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
+        .epl-page * {
+            transition: none !important;
         }
     }
 </style>
-
-<script>
-    // Generic image error handler - show neutral gradient when image fails to load
-    (function () {
-        function handleImageError(img) {
-            img.style.display = 'none';
-            img.parentElement.style.background = 'linear-gradient(135deg, #e8e8ed 0%, #d2d2d7 100%)';
-        }
-
-        function processImages() {
-            document.querySelectorAll('.personas-image').forEach(function (img) {
-                // Check if image is broken or has no valid src
-                if (!img.src || img.src === window.location.href || img.src === '' ||
-                    (img.complete && img.naturalHeight === 0)) {
-                    handleImageError(img);
-                }
-
-                // Add error handler for future load failures
-                img.onerror = function () {
-                    handleImageError(this);
-                };
-            });
-        }
-
-        // Run on DOMContentLoaded
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', processImages);
-        } else {
-            processImages();
-        }
-
-        // Also run after a delay for Angular hydration
-        setTimeout(processImages, 500);
-        setTimeout(processImages, 1500);
-
-        // Watch for dynamically added content
-        var observer = new MutationObserver(function (mutations) {
-            mutations.forEach(function (mutation) {
-                if (mutation.addedNodes.length) {
-                    processImages();
-                }
-            });
-        });
-
-        observer.observe(document.body || document.documentElement, {
-            childList: true,
-            subtree: true
-        });
-    })();
-</script>

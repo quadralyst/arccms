@@ -1,317 +1,358 @@
 <div class="arc-cms-template">
-    <arc-header></arc-header>
+    <main class="pgl-page">
+        <section class="pgl-intro">
+            <div class="pgl-shell">
+                <nav class="pgl-crumbs" aria-label="Breadcrumb">
+                    <ol class="pgl-crumbs__list">
+                        <li class="pgl-crumbs__item"><a class="pgl-crumbs__link" href="/"><i class="fa-solid fa-house"
+                                    aria-hidden="true"></i>Home</a></li>
+                        <li class="pgl-crumbs__item pgl-crumbs__item--current" aria-current="page"
+                            data-arc-bind="contentType"></li>
+                    </ol>
+                </nav>
 
-    <!-- flagship Hero Section - Compact Apple-inspired design -->
-    <section class="flagship-hero">
-        <div class="container">
-            <h1 class="flagship-title arc-skeleton">{{ contentType }}</h1>
-            <p class="flagship-subtitle arc-skeleton">{{ contentTypeDescription }}</p>
-        </div>
-    </section>
-
-    <!-- flagship Grid Section -->
-    <section class="flagship-section">
-        <div class="container">
-            <div class="flagship-grid" data-arc-loop="items" data-limit="12">
-                <!-- flagship Card Template -->
-                <a class="flagship-card" href="{{ url }}">
-                    <div class="flagship-image-wrapper">
-                        <img class="flagship-image" src="{{ coverImage }}" alt="{{ title }}">
-                    </div>
-                    <div class="flagship-content">
-                        <div class="flagship-meta">
-                            <time datetime="{{ publishedOn }}" class="arc-skeleton">{{ publishedOn }}</time>
-                            <span class="meta-separator">•</span>
-                            <span class="arc-skeleton">{{ readTime }}</span> min read
-                            <span class="meta-separator category-separator">•</span>
-                            <span class="category-badge arc-skeleton">{{ cat }}</span>
-                        </div>
-                        <h2 class="flagship-title arc-skeleton">{{ title }}</h2>
-                        <p class="flagship-excerpt arc-skeleton">{{ excerpt }}</p>
-                        <span class="flagship-read-more">Read flagship <i class="fas fa-arrow-right"></i></span>
-                    </div>
-                </a>
+                <h1 class="pgl-intro__title" data-arc-bind="contentType"></h1>
+                <p class="pgl-intro__sub" data-arc-bind="description"></p>
             </div>
-
-            <!-- Empty State -->
-            <div class="empty-state" id="emptyState">
-                <i class="fas fa-newspaper"></i>
-                <h3>No flagship Yet</h3>
-                <p>Check back soon for new content.</p>
+        </section>
+        <section class="pgl-grid-wrap">
+            <div class="pgl-shell">
+                <div class="pgl-grid" data-arc-loop="items" data-limit="24">
+                    <article class="pgl-card" style="--theme-color: {{flagship-programs_color}};">
+                        <a class="pgl-card__link" data-arc-bind="url" href="detail.html">
+                            <span class="pgl-card__watermark" aria-hidden="true"><i
+                                    [class]="flagship-programs_icon"></i></span>
+                            <span class="pgl-card__mark">
+                                <img data-arc-if="coverImage" src="{{ coverImage }}" alt="{{ title }}"
+                                    class="card-cover-img"
+                                    style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;">
+                                <i data-arc-if="!coverImage" class="fa-solid fa-star" [class]="flagship-programs_icon"
+                                    aria-hidden="true"></i>
+                            </span>
+                            <p class="pgl-card__status" data-arc-if="flagship-programs_sub-flag"
+                                data-arc-bind="flagship-programs_sub-flag"></p>
+                            <h2 class="pgl-card__title" data-arc-bind="title"></h2>
+                            <p class="pgl-card__text" data-arc-bind="flagship-programs_description_flasghips"></p>
+                            <p class="pgl-card__date" data-arc-if="flagship-programs_edition_date">
+                                <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                                Next edition <time data-arc-bind="flagship-programs_edition_date"></time>
+                            </p>
+                            <span class="pgl-card__cta">
+                                Read more
+                                <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                            </span>
+                        </a>
+                    </article>
+                </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <arc-footer></arc-footer>
+    </main>
 </div>
 
 <style>
-    /* Apple-inspired flagship List Styles - Compact */
-    .flagship-hero {
-        padding: 3rem 0 2rem;
-        text-align: center;
-        background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
-    }
+    @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css");
 
-    .flagship-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1d1d1f;
-        margin-bottom: 0.5rem;
-        letter-spacing: -0.02em;
-    }
+    .pgl-page {
+        --pgl-ink: #0f172a;
+        --pgl-body: #4b5563;
+        --pgl-muted: #6b7280;
+        --pgl-line: #e5e9f0;
+        --pgl-surface: #ffffff;
+        --pgl-surface-2: #f8fafc;
+        --themeColor: var(--theme-color);
+        --pgl-accent: var(--themeColor);
+        --pgl-accent-dark: color-mix(in srgb, var(--pgl-accent), #000 20%);
+        --pgl-accent-soft: color-mix(in srgb, var(--pgl-accent) 10%, #fff);
+        --pgl-accent-line: color-mix(in srgb, var(--pgl-accent) 20%, #fff);
 
-    .flagship-subtitle {
-        font-size: 1rem;
-        color: #6e6e73;
-        max-width: 600px;
-        margin: 0 auto;
-        line-height: 1.4;
-    }
+        --pgl-fs-xs: .6875rem;
+        --pgl-fs-sm: .75rem;
+        --pgl-fs-md: .875rem;
+        --pgl-fs-lg: 1rem;
+        --pgl-fs-2xl: clamp(1.25rem, 1rem + 1.1vw, 1.625rem);
+        --pgl-fs-3xl: clamp(1.5rem, 1.05rem + 2vw, 2.25rem);
 
-    .flagship-section {
-        padding: 2rem 0 4rem;
-        background: #ffffff;
-    }
+        --pgl-1: .25rem;
+        --pgl-2: .5rem;
+        --pgl-3: .75rem;
+        --pgl-4: 1rem;
+        --pgl-5: 1.25rem;
+        --pgl-6: 1.5rem;
+        --pgl-8: 2rem;
+        --pgl-10: 2.5rem;
+        --pgl-12: 3rem;
+        --pgl-16: 4rem;
+        --pgl-section: 3.5rem;
+        /* vertical rhythm between bands */
 
-    .flagship-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-        gap: 2rem;
-    }
+        --pgl-r-sm: 8px;
+        --pgl-r-md: 12px;
+        --pgl-r-pill: 999px;
+        --pgl-sh-sm: 0 1px 2px rgba(15, 23, 42, .06);
+        --pgl-sh-lg: 0 12px 32px rgba(15, 23, 42, .10);
 
-    .flagship-card {
-        display: flex;
-        flex-direction: column;
-        background: #ffffff;
-        border-radius: 20px;
-        overflow: hidden;
-        text-decoration: none;
-        color: inherit;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-        box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
-        height: 100%;
-    }
+        --pgl-w: 75rem;
+        --pgl-gutter: 1.25rem;
 
-    .flagship-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-    }
-
-    .flagship-card:hover .flagship-read-more {
-        color: #0066cc;
-    }
-
-    .flagship-card:hover .flagship-read-more i {
-        transform: translateX(4px);
-    }
-
-    .flagship-image-wrapper {
-        position: relative;
-        width: 100%;
-        height: 200px;
-        overflow: hidden;
-        background: #f5f5f7;
-    }
-
-    .flagship-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: transform 0.5s ease;
-    }
-
-    .flagship-card:hover .flagship-image {
-        transform: scale(1.05);
-    }
-
-
-    .flagship-content {
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-    }
-
-    .flagship-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.85rem;
-        color: #6e6e73;
-        margin-bottom: 0.75rem;
-    }
-
-    .meta-separator {
-        color: #d2d2d7;
-    }
-
-    .category-badge {
-        display: inline-block;
-        padding: 0.15rem 0.5rem;
-        background: linear-gradient(135deg, #e8e8ed 0%, #d2d2d7 100%);
-        border-radius: 100px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: #6e6e73;
-    }
-
-    .category-badge:empty,
-    .category-separator:has(+ .category-badge:empty) {
-        display: none;
-    }
-
-    .flagship-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #1d1d1f;
-        line-height: 1.3;
-        margin-bottom: 0.75rem;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-
-    .flagship-excerpt {
-        font-size: 0.95rem;
-        color: #6e6e73;
+        font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        font-size: var(--pgl-fs-md);
         line-height: 1.6;
-        margin-bottom: 1.25rem;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        flex: 1;
+        color: var(--pgl-body);
+        background: var(--pgl-surface);
     }
 
-    .flagship-read-more {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: #1d1d1f;
-        transition: color 0.2s ease;
-        margin-top: auto;
+    .pgl-page *,
+    .pgl-page *::before,
+    .pgl-page *::after {
+        box-sizing: border-box;
     }
 
-    .flagship-read-more i {
-        font-size: 0.75rem;
-        transition: transform 0.2s ease;
+    .pgl-page :where(h1, h2) {
+        margin: 0;
+        line-height: 1.18;
+        font-weight: 700;
     }
 
-    /* Tags in cards */
-    .flagship-tags-inline {
-        margin-bottom: 0.75rem;
+    .pgl-page :where(p) {
+        margin: 0;
+    }
+
+    .pgl-page :where(ul, ol) {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .pgl-page :where(img) {
+        display: block;
+        max-width: 100%;
+        height: auto;
+    }
+
+    .pgl-page :where(a) {
+        text-decoration: none;
+    }
+
+    .pgl-shell {
+        width: 100%;
+        max-width: var(--pgl-w);
+        margin-inline: auto;
+        padding-inline: var(--pgl-gutter);
+    }
+
+    /* --- Intro (fully centred) ----------------------------------- */
+    .pgl-intro {
+        padding: var(--pgl-8) 0 var(--pgl-section);
+        background: linear-gradient(180deg, var(--pgl-surface-2) 0%, var(--pgl-surface) 100%);
+        text-align: center;
+    }
+
+    .pgl-crumbs {
+        margin-bottom: var(--pgl-8);
+    }
+
+    .pgl-crumbs__list {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.35rem;
+        align-items: center;
+        justify-content: center;
+        gap: var(--pgl-2);
     }
 
-    .flagship-tags-inline:empty {
+    .pgl-crumbs__item {
+        display: flex;
+        align-items: center;
+        gap: var(--pgl-2);
+        font-size: var(--pgl-fs-sm);
+        color: var(--pgl-muted);
+    }
+
+    .pgl-crumbs__item::after {
+        content: "/";
+        color: #94a3b8;
+    }
+
+    .pgl-crumbs__item--current {
+        color: var(--pgl-ink);
+        font-weight: 600;
+    }
+
+    .pgl-crumbs__item--current::after {
+        content: none;
+    }
+
+    .pgl-crumbs__link {
+        color: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--pgl-2);
+    }
+
+    .pgl-crumbs__link:hover {
+        color: var(--pgl-accent);
+    }
+
+    .pgl-intro__title {
+        color: var(--pgl-ink);
+        font-size: var(--pgl-fs-3xl);
+        font-weight: 800;
+        letter-spacing: -.02em;
+        text-wrap: balance;
+    }
+
+    .pgl-intro__sub {
+        margin: var(--pgl-4) auto 0;
+        max-width: 40rem;
+        font-size: var(--pgl-fs-lg);
+        color: var(--pgl-muted);
+        text-wrap: balance;
+    }
+
+    /* --- Grid ---------------------------------------------------- */
+    .pgl-grid-wrap {
+        padding: 0 0 var(--pgl-section);
+    }
+
+    .pgl-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+        gap: var(--pgl-5);
+    }
+
+    .pgl-grid:empty {
         display: none;
     }
 
-    .tag-pill {
-        font-size: 0.7rem;
-        padding: 0.2rem 0.5rem;
-        border-radius: 100px;
-        font-weight: 500;
+    .pgl-card {
+        --themeColor: var(--theme-color);
+        --pgl-accent: var(--themeColor);
+        --pgl-accent-dark: color-mix(in srgb, var(--pgl-accent), #000 20%);
+        --pgl-accent-soft: color-mix(in srgb, var(--pgl-accent) 10%, #fff);
+        --pgl-accent-line: color-mix(in srgb, var(--pgl-accent) 20%, #fff);
+        position: relative;
+        border: 1px solid var(--pgl-accent-line);
+        border-radius: var(--pgl-r-md);
+        background: var(--pgl-accent-soft);
+        overflow: hidden;
+        box-shadow: var(--pgl-sh-sm);
+        transition: box-shadow .2s ease, transform .2s ease;
     }
 
-    /* Empty State */
-    .empty-state {
-        display: none;
-        text-align: center;
-        padding: 6rem 2rem;
+
+
+    .pgl-card:hover {
+        box-shadow: var(--pgl-sh-lg);
+        transform: translateY(-2px);
     }
 
-    .empty-state i {
-        font-size: 4rem;
-        color: #d2d2d7;
-        margin-bottom: 1.5rem;
+    .pgl-card__link {
+        position: relative;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+        gap: var(--pgl-3);
+        height: 100%;
+        padding: var(--pgl-6);
     }
 
-    .empty-state h3 {
-        font-size: 1.5rem;
-        color: #1d1d1f;
-        margin-bottom: 0.5rem;
-    }
-
-    .empty-state p {
-        color: #6e6e73;
-        font-size: 1rem;
-    }
-
-    /* Show empty state when grid is empty */
-    .flagship-grid:empty+.empty-state {
+    .pgl-card__watermark {
         display: block;
+        position: absolute;
+        top: -.75rem;
+        right: -.5rem;
+        font-size: 6.5rem;
+        color: var(--pgl-accent);
+        opacity: .18;
+        pointer-events: none;
+        user-select: none;
     }
 
-    /* Responsive */
-    @media (max-width: 768px) {
-        .flagship-hero {
-            padding: 4rem 0 3rem;
+    .pgl-card__mark {
+        display: grid;
+        place-items: center;
+        width: 2.6rem;
+        height: 2.6rem;
+        border-radius: var(--pgl-r-sm);
+        background: var(--pgl-surface);
+        color: var(--pgl-accent);
+        font-size: 1.15rem;
+        box-shadow: var(--pgl-sh-sm);
+    }
+
+    .pgl-card__status {
+        align-self: flex-start;
+        padding: .15rem .6rem;
+        border-radius: var(--pgl-r-pill);
+        background: var(--pgl-accent);
+        color: #ffffff;
+        font-size: var(--pgl-fs-xs);
+        font-weight: 600;
+    }
+
+    .pgl-card__title {
+        color: var(--pgl-accent);
+        font-size: var(--pgl-fs-lg);
+        font-weight: 800;
+    }
+
+    .pgl-card__text {
+        font-size: var(--pgl-fs-sm);
+        color: var(--pgl-body);
+    }
+
+    .pgl-card__date {
+        display: flex;
+        align-items: center;
+        gap: var(--pgl-2);
+        font-size: var(--pgl-fs-xs);
+        color: var(--pgl-muted);
+    }
+
+    .pgl-card__cta {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        gap: var(--pgl-2);
+        margin-top: auto;
+        padding: .7rem var(--pgl-4);
+        border-radius: var(--pgl-r-sm);
+        background: var(--pgl-accent);
+        color: #ffffff;
+        font-size: var(--pgl-fs-md);
+        font-weight: 600;
+        transition: background-color .18s ease;
+    }
+
+    .pgl-card__link:hover .pgl-card__cta {
+        background: var(--pgl-accent-dark);
+    }
+
+    /* --- Breakpoints --------------------------------------------- */
+    @media (min-width: 48em) {
+        .pgl-page {
+            --pgl-gutter: 1.5rem;
+        }
+    }
+
+    @media (min-width: 64em) {
+        .pgl-page {
+            --pgl-section: 5.5rem;
         }
 
-        .flagship-title {
-            font-size: 2.5rem;
+        .pgl-intro {
+            padding-top: var(--pgl-12);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .pgl-card:hover {
+            transform: none;
         }
 
-        .flagship-grid {
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
+        .pgl-page * {
+            transition: none !important;
         }
     }
 </style>
-
-<script>
-    // Generic image error handler - show neutral gradient when image fails to load
-    (function () {
-        function handleImageError(img) {
-            img.style.display = 'none';
-            img.parentElement.style.background = 'linear-gradient(135deg, #e8e8ed 0%, #d2d2d7 100%)';
-        }
-
-        function processImages() {
-            document.querySelectorAll('.flagship-image').forEach(function (img) {
-                // Check if image is broken or has no valid src
-                if (!img.src || img.src === window.location.href || img.src === '' ||
-                    (img.complete && img.naturalHeight === 0)) {
-                    handleImageError(img);
-                }
-
-                // Add error handler for future load failures
-                img.onerror = function () {
-                    handleImageError(this);
-                };
-            });
-        }
-
-        // Run on DOMContentLoaded
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', processImages);
-        } else {
-            processImages();
-        }
-
-        // Also run after a delay for Angular hydration
-        setTimeout(processImages, 500);
-        setTimeout(processImages, 1500);
-
-        // Watch for dynamically added content
-        var observer = new MutationObserver(function (mutations) {
-            mutations.forEach(function (mutation) {
-                if (mutation.addedNodes.length) {
-                    processImages();
-                }
-            });
-        });
-
-        observer.observe(document.body || document.documentElement, {
-            childList: true,
-            subtree: true
-        });
-    })();
-</script>

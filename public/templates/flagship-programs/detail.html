@@ -1,404 +1,2054 @@
-<div class="arc-cms-template">
+<div class="arc-cms-template flagship-program-detail-page">
     <arc-header></arc-header>
 
-    <!-- flagship Page - Medium-style clean design -->
-    <article class="flagship-page">
-        <div class="container">
-            <div class="flagship-wrapper">
-                <!-- Back Link -->
-                <a href="/{{ contentTypeSlug }}" class="back-link">
-                    <i class="fas fa-arrow-left"></i> Back to {{ contentType }}
-                </a>
-
-                <!-- flagship Header -->
-                <header class="flagship-header">
-                    <h1 class="flagship-title arc-skeleton">{{ title }}</h1>
-                    <div class="flagship-meta">
-                        <span><i class="far fa-calendar"></i> <span class="arc-skeleton">{{ date }}</span></span>
-                        <span class="meta-separator">·</span>
-                        <span><i class="far fa-clock"></i> <span class="arc-skeleton">{{ readingTime }}</span></span>
-                        <span class="meta-separator category-separator">·</span>
-                        <span class="category-label"><i class="fas fa-folder"></i> <span class="arc-skeleton">{{ cat
-                                }}</span></span>
-                    </div>
-                </header>
-
-                <!-- Cover Image (Full Width within content area) -->
-                <figure class="flagship-cover">
-                    <img src="{{ coverImage }}" alt="{{ title }}" class="cover-image">
-                </figure>
-
-                <!-- flagship Body -->
-                <div class="flagship-content" [innerHTML]="content">
-                    <p class="arc-skeleton">flagship content loads here...</p>
-                </div>
-
-                <!-- Tags Section -->
-                <div class="flagship-tags">
-                    <div class="tags" data-arc-loop="tags">
-                        <span class="tag" data-arc-style-background="color" data-arc-bind="name">Tag</span>
-                    </div>
-                </div>
-
-                <!-- Share Buttons -->
-                <div class="share-section">
-                    <div class="share-buttons">
-                        <a href="{{ share.facebook }}" target="_blank" class="share-btn" title="Share on Facebook">
-                            <i class="fab fa-facebook-f"></i>
-                        </a>
-                        <a href="{{ share.twitter }}" target="_blank" class="share-btn" title="Share on Twitter">
-                            <i class="fab fa-twitter"></i>
-                        </a>
-                        <a href="{{ share.linkedin }}" target="_blank" class="share-btn" title="Share on LinkedIn">
-                            <i class="fab fa-linkedin-in"></i>
-                        </a>
-                        <a href="{{ share.whatsapp }}" target="_blank" class="share-btn" title="Share on WhatsApp">
-                            <i class="fab fa-whatsapp"></i>
-                        </a>
-                        <a href="{{ share.email }}" class="share-btn" title="Share via Email">
-                            <i class="fas fa-envelope"></i>
-                        </a>
-                    </div>
-                </div>
-
-                <!-- flagship Navigation -->
-                <nav class="flagship-nav">
-                    <div class="nav-prev" data-arc-if="previousContent">
-                        <a href="{{ previousContent.url }}" class="nav-link">
-                            <span class="nav-direction"><i class="fas fa-chevron-left"></i> Previous</span>
-                            <span class="nav-title">{{ previousContent.title }}</span>
-                        </a>
-                    </div>
-                    <div class="nav-next" data-arc-if="nextContent">
-                        <a href="{{ nextContent.url }}" class="nav-link">
-                            <span class="nav-direction">Next <i class="fas fa-chevron-right"></i></span>
-                            <span class="nav-title">{{ nextContent.title }}</span>
-                        </a>
-                    </div>
+    <article class="program-detail">
+        <!-- SECTION 1: HERO SECTION -->
+        <header class="program-hero">
+            <div class="container">
+                <!-- Breadcrumbs -->
+                <nav class="program-breadcrumb" aria-label="breadcrumb">
+                    <a href="/"><i class="fas fa-home me-1"></i> Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="/{{ contentTypeSlug }}" class="breadcrumb-link" data-arc-bind="contentType">{{ contentType
+                        }}</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="current-crumb arc-skeleton" data-arc-bind="title">{{ title }}</span>
                 </nav>
+
+                <div class="program-hero-grid">
+                    <!-- Left Column: Badges, Title, Subtitle, Meta, Action buttons -->
+                    <div class="program-hero-content">
+                        <!-- Badges Row -->
+                        <div class="program-badges-row">
+                            <span class="badge-pill badge-primary-blue">
+                                <i class="fas fa-trophy me-1"></i> <span data-arc-bind="flagship-programs_sub_title">{{
+                                    flagship-programs_sub_title }}{{ flagship-programs_sub_tag }}{{
+                                    flagship-programs_sub-flag }}{{ sub_title }}{{ sub_tag }}{{ status_badge }}</span>
+                            </span>
+
+                            <span data-arc-loop="flagship-programs_sub_tag">
+                                <span class="badge-pill badge-sub">{{ name }}{{ label }}{{ title }}{{ tag }}</span>
+                            </span>
+
+                            <span data-arc-loop="flagship-programs_head_tag">
+                                <span class="badge-pill badge-sub">{{ name }}{{ label }}{{ title }}{{ tag }}</span>
+                            </span>
+
+                            <span data-arc-loop="sub_tag">
+                                <span class="badge-pill badge-sub">{{ name }}{{ label }}{{ title }}{{ tag }}</span>
+                            </span>
+
+                            <span data-arc-loop="head_tag">
+                                <span class="badge-pill badge-sub">{{ name }}{{ label }}{{ title }}{{ tag }}</span>
+                            </span>
+
+                            <span class="tags-container" data-arc-loop="tags">
+                                <span class="badge-pill badge-sub" data-arc-style-background="color"
+                                    data-arc-bind="name">{{ name }}{{ title }}{{ label }}</span>
+                            </span>
+
+                            <span class="badge-pill badge-sub" data-arc-if="tag_1" data-arc-bind="tag_1">Teams</span>
+                            <span class="badge-pill badge-sub" data-arc-if="tag_2"
+                                data-arc-bind="tag_2">Challenge</span>
+                            <span class="badge-pill badge-sub" data-arc-if="tag_3" data-arc-bind="tag_3">Cities</span>
+                        </div>
+
+                        <!-- Title -->
+                        <h1 class="program-hero-title arc-skeleton" data-arc-bind="title">{{ title }}</h1>
+
+                        <!-- Subtitle / Meta Description -->
+                        <p class="program-hero-subtitle arc-skeleton"
+                            data-arc-bind="flagship-programs_description_flasghips">{{
+                            flagship-programs_description_flasghips}}</p>
+
+                        <!-- Action Buttons -->
+                        <div class="program-hero-buttons">
+                            <a href="#register" class="btn btn-program-primary">
+                                Register your team
+                            </a>
+                            <a href="/{{ contentTypeSlug }}" class="btn btn-program-secondary">
+                                See all programmes <i class="fas fa-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+
+                        <!-- Meta details row -->
+                        <div class="program-hero-meta">
+                            <span class="meta-item">
+                                <i class="far fa-calendar"></i> <time data-arc-bind="flagship-programs_edition_date">{{
+                                    edition_date
+                                    }}</time>
+                            </span>
+                            <span class="meta-item">
+                                <i class="far fa-clock"></i> <span class="arc-skeleton" data-arc-bind="readingTime">{{
+                                    readingTime }}</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Hero Cover Graphic -->
+                    <div class="program-hero-media">
+                        <div class="program-hero-cover-wrapper">
+                            <img src="{{ coverImage }}" data-arc-bind="coverImage" alt="{{ title }}"
+                                class="program-hero-cover-image">
+                            <div class="program-hero-cover-fallback">
+                                <div class="fallback-hero-illustration">
+                                    <div class="sun-element"></div>
+                                    <div class="banner-element"></div>
+                                    <div class="skyline-element"></div>
+                                    <div class="board-element">
+                                        <div class="trophy-icon"><i class="fas fa-trophy"></i></div>
+                                    </div>
+                                    <div class="people-row">
+                                        <div class="person p1"></div>
+                                        <div class="person p2"></div>
+                                        <div class="person p3"></div>
+                                        <div class="person p4"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
+        </header>
+
+        <!-- SECTION 2: BY THE NUMBERS - THE LAST EDITION IN NUMBERS -->
+        <section class="program-stats-section">
+            <div class="container">
+                <div class="stats-header text-center">
+                    <span class="stats-kicker">BY THE NUMBERS</span>
+                    <h2 class="stats-title">The last edition in numbers</h2>
+                </div>
+
+                <div class="stats-grid" data-arc-loop="flagship-programs_last_number_edition">
+                    <div class="stat-card">
+                        <div class="stat-number" data-arc-bind="value">460+</div>
+                        <div class="stat-label" data-arc-bind="label">Teams registered</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: HOW IT WORKS -->
+        <section class="program-steps-section">
+            <div class="container">
+                <div class="steps-header">
+                    <h3 class="steps-title">
+                        <i class="fas fa-th-list text-warning me-2"></i> How it works
+                    </h3>
+                    <p class="steps-subtitle">Thirty days, five phases.</p>
+                </div>
+
+                <div class="steps-grid" data-arc-loop="flagship-programs_how_it_works">
+                    <div class="step-card">
+                        <div class="step-header-row">
+                            <div class="step-icon-box">
+                                <i data-arc-if="icon" class="{{ icon }}" aria-hidden="true"></i>
+                                <img data-arc-if="image" data-arc-bind="image" alt="">
+                            </div>
+                            <span class="step-number" data-arc-bind="position">1</span>
+                        </div>
+                        <h4 class="step-card-title" data-arc-bind="headline">Form your team</h4>
+                        <p class="step-card-text" data-arc-bind="info">Between four and ten people. Colleagues,
+                            classmates, neighbours... any group that will turn up together.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: MAIN CONTENT BODY & SIDEBAR -->
+        <section class="program-body-section">
+            <div class="container">
+                <div class="program-body-grid">
+                    <!-- Left: Article Content -->
+                    <div class="program-main-content">
+
+                        <!-- CMS Dynamic Content Binding -->
+                        <div class="article-content">
+                            <h2>What the KPL actually is</h2>
+                            <div data-arc-bind="flagship-programs_actually_is"
+                                [innerHTML]="flagship-programs_actually_is">
+                                <p>Most impact programmes ask individuals to give a little, quietly, on their own. The
+                                    Karma
+                                    Premier League does the opposite: it makes giving a team sport, puts it on a public
+                                    leaderboard, and runs it hard for thirty days.</p>
+                                <p>Teams register in their own city. Each team picks a cause track, then spends the
+                                    season
+                                    completing actions posted by verified NGOs — teaching sessions, collection drives,
+                                    clean-ups, skill workshops. Every completed action is confirmed by the host
+                                    organisation
+                                    before it scores, so the table reflects work that genuinely happened.</p>
+
+                                <!-- Pull Quote Highlight Box -->
+                                <div class="program-pull-quote">
+                                    <p class="quote-text">"Our office team joined for the bragging rights. By week three
+                                        nobody was talking about the leaderboard any more — they were talking about the
+                                        school."</p>
+                                    <span class="quote-author">Rohit N., team captain, Pune</span>
+                                </div>
+
+                                <h2>The four cause tracks</h2>
+                                <p>Every season runs four tracks. A team commits to one at registration and stays with
+                                    it
+                                    for the full thirty days, which keeps the work deep rather than scattered.</p>
+
+                                <ul class="tracks-list">
+                                    <li><strong>Learn</strong> — teaching, mentoring, exam prep and digital literacy at
+                                        partner schools.</li>
+                                    <li><strong>Green</strong> — plantation, clean-ups, waste segregation and urban
+                                        gardening.</li>
+                                    <li><strong>Care</strong> — ration and supply distribution, elder care, shelter
+                                        support.
+                                    </li>
+                                    <li><strong>Build</strong> — repairs, painting, infrastructure and equipment drives
+                                        at
+                                        community sites.</li>
+                                </ul>
+
+                                <h2>How scoring works</h2>
+                                <p>Points are weighted so that sustained effort beats one big day. A team that shows up
+                                    every week will finish ahead of a team that runs a single large event, by design.
+                                </p>
+
+                                <!-- Table -->
+                                <div class="table-responsive">
+                                    <table class="program-scoring-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Action</th>
+                                                <th>Points</th>
+                                                <th>Cap</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Verified volunteering hour</td>
+                                                <td><strong>10</strong></td>
+                                                <td>No cap</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Completing a posted NGO requirement</td>
+                                                <td><strong>150</strong></td>
+                                                <td>—</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Weekly streak bonus (per full week)</td>
+                                                <td><strong>200</strong></td>
+                                                <td>4 per season</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Bringing a new team into the league</td>
+                                                <td><strong>100</strong></td>
+                                                <td>3 per season</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p class="table-footnote"><em>Season scoring weightings are published in full at the
+                                        start
+                                        of each edition.</em></p>
+
+                                <h2>Who runs it</h2>
+                                <p>The league is coordinated by GoWow with a city partner in each location — usually a
+                                    college, a corporate CSR team or an established NGO. City partners verify local
+                                    teams,
+                                    host the opening briefing and run the closing ceremony.</p>
+                                <p>If you would like to bring the KPL to a city that is not yet on the list, get in
+                                    touch
+                                    through the programme page and we will send you the city partner pack.</p>
+
+                                <h2>Frequently asked questions</h2>
+                                <div class="program-faq-list">
+                                    <div class="faq-item">
+                                        <h3 class="faq-question">Does it cost anything to enter?</h3>
+                                        <p class="faq-answer">No. Registration is free for every team. Some actions
+                                            involve
+                                            materials or travel, and those are always stated on the listing before you
+                                            commit.</p>
+                                    </div>
+                                    <div class="faq-item">
+                                        <h3 class="faq-question">Can a team be spread across cities?</h3>
+                                        <p class="faq-answer">Yes, but the team is ranked in the city where its captain
+                                            registered. Remote actions count towards the team total.</p>
+                                    </div>
+                                    <div class="faq-item">
+                                        <h3 class="faq-question">What if we cannot complete an action we signed up for?
+                                        </h3>
+                                        <p class="faq-answer">Release it from the app at least 24 hours ahead and it
+                                            returns
+                                            to the pool with no penalty. Late drops cost the team points, because an NGO
+                                            planned around you.</p>
+                                    </div>
+                                    <div class="faq-item">
+                                        <h3 class="faq-question">Do individual members get credit too?</h3>
+                                        <p class="faq-answer">Every verified hour also lands in that member's own record
+                                            —
+                                            Wow Coins and Social Civil Score points, exactly as if they had volunteered
+                                            outside the league.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CMS Repeating Field: Locations -->
+                        <!-- <section class="arc-locations mt-4" data-arc-if="flagship-programs_location">
+                            <h3 class="arc-locations-heading" data-arc-if="locations_heading"
+                                data-arc-bind="locations_heading">Locations</h3>
+                            <div class="arc-locations-grid" data-arc-loop="flagship-programs_location">
+                                <article class="arc-location">
+                                    <iframe data-arc-if="map_embed" data-arc-bind="map_embed" loading="lazy"
+                                        title="Map"></iframe>
+                                    <h4 data-arc-bind="label">Location name</h4>
+                                    <p data-arc-bind="address">Street, City</p>
+                                    <a data-arc-if="map_directions" data-arc-bind="map_directions" target="_blank"
+                                        rel="noopener">Get directions</a>
+                                </article>
+                            </div>
+                        </section> -->
+                    </div>
+
+                    <!-- Right: Sidebar -->
+                    <aside class="program-sidebar">
+                        <!-- Card 1: At a Glance -->
+                        <div class="sidebar-card at-a-glance-card">
+                            <h4 class="sidebar-card-title">
+                                <i class="fas fa-info-circle text-warning me-2"></i> At a glance
+                            </h4>
+                            <ul class="details-list" data-arc-loop="flagship-programs_at_a_glance">
+                                <li class="details-row">
+                                    <span class="details-label" data-arc-bind="label">{{ label }}</span>
+                                    <strong class="details-value" data-arc-bind="value">{{ value }}</strong>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Card 2: Share this -->
+                        <div class="sidebar-card share-card">
+                            <h4 class="sidebar-card-title">
+                                <i class="fas fa-share-alt text-warning me-2"></i> Share this
+                            </h4>
+                            <div class="share-social-row">
+                                <a href="{{ share.linkedin }}" target="_blank" class="share-circle-btn"
+                                    title="LinkedIn">
+                                    <i class="fab fa-linkedin-in"></i>
+                                </a>
+                                <a href="{{ share.facebook }}" target="_blank" class="share-circle-btn"
+                                    title="Facebook">
+                                    <i class="fab fa-facebook-f"></i>
+                                </a>
+                                <a href="{{ share.twitter }}" target="_blank" class="share-circle-btn"
+                                    title="Twitter / X">
+                                    <i class="fab fa-x-twitter"></i>
+                                </a>
+                                <a href="{{ share.whatsapp }}" target="_blank" class="share-circle-btn"
+                                    title="WhatsApp">
+                                    <i class="fab fa-whatsapp"></i>
+                                </a>
+                                <a href="{{ share.email }}" class="share-circle-btn" title="Email">
+                                    <i class="fas fa-envelope"></i>
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Card 3: Registration is open (Warm CTA Card) -->
+                        <div class="sidebar-card cta-sidebar-card" id="register">
+                            <h4 class="cta-card-title">
+                                <i class="fas fa-user-plus me-2"></i> Registration is open
+                            </h4>
+                            <p class="cta-card-text">
+                                Captains can register a team in about five minutes. You can add members later.
+                            </p>
+                            <a href="#" class="btn btn-cta-light">
+                                Register your team <i class="fas fa-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: FROM THE LAST SEASON (MEDIA SHOWCASE) -->
+        <section class="program-media-section">
+            <div class="container">
+                <div class="media-header">
+                    <h3 class="media-title">
+                        <i class="fas fa-images text-warning me-2"></i> From the last season
+                    </h3>
+                    <p class="media-subtitle">Thirty days, eighteen cities, four hundred and sixty teams.</p>
+                </div>
+
+                <!-- CMS Media / Gallery Loops for flagship-programs_gallery / gallery / media / photos / items / partials -->
+                <div class="program-media-grid dynamic-media-grid" data-arc-loop="flagship-programs_last_season">
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-cream">
+                            <img data-arc-if="coverImage" data-arc-bind="coverImage" src="{{ coverImage }}"
+                                alt="{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <img data-arc-if="image" data-arc-bind="image" src="{{ image }}"
+                                alt="{{ caption }}{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <button data-arc-if="video_thumb" type="button"
+                                class="gallery-video-btn border-0 bg-transparent" data-embed="{{ video_embed }}">
+                                <img data-arc-bind="video_thumb" src="{{ video_thumb }}" alt=""
+                                    style="width:100%; height:100%; object-fit:cover;">
+                                <div class="play-btn-circle"><i class="fas fa-play"></i></div>
+                            </button>
+                            <div class="play-btn-circle" data-arc-if="!coverImage && !image && !video_thumb"><i
+                                    class="fas fa-play"></i></div>
+                        </div>
+                        <div class="media-card-label">
+                            <span data-arc-bind="caption">{{ caption }}</span>
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                            <span data-arc-bind="location">{{ location }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="program-media-grid dynamic-media-grid" data-arc-loop="gallery">
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-cream">
+                            <img data-arc-if="coverImage" data-arc-bind="coverImage" src="{{ coverImage }}"
+                                alt="{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <img data-arc-if="image" data-arc-bind="image" src="{{ image }}"
+                                alt="{{ caption }}{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <button data-arc-if="video_thumb" type="button"
+                                class="gallery-video-btn border-0 bg-transparent" data-embed="{{ video_embed }}">
+                                <img data-arc-bind="video_thumb" src="{{ video_thumb }}" alt=""
+                                    style="width:100%; height:100%; object-fit:cover;">
+                                <div class="play-btn-circle"><i class="fas fa-play"></i></div>
+                            </button>
+                            <div class="play-btn-circle" data-arc-if="!coverImage && !image && !video_thumb"><i
+                                    class="fas fa-play"></i></div>
+                        </div>
+                        <div class="media-card-label">
+                            <span data-arc-bind="caption">{{ caption }}</span>
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                            <span data-arc-bind="location">{{ location }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="program-media-grid dynamic-media-grid" data-arc-loop="media">
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-cream">
+                            <img data-arc-if="coverImage" data-arc-bind="coverImage" src="{{ coverImage }}"
+                                alt="{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <img data-arc-if="image" data-arc-bind="image" src="{{ image }}"
+                                alt="{{ caption }}{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <button data-arc-if="video_thumb" type="button"
+                                class="gallery-video-btn border-0 bg-transparent" data-embed="{{ video_embed }}">
+                                <img data-arc-bind="video_thumb" src="{{ video_thumb }}" alt=""
+                                    style="width:100%; height:100%; object-fit:cover;">
+                                <div class="play-btn-circle"><i class="fas fa-play"></i></div>
+                            </button>
+                            <div class="play-btn-circle" data-arc-if="!coverImage && !image && !video_thumb"><i
+                                    class="fas fa-play"></i></div>
+                        </div>
+                        <div class="media-card-label">
+                            <span data-arc-bind="caption">{{ caption }}</span>
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                            <span data-arc-bind="location">{{ location }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="program-media-grid dynamic-media-grid" data-arc-loop="photos">
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-cream">
+                            <img data-arc-if="coverImage" data-arc-bind="coverImage" src="{{ coverImage }}"
+                                alt="{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <img data-arc-if="image" data-arc-bind="image" src="{{ image }}"
+                                alt="{{ caption }}{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <button data-arc-if="video_thumb" type="button"
+                                class="gallery-video-btn border-0 bg-transparent" data-embed="{{ video_embed }}">
+                                <img data-arc-bind="video_thumb" src="{{ video_thumb }}" alt=""
+                                    style="width:100%; height:100%; object-fit:cover;">
+                                <div class="play-btn-circle"><i class="fas fa-play"></i></div>
+                            </button>
+                            <div class="play-btn-circle" data-arc-if="!coverImage && !image && !video_thumb"><i
+                                    class="fas fa-play"></i></div>
+                        </div>
+                        <div class="media-card-label">
+                            <span data-arc-bind="caption">{{ caption }}</span>
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                            <span data-arc-bind="location">{{ location }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="program-media-grid dynamic-media-grid" data-arc-loop="items">
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-cream">
+                            <img data-arc-if="coverImage" data-arc-bind="coverImage" src="{{ coverImage }}"
+                                alt="{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <img data-arc-if="image" data-arc-bind="image" src="{{ image }}"
+                                alt="{{ caption }}{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <button data-arc-if="video_thumb" type="button"
+                                class="gallery-video-btn border-0 bg-transparent" data-embed="{{ video_embed }}">
+                                <img data-arc-bind="video_thumb" src="{{ video_thumb }}" alt=""
+                                    style="width:100%; height:100%; object-fit:cover;">
+                                <div class="play-btn-circle"><i class="fas fa-play"></i></div>
+                            </button>
+                            <div class="play-btn-circle" data-arc-if="!coverImage && !image && !video_thumb"><i
+                                    class="fas fa-play"></i></div>
+                        </div>
+                        <div class="media-card-label">
+                            <span data-arc-bind="caption">{{ caption }}</span>
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                            <span data-arc-bind="location">{{ location }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="program-media-grid dynamic-media-grid" data-arc-loop="partials">
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-cream">
+                            <img data-arc-if="coverImage" data-arc-bind="coverImage" src="{{ coverImage }}"
+                                alt="{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <img data-arc-if="image" data-arc-bind="image" src="{{ image }}"
+                                alt="{{ caption }}{{ title }}" style="width:100%; height:100%; object-fit:cover;">
+                            <button data-arc-if="video_thumb" type="button"
+                                class="gallery-video-btn border-0 bg-transparent" data-embed="{{ video_embed }}">
+                                <img data-arc-bind="video_thumb" src="{{ video_thumb }}" alt=""
+                                    style="width:100%; height:100%; object-fit:cover;">
+                                <div class="play-btn-circle"><i class="fas fa-play"></i></div>
+                            </button>
+                            <div class="play-btn-circle" data-arc-if="!coverImage && !image && !video_thumb"><i
+                                    class="fas fa-play"></i></div>
+                        </div>
+                        <div class="media-card-label">
+                            <span data-arc-bind="caption">{{ caption }}</span>
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                            <span data-arc-bind="location">{{ location }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fallback Media Showcase when no CMS gallery exists -->
+                <div class="program-media-grid static-media-grid">
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-cream">
+                            <div class="sun-circle"></div>
+                            <div class="play-btn-circle"><i class="fas fa-play"></i></div>
+                            <div class="cheering-people"></div>
+                        </div>
+                        <div class="media-card-label">Opening huddle, Team Nagpur</div>
+                    </div>
+
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-dark">
+                            <div class="leaderboard-lines">
+                                <span></span><span></span><span></span><span></span>
+                            </div>
+                        </div>
+                        <div class="media-card-label">City leaderboard, day 12</div>
+                    </div>
+
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-light-blue">
+                            <div class="trees-and-people"></div>
+                        </div>
+                        <div class="media-card-label">Neighbourhood clean-up, Pune</div>
+                    </div>
+
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-navy">
+                            <div class="podium-graphic"></div>
+                            <div class="play-btn-circle"><i class="fas fa-play"></i></div>
+                        </div>
+                        <div class="media-card-label">Closing ceremony, Indore</div>
+                    </div>
+
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-warm-orange">
+                            <div class="briefing-box"></div>
+                            <div class="people-sitting"></div>
+                        </div>
+                        <div class="media-card-label">Captains' briefing, Bhopal</div>
+                    </div>
+
+                    <div class="media-card">
+                        <div class="media-card-graphic bg-gold">
+                            <div class="group-photo-people"></div>
+                        </div>
+                        <div class="media-card-label">All-city group photo, season close</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 6: FULL-WIDTH ORANGE CTA BANNER -->
+        <section class="program-banner-section">
+            <div class="container">
+                <div class="program-full-cta-banner">
+                    <div class="full-cta-text">
+                        <h2>Thirty days. One team. Pick a city.</h2>
+                        <p>Registration for the next edition closes a week before launch, and slots fill up early.</p>
+                    </div>
+                    <div class="full-cta-action">
+                        <a href="#register" class="btn btn-full-cta">
+                            Register your team <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 7: OTHER FLAGSHIP PROGRAMMES -->
+        <!-- <section class="program-others-section">
+            <div class="container">
+                <div class="others-section-header">
+                    <div>
+                        <h3 class="others-title">
+                            <i class="fas fa-compass text-warning me-2"></i> Other flagship programmes
+                        </h3>
+                    </div>
+                    <a href="/{{ contentTypeSlug }}" class="others-view-all">
+                        See all programmes <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+
+                <div class="others-cards-grid dynamic-others-grid" data-arc-loop="flagship-programs_other_flagship_programmes" data-limit="3">
+                    <a class="other-card text-decoration-none" href="{{ url }}" data-arc-bind="url">
+                        <span class="other-card-badge" data-arc-bind="status_badge">PROGRAMS</span>
+                        <h4 class="other-card-title">
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="name">{{ name }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                        </h4>
+                        <p class="other-card-excerpt">
+                            <span data-arc-bind="excerpt">{{ excerpt }}</span>
+                            <span data-arc-bind="description">{{ description }}</span>
+                        </p>
+                        <span class="btn btn-other-read">Read more <i class="fas fa-chevron-right ms-1"></i></span>
+                    </a>
+                </div>
+
+                <div class="others-cards-grid dynamic-others-grid" data-arc-loop="flagship-programs_btn_cards" data-limit="3">
+                    <a class="other-card text-decoration-none" href="{{ url }}" data-arc-bind="url">
+                        <span class="other-card-badge" data-arc-bind="status_badge">PROGRAMS</span>
+                        <h4 class="other-card-title">
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="name">{{ name }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                        </h4>
+                        <p class="other-card-excerpt">
+                            <span data-arc-bind="excerpt">{{ excerpt }}</span>
+                            <span data-arc-bind="description">{{ description }}</span>
+                        </p>
+                        <span class="btn btn-other-read">Read more <i class="fas fa-chevron-right ms-1"></i></span>
+                    </a>
+                </div>
+
+                <div class="others-cards-grid dynamic-others-grid" data-arc-loop="flagship-programs_button_card" data-limit="3">
+                    <a class="other-card text-decoration-none" href="{{ url }}" data-arc-bind="url">
+                        <span class="other-card-badge" data-arc-bind="status_badge">PROGRAMS</span>
+                        <h4 class="other-card-title">
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="name">{{ name }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                        </h4>
+                        <p class="other-card-excerpt">
+                            <span data-arc-bind="excerpt">{{ excerpt }}</span>
+                            <span data-arc-bind="description">{{ description }}</span>
+                        </p>
+                        <span class="btn btn-other-read">Read more <i class="fas fa-chevron-right ms-1"></i></span>
+                    </a>
+                </div>
+
+                <div class="others-cards-grid dynamic-others-grid" data-arc-loop="flagship-programs_bottam_card" data-limit="3">
+                    <a class="other-card text-decoration-none" href="{{ url }}" data-arc-bind="url">
+                        <span class="other-card-badge" data-arc-bind="status_badge">PROGRAMS</span>
+                        <h4 class="other-card-title">
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="name">{{ name }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                        </h4>
+                        <p class="other-card-excerpt">
+                            <span data-arc-bind="excerpt">{{ excerpt }}</span>
+                            <span data-arc-bind="description">{{ description }}</span>
+                        </p>
+                        <span class="btn btn-other-read">Read more <i class="fas fa-chevron-right ms-1"></i></span>
+                    </a>
+                </div>
+
+                <div class="others-cards-grid dynamic-others-grid" data-arc-loop="flagship-programs_bottom_card" data-limit="3">
+                    <a class="other-card text-decoration-none" href="{{ url }}" data-arc-bind="url">
+                        <span class="other-card-badge" data-arc-bind="status_badge">PROGRAMS</span>
+                        <h4 class="other-card-title">
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="name">{{ name }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                        </h4>
+                        <p class="other-card-excerpt">
+                            <span data-arc-bind="excerpt">{{ excerpt }}</span>
+                            <span data-arc-bind="description">{{ description }}</span>
+                        </p>
+                        <span class="btn btn-other-read">Read more <i class="fas fa-chevron-right ms-1"></i></span>
+                    </a>
+                </div>
+
+                <div class="others-cards-grid dynamic-others-grid" data-arc-loop="items" data-limit="3">
+                    <a class="other-card text-decoration-none" href="{{ url }}" data-arc-bind="url">
+                        <span class="other-card-badge" data-arc-bind="status_badge">PROGRAMS</span>
+                        <h4 class="other-card-title">
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="name">{{ name }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                        </h4>
+                        <p class="other-card-excerpt">
+                            <span data-arc-bind="excerpt">{{ excerpt }}</span>
+                            <span data-arc-bind="description">{{ description }}</span>
+                        </p>
+                        <span class="btn btn-other-read">Read more <i class="fas fa-chevron-right ms-1"></i></span>
+                    </a>
+                </div>
+
+                <div class="others-cards-grid dynamic-others-grid" data-arc-loop="partials" data-limit="3">
+                    <a class="other-card text-decoration-none" href="{{ url }}" data-arc-bind="url">
+                        <span class="other-card-badge" data-arc-bind="status_badge">PROGRAMS</span>
+                        <h4 class="other-card-title">
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="name">{{ name }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                        </h4>
+                        <p class="other-card-excerpt">
+                            <span data-arc-bind="excerpt">{{ excerpt }}</span>
+                            <span data-arc-bind="description">{{ description }}</span>
+                        </p>
+                        <span class="btn btn-other-read">Read more <i class="fas fa-chevron-right ms-1"></i></span>
+                    </a>
+                </div>
+
+                <div class="others-cards-grid dynamic-others-grid" data-arc-loop="cards" data-limit="3">
+                    <a class="other-card text-decoration-none" href="{{ url }}" data-arc-bind="url">
+                        <span class="other-card-badge" data-arc-bind="status_badge">PROGRAMS</span>
+                        <h4 class="other-card-title">
+                            <span data-arc-bind="title">{{ title }}</span>
+                            <span data-arc-bind="name">{{ name }}</span>
+                            <span data-arc-bind="label">{{ label }}</span>
+                        </h4>
+                        <p class="other-card-excerpt">
+                            <span data-arc-bind="excerpt">{{ excerpt }}</span>
+                            <span data-arc-bind="description">{{ description }}</span>
+                        </p>
+                        <span class="btn btn-other-read">Read more <i class="fas fa-chevron-right ms-1"></i></span>
+                    </a>
+                </div>
+
+                <div class="others-cards-grid static-others-cards">
+                    <div class="other-card">
+                        <span class="other-card-badge">PROGRAMS</span>
+                        <h4 class="other-card-title">Social Hero Championship</h4>
+                        <p class="other-card-excerpt">See how this programme runs, who it is for and what it asks of
+                            you.</p>
+                        <a href="/{{ contentTypeSlug }}" class="btn btn-other-read">Read more <i
+                                class="fas fa-chevron-right ms-1"></i></a>
+                    </div>
+                    <div class="other-card">
+                        <span class="other-card-badge">PROGRAMS</span>
+                        <h4 class="other-card-title">Buy One Give One</h4>
+                        <p class="other-card-excerpt">See how this programme runs, who it is for and what it asks of
+                            you.</p>
+                        <a href="/{{ contentTypeSlug }}" class="btn btn-other-read">Read more <i
+                                class="fas fa-chevron-right ms-1"></i></a>
+                    </div>
+                    <div class="other-card other-card-browse">
+                        <span class="other-card-badge">BROWSE</span>
+                        <h4 class="other-card-title">All five, side by side</h4>
+                        <p class="other-card-excerpt">Compare every flagship programme and find the one that fits your
+                            time or budget.</p>
+                        <a href="/{{ contentTypeSlug }}" class="btn btn-other-read">Read more <i
+                                class="fas fa-chevron-right ms-1"></i></a>
+                    </div>
+                </div>
+            </div>
+        </section> -->
     </article>
 
     <arc-footer></arc-footer>
 </div>
 
-<!-- <style>
-    /* Medium-style flagship Page */
-    .flagship-page {
-        padding: 2rem 0 4rem;
-        background: #fff;
-        min-height: 60vh;
+<style>
+    /* Flagship Program Detail Page Styling - Warm Gold & Amber Palette */
+    .flagship-program-detail-page {
+        background-color: #faf8f5;
+        min-height: 100vh;
+        color: #1e293b;
     }
 
-    .flagship-wrapper {
-        max-width: 720px;
-        margin: 0 auto;
-        padding: 0 1.5rem;
+    /* Text warning override to warm amber */
+    .text-warning {
+        color: #d97706 !important;
     }
 
-    /* Back Link */
-    .back-link {
-        display: inline-flex;
+    /* SECTION 1: HERO */
+    .program-hero {
+        padding: 2.5rem 0 3rem;
+        background: linear-gradient(180deg, #fef3c7 0%, #faf8f5 100%);
+        border-bottom: 1px solid #fef3c7;
+    }
+
+    .program-breadcrumb {
+        display: flex;
         align-items: center;
         gap: 0.5rem;
-        color: #6b7280;
+        font-size: 0.875rem;
+        color: #78350f;
+        margin-bottom: 2rem;
+    }
+
+    .program-breadcrumb a {
+        color: #92400e;
         text-decoration: none;
-        font-size: 0.9rem;
-        margin-bottom: 2rem;
-        transition: color 0.2s;
+        font-weight: 500;
+        transition: color 0.2s ease;
     }
 
-    .back-link:hover {
-        color: #111827;
+    .program-breadcrumb a:hover {
+        color: #d97706;
     }
 
-    /* flagship Header */
-    .flagship-header {
-        margin-bottom: 2rem;
+    .program-breadcrumb .breadcrumb-separator {
+        color: #fde68a;
     }
 
-    .flagship-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #111827;
+    .program-breadcrumb .current-crumb {
+        color: #451a03;
+        font-weight: 600;
+    }
+
+    .program-hero-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 3rem;
+        align-items: center;
+    }
+
+    .program-badges-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .badge-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.85rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .badge-primary-blue {
+        background-color: #2563eb;
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+    }
+
+    .badge-status {
+        background-color: #d97706;
+        color: #ffffff;
+    }
+
+    .badge-sub {
+        background-color: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #dbeafe;
+    }
+
+    .badge-tag {
+        background-color: #fff7ed;
+        color: #c96a00;
+        border: 1px solid #ffedd5;
+    }
+
+    .program-hero-title {
+        font-size: 2.75rem;
+        font-weight: 800;
+        color: #451a03;
         line-height: 1.2;
+        letter-spacing: -0.03em;
+        margin-bottom: 1.25rem;
+    }
+
+    .program-hero-subtitle {
+        font-size: 1.1rem;
+        line-height: 1.65;
+        color: #78350f;
+        margin-bottom: 1.75rem;
+    }
+
+    .program-hero-buttons {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.75rem;
+    }
+
+    .btn-program-primary {
+        background-color: #c96a00;
+        color: #ffffff;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        text-decoration: none;
+        box-shadow: 0 4px 14px rgba(201, 106, 0, 0.3);
+        transition: all 0.2s ease;
+    }
+
+    .btn-program-primary:hover {
+        background-color: #b45309;
+        color: #ffffff;
+        transform: translateY(-1px);
+    }
+
+    .btn-program-secondary {
+        background-color: #ffffff;
+        color: #451a03;
+        border: 1px solid #fde68a;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .btn-program-secondary:hover {
+        background-color: #fff7ed;
+        border-color: #f59e0b;
+        color: #451a03;
+    }
+
+    .program-hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.5rem;
+        font-size: 0.875rem;
+        color: #92400e;
+    }
+
+    .program-hero-meta .meta-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .program-hero-cover-wrapper {
+        position: relative;
+        border-radius: 20px;
+        overflow: hidden;
+        background-color: #fef3c7;
+        box-shadow: 0 10px 30px rgba(180, 83, 9, 0.1);
+        min-height: 280px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .program-hero-cover-image {
+        width: 100%;
+        height: auto;
+        display: block;
+        object-fit: cover;
+    }
+
+    .program-hero-cover-fallback {
+        width: 100%;
+        height: 280px;
+        background: #fde68a;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 2rem;
+        position: relative;
+    }
+
+    .fallback-hero-illustration {
+        position: relative;
+        width: 85%;
+        height: 200px;
+    }
+
+    .fallback-hero-illustration .sun-element {
+        position: absolute;
+        top: 15px;
+        right: 30px;
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        background: #fbbf24;
+    }
+
+    .fallback-hero-illustration .banner-element {
+        position: absolute;
+        top: 25px;
+        left: 40px;
+        width: 120px;
+        height: 24px;
+        background: #c96a00;
+        border-radius: 6px;
+    }
+
+    .fallback-hero-illustration .skyline-element {
+        position: absolute;
+        bottom: 45px;
+        right: 20px;
+        width: 110px;
+        height: 70px;
+        background: #cbd5e1;
+        border-radius: 4px 4px 0 0;
+    }
+
+    .fallback-hero-illustration .board-element {
+        position: absolute;
+        bottom: 45px;
+        right: 15px;
+        width: 80px;
+        height: 45px;
+        background: #1e293b;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fallback-hero-illustration .trophy-icon {
+        color: #f59e0b;
+        font-size: 1.5rem;
+    }
+
+    .fallback-hero-illustration .people-row {
+        position: absolute;
+        bottom: 0;
+        left: 10px;
+        width: 70%;
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+    }
+
+    .person {
+        width: 22px;
+        border-radius: 10px 10px 0 0;
+    }
+
+    .p1 {
+        background: #c96a00;
+        height: 60px;
+    }
+
+    .p2 {
+        background: #f59e0b;
+        height: 50px;
+    }
+
+    .p3 {
+        background: #3b82f6;
+        height: 55px;
+    }
+
+    .p4 {
+        background: #10b981;
+        height: 48px;
+    }
+
+    /* SECTION 2: STATS */
+    .program-stats-section {
+        padding: 3.5rem 0;
+        background: #ffffff;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .stats-kicker {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: #c96a00;
+        letter-spacing: 0.1em;
+        display: block;
+        margin-bottom: 0.35rem;
+    }
+
+    .stats-title {
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 2.5rem;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+    }
+
+    .stat-card {
+        text-align: center;
+        padding: 1rem;
+        position: relative;
+    }
+
+    .stat-card:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 20%;
+        height: 60%;
+        width: 1px;
+        background-color: #e2e8f0;
+    }
+
+    .stat-number {
+        font-size: 3rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.1;
+        margin-bottom: 0.35rem;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+
+    /* SECTION 3: HOW IT WORKS */
+    .program-steps-section {
+        padding: 4rem 0;
+        background: #ffffff;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .steps-header {
+        margin-bottom: 2rem;
+    }
+
+    .steps-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.35rem;
+    }
+
+    .steps-subtitle {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .steps-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1rem;
+    }
+
+    .step-card {
+        background: #fffbf5;
+        border: 1px solid #fde68a;
+        border-radius: 14px;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s ease;
+    }
+
+    .step-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .step-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .step-icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #fef3c7;
+        color: #c96a00;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+    }
+
+    .step-number {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #d97706;
+    }
+
+    .step-card-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #451a03;
+        margin-bottom: 0.5rem;
+    }
+
+    .step-card-text {
+        font-size: 0.825rem;
+        color: #78350f;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    /* SECTION 4: CONTENT BODY & SIDEBAR */
+    .program-body-section {
+        padding: 4rem 0;
+        background: #ffffff;
+    }
+
+    .program-body-grid {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 3.5rem;
+    }
+
+    .program-main-content {
+        min-width: 0;
+        font-size: 1.05rem;
+        line-height: 1.75;
+        color: #334155;
+    }
+
+    .program-main-content h2 {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-top: 2.5rem;
         margin-bottom: 1rem;
         letter-spacing: -0.02em;
     }
 
-    .flagship-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        font-size: 0.95rem;
-        color: #6b7280;
+    .program-main-content p {
+        margin-bottom: 1.35rem;
     }
 
-    .meta-separator {
-        color: #d1d5db;
+    /* Pull Quote */
+    .program-pull-quote {
+        background-color: #fff7ed;
+        border-left: 4px solid #c96a00;
+        border-radius: 0 12px 12px 0;
+        padding: 1.5rem;
+        margin: 2rem 0;
     }
 
-    .flagship-meta i {
-        margin-right: 0.35rem;
+    .program-pull-quote .quote-text {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #451a03;
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
     }
 
-    .category-label {
-        color: #6b7280;
+    .program-pull-quote .quote-author {
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: #c96a00;
+        display: block;
     }
 
-    .category-label span:empty,
-    .category-separator:has(+ .category-label span:empty) {
-        display: none;
+    /* Tracks List */
+    .tracks-list {
+        list-style: none;
+        padding: 0;
+        margin-bottom: 2rem;
     }
 
-    /* Cover Image */
-    .flagship-cover {
-        margin: 0 0 2.5rem 0;
-        border-radius: 8px;
+    .tracks-list li {
+        position: relative;
+        padding-left: 1.25rem;
+        margin-bottom: 0.85rem;
+        color: #334155;
+    }
+
+    .tracks-list li::before {
+        content: '•';
+        color: #c96a00;
+        font-size: 1.4rem;
+        position: absolute;
+        left: 0;
+        top: -0.2rem;
+    }
+
+    .tracks-list strong {
+        color: #0f172a;
+    }
+
+    /* Table */
+    .program-scoring-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0 0.5rem;
+        background: #ffffff;
+        border: 1px solid #fde68a;
+        border-radius: 10px;
         overflow: hidden;
     }
 
-    .cover-image {
-        width: 100%;
-        height: auto;
-        display: block;
-        border-radius: 8px;
-    }
-
-    /* flagship Content */
-    .flagship-content {
-        font-size: 1.125rem;
-        line-height: 1.85;
-        color: #292929;
-        font-family: Georgia, Cambria, "Times New Roman", Times, serif;
-    }
-
-    .flagship-content h2 {
-        font-size: 1.625rem;
+    .program-scoring-table th {
+        background-color: #fef3c7;
+        color: #78350f;
         font-weight: 700;
-        margin-top: 2.5rem;
-        margin-bottom: 1rem;
-        color: #111827;
-        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.875rem;
+        padding: 0.85rem 1.25rem;
+        text-align: left;
+        border-bottom: 1px solid #fde68a;
     }
 
-    .flagship-content h3 {
-        font-size: 1.375rem;
-        font-weight: 600;
-        margin-top: 2rem;
-        margin-bottom: 0.75rem;
-        color: #111827;
-        font-family: system-ui, -apple-system, sans-serif;
+    .program-scoring-table td {
+        padding: 0.85rem 1.25rem;
+        font-size: 0.925rem;
+        color: #334155;
+        border-bottom: 1px solid #fff7ed;
     }
 
-    .flagship-content p {
-        margin-bottom: 1.5rem;
+    .program-scoring-table tbody tr:last-child td {
+        border-bottom: none;
     }
 
-    .flagship-content img {
-        max-width: 100%;
-        height: auto;
-        border-radius: 4px;
-        margin: 2rem 0;
+    .table-footnote {
+        font-size: 0.825rem;
+        color: #64748b;
+        margin-bottom: 2rem;
     }
 
-    .flagship-content blockquote {
-        border-left: 3px solid #111827;
-        padding-left: 1.25rem;
-        margin: 2rem 0;
-        font-style: italic;
-        color: #4b5563;
+    /* FAQs */
+    .program-faq-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        margin-top: 1.5rem;
     }
 
-    .flagship-content code {
-        background: #f3f4f6;
-        padding: 0.15rem 0.4rem;
-        border-radius: 3px;
-        font-size: 0.9em;
-        font-family: 'SF Mono', Monaco, monospace;
-    }
-
-    .flagship-content pre {
-        background: #1a1a1a;
-        color: #e5e7eb;
-        padding: 1.25rem;
-        border-radius: 6px;
-        overflow-x: auto;
-        margin: 2rem 0;
-    }
-
-    .flagship-content pre code {
-        background: none;
-        padding: 0;
-    }
-
-    .flagship-content ul,
-    .flagship-content ol {
-        margin-bottom: 1.5rem;
-        padding-left: 1.5rem;
-    }
-
-    .flagship-content li {
+    .faq-question {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0f172a;
         margin-bottom: 0.5rem;
     }
 
-    /* Tags */
-    .flagship-tags {
-        margin-top: 3rem;
-        padding-top: 1.5rem;
-        border-top: 1px solid #e5e7eb;
+    .faq-answer {
+        font-size: 0.975rem;
+        color: #475569;
+        margin: 0;
     }
 
-    .tag-list {
+    /* SIDEBAR STYLES */
+    .program-sidebar {
         display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        flex-direction: column;
+        gap: 1.5rem;
+        position: sticky;
+        top: 2rem;
+        max-height: calc(100vh - 3rem);
+        overflow-y: auto;
+        padding-right: 0.25rem;
     }
 
-    .tag {
-        background: #6b7280;
-        /* Default fallback color */
-        color: #333;
-        padding: 0.35rem 0.75rem;
-        border-radius: 100px;
-        font-size: 0.85rem;
-        font-weight: 500;
+    .program-sidebar::-webkit-scrollbar {
+        width: 6px;
     }
 
-    /* Share Section */
-    .share-section {
-        margin-top: 2rem;
-        padding: 1.5rem 0;
-        text-align: center;
+    .program-sidebar::-webkit-scrollbar-track {
+        background: transparent;
     }
 
-    .share-buttons {
+    .program-sidebar::-webkit-scrollbar-thumb {
+        background: #fde68a;
+        border-radius: 10px;
+    }
+
+    .program-sidebar::-webkit-scrollbar-thumb:hover {
+        background: #d97706;
+    }
+
+    .sidebar-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+    }
+
+    .sidebar-card-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 1.25rem;
         display: flex;
-        gap: 1rem;
-        justify-content: center;
+        align-items: center;
     }
 
-    .share-btn {
+    .details-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .details-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        font-size: 0.875rem;
+    }
+
+    .details-row:not(:last-child) {
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .details-label {
+        color: #64748b;
+    }
+
+    .details-value {
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    .share-social-row {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+    }
+
+    .share-circle-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #fff7ed;
+        color: #c96a00;
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: #f3f4f6;
-        color: #4b5563;
         text-decoration: none;
-        transition: all 0.2s;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
     }
 
-    .share-btn:hover {
-        background: #111827;
-        color: #fff;
+    .share-circle-btn:hover {
+        background-color: #c96a00;
+        color: #ffffff;
+        transform: translateY(-2px);
     }
 
-    /* flagship Navigation */
-    .flagship-nav {
-        margin-top: 3rem;
-        padding-top: 2rem;
-        border-top: 1px solid #e5e7eb;
+    .cta-sidebar-card {
+        background: linear-gradient(135deg, #c96a00 0%, #d97706 100%);
+        color: #ffffff;
+        border: none;
+        box-shadow: 0 10px 25px rgba(201, 106, 0, 0.25);
+    }
+
+    .cta-sidebar-card .cta-card-title {
+        color: #ffffff;
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 0.65rem;
+    }
+
+    .cta-sidebar-card .cta-card-text {
+        color: #fef3c7;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        margin-bottom: 1.25rem;
+    }
+
+    .btn-cta-light {
+        background-color: #ffffff;
+        color: #c96a00;
+        width: 100%;
+        padding: 0.65rem 1rem;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.875rem;
+        text-align: center;
+        text-decoration: none;
+        display: block;
+        transition: all 0.2s ease;
+    }
+
+    .btn-cta-light:hover {
+        background-color: #fff7ed;
+        color: #b45309;
+    }
+
+    /* SECTION 5: FROM THE LAST SEASON */
+    .program-media-section {
+        padding: 4rem 0;
+        background: #ffffff;
+    }
+
+    .media-header {
+        margin-bottom: 2rem;
+    }
+
+    .media-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.35rem;
+    }
+
+    .media-subtitle {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .program-media-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+    }
+
+    .media-card {
+        border-radius: 16px;
+        overflow: hidden;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         display: flex;
+        flex-direction: column;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .media-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+    }
+
+    .media-card-graphic {
+        height: 170px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .bg-cream {
+        background: #fef3c7;
+    }
+
+    .bg-dark {
+        background: #1e293b;
+    }
+
+    .bg-light-blue {
+        background: #e0f2fe;
+    }
+
+    .bg-navy {
+        background: #0f172a;
+    }
+
+    .bg-warm-orange {
+        background: #fff7ed;
+    }
+
+    .bg-gold {
+        background: #fde68a;
+    }
+
+    .play-btn-circle {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #ffffff;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .sun-circle {
+        position: absolute;
+        top: 20px;
+        right: 25px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #f59e0b;
+    }
+
+    .leaderboard-lines {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 65%;
+    }
+
+    .leaderboard-lines span {
+        height: 8px;
+        border-radius: 4px;
+        background: #334155;
+    }
+
+    .leaderboard-lines span:nth-child(1) {
+        width: 90%;
+        background: #f59e0b;
+    }
+
+    .leaderboard-lines span:nth-child(2) {
+        width: 75%;
+    }
+
+    .leaderboard-lines span:nth-child(3) {
+        width: 60%;
+    }
+
+    .leaderboard-lines span:nth-child(4) {
+        width: 80%;
+    }
+
+    .media-card-label {
+        padding: 1rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+        background: #ffffff;
+    }
+
+    /* SECTION 6: FULL-WIDTH ORANGE CTA BANNER */
+    .program-banner-section {
+        padding: 2rem 0;
+        background: #ffffff;
+    }
+
+    .program-full-cta-banner {
+        background: linear-gradient(135deg, #c96a00 0%, #d97706 100%);
+        border-radius: 16px;
+        padding: 2.5rem 3rem;
+        display: flex;
+        align-items: center;
         justify-content: space-between;
         gap: 2rem;
+        color: #ffffff;
+        box-shadow: 0 10px 30px rgba(201, 106, 0, 0.2);
     }
 
-    .nav-prev,
-    .nav-next {
-        flex: 1;
-        min-width: 0;
+    .full-cta-text h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin: 0 0 0.4rem 0;
     }
 
-    .nav-next {
-        text-align: right;
+    .full-cta-text p {
+        margin: 0;
+        color: #fef3c7;
+        font-size: 0.95rem;
     }
 
-    .flagship-nav .nav-link {
-        display: block;
-        text-decoration: none;
-        color: inherit;
-        padding: 1rem;
+    .btn-full-cta {
+        background-color: #ffffff;
+        color: #c96a00;
+        padding: 0.7rem 1.5rem;
         border-radius: 8px;
-        transition: background 0.2s;
-    }
-
-    .flagship-nav .nav-link:hover {
-        background: #f9fafb;
-    }
-
-    .nav-direction {
-        display: block;
-        font-size: 0.8rem;
-        color: #6b7280;
-        margin-bottom: 0.25rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .nav-title {
-        display: block;
-        font-weight: 600;
-        color: #111827;
-        font-size: 1rem;
+        font-weight: 700;
+        font-size: 0.9rem;
+        text-decoration: none;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        transition: all 0.2s ease;
     }
 
-    /* Responsive */
-    @media (max-width: 768px) {
-        .flagship-title {
-            font-size: 1.875rem;
+    .btn-full-cta:hover {
+        background-color: #fff7ed;
+        color: #b45309;
+    }
+
+    /* SECTION 7: OTHER FLAGSHIP PROGRAMMES */
+    .program-others-section {
+        padding: 4rem 0 5rem;
+        background: #faf8f5;
+    }
+
+    .others-section-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+    }
+
+    .others-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.35rem;
+    }
+
+    .others-subtitle {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .others-view-all {
+        color: #c96a00;
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-decoration: none;
+    }
+
+    .others-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+    }
+
+    .other-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.75rem;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .other-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    }
+
+    .other-card-badge {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: #64748b;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.85rem;
+        display: block;
+    }
+
+    .other-card-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.65rem;
+        line-height: 1.35;
+    }
+
+    .other-card-excerpt {
+        font-size: 0.9rem;
+        color: #64748b;
+        margin-bottom: 1.75rem;
+        line-height: 1.5;
+        flex: 1;
+    }
+
+    .btn-other-read {
+        background-color: #c96a00;
+        color: #ffffff;
+        padding: 0.65rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        text-decoration: none;
+        text-align: center;
+        transition: all 0.2s ease;
+    }
+
+    .btn-other-read:hover {
+        background-color: #b45309;
+        color: #ffffff;
+    }
+
+    .other-card-browse {
+        background-color: #fffbf5;
+        border-color: #fde68a;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 991px) {
+        .program-hero-grid {
+            grid-template-columns: 1fr;
+            gap: 2rem;
         }
 
-        .flagship-meta {
-            flex-wrap: wrap;
+        .program-hero-title {
+            font-size: 2.25rem;
         }
 
-        .flagship-nav {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+        }
+
+        .stat-card:not(:last-child)::after {
+            display: none;
+        }
+
+        .steps-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .program-body-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .program-media-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .others-cards-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .program-full-cta-banner {
             flex-direction: column;
-            gap: 1rem;
-        }
-
-        .nav-next {
-            text-align: left;
+            text-align: center;
+            padding: 2rem 1.5rem;
         }
     }
-</style> -->
+
+    @media (max-width: 576px) {
+        .steps-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .program-media-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
 
 <script>
-    // Hide cover image if not available
     (function () {
         function processCoverImage() {
-            document.querySelectorAll('.cover-image').forEach(function (img) {
+            document.querySelectorAll('.program-hero-cover-image').forEach(function (img) {
+                var fallback = img.nextElementSibling;
                 if (!img.src || img.src === window.location.href || img.src === '' ||
                     (img.complete && img.naturalHeight === 0)) {
-                    img.closest('.flagship-cover').style.display = 'none';
+                    img.style.display = 'none';
+                    if (fallback) fallback.style.display = 'block';
+                } else {
+                    img.style.display = 'block';
+                    if (fallback) fallback.style.display = 'none';
                 }
+
                 img.onerror = function () {
-                    this.closest('.flagship-cover').style.display = 'none';
+                    this.style.display = 'none';
+                    var fb = this.nextElementSibling;
+                    if (fb) fb.style.display = 'block';
                 };
             });
+        }
 
-            // Hide empty nav links
-            document.querySelectorAll('.nav-link').forEach(function (link) {
-                var title = link.querySelector('.nav-title');
-                if (title && !title.textContent.trim()) {
-                    link.closest('.nav-prev, .nav-next').style.display = 'none';
+        function processOtherCards() {
+            var dynamicGrids = document.querySelectorAll('.program-others-section .dynamic-others-grid');
+            var staticGrid = document.querySelector('.program-others-section .static-others-cards');
+
+            var heroTitleEl = document.querySelector('.program-hero-title');
+            var pageTitle = heroTitleEl ? (heroTitleEl.textContent || '').replace(/\{\{[^}]+\}\}/g, '').trim().toLowerCase() : '';
+            var currentPath = window.location.pathname.toLowerCase();
+
+            var displayedDynamicGrid = false;
+
+            dynamicGrids.forEach(function (grid) {
+                if (displayedDynamicGrid) {
+                    grid.style.display = 'none';
+                    return;
+                }
+
+                if (grid.children.length > 0) {
+                    var childText = (grid.textContent || '').replace(/\{\{[^}]+\}\}/g, '').trim();
+                    var hasUnreplacedPlaceholder = grid.innerHTML.includes('{{');
+                    if (childText.length > 0 && !hasUnreplacedPlaceholder) {
+                        var cards = grid.querySelectorAll('.other-card');
+                        var validCount = 0;
+
+                        cards.forEach(function (card) {
+                            var titleEl = card.querySelector('.other-card-title');
+                            var linkHref = (card.getAttribute('href') || '').toLowerCase();
+
+                            // Clean up inner spans inside titles & excerpts
+                            ['.other-card-title', '.other-card-excerpt'].forEach(function (selector) {
+                                var container = card.querySelector(selector);
+                                if (container) {
+                                    container.querySelectorAll('span').forEach(function (sp) {
+                                        var txt = sp.textContent || '';
+                                        txt = txt.replace(/\[object Object\]/g, '').replace(/\{\{[^}]+\}\}/g, '').trim();
+                                        if (!txt) {
+                                            sp.style.display = 'none';
+                                        } else {
+                                            sp.style.display = 'inline';
+                                            sp.textContent = txt;
+                                        }
+                                    });
+                                }
+                            });
+
+                            var finalTitle = titleEl ? (titleEl.textContent || '').trim().toLowerCase() : '';
+
+                            if ((finalTitle && pageTitle && finalTitle === pageTitle) ||
+                                (linkHref && linkHref.length > 1 && currentPath.endsWith(linkHref))) {
+                                card.style.display = 'none';
+                            } else {
+                                card.style.display = 'flex';
+                                validCount++;
+                            }
+                        });
+
+                        if (validCount > 0) {
+                            displayedDynamicGrid = true;
+                            grid.style.display = 'grid';
+                        } else {
+                            grid.style.display = 'none';
+                        }
+                    } else {
+                        grid.style.display = 'none';
+                    }
+                } else {
+                    grid.style.display = 'none';
                 }
             });
+
+            if (staticGrid) {
+                if (displayedDynamicGrid) {
+                    staticGrid.style.display = 'none';
+                } else {
+                    staticGrid.style.display = 'grid';
+                    staticGrid.querySelectorAll('.other-card').forEach(function (card) {
+                        var t = (card.querySelector('.other-card-title')?.textContent || '').trim().toLowerCase();
+                        if (t && pageTitle && t === pageTitle) {
+                            card.style.display = 'none';
+                        } else {
+                            card.style.display = 'flex';
+                        }
+                    });
+                }
+            }
+        }
+
+        function processMedia() {
+            var dynamicGrids = document.querySelectorAll('.program-media-section .dynamic-media-grid');
+            var staticGrid = document.querySelector('.program-media-section .static-media-grid');
+
+            var hasDynamic = false;
+            dynamicGrids.forEach(function (grid) {
+                if (grid.children.length > 0) {
+                    var childText = (grid.textContent || '').replace(/\{\{[^}]+\}\}/g, '').trim();
+                    var hasUnreplacedPlaceholder = grid.innerHTML.includes('{{');
+                    if (childText.length > 0 && !hasUnreplacedPlaceholder) {
+                        hasDynamic = true;
+                        grid.style.display = 'grid';
+
+                        grid.querySelectorAll('.media-card-label').forEach(function (lbl) {
+                            var visibleSpans = [];
+                            lbl.querySelectorAll('span').forEach(function (sp) {
+                                var txt = sp.textContent || '';
+                                txt = txt.replace(/\[object Object\]/g, '').replace(/\{\{[^}]+\}\}/g, '').trim();
+                                if (!txt) {
+                                    sp.style.display = 'none';
+                                } else {
+                                    sp.style.display = 'inline';
+                                    sp.textContent = txt;
+                                    visibleSpans.push(sp);
+                                }
+                            });
+
+                            if (visibleSpans.length > 1) {
+                                visibleSpans.forEach(function (sp, idx) {
+                                    if (idx > 0) {
+                                        var prevTxt = visibleSpans[idx - 1].textContent.trim();
+                                        var currTxt = sp.textContent.trim();
+                                        if (!prevTxt.endsWith(',') && !currTxt.startsWith(',')) {
+                                            sp.textContent = ', ' + currTxt;
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        grid.style.display = 'none';
+                    }
+                } else {
+                    grid.style.display = 'none';
+                }
+            });
+
+            if (staticGrid) {
+                if (hasDynamic) {
+                    staticGrid.style.display = 'none';
+                } else {
+                    staticGrid.style.display = 'grid';
+                }
+            }
+        }
+
+        function processBadges() {
+            var badgeRow = document.querySelector('.program-badges-row') || document.querySelector('.entry-badges-row');
+            if (!badgeRow) return;
+
+            // Process loop items first (sub_tag, head_tag, tags)
+            badgeRow.querySelectorAll('[data-arc-loop]').forEach(function (loopContainer) {
+                loopContainer.querySelectorAll('.badge-pill').forEach(function (pill) {
+                    var txt = (pill.textContent || '').replace(/\[object Object\]/g, '').replace(/\{\{[^}]+\}\}/g, '').trim();
+                    if (!txt) {
+                        pill.style.display = 'none';
+                    } else {
+                        pill.style.display = 'inline-flex';
+                    }
+                });
+            });
+
+            // Process single badge pills
+            badgeRow.querySelectorAll('.badge-pill').forEach(function (pill) {
+                if (pill.closest('[data-arc-loop]')) return;
+
+                var textSpan = pill.querySelector('[data-arc-bind]') || pill;
+                var rawText = (textSpan.textContent || '').trim();
+                var cleanText = rawText.replace(/\[object Object\]/g, '').replace(/\{\{[^}]+\}\}/g, '').trim();
+                var arcIf = pill.getAttribute('data-arc-if');
+
+                // If conditional tag attribute is present and tag was not hydrated from database
+                if (arcIf && rawText === pill.innerHTML.replace(/<[^>]*>/g, '').trim() && rawText.includes('{{')) {
+                    pill.style.display = 'none';
+                    return;
+                }
+
+                if (!cleanText) {
+                    pill.style.display = 'none';
+                } else {
+                    var icon = pill.querySelector('i');
+                    if (icon && textSpan !== pill) {
+                        textSpan.textContent = cleanText;
+                    } else if (!icon && textSpan === pill) {
+                        pill.textContent = cleanText;
+                    }
+                    pill.style.display = 'inline-flex';
+                }
+            });
+        }
+
+        function initScripts() {
+            processCoverImage();
+            processBadges();
+            processOtherCards();
+            processMedia();
         }
 
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', processCoverImage);
+            document.addEventListener('DOMContentLoaded', initScripts);
         } else {
-            processCoverImage();
+            initScripts();
         }
-        setTimeout(processCoverImage, 500);
-        setTimeout(processCoverImage, 1500);
+        setTimeout(initScripts, 100);
+        setTimeout(initScripts, 300);
+        setTimeout(initScripts, 1000);
     })();
 </script>
