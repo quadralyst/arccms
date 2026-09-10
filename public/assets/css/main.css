@@ -1835,7 +1835,8 @@ blockquote {
   max-height: 44px;
   max-width: 85%;
   width: auto;
-  height: auto;
+  height: 44px;
+  aspect-ratio: 120 / 44;
   object-fit: contain;
 }
 
@@ -2220,6 +2221,7 @@ blockquote {
   width: 12.5rem;
   height: auto;
   max-height: 72px;
+  aspect-ratio: 180 / 54;
   border: 0;
 }
 
@@ -2473,6 +2475,7 @@ blockquote {
     max-width: 100%;
     height: auto;
     max-height: 60px;
+    aspect-ratio: 180 / 54;
   }
 
   .site-footer__social {
