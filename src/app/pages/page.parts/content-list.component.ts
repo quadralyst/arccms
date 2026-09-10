@@ -398,7 +398,6 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
     constructor() {
         super();
-        console.log(this.currentContentType(), "chekc")
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
@@ -445,11 +444,9 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
                 this.loadCustomTemplate(contentType, contents);
             }
         });
-        console.log(this.currentContentType(), "chekc")
     }
 
     ngOnInit() {
-        console.log(this.currentContentType(), "chekc")
         const slug = this.activatedRoute.snapshot.paramMap.get('contentTypeSlug') || '';
         // Present only on the /{lang}/... route; absent means default language.
         const lang = this.activatedRoute.snapshot.paramMap.get('lang') || '';
