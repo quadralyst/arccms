@@ -6,8 +6,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockAdd, mockSettingsGet, mockSuppressionGet, mockGetContactConsent, mockDisabled } = vi.hoisted(() => ({
+const { mockAdd, mockCreate, mockDoc, mockSettingsGet, mockSuppressionGet, mockGetContactConsent, mockDisabled } = vi.hoisted(() => ({
   mockAdd: vi.fn().mockResolvedValue({ id: 'log-1' }),
+  mockCreate: vi.fn(),
+  mockDoc: vi.fn(),
   mockSettingsGet: vi.fn(),
   mockSuppressionGet: vi.fn(),
   mockGetContactConsent: vi.fn().mockResolvedValue(null),
@@ -36,7 +38,7 @@ vi.mock('../init', () => ({
         return { doc: vi.fn().mockReturnValue({ get: mockSuppressionGet }) };
       }
       if (name === 'EmailLogs') {
-        return { add: mockAdd };
+        return { add: mockAdd, doc: mockDoc };
       }
       return {};
     }),
@@ -90,6 +92,8 @@ describe('queueEmail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAdd.mockResolvedValue({ id: 'log-1' });
+    mockDoc.mockReturnValue({ create: mockCreate });
+    mockCreate.mockResolvedValue(undefined);
     mockSuppressionGet.mockResolvedValue({ exists: false, data: () => undefined });
     mockGetContactConsent.mockResolvedValue(null); // no contact → fall back to isSubscribed
     mockDisabled.value = false;
@@ -346,5 +350,52 @@ describe('queueEmail', () => {
     await queueEmail(baseParams);
 
     expect(lastAddArg().bcc).toBe('admin@site.com');
+  });
+
+  /**
+   * A trigger that retries on failure must never enqueue the same email twice.
+   * With a dedupe key the pending log gets a deterministic id and is created,
+   * not added; a second attempt is a no-op.
+   */
+  describe('dedupeKey', () => {
+    beforeEach(() => {
+      mockSettingsGet.mockResolvedValue({ exists: true, data: () => enabledSettings() });
+    });
+
+    it('creates the pending log at an id derived from type + key', async () => {
+      const res = await queueEmail({ ...baseParams, type: 'payment_succeeded_email', dedupeKey: 'pay:1' });
+
+      expect(mockDoc).toHaveBeenCalledWith('payment_succeeded_email__pay:1');
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      expect(mockAdd).not.toHaveBeenCalled();
+      expect(res).toEqual({ id: 'payment_succeeded_email__pay:1', status: 'pending' });
+    });
+
+    it('strips slashes, which a doc id cannot contain', async () => {
+      await queueEmail({ ...baseParams, dedupeKey: 'evt/a/b' });
+      expect(mockDoc.mock.calls[0][0]).not.toContain('/');
+    });
+
+    it('reports a duplicate instead of writing when the id already exists', async () => {
+      mockCreate.mockRejectedValue(Object.assign(new Error('ALREADY_EXISTS'), { code: 6 }));
+
+      const res = await queueEmail({ ...baseParams, dedupeKey: 'pay:1' });
+      expect(res.status).toBe('pending');
+      expect(res.duplicate).toBe(true);
+    });
+
+    it('rethrows any other write failure', async () => {
+      mockCreate.mockRejectedValue(Object.assign(new Error('UNAVAILABLE'), { code: 14 }));
+      await expect(queueEmail({ ...baseParams, dedupeKey: 'pay:1' })).rejects.toThrow('UNAVAILABLE');
+    });
+
+    it('logs a blocked send on an auto-id, so a later retry can still send', async () => {
+      mockSettingsGet.mockResolvedValue({ exists: true, data: () => enabledSettings({ isEnabled: false }) });
+
+      const res = await queueEmail({ ...baseParams, dedupeKey: 'pay:1' });
+      expect(res.status).toBe('skipped');
+      expect(mockAdd).toHaveBeenCalledTimes(1);
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
   });
 });

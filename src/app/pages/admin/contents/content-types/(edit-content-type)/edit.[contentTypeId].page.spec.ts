@@ -466,8 +466,12 @@ describe('EditContentTypeComponent', () => {
             expect(component.fieldTypes).toContain('radio');
         });
 
-        it('should have 15 field types total', () => {
-            expect(component.fieldTypes.length).toBe(15);
+        it('should have 16 field types total', () => {
+            expect(component.fieldTypes.length).toBe(16);
+        });
+
+        it('should include the color type', () => {
+            expect(component.fieldTypes).toContain('color');
         });
 
         it('should include datetime field type', () => {
