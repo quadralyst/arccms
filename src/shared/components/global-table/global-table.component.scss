@@ -224,3 +224,18 @@ code {
     border: 1px solid #dee2e6;
     display: block;
 }
+
+// Color column: a swatch beside the hex value.
+.color-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+
+    .color-swatch {
+        width: 1.1rem;
+        height: 1.1rem;
+        border-radius: 0.25rem;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        flex: 0 0 auto;
+    }
+}

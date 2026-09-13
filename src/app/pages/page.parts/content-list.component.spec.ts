@@ -8,6 +8,7 @@ import { HttpClient } from '@angular/common/http';
 import { of } from 'rxjs';
 import { signal, makeStateKey } from '@angular/core';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
+import { ContentPartialsComponent } from './content-partials.component';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
 import { TagsStore } from '../admin/contents/content-types/tags/tags.store';
 import { Meta, Title } from '@angular/platform-browser';
@@ -91,7 +92,14 @@ describe('ContentListComponent', () => {
                     }
                 }
             ]
-        }).compileComponents();
+        })
+            // The site footer embeds <arc-content-partials>, which declares its
+            // own `providers: [ContentsStore]` and would otherwise construct a
+            // real store (and Firestore) underneath every page.
+            .overrideComponent(ContentPartialsComponent, {
+                set: { providers: [{ provide: ContentsStore, useValue: mockContentsStore }] },
+            })
+            .compileComponents();
 
         fixture = TestBed.createComponent(ContentListComponent);
         component = fixture.componentInstance;

@@ -1,9 +1,13 @@
+import { HttpClient } from '@angular/common/http';
+import { ContentPartialsComponent } from '../../page.parts/content-partials.component';
+import { ContentsStore } from '../../admin/contents/content-store/published-contents.store';
+import { ContentTypesStore } from '../../admin/contents/content-types/content-types.store';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { LeaderboardComponent } from './leaderboard.component';
 import { WaitlistService } from '../waitlist.service';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
-import { ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, signal } from '@angular/core';
 
 import { GaTrackingService } from '../../../../shared/services/ga-tracking.service';
 
@@ -28,9 +32,14 @@ const mockActivatedRoute = {
         get: (key: string) => {
             if (key === 'waitlistId') return 'test-waitlist';
             return null;
-        }
-    })
+        },
+        // BaseComponent (reached through the footer's partials) reads `keys`.
+        keys: ['waitlistId'],
+    }),
+    queryParams: of({}),
 };
+
+const emptyStore = { items: signal([]), isLoading: signal(false), getAll: vi.fn(), unsubscribeStore: vi.fn() };
 
 describe('LeaderboardComponent', () => {
     let component: LeaderboardComponent;
@@ -44,9 +53,18 @@ describe('LeaderboardComponent', () => {
                 { provide: WaitlistService, useValue: mockWaitlistService },
                 { provide: GaTrackingService, useValue: mockGaTrackingService },
                 { provide: ActivatedRoute, useValue: mockActivatedRoute },
+                // The site footer embeds <arc-content-partials>, which reaches
+                // the content stores (and Firestore) and the router.
+                { provide: ContentTypesStore, useValue: emptyStore },
+                { provide: HttpClient, useValue: { get: vi.fn().mockReturnValue(of('')) } },
+                { provide: Router, useValue: { navigate: vi.fn(), events: of(), url: '/' } },
                 ChangeDetectorRef
             ]
-        }).compileComponents();
+        })
+            .overrideComponent(ContentPartialsComponent, {
+                set: { providers: [{ provide: ContentsStore, useValue: emptyStore }] },
+            })
+            .compileComponents();
 
         fixture = TestBed.createComponent(LeaderboardComponent);
         component = fixture.componentInstance;

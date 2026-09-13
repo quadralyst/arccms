@@ -17,6 +17,7 @@ import { IDraftContents } from '../admin/contents/draft-content-store/draft-cont
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FooterComponent } from './footer.component';
 import { HeaderComponent } from './header.component';
+import { PageSpinnerComponent } from './page-spinner.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
@@ -36,10 +37,13 @@ import {
 @Component({
     selector: 'arc-content-detail',
     standalone: true,
-    imports: [CommonModule, HeaderComponent, FooterComponent, SafeHtmlPipe, ArcTranslateDirective],
+    imports: [CommonModule, HeaderComponent, FooterComponent, PageSpinnerComponent, SafeHtmlPipe, ArcTranslateDirective],
     template: `
     <arc-header></arc-header>
     
+    @if(awaitingFirstData()) {
+        <arc-page-spinner />
+    }
     @if(hydrated()) {
     @if(contentTypesStore.isLoading() || contentsStore.isLoading() || isCheckingDraft() || !contentsStore.isSuccess()) {
         <div class="loading-container">
@@ -485,6 +489,20 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
      * On the server, always true so SSR renders the loading state.
      */
     hydrated = signal<boolean>(false);
+
+    /**
+     * Show a spinner in the body until the first client-side data lands.
+     *
+     * Only when the page arrived without server-rendered markup: production
+     * serves an empty SPA shell for content routes, so without this the body
+     * is blank and the site footer sits under the header until the data
+     * arrives, then jumps. A server-rendered page keeps its own markup
+     * (the dehydrated DOM survives until the app is stable), so a second
+     * spinner would just stack on top of it.
+     */
+    awaitingFirstData = computed<boolean>(() => !this.hydrated() && !this.serverRendered);
+    private readonly serverRendered = !isPlatformBrowser(this.platformId)
+        || !!this.document.getElementById('ng-state');
 
     currentContentType = computed(() => {
         const slug = this.contentTypeSlug();

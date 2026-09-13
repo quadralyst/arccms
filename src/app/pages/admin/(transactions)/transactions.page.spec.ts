@@ -14,6 +14,7 @@ import { of } from 'rxjs';
 import TransactionsPageComponent from './transactions.page';
 import { TransactionsStore } from './transactions.store';
 import { ITransaction } from './transaction.model';
+import { headerTestProviders } from '../../../../test/header-test-providers';
 
 function txn(overrides: Partial<ITransaction> = {}): ITransaction {
     return {
@@ -45,6 +46,8 @@ describe('TransactionsPageComponent', () => {
             imports: [TransactionsPageComponent, NoopAnimationsModule],
             providers: [
                 provideRouter([]),
+                // The page header's language menu reaches AuthState → AuthService → Firestore.
+                ...headerTestProviders(),
                 // BaseComponent injects ActivatedRoute; the page itself reads none of it.
                 {
                     provide: ActivatedRoute,
