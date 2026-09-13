@@ -498,7 +498,12 @@ export class DraftContentsTableComponent
         // Icon fields render the glyph itself. The stored value is a token
         // object, so the default text cell prints "[object Object]" — and the
         // glyph is the one thing that identifies an icon at a glance anyway.
-        type: field.type === 'image' ? 'image' : field.type === 'icon' ? 'icon' : 'text',
+        //
+        // Color fields show a swatch beside the hex value.
+        type: field.type === 'image' ? 'image'
+            : field.type === 'icon' ? 'icon'
+            : field.type === 'color' ? 'color'
+            : 'text',
         ...(field.type === 'image' ? { imageConfig: { height: 40, altKey: 'title' } } : {}),
         ...(field.type === 'icon'
             ? { classFn: (row: any) => iconClasses(row?.customFields?.[field.key]) }

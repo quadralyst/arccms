@@ -1329,3 +1329,43 @@ footer {
     line-height: 1.3rem;
     text-align: center;
 }
+
+// Size picker in the preview panel: S / M / L / XL, M preselected.
+.size-row {
+    align-items: center;
+}
+
+.size-chips {
+    display: inline-flex;
+    gap: 0.25rem;
+}
+
+.size-chip {
+    border: 1px solid var(--border-color, #dee2e6);
+    background: #fff;
+    color: #495057;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.3rem 0.55rem;
+    cursor: pointer;
+
+    &:hover {
+        border-color: #4a6cf7;
+        color: #4a6cf7;
+    }
+
+    &.active {
+        background: #4a6cf7;
+        border-color: #4a6cf7;
+        color: #fff;
+    }
+}
+
+.size-hint {
+    text-align: right;
+    color: #6c757d;
+    font-size: 0.72rem;
+    padding-top: 0.25rem;
+}

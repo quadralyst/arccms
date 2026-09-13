@@ -31,6 +31,16 @@
                             </i>
                         </ng-container>
 
+                        <!-- Color Type: swatch beside the stored value -->
+                        <ng-container *ngIf="col.type === 'color'">
+                            @if (col.transformFn ? col.transformFn(row) : row[col.key]; as color) {
+                            <span class="color-cell">
+                                <span class="color-swatch" [style.background-color]="color"></span>
+                                <code>{{ color }}</code>
+                            </span>
+                            }
+                        </ng-container>
+
                         <!-- Index Type -->
                         <ng-container *ngIf="col.type === 'index'">
                             {{ (pageIndex * pageSize) + i + 1 }}

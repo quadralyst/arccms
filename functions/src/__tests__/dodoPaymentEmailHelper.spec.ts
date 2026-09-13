@@ -32,9 +32,17 @@ vi.mock('../init', () => ({
     collection: (name: string) => {
       if (name === 'EmailTemplate') return { where: () => ({ limit: () => ({ get: mockTemplateGet }) }) };
       if (name === 'EmailLogs') return { add: mockAdd, doc: mockDoc };
-      return { doc: () => ({ get: mockSettingsGet }) }; // Settings
+      if (name === 'Settings') return { doc: () => ({ get: mockSettingsGet }) };
+      // Suppression: nothing on file for this recipient.
+      return { doc: () => ({ get: async () => ({ exists: false }) }) };
     },
   },
+}));
+
+// The send goes through the queueEmail() chokepoint, whose consent gate reads
+// the contact; an unknown contact is neither unsubscribed nor disabled.
+vi.mock('../email-core/contacts', () => ({
+  getContactGateState: async () => ({ exists: false, consent: null, disabled: false }),
 }));
 
 import { sendPaymentEmail } from '../dodo-payments/paymentEmailHelper.js';
@@ -52,7 +60,8 @@ const recipient = { email: 'a@b.com', name: 'Ada' };
 beforeEach(() => {
   vi.clearAllMocks();
   mockTemplateGet.mockResolvedValue({ empty: false, docs: [{ data: () => template }] });
-  mockSettingsGet.mockResolvedValue({ exists: false });
+  // Email is switched on with a provider, so the kill-switch gate lets the send through.
+  mockSettingsGet.mockResolvedValue({ exists: true, data: () => ({ isEnabled: true, activeProvider: 'smtp', features: {} }) });
   mockDoc.mockReturnValue({ create: mockCreate });
   mockCreate.mockResolvedValue(undefined);
   mockAdd.mockResolvedValue({ id: 'log1' });
@@ -115,7 +124,10 @@ describe('sendPaymentEmail — admin toggles still apply', () => {
     mockTemplateGet.mockResolvedValue({ empty: false, docs: [{ data: () => ({ ...template, isActive: false }) }] });
     await sendPaymentEmail('payment_succeeded_email', recipient, {}, 'k1');
 
+    // Nothing is enqueued; the chokepoint records the skip on an auto-id log.
     expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockAdd).toHaveBeenCalledTimes(1);
+    expect(mockAdd.mock.calls[0][0]).toMatchObject({ status: 'skipped', skipReason: 'template_inactive' });
   });
 
   it('sends nothing when the event carries no recipient email', async () => {

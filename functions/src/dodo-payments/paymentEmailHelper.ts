@@ -60,9 +60,10 @@ export async function sendPaymentEmail(
   // Route through the queueEmail() chokepoint — it enforces the kill-switch,
   // the paymentEmails feature toggle, template-active state, and suppression,
   // and resolves BCC from settings. Payment email is transactional.
-  await queueEmail({
+  const result = await queueEmail({
     source: 'payment',
     category: 'transactional',
+    dedupeKey,
     toEmail: recipient.email,
     toName,
     senderEmail: template.senderEmail,
@@ -82,5 +83,9 @@ export async function sendPaymentEmail(
       updatesEndDate: vars.updatesEndDate || '',
     },
   });
+  if (result.duplicate) {
+    logger.info(`Payment email ${type} for ${dedupeKey} already enqueued; skipping.`);
+    return;
+  }
   logger.info(`Enqueued payment email ${type} to ${recipient.email}`);
 }

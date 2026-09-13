@@ -8,6 +8,7 @@ import { HttpClient } from '@angular/common/http';
 import { of } from 'rxjs';
 import { signal, makeStateKey, TransferState } from '@angular/core';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
+import { ContentPartialsComponent } from './content-partials.component';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 
@@ -108,7 +109,14 @@ describe('ContentDetailComponent', () => {
                     }
                 }
             ]
-        }).compileComponents();
+        })
+            // The site footer embeds <arc-content-partials>, which declares its
+            // own `providers: [ContentsStore]` and would otherwise construct a
+            // real store (and Firestore) underneath every page.
+            .overrideComponent(ContentPartialsComponent, {
+                set: { providers: [{ provide: ContentsStore, useValue: mockContentsStore }] },
+            })
+            .compileComponents();
 
         fixture = TestBed.createComponent(ContentDetailComponent);
         component = fixture.componentInstance;
@@ -917,7 +925,14 @@ describe('ContentDetailComponent preview=true ngOnInit', () => {
                     }
                 }
             ]
-        }).compileComponents();
+        })
+            // The site footer embeds <arc-content-partials>, which declares its
+            // own `providers: [ContentsStore]` and would otherwise construct a
+            // real store (and Firestore) underneath every page.
+            .overrideComponent(ContentPartialsComponent, {
+                set: { providers: [{ provide: ContentsStore, useValue: mockContentsStorePreview }] },
+            })
+            .compileComponents();
 
         previewFixture = TestBed.createComponent(ContentDetailComponent);
         previewComponent = previewFixture.componentInstance;
