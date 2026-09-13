@@ -350,9 +350,8 @@
                             <div class="cover-image-upload" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
                                 @if (!coverImage) {
                                 <div class="upload-area" (click)="openMediaManager()">
-                                    <p class="mb-1">{{ 'admin.contents.editor.click_to_upload' | transloco }}</p>
-                                    <small class="text-muted">{{ 'admin.contents.editor.image_recommendation' | transloco }}</small>
-                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2">{{ 'admin.contents.editor.upload_image' | transloco }}</button>
+                                    <p class="mb-1">{{ 'admin.contents.editor.click_to_select_image' | transloco }}</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2">{{ 'admin.contents.editor.select_image' | transloco }}</button>
                                     <input type="file" id="coverImageInput" hidden (change)="onFileSelected($event)"
                                         accept="image/*">
                                 </div>

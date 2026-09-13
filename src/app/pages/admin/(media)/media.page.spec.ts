@@ -789,7 +789,7 @@ describe('MediaManagerComponent multi-select', () => {
         component.insertMedia();
 
         // The CDN resizes on the fly, so the default M width is asked for.
-        expect(closeSpy.mock.calls[0][0].mediaUrls).toEqual(['https://images.unsplash.com/u.jpg?w=600&fit=max&fm=webp&q=80']);
+        expect(closeSpy.mock.calls[0][0].mediaUrls).toEqual(['https://images.unsplash.com/u.jpg?w=600&h=600&fit=max&fm=webp&q=80']);
     });
 
     it('clears the basket when the tab changes', async () => {

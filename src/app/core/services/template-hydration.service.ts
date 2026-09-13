@@ -23,7 +23,8 @@ export class TemplateHydrationService {
    * Publishes each custom field under its unprefixed name as well.
    *
    * Custom field keys are stored prefixed with the content type slug, so a
-   * heading on `events` is `events_details_heading`. A template shared by
+   * heading on `events` is `events-details_heading` (`events_details_heading`
+   * on a type created before keys switched to the hyphen). A template shared by
    * every content type — `templates/default/detail.html` — cannot name that,
    * the same problem `arrayLoopData` solves for loops.
    *
@@ -42,11 +43,14 @@ export class TemplateHydrationService {
     const slug = typeof data['contentTypeSlug'] === 'string' ? data['contentTypeSlug'] : '';
     if (!slug) return data;
 
-    const prefix = `${slug}_`;
+    // New keys are `<slug>-<name>`; types created earlier carry `<slug>_<name>`
+    // and are never rewritten, so both prefixes are recognised.
+    const prefixes = [`${slug}-`, `${slug}_`];
     let result = data;
 
     for (const key of Object.keys(data)) {
-      if (!key.startsWith(prefix) || key.length === prefix.length) continue;
+      const prefix = prefixes.find((p) => key.startsWith(p) && key.length > p.length);
+      if (!prefix) continue;
 
       const bare = key.slice(prefix.length);
       if (bare in data) continue;
@@ -205,7 +209,7 @@ export class TemplateHydrationService {
    *   {{ card_icon_name }}   star              — the bare name
    *
    * The suffixes are underscored because field keys are themselves forced to
-   * `^[a-z0-9_]+$`, so `card_iconSvg` would be the odd one out.
+   * `^[a-z0-9_-]+$`, so `card_iconSvg` would be the odd one out.
    *
    * Documented in TEMPLATES.md. Runs on a copy; the caller's data is not
    * touched.
@@ -667,7 +671,7 @@ export class TemplateHydrationService {
     if (!customFields) return loops;
 
     const taken = new Set(reserved);
-    const prefix = slug ? `${slug}_` : '';
+    const prefixes = slug ? [`${slug}-`, `${slug}_`] : [];
     const aliases: Record<string, any[]> = {};
 
     for (const [key, value] of Object.entries(customFields)) {
@@ -682,7 +686,8 @@ export class TemplateHydrationService {
 
       loops[key] = ordered;
 
-      if (prefix && key.startsWith(prefix) && key.length > prefix.length) {
+      const prefix = prefixes.find((p) => key.startsWith(p) && key.length > p.length);
+      if (prefix) {
         const bare = key.slice(prefix.length);
         if (!taken.has(bare)) aliases[bare] = ordered;
       }
