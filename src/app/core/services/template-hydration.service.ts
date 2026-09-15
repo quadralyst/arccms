@@ -2,6 +2,8 @@ import * as cheerio from 'cheerio';
 import { interpolate, parseParams } from '../i18n/interpolate';
 import { TemplateContext } from '../models/cms.types';
 import { youTubeVideo } from '../../../shared/utils/youtube';
+import { parseHexColor } from '../../../shared/utils/color';
+import { imageSizeUrls, IMAGE_SIZES } from '../../../shared/utils/image-sizes';
 import { renderLocation } from '../../../shared/utils/geo';
 
 /**
@@ -122,6 +124,72 @@ export class TemplateHydrationService {
   }
 
   /**
+   * Adds every size of an image beside the one that is stored.
+   *
+   * Media uploads exist at four widths (see image-sizes.ts). The content
+   * document stores whichever the editor picked; a template that wants
+   * another — a thumbnail in a list, the full width in a hero — binds the
+   * size it needs:
+   *
+   *   {{ coverImage_s }}  {{ coverImage_m }}  {{ coverImage_l }}  {{ coverImage_xl }}
+   *
+   * Only strings this CMS can resize gain siblings (its own uploads, Unsplash
+   * photos); a pasted external URL is left alone. Older single-file uploads
+   * answer to every size with that one file, so a template can bind a size
+   * without knowing how old the image is.
+   */
+  private static flattenImageSizes(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    let result = data;
+
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value !== 'string' || !value) continue;
+      const sizes = imageSizeUrls(value);
+      if (!sizes) continue;
+
+      if (result === data) result = { ...data };
+      for (const size of IMAGE_SIZES) {
+        result[`${key}_${size}`] = sizes[size];
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Expands a stored colour into the forms a stylesheet wants.
+   *
+   * A `color` field stores a hex string, so `{{ brand }}` already works as a
+   * CSS value. Beside it:
+   *
+   *   {{ brand_rgb }}         rgb(26, 115, 232)
+   *   {{ brand_rgb_values }}  26, 115, 232  — for rgba({{ brand_rgb_values }}, .5)
+   *
+   * Keyed on the value's shape, like flattenVideos: a string that starts with
+   * `#` and parses as a hex colour gains the siblings. The hash is required
+   * here even though the editor accepts its absence — a text field holding
+   * "bad" or "cafe" is a word, not a colour. The stored value is left as is.
+   */
+  private static flattenColors(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    let result = data;
+
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value !== 'string' || !value.startsWith('#')) continue;
+      const color = parseHexColor(value);
+      if (!color) continue;
+
+      if (result === data) result = { ...data };
+      result[`${key}_rgb`] = color.rgb;
+      result[`${key}_rgb_values`] = color.rgbValues;
+    }
+
+    return result;
+  }
+
+  /**
    * Expands stored icon tokens into the plain strings a template binds to.
    *
    * An `icon` field stores an object (`{ classes, markup, label, name }`), and
@@ -205,6 +273,10 @@ export class TemplateHydrationService {
     data = this.flattenIcons(data);
     // YouTube URLs gain their id, embed and poster. See flattenVideos.
     data = this.flattenVideos(data);
+    // Hex colours gain their rgb forms. See flattenColors.
+    data = this.flattenColors(data);
+    // Image URLs gain their other sizes. See flattenImageSizes.
+    data = this.flattenImageSizes(data);
     // Coordinates gain their map embed and directions link. See flattenLocations.
     data = this.flattenLocations(data);
 

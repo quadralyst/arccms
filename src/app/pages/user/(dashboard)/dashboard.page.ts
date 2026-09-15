@@ -63,10 +63,10 @@ interface ActivityItem {
                         <mat-card-content class="w-body">
                             <div class="banner-icon"><i class="fa-solid fa-rocket"></i></div>
                             <div class="banner-text">
-                                <h3>Get Started</h3>
-                                <p class="text-muted">You are currently on the Free plan. Upgrade to unlock premium features and credit allocation.</p>
+                                <h3>{{ 'user.dashboard.get_started' | transloco }}</h3>
+                                <p class="text-muted">{{ 'user.dashboard.free_note' | transloco }}</p>
                             </div>
-                            <a mat-flat-button class="action-accent-btn" routerLink="/pricing">Explore Plans</a>
+                            <a mat-flat-button class="action-accent-btn" routerLink="/pricing">{{ 'user.dashboard.see_plans' | transloco }}</a>
                         </mat-card-content>
                     </mat-card>
                 }

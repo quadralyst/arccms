@@ -706,6 +706,107 @@ offers class names the older stylesheet cannot draw. A test enforces both.
 
 ---
 
+## Image sizes
+
+Every image uploaded through the Media Manager is stored in four sizes:
+
+| Size | Width | |
+|------|-------|-|
+| `s` | ¼ of the maximum | thumbnails, avatars, list cards |
+| `m` | ½ of the maximum | **the default** an editor gets when inserting |
+| `l` | ¾ of the maximum | article bodies |
+| `xl` | the maximum | heroes, full-width covers |
+
+The maximum is **Admin > Settings > Misc > Max width** — 1200px on a new
+install, so the sizes are 300 / 600 / 900 / 1200. Uploads are stored as WebP
+unless that is switched off there. A picture smaller than a size is not
+enlarged; that size simply reuses the next one down.
+
+When an editor inserts an image — the cover, an image field, a gallery or
+info-card row — they pick a size (M unless they change it) and that URL is
+what the document stores. A template that wants another size does not need
+the editor to have chosen it: every image binding has four siblings.
+
+### Rendering a size
+
+| Binding | Contains |
+|---------|----------|
+| `{{ coverImage }}` | The size the editor picked |
+| `{{ coverImage_s }}` | The S size |
+| `{{ coverImage_m }}` | The M size |
+| `{{ coverImage_l }}` | The L size |
+| `{{ coverImage_xl }}` | The XL size |
+
+The same suffixes work on any image — a custom `image` field (`{{ photo_xl }}`),
+and `{{ image_s }}` inside a gallery or info-card row. A responsive image is
+then one `srcset`:
+
+```html
+<img src="{{ coverImage_m }}"
+     srcset="{{ coverImage_s }} 300w, {{ coverImage_m }} 600w, {{ coverImage_l }} 900w, {{ coverImage_xl }} 1200w"
+     sizes="(max-width: 600px) 100vw, 600px"
+     alt="{{ title }}">
+```
+
+Images from before sizes existed have one file; every size binding returns
+it, so the template above still renders. Unsplash photos are resized by
+Unsplash's CDN at the same widths. An image pasted in from elsewhere gets no
+size bindings — there is nothing to resize it with.
+
+---
+
+## Colours
+
+The **Color** custom field type gives an editor a colour picker. Use it for
+anything a template wants to tint per item — a category's accent, a card
+background, a brand colour on a partner page.
+
+### Adding a Color field
+
+1. **Admin > Contents > Content Types**, edit your type, add a field.
+2. Set **Type** to `color` and give it a key, e.g. `accent`. As with every
+   custom field the stored key gains the slug prefix (`programs_accent`), and
+   the bare key also works in templates.
+3. When editing content, the field shows a swatch that opens the picker and a
+   hex box beside it — type `#1a73e8` (or the `#fff` shorthand) or pick.
+
+The stored value is the hex string. Required colour fields must be filled
+before publishing, like any other required field.
+
+### Rendering a colour
+
+One colour gives three bindings, all derived from the field key:
+
+| Binding | Contains | Use for |
+|---------|----------|---------|
+| `{{ accent }}` | `#1a73e8` | Any CSS colour value — **this is the usual one** |
+| `{{ accent_rgb }}` | `rgb(26, 115, 232)` | The same colour in rgb form |
+| `{{ accent_rgb_values }}` | `26, 115, 232` | Building a translucent tint: `rgba({{ accent_rgb_values }}, 0.15)` |
+
+Substitute your own **stored** field key for `accent` throughout.
+
+```html
+<article class="card" style="--accent: {{ accent }}; --accent-soft: rgba({{ accent_rgb_values }}, 0.12)">
+  <h3 style="color: var(--accent)">{{ title }}</h3>
+</article>
+```
+
+Or with the style binding, which needs no inline `style` attribute:
+
+```html
+<span class="tag" data-arc-style-background="accent" data-arc-bind="title">Tag</span>
+```
+
+The bindings are derived at render time, so a colour left empty renders as
+nothing — pair it with `data-arc-if="accent"` or a CSS fallback
+(`var(--accent, #333)`) when the field is optional.
+
+CSV import accepts the hex form in the colour's column and rejects anything
+else. In the admin contents list a colour column shows the swatch beside its
+value.
+
+---
+
 ## List Template Example
 
 ```html
