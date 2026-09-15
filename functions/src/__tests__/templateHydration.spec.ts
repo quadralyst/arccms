@@ -823,4 +823,37 @@ describe('TemplateHydrationService', () => {
             expect(result).not.toContain('onclick');
         });
     });
+
+    describe('data-arc-repeat', () => {
+        it('should repeat elements based on numeric value or string', () => {
+            const html = '<div data-arc-repeat="rating"><i class="star"></i></div>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { rating: 5 });
+            const starCount = (result.match(/class="star"/g) || []).length;
+            expect(starCount).toBe(5);
+            expect(result).not.toContain('data-arc-repeat');
+        });
+
+        it('should support literal number and @number/@index substitution', () => {
+            const html = '<ul data-arc-repeat="3"><li>{{ @number }}</li></ul>';
+            const result = TemplateHydrationService.hydrateTemplate(html, {});
+            expect(result).toContain('<li>1</li>');
+            expect(result).toContain('<li>2</li>');
+            expect(result).toContain('<li>3</li>');
+        });
+
+        it('should handle floating point numbers (e.g. 3.5) with full and half templates', () => {
+            const html = '<div data-arc-repeat="rating"><i class="full"></i><i class="half"></i></div>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { rating: '3.5' });
+            expect((result.match(/class="full"/g) || []).length).toBe(3);
+            expect((result.match(/class="half"/g) || []).length).toBe(1);
+        });
+
+        it('should handle progress bar / stepper with data-max and @state metadata', () => {
+            const html = '<div data-arc-repeat="val" data-max="4"><span class="{{ @state }}"></span></div>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { val: 2.5 });
+            expect((result.match(/class="full"/g) || []).length).toBe(2);
+            expect((result.match(/class="half"/g) || []).length).toBe(1);
+            expect((result.match(/class="empty"/g) || []).length).toBe(1);
+        });
+    });
 });

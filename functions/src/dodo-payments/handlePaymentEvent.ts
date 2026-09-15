@@ -358,18 +358,6 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
     }
   }
 
-  await sendPaymentEmail(
-    'payment_succeeded_email',
-    { email: customerEmail, name: data.customer?.name },
-    {
-      amount: toMajorUnits(data.total_amount, data.currency),
-      currency: data.currency,
-      status: 'succeeded',
-      plan: product?.premiumType,
-      renewalDate: data.next_billing_date,
-    },
-  );
-
   // Notifications & event bus (Phase 5) — additive, non-fatal.
   await Promise.allSettled([
     userId
@@ -411,7 +399,7 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
 async function handleFailure(eventType: string, data: DodoWebhookData, eventAt?: Date): Promise<void> {
   const product = await loadProduct(data);
   const userId = data.metadata?.userId || '';
-  const { created, idempotencyKey } = await recordTransaction(data, eventType, 'failed', product, userId, eventAt);
+  const { idempotencyKey } = await recordTransaction(data, eventType, 'failed', product, userId, eventAt);
   const recipient = { email: data.customer?.email || '', name: data.customer?.name };
 
   if (eventType === 'subscription.failed') {

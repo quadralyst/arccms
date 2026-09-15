@@ -22,7 +22,7 @@ import { ContentType, ContentTypeField, CollectionReferenceConfig } from '../con
 import { OmitCommonFields } from '../../../../../../shared/models/base-model';
 import { TemplateFolderService, TemplateFolder } from '../../../../../core/services/template-folder.service';
 import { ToastService } from '../../../../../../shared/services/toast.service';
-import { duplicateFieldKeyValidator } from '../collection-ref-helpers';
+import { bareFieldKey, duplicateFieldKeyValidator, fieldKeyFromLabel, fullFieldKey, hasSlugPrefix } from '../collection-ref-helpers';
 
 export const routeMeta: RouteMeta = {
     title: 'Add Content Type | Arc CMS',
@@ -77,7 +77,8 @@ export default class AddContentTypeComponent extends BaseComponent {
         'infocard',
         'gallery',
         'labelvalue',
-        'maplocation'
+        'maplocation',
+        'color'
     ];
 
     addForm = new FormGroup({
@@ -89,7 +90,7 @@ export default class AddContentTypeComponent extends BaseComponent {
         templateFolder: new FormControl('default'),
         icon: new FormControl('fa-solid fa-folder'),
         order: new FormControl(0),
-        fields: new FormArray([], [duplicateFieldKeyValidator()]),
+        fields: new FormArray([], [duplicateFieldKeyValidator((): string => (this.addForm?.get('slug')?.value as string) || '')]),
     });
 
     get name() {
@@ -122,9 +123,14 @@ export default class AddContentTypeComponent extends BaseComponent {
     }
 
     private createFieldGroup() {
+        const key = new FormControl('', [Validators.required, Validators.pattern(/^[a-z0-9-]+$/)]);
+        const label = new FormControl('', Validators.required);
+        // The admin types a name; the key follows from it. A name that leaves
+        // no key ("###") fails the key's own validators.
+        label.valueChanges.subscribe((value) => key.setValue(fieldKeyFromLabel(value)));
         return new FormGroup({
-            key: new FormControl('', [Validators.required, Validators.pattern(/^[a-z0-9_]+$/)]),
-            label: new FormControl('', Validators.required),
+            key,
+            label,
             type: new FormControl('text', Validators.required),
             required: new FormControl(false),
             options: new FormControl(''),
@@ -134,6 +140,25 @@ export default class AddContentTypeComponent extends BaseComponent {
             collectionRefDisplayField: new FormControl(''),
             denormalizedFields: new FormControl([]) // Stores array of field keys
         });
+    }
+
+    /** The stored key this field will get, as shown under its name. */
+    fieldKeyPreview(index: number): string {
+        const key = this.getFieldGroup(index).get('key')?.value || '';
+        const slug = this.addForm.get('slug')?.value || '';
+        return fullFieldKey(slug, key);
+    }
+
+    /** True when another field in this type has the same name or key. */
+    isDuplicateField(index: number): boolean {
+        const errors = this.fields.errors;
+        if (!errors) return false;
+        const group = this.getFieldGroup(index);
+        const slug = this.addForm.get('slug')?.value || '';
+        const key = bareFieldKey(group.get('key')?.value, slug);
+        const name = (group.get('label')?.value || '').trim().toLowerCase();
+        return (!!key && (errors['duplicateKeys'] || []).includes(key))
+            || (!!name && (errors['duplicateNames'] || []).includes(name));
     }
 
     // Existing methods below
@@ -354,10 +379,9 @@ export default class AddContentTypeComponent extends BaseComponent {
             templateFolder: formValue.templateFolder || 'default',
             fields: (formValue.fields || []).map((field: any, index: number) => {
                 const mapped = this.mapFieldWithCollectionRef(field, index);
-                // Prefix key with slug if not already (standard practice in this app?)
-                // Checking backup... yes: if (mapped.key && !mapped.key.startsWith(slug + '_'))
-                if (mapped.key && !mapped.key.startsWith(slug + '_')) {
-                    mapped.key = slug + '_' + mapped.key;
+                // Every field here is new: store it as `<slug>-<name>`.
+                if (mapped.key && !hasSlugPrefix(mapped.key, slug)) {
+                    mapped.key = fullFieldKey(slug, mapped.key);
                 }
                 return mapped;
             }),

@@ -1,0 +1,35 @@
+<svg viewBox="0 0 280 180" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+    <!-- Background -->
+    <rect width="280" height="180" fill="#e0e7ff" opacity="0.6"/>
+    <rect width="280" height="180" fill="#e2e8f0"/>
+
+    <!-- Left Whiteboard / Window -->
+    <rect x="24" y="32" width="76" height="52" rx="4" fill="#e2e8f0" opacity="0.9"/>
+    <rect x="28" y="36" width="68" height="44" rx="2" fill="#f8fafc"/>
+
+    <!-- Right Presentation Screen -->
+    <rect x="120" y="26" width="88" height="54" rx="4" fill="#1e293b"/>
+    <rect x="128" y="34" width="44" height="4" rx="2" fill="#38bdf8"/>
+    <rect x="128" y="44" width="64" height="3" rx="1.5" fill="#475569"/>
+
+    <!-- Wooden Desk in foreground -->
+    <rect x="40" y="118" width="168" height="10" rx="2" fill="#b45309" opacity="0.75"/>
+    <rect x="52" y="128" width="5" height="24" fill="#78350f" opacity="0.8"/>
+    <rect x="190" y="128" width="5" height="24" fill="#78350f" opacity="0.8"/>
+
+    <!-- Person 1 (Blue shirt, left) -->
+    <circle cx="68" cy="102" r="7.5" fill="#fed7aa"/>
+    <rect x="60" y="110" width="16" height="24" rx="2" fill="#2563eb"/>
+    <path d="M60 115 L52 125" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+    <path d="M76 115 L90 120" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+    <rect x="62" y="134" width="5" height="28" fill="#334155"/>
+    <rect x="69" y="134" width="5" height="28" fill="#334155"/>
+
+    <!-- Person 2 (Green shirt, right) -->
+    <circle cx="160" cy="102" r="7.5" fill="#fbcfe8"/>
+    <rect x="152" y="110" width="16" height="24" rx="2" fill="#16a34a"/>
+    <path d="M152 115 L144 120" stroke="#16a34a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M168 115 L174 126" stroke="#16a34a" stroke-width="4" stroke-linecap="round"/>
+    <rect x="154" y="134" width="5" height="28" fill="#334155"/>
+    <rect x="161" y="134" width="5" height="28" fill="#334155"/>
+</svg>

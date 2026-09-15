@@ -1,0 +1,1382 @@
+<div class="arc-cms-template">
+    <main class="im-page">
+        <section class="im-hero">
+            <div class="im-shell">
+
+                <nav class="im-crumbs" aria-label="Breadcrumb">
+                    <ol class="im-crumbs__list">
+                        <li class="im-crumbs__item"><a class="im-crumbs__link" href="/"><i class="fa-solid fa-house"
+                                    aria-hidden="true"></i> Home</a></li>
+                        <li class="im-crumbs__item"><a class="im-crumbs__link" href="/{{ contentTypeSlug }}"><span
+                                    data-arc-bind="contentType">Impact
+                                    in Action</span></a></li>
+                        <li class="im-crumbs__item im-crumbs__item--current" aria-current="page" data-arc-bind="title">
+                        </li>
+                    </ol>
+                </nav>
+
+                <div class="im-hero__grid">
+
+                    <div class="im-hero__content">
+                        <div class="im-chips">
+                            <span class="im-chip im-chip--programme" data-arc-if="impact-actions_sub_tag_heading">
+                                <i class="im-chip__icon " [class]="impact-actions_sub_tag_icon" aria-hidden="true"></i>
+                            </span>
+                            <span class="im-chips__tags" data-arc-loop="impact-actions_sub_tag">
+                                <span class="im-chip" data-arc-bind="value"></span>
+                            </span>
+                        </div>
+
+                        <h1 class="im-hero__title" data-arc-bind="title"></h1>
+
+                        <p class="im-hero__overview" data-arc-bind="impact-actions_sub_description"></p>
+
+                        <p class="im-hero__meta" data-arc-loop="impact-actions_hero_info">
+                            <span><i class={{icon}} aria-hidden="true"></i> <span data-arc-bind="info"></span>
+                        </p>
+
+                        <div class="im-hero__actions">
+                            <a class="im-btn im-btn--solid" href="#story-media">
+                                <i class="fa-solid fa-play" aria-hidden="true"></i>
+                                Watch the film
+                            </a>
+                            <a class="im-btn im-btn--quiet" href="/{{ contentTypeSlug }}">
+                                All stories
+                                <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                            </a>
+                        </div>
+
+                    </div>
+
+                    <figure class="im-hero__figure" data-arc-if="coverImage">
+                        <img class="im-hero__media" src="{{coverImage}}" alt="{{title}}" width="1600" height="900">
+                    </figure>
+
+                </div>
+
+            </div>
+        </section>
+
+        <section class="im-outcome" data-arc-if="impact-actions_What_changed">
+            <div class="im-shell">
+                <div class="im-outcome__head" data-arc-if="impact-actions_What_changed_heading">
+                    <p class="im-outcome__kicker">By the numbers</p>
+                    <h2 class="im-outcome__heading" data-arc-bind="impact-actions_What_changed_heading">
+                    </h2>
+                </div>
+                <!-- First <div> is the row template -->
+                <dl class="im-outcome__grid" data-arc-loop="impact-actions_What_changed">
+                    <div class="im-outcome__item">
+                        <dt class="im-outcome__label" data-arc-bind="label"></dt>
+                        <dd class="im-outcome__value" data-arc-bind="value"></dd>
+                    </div>
+                </dl>
+            </div>
+        </section>
+        <section class="im-media" id="story-media" data-arc-if="impact-actions_images_card">
+            <div class="im-shell">
+                <header class="im-head im-head--row">
+                    <div class="im-head__group">
+                        <h2 class="im-head__title"><i class="im-head__icon fa-solid fa-images"
+                                aria-hidden="true"></i>From the day</h2>
+                        <p class="im-head__sub im-head__sub--left">Photographs and film shot on site by the volunteer
+                            team.</p>
+                    </div>
+                </header>
+
+                <div class="im-viewer" data-viewer>
+
+                    <figure class="im-viewer__stage" data-viewer-stage>
+                        <img class="im-viewer__image" data-viewer-image width="1280" height="720">
+                        <button class="im-viewer__play" type="button" data-viewer-play hidden>
+                            <i class="fa-solid fa-play" aria-hidden="true"></i>
+                            <span class="im-sr">Play video</span>
+                        </button>
+                        <figcaption class="im-viewer__caption" data-viewer-caption>
+                        </figcaption>
+                    </figure>
+
+                    <div class="im-viewer__rail-wrap">
+                        <button class="im-viewer__arrow im-viewer__arrow--prev" type="button" data-viewer-prev hidden>
+                            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span class="im-sr">Scroll
+                                thumbnails left</span>
+                        </button>
+
+                        <div class="im-viewer__rail" data-viewer-rail data-arc-loop="impact-actions_images_card"
+                            data-limit="24">
+                            <button class="im-thumb" type="button" data-viewer-thumb data-embed="">
+                                <img class="im-thumb__img im-thumb__img--photo" src={{image}} alt={{info}} width="1280"
+                                    height="720">
+                                <span class="im-sr" data-viewer-thumb-caption data-arc-bind="info"></span>
+                            </button>
+                        </div>
+
+                        <button class="im-viewer__arrow im-viewer__arrow--next" type="button" data-viewer-next hidden>
+                            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i><span class="im-sr">Scroll
+                                thumbnails right</span>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <section class="im-body">
+            <div class="im-shell im-body__grid">
+                <article class="im-prose" [innerHTML]="impact-actions_informations">
+                </article>
+
+                <aside class="im-aside">
+
+                    <section class="im-card im-facts" data-arc-if="impact-actions_side_bar">
+                        <div class="im-card__head" data-arc-if="impact-actions_side_bar_heading">
+                            <i class="im-card__icon fa-solid fa-circle-info" aria-hidden="true"></i>
+                            <h2 class="im-card__title" data-arc-bind="impact-actions_side_bar_heading">
+                            </h2>
+                        </div>
+                        <dl class="im-facts__list" data-arc-loop="impact-actions_side_bar">
+                            <div class="im-facts__row">
+                                <dt class="im-facts__key" data-arc-bind="label"></dt>
+                                <dd class="im-facts__val" data-arc-bind="value"></dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section class="im-card im-share">
+                        <h2 class="im-card__title"><i class="im-card__icon fa-solid fa-share-nodes"
+                                aria-hidden="true"></i>Share this story</h2>
+                        <ul class="im-share__list">
+                            <li><a class="im-share__link" data-arc-bind="share.linkedin" href="#"><i
+                                        class="fa-brands fa-linkedin-in" aria-hidden="true"></i><span
+                                        class="im-sr">LinkedIn</span></a></li>
+                            <li><a class="im-share__link" data-arc-bind="share.facebook" href="#"><i
+                                        class="fa-brands fa-facebook-f" aria-hidden="true"></i><span
+                                        class="im-sr">Facebook</span></a></li>
+                            <li><a class="im-share__link" data-arc-bind="share.twitter" href="#"><i
+                                        class="fa-brands fa-x-twitter" aria-hidden="true"></i><span
+                                        class="im-sr">X</span></a></li>
+                            <li><a class="im-share__link" data-arc-bind="share.whatsapp" href="#"><i
+                                        class="fa-brands fa-whatsapp" aria-hidden="true"></i><span
+                                        class="im-sr">WhatsApp</span></a></li>
+                            <li><a class="im-share__link" data-arc-bind="share.email" href="#"><i
+                                        class="fa-regular fa-envelope" aria-hidden="true"></i><span
+                                        class="im-sr">Email</span></a></li>
+                        </ul>
+                    </section>
+
+                    <section class="im-card im-invite">
+                        <h2 class="im-card__title im-card__title--invert"><i class="im-card__icon fa-solid fa-rocket"
+                                aria-hidden="true"></i>Want one of these?</h2>
+                        <p class="im-invite__text">Sessions like this start with one person picking a listing near them.
+                        </p>
+                        <a class="im-btn im-btn--invert im-invite__btn" href="/entry-points">Find a
+                            drive near you<i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                    </section>
+
+                </aside>
+
+            </div>
+        </section>
+
+        <section class="im-cta" data-arc-if="impact-actions_banner_title">
+            <div class="im-shell">
+                <div class="im-cta__panel">
+                    <div class="im-cta__content">
+                        <h2 class="im-cta__title" data-arc-bind="impact-actions_banner_title.0.headline"></h2>
+                        <p class="im-cta__text" data-arc-bind="impact-actions_banner_title.0.info"></p>
+                    </div>
+                    <a class="im-btn im-btn--invert im-btn--lg" href="/{{ contentTypeSlug }}">Get involved<i
+                            class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- <section class="im-related">
+            <div class="im-shell">
+                <header class="im-head im-head--row">
+                    <div class="im-head__group">
+                        <h2 class="im-head__title"><i class="im-head__icon fa-solid fa-compass"
+                                aria-hidden="true"></i>More impact in action</h2>
+                        <p class="im-head__sub im-head__sub--left">Real stories from real people, across 42 cities.</p>
+                    </div>
+                    <a class="im-head__link" href="/{{ contentTypeSlug }}">
+                        View full gallery
+                        <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                    </a>
+                </header>
+
+                <div class="im-related__grid">
+                    <article class="im-related__card" data-arc-if="previousContent.title">
+                        <a class="im-related__link" data-arc-bind="previousContent.url" href="#">
+                            <span class="im-related__eyebrow" data-arc-bind="contentType">Impact in Action</span>
+                            <h3 class="im-related__title" data-arc-bind="previousContent.title">Four hundred saplings in
+                                a morning</h3>
+                            <p class="im-related__text">Read what happened, who showed up and what it changed.</p>
+                            <span class="im-related__cta">Read more <i class="fa-solid fa-chevron-right"
+                                    aria-hidden="true"></i></span>
+                        </a>
+                    </article>
+                    <article class="im-related__card" data-arc-if="nextContent.title">
+                        <a class="im-related__link" data-arc-bind="nextContent.url" href="#">
+                            <span class="im-related__eyebrow" data-arc-bind="contentType"></span>
+                            <h3 class="im-related__title" data-arc-bind="nextContent.title"></h3>
+                            <p class="im-related__text">Read what happened, who showed up and what it changed.</p>
+                            <span class="im-related__cta">Read more <i class="fa-solid fa-chevron-right"
+                                    aria-hidden="true"></i></span>
+                        </a>
+                    </article>
+                    <article class="im-related__card im-related__card--all">
+                        <a class="im-related__link" href="/{{ contentTypeSlug }}">
+                            <span class="im-related__eyebrow">Browse</span>
+                            <h3 class="im-related__title">The full gallery</h3>
+                            <p class="im-related__text">Every story we have documented, newest first, photos and film.
+                            </p>
+                            <span class="im-related__cta">Read more <i class="fa-solid fa-chevron-right"
+                                    aria-hidden="true"></i></span>
+                        </a>
+                    </article>
+                </div>
+            </div>
+        </section> -->
+
+    </main>
+</div>
+
+<style>
+    @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css");
+
+    .im-page {
+        --im-accent: #1a56db;
+        --im-accent-dark: #1443ae;
+        --im-accent-soft: #eaf1fd;
+        --im-accent-line: #d6e4fb;
+
+        --im-ink: #0f172a;
+        --im-body: #4b5563;
+        --im-muted: #6b7280;
+        --im-line: #e5e9f0;
+        --im-surface: #ffffff;
+        --im-surface-2: #f8fafc;
+        --im-navy: #10254e;
+        --im-on-dark: #ffffff;
+        --im-on-dark-muted: #b9c6de;
+
+        --im-fs-xs: .6875rem;
+        --im-fs-sm: .75rem;
+        --im-fs-md: .875rem;
+        --im-fs-lg: 1rem;
+        --im-fs-xl: clamp(1.0625rem, .9rem + .7vw, 1.25rem);
+        --im-fs-2xl: clamp(1.25rem, 1rem + 1.1vw, 1.625rem);
+        --im-fs-3xl: clamp(1.5rem, 1.05rem + 2vw, 2.25rem);
+        --im-fs-4xl: clamp(1.875rem, 1.2rem + 3vw, 2.875rem);
+
+        --im-1: .25rem;
+        --im-2: .5rem;
+        --im-3: .75rem;
+        --im-4: 1rem;
+        --im-5: 1.25rem;
+        --im-6: 1.5rem;
+        --im-8: 2rem;
+        --im-10: 2.5rem;
+        --im-12: 3rem;
+        --im-16: 4rem;
+        --im-20: 5rem;
+        --im-section: 3.5rem;
+        /* vertical rhythm between bands */
+
+        --im-r-xs: 4px;
+        --im-r-sm: 8px;
+        --im-r-md: 12px;
+        --im-r-lg: 16px;
+        --im-r-pill: 999px;
+
+        --im-sh-sm: 0 1px 2px rgba(15, 23, 42, .06);
+        --im-sh-md: 0 4px 14px rgba(15, 23, 42, .07);
+        --im-sh-lg: 0 12px 32px rgba(15, 23, 42, .10);
+
+        --im-w: 75rem;
+        --im-gutter: 1.25rem;
+
+        font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        font-size: var(--im-fs-md);
+        line-height: 1.6;
+        color: var(--im-body);
+        background: var(--im-surface);
+    }
+
+    .im-page *,
+    .im-page *::before,
+    .im-page *::after {
+        box-sizing: border-box;
+    }
+
+    .im-page :where(h1, h2, h3) {
+        margin: 0;
+        line-height: 1.18;
+        font-weight: 700;
+    }
+
+    .im-page :where(p) {
+        margin: 0;
+    }
+
+    .im-page :where(dd) {
+        margin: 0;
+    }
+
+    .im-page :where(ul, ol, dl) {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .im-page :where(img) {
+        display: block;
+        max-width: 100%;
+        height: auto;
+    }
+
+    .im-page :where(a) {
+        text-decoration: none;
+    }
+
+    .im-sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .im-shell {
+        width: 100%;
+        max-width: var(--im-w);
+        margin-inline: auto;
+        padding-inline: var(--im-gutter);
+    }
+
+    /* --- Shared primitives --------------------------------------- */
+    .im-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--im-2);
+        padding: .7rem 1.25rem;
+        border-radius: var(--im-r-sm);
+        font-size: var(--im-fs-md);
+        font-weight: 600;
+        line-height: 1.2;
+        transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+    }
+
+    .im-btn--solid {
+        background: var(--im-accent);
+        color: var(--im-on-dark);
+        box-shadow: var(--im-sh-sm);
+    }
+
+    .im-btn--solid:hover {
+        background: var(--im-accent-dark);
+        color: var(--im-on-dark);
+    }
+
+    .im-btn--quiet {
+        border: 1px solid var(--im-line);
+        background: var(--im-surface);
+        color: var(--im-ink);
+    }
+
+    .im-btn--quiet:hover {
+        border-color: var(--im-accent);
+        color: var(--im-accent);
+    }
+
+    .im-btn--invert {
+        background: var(--im-surface);
+        color: var(--im-accent);
+    }
+
+    .im-btn--invert:hover {
+        background: var(--im-surface-2);
+        color: var(--im-accent-dark);
+    }
+
+    .im-btn--lg {
+        padding: .85rem 1.6rem;
+    }
+
+    .im-head {
+        margin-bottom: var(--im-8);
+    }
+
+    .im-head--row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--im-4);
+    }
+
+    .im-head__title {
+        color: var(--im-ink);
+        font-size: var(--im-fs-2xl);
+        letter-spacing: -.01em;
+    }
+
+    .im-head__icon {
+        color: var(--im-accent);
+        margin-right: var(--im-3);
+        font-size: .85em;
+    }
+
+    .im-head__sub {
+        margin-top: var(--im-1);
+        font-size: var(--im-fs-md);
+        color: var(--im-muted);
+    }
+
+    .im-head__sub--left {
+        text-align: left;
+    }
+
+    .im-head__link {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--im-2);
+        font-size: var(--im-fs-md);
+        font-weight: 600;
+        color: var(--im-accent);
+    }
+
+    .im-head__link:hover {
+        color: var(--im-accent-dark);
+    }
+
+    .im-card {
+        padding: var(--im-6);
+        border: 1px solid var(--im-line);
+        border-radius: var(--im-r-md);
+        background: var(--im-surface);
+    }
+
+    .im-card__head {
+        display: flex;
+        align-items: center;
+        gap: var(--im-2);
+        margin-bottom: var(--im-3);
+    }
+
+    .im-card__head .im-card__title {
+        margin-bottom: 0;
+    }
+
+    .im-card__title {
+        color: var(--im-ink);
+        font-size: var(--im-fs-md);
+        font-weight: 700;
+        margin-bottom: var(--im-3);
+    }
+
+    .im-card__icon {
+        color: var(--im-accent);
+        margin-right: var(--im-2);
+    }
+
+    .im-card__head .im-card__icon {
+        margin-right: 0;
+    }
+
+    .im-card__title--invert {
+        color: var(--im-on-dark);
+    }
+
+    .im-card__title--invert .im-card__icon {
+        color: var(--im-on-dark);
+    }
+
+    .im-chips {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .55rem;
+        position: relative;
+        right: 26px;
+    }
+
+    .im-chips__tags {
+        display: contents;
+    }
+
+    .im-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .32rem .82rem;
+        border-radius: var(--im-r-pill);
+        background: var(--im-accent-soft);
+        color: var(--im-accent-dark);
+        font-size: .8125rem;
+        font-weight: 600;
+        line-height: 1.25;
+        white-space: nowrap;
+    }
+
+    .im-chip--programme {
+        padding: .4rem .9rem;
+        position: relative;
+        right: -20px;
+        border-radius: var(--im-r-pill) 0px 0px var(--im-r-pill);
+    }
+
+    .im-chip--programme,
+    .im-chips>.im-chip:first-child,
+    .im-chips__tags>.im-chip:first-child {
+        background: var(--im-accent);
+        color: var(--im-on-dark);
+        font-weight: 700;
+    }
+
+    .im-chip__icon {
+        display: inline-flex;
+        align-items: center;
+        font-size: .9em;
+        flex-shrink: 0;
+    }
+
+    /* --- Hero ----------------------------------------------------- */
+    .im-hero {
+        background: linear-gradient(160deg, var(--im-accent-soft) 0%, var(--im-surface) 78%);
+    }
+
+    .im-crumbs {
+        margin-bottom: var(--im-6);
+    }
+
+    .im-crumbs__list {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--im-2);
+    }
+
+    .im-crumbs__item {
+        display: flex;
+        align-items: center;
+        gap: var(--im-2);
+        font-size: var(--im-fs-sm);
+        color: var(--im-muted);
+    }
+
+    .im-crumbs__item::after {
+        content: "/";
+        color: #94a3b8;
+    }
+
+    .im-crumbs__item--current {
+        color: var(--im-ink);
+        font-weight: 600;
+    }
+
+    .im-crumbs__item--current::after {
+        content: none;
+    }
+
+    .im-crumbs__link {
+        color: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--im-2);
+    }
+
+    .im-crumbs__link:hover {
+        color: var(--im-accent);
+    }
+
+    .im-hero__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--im-10);
+        align-items: center;
+    }
+
+    .im-hero__title {
+        margin-top: var(--im-3);
+        font-size: var(--im-fs-3xl);
+        font-weight: 800;
+        letter-spacing: -.02em;
+        color: var(--im-accent-dark);
+    }
+
+    .im-hero__overview {
+        margin-top: var(--im-5);
+        font-size: var(--im-fs-lg);
+        color: var(--im-body);
+        max-width: 34rem;
+    }
+
+    .im-hero__meta {
+        margin-top: var(--im-6);
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--im-6);
+        font-size: var(--im-fs-sm);
+        color: var(--im-muted);
+    }
+
+    .im-hero__actions {
+        margin-top: var(--im-8);
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--im-3);
+    }
+
+    .im-hero__figure {
+        margin: 0;
+    }
+
+    .im-hero__media {
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        object-fit: cover;
+        border-radius: var(--im-r-lg);
+        box-shadow: var(--im-sh-lg);
+    }
+
+    /* ---  Numbers — editorial block: no panel, centred, hairline
+       separators. The tinted hero above supplies the colour. ---- */
+    .im-outcome {
+        padding: var(--im-section) 0 0;
+    }
+
+    .im-outcome__head {
+        text-align: center;
+        margin-bottom: var(--im-8);
+    }
+
+    .im-outcome__kicker {
+        font-size: var(--im-fs-xs);
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: var(--im-accent);
+    }
+
+    .im-outcome__heading {
+        margin-top: var(--im-2);
+        color: var(--im-ink);
+        font-size: var(--im-fs-2xl);
+        letter-spacing: -.01em;
+    }
+
+    .im-outcome__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+        row-gap: var(--im-8);
+        overflow: hidden;
+        /* clips the leading separator on every row */
+    }
+
+    .im-outcome__grid:empty {
+        display: none;
+    }
+
+    .im-outcome__item {
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        text-align: center;
+        padding: var(--im-1) var(--im-6);
+        box-shadow: -1px 0 0 var(--im-line);
+    }
+
+    .im-outcome__value {
+        font-size: clamp(1.875rem, 1.35rem + 1.7vw, 2.5rem);
+        font-weight: 800;
+        color: var(--im-ink);
+        line-height: 1;
+        letter-spacing: -.03em;
+    }
+
+    .im-outcome__label {
+        margin-top: var(--im-3);
+        font-size: var(--im-fs-sm);
+        color: var(--im-muted);
+    }
+
+    /* --- Media viewer: one large preview + a scrollable thumbnail rail.
+       The loop renders the THUMBS; the stage is driven from whichever
+       thumb is active, so the whole component still obeys the
+       one-row-per-loop rule. ------------------------------------- */
+    .im-media {
+        padding: var(--im-section) 0 0;
+        scroll-margin-top: 4.5rem;
+    }
+
+    .im-viewer {
+        --im-viewer-chrome: 15rem;
+        display: grid;
+        gap: var(--im-4);
+    }
+
+    .im-viewer__stage,
+    .im-viewer__rail-wrap {
+        min-width: 0;
+    }
+
+    .im-viewer__stage {
+        position: relative;
+        margin: 0;
+        border-radius: var(--im-r-lg);
+        overflow: hidden;
+        background: var(--im-surface-2);
+        box-shadow: var(--im-sh-lg);
+    }
+
+    .im-viewer__image,
+    .im-viewer__frame {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        display: block;
+        /* Keep the preview + thumbnail rail inside one screen. The subtrahend is
+       the rail, the gap, the section heading and the sticky site header. */
+        max-height: calc(100vh - var(--im-viewer-chrome));
+        max-height: calc(100svh - var(--im-viewer-chrome));
+    }
+
+    .im-viewer__image {
+        object-fit: cover;
+    }
+
+    .im-viewer__frame {
+        border: 0;
+    }
+
+    .im-viewer__play {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: grid;
+        place-items: center;
+        width: 4rem;
+        height: 4rem;
+        padding: 0;
+        border: 0;
+        border-radius: var(--im-r-pill);
+        background: rgba(255, 255, 255, .94);
+        color: var(--im-ink);
+        font-size: 1.3rem;
+        cursor: pointer;
+        box-shadow: var(--im-sh-lg);
+        transition: transform .2s ease;
+    }
+
+    .im-viewer__play:hover {
+        transform: translate(-50%, -50%) scale(1.06);
+    }
+
+    .im-viewer__play[hidden] {
+        display: none;
+    }
+
+    .im-viewer__caption {
+        position: absolute;
+        inset: auto 0 0 0;
+        padding: var(--im-10) var(--im-6) var(--im-5);
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, .5) 42%, rgba(15, 23, 42, .92) 100%);
+        color: var(--im-on-dark);
+        font-size: var(--im-fs-lg);
+        font-weight: 600;
+        line-height: 1.3;
+    }
+
+    .im-viewer__rail-wrap {
+        display: flex;
+        align-items: center;
+        gap: var(--im-3);
+    }
+
+    .im-viewer__arrow {
+        flex: 0 0 auto;
+        display: grid;
+        place-items: center;
+        width: 2.25rem;
+        height: 2.25rem;
+        padding: 0;
+        border: 1px solid var(--im-line);
+        border-radius: var(--im-r-pill);
+        background: var(--im-surface);
+        color: var(--im-muted);
+        cursor: pointer;
+        box-shadow: var(--im-sh-sm);
+        transition: color .18s ease, border-color .18s ease;
+    }
+
+    .im-viewer__arrow:hover {
+        color: var(--im-accent);
+        border-color: var(--im-accent);
+    }
+
+    .im-viewer__arrow[disabled] {
+        opacity: .35;
+        cursor: default;
+    }
+
+    .im-viewer__arrow[hidden] {
+        display: none;
+    }
+
+    .im-viewer__rail {
+        display: flex;
+        gap: var(--im-3);
+        min-width: 0;
+        overflow-x: auto;
+        scroll-behavior: smooth;
+        scroll-snap-type: x proximity;
+        padding-block: var(--im-1);
+        scrollbar-width: thin;
+    }
+
+    .im-viewer__rail:empty {
+        display: none;
+    }
+
+    .im-thumb {
+        position: relative;
+        flex: 0 0 auto;
+        width: 8.5rem;
+        padding: 0;
+        border: 2px solid transparent;
+        border-radius: var(--im-r-sm);
+        background: var(--im-surface-2);
+        overflow: hidden;
+        cursor: pointer;
+        opacity: .62;
+        scroll-snap-align: start;
+        transition: border-color .18s ease, opacity .18s ease;
+    }
+
+    .im-thumb:hover {
+        opacity: 1;
+    }
+
+    .im-thumb.is-active {
+        border-color: var(--im-accent);
+        opacity: 1;
+    }
+
+    .im-thumb__img {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        display: block;
+    }
+
+    /* A gallery row is either a photo or a video. If both are set, show the video. */
+    .im-thumb:has(.im-thumb__img--video) .im-thumb__img--photo {
+        display: none;
+    }
+
+    .im-thumb__badge {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: grid;
+        place-items: center;
+        width: 1.7rem;
+        height: 1.7rem;
+        border-radius: var(--im-r-pill);
+        background: rgba(255, 255, 255, .92);
+        color: var(--im-ink);
+        font-size: .6rem;
+    }
+
+    /* --- Body + aside --------------------------------------------- */
+    .im-body {
+        padding: var(--im-section) 0;
+    }
+
+    .im-body__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--im-10);
+        align-items: start;
+    }
+
+    .im-prose {
+        min-width: 0;
+        font-size: var(--im-fs-lg);
+        line-height: 1.75;
+        color: var(--im-body);
+    }
+
+    .im-prose h2 {
+        color: var(--im-ink);
+        margin: var(--im-12) 0 var(--im-4);
+        font-size: var(--im-fs-2xl);
+        letter-spacing: -.01em;
+        scroll-margin-top: 5rem;
+    }
+
+    .im-prose h2:first-child {
+        margin-top: 0;
+    }
+
+    .im-prose h3 {
+        color: var(--im-ink);
+        margin: var(--im-8) 0 var(--im-3);
+        font-size: var(--im-fs-lg);
+    }
+
+    .im-prose p {
+        margin-bottom: var(--im-5);
+    }
+
+    .im-prose strong {
+        color: var(--im-ink);
+        font-weight: 700;
+    }
+
+    .im-prose a {
+        color: var(--im-accent);
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .im-prose ul,
+    .im-prose ol {
+        margin: 0 0 var(--im-6);
+        padding-left: var(--im-6);
+    }
+
+    .im-prose ul {
+        list-style: disc;
+    }
+
+    .im-prose ol {
+        list-style: decimal;
+    }
+
+    .im-prose li {
+        margin-bottom: var(--im-2);
+    }
+
+    .im-prose li::marker {
+        color: var(--im-accent);
+    }
+
+    .im-prose blockquote {
+        margin: var(--im-8) 0;
+        padding: var(--im-6) var(--im-8);
+        border-left: 3px solid var(--im-accent);
+        border-radius: 0 var(--im-r-md) var(--im-r-md) 0;
+        background: var(--im-accent-soft);
+        color: var(--im-ink);
+        font-size: var(--im-fs-lg);
+    }
+
+    .im-prose blockquote p:last-child {
+        margin-bottom: var(--im-3);
+    }
+
+    .im-prose cite {
+        display: block;
+        font-size: var(--im-fs-sm);
+        font-style: normal;
+        font-weight: 600;
+        color: var(--im-accent-dark);
+    }
+
+    .im-prose figure {
+        margin: var(--im-6) 0;
+    }
+
+    .im-prose img {
+        width: 100%;
+        border-radius: var(--im-r-md);
+    }
+
+    .im-prose figcaption {
+        margin-top: var(--im-2);
+        font-size: var(--im-fs-sm);
+        color: var(--im-muted);
+        text-align: center;
+    }
+
+    .im-prose table {
+        width: 100%;
+        margin: var(--im-6) 0;
+        border-collapse: collapse;
+        font-size: var(--im-fs-sm);
+    }
+
+    .im-prose caption {
+        caption-side: bottom;
+        padding-top: var(--im-2);
+        font-size: var(--im-fs-xs);
+        color: var(--im-muted);
+        text-align: left;
+    }
+
+    .im-prose th {
+        padding: var(--im-3);
+        border-bottom: 1px solid var(--im-accent-line);
+        background: var(--im-accent-soft);
+        color: var(--im-accent-dark);
+        text-align: left;
+    }
+
+    .im-prose td {
+        padding: var(--im-3);
+        border-bottom: 1px solid var(--im-line);
+    }
+
+    .im-prose hr {
+        margin: var(--im-8) 0;
+        border: 0;
+        border-top: 1px solid var(--im-line);
+    }
+
+    .im-aside {
+        display: grid;
+        gap: var(--im-5);
+    }
+
+    .im-facts__list {
+        display: grid;
+        gap: var(--im-3);
+    }
+
+    .im-facts__list:empty {
+        display: none;
+    }
+
+    .im-facts__row {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--im-3);
+        padding-bottom: var(--im-3);
+        border-bottom: 1px solid var(--im-line);
+    }
+
+    .im-facts__row:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+
+    .im-facts__key {
+        font-size: var(--im-fs-sm);
+        color: var(--im-muted);
+    }
+
+    .im-facts__val {
+        font-size: var(--im-fs-sm);
+        font-weight: 700;
+        color: var(--im-ink);
+        text-align: right;
+    }
+
+    .im-share__list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--im-2);
+    }
+
+    .im-share__link {
+        display: grid;
+        place-items: center;
+        width: 2.2rem;
+        height: 2.2rem;
+        border-radius: var(--im-r-pill);
+        background: var(--im-accent-soft);
+        color: var(--im-accent-dark);
+        transition: background-color .18s ease;
+    }
+
+    .im-share__link:hover {
+        background: var(--im-accent);
+        color: var(--im-on-dark);
+    }
+
+    .im-invite {
+        border-color: transparent;
+        background: linear-gradient(120deg, var(--im-accent-dark) 0%, var(--im-accent) 100%);
+    }
+
+    .im-invite__text {
+        font-size: var(--im-fs-sm);
+        color: rgba(255, 255, 255, .9);
+    }
+
+    .im-invite__btn {
+        width: 100%;
+        justify-content: center;
+        margin-top: var(--im-4);
+    }
+
+    /* --- CTA band -------------------------------------------------- */
+    .im-cta {
+        padding: 0 0 var(--im-section);
+    }
+
+    .im-cta__panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--im-6);
+        align-items: center;
+        padding: var(--im-8);
+        border-radius: var(--im-r-lg);
+        background: linear-gradient(100deg, var(--im-navy) 0%, var(--im-accent) 100%);
+        color: var(--im-on-dark);
+    }
+
+    .im-cta__title {
+        font-size: var(--im-fs-xl);
+        color: var(--im-on-dark);
+    }
+
+    .im-cta__text {
+        margin-top: var(--im-2);
+        font-size: var(--im-fs-sm);
+        color: rgba(255, 255, 255, .88);
+        max-width: 30rem;
+    }
+
+    /* --- Related --------------------------------------------------- */
+    .im-related {
+        padding: 0 0 var(--im-section);
+    }
+
+    .im-related__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+        gap: var(--im-5);
+    }
+
+    .im-related__grid:empty {
+        display: none;
+    }
+
+    .im-related__card {
+        border: 1px solid var(--im-line);
+        border-radius: var(--im-r-md);
+        background: var(--im-surface);
+        box-shadow: var(--im-sh-sm);
+        overflow: hidden;
+        transition: box-shadow .2s ease, transform .2s ease;
+    }
+
+    .im-related__card:hover {
+        box-shadow: var(--im-sh-lg);
+        transform: translateY(-2px);
+    }
+
+    .im-related__card--all {
+        background: var(--im-accent-soft);
+        border-color: var(--im-accent-line);
+    }
+
+    .im-related__link {
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+        gap: var(--im-3);
+        height: 100%;
+        padding: var(--im-6);
+    }
+
+    .im-related__eyebrow {
+        font-size: var(--im-fs-xs);
+        font-weight: 600;
+        color: var(--im-muted);
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .im-related__title {
+        color: var(--im-accent-dark);
+        font-size: var(--im-fs-lg);
+        font-weight: 700;
+    }
+
+    .im-related__text {
+        font-size: var(--im-fs-sm);
+        color: var(--im-body);
+    }
+
+    .im-related__cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--im-2);
+        margin-top: auto;
+        padding: .7rem var(--im-4);
+        border-radius: var(--im-r-sm);
+        background: var(--im-accent);
+        color: var(--im-on-dark);
+        font-size: var(--im-fs-md);
+        font-weight: 600;
+        transition: background-color .18s ease;
+    }
+
+    .im-related__link:hover .im-related__cta {
+        background: var(--im-accent-dark);
+    }
+
+    /* --- Breakpoints ----------------------------------------------- */
+    @media (max-width: 47.99em) {
+        .im-viewer__arrow {
+            display: none;
+        }
+    }
+
+    @media (min-width: 48em) {
+        .im-page {
+            --im-gutter: 1.5rem;
+        }
+
+        .im-hero__media {
+            aspect-ratio: 16 / 9;
+        }
+
+        .im-cta__panel {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+    }
+
+    @media (min-width: 64em) {
+        .im-page {
+            --im-section: 5.5rem;
+        }
+
+        .im-hero {
+            padding-top: var(--im-12);
+        }
+
+        .im-hero__grid {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: var(--im-12);
+        }
+
+        .im-hero__title {
+            font-size: var(--im-fs-4xl);
+        }
+
+        .im-body__grid {
+            grid-template-columns: minmax(0, 1fr) 18rem;
+            gap: var(--im-12);
+        }
+
+        .im-aside {
+            position: sticky;
+            top: 5.5rem;
+        }
+
+        .im-viewer {
+            --im-viewer-chrome: 19rem;
+        }
+
+        .im-thumb {
+            width: 10rem;
+        }
+
+        .im-viewer__caption {
+            font-size: var(--im-fs-xl);
+            padding: var(--im-12) var(--im-8) var(--im-6);
+        }
+
+        .im-cta__panel {
+            padding: var(--im-8) var(--im-10);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .im-page * {
+            transition: none !important;
+        }
+    }
+</style>
+
+
+<script>
+
+    (function () {
+        var viewer = document.querySelector('[data-viewer]');
+        if (!viewer) return;
+
+        var stage = viewer.querySelector('[data-viewer-stage]');
+        var image = viewer.querySelector('[data-viewer-image]');
+        var caption = viewer.querySelector('[data-viewer-caption]');
+        var play = viewer.querySelector('[data-viewer-play]');
+        var rail = viewer.querySelector('[data-viewer-rail]');
+        var prev = viewer.querySelector('[data-viewer-prev]');
+        var next = viewer.querySelector('[data-viewer-next]');
+        var thumbs = Array.prototype.slice.call(viewer.querySelectorAll('[data-viewer-thumb]'));
+        if (!thumbs.length) return;
+
+        var embed = '';
+        function real(value) {
+            return (!value || value.indexOf('{{') > -1) ? '' : value;
+        }
+
+        function show(thumb) {
+            var frame = stage.querySelector('iframe');
+            if (frame) frame.replaceWith(image);
+
+            var isVideo = !!thumb.querySelector('.im-thumb__img--video');
+            var img = thumb.querySelector('.im-thumb__img--video') || thumb.querySelector('.im-thumb__img');
+            if (img) {
+                image.src = img.currentSrc || img.src;
+                image.alt = img.alt || '';
+            }
+            var cap = thumb.querySelector('[data-viewer-thumb-caption]');
+            caption.textContent = cap ? cap.textContent.trim() : '';
+
+            embed = real(thumb.getAttribute('data-embed'));
+            play.hidden = !isVideo;
+
+            thumbs.forEach(function (t) {
+                var on = t === thumb;
+                t.classList.toggle('is-active', on);
+                t.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+        }
+
+        thumbs.forEach(function (t) {
+            t.addEventListener('click', function () { show(t); });
+        });
+        show(thumbs[0]);
+
+        /* Only fetch the player when somebody actually asks for it. */
+        play.addEventListener('click', function () {
+            if (!embed) return;
+            var frame = document.createElement('iframe');
+            frame.className = 'im-viewer__frame';
+            frame.src = embed + (embed.indexOf('?') > -1 ? '&' : '?') + 'autoplay=1';
+            frame.title = caption.textContent || 'Video';
+            frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture';
+            frame.allowFullscreen = true;
+            image.replaceWith(frame);
+            play.hidden = true;
+        });
+
+        function step() { return rail.clientWidth * 0.8; }
+        function sync() {
+            var overflows = rail.scrollWidth > rail.clientWidth + 2;
+            prev.hidden = next.hidden = !overflows;
+            if (!overflows) return;
+            prev.disabled = rail.scrollLeft <= 0;
+            next.disabled = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 1;
+        }
+        prev.addEventListener('click', function () { rail.scrollBy({ left: -step(), behavior: 'smooth' }); });
+        next.addEventListener('click', function () { rail.scrollBy({ left: step(), behavior: 'smooth' }); });
+        rail.addEventListener('scroll', sync, { passive: true });
+        window.addEventListener('resize', sync);
+        sync();
+    })();
+</script>

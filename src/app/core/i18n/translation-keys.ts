@@ -60,7 +60,6 @@ export type TranslationKey =
     | 'admin.contents.editor.clear_translation'
     | 'admin.contents.editor.click_to_select_icon'
     | 'admin.contents.editor.click_to_select_image'
-    | 'admin.contents.editor.click_to_upload'
     | 'admin.contents.editor.cover_image'
     | 'admin.contents.editor.custom_fields'
     | 'admin.contents.editor.default_badge'
@@ -72,7 +71,6 @@ export type TranslationKey =
     | 'admin.contents.editor.editing_draft'
     | 'admin.contents.editor.expand'
     | 'admin.contents.editor.history'
-    | 'admin.contents.editor.image_recommendation'
     | 'admin.contents.editor.loading_options'
     | 'admin.contents.editor.map.address'
     | 'admin.contents.editor.map.address_placeholder'
@@ -98,6 +96,7 @@ export type TranslationKey =
     | 'admin.contents.editor.repeater.video'
     | 'admin.contents.editor.repeater.video_invalid'
     | 'admin.contents.editor.repeater.video_url'
+    | 'admin.contents.editor.required_marker'
     | 'admin.contents.editor.resize_sidebar'
     | 'admin.contents.editor.restore_version'
     | 'admin.contents.editor.save_draft'
@@ -115,13 +114,13 @@ export type TranslationKey =
     | 'admin.contents.editor.tag_create_failed'
     | 'admin.contents.editor.tags'
     | 'admin.contents.editor.tags_placeholder'
+    | 'admin.contents.editor.title_label'
     | 'admin.contents.editor.translating_note'
     | 'admin.contents.editor.translation_clear_failed'
     | 'admin.contents.editor.translation_cleared'
     | 'admin.contents.editor.translation_save_failed'
     | 'admin.contents.editor.unknown_error'
     | 'admin.contents.editor.unsaved_changes'
-    | 'admin.contents.editor.upload_image'
     | 'admin.contents.editor.url_copied'
     | 'admin.contents.editor.url_copy_failed'
     | 'admin.contents.editor.url_slug'
@@ -170,12 +169,18 @@ export type TranslationKey =
     | 'admin.contents.types.form.description_translation_hint'
     | 'admin.contents.types.form.display_field'
     | 'admin.contents.types.form.display_field_hint'
+    | 'admin.contents.types.form.duplicate_fields'
     | 'admin.contents.types.form.edit_title'
     | 'admin.contents.types.form.field_key'
+    | 'admin.contents.types.form.field_key_auto_hint'
+    | 'admin.contents.types.form.field_key_locked_hint'
     | 'admin.contents.types.form.field_key_placeholder'
     | 'admin.contents.types.form.field_label'
     | 'admin.contents.types.form.field_label_placeholder'
     | 'admin.contents.types.form.field_n'
+    | 'admin.contents.types.form.field_name'
+    | 'admin.contents.types.form.field_name_duplicate'
+    | 'admin.contents.types.form.field_name_placeholder'
     | 'admin.contents.types.form.field_required'
     | 'admin.contents.types.form.field_type'
     | 'admin.contents.types.form.icon'
@@ -382,6 +387,9 @@ export type TranslationKey =
     | 'admin.media.select_page'
     | 'admin.media.selected'
     | 'admin.media.selected_image_alt'
+    | 'admin.media.size'
+    | 'admin.media.size_original'
+    | 'admin.media.size_original_hint'
     | 'admin.media.supports'
     | 'admin.media.upload_new'
     | 'admin.media.uploaded'
@@ -754,10 +762,8 @@ export type TranslationKey =
     | 'admin.settings.misc.convert_webp'
     | 'admin.settings.misc.max_file_size'
     | 'admin.settings.misc.max_file_size_hint'
-    | 'admin.settings.misc.max_height'
-    | 'admin.settings.misc.max_height_hint'
-    | 'admin.settings.misc.max_width'
-    | 'admin.settings.misc.max_width_hint'
+    | 'admin.settings.misc.max_size'
+    | 'admin.settings.misc.max_size_hint'
     | 'admin.settings.misc.media_intro'
     | 'admin.settings.misc.media_saved'
     | 'admin.settings.misc.media_upload'
@@ -845,6 +851,8 @@ export type TranslationKey =
     | 'admin.transactions.refunded'
     | 'admin.transactions.subtitle'
     | 'admin.transactions.succeeded'
+    | 'admin.transactions.test_badge'
+    | 'admin.transactions.test_badge_hint'
     | 'admin.transactions.title'
     | 'admin.users.add'
     | 'admin.users.empty_description'
@@ -1039,7 +1047,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.clear_translation',
     'admin.contents.editor.click_to_select_icon',
     'admin.contents.editor.click_to_select_image',
-    'admin.contents.editor.click_to_upload',
     'admin.contents.editor.cover_image',
     'admin.contents.editor.custom_fields',
     'admin.contents.editor.default_badge',
@@ -1051,7 +1058,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.editing_draft',
     'admin.contents.editor.expand',
     'admin.contents.editor.history',
-    'admin.contents.editor.image_recommendation',
     'admin.contents.editor.loading_options',
     'admin.contents.editor.map.address',
     'admin.contents.editor.map.address_placeholder',
@@ -1077,6 +1083,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.repeater.video',
     'admin.contents.editor.repeater.video_invalid',
     'admin.contents.editor.repeater.video_url',
+    'admin.contents.editor.required_marker',
     'admin.contents.editor.resize_sidebar',
     'admin.contents.editor.restore_version',
     'admin.contents.editor.save_draft',
@@ -1094,13 +1101,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.tag_create_failed',
     'admin.contents.editor.tags',
     'admin.contents.editor.tags_placeholder',
+    'admin.contents.editor.title_label',
     'admin.contents.editor.translating_note',
     'admin.contents.editor.translation_clear_failed',
     'admin.contents.editor.translation_cleared',
     'admin.contents.editor.translation_save_failed',
     'admin.contents.editor.unknown_error',
     'admin.contents.editor.unsaved_changes',
-    'admin.contents.editor.upload_image',
     'admin.contents.editor.url_copied',
     'admin.contents.editor.url_copy_failed',
     'admin.contents.editor.url_slug',
@@ -1149,12 +1156,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.form.description_translation_hint',
     'admin.contents.types.form.display_field',
     'admin.contents.types.form.display_field_hint',
+    'admin.contents.types.form.duplicate_fields',
     'admin.contents.types.form.edit_title',
     'admin.contents.types.form.field_key',
+    'admin.contents.types.form.field_key_auto_hint',
+    'admin.contents.types.form.field_key_locked_hint',
     'admin.contents.types.form.field_key_placeholder',
     'admin.contents.types.form.field_label',
     'admin.contents.types.form.field_label_placeholder',
     'admin.contents.types.form.field_n',
+    'admin.contents.types.form.field_name',
+    'admin.contents.types.form.field_name_duplicate',
+    'admin.contents.types.form.field_name_placeholder',
     'admin.contents.types.form.field_required',
     'admin.contents.types.form.field_type',
     'admin.contents.types.form.icon',
@@ -1361,6 +1374,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.select_page',
     'admin.media.selected',
     'admin.media.selected_image_alt',
+    'admin.media.size',
+    'admin.media.size_original',
+    'admin.media.size_original_hint',
     'admin.media.supports',
     'admin.media.upload_new',
     'admin.media.uploaded',
@@ -1733,10 +1749,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.misc.convert_webp',
     'admin.settings.misc.max_file_size',
     'admin.settings.misc.max_file_size_hint',
-    'admin.settings.misc.max_height',
-    'admin.settings.misc.max_height_hint',
-    'admin.settings.misc.max_width',
-    'admin.settings.misc.max_width_hint',
+    'admin.settings.misc.max_size',
+    'admin.settings.misc.max_size_hint',
     'admin.settings.misc.media_intro',
     'admin.settings.misc.media_saved',
     'admin.settings.misc.media_upload',
@@ -1824,6 +1838,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.transactions.refunded',
     'admin.transactions.subtitle',
     'admin.transactions.succeeded',
+    'admin.transactions.test_badge',
+    'admin.transactions.test_badge_hint',
     'admin.transactions.title',
     'admin.users.add',
     'admin.users.empty_description',

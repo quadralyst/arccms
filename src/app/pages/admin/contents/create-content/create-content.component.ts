@@ -1,3 +1,5 @@
+import { parseHexColor } from '../../../../../shared/utils/color';
+import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -62,6 +64,9 @@ interface TranslatableValues {
   metaDescription: string;
   customFields: { [key: string]: any };
 }
+
+/** The cover doubles as the social-share image, so its picker opens at full size. */
+const COVER_IMAGE_SIZE: ImageSize = 'xl';
 
 @Component({
   selector: 'arc-create-content',
@@ -281,6 +286,20 @@ export class CreateContentComponent extends BaseComponent {
   onCustomFieldChange(key: string, value: any): void {
     this.customFieldValues[key] = value;
     this.triggerAutoSave();
+  }
+
+  /**
+   * What the native colour picker shows for a stored value. The picker only
+   * understands `#rrggbb`, so shorthand is expanded and anything unparsable
+   * (blank, or half-typed in the hex box) falls back to black.
+   */
+  colorPickerValue(value: unknown): string {
+    return parseHexColor(value)?.hex ?? '#000000';
+  }
+
+  /** `rgb(…)` beside the hex box, or empty while the value is not a colour. */
+  colorRgbText(value: unknown): string {
+    return parseHexColor(value)?.rgb ?? '';
   }
 
   // Open media manager for a custom image field
@@ -734,40 +753,92 @@ export class CreateContentComponent extends BaseComponent {
   // Validation always targets the default-language document — required fields
   // belong to the item, not to a translation, and the editor may currently be
   // showing a translated tab.
-  validateForDraft(): { valid: boolean; errors: string[] } {
+  validateForDraft(): { valid: boolean; errors: string[]; missing: string[] } {
     const errors: string[] = [];
+    const missing: string[] = [];
     const base = this.baseLanguageValues();
 
     if (!base.title || base.title.trim() === '') {
       errors.push('Title is required');
+      missing.push('title');
     }
 
-    return { valid: errors.length === 0, errors };
+    return { valid: errors.length === 0, errors, missing };
   }
 
-  // Validate for publish: all mandatory fields including custom fields
-  validateForPublish(): { valid: boolean; errors: string[] } {
+  // Validate for publish: all mandatory fields including custom fields.
+  // `missing` lists the offending field keys (`title` for the title) in the
+  // order they appear on screen, so the first one is the one to focus.
+  validateForPublish(): { valid: boolean; errors: string[]; missing: string[] } {
     const errors: string[] = [];
+    const missing: string[] = [];
     const base = this.baseLanguageValues();
 
     // Title is always required
     if (!base.title || base.title.trim() === '') {
       errors.push('Title is required');
+      missing.push('title');
     }
 
     // Check required custom fields
     const requiredCustomFields = this.currentFields.filter(f => f.required);
     for (const field of requiredCustomFields) {
-      const value = base.customFields?.[field.key];
-      const isEmpty = value === undefined || value === null || value === '' ||
-        (Array.isArray(value) && value.length === 0);
-
-      if (isEmpty) {
+      if (this.isEmptyFieldValue(base.customFields?.[field.key])) {
         errors.push(`${field.label} is required`);
+        missing.push(field.key);
       }
     }
 
-    return { valid: errors.length === 0, errors };
+    return { valid: errors.length === 0, errors, missing };
+  }
+
+  private isEmptyFieldValue(value: unknown): boolean {
+    return value === undefined || value === null || value === '' ||
+      (Array.isArray(value) && value.length === 0);
+  }
+
+  /**
+   * Required fields the last failed save flagged, by key (`title` for the
+   * title). A flagged field is outlined only while it is still empty, so
+   * filling it in clears the outline without another save attempt. Nothing
+   * is outlined on a translation tab: the requirement is on the base document.
+   */
+  flaggedRequired = signal<Set<string>>(new Set());
+
+  isRequiredMissing(key: string): boolean {
+    if (this.isTranslating() || !this.flaggedRequired().has(key)) return false;
+    if (key === 'title') return !this.pageTitle || this.pageTitle.trim() === '';
+    return this.isEmptyFieldValue(this.customFieldValues[key]);
+  }
+
+  /**
+   * Takes the editor to the first missing required field: back to the
+   * default language (that is where the value must go), onto the Basic tab
+   * for custom fields, then scrolls the field into view and focuses its
+   * first focusable control — an input, or the button on a picker/repeater.
+   */
+  private async revealMissingRequired(missing: string[]): Promise<void> {
+    this.flaggedRequired.set(new Set(missing));
+    const first = missing[0];
+    if (!first) return;
+
+    if (this.isTranslating()) {
+      await this.switchLanguage(this.defaultLang());
+    }
+    if (first !== 'title') {
+      this.activeTab = 'basic';
+    }
+
+    // The tab or language switch above has to render before the field exists.
+    setTimeout(() => {
+      const wrapper = document.getElementById(`req-${first}`);
+      if (!wrapper) return;
+      wrapper.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      const control = wrapper.querySelector<HTMLElement>(
+        'input:not([type="hidden"]):not([disabled]), select, textarea, [contenteditable="true"], button',
+      );
+      control?.focus({ preventScroll: true });
+    });
   }
 
   // Get list of missing required custom fields for display
@@ -1806,6 +1877,7 @@ export class CreateContentComponent extends BaseComponent {
         'error',
         'error'
       );
+      this.revealMissingRequired(validation.missing);
       return;
     }
 
@@ -1862,6 +1934,7 @@ export class CreateContentComponent extends BaseComponent {
         'error',
         'error'
       );
+      this.revealMissingRequired(validation.missing);
       return;
     }
 
@@ -2333,8 +2406,11 @@ export class CreateContentComponent extends BaseComponent {
       maxHeight: '90vh',
       panelClass: 'common-dialog-box',
       disableClose: true,
+      // The cover doubles as the social-share image, which wants the whole
+      // 1200px; the picker opens on XL so that is what an admin gets by default.
       data: {
         isDialogOpen: true,
+        size: COVER_IMAGE_SIZE,
       },
     });
 

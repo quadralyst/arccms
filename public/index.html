@@ -1,624 +1,327 @@
-<!-- arc-source-version: 1
-     Bump this when the page STRUCTURE changes, and update every
-     translation under public/i18n/{lang}/index.html to match.
-     See public/i18n/README.md. -->
-<div class="arc-cms-template">
-    <!-- These are page parts can be included -->
-    <arc-header></arc-header>
+<arc-header></arc-header>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="container">
-            <h1>Give Your Landing Page<br>Superpowers 🦸</h1>
-            <p class="subheadline">
-                Drop your HTML into Arc CMS. Get automatic waitlists, viral referrals, email automation, and analytics.
-                Deploy to YOUR Firebase. Own everything. $0 recurring fees.
-            </p>
-            <div>
-                <a href="#waitlist" class="cta-primary">Join Founding Circle</a>
-            </div>
-            <div class="social-proof">
-                <span><span data-waitlist-count class="arc-skeleton"></span> founders</span> already shipping their validation pages this
-                weekend
-            </div>
-        </div>
-    </section>
+<main>
+    <section class="hero" id="why">
+        <img class="hero__scene" src="assets/images/hero-background.png"
+            alt="Illustrated Indian cityscape with volunteers planting trees at sunset" width="1440" height="560"
+            loading="eager" decoding="async" />
 
-    <!-- Sponsors Section -->
-    <section class="sponsors-section">
-        <div class="container">
-            <p>Proudly supported by</p>
-            <a href="https://quadralyst.com" target="_blank" rel="noopener">
-                <img src="https://quadralyst.com/img/quadralyst_logo.png" alt="Quadralyst">
-            </a>
-        </div>
-    </section>
+        <div class="hero__inner">
 
-    <!-- What is Arc CMS Section -->
-    <section class="what-is-section" id="how">
-        <div class="container">
-            <h2 class="section-headline">What is Arc CMS?</h2>
-            <p class="section-subheadline">
-                Transform your static HTML into a powerful landing page with automatic waitlists,
-                viral referrals, email automation, and analytics.
-            </p>
-            <div class="flow-diagram">
-                <img ngSrc="assets/images/arccms-flow-end.png" width="1200" height="670" alt="Arc CMS Flow Diagram" />
-            </div>
-        </div>
-    </section>
+            <div class="hero__content">
+                <h1 class="hero__title">India's Verified Network <span class="hero__title-accent">for Social
+                        Impact</span></h1>
+                <p class="hero__kicker">Where goodness finds its way.</p>
+                <p class="hero__lede">GoWow connects Volunteers, Corporates, Donors and NGOs on one trusted platform —
+                    to create measurable impact and build a Good Karma Economy.</p>
 
-
-
-    <!-- Problem Section -->
-    <section class="problem-section">
-        <div class="container">
-            <h2 class="section-headline">A Landing Page with Waiting List <br />Shouldn't Cost $500/Year</h2>
-            <p class="section-subheadline">
-                You've built a beautiful landing page. But to make it actually work, you need to pay for 5 different
-                tools.
-            </p>
-
-            <div class="problem-list">
-                <div class="problem-item">
-                    Landing page builder: <strong>$15-30/month</strong>
-                </div>
-                <div class="problem-item">
-                    Email marketing tool: <strong>$10-50/month</strong>
-                </div>
-                <div class="problem-item">
-                    Form & waitlist tools: <strong>$10-20/month</strong>
-                </div>
-                <div class="problem-item">
-                    Analytics beyond basic: <strong>$15/month</strong>
-                </div>
-            </div>
-
-            <div class="problem-total">$600-1,320 per year</div>
-            <p class="section-subheadline" style="margin-top: 2rem;">
-                Before making a single dollar. Before knowing if anyone even wants your product.
-            </p>
-        </div>
-    </section>
-
-    <!-- Solution Section -->
-    <section class="solution-section">
-        <div class="container">
-            <h2 class="section-headline">Inject Superpowers.<br>Pay Nothing.</h2>
-            <p class="section-subheadline">
-                Arc CMS gives your static HTML everything it needs. Deploy once. Own forever.
-            </p>
-
-            <div class="solution-grid">
-                <div class="solution-item">
-                    <div class="icon">
-                        <i class="fas fa-dollar-sign"></i>
-                    </div>
-                    <h3>$0 Recurring</h3>
-                    <p>No subscriptions. No hidden fees. Just ~$1/month Firebase hosting.</p>
-                </div>
-                <div class="solution-item">
-                    <div class="icon">
-                        <i class="fas fa-crown"></i>
-                    </div>
-                    <h3>Own Everything</h3>
-                    <p>Your code. Your data. Your infrastructure. No vendor lock-in.</p>
-                </div>
-                <div class="solution-item">
-                    <div class="icon">
-                        <i class="fas fa-rocket"></i>
-                    </div>
-                    <h3>Launch This Weekend</h3>
-                    <p>30-minute setup. Non-technical friendly. Just follow the guide.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Features Section -->
-    <section class="features-section" id="features">
-        <div class="container">
-            <h2 class="section-headline">Everything You Need.<br>Nothing You Don't.</h2>
-            <p class="section-subheadline">
-                Built for founders who want to ship fast and validate faster.
-            </p>
-
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <h3>Waitlist Management</h3>
-                    <p>Capture emails, verify subscribers, and manage your waitlist from a beautiful dashboard. Export
-                        anytime.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="icon">
-                        <i class="fas fa-share-nodes"></i>
-                    </div>
-                    <h3>Viral Referral System</h3>
-                    <p>Every signup gets a unique referral link. Gamified leaderboard. Turn 1 signup into 2-3 more
-                        automatically.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="icon">
-                        <i class="fas fa-envelope"></i>
-                    </div>
-                    <h3>Email Automation</h3>
-                    <p>Welcome emails, drip sequences, and broadcasts. Pre-built templates. No coding required.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="icon">
-                        <i class="fas fa-chart-bar"></i>
-                    </div>
-                    <h3>Built-in Analytics</h3>
-                    <p>Track signups, referrals, conversions. See what's working. Google Analytics integration included.
-                    </p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="icon">
-                        <i class="fas fa-blog"></i>
-                    </div>
-                    <h3>Content Publishing</h3>
-                    <p>Write blog posts, share updates, build SEO. All from your dashboard.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="icon">
-                        <i class="fas fa-code"></i>
-                    </div>
-                    <h3>Open Source</h3>
-                    <p>Full source code on GitHub. Modify anything. Add features. It's yours.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Screenshots Section -->
-    <section class="screenshots-section" id="screenshots">
-        <div class="container">
-            <h2 class="section-headline">See Arc CMS in Action</h2>
-            <p class="section-subheadline">
-                Every superpower your landing page needs, built-in and ready to deploy.
-            </p>
-
-            <!-- Tab Navigation -->
-            <div class="screenshot-tabs">
-                <button class="tab-btn active" data-tab="waitlists">
-                    <span>Automatic Waitlists</span>
-                    <div class="tab-progress-bar"></div>
-                </button>
-                <button class="tab-btn" data-tab="email-verify">
-                    <span>Email Verification</span>
-                    <div class="tab-progress-bar"></div>
-                </button>
-                <button class="tab-btn" data-tab="email-auto">
-                    <span>Email Automation</span>
-                    <div class="tab-progress-bar"></div>
-                </button>
-                <button class="tab-btn" data-tab="referrals">
-                    <span>Viral Referrals</span>
-                    <div class="tab-progress-bar"></div>
-                </button>
-                <button class="tab-btn" data-tab="leaderboard">
-                    <span>Global Leaderboard</span>
-                    <div class="tab-progress-bar"></div>
-                </button>
-                <button class="tab-btn" data-tab="blog">
-                    <span>Blogging System</span>
-                    <div class="tab-progress-bar"></div>
-                </button>
-                <button class="tab-btn" data-tab="analytics">
-                    <span>Analytics Dashboard</span>
-                    <div class="tab-progress-bar"></div>
-                </button>
-                <button class="tab-btn" data-tab="notifications">
-                    <span>Global Notifications</span>
-                    <div class="tab-progress-bar"></div>
-                </button>
-            </div>
-
-            <!-- Tab Content -->
-            <div class="tab-content-container">
-                <!-- Waitlists Tab -->
-                <div class="tab-content active" id="tab-waitlists">
-                    <h3 class="tab-title">Automatic Waitlists</h3>
-                    <p class="tab-description">Capture, verify, and manage email signups with a beautiful dashboard.
-                        Export your subscriber list anytime. No coding required—just drop in your HTML and Arc CMS
-                        handles the rest.</p>
-                    <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/waitlists.png" width="1200" height="690" alt="Automatic Waitlists Dashboard" />
-                    </div>
-                </div>
-
-                <!-- Email Verification Tab -->
-                <div class="tab-content" id="tab-email-verify">
-                    <h3 class="tab-title">Email Verification</h3>
-                    <p class="tab-description">Ensure quality signups with built-in email verification. Automatically
-                        send confirmation emails and prevent fake or spam addresses from cluttering your waitlist.</p>
-                    <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/email-verification.png" width="1200" height="690" alt="Email Verification" />
-                    </div>
-                </div>
-
-                <!-- Email Automation Tab -->
-                <div class="tab-content" id="tab-email-auto">
-                    <h3 class="tab-title">Email Automation</h3>
-                    <p class="tab-description">Set up welcome emails, drip sequences, and broadcasts without any coding.
-                        Use pre-built templates or customize your own. Track opens and clicks to measure engagement.</p>
-                    <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/email-automation.png" width="1200" height="690" alt="Email Automation" />
-                    </div>
-                </div>
-
-                <!-- Viral Referrals Tab -->
-                <div class="tab-content" id="tab-referrals">
-                    <h3 class="tab-title">Viral Referral System</h3>
-                    <p class="tab-description">Turn every signup into a growth engine. Each subscriber gets a unique
-                        referral link automatically. Track who referred whom and reward your top referrers.</p>
-                    <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/viral.png" width="1200" height="750" alt="Viral Referral System" />
-                    </div>
-                </div>
-
-                <!-- Leaderboard Tab -->
-                <div class="tab-content" id="tab-leaderboard">
-                    <h3 class="tab-title">Global Leaderboard</h3>
-                    <p class="tab-description">Gamify your waitlist with a public leaderboard. Show top referrers and
-                        create competition. Customize tiers and rewards to drive more signups organically.</p>
-                    <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/leaderboard.png" width="1200" height="690" alt="Global Leaderboard" />
-                    </div>
-                </div>
-
-                <!-- Blog Tab -->
-                <div class="tab-content" id="tab-blog">
-                    <h3 class="tab-title">Blogging System</h3>
-                    <p class="tab-description">Publish content directly from your dashboard. Write posts in Markdown,
-                        add SEO metadata, and build your audience. Perfect for sharing updates and building authority.
-                    </p>
-                    <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/blogging.png" width="1200" height="690" alt="Blogging System" />
-                    </div>
-                </div>
-
-                <!-- Analytics Tab -->
-                <div class="tab-content" id="tab-analytics">
-                    <h3 class="tab-title">Analytics Dashboard</h3>
-                    <p class="tab-description">Track signups, referrals, email performance, and conversion rates. See
-                        what's working with real-time data. Integrated Google Analytics for deeper insights.</p>
-                    <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/analytics-dashboard.png" width="1200" height="690" alt="Analytics Dashboard" />
-                    </div>
-                </div>
-
-                <!-- Notifications Tab -->
-                <div class="tab-content" id="tab-notifications">
-                    <h3 class="tab-title">Global Notifications</h3>
-                    <p class="tab-description">Keep users informed with customizable notification banners. Announce
-                        launches, updates, or special offers. Control visibility and timing from your dashboard.</p>
-                    <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/global-banner.png" width="1200" height="690" alt="Global Notifications" />
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Ownership Section -->
-    <section class="ownership-section" id="ownership">
-        <div class="container">
-            <h2 class="section-headline">Your Startup.<br>Your Data.<br>Your Control.</h2>
-            <p class="section-subheadline">With Arc CMS, you're not renting someone else's platform. You own it all.</p>
-
-            <div class="ownership-grid">
-                <div class="ownership-item">
-                    <div class="icon">
-                        <i class="fas fa-code"></i>
-                    </div>
-                    <h3>The Source Code</h3>
-                    <p>Open source. Modify as needed. It's yours.</p>
-                </div>
-
-                <div class="ownership-item">
-                    <div class="icon">
-                        <i class="fas fa-database"></i>
-                    </div>
-                    <h3>All Subscriber Data</h3>
-                    <p>Stored in your Firebase. Export anytime. No lock-in.</p>
-                </div>
-
-                <div class="ownership-item">
-                    <div class="icon">
-                        <i class="fas fa-server"></i>
-                    </div>
-                    <h3>The Infrastructure</h3>
-                    <p>Your Firebase project. You control the hosting.</p>
-                </div>
-
-                <div class="ownership-item">
-                    <div class="icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <h3>Complete Control</h3>
-                    <p>No one can raise prices or shut you down. Ever.</p>
-                </div>
-            </div>
-
-            <div class="mt-5">
-                <p style="font-size: 1.5rem; color: #b0b0b5; max-width: 800px; margin: 0 auto;">
-                    Deploy once. Own it forever.
-                </p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Latest Updates Section -->
-    <arc-content-partials [contentType]="'articles'"></arc-content-partials>
-
-    <arc-content-partials [contentType]="'user-manuals'"></arc-content-partials>
-
-
-    <!-- <section class="updates-section" id="updates">
-        <div class="container">
-            <div class="updates-header">
-                <h2>Latest Updates from Arc CMS</h2>
-                <a href="/blog" class="view-all-link">View All <i class="fas fa-arrow-right"></i></a>
-            </div>
-
-            <div class="articles-grid">
-                <div class="article-card">
-                    <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400" alt="Article"
-                        class="article-image">
-                    <div class="article-content">
-                        <div class="article-meta">
-                            <span>January 3, 2026</span>
-                            <span>•</span>
-                            <span>3 min read</span>
-                        </div>
-                        <h3 class="article-title">Introducing Arc CMS: Own Your Landing Page</h3>
-                        <p class="article-excerpt">Why we built Arc CMS and how it helps founders validate ideas without
-                            spending $500+/year on tools...</p>
-                        <div class="article-tags">
-                            <span class="article-tag">launch</span>
-                            <span class="article-tag">founders</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="article-card">
-                    <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400" alt="Article"
-                        class="article-image">
-                    <div class="article-content">
-                        <div class="article-meta">
-                            <span>December 28, 2025</span>
-                            <span>•</span>
-                            <span>5 min read</span>
-                        </div>
-                        <h3 class="article-title">How to Validate Your Startup Idea in 48 Hours</h3>
-                        <p class="article-excerpt">A step-by-step guide to building and launching a validation landing
-                            page this weekend using Arc CMS...</p>
-                        <div class="article-tags">
-                            <span class="article-tag">validation</span>
-                            <span class="article-tag">tutorial</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="article-card">
-                    <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400" alt="Article"
-                        class="article-image">
-                    <div class="article-content">
-                        <div class="article-meta">
-                            <span>December 21, 2025</span>
-                            <span>•</span>
-                            <span>4 min read</span>
-                        </div>
-                        <h3 class="article-title">Why Viral Referrals Matter for Early-Stage Startups</h3>
-                        <p class="article-excerpt">How built-in referral systems can turn every signup into 2-3 more,
-                            reducing your customer acquisition costs...</p>
-                        <div class="article-tags">
-                            <span class="article-tag">growth</span>
-                            <span class="article-tag">referrals</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="article-card">
-                    <img src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400" alt="Article"
-                        class="article-image">
-                    <div class="article-content">
-                        <div class="article-meta">
-                            <span>December 15, 2025</span>
-                            <span>•</span>
-                            <span>6 min read</span>
-                        </div>
-                        <h3 class="article-title">Firebase for Founders: Why We Chose It</h3>
-                        <p class="article-excerpt">The technical decisions behind Arc CMS and why Firebase is perfect
-                            for validation-stage startups...</p>
-                        <div class="article-tags">
-                            <span class="article-tag">technical</span>
-                            <span class="article-tag">firebase</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section> -->
-
-    <!-- Founding Circle Section -->
-    <section class="founding-circle-section" id="waitlist">
-        <div class="container">
-            <div class="fc-header">
-                <div class="fc-badge">Limited Opportunity</div>
-                <h2>Join the Founding Circle</h2>
-                <p class="fc-subtitle">Be among the first 100 founders to shape Arc CMS</p>
-            </div>
-
-            <div class="fc-progress-card">
-                <div class="fc-progress-info">
-                    <div class="fc-progress-numbers">
-                        <span class="fc-filled arc-skeleton" data-waitlist-count></span>
-                        <span class="fc-separator">/</span>
-                        <span class="fc-total">100</span>
-                        <span class="fc-label">spots filled</span>
-                    </div>
-                    <div class="fc-progress-bar">
-                        <div class="fc-progress-fill" style="width: 25%"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="fc-content-grid">
-                <!-- Benefits Cards -->
-                <div class="fc-benefits">
-                    <div class="fc-benefit-card">
-                        <div class="fc-benefit-icon">
-                            <i class="fas fa-rocket"></i>
-                        </div>
-                        <h4>Early Access</h4>
-                        <p>Get Arc CMS 4 weeks before public launch in February 2026</p>
-                    </div>
-                    <div class="fc-benefit-card">
-                        <div class="fc-benefit-icon">
-                            <i class="fas fa-headset"></i>
-                        </div>
-                        <h4>Priority Support</h4>
-                        <p>Direct access to the founder for setup help and guidance</p>
-                    </div>
-                    <div class="fc-benefit-card">
-                        <div class="fc-benefit-icon">
-                            <i class="fas fa-bullhorn"></i>
-                        </div>
-                        <h4>Free Promotion</h4>
-                        <p>Featured on our website and social media—boost your startup</p>
-                    </div>
-                    <div class="fc-benefit-card">
-                        <div class="fc-benefit-icon">
-                            <i class="fas fa-lightbulb"></i>
-                        </div>
-                        <h4>Shape the Product</h4>
-                        <p>Direct input on features and development priorities</p>
-                    </div>
-                </div>
-
-                <!-- Form Card -->
-                <div class="fc-form-card">
-                    <h3>Reserve Your Spot</h3>
-                    <form data-waitlist-form data-waitlist-id="get-early-access-to-arc-cms" id="foundingCircleForm">
-                        <div class="fc-form-group">
-                            <input type="text" name="name" required placeholder="Your name">
-                        </div>
-                        <div class="fc-form-group">
-                            <input type="email" name="email" required placeholder="Your email">
-                        </div>
-                        <div class="fc-form-group">
-                            <input type="text" name="company" placeholder="Your company">
-                        </div>
-                        <button type="submit" class="fc-submit-btn">Join Founding Circle</button>
-                    </form>
-                    <div class="fc-form-footer">
-                        <p class="fc-commitment">✓ Test Arc CMS with your startup</p>
-                        <p class="fc-commitment">✓ Provide honest feedback</p>
-                        <p class="fc-commitment">✓ Help shape the future</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="fc-perfect-for">
-                <p><strong>Perfect for:</strong> Pre-seed founders testing ideas · Budget-conscious builders · Anyone
-                    launching this weekend</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Contact Section -->
-    <section class="contact-section" id="contact">
-        <div class="container">
-            <h2 class="section-headline">Get in Touch</h2>
-            <p class="section-subheadline">Questions, partnerships, or just want to say hi? We'd love to hear from you.
-            </p>
-
-            <div class="contact-grid">
-                <div class="contact-card">
-                    <h3>One on One Support</h3>
-                    <p>Need custom template design or deployment assistance?</p>
-                    <ul>
-                        <li>Custom template design</li>
-                        <li>Deploy Arc CMS for you</li>
-                        <li>Add custom features</li>
-                        <li>Firebase configuration</li>
-                        <li>One-on-one guidance</li>
-                    </ul>
-                    <div class="exclusive-note">
-                        <i class="fas fa-crown"></i>
-                        <span>Available exclusively to Founding Circle members</span>
-                    </div>
-                    <a href="#waitlist" class="cta-primary"
-                        style="display: block; text-align: center; margin-top: 1.5rem;">Join Founding Circle</a>
-                </div>
-
-                <div class="contact-card">
-                    <h3>Community Support</h3>
-                    <p>Technical questions or feature requests?</p>
-                    <ul>
-                        <li>Report bugs and issues</li>
-                        <li>Request new features</li>
-                        <li>View development roadmap</li>
-                        <li>Contribute to open source</li>
-                        <li>Share templates and designs</li>
-                        <li>Get help from other users</li>
-                        <li>Access documentation</li>
-                        <li>Join developer discussions</li>
-                    </ul>
-                    <p style="margin-top: 2rem; color: #86868b; font-size: 0.9rem;">GitHub community available after
-                        January 2026 launch</p>
-                </div>
-
-                <div class="contact-card">
-                    <h3>Business Inquiries</h3>
-                    <p>For media inquiries, partnership opportunities, or sponsorship discussions.</p>
-                    <ul>
-                        <li>Media & press coverage</li>
-                        <li>Partnership opportunities</li>
-                        <li>Sponsorship discussions</li>
-                        <li>Enterprise licensing</li>
-                        <li>White-label solutions</li>
-                        <li>Integration partnerships</li>
-                        <li>Speaking engagements</li>
-                        <li>Investment inquiries</li>
-                    </ul>
-                    <div class="contact-email">
-                        <i class="fas fa-envelope"></i>
-                        <span>gunjan@quadralyst.com</span>
-                    </div>
-                </div>
-            </div>
-
-            <div style="max-width: 600px; margin: 4rem auto; text-align: center;">
-                <h3 style="font-size: 1.75rem; margin-bottom: 1.5rem;">Connect</h3>
-                <p style="color: #6e6e73; margin-bottom: 2rem;">Follow our journey, ask questions, or just say hi on
-                    your favorite platform.</p>
-                <div class="contact-social">
-                    <a href="https://twitter.com/gunjankarun" class="social-link" target="_blank" rel="noopener"
-                        aria-label="X (Twitter)">
-                        <i class="fab fa-x-twitter"></i>
-                    </a>
-                    <a href="https://linkedin.com/in/gunjankarun" class="social-link" target="_blank" rel="noopener"
-                        aria-label="LinkedIn">
-                        <i class="fab fa-linkedin-in"></i>
-                    </a>
-                    <a href="mailto:gunjan@quadralyst.com" class="social-link" aria-label="Email">
-                        <i class="fas fa-envelope"></i>
+                <div class="hero__actions">
+                    <a class="btn btn--primary btn--lg"
+                        href="https://play.google.com/store/apps/details?id=com.quadralyst.GoWow&pcampaignid=web_share"
+                        target="_blank">Download GoWow App</a>
+                    <a class="btn btn--ghost btn--lg" href="#platform">Explore the Platform
+                        <svg class="icon icon--chevron" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M9 6l6 6-6 6" />
+                        </svg>
                     </a>
                 </div>
+
+                <p class="hero__trust-note">Trusted by 1L+ Users, 2500+ NGOs &amp; 200+ Corporates</p>
+
+                <ul class="hero__trust-logos">
+                    <li class="hero__trust-item"><img src="assets/images/indile.png" alt="Startup India" width="120"
+                            height="64" loading="lazy" decoding="async"></li>
+                    <li class="hero__trust-item"><img src="assets/images/key.png" alt="Government of India emblem"
+                            width="120" height="64" loading="lazy" decoding="async"></li>
+                    <li class="hero__trust-item"><img src="assets/images/head.png" alt="Partner institution emblem"
+                            width="120" height="64" loading="lazy" decoding="async"></li>
+                    <li class="hero__trust-item"><img src="assets/images/games.png" alt="Nestlé" width="120" height="64"
+                            loading="lazy" decoding="async"></li>
+                    <li class="hero__trust-item"><img src="assets/images/WWF.png" alt="WWF" width="120" height="64"
+                            loading="lazy" decoding="async"></li>
+                </ul>
+            </div>
+
+            <div class="hero__device">
+                <arc-content-partials contentType="mobile-card" [count]="4" [templateFolder]="'mobile-card'"
+                    style="display: contents;"></arc-content-partials>
+                <div class="phone">
+                    <div class="phone__frame">
+                        <img class="phone__img" src="assets/images/mobile-image.png" alt="GoWow Mobile App" width="302"
+                            height="654" loading="eager" decoding="async">
+                    </div>
+                </div>
+            </div>
+
+
+
+        </div>
+    </section>
+
+
+
+    <arc-content-partials [contentType]="'entry-points'" [count]="10" [sectionTitle]="'Find your entry point'"
+        [templateFolder]="'entry-point'"></arc-content-partials>
+
+
+    <!-- ============================================================
+       PROGRAMS — flagship programme cards
+       ============================================================ -->
+
+    <arc-content-partials [contentType]="'flagship-programs'" [count]="5" [sectionTitle]="'Our Flagship Programs'"
+        [templateFolder]="'flagship-programs'"></arc-content-partials>
+
+
+    <!-- ============================================================
+       SNAPSHOT — dark impact stats panel
+       ============================================================ -->
+    <section class="snapshot" id="impact">
+        <div class="snapshot__inner">
+            <div class="snapshot__panel">
+                <h2 class="snapshot__title">GoWow Impact Snapshot</h2>
+                <ul class="snapshot__grid">
+                    <li class="snapshot__item">
+                        <span class="snapshot__icon snapshot__icon--blue">
+                            <i class="fa-duotone fa-solid fa-users"></i>
+                        </span>
+                        <span class="snapshot__value">12,500+</span>
+                        <span class="snapshot__label">Volunteers</span>
+                    </li>
+                    <li class="snapshot__item">
+                        <span class="snapshot__icon snapshot__icon--cyan">
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9" />
+                                <path d="M12 7v5l3 2" />
+                            </svg>
+                        </span>
+                        <span class="snapshot__value">25,680+</span>
+                        <span class="snapshot__label">Volunteer Hours</span>
+                    </li>
+                    <li class="snapshot__item">
+                        <span class="snapshot__icon snapshot__icon--red">
+                            <i class="fa-solid fa-heart"></i>
+                        </span>
+                        <span class="snapshot__value">5,49,000+</span>
+                        <span class="snapshot__label">Lives Impacted</span>
+                    </li>
+                    <li class="snapshot__item">
+                        <span class="snapshot__icon snapshot__icon--amber">
+                            <span class="snapshot__rupee-group">
+                                <i class="fa-solid fa-indian-rupee-sign"></i>
+                                <svg class="snapshot__rupee-hands" width="30" height="13" viewBox="0 0 44 16"
+                                    fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                    <!-- Left box -->
+                                    <rect x="7" y="1.5" width="6.5" height="13" rx="3"
+                                        transform="rotate(-45 10.25 8)" />
+                                    <!-- Right box -->
+                                    <rect x="30.5" y="1.5" width="6.5" height="13" rx="3"
+                                        transform="rotate(45 33.75 8)" />
+                                </svg>
+                            </span>
+                        </span>
+                        <span class="snapshot__value">₹2.1Cr+</span>
+                        <span class="snapshot__label">Donations Facilitated</span>
+                    </li>
+                    <li class="snapshot__item">
+                        <span class="snapshot__icon snapshot__icon--orange">
+                            <i class="fa-solid fa-briefcase"></i>
+                        </span>
+                        <span class="snapshot__value">89+</span>
+                        <span class="snapshot__label">CSR Projects</span>
+                    </li>
+                    <li class="snapshot__item">
+                        <span class="snapshot__icon snapshot__icon--teal">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </span>
+                        <span class="snapshot__value">42+</span>
+                        <span class="snapshot__label">Cities Covered</span>
+                    </li>
+                </ul>
             </div>
         </div>
     </section>
 
-    <arc-footer></arc-footer>
-</div>
+
+    <!--HOW IT WORKS — five-step journey  -->
+    <section class="works">
+        <div class="works__inner">
+
+            <header class="section-head section-head--center">
+                <h2 class="section-head__title">How GoWow Works</h2>
+                <p class="section-head__sub">Simple steps. Real impact.</p>
+            </header>
+
+            <ol class="works__steps">
+                <li class="works__step works__step--green">
+                    <span class="works__icon">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="11" cy="11" r="6" />
+                            <path d="M20 20l-4.5-4.5" />
+                        </svg>
+                    </span>
+                    <h3 class="works__title">Discover</h3>
+                    <p class="works__text">Find verified NGOs and causes that need your help.</p>
+                </li>
+                <li class="works__arrow" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640" fill="green">
+                        <path
+                            d="M726.6 342.6C739.1 330.1 739.1 309.8 726.6 297.3L566.6 137.3C554.1 124.8 533.8 124.8 521.3 137.3C508.8 149.8 508.8 170.1 521.3 182.6L626.7 288L96 288C78.3 288 64 302.3 64 320C64 337.7 78.3 352 96 352L626.7 352L521.3 457.4C508.8 469.9 508.8 490.2 521.3 502.7C533.8 515.2 554.1 515.2 566.6 502.7L726.6 342.7z" />
+                    </svg>
+                </li>
+                <li class="works__step works__step--blue">
+                    <span class="works__icon">
+                        <i class="fa-solid fa-hand-holding-heart"></i>
+                    </span>
+                    <h3 class="works__title">Take Action</h3>
+                    <p class="works__text">Volunteer, donate resources or support a cause.</p>
+                </li>
+                <li class="works__arrow" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640" fill="blue">
+                        <path
+                            d="M726.6 342.6C739.1 330.1 739.1 309.8 726.6 297.3L566.6 137.3C554.1 124.8 533.8 124.8 521.3 137.3C508.8 149.8 508.8 170.1 521.3 182.6L626.7 288L96 288C78.3 288 64 302.3 64 320C64 337.7 78.3 352 96 352L626.7 352L521.3 457.4C508.8 469.9 508.8 490.2 521.3 502.7C533.8 515.2 554.1 515.2 566.6 502.7L726.6 342.7z" />
+                    </svg>
+                </li>
+                <li class="works__step works__step--orange">
+                    <span class="works__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="#F1C691" xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true">
+                            <!-- X axis -->
+                            <path d="M3 21H21" stroke="#F1C691" stroke-width="2" stroke-linecap="round" />
+
+                            <!-- Y axis -->
+                            <path d="M3 21V3" stroke="#F1C691" stroke-width="2" stroke-linecap="round" />
+
+                            <!-- Bars -->
+                            <rect x="6" y="15" width="3" height="6" rx="0.5" fill="#F1C691" />
+                            <rect x="11" y="11" width="3" height="10" rx="0.5" fill="#F1C691" />
+                            <rect x="16" y="7" width="3" height="14" rx="0.5" fill="#F1C691" />
+
+                            <!-- Upward trend line -->
+                            <path d="M5 13L9 10L12 11L19 4" stroke="#F1C691" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+
+                            <!-- Arrow -->
+                            <path d="M16 4H19V7" stroke="#F1C691" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                    <h3 class="works__title">Track Impact</h3>
+                    <p class="works__text">See real-time updates and the impact of your contribution.</p>
+                </li>
+                <li class="works__arrow" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640" fill="orange">
+                        <path
+                            d="M726.6 342.6C739.1 330.1 739.1 309.8 726.6 297.3L566.6 137.3C554.1 124.8 533.8 124.8 521.3 137.3C508.8 149.8 508.8 170.1 521.3 182.6L626.7 288L96 288C78.3 288 64 302.3 64 320C64 337.7 78.3 352 96 352L626.7 352L521.3 457.4C508.8 469.9 508.8 490.2 521.3 502.7C533.8 515.2 554.1 515.2 566.6 502.7L726.6 342.7z" />
+                    </svg>
+                </li>
+                <li class="works__step works__step--violet">
+                    <span class="works__icon">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+
+                            <!-- vibrant circle with a lighter border ring -->
+                            <!-- outer border ring -->
+                            <circle cx="12" cy="12" r="8.5" style="fill:none; stroke:#383c6b; stroke-width:0.5" />
+                            <!-- main circle fill -->
+                            <circle cx="12" cy="12" r="8" style="fill:#97B1E9; stroke:#97B1E9; stroke-width:2" />
+                            <!-- inner border ring -->
+                            <circle cx="12" cy="12" r="7.5" style="fill:none; stroke:#383c6b; stroke-width:0.5" />
+                            <!-- chart path in white so it pops on the dark circle -->
+                            <path d="M8 9l2 6 2-4 2 4 2-6" style="fill:none; stroke:#ffffff; stroke-width:1.5" />
+                        </svg>
+                    </span>
+                    <h3 class="works__title">Earn Rewards</h3>
+                    <p class="works__text">Earn Wow Coins and build your Social Civil Score.</p>
+                </li>
+                <li class="works__arrow" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640" fill="purple">
+                        <path
+                            d="M726.6 342.6C739.1 330.1 739.1 309.8 726.6 297.3L566.6 137.3C554.1 124.8 533.8 124.8 521.3 137.3C508.8 149.8 508.8 170.1 521.3 182.6L626.7 288L96 288C78.3 288 64 302.3 64 320C64 337.7 78.3 352 96 352L626.7 352L521.3 457.4C508.8 469.9 508.8 490.2 521.3 502.7C533.8 515.2 554.1 515.2 566.6 502.7L726.6 342.7z" />
+                    </svg>
+                </li>
+                <li class="works__step works__step--teal">
+                    <span class="works__icon">
+                        <svg class="icon" width="100" height="100" viewBox="0 0 100 100"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <!-- Trophy -->
+                            <g>
+                                <!-- Cup -->
+                                <path
+                                    d="M32 27 H68 V43 C68 55 61 63 53 66 V75 H60 V79 H40 V75 H47 V66 C39 63 32 55 32 43 Z" />
+
+                                <!-- Left handle -->
+                                <path
+                                    d="M32 32 H27 C23 32 21 35 22 40 C23 47 27 51 34 51 V47 C30 47 27 44 26 39 C25.5 37 27 36 29 36 H32 Z" />
+
+                                <!-- Right handle -->
+                                <path
+                                    d="M68 32 H73 C77 32 79 35 78 40 C77 47 73 51 66 51 V47 C70 47 73 44 74 39 C74.5 37 73 36 71 36 H68 Z" />
+
+                                <!-- Base -->
+                                <path d="M38 79 H62 V83 H38 Z" />
+
+                                <!-- Stem -->
+                                <path d="M47 61 H53 V77 H47 Z" />
+                            </g>
+                        </svg>
+                    </span>
+                    <h3 class="works__title">Build Legacy</h3>
+                    <p class="works__text">Your actions today create a legacy for tomorrow.</p>
+                </li>
+            </ol>
+
+        </div>
+    </section>
+
+
+    <!--"Impact in Action" media tiles -->
+
+    <arc-content-partials [contentType]="'impact-actions'" [count]="5" [sectionTitle]="'Impact in Action'"
+        [templateFolder]="'action'"></arc-content-partials>
+    <!-- ============================================================
+         RECOGNITION — awards list + testimonial carousel
+         ============================================================ -->
+    <section class="recognition" id="about">
+        <div class="recognition__inner">
+            <arc-content-partials [contentType]="'awards-recognition'" [count]="5"
+                [sectionTitle]="'Awards &amp; Recognition'"
+                [templateFolder]="'award-recognition'"></arc-content-partials>
+            <arc-content-partials [contentType]="'voices-of-impact'" [count]="5" [sectionTitle]="'Voices of Impact'"
+                [templateFolder]="'voice-impact'"></arc-content-partials>
+        </div>
+    </section>
+
+
+    <!-- CTA — "Good Karma Economy" gradient conversion band -->
+    <section class="cta" id="download">
+        <div class="cta__inner">
+            <div class="cta__panel">
+                <div class="cta__content">
+                    <h2 class="cta__title">Be Part of the Good Karma Economy</h2>
+                    <p class="cta__text">Every action counts. Every person matters. Together, we build a better
+                        tomorrow.</p>
+                </div>
+                <ul class="cta__actions">
+                    <li class="cta__action"><a class="cta__btn" href="#app"><span class="cta__btn-label">Download
+                                App</span><span class="cta__btn-sub"
+                                style="display: inline-flex; align-items: center; gap: 4px;"><svg
+                                    xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="16" height="16">
+                                    <path fill="#ffffff"
+                                        d="M12 29c0 1.1-.9 2-2 2s-2-.9-2-2v-9c0-1.1.9-2 2-2s2 .9 2 2V29zM40 29c0 1.1-.9 2-2 2s-2-.9-2-2v-9c0-1.1.9-2 2-2s2 .9 2 2V29zM22 40c0 1.1-.9 2-2 2s-2-.9-2-2v-9c0-1.1.9-2 2-2s2 .9 2 2V40zM30 40c0 1.1-.9 2-2 2s-2-.9-2-2v-9c0-1.1.9-2 2-2s2 .9 2 2V40z" />
+                                    <path fill="#ffffff"
+                                        d="M14 18v15c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V18H14zM24 8c-6 0-9.7 3.6-10 8h20C33.7 11.6 30 8 24 8zM20 13.6c-.6 0-1-.4-1-1 0-.6.4-1 1-1s1 .4 1 1C21 13.1 20.6 13.6 20 13.6zM28 13.6c-.6 0-1-.4-1-1 0-.6.4-1 1-1s1 .4 1 1C29 13.1 28.6 13.6 28 13.6z" />
+                                    <path fill="#ffffff"
+                                        d="M28.3 10.5c-.2 0-.4-.1-.6-.2-.5-.3-.6-.9-.3-1.4l1.7-2.5c.3-.5.9-.6 1.4-.3.5.3.6.9.3 1.4l-1.7 2.5C29 10.3 28.7 10.5 28.3 10.5zM19.3 10.1c-.3 0-.7-.2-.8-.5l-1.3-2.1c-.3-.5-.2-1.1.3-1.4.5-.3 1.1-.2 1.4.3l1.3 2.1c.3.5.2 1.1-.3 1.4C19.7 10 19.5 10.1 19.3 10.1z" />
+                                </svg> / <i class="fa-brands fa-apple"></i> iOS</span></a></li>
+                    <li class="cta__action"><a class="cta__btn" href="#partner"><span class="cta__btn-label">Partner
+                                With Us</span><span class="cta__btn-sub">(Corporates)</span></a></li>
+                    <li class="cta__action"><a class="cta__btn" href="#ngo-join"><span class="cta__btn-label">Join as
+                                NGO</span><span class="cta__btn-sub">Free to
+                                register</span></a></li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<arc-footer></arc-footer>

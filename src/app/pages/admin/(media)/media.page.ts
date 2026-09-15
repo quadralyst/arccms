@@ -26,7 +26,9 @@ import { SafeHtml } from '@angular/platform-browser';
 import { doc, DocumentSnapshot, Firestore, getDoc } from '@angular/fire/firestore';
 import { Subscription } from 'rxjs';
 import { DEFAULT_MISC_SETTINGS, IMiscSettings } from '../(settings)/misc/misc-settings.model';
-import { MediaUploadSettings } from '../../../../shared/services/file-upload.service';
+import { DEFAULT_UPLOAD_SETTINGS, MediaUploadSettings, UploadedMedia } from '../../../../shared/services/file-upload.service';
+import { ImageVariant } from '../../../../shared/services/file-upload.service';
+import { DEFAULT_IMAGE_SIZE, IMAGE_SIZE_LABELS, IMAGE_SIZES, ImageSize, imageSizeUrls, imageSizeLimits } from '../../../../shared/utils/image-sizes';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { FileUploadService } from '../../../../shared/services/file-upload.service';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
@@ -49,7 +51,9 @@ interface SelectableMedia {
     url?: string;
     name?: string;
     uploadTime?: Date;
-    urls?: { regular: string; full?: string; raw?: string };
+    urls?: { regular: string; full?: string; raw?: string; small?: string };
+    /** The stored sizes of an upload. Absent on Unsplash results and on uploads older than sizes. */
+    variants?: Record<ImageSize, ImageVariant>;
 }
 
 /** Shape of a menu item in the media manager tab bar */
@@ -84,6 +88,12 @@ export interface MediaDialogData {
     multiple?: boolean;
     /** Tab to open on, e.g. `icons` for a field that only wants a glyph. */
     initialTab?: string;
+    /**
+     * The size preselected in the picker — what the caller recommends for
+     * the slot being filled (a cover image wants XL; a thumbnail S). M when
+     * omitted. The admin can still pick another.
+     */
+    size?: ImageSize;
 }
 
 /** What the dialog hands back when the admin confirms a selection. */
@@ -106,6 +116,8 @@ export interface MediaSelection {
      * about this field keeps working rather than receiving nothing.
      */
     mediaUrls?: string[];
+    /** The size the admin picked; `mediaUrl` (and `mediaUrls`) already point at it. */
+    size?: ImageSize;
 }
 
 @Component({
@@ -154,6 +166,10 @@ export default class MediaManagerComponent extends BaseComponent {
     isSearching = false;
     unsplashConfigured: boolean | null = null;
     selectedImageDimensions: string | null = null;
+    /** The size an insert hands back: the caller's recommendation, else M, unless the admin picks another. */
+    selectedSize: ImageSize = this._DIALOG_DATA.size ?? DEFAULT_IMAGE_SIZE;
+    readonly imageSizes = IMAGE_SIZES;
+    readonly imageSizeLabels = IMAGE_SIZE_LABELS;
     /** The icon highlighted in the Icons tab, if any. */
     selectedIcon: ArcIcon | null = null;
     /**
@@ -172,12 +188,9 @@ export default class MediaManagerComponent extends BaseComponent {
     isDragOver = false;
 
     // Media upload settings (loaded from Settings/misc)
-    private mediaSettings: MediaUploadSettings = {
-        maxFileSize: 5,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        convertToWebp: false,
-    };
+    private mediaSettings: MediaUploadSettings = { ...DEFAULT_UPLOAD_SETTINGS };
+    /** Resolves once Settings/misc has been read, so an upload never runs on the defaults by accident. */
+    private mediaSettingsLoaded: Promise<void> = Promise.resolve();
 
     // Track page documents for backward navigation
     private pageDocumentStack: DocumentSnapshot[] = [];
@@ -220,7 +233,7 @@ export default class MediaManagerComponent extends BaseComponent {
         // Upload limits are only read to validate an upload; an icons-only
         // dialog cannot upload anything, so skip the Firestore round-trip.
         if (this.menuItems.some(item => item.kind === 'image')) {
-            this.loadMediaUploadSettings();
+            this.mediaSettingsLoaded = this.loadMediaUploadSettings();
         }
 
         this.selectedMenu(initial);
@@ -377,7 +390,7 @@ export default class MediaManagerComponent extends BaseComponent {
 
         if (this.isMultiSelect) {
             const urls = this.selectedMediaList
-                .map((picked) => picked.url || picked.urls?.regular || '')
+                .map((picked) => this.urlAtSize(picked, this.selectedSize))
                 .filter(Boolean);
 
             this.dialogRef.close({
@@ -385,13 +398,51 @@ export default class MediaManagerComponent extends BaseComponent {
                 kind: 'image',
                 mediaUrl: urls[0] ?? '',
                 mediaUrls: urls,
+                size: this.selectedSize,
             } satisfies MediaSelection);
             return;
         }
 
-        const selectedMedia = this.selectedMediaUrl?.url || this.selectedMediaUrl?.urls?.regular || '';
-        const selection: MediaSelection = { type: 'submit', mediaUrl: selectedMedia, kind: 'image' };
+        const selectedMedia = this.selectedMediaUrl ? this.urlAtSize(this.selectedMediaUrl, this.selectedSize) : '';
+        const selection: MediaSelection = { type: 'submit', mediaUrl: selectedMedia, kind: 'image', size: this.selectedSize };
         this.dialogRef.close(selection);
+    }
+
+    /**
+     * The URL of `media` at `size`.
+     *
+     * An upload with stored sizes answers from them. An Unsplash photo is
+     * resized by its CDN. An upload from before sizes existed has one file,
+     * which is what every size returns — the chips are disabled for it.
+     */
+    urlAtSize(media: SelectableMedia, size: ImageSize): string {
+        if (media.variants?.[size]?.url) return media.variants[size].url;
+        const source = media.urls?.raw || media.urls?.regular || media.url || '';
+        return imageSizeUrls(source, this.mediaSettings.maxSize)?.[size] ?? source;
+    }
+
+    /** True when the selection can actually be handed back in more than one size. */
+    hasSizeChoice(media: SelectableMedia | null): boolean {
+        if (!media) return false;
+        if (media.variants) return true;
+        return !!media.urls?.raw;
+    }
+
+    /** "300 × 200" for a stored size, or the longest-side limit for a CDN-resized photo. */
+    sizeDimensions(media: SelectableMedia, size: ImageSize): string {
+        const variant = media.variants?.[size];
+        if (variant) return `${variant.width} × ${variant.height}`;
+        return `≤ ${imageSizeLimits(this.mediaSettings.maxSize)[size]} px`;
+    }
+
+    selectSize(size: ImageSize): void {
+        this.selectedSize = size;
+        this.ref.detectChanges();
+    }
+
+    /** The small size for a grid tile, so the gallery does not download every image at full width. */
+    thumbnailUrl(media: SelectableMedia): string {
+        return media.variants?.s?.url || media.url || '';
     }
 
     /** True while the Icons tab is the active one. */
@@ -459,7 +510,11 @@ export default class MediaManagerComponent extends BaseComponent {
         this.uploadCurrent = 0;
         this.ref.detectChanges();
 
-        const results: any[] = [];
+        // A fast admin can drop a file before Settings/misc has answered;
+        // uploading on the defaults would silently ignore their limits.
+        await this.mediaSettingsLoaded;
+
+        const results: UploadedMedia[] = [];
 
         for (const file of files) {
             this.uploadCurrent++;
@@ -656,11 +711,13 @@ export default class MediaManagerComponent extends BaseComponent {
             });
             if (docSnap.exists()) {
                 const data = { ...DEFAULT_MISC_SETTINGS, ...docSnap.data() } as IMiscSettings;
+                // Older Settings docs carry mediaMaxWidth/Height; those are
+                // deliberately not read — the longest-side limit is its own
+                // setting, and a stale 1920 must not leak into new uploads.
                 this.mediaSettings = {
-                    maxFileSize: data.mediaMaxFileSize ?? 5,
-                    maxWidth: data.mediaMaxWidth ?? 1920,
-                    maxHeight: data.mediaMaxHeight ?? 1080,
-                    convertToWebp: data.mediaConvertToWebp ?? false,
+                    maxFileSize: data.mediaMaxFileSize ?? DEFAULT_UPLOAD_SETTINGS.maxFileSize,
+                    maxSize: data.mediaMaxSize ?? DEFAULT_UPLOAD_SETTINGS.maxSize,
+                    convertToWebp: data.mediaConvertToWebp ?? DEFAULT_UPLOAD_SETTINGS.convertToWebp,
                 };
             }
         } catch (error) {

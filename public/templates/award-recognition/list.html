@@ -1,36 +1,34 @@
 <div class="arc-cms-template">
     <arc-header></arc-header>
 
-    <!-- Articles Hero Section - Compact Apple-inspired design -->
-    <section class="articles-hero">
+    <!-- recognition Hero Section - Compact Apple-inspired design -->
+    <section class="recognition-hero">
         <div class="container">
-            <h1 class="articles-title arc-skeleton">{{ contentType }}</h1>
-            <p class="articles-subtitle arc-skeleton">{{ contentTypeDescription }}</p>
+            <h1 class="recognition-title arc-skeleton">{{ contentType }}</h1>
+            <p class="recognition-subtitle arc-skeleton">{{ contentTypeDescription }}</p>
         </div>
     </section>
 
-    <!-- Articles Grid Section -->
-    <section class="articles-section">
+    <!-- recognition Grid Section -->
+    <section class="recognition-section">
         <div class="container">
-            <div class="articles-grid" data-arc-loop="items" data-limit="12">
-                <!-- Article Card Template -->
-                <a class="article-card" href="{{ url }}">
-                    <div class="article-image-wrapper">
-                        <img class="article-image" src="{{ coverImage }}" alt="{{ title }}">
+            <div class="recognition-grid" data-arc-loop="items" data-limit="12">
+                <!-- recognition Card Template -->
+                <a class="recognition-card" href="{{ url }}">
+                    <div class="recognition-image-wrapper">
+                        <img class="recognition-image" src="{{ coverImage }}" alt="{{ title }}">
                     </div>
-                    <div class="article-content">
-                        <div class="article-meta">
+                    <div class="recognition-content">
+                        <div class="recognition-meta">
                             <time datetime="{{ publishedOn }}" class="arc-skeleton">{{ publishedOn }}</time>
                             <span class="meta-separator">•</span>
                             <span class="arc-skeleton">{{ readTime }}</span> min read
                             <span class="meta-separator category-separator">•</span>
                             <span class="category-badge arc-skeleton">{{ cat }}</span>
                         </div>
-                        <h2 class="article-title arc-skeleton">{{ title }}</h2>
-                        <p class="article-excerpt arc-skeleton">{{ excerpt }}</p>
-                        <div class="article-tags-inline" [innerHTML]="tagsHtml">
-                        </div>
-                        <span class="article-read-more" data-arc-t="read_more">Read Article <i class="fas fa-arrow-right"></i></span>
+                        <h2 class="recognition-title arc-skeleton">{{ title }}</h2>
+                        <p class="recognition-excerpt arc-skeleton">{{ excerpt }}</p>
+                        <span class="recognition-read-more">Read recognition <i class="fas fa-arrow-right"></i></span>
                     </div>
                 </a>
             </div>
@@ -38,8 +36,8 @@
             <!-- Empty State -->
             <div class="empty-state" id="emptyState">
                 <i class="fas fa-newspaper"></i>
-                <h3 data-arc-t="empty_title">No Articles Yet</h3>
-                <p data-arc-t="empty_body">Check back soon for new content.</p>
+                <h3>No recognition Yet</h3>
+                <p>Check back soon for new content.</p>
             </div>
         </div>
     </section>
@@ -48,14 +46,14 @@
 </div>
 
 <style>
-    /* Apple-inspired Articles List Styles - Compact */
-    .articles-hero {
+    /* Apple-inspired recognition List Styles - Compact */
+    .recognition-hero {
         padding: 3rem 0 2rem;
         text-align: center;
         background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
     }
 
-    .articles-title {
+    .recognition-title {
         font-size: 2.5rem;
         font-weight: 700;
         color: #1d1d1f;
@@ -63,7 +61,7 @@
         letter-spacing: -0.02em;
     }
 
-    .articles-subtitle {
+    .recognition-subtitle {
         font-size: 1rem;
         color: #6e6e73;
         max-width: 600px;
@@ -71,18 +69,18 @@
         line-height: 1.4;
     }
 
-    .articles-section {
+    .recognition-section {
         padding: 2rem 0 4rem;
         background: #ffffff;
     }
 
-    .articles-grid {
+    .recognition-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
         gap: 2rem;
     }
 
-    .article-card {
+    .recognition-card {
         display: flex;
         flex-direction: column;
         background: #ffffff;
@@ -95,20 +93,20 @@
         height: 100%;
     }
 
-    .article-card:hover {
+    .recognition-card:hover {
         transform: translateY(-8px);
         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
     }
 
-    .article-card:hover .article-read-more {
+    .recognition-card:hover .recognition-read-more {
         color: #0066cc;
     }
 
-    .article-card:hover .article-read-more i {
+    .recognition-card:hover .recognition-read-more i {
         transform: translateX(4px);
     }
 
-    .article-image-wrapper {
+    .recognition-image-wrapper {
         position: relative;
         width: 100%;
         height: 200px;
@@ -116,26 +114,26 @@
         background: #f5f5f7;
     }
 
-    .article-image {
+    .recognition-image {
         width: 100%;
         height: 100%;
         object-fit: cover;
         transition: transform 0.5s ease;
     }
 
-    .article-card:hover .article-image {
+    .recognition-card:hover .recognition-image {
         transform: scale(1.05);
     }
 
 
-    .article-content {
+    .recognition-content {
         padding: 1.5rem;
         display: flex;
         flex-direction: column;
         flex: 1;
     }
 
-    .article-meta {
+    .recognition-meta {
         display: flex;
         align-items: center;
         gap: 0.5rem;
@@ -163,7 +161,7 @@
         display: none;
     }
 
-    .article-title {
+    .recognition-title {
         font-size: 1.25rem;
         font-weight: 600;
         color: #1d1d1f;
@@ -175,7 +173,7 @@
         overflow: hidden;
     }
 
-    .article-excerpt {
+    .recognition-excerpt {
         font-size: 0.95rem;
         color: #6e6e73;
         line-height: 1.6;
@@ -187,7 +185,7 @@
         flex: 1;
     }
 
-    .article-read-more {
+    .recognition-read-more {
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
@@ -198,20 +196,20 @@
         margin-top: auto;
     }
 
-    .article-read-more i {
+    .recognition-read-more i {
         font-size: 0.75rem;
         transition: transform 0.2s ease;
     }
 
     /* Tags in cards */
-    .article-tags-inline {
+    .recognition-tags-inline {
         margin-bottom: 0.75rem;
         display: flex;
         flex-wrap: wrap;
         gap: 0.35rem;
     }
 
-    .article-tags-inline:empty {
+    .recognition-tags-inline:empty {
         display: none;
     }
 
@@ -247,21 +245,21 @@
     }
 
     /* Show empty state when grid is empty */
-    .articles-grid:empty+.empty-state {
+    .recognition-grid:empty+.empty-state {
         display: block;
     }
 
     /* Responsive */
     @media (max-width: 768px) {
-        .articles-hero {
+        .recognition-hero {
             padding: 4rem 0 3rem;
         }
 
-        .articles-title {
+        .recognition-title {
             font-size: 2.5rem;
         }
 
-        .articles-grid {
+        .recognition-grid {
             grid-template-columns: 1fr;
             gap: 1.5rem;
         }
@@ -277,7 +275,7 @@
         }
 
         function processImages() {
-            document.querySelectorAll('.article-image').forEach(function (img) {
+            document.querySelectorAll('.recognition-image').forEach(function (img) {
                 // Check if image is broken or has no valid src
                 if (!img.src || img.src === window.location.href || img.src === '' ||
                     (img.complete && img.naturalHeight === 0)) {

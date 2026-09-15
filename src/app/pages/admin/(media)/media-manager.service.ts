@@ -94,6 +94,8 @@ export class MediaManagerService extends DbService<IMediaManager> {
                     url: doc.data().downloadURL,
                     name: doc.data().name,
                     uploadTime: doc.data().uploadTime?.toDate?.() ?? doc.data().uploadTime,
+                    // Absent on uploads from before sizes existed.
+                    variants: doc.data().variants,
                 }));
                 const lastDoc = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : undefined;
                 observer.next({ mediaList, lastDoc });

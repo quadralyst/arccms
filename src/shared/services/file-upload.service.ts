@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { deleteObject, getDownloadURL, ref, Storage, uploadBytesResumable } from '@angular/fire/storage';
 import { deleteDoc, doc, Firestore, getDoc } from '@angular/fire/firestore';
+import { fitLongestSide, IMAGE_SIZES, ImageSize, imageSizeLimits } from '../utils/image-sizes';
 
 /** Allowed MIME types for media upload */
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -15,17 +16,44 @@ const MIME_TO_EXTENSION: Record<string, string> = {
 
 export interface MediaUploadSettings {
     maxFileSize: number;   // in MB
-    maxWidth: number;      // in px
-    maxHeight: number;     // in px
+    /** Longest side of the XL size, in px; S/M/L are quarters of it. */
+    maxSize: number;
     convertToWebp: boolean; // Convert uploaded images to WebP (except GIFs)
 }
 
+/**
+ * Mirrors the media defaults in DEFAULT_MISC_SETTINGS (Settings → Misc).
+ * WebP is on: a new install should get small images without being told to.
+ */
 export const DEFAULT_UPLOAD_SETTINGS: MediaUploadSettings = {
     maxFileSize: 5,
-    maxWidth: 1920,
-    maxHeight: 1080,
-    convertToWebp: false,
+    maxSize: 1200,
+    convertToWebp: true,
 };
+
+/** One stored size of an upload. */
+export interface ImageVariant {
+    url: string;
+    /** Storage path, kept so a delete can find every size. */
+    path: string;
+    width: number;
+    height: number;
+}
+
+/**
+ * What an upload leaves behind. `downloadURL` is the XL size — the whole
+ * image at the configured maximum — so anything reading only that field
+ * gets the same thing it always did. GIFs are stored once, untouched, and
+ * carry no variants.
+ */
+export interface UploadedMedia {
+    downloadURL: string;
+    name: string;
+    uploadTime: Date;
+    width?: number;
+    height?: number;
+    variants?: Record<ImageSize, ImageVariant>;
+}
 
 @Injectable({
     providedIn: 'root'
@@ -49,10 +77,18 @@ export class FileUploadService {
             }
 
             const data: any = docSnap.data();
-            const filePath = data.downloadURL;
 
-            const storageRef = ref(storage, filePath);
-            await deleteObject(storageRef);
+            // Every stored size goes, not just the one `downloadURL` points at.
+            // The XL variant *is* downloadURL, so it is deleted through its path.
+            const variants: ImageVariant[] = data.variants ? Object.values(data.variants) : [];
+            const targets = variants.length > 0
+                ? [...new Set(variants.map((variant) => variant.path))]
+                : [data.downloadURL];
+
+            for (const target of targets) {
+                const storageRef = ref(storage, target);
+                await deleteObject(storageRef);
+            }
 
             await deleteDoc(docRef);
         } catch (error) {
@@ -105,65 +141,6 @@ export class FileUploadService {
     }
 
     /**
-     * Resize an image if it exceeds max dimensions, preserving aspect ratio.
-     * GIFs are returned as-is to preserve animation.
-     * When convertToWebp is true, non-GIF images are re-encoded as WebP.
-     * Images within bounds are returned without re-encoding (unless WebP conversion is active).
-     */
-    async resizeImage(file: File, maxWidth: number, maxHeight: number, convertToWebp = false): Promise<Blob> {
-        // GIF files should not be resized or converted (would lose animation)
-        if (file.type === 'image/gif') {
-            return file;
-        }
-
-        const img = await this.loadImageFromFile(file);
-        let { width, height } = img;
-
-        const needsResize = width > maxWidth || height > maxHeight;
-
-        // No resize needed and no format conversion — return original
-        if (!needsResize && !convertToWebp) {
-            return file;
-        }
-
-        // Calculate new dimensions maintaining aspect ratio
-        if (needsResize) {
-            const aspectRatio = width / height;
-            if (width > maxWidth) {
-                width = maxWidth;
-                height = Math.round(width / aspectRatio);
-            }
-            if (height > maxHeight) {
-                height = maxHeight;
-                width = Math.round(height * aspectRatio);
-            }
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const outputType = convertToWebp ? 'image/webp' : file.type;
-        const quality = (outputType === 'image/jpeg' || outputType === 'image/webp') ? 0.9 : undefined;
-
-        return new Promise<Blob>((resolve, reject) => {
-            canvas.toBlob(
-                (blob) => {
-                    if (blob) {
-                        resolve(blob);
-                    } else {
-                        reject(new Error('Canvas toBlob failed.'));
-                    }
-                },
-                outputType,
-                quality,
-            );
-        });
-    }
-
-    /**
      * Generate an SEO-friendly filename from the original filename.
      *
      * Sanitizes the name (lowercase, hyphens, no special chars),
@@ -197,62 +174,146 @@ export class FileUploadService {
     }
 
     /**
-     * Upload a File to Firebase Storage after optional resize.
+     * Draws `img` at `width × height` and encodes it — WebP when asked, else
+     * the source type. Lossy types get a fixed quality.
+     */
+    private encodeImage(img: HTMLImageElement, width: number, height: number, outputType: string): Promise<Blob> {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const quality = (outputType === 'image/jpeg' || outputType === 'image/webp') ? 0.9 : undefined;
+
+        return new Promise<Blob>((resolve, reject) => {
+            canvas.toBlob(
+                (blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed.'))),
+                outputType,
+                quality,
+            );
+        });
+    }
+
+    /** Uploads one blob and resolves to its download URL, reporting progress as 0–100. */
+    private uploadBlob(path: string, blob: Blob, contentType: string, onProgress: (pct: number) => void): Promise<string> {
+        const storageRef = ref(this.storage, path);
+        const uploadTask = uploadBytesResumable(storageRef, blob, { contentType });
+
+        return new Promise((resolve, reject) => {
+            uploadTask.on(
+                'state_changed',
+                (snapshot) => onProgress((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
+                (error) => {
+                    console.error('Error during image upload:', error);
+                    reject(error);
+                },
+                async () => resolve(await getDownloadURL(storageRef)),
+            );
+        });
+    }
+
+    /**
+     * Upload a File to Firebase Storage in every size.
      *
-     * Flow: File → validate → resize (if needed) → SEO filename → upload
+     * Flow: File → validate → decode → XL with its longest side bounded by
+     * the max size → L / M / S bounded at ¾, ½, ¼ of it → upload each → one
+     * record. Bounding the longest side means "M" is a 600px box whether the
+     * photo is landscape or portrait.
+     *
+     * A size the image is too small to fill is not upscaled: it reuses the
+     * next size up, so a 500px photo stores S and M and points L and XL at M.
+     * Progress covers the whole set. GIFs skip all of this — re-encoding
+     * would drop the animation — and are stored once, as they are.
      */
     async uploadFile(
         file: File,
         settings: MediaUploadSettings = DEFAULT_UPLOAD_SETTINGS,
         progressCallback: (progress: number) => void,
-    ): Promise<{ downloadURL: string; name: string; uploadTime: Date }> {
+    ): Promise<UploadedMedia> {
         const typeError = this.validateFileType(file);
         if (typeError) {
             throw new Error(typeError);
         }
 
-        const convertToWebp = settings.convertToWebp && file.type !== 'image/gif';
-        const blob = await this.resizeImage(file, settings.maxWidth, settings.maxHeight, convertToWebp);
+        if (file.type === 'image/gif') {
+            const sizeError = this.validateFileSize(file, settings.maxFileSize);
+            if (sizeError) throw new Error(sizeError);
+            const filename = this.generateSeoFilename(file.name, file.type);
+            const downloadURL = await this.uploadBlob(`mediaImages/${filename}`, file, file.type, progressCallback);
+            return { downloadURL, name: filename, uploadTime: new Date() };
+        }
 
-        // Determine the actual output MIME type (may differ from original if converted to WebP)
-        const outputMimeType = convertToWebp ? 'image/webp' : file.type;
+        const outputMimeType = settings.convertToWebp ? 'image/webp' : file.type;
+        const img = await this.loadImageFromFile(file);
 
-        // Validate file size after resize so large originals that shrink enough are accepted
+        // Decide the pixel size of every variant before encoding anything.
+        const limits = imageSizeLimits(settings.maxSize);
+        const dimensions = {} as Record<ImageSize, { width: number; height: number }>;
+        for (const size of IMAGE_SIZES) {
+            dimensions[size] = fitLongestSide(img.naturalWidth, img.naturalHeight, limits[size]);
+        }
+        const xl = dimensions.xl;
+
+        // Encode each distinct pixel size once; equal sizes share one file.
+        const encoded = new Map<string, { blob: Blob; width: number; height: number }>();
+        for (const size of IMAGE_SIZES) {
+            const { width, height } = dimensions[size];
+            const dimKey = `${width}x${height}`;
+            if (!encoded.has(dimKey)) {
+                encoded.set(dimKey, { blob: await this.encodeImage(img, width, height, outputMimeType), width, height });
+            }
+        }
+
+        // The size limit applies to the largest file — the one that used to be
+        // the only file.
+        const xlBlob = encoded.get(`${xl.width}x${xl.height}`)!.blob;
         const sizeError = this.validateFileSize(
-            new File([blob], file.name, { type: outputMimeType }),
+            new File([xlBlob], file.name, { type: outputMimeType }),
             settings.maxFileSize,
         );
         if (sizeError) {
             throw new Error(sizeError);
         }
+
         const filename = this.generateSeoFilename(file.name, outputMimeType);
-        const storageRef = ref(this.storage, `mediaImages/${filename}`);
+        const extension = filename.slice(filename.lastIndexOf('.'));
+        const baseName = filename.slice(0, -extension.length);
 
-        const uploadTask = uploadBytesResumable(storageRef, blob, {
-            contentType: outputMimeType,
-        });
+        // Upload largest first, so a failure part-way leaves the useful files.
+        const order: ImageSize[] = ['xl', 'l', 'm', 's'];
+        const uploaded = new Map<string, ImageVariant>();
+        const totalBytes = [...encoded.values()].reduce((sum, item) => sum + item.blob.size, 0);
+        let doneBytes = 0;
 
-        return new Promise((resolve, reject) => {
-            uploadTask.on(
-                'state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    progressCallback(progress);
-                },
-                (error) => {
-                    console.error('Error during image upload:', error);
-                    reject(error);
-                },
-                async () => {
-                    const downloadURL = await getDownloadURL(storageRef);
-                    resolve({
-                        downloadURL,
-                        name: filename,
-                        uploadTime: new Date(),
-                    });
-                },
-            );
-        });
+        for (const size of order) {
+            const { width, height } = dimensions[size];
+            const dimKey = `${width}x${height}`;
+            if (uploaded.has(dimKey)) continue;
+
+            const { blob } = encoded.get(dimKey)!;
+            const path = `mediaImages/${baseName}-${size}${extension}`;
+            const url = await this.uploadBlob(path, blob, outputMimeType, (pct) => {
+                progressCallback(totalBytes ? ((doneBytes + (blob.size * pct) / 100) / totalBytes) * 100 : pct);
+            });
+            doneBytes += blob.size;
+            uploaded.set(dimKey, { url, path, width, height });
+        }
+
+        const variants = {} as Record<ImageSize, ImageVariant>;
+        for (const size of IMAGE_SIZES) {
+            const { width, height } = dimensions[size];
+            variants[size] = uploaded.get(`${width}x${height}`)!;
+        }
+
+        return {
+            downloadURL: variants.xl.url,
+            name: `${baseName}-xl${extension}`,
+            uploadTime: new Date(),
+            width: xl.width,
+            height: xl.height,
+            variants,
+        };
     }
 
     /**

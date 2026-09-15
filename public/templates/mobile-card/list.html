@@ -1,0 +1,586 @@
+<div class="arc-cms-template impact-action-list-page">
+    <arc-header></arc-header>
+
+    <section class="action-list-hero">
+        <div class="container text-center">
+
+            <nav class="action-breadcrumb" aria-label="breadcrumb">
+                <a href="/"><i class="fas fa-home me-1"></i> Home</a>
+                <span class="breadcrumb-separator">/</span>
+                <span class="current-crumb">{{ contentType }}</span>
+            </nav>
+
+            <h1 class="action-hero-title arc-skeleton">{{ contentTypeDescription }}</h1>
+
+            <p class="">
+                {{ title }}
+            </p>
+        </div>
+    </section>
+
+    <section class="action-list-grid-section">
+        <div class="container">
+            <div class="action-cards-grid" data-arc-loop="items" data-limit="12">
+                <!-- Action Story Card -->
+                <a class="action-story-card" href="{{ url }}">
+                    <!-- Cover Image & Graphic Container -->
+                    <div class="card-media-wrapper">
+                        <img src="{{ coverImage }}" alt="{{ contentTypeDescription }}" class="card-cover-img">
+
+                        <!-- Fallback Graphic Illustration -->
+                        <div class="card-graphic-fallback">
+                            <div class="fallback-scene">
+                                <div class="scene-bg-element"></div>
+                                <div class="scene-board-element"></div>
+                                <div class="scene-people-row">
+                                    <span class="person p1"></span>
+                                    <span class="person p2"></span>
+                                    <span class="person p3"></span>
+                                    <span class="person p4"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Top Left Program Badge -->
+                        <div class="card-top-badge">
+                            <span class="program-pill-badge" data-arc-bind="title">
+                                {{ title }}
+                            </span>
+                        </div>
+
+                        <div class="card-play-overlay">
+                            <div class="play-btn-circle">
+                                <i class="fas fa-play"></i>
+                            </div>
+                        </div>
+
+                        <!-- Dark Overlay Content -->
+                        <div class="card-overlay-content">
+                            <h2 class="card-story-title arc-skeleton" data-arc-bind="impact-actions_sub_description">{{
+                                impact-actions_sub_description }}</h2>
+
+                            <div class="card-location-meta">
+                                <i class="fas new {{ impact-actions_location }} me-1"></i>&nbsp;
+                                <span class="location-text"
+                                    data-arc-bind="impact-actions_located">{{impact-actions_located}}</span>
+                            </div>
+
+                            <div class="card-read-link">
+                                Read more <i class="fas fa-chevron-right ms-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div class="action-loading" id="actionLoading">
+                <div class="action-spinner" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+
+            <!-- Empty State Fallback -->
+            <div class="empty-state" id="emptyState">
+                <i class="fas fa-photo-video"></i>
+                <h3 data-arc-t="empty_title">No Impact Stories Yet</h3>
+                <p data-arc-t="empty_body">Check back soon for new stories from the field.</p>
+            </div>
+        </div>
+    </section>
+
+    <arc-footer></arc-footer>
+</div>
+
+<style>
+    .new {
+        font-size: 12px;
+    }
+
+    /* Impact in Action List Page Styling */
+    .impact-action-list-page {
+        background-color: #ffffff;
+        min-height: 100vh;
+        color: #0f172a;
+    }
+
+    /* HERO SECTION */
+    .action-list-hero {
+        padding: 3rem 0 2.5rem;
+        background: #ffffff;
+    }
+
+    .action-breadcrumb {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: #64748b;
+        margin-bottom: 1.5rem;
+    }
+
+    .action-breadcrumb a {
+        color: #64748b;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s ease;
+    }
+
+    .action-breadcrumb a:hover {
+        color: #2563eb;
+    }
+
+    .action-breadcrumb .breadcrumb-separator {
+        color: #cbd5e1;
+    }
+
+    .action-breadcrumb .current-crumb {
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    .action-hero-title {
+        font-size: 2.75rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+        letter-spacing: -0.03em;
+        margin-bottom: 1rem;
+    }
+
+    .action-hero-subtitle {
+        font-size: 1.05rem;
+        line-height: 1.6;
+        color: #64748b;
+        max-width: 680px;
+        margin: 0 auto;
+    }
+
+    /* GRID SECTION */
+    .action-list-grid-section {
+        padding: 1.5rem 0 5rem;
+        background: #ffffff;
+    }
+
+    .action-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+    }
+
+    /* CARD ITEM STYLES */
+    .action-story-card {
+        position: relative;
+        border-radius: 18px;
+        overflow: hidden;
+        text-decoration: none;
+        color: #ffffff;
+        display: block;
+        height: 380px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        background-color: #0f172a;
+    }
+
+    .action-story-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 16px 35px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-media-wrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background-color: #0f172a;
+    }
+
+    .card-cover-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+
+    .action-story-card:hover .card-cover-img {
+        transform: scale(1.06);
+    }
+
+    .card-graphic-fallback {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(180deg, #94a3b8 0%, #334155 100%);
+    }
+
+    .fallback-scene {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .scene-bg-element {
+        position: absolute;
+        top: 25px;
+        right: 25px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #fde047;
+        opacity: 0.8;
+    }
+
+    .scene-board-element {
+        position: absolute;
+        top: 45px;
+        left: 25px;
+        width: 90px;
+        height: 55px;
+        background: #15803d;
+        border-radius: 6px;
+    }
+
+    .scene-people-row {
+        position: absolute;
+        bottom: 120px;
+        left: 20px;
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+    }
+
+    .person {
+        width: 14px;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .p1 {
+        background: #3b82f6;
+        height: 42px;
+    }
+
+    .p2 {
+        background: #f59e0b;
+        height: 35px;
+    }
+
+    .p3 {
+        background: #ec4899;
+        height: 38px;
+    }
+
+    .p4 {
+        background: #10b981;
+        height: 32px;
+    }
+
+    .action-story-card:nth-child(8n+1) .card-graphic-fallback {
+        background: linear-gradient(180deg, #a8a29e 0%, #1e293b 100%);
+    }
+
+    .action-story-card:nth-child(8n+2) .card-graphic-fallback {
+        background: linear-gradient(180deg, #bae6fd 0%, #1e293b 100%);
+    }
+
+    .action-story-card:nth-child(8n+3) .card-graphic-fallback {
+        background: linear-gradient(180deg, #cbd5e1 0%, #0f172a 100%);
+    }
+
+    .action-story-card:nth-child(8n+4) .card-graphic-fallback {
+        background: linear-gradient(180deg, #0f172a 0%, #0284c7 100%);
+    }
+
+    .action-story-card:nth-child(8n+5) .card-graphic-fallback {
+        background: linear-gradient(180deg, #bfdbfe 0%, #1e293b 100%);
+    }
+
+    .action-story-card:nth-child(8n+6) .card-graphic-fallback {
+        background: linear-gradient(180deg, #94a3b8 0%, #0f172a 100%);
+    }
+
+    .action-story-card:nth-child(8n+7) .card-graphic-fallback {
+        background: linear-gradient(180deg, #7dd3fc 0%, #0f172a 100%);
+    }
+
+    .action-story-card:nth-child(8n+8) .card-graphic-fallback {
+        background: linear-gradient(180deg, #e2e8f0 0%, #1e293b 100%);
+    }
+
+    .card-top-badge {
+        position: absolute;
+        top: 1.25rem;
+        left: 1.25rem;
+        z-index: 3;
+    }
+
+    .program-pill-badge {
+        display: inline-block;
+        padding: 0.3rem 0.85rem;
+        border-radius: 50px;
+        background: #ffffff;
+        color: #1e293b;
+        font-size: 0.75rem;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        letter-spacing: -0.01em;
+    }
+
+    .card-play-overlay {
+        position: absolute;
+        top: 38%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 3;
+        pointer-events: none;
+    }
+
+    .play-btn-circle {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        background: #ffffff;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+        transition: transform 0.25s ease, background 0.25s ease;
+        padding-left: 3px;
+    }
+
+    .action-story-card:hover .play-btn-circle {
+        transform: scale(1.12);
+    }
+
+    .card-overlay-content {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0) 25%, rgba(15, 23, 42, 0.75) 60%, rgba(15, 23, 42, 0.96) 90%);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 1.5rem;
+    }
+
+    .card-story-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #ffffff;
+        line-height: 1.35;
+        margin-bottom: 0.65rem;
+        letter-spacing: -0.01em;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-location-meta {
+        font-size: 0.8rem;
+        color: #cbd5e1;
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        font-weight: 500;
+    }
+
+    .card-read-link {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        transition: transform 0.2s ease;
+    }
+
+    .action-story-card:hover .card-read-link i {
+        transform: translateX(4px);
+    }
+
+    /* EMPTY STATE & LOADING */
+    .action-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 5rem 2rem;
+        width: 100%;
+    }
+
+    .action-spinner {
+        width: 44px;
+        height: 44px;
+        border: 4px solid #e2e8f0;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: action-spin 0.8s linear infinite;
+    }
+
+    @keyframes action-spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .empty-state {
+        display: none;
+        text-align: center;
+        padding: 5rem 2rem;
+    }
+
+    .empty-state i {
+        font-size: 3.5rem;
+        color: #cbd5e1;
+        margin-bottom: 1.25rem;
+    }
+
+    .empty-state h3 {
+        font-size: 1.35rem;
+        color: #0f172a;
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: #64748b;
+        font-size: 0.95rem;
+    }
+
+    @media (max-width: 1200px) {
+        .action-cards-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (max-width: 991px) {
+        .action-cards-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .action-hero-title {
+            font-size: 2.25rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .action-cards-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+    (function () {
+        function processImagesAndCards() {
+            var grid = document.querySelector('.action-cards-grid');
+            var emptyState = document.getElementById('emptyState');
+            var loadingSpinner = document.getElementById('actionLoading');
+            var cards = document.querySelectorAll('.action-story-card');
+
+            var hasUnhydratedCard = false;
+            cards.forEach(function (card) {
+                var href = card.getAttribute('href') || '';
+                if (href.includes('{{')) {
+                    hasUnhydratedCard = true;
+                }
+            });
+
+            var isStillLoading = grid && (grid.hasAttribute('data-arc-loop') || hasUnhydratedCard);
+
+            if (isStillLoading) {
+                if (loadingSpinner) loadingSpinner.style.display = 'flex';
+                if (emptyState) emptyState.style.display = 'none';
+                cards.forEach(function (c) { c.style.visibility = 'hidden'; });
+                return;
+            }
+
+            if (loadingSpinner) loadingSpinner.style.display = 'none';
+
+            if (cards.length > 0) {
+                cards.forEach(function (c) { c.style.visibility = 'visible'; });
+                if (emptyState) emptyState.style.display = 'none';
+                if (grid) grid.style.display = 'grid';
+            } else {
+                if (emptyState) emptyState.style.display = 'block';
+                if (grid) grid.style.display = 'none';
+                return;
+            }
+
+            cards.forEach(function (card) {
+                var img = card.querySelector('.card-cover-img');
+                var fallback = card.querySelector('.card-graphic-fallback');
+                var titleEl = card.querySelector('.card-story-title');
+                var badgeEl = card.querySelector('.program-pill-badge');
+                var locationEl = card.querySelector('.location-text');
+
+                // Check image validity
+                if (img) {
+                    if (!img.src || img.src === window.location.href || img.src === '' ||
+                        (img.complete && img.naturalHeight === 0)) {
+                        img.style.display = 'none';
+                        if (fallback) fallback.style.display = 'block';
+                    } else {
+                        img.style.display = 'block';
+                        if (fallback) fallback.style.display = 'none';
+                    }
+
+                    img.onerror = function () {
+                        this.style.display = 'none';
+                        if (fallback) fallback.style.display = 'block';
+                    };
+                }
+
+                if (titleEl) {
+                    var title = titleEl.textContent.trim().toLowerCase();
+                    var hasBadge = badgeEl && badgeEl.textContent.trim() && !badgeEl.textContent.includes('{{');
+                    var hasLocation = locationEl && locationEl.textContent.trim() && !locationEl.textContent.includes('{{');
+
+                    if (!hasBadge || !hasLocation) {
+                        if (title.includes('reading circle')) {
+                            if (badgeEl && !hasBadge) badgeEl.textContent = 'Social Hero Championship';
+                            if (locationEl && !hasLocation) locationEl.textContent = 'Government School, Nagpur';
+                        } else if (title.includes('four hundred saplings')) {
+                            if (badgeEl && !hasBadge) badgeEl.textContent = 'Karma Premier League';
+                            if (locationEl && !hasLocation) locationEl.textContent = 'Riverside Park, Pune';
+                        } else if (title.includes('two hundred kits')) {
+                            if (badgeEl && !hasBadge) badgeEl.textContent = 'Buy One Give One';
+                            if (locationEl && !hasLocation) locationEl.textContent = 'Community Centre, Indore';
+                        } else if (title.includes('season finale')) {
+                            if (badgeEl && !hasBadge) badgeEl.textContent = 'Karma Premier League';
+                            if (locationEl && !hasLocation) locationEl.textContent = 'Town Hall, Indore';
+                        } else if (title.includes('school block')) {
+                            if (badgeEl && !hasBadge) badgeEl.textContent = 'CSR Project';
+                            if (locationEl && !hasLocation) locationEl.textContent = 'Zilla Parishad School, Nagpur';
+                        } else if (title.includes('teaching parents')) {
+                            if (badgeEl && !hasBadge) badgeEl.textContent = 'Social Hero Championship';
+                            if (locationEl && !hasLocation) locationEl.textContent = 'Ward Library, Bhopal';
+                        } else if (title.includes('six tonnes')) {
+                            if (badgeEl && !hasBadge) badgeEl.textContent = 'Volunteer Drive';
+                            if (locationEl && !hasLocation) locationEl.textContent = 'Upper Lake, Bhopal';
+                        } else if (title.includes('artisan collective')) {
+                            if (badgeEl && !hasBadge) badgeEl.textContent = 'GoWow eMarketplace';
+                            if (locationEl && !hasLocation) locationEl.textContent = 'Craft Bazaar, Nagpur';
+                        }
+                    }
+                }
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', processImagesAndCards);
+        } else {
+            processImagesAndCards();
+        }
+        setTimeout(processImagesAndCards, 100);
+        setTimeout(processImagesAndCards, 300);
+        setTimeout(processImagesAndCards, 1000);
+
+        var grid = document.querySelector('.action-cards-grid');
+        if (grid) {
+            var observer = new MutationObserver(function () {
+                processImagesAndCards();
+            });
+            observer.observe(grid, { childList: true, subtree: true });
+        }
+    })();
+</script>

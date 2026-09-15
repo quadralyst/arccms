@@ -255,6 +255,7 @@ describe('MediaManagerComponent', () => {
                 mediaUrl: 'http://example.com/image.jpg',
                 type: 'submit',
                 kind: 'image',
+                size: 'm',
             });
         });
 
@@ -265,6 +266,7 @@ describe('MediaManagerComponent', () => {
                 mediaUrl: 'http://example.com/unsplash.jpg',
                 type: 'submit',
                 kind: 'image',
+                size: 'm',
             });
         });
 
@@ -275,6 +277,7 @@ describe('MediaManagerComponent', () => {
                 mediaUrl: '',
                 type: 'submit',
                 kind: 'image',
+                size: 'm',
             });
         });
     });
@@ -776,15 +779,17 @@ describe('MediaManagerComponent multi-select', () => {
             kind: 'image',
             mediaUrl: 'https://example.com/a.jpg',
             mediaUrls: ['https://example.com/a.jpg', 'https://example.com/b.jpg'],
+            size: 'm',
         });
     });
 
-    it('resolves an Unsplash result through its regular url', async () => {
+    it('resolves an Unsplash result through its regular url, at the chosen size', async () => {
         await open({ isDialogOpen: true, multiple: true });
         component.selectMedia(UNSPLASH);
         component.insertMedia();
 
-        expect(closeSpy.mock.calls[0][0].mediaUrls).toEqual(['https://images.unsplash.com/u.jpg']);
+        // The CDN resizes on the fly, so the default M width is asked for.
+        expect(closeSpy.mock.calls[0][0].mediaUrls).toEqual(['https://images.unsplash.com/u.jpg?w=600&h=600&fit=max&fm=webp&q=80']);
     });
 
     it('clears the basket when the tab changes', async () => {
@@ -806,6 +811,99 @@ describe('MediaManagerComponent multi-select', () => {
             type: 'submit',
             kind: 'image',
             mediaUrl: 'https://example.com/a.jpg',
+            size: 'm',
         });
+    });
+});
+
+describe('MediaManagerComponent image sizes', () => {
+    let component: MediaManagerComponent;
+    let closeSpy: ReturnType<typeof vi.fn>;
+
+    const BUCKET = 'https://firebasestorage.googleapis.com/v0/b/demo.appspot.com/o/';
+    const variant = (size: string, width: number) => ({
+        url: `${BUCKET}mediaImages%2Fphoto-${size}.webp?alt=media&token=${size}`,
+        path: `mediaImages/photo-${size}.webp`,
+        width,
+        height: Math.round(width * 2 / 3),
+    });
+    const SIZED = {
+        id: 'sized',
+        url: variant('xl', 1200).url,
+        variants: { s: variant('s', 300), m: variant('m', 600), l: variant('l', 900), xl: variant('xl', 1200) },
+    };
+    const LEGACY = { id: 'legacy', url: `${BUCKET}mediaImages%2Fold.jpg?alt=media&token=t` };
+    const UNSPLASH_RAW = { id: 'u', urls: { regular: 'https://images.unsplash.com/u?w=1080', raw: 'https://images.unsplash.com/u?ixid=1' } };
+
+    async function open(data: any) {
+        closeSpy = vi.fn();
+        await TestBed.configureTestingModule({
+            imports: [MediaManagerComponent, BrowserAnimationsModule],
+            providers: [
+                { provide: MediaManagerService, useValue: { getMediaListFromFirestore: vi.fn().mockReturnValue(NEVER), isUnsplashConfigured: vi.fn().mockResolvedValue(true) } },
+                { provide: MediaManagerStore, useValue: { add: vi.fn(), addBatch: vi.fn().mockReturnValue(of([])) } },
+                { provide: FileUploadService, useValue: { uploadFileInDb: vi.fn(), uploadFile: vi.fn(), validateFileType: vi.fn().mockReturnValue(null), validateFileSize: vi.fn().mockReturnValue(null), deleteMediaItem: vi.fn() } },
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                { provide: MatDialogRef, useValue: { close: closeSpy } },
+                { provide: MAT_DIALOG_DATA, useValue: data },
+                { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), openCustomSnackbar: vi.fn() } },
+                { provide: GlobalService, useValue: { debugMode: vi.fn(() => false) } },
+                { provide: Location, useValue: { back: vi.fn() } },
+                { provide: Router, useValue: { navigate: vi.fn() } },
+                { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => null }), snapshot: { paramMap: { get: () => null } } } },
+                { provide: Firestore, useValue: {} },
+                ConstantVariables,
+            ],
+        }).compileComponents();
+
+        const fixture = TestBed.createComponent(MediaManagerComponent);
+        component = fixture.componentInstance;
+        vi.spyOn(component.ref, 'detectChanges').mockImplementation(() => { });
+        return component;
+    }
+
+    it('defaults to M', async () => {
+        await open({ isDialogOpen: true });
+        expect(component.selectedSize).toBe('m');
+    });
+
+    it('hands back the variant of the chosen size', async () => {
+        await open({ isDialogOpen: true });
+        component.selectMedia(SIZED);
+        component.selectSize('s');
+        component.insertMedia();
+
+        expect(closeSpy).toHaveBeenCalledWith(expect.objectContaining({
+            mediaUrl: SIZED.variants.s.url,
+            size: 's',
+        }));
+    });
+
+    it('applies the chosen size to every pick in multi-select', async () => {
+        await open({ isDialogOpen: true, multiple: true });
+        component.selectMedia(SIZED);
+        component.selectSize('xl');
+        component.insertMedia();
+
+        expect(closeSpy.mock.calls[0][0].mediaUrls).toEqual([SIZED.variants.xl.url]);
+    });
+
+    it('offers no size choice for an upload from before sizes existed', async () => {
+        await open({ isDialogOpen: true });
+        expect(component.hasSizeChoice(LEGACY)).toBe(false);
+        expect(component.urlAtSize(LEGACY, 's')).toBe(LEGACY.url);
+    });
+
+    it('resizes an Unsplash photo through its CDN', async () => {
+        await open({ isDialogOpen: true });
+        expect(component.hasSizeChoice(UNSPLASH_RAW)).toBe(true);
+        expect(component.urlAtSize(UNSPLASH_RAW, 's')).toContain('w=300');
+        expect(component.urlAtSize(UNSPLASH_RAW, 'xl')).toContain('w=1200');
+    });
+
+    it('shows grid tiles at the small size', async () => {
+        await open({ isDialogOpen: true });
+        expect(component.thumbnailUrl(SIZED)).toBe(SIZED.variants.s.url);
+        expect(component.thumbnailUrl(LEGACY)).toBe(LEGACY.url);
     });
 });

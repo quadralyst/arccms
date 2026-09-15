@@ -235,10 +235,8 @@
         "media_upload": "Media Upload",
         "max_file_size": "Max File Size (MB)",
         "max_file_size_hint": "Maximum allowed file size before upload (default: 5 MB).",
-        "max_width": "Max Width (px)",
-        "max_width_hint": "Images wider than this will be resized (default: 1920).",
-        "max_height": "Max Height (px)",
-        "max_height_hint": "Images taller than this will be resized (default: 1080).",
+        "max_size": "Max image size (px, longest side)",
+        "max_size_hint": "Images are stored in four sizes bounded on their longest side: S {{ s }} · M {{ m }} · L {{ l }} · XL {{ xl }} px (default: 1200). Nothing is enlarged.",
         "convert_webp": "Convert all images to WebP",
         "save_media": "Save Media Settings",
         "media_saved": "Media settings saved successfully",
@@ -603,7 +601,13 @@
           "translating_into": "Translating into <strong>{{ lang }}</strong>. Blank fields fall back to the {{ defaultLang }} text. Keys, types and settings are shared across languages.",
           "default_badge": "default",
           "default_template": "Default Template",
-          "field_n": "Field {{ n }}"
+          "field_n": "Field {{ n }}",
+          "field_name": "Name",
+          "field_name_placeholder": "e.g. Prize",
+          "field_key_auto_hint": "set from the name, fixed once saved.",
+          "field_key_locked_hint": "fixed — content already refers to it.",
+          "field_name_duplicate": "Another field in this content type already has this name.",
+          "duplicate_fields": "Field names must be unique within a content type."
         },
         "fix_slug": "Please fix the slug error before submitting.",
         "created": "Content type created successfully",
@@ -642,13 +646,10 @@
         "deploy_failed": "Deploy failed",
         "shared_badge": "shared",
         "no_cover_image": "No cover image",
-        "click_to_upload": "Click to upload",
-        "image_recommendation": "Recommended: 1200 x 630 pixels",
-        "upload_image": "Upload image",
         "remove_image": "Remove Image",
         "expand": "Expand",
         "loading_options": "Loading options...",
-        "click_to_select_image": "Click to select image",
+        "click_to_select_image": "Click to select an image",
         "click_to_select_icon": "Click to select an icon",
         "select_image": "Select image",
         "select_icon": "Select Icon",
@@ -688,7 +689,9 @@
           "coordinates": "Latitude, longitude",
           "bad_coordinates": "Enter coordinates as \"18.5204, 73.8567\".",
           "clear": "Clear location"
-        }
+        },
+        "required_marker": "Required",
+        "title_label": "Title"
       },
       "list": {
         "type_not_found": "Content Type Not Found",
@@ -863,7 +866,10 @@
         "insert": "Insert Icon",
         "style_label": "Style",
         "name_label": "Name"
-      }
+      },
+      "size": "Size",
+      "size_original": "Original",
+      "size_original_hint": "Uploaded before sizes existed — one file only."
     },
     "transactions": {
       "title": "Transactions",
@@ -877,7 +883,9 @@
       "col_customer": "Customer",
       "col_amount": "Amount",
       "col_plan": "Plan",
-      "col_event": "Event"
+      "col_event": "Event",
+      "test_badge": "test",
+      "test_badge_hint": "Admin test checkout — granted no access or credits"
     },
     "products": {
       "title": "Products",

@@ -22,7 +22,7 @@ import { OmitCommonFields } from '../../../../../../shared/models/base-model';
 import { LocalizationService } from '../../../../../core/services/localization.service';
 import { ContentTypeNames, TranslatableTypeText, pruneNameTranslations, pruneFieldLabelTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
 import { ContentTypesStore } from '../content-types.store';
-import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator } from '../collection-ref-helpers';
+import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator, bareFieldKey, fieldKeyFromLabel, fullFieldKey, hasSlugPrefix } from '../collection-ref-helpers';
 import { roleGuard } from '../../../../../guards/role.guard';
 import { TemplateFolderService, TemplateFolder } from '../../../../../core/services/template-folder.service';
 
@@ -57,7 +57,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     // Store pending templateFolder value to apply after templates load
     private pendingTemplateFolder = 'default';
 
-    fieldTypes: ContentTypeFieldType[] = ['text', 'number', 'richtext', 'date', 'datetime', 'image', 'icon', 'boolean', 'dropdown', 'checkbox', 'radio', 'infocard', 'gallery', 'labelvalue', 'maplocation'];
+    fieldTypes: ContentTypeFieldType[] = ['text', 'number', 'richtext', 'date', 'datetime', 'image', 'icon', 'boolean', 'dropdown', 'checkbox', 'radio', 'infocard', 'gallery', 'labelvalue', 'maplocation', 'color'];
 
     public isEditingSlug = signal(false);
     private originalSlug = '';
@@ -185,7 +185,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         icon: new FormControl('fa-solid fa-folder'),
         order: new FormControl(0),
         templateFolder: new FormControl('default'),
-        fields: new FormArray([], [duplicateFieldKeyValidator()]),
+        fields: new FormArray([], [duplicateFieldKeyValidator((): string => (this.editForm?.get('slug')?.value as string) || '')]),
     });
 
     /**
@@ -339,17 +339,23 @@ export default class EditContentTypeComponent extends BaseComponent implements O
 
         const slug = formValue.slug || '';
 
+        // A stored field's key is written back exactly as loaded — content
+        // documents refer to it, and older types use `_` where new keys use
+        // `-`. Only a field added in this session gets the `<slug>-<name>`
+        // form. Position in the form array is the only link to the stored
+        // group, since getRawValue() carries no control state.
+        const storedKeys = (formValue.fields || []).map((field: any, index: number) => {
+            const group = this.fields.at(index) as FormGroup;
+            if (!field.key || this.isStoredField(group)) return field.key;
+            return hasSlugPrefix(field.key, slug) ? field.key : fullFieldKey(slug, field.key);
+        });
+
         const updatedContentType: Partial<ContentType> = {
             name: formValue.name || '',
             singularName: formValue.singularName || '',
             nameTranslations: pruneNameTranslations(formValue.nameTranslations),
-            fieldLabelTranslations: pruneFieldLabelTranslations(
-                formValue.fieldLabelTranslations,
-                // Prefixed keys, matching what is written to `fields` below.
-                (formValue.fields || []).map((field: any) =>
-                    field.key && !field.key.startsWith(slug + '_') ? slug + '_' + field.key : field.key,
-                ),
-            ),
+            // Prefixed keys, matching what is written to `fields` below.
+            fieldLabelTranslations: pruneFieldLabelTranslations(formValue.fieldLabelTranslations, storedKeys),
             slug: slug,
             description: formValue.description || '',
             icon: formValue.icon || 'fa-solid fa-folder',
@@ -358,9 +364,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             templateFolder: formValue.templateFolder || 'default',
             fields: (formValue.fields || []).map((field: any, index: number) => {
                 const mapped = mapFieldWithCollectionRef(field, index, this.contentTypesStore);
-                if (mapped.key && !mapped.key.startsWith(slug + '_')) {
-                    mapped.key = slug + '_' + mapped.key;
-                }
+                mapped.key = storedKeys[index];
                 return mapped;
             }),
         };
@@ -423,9 +427,14 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     }
 
     addField(): void {
+        const key = new FormControl('', [Validators.required, Validators.pattern(/^[a-z0-9-]+$/)]);
+        const label = new FormControl('', [Validators.required]);
+        // A new field's key follows its name. Stored fields keep the key they
+        // were saved with (see updateFormdata) — content already refers to it.
+        label.valueChanges.subscribe((value) => key.setValue(fieldKeyFromLabel(value)));
         const fieldGroup = new FormGroup({
-            key: new FormControl('', [Validators.required]),
-            label: new FormControl('', [Validators.required]),
+            key,
+            label,
             type: new FormControl<ContentTypeFieldType>('text', [Validators.required]),
             required: new FormControl(false),
             options: new FormControl(''),
@@ -440,6 +449,35 @@ export default class EditContentTypeComponent extends BaseComponent implements O
 
     removeField(index: number): void {
         this.fields.removeAt(index);
+    }
+
+    /** The stored key of this field: as saved, or as it will be saved for a new one. */
+    fieldKeyPreview(index: number): string {
+        const group = this.getFieldGroup(index);
+        const key = group.get('key')?.value || '';
+        if (!key || this.isStoredField(group)) return key;
+        return fullFieldKey(this.editForm.get('slug')?.value || '', key);
+    }
+
+    /**
+     * A field loaded from the stored type, as opposed to one added in this
+     * session. Its key is disabled in updateFormdata and is written back
+     * exactly as loaded — never re-derived, never re-prefixed.
+     */
+    private isStoredField(group: FormGroup): boolean {
+        return group.get('key')?.disabled === true;
+    }
+
+    /** True when another field in this type has the same name or key. */
+    isDuplicateField(index: number): boolean {
+        const errors = this.fields.errors;
+        if (!errors) return false;
+        const group = this.getFieldGroup(index);
+        const slug = this.editForm.get('slug')?.value || '';
+        const key = bareFieldKey(group.get('key')?.value, slug);
+        const name = (group.get('label')?.value || '').trim().toLowerCase();
+        return (!!key && (errors['duplicateKeys'] || []).includes(key))
+            || (!!name && (errors['duplicateNames'] || []).includes(name));
     }
 
     getFieldGroup(index: number): FormGroup {

@@ -186,4 +186,52 @@ describe('HomeComponent', () => {
             expect(component.activatedRoute).toBeDefined();
         });
     });
+
+    describe('Infinite Loop Carousel', () => {
+        it('should setup clones on loopable carousels and handle next/prev navigation endlessly', () => {
+            const host = fixture.nativeElement as HTMLElement;
+            const carouselContainer = document.createElement('div');
+            carouselContainer.className = 'voices';
+            carouselContainer.setAttribute('data-carousel', '');
+            carouselContainer.setAttribute('data-carousel-loop', '');
+
+            const prevBtn = document.createElement('button');
+            prevBtn.setAttribute('data-carousel-prev', '');
+            const nextBtn = document.createElement('button');
+            nextBtn.setAttribute('data-carousel-next', '');
+
+            const track = document.createElement('ul');
+            track.setAttribute('data-carousel-track', '');
+
+            for (let i = 1; i <= 3; i++) {
+                const slide = document.createElement('li');
+                slide.className = 'voices__slide';
+                slide.textContent = `Slide ${i}`;
+                track.appendChild(slide);
+            }
+
+            carouselContainer.appendChild(prevBtn);
+            carouselContainer.appendChild(track);
+            carouselContainer.appendChild(nextBtn);
+            host.appendChild(carouselContainer);
+
+            // Re-trigger scanning
+            (component as any).scanAndSetupTracks(host);
+
+            // Expect clones: Last slide prepended, First slide appended -> 3 + 2 = 5 items
+            expect(track.children.length).toBe(5);
+            expect(track.children[0].getAttribute('data-carousel-clone')).toBe('last');
+            expect(track.children[4].getAttribute('data-carousel-clone')).toBe('first');
+            expect(track.dataset['currentIndex']).toBe('1');
+            expect(track.dataset['originalCount']).toBe('3');
+
+            // Click Next
+            const scrollToSpy = vi.fn();
+            track.scrollTo = scrollToSpy;
+
+            nextBtn.click();
+            expect(track.dataset['currentIndex']).toBe('2');
+            expect(scrollToSpy).toHaveBeenCalled();
+        });
+    });
 });

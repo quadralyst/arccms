@@ -1,6 +1,11 @@
 {
     "folders": [
         "articles",
-        "manuals"
+        "manuals",
+        "entry-point",
+        "flagship-programs",
+        "action",
+        "award-recognition",
+        "voice-impact"
     ]
 }

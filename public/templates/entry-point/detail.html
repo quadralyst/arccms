@@ -1,0 +1,1166 @@
+<arc-header></arc-header>
+<div class="arc-cms-template">
+    <main class="ep-page" style="--theme-color: {{entry-points_color}};">
+        <section class="ep-hero">
+            <div class="ep-shell">
+
+                <nav class="ep-crumbs" aria-label="Breadcrumb">
+                    <ol class="ep-crumbs__list">
+                        <li class="ep-crumbs__item"><a class="ep-crumbs__link" href="/"><i class="fa-solid fa-house"
+                                    aria-hidden="true"></i> Home</a></li>
+                        <li class="ep-crumbs__item"><a class="ep-crumbs__link" href="/{{ contentTypeSlug }}"><span
+                                    data-arc-bind="contentType">Entry
+                                    Points</span></a></li>
+                        <li class="ep-crumbs__item ep-crumbs__item--current" aria-current="page" data-arc-bind="title">
+                        </li>
+                    </ol>
+                </nav>
+
+                <div class="ep-hero__grid">
+
+                    <div class="ep-hero__content">
+                        <div class="ep-chips">
+                            <span class="ep-chip ep-chip--programme" data-arc-if="entry-points_community">
+                                <i class="ep-chip__icon " [class]="entry-points_icon" aria-hidden="true"></i>
+                            </span>
+                            <span class="ep-chips__tags" data-arc-loop="entry-points_community">
+                                <span class="ep-chip" data-arc-bind="value"></span>
+                            </span>
+                        </div>
+
+                        <h1 class="ep-hero__title" data-arc-bind="title"></h1>
+
+                        <p class="ep-hero__overview" data-arc-bind="entry-points_sub_description"></p>
+
+                        <div class="ep-hero__actions">
+                            <a class="ep-btn ep-btn--solid" data-arc-if="entry-points_button_label" href="#"><span
+                                    data-arc-bind="entry-points_button_label"></span></a>
+                            <a class="ep-btn ep-btn--quiet" href="/{{ contentTypeSlug }}">
+                                See all entry points
+                                <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                            </a>
+                        </div>
+
+                        <p class="ep-hero__meta">
+                            <span><i class="fa-regular fa-clock" aria-hidden="true"></i> <span>{{ readingTime
+                                    }}</span></span>
+                            <span data-arc-if="date"><i class="fa-regular fa-calendar" aria-hidden="true"></i> <time
+                                    data-arc-bind="date"></time></span>
+                        </p>
+                    </div>
+
+                    <figure class="ep-hero__figure" data-arc-if="coverImage">
+                        <img class="ep-hero__media" src={{coverImage}} alt="title" width="1600" height="900">
+                    </figure>
+                </div>
+            </div>
+        </section>
+
+
+        <section class="ep-stats" data-arc-if="entry-points_side_bar">
+            <div class="ep-shell">
+                <div class="ep-stats__head" data-arc-if="entry-points_side_bar_heading">
+                    <p class="ep-stats__kicker">By the numbers</p>
+                    <h2 class="ep-stats__heading" data-arc-bind="entry-points_side_bar_heading"></h2>
+                </div>
+                <dl class="ep-stats__grid" data-arc-loop="entry-points_side_bar">
+                    <div class="ep-stats__item">
+                        <dt class="ep-stats__label" data-arc-bind="label"></dt>
+                        <dd class="ep-stats__value" data-arc-bind="value"></dd>
+                    </div>
+                </dl>
+            </div>
+        </section>
+        <section class="ep-benefits" data-arc-if="entry-points_info_card">
+            <div class="ep-shell">
+                <header class="ep-head ep-head--center">
+                    <h2 class="ep-head__title"><i class="ep-head__icon fa-solid fa-gift" aria-hidden="true"></i>What you
+                        get</h2>
+                    <p class="ep-head__sub">Four things that come with every hour you give.</p>
+                </header>
+                <div class="ep-benefits__grid" data-arc-loop="entry-points_info_card">
+                    <article class="ep-benefit">
+                        <span class="ep-benefit__mark">
+                            <img class="ep-benefit__img" data-arc-if="image" src="{{image}}" alt="headline">
+                            <span class="ep-benefit__icon" data-arc-if="icon"><i class="fa-solid" [class]="icon"
+                                    aria-hidden="true"></i></span>
+                        </span>
+                        <h3 class="ep-benefit__title" data-arc-bind="headline"></h3>
+                        <p class="ep-benefit__text" data-arc-bind="info"></p>
+                    </article>
+                </div>
+            </div>
+        </section>
+        <section class="ep-body">
+            <div class="ep-shell ep-body__grid">
+
+                <article class="ep-prose" [innerHTML]="entry-points_information"></article>
+
+                <aside class="ep-aside">
+
+                    <section class="ep-card ep-facts" data-arc-if="entry-points_At a glance">
+                        <div class="ep-card__head" data-arc-if="entry-points_At a glance_heading">
+                            <i class="ep-card__icon fa-solid fa-circle-info" aria-hidden="true"></i>
+                            <h2 class="ep-card__title" data-arc-bind="entry-points_At a glance_heading"></h2>
+                        </div>
+                        <dl class="ep-facts__list" data-arc-loop="entry-points_At a glance">
+                            <div class="ep-facts__row">
+                                <dt class="ep-facts__key" data-arc-bind="label"></dt>
+                                <dd class="ep-facts__val" data-arc-bind="value"></dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section class="ep-card ep-share">
+                        <h2 class="ep-card__title"><i class="ep-card__icon fa-solid fa-share-nodes"
+                                aria-hidden="true"></i>Share this</h2>
+                        <ul class="ep-share__list">
+                            <li class="ep-share__item"><a class="ep-share__link" data-arc-bind="share.linkedin"
+                                    href="#"><i class="fa-brands fa-linkedin-in" aria-hidden="true"></i><span
+                                        class="ep-sr">LinkedIn</span></a></li>
+                            <li class="ep-share__item"><a class="ep-share__link" data-arc-bind="share.facebook"
+                                    href="#"><i class="fa-brands fa-facebook-f" aria-hidden="true"></i><span
+                                        class="ep-sr">Facebook</span></a></li>
+                            <li class="ep-share__item"><a class="ep-share__link" data-arc-bind="share.twitter"
+                                    href="#"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i><span
+                                        class="ep-sr">X</span></a></li>
+                            <li class="ep-share__item"><a class="ep-share__link" data-arc-bind="share.whatsapp"
+                                    href="#"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span
+                                        class="ep-sr">WhatsApp</span></a></li>
+                            <li class="ep-share__item"><a class="ep-share__link" data-arc-bind="share.email" href="#"><i
+                                        class="fa-regular fa-envelope" aria-hidden="true"></i><span
+                                        class="ep-sr">Email</span></a></li>
+                        </ul>
+                    </section>
+
+                    <section class="ep-card ep-invite">
+                        <h2 class="ep-card__title ep-card__title--invert"><i class="ep-card__icon fa-solid fa-rocket"
+                                aria-hidden="true"></i>Ready when you are</h2>
+                        <p class="ep-invite__text">Setting up a profile takes about two minutes, and nothing is locked
+                            in.</p>
+                        <a class="ep-btn ep-btn--invert ep-invite__btn" href="#"><span
+                                data-arc-bind="entry-points_button_label"></span><i class="fa-solid fa-arrow-right"
+                                aria-hidden="true"></i></a>
+                    </section>
+
+                </aside>
+
+            </div>
+        </section>
+
+        <section class="ep-cta">
+            <div class="ep-shell">
+                <div class="ep-cta__panel">
+                    <div class="ep-cta__content">
+                        <h2 class="ep-cta__title">Your first three hours are the hardest</h2>
+                        <p class="ep-cta__text">After that it becomes a habit. Find a drive near you and be useful this
+                            weekend.</p>
+                    </div>
+                    <a class="ep-btn ep-btn--invert ep-btn--lg" href="#"><span
+                            data-arc-bind="entry-points_button_label"></span><i class="fa-solid fa-arrow-right"
+                            aria-hidden="true"></i></a>
+                </div>
+            </div>
+        </section>
+
+
+        <section class="ep-related" data-arc-if="entry-points_btn_card">
+            <div class="ep-shell">
+                <header class="ep-head ep-head--row">
+                    <div class="ep-head__group">
+                        <h2 class="ep-head__title"><i class="ep-head__icon fa-solid fa-compass"
+                                aria-hidden="true"></i><span data-arc-bind="entry-points_btn_card.0.headline"></span>
+                        </h2>
+                        <p class="ep-head__sub ep-head__sub--left" data-arc-bind="entry-points_btn_card.0.info"></p>
+                    </div>
+                    <a class="ep-head__link" href="/{{ contentTypeSlug }}">
+                        See all entry points
+                        <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                    </a>
+                </header>
+
+                <div class="ep-related__grid">
+                    <article class="ep-related__card" data-arc-if="entry-points_btn_card.1">
+                        <a class="ep-related__link" href="#">
+                            <span class="ep-related__eyebrow">ENTRY POINTS</span>
+                            <h3 class="ep-related__title" data-arc-bind="entry-points_btn_card.1.headline"></h3>
+                            <p class="ep-related__text" data-arc-bind="entry-points_btn_card.1.info"></p>
+                            <span class="ep-related__cta">Read more <i class="fa-solid fa-chevron-right"
+                                    aria-hidden="true"></i></span>
+                        </a>
+                    </article>
+                    <article class="ep-related__card" data-arc-if="entry-points_btn_card.2">
+                        <a class="ep-related__link" href="#">
+                            <span class="ep-related__eyebrow">ENTRY POINTS</span>
+                            <h3 class="ep-related__title" data-arc-bind="entry-points_btn_card.2.headline"></h3>
+                            <p class="ep-related__text" data-arc-bind="entry-points_btn_card.2.info"></p>
+                            <span class="ep-related__cta">Read more <i class="fa-solid fa-chevron-right"
+                                    aria-hidden="true"></i></span>
+                        </a>
+                    </article>
+                    <article class="ep-related__card ep-related__card--all" data-arc-if="entry-points_btn_card.3">
+                        <a class="ep-related__link" href="/{{ contentTypeSlug }}">
+                            <span class="ep-related__eyebrow">BROWSE</span>
+                            <h3 class="ep-related__title" data-arc-bind="entry-points_btn_card.3.headline"></h3>
+                            <p class="ep-related__text" data-arc-bind="entry-points_btn_card.3.info"></p>
+                            <span class="ep-related__cta">Read more <i class="fa-solid fa-chevron-right"
+                                    aria-hidden="true"></i></span>
+                        </a>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<style>
+    @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css");
+
+    .ep-page {
+        --themeColor: var(--theme-color, #16a34a);
+        --ep-accent: var(--themeColor);
+        --ep-accent-dark: color-mix(in srgb, var(--themeColor), #000 20%);
+        --ep-accent-soft: color-mix(in srgb, var(--themeColor) 10%, #fff);
+        --ep-accent-line: color-mix(in srgb, var(--themeColor) 25%, #fff);
+
+        --ep-ink: #0f172a;
+        --ep-body: #4b5563;
+        --ep-muted: #6b7280;
+        --ep-line: #e5e9f0;
+        --ep-surface: #ffffff;
+        --ep-surface-2: #f8fafc;
+        --ep-on-dark: #ffffff;
+
+        --ep-fs-xs: .6875rem;
+        --ep-fs-sm: .75rem;
+        --ep-fs-md: .875rem;
+        --ep-fs-lg: 1rem;
+        --ep-fs-xl: clamp(1.0625rem, .9rem + .7vw, 1.25rem);
+        --ep-fs-2xl: clamp(1.25rem, 1rem + 1.1vw, 1.625rem);
+        --ep-fs-3xl: clamp(1.5rem, 1.05rem + 2vw, 2.25rem);
+        --ep-fs-4xl: clamp(1.875rem, 1.2rem + 3vw, 2.875rem);
+
+        --ep-1: .25rem;
+        --ep-2: .5rem;
+        --ep-3: .75rem;
+        --ep-4: 1rem;
+        --ep-5: 1.25rem;
+        --ep-6: 1.5rem;
+        --ep-8: 2rem;
+        --ep-10: 2.5rem;
+        --ep-12: 3rem;
+        --ep-section: 3.5rem;
+        /* vertical rhythm between bands */
+
+        --ep-r-sm: 8px;
+        --ep-r-md: 12px;
+        --ep-r-lg: 16px;
+        --ep-r-pill: 999px;
+
+        --ep-sh-sm: 0 1px 2px rgba(15, 23, 42, .06);
+        --ep-sh-lg: 0 12px 32px rgba(15, 23, 42, .10);
+
+        --ep-w: 75rem;
+        --ep-gutter: 1.25rem;
+
+        font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        font-size: var(--ep-fs-md);
+        line-height: 1.6;
+        color: var(--ep-body);
+        background: var(--ep-surface);
+    }
+
+    .ep-page *,
+    .ep-page *::before,
+    .ep-page *::after {
+        box-sizing: border-box;
+    }
+
+    .ep-page :where(h1, h2, h3) {
+        margin: 0;
+        line-height: 1.18;
+        font-weight: 700;
+    }
+
+    .ep-page :where(p) {
+        margin: 0;
+    }
+
+    .ep-page :where(dd) {
+        margin: 0;
+    }
+
+    .ep-page :where(ul, ol, dl) {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .ep-page :where(img) {
+        display: block;
+        max-width: 100%;
+        height: auto;
+    }
+
+    .ep-page :where(a) {
+        text-decoration: none;
+    }
+
+    .ep-sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .ep-shell {
+        width: 100%;
+        max-width: var(--ep-w);
+        margin-inline: auto;
+        padding-inline: var(--ep-gutter);
+    }
+
+    /* --- 2. Shared primitives ------------------------------------ */
+    .ep-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--ep-2);
+        padding: .7rem 1.25rem;
+        border-radius: var(--ep-r-sm);
+        font-size: var(--ep-fs-md);
+        font-weight: 600;
+        line-height: 1.2;
+        transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+    }
+
+    .ep-btn--solid {
+        background: var(--ep-accent);
+        color: var(--ep-on-dark);
+        box-shadow: var(--ep-sh-sm);
+    }
+
+    .ep-btn--solid:hover {
+        background: var(--ep-accent-dark);
+        color: var(--ep-on-dark);
+    }
+
+    .ep-btn--quiet {
+        border: 1px solid var(--ep-line);
+        background: var(--ep-surface);
+        color: var(--ep-ink);
+    }
+
+    .ep-btn--quiet:hover {
+        border-color: var(--ep-accent);
+        color: var(--ep-accent);
+    }
+
+    .ep-btn--invert {
+        background: var(--ep-surface);
+        color: var(--ep-accent);
+    }
+
+    .ep-btn--invert:hover {
+        background: var(--ep-surface-2);
+        color: var(--ep-accent-dark);
+    }
+
+    .ep-btn--lg {
+        padding: .85rem 1.6rem;
+    }
+
+    .ep-head {
+        margin-bottom: var(--ep-8);
+    }
+
+    .ep-head--center {
+        text-align: center;
+    }
+
+    .ep-head--row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--ep-4);
+    }
+
+    .ep-head__title {
+        color: var(--ep-ink);
+        font-size: var(--ep-fs-2xl);
+        letter-spacing: -.01em;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .ep-head__icon {
+        color: var(--ep-accent);
+        margin-right: var(--ep-3);
+        font-size: 1.1em;
+        line-height: 1;
+    }
+
+    .ep-head__sub {
+        margin-top: var(--ep-1);
+        font-size: var(--ep-fs-md);
+        color: var(--ep-muted);
+    }
+
+    .ep-head__sub--left {
+        text-align: left;
+    }
+
+    .ep-head__link {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--ep-2);
+        font-size: var(--ep-fs-md);
+        font-weight: 600;
+        color: var(--ep-accent);
+        text-decoration: none;
+        transition: color .18s ease;
+    }
+
+    .ep-head__link:hover {
+        color: var(--ep-accent-dark);
+    }
+
+    .ep-card {
+        padding: var(--ep-6);
+        border: 1px solid var(--ep-line);
+        border-radius: var(--ep-r-md);
+        background: var(--ep-surface);
+    }
+
+    .ep-card__head {
+        display: flex;
+        align-items: center;
+        gap: var(--ep-2);
+        margin-bottom: var(--ep-3);
+    }
+
+    .ep-card__head .ep-card__title {
+        margin-bottom: 0;
+    }
+
+    .ep-card__title {
+        color: var(--ep-ink);
+        font-size: var(--ep-fs-md);
+        font-weight: 700;
+        margin-bottom: var(--ep-3);
+    }
+
+    .ep-card__icon {
+        color: var(--ep-accent);
+        margin-right: var(--ep-2);
+    }
+
+    .ep-card__head .ep-card__icon {
+        margin-right: 0;
+    }
+
+    .ep-card__title--invert .ep-card__icon {
+        color: var(--ep-on-dark);
+    }
+
+    .ep-card__title--invert {
+        color: var(--ep-on-dark);
+    }
+
+
+
+    .ep-chips {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .55rem;
+        position: relative;
+        right: 26px;
+    }
+
+    .ep-chips__tags {
+        display: contents;
+    }
+
+    .ep-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .32rem .82rem;
+        border-radius: var(--ep-r-pill);
+        background: var(--ep-accent-soft);
+        color: var(--ep-accent-dark);
+        font-size: .8125rem;
+        font-weight: 600;
+        line-height: 1.25;
+        white-space: nowrap;
+    }
+
+    .ep-chip--programme {
+        padding: .4rem .9rem;
+        position: relative;
+        right: -20px;
+        border-radius: var(--ep-r-pill) 0px 0px var(--ep-r-pill);
+    }
+
+    .ep-chip--programme,
+    .ep-chips>.ep-chip:first-child,
+    .ep-chips__tags>.ep-chip:first-child {
+        background: var(--ep-accent);
+        color: var(--ep-on-dark);
+        font-weight: 700;
+    }
+
+    .ep-chip__icon {
+        display: inline-flex;
+        align-items: center;
+        font-size: .9em;
+        flex-shrink: 0;
+    }
+
+    /* --- 3. Hero ------------------------------------------------- */
+    .ep-hero {
+        background: linear-gradient(160deg, var(--ep-accent-soft) 0%, var(--ep-surface) 78%);
+    }
+
+    .ep-crumbs {
+        margin-bottom: var(--ep-6);
+    }
+
+    .ep-crumbs__list {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ep-2);
+    }
+
+    .ep-crumbs__item {
+        display: flex;
+        align-items: center;
+        gap: var(--ep-2);
+        font-size: var(--ep-fs-sm);
+        color: var(--ep-muted);
+    }
+
+    .ep-crumbs__item::after {
+        content: "/";
+        color: #94a3b8;
+    }
+
+    .ep-crumbs__item--current {
+        color: var(--ep-ink);
+        font-weight: 600;
+    }
+
+    .ep-crumbs__item--current::after {
+        content: none;
+    }
+
+    .ep-crumbs__link {
+        color: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--ep-2);
+    }
+
+    .ep-crumbs__link:hover {
+        color: var(--ep-accent);
+    }
+
+    .ep-hero__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--ep-10);
+        align-items: center;
+    }
+
+    .ep-hero__title {
+        margin-top: var(--ep-3);
+        font-size: var(--ep-fs-3xl);
+        font-weight: 800;
+        letter-spacing: -.02em;
+        color: var(--ep-accent-dark);
+    }
+
+    .ep-hero__overview {
+        margin-top: var(--ep-5);
+        font-size: var(--ep-fs-lg);
+        color: var(--ep-body);
+        max-width: 34rem;
+    }
+
+    .ep-hero__actions {
+        margin-top: var(--ep-8);
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ep-3);
+    }
+
+    .ep-hero__meta {
+        margin-top: var(--ep-6);
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ep-5);
+        font-size: var(--ep-fs-sm);
+        color: var(--ep-muted);
+    }
+
+    .ep-hero__figure {
+        margin: 0;
+    }
+
+    .ep-hero__media {
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        object-fit: cover;
+        border-radius: var(--ep-r-lg);
+        box-shadow: var(--ep-sh-lg);
+    }
+
+    /* --- 4. Numbers — editorial block: no panel, centred, hairline
+       separators. The tinted hero above supplies the colour. ---- */
+    .ep-stats {
+        padding: var(--ep-section) 0 0;
+    }
+
+    .ep-stats__head {
+        text-align: center;
+        margin-bottom: var(--ep-8);
+    }
+
+    .ep-stats__kicker {
+        font-size: var(--ep-fs-xs);
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: var(--ep-accent);
+    }
+
+    .ep-stats__heading {
+        margin-top: var(--ep-2);
+        color: var(--ep-ink);
+        font-size: var(--ep-fs-2xl);
+        letter-spacing: -.01em;
+    }
+
+    .ep-stats__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+        row-gap: var(--ep-8);
+        overflow: hidden;
+        /* clips the leading separator on every row */
+    }
+
+    .ep-stats__grid:empty {
+        display: none;
+    }
+
+    .ep-stats__item {
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        text-align: center;
+        padding: var(--ep-1) var(--ep-6);
+        box-shadow: -1px 0 0 var(--ep-line);
+    }
+
+    .ep-stats__value {
+        font-size: clamp(1.875rem, 1.35rem + 1.7vw, 2.5rem);
+        font-weight: 800;
+        color: var(--ep-ink);
+        line-height: 1;
+        letter-spacing: -.03em;
+    }
+
+    .ep-stats__label {
+        margin-top: var(--ep-3);
+        font-size: var(--ep-fs-sm);
+        color: var(--ep-muted);
+    }
+
+    /* --- 5. Benefits --------------------------------------------- */
+    .ep-benefits {
+        padding: var(--ep-section) 0 0;
+    }
+
+    .ep-benefits__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+        gap: var(--ep-5);
+    }
+
+    .ep-benefits__grid:empty {
+        display: none;
+    }
+
+    .ep-benefit {
+        padding: var(--ep-6);
+        border: 1px solid var(--ep-accent-line);
+        border-radius: var(--ep-r-md);
+        background: var(--ep-accent-soft);
+    }
+
+    .ep-benefit__mark {
+        display: grid;
+        place-items: center;
+        width: 2.4rem;
+        height: 2.4rem;
+        margin-bottom: var(--ep-3);
+        border-radius: var(--ep-r-sm);
+        background: var(--ep-surface);
+        color: var(--ep-accent);
+        font-size: 1.1rem;
+        box-shadow: var(--ep-sh-sm);
+        overflow: hidden;
+    }
+
+    .ep-benefit__img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .ep-benefit__icon {
+        display: grid;
+        place-items: center;
+    }
+
+    /* An infocard row is either an icon or an image. If an editor sets both,
+   show the icon — this strip is designed as an icon strip. */
+    .ep-benefit__mark:has(.ep-benefit__icon) .ep-benefit__img {
+        display: none;
+    }
+
+    .ep-benefit__title {
+        color: var(--ep-accent-dark);
+        font-size: var(--ep-fs-md);
+        font-weight: 700;
+    }
+
+    .ep-benefit__text {
+        margin-top: var(--ep-2);
+        font-size: var(--ep-fs-sm);
+        color: var(--ep-body);
+    }
+
+    /* --- 6. Body + aside ----------------------------------------- */
+    .ep-body {
+        padding: var(--ep-section) 0;
+    }
+
+    .ep-body__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--ep-10);
+        align-items: start;
+    }
+
+    .ep-prose {
+        min-width: 0;
+        font-size: var(--ep-fs-lg);
+        line-height: 1.75;
+        color: var(--ep-body);
+    }
+
+    .ep-prose h2 {
+        color: var(--ep-ink);
+        margin: var(--ep-12) 0 var(--ep-4);
+        font-size: var(--ep-fs-2xl);
+        letter-spacing: -.01em;
+        scroll-margin-top: 5rem;
+    }
+
+    .ep-prose h2:first-child {
+        margin-top: 0;
+    }
+
+    .ep-prose h3 {
+        color: var(--ep-ink);
+        margin: var(--ep-8) 0 var(--ep-3);
+        font-size: var(--ep-fs-lg);
+    }
+
+    .ep-prose p {
+        margin-bottom: var(--ep-5);
+    }
+
+    .ep-prose strong {
+        color: var(--ep-ink);
+        font-weight: 700;
+    }
+
+    .ep-prose a {
+        color: var(--ep-accent);
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .ep-prose ul,
+    .ep-prose ol {
+        margin: 0 0 var(--ep-6);
+        padding-left: var(--ep-6);
+    }
+
+    .ep-prose ul {
+        list-style: disc;
+    }
+
+    .ep-prose ol {
+        list-style: decimal;
+    }
+
+    .ep-prose li {
+        margin-bottom: var(--ep-2);
+    }
+
+    .ep-prose li::marker {
+        color: var(--ep-accent);
+        font-weight: 700;
+    }
+
+    .ep-prose blockquote {
+        margin: var(--ep-8) 0;
+        padding: var(--ep-6) var(--ep-8);
+        border-left: 4px solid var(--ep-accent);
+        border-radius: var(--ep-r-md);
+        background: var(--ep-accent-soft);
+        color: var(--ep-ink);
+        font-size: var(--ep-fs-lg);
+    }
+
+    .ep-prose blockquote p:last-child {
+        margin-bottom: var(--ep-3);
+    }
+
+    .ep-prose cite {
+        display: block;
+        font-size: var(--ep-fs-sm);
+        font-style: normal;
+        font-weight: 600;
+        color: var(--ep-accent-dark);
+    }
+
+    .ep-prose figure {
+        margin: var(--ep-6) 0;
+    }
+
+    .ep-prose img {
+        width: 100%;
+        border-radius: var(--ep-r-md);
+    }
+
+    .ep-prose figcaption {
+        margin-top: var(--ep-2);
+        font-size: var(--ep-fs-sm);
+        color: var(--ep-muted);
+        text-align: center;
+    }
+
+    .ep-prose table {
+        width: 100%;
+        margin: var(--ep-6) 0;
+        border-collapse: collapse;
+        font-size: var(--ep-fs-sm);
+    }
+
+    .ep-prose caption {
+        caption-side: bottom;
+        padding-top: var(--ep-2);
+        font-size: var(--ep-fs-xs);
+        color: var(--ep-muted);
+        text-align: left;
+    }
+
+    .ep-prose th {
+        padding: var(--ep-3) var(--ep-4);
+        border-bottom: 1px solid var(--ep-accent-line);
+        background: var(--ep-accent-soft);
+        color: var(--ep-accent-dark);
+        font-weight: 700;
+        text-align: left;
+    }
+
+    .ep-prose td {
+        padding: var(--ep-3) var(--ep-4);
+        border-bottom: 1px solid var(--ep-line);
+    }
+
+    .ep-prose th:not(:first-child),
+    .ep-prose td:not(:first-child),
+    .ep-prose .ep-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ep-prose hr {
+        margin: var(--ep-8) 0;
+        border: 0;
+        border-top: 1px solid var(--ep-line);
+    }
+
+    .ep-aside {
+        display: grid;
+        gap: var(--ep-5);
+    }
+
+    .ep-facts__list {
+        display: grid;
+        gap: var(--ep-3);
+    }
+
+    .ep-facts__list:empty {
+        display: none;
+    }
+
+    .ep-facts__row {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--ep-3);
+        padding-bottom: var(--ep-3);
+        border-bottom: 1px solid var(--ep-line);
+    }
+
+    .ep-facts__row:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+
+    .ep-facts__key {
+        font-size: var(--ep-fs-sm);
+        color: var(--ep-muted);
+    }
+
+    .ep-facts__val {
+        font-size: var(--ep-fs-sm);
+        font-weight: 700;
+        color: var(--ep-ink);
+        text-align: right;
+    }
+
+    .ep-share__list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ep-2);
+    }
+
+    .ep-share__link {
+        display: grid;
+        place-items: center;
+        width: 2.2rem;
+        height: 2.2rem;
+        border-radius: var(--ep-r-pill);
+        background: var(--ep-accent-soft);
+        color: var(--ep-accent-dark);
+        transition: background-color .18s ease;
+    }
+
+    .ep-share__link:hover {
+        background: var(--ep-accent);
+        color: var(--ep-on-dark);
+    }
+
+    .ep-invite {
+        border-color: transparent;
+        background: linear-gradient(120deg, var(--ep-accent-dark) 0%, var(--ep-accent) 100%);
+    }
+
+    .ep-invite__text {
+        font-size: var(--ep-fs-sm);
+        color: rgba(255, 255, 255, .88);
+    }
+
+    .ep-invite__btn {
+        width: 100%;
+        justify-content: center;
+        margin-top: var(--ep-4);
+    }
+
+    /* --- 7. CTA band --------------------------------------------- */
+    .ep-cta {
+        padding: 0 0 var(--ep-section);
+    }
+
+    .ep-cta__panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--ep-6);
+        align-items: center;
+        padding: var(--ep-8);
+        border-radius: var(--ep-r-lg);
+        background: linear-gradient(100deg, var(--ep-accent-dark) 0%, var(--ep-accent) 100%);
+        color: var(--ep-on-dark);
+    }
+
+    .ep-cta__title {
+        font-size: var(--ep-fs-xl);
+        color: var(--ep-on-dark);
+    }
+
+    .ep-cta__text {
+        margin-top: var(--ep-2);
+        font-size: var(--ep-fs-sm);
+        color: rgba(255, 255, 255, .85);
+        max-width: 30rem;
+    }
+
+    /* --- 8. Related entry points --------------------------------- */
+    .ep-related {
+        padding: 0 0 var(--ep-section);
+    }
+
+    .ep-related__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+        gap: var(--ep-6);
+    }
+
+    @media (min-width: 48em) {
+        .ep-related__grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    .ep-related__grid:empty {
+        display: none;
+    }
+
+    .ep-related__card {
+        border: 1px solid var(--ep-line);
+        border-radius: var(--ep-r-md);
+        background: var(--ep-surface);
+        box-shadow: var(--ep-sh-sm);
+        overflow: hidden;
+        transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .ep-related__card:hover {
+        box-shadow: var(--ep-sh-lg);
+        transform: translateY(-2px);
+    }
+
+    .ep-related__card--all {
+        background: var(--ep-accent-soft);
+        border-color: var(--ep-accent-line);
+    }
+
+    .ep-related__card--all:hover {
+        border-color: #a3e6ba;
+    }
+
+    .ep-related__link {
+        color: inherit;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        padding: var(--ep-6);
+    }
+
+    .ep-related__eyebrow {
+        font-size: var(--ep-fs-xs);
+        font-weight: 700;
+        color: var(--ep-muted);
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        margin-bottom: var(--ep-3);
+    }
+
+    .ep-related__title {
+        color: var(--ep-accent);
+        font-size: var(--ep-fs-xl);
+        font-weight: 700;
+        line-height: 1.35;
+        margin-bottom: var(--ep-3);
+    }
+
+    .ep-related__text {
+        font-size: var(--ep-fs-md);
+        color: var(--ep-body);
+        line-height: 1.5;
+        margin-bottom: var(--ep-6);
+    }
+
+    .ep-related__cta {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        gap: var(--ep-2);
+        margin-top: auto;
+        padding: .75rem var(--ep-4);
+        border-radius: var(--ep-r-sm);
+        background: var(--ep-accent);
+        color: var(--ep-on-dark);
+        font-size: var(--ep-fs-md);
+        font-weight: 600;
+        text-align: center;
+        text-decoration: none;
+        transition: background-color .18s ease;
+    }
+
+    .ep-related__link:hover .ep-related__cta {
+        background: var(--ep-accent-dark);
+    }
+
+    /* --- 9. Breakpoints ----------------------------------------- */
+    @media (min-width: 48em) {
+        .ep-page {
+            --ep-gutter: 1.5rem;
+        }
+
+        .ep-hero__media {
+            aspect-ratio: 16 / 9;
+        }
+
+        .ep-cta__panel {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+    }
+
+    @media (min-width: 64em) {
+        .ep-page {
+            --ep-section: 5.5rem;
+        }
+
+        .ep-hero {
+            padding-top: var(--ep-12);
+        }
+
+        .ep-hero__grid {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: var(--ep-12);
+        }
+
+        .ep-hero__title {
+            font-size: var(--ep-fs-4xl);
+        }
+
+        .ep-body__grid {
+            grid-template-columns: minmax(0, 1fr) 18rem;
+            gap: var(--ep-12);
+        }
+
+        .ep-aside {
+            position: sticky;
+            top: 5.5rem;
+        }
+
+        .ep-cta__panel {
+            padding: var(--ep-8) var(--ep-10);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .ep-page * {
+            transition: none !important;
+        }
+    }
+</style>

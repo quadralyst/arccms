@@ -50,9 +50,16 @@ describe('FileUploadService', () => {
         expect(service).toBeTruthy();
     });
 
-    it('should have convertToWebp in DEFAULT_UPLOAD_SETTINGS', async () => {
+    it('defaults to WebP at 1200px, matching Settings → Misc', async () => {
         const { DEFAULT_UPLOAD_SETTINGS } = await import('./file-upload.service');
-        expect(DEFAULT_UPLOAD_SETTINGS.convertToWebp).toBe(false);
+        const { DEFAULT_MISC_SETTINGS } = await import('../../app/pages/admin/(settings)/misc/misc-settings.model');
+        expect(DEFAULT_UPLOAD_SETTINGS.convertToWebp).toBe(true);
+        expect(DEFAULT_UPLOAD_SETTINGS.maxSize).toBe(1200);
+        expect(DEFAULT_UPLOAD_SETTINGS).toEqual({
+            maxFileSize: DEFAULT_MISC_SETTINGS.mediaMaxFileSize,
+            maxSize: DEFAULT_MISC_SETTINGS.mediaMaxSize,
+            convertToWebp: DEFAULT_MISC_SETTINGS.mediaConvertToWebp,
+        });
     });
 
     describe('generateUniqueImageName', () => {
@@ -169,6 +176,38 @@ describe('FileUploadService', () => {
             // Service uses injected mockStorage
             expect(ref).toHaveBeenCalledWith(mockStorage, 'path/to/image.jpg');
             expect(deleteObject).toHaveBeenCalledWith(mockStorageRef);
+            expect(deleteDoc).toHaveBeenCalledWith(mockDocRef);
+        });
+
+        it('deletes every stored size of a sized upload, each once', async () => {
+            const mockDocRef = {};
+            const shared = { url: 'u', path: 'mediaImages/photo-m.webp', width: 600, height: 400 };
+            const mockDocSnap = {
+                exists: () => true,
+                data: () => ({
+                    downloadURL: 'https://…/photo-xl.webp',
+                    variants: {
+                        s: { url: 'u', path: 'mediaImages/photo-s.webp', width: 300, height: 200 },
+                        m: shared,
+                        // A small image reuses M for L and XL: one file, deleted once.
+                        l: shared,
+                        xl: shared,
+                    },
+                }),
+            };
+
+            (doc as any).mockReturnValue(mockDocRef);
+            (getDoc as any).mockResolvedValue(mockDocSnap);
+            (ref as any).mockImplementation((_storage: any, path: string) => ({ path }));
+            (deleteObject as any).mockResolvedValue(undefined);
+            (deleteDoc as any).mockResolvedValue(undefined);
+
+            await service.deleteMediaItem('media-id-123');
+
+            expect((deleteObject as any).mock.calls.map((call: any[]) => call[0].path)).toEqual([
+                'mediaImages/photo-s.webp',
+                'mediaImages/photo-m.webp',
+            ]);
             expect(deleteDoc).toHaveBeenCalledWith(mockDocRef);
         });
 

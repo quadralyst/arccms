@@ -1,0 +1,43 @@
+<svg viewBox="0 0 280 180" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+    <!-- Dark Stage Background -->
+    <rect width="280" height="180" fill="#0f172a"/>
+
+    <!-- Spotlight / Stage Glow -->
+    <circle cx="140" cy="90" r="64" fill="#1e293b"/>
+
+    <!-- Blue Stage Banner Pill on Top -->
+    <rect x="94" y="24" width="92" height="14" rx="7" fill="#2563eb"/>
+    <rect x="110" y="28" width="60" height="6" rx="3" fill="#60a5fa"/>
+
+    <!-- Golden Trophy in Center -->
+    <g transform="translate(140, 98)">
+        <!-- Cup -->
+        <path d="M-12 -12 h24 v10 c0 7 -5 12 -12 12 s-12 -5 -12 -12 z" fill="#facc15"/>
+        <!-- Handles -->
+        <path d="M-12 -9 h-3 c-2 0 -3 2 -3 4 s1 4 3 4 h3" fill="none" stroke="#eab308" stroke-width="2"/>
+        <path d="M12 -9 h3 c2 0 3 2 3 4 s-1 4 -3 4 h-3" fill="none" stroke="#eab308" stroke-width="2"/>
+        <!-- Stem & Base -->
+        <rect x="-3" y="10" width="6" height="8" fill="#ca8a04"/>
+        <rect x="-9" y="18" width="18" height="5" rx="1.5" fill="#a16207"/>
+    </g>
+
+    <!-- Person 1 (Blue shirt, hands raised cheering, left) -->
+    <g>
+        <circle cx="98" cy="94" r="7" fill="#fed7aa"/>
+        <rect x="90" y="102" width="16" height="26" rx="2" fill="#2563eb"/>
+        <path d="M90 106 L81 87" stroke="#2563eb" stroke-width="4.5" stroke-linecap="round"/>
+        <path d="M106 106 L113 94" stroke="#2563eb" stroke-width="4.5" stroke-linecap="round"/>
+        <rect x="92" y="128" width="5.5" height="32" fill="#1e293b"/>
+        <rect x="99" y="128" width="5.5" height="32" fill="#1e293b"/>
+    </g>
+
+    <!-- Person 2 (Green shirt, hands raised cheering, right) -->
+    <g>
+        <circle cx="182" cy="94" r="7" fill="#fbcfe8"/>
+        <rect x="174" y="102" width="16" height="26" rx="2" fill="#16a34a"/>
+        <path d="M174 106 L167 94" stroke="#16a34a" stroke-width="4.5" stroke-linecap="round"/>
+        <path d="M190 106 L199 87" stroke="#16a34a" stroke-width="4.5" stroke-linecap="round"/>
+        <rect x="176" y="128" width="5.5" height="32" fill="#1e293b"/>
+        <rect x="183" y="128" width="5.5" height="32" fill="#1e293b"/>
+    </g>
+</svg>

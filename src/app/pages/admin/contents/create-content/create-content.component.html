@@ -221,11 +221,19 @@
             }
 
             <!-- Title Input - Immediately above content -->
-            <div class="title-input-wrapper">
-                <input type="text"
-                    [placeholder]="isTranslating() ? (basePlaceholder('title') || 'Enter title here...') : 'Enter title here...'"
-                    [(ngModel)]="pageTitle" class="page-title-input" (input)="createSlag(); triggerAutoSave()"
-                    [disabled]="checkingSlug" />
+            <div class="title-input-wrapper" id="req-title" [class.has-error]="isRequiredMissing('title')">
+                <div class="title-input-row">
+                    <input type="text"
+                        [placeholder]="isTranslating() ? (basePlaceholder('title') || 'Enter title here...') : 'Enter title here...'"
+                        [(ngModel)]="pageTitle" class="page-title-input" (input)="createSlag(); triggerAutoSave()"
+                        [disabled]="checkingSlug" [attr.aria-required]="true" />
+                    <span class="required-marker" [title]="'admin.contents.editor.required_marker' | transloco">*</span>
+                </div>
+                @if (isRequiredMissing('title')) {
+                <div class="required-error">
+                    {{ 'common.validation.required' | transloco: { field: ('admin.contents.editor.title_label' | transloco) } }}
+                </div>
+                }
             </div>
 
             <div class="editor-wrapper">
@@ -342,9 +350,8 @@
                             <div class="cover-image-upload" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
                                 @if (!coverImage) {
                                 <div class="upload-area" (click)="openMediaManager()">
-                                    <p class="mb-1">{{ 'admin.contents.editor.click_to_upload' | transloco }}</p>
-                                    <small class="text-muted">{{ 'admin.contents.editor.image_recommendation' | transloco }}</small>
-                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2">{{ 'admin.contents.editor.upload_image' | transloco }}</button>
+                                    <p class="mb-1">{{ 'admin.contents.editor.click_to_select_image' | transloco }}</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2">{{ 'admin.contents.editor.select_image' | transloco }}</button>
                                     <input type="file" id="coverImageInput" hidden (change)="onFileSelected($event)"
                                         accept="image/*">
                                 </div>
@@ -492,11 +499,11 @@
                         <div class="form-section-title mb-3">{{ 'admin.contents.editor.custom_fields' | transloco }}</div>
 
                         @for (field of currentFields; track field.key) {
-                        <div class="form-group mb-3">
+                        <div class="form-group mb-3" [id]="'req-' + field.key" [class.has-error]="isRequiredMissing(field.key)">
                             <label class="form-label">
                                 {{ fieldLabel(field) }}
                                 @if (field.required) {
-                                <span class="text-danger">*</span>
+                                <span class="text-danger required-marker" [title]="'admin.contents.editor.required_marker' | transloco">*</span>
                                 }
                                 @if(isFieldLocked(field)){
                                 <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
@@ -533,6 +540,23 @@
                             <input type="datetime-local" class="form-control form-control-sm"
                                 [value]="customFieldValues[field.key] || ''"
                                 (input)="onCustomFieldChange(field.key, $any($event.target).value)">
+                            }
+
+                            <!-- Colour: native picker beside an editable hex box -->
+                            @else if (field.type === 'color') {
+                            <div class="color-field-row">
+                                <input type="color" class="form-control form-control-color form-control-sm"
+                                    [value]="colorPickerValue(customFieldValues[field.key])"
+                                    (input)="onCustomFieldChange(field.key, $any($event.target).value)"
+                                    [title]="fieldLabel(field)">
+                                <input type="text" class="form-control form-control-sm color-hex-input"
+                                    [value]="customFieldValues[field.key] || ''"
+                                    (input)="onCustomFieldChange(field.key, $any($event.target).value)"
+                                    placeholder="#000000" maxlength="7" spellcheck="false">
+                                @if (colorRgbText(customFieldValues[field.key]); as rgb) {
+                                <span class="text-muted small color-rgb-text">{{ rgb }}</span>
+                                }
+                            </div>
                             }
 
                             <!-- Boolean (checkbox toggle) -->
@@ -753,6 +777,12 @@
                                 (rowsChange)="onRepeaterRowsChange(field.key, $event)"
                                 (headingChange)="onRepeaterHeadingChange(field, $event)">
                             </arc-field-repeater>
+                            }
+
+                            @if (isRequiredMissing(field.key)) {
+                            <div class="required-error">
+                                {{ 'common.validation.required' | transloco: { field: fieldLabel(field) } }}
+                            </div>
                             }
                         </div>
                         }

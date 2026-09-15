@@ -2,6 +2,8 @@ import * as cheerio from 'cheerio';
 import { interpolate, parseParams } from '../i18n/interpolate';
 import { TemplateContext } from '../models/cms.types';
 import { youTubeVideo } from '../../../shared/utils/youtube';
+import { parseHexColor } from '../../../shared/utils/color';
+import { imageSizeUrls, IMAGE_SIZES } from '../../../shared/utils/image-sizes';
 import { renderLocation } from '../../../shared/utils/geo';
 
 /**
@@ -21,7 +23,8 @@ export class TemplateHydrationService {
    * Publishes each custom field under its unprefixed name as well.
    *
    * Custom field keys are stored prefixed with the content type slug, so a
-   * heading on `events` is `events_details_heading`. A template shared by
+   * heading on `events` is `events-details_heading` (`events_details_heading`
+   * on a type created before keys switched to the hyphen). A template shared by
    * every content type — `templates/default/detail.html` — cannot name that,
    * the same problem `arrayLoopData` solves for loops.
    *
@@ -40,11 +43,14 @@ export class TemplateHydrationService {
     const slug = typeof data['contentTypeSlug'] === 'string' ? data['contentTypeSlug'] : '';
     if (!slug) return data;
 
-    const prefix = `${slug}_`;
+    // New keys are `<slug>-<name>`; types created earlier carry `<slug>_<name>`
+    // and are never rewritten, so both prefixes are recognised.
+    const prefixes = [`${slug}-`, `${slug}_`];
     let result = data;
 
     for (const key of Object.keys(data)) {
-      if (!key.startsWith(prefix) || key.length === prefix.length) continue;
+      const prefix = prefixes.find((p) => key.startsWith(p) && key.length > p.length);
+      if (!prefix) continue;
 
       const bare = key.slice(prefix.length);
       if (bare in data) continue;
@@ -122,6 +128,72 @@ export class TemplateHydrationService {
   }
 
   /**
+   * Adds every size of an image beside the one that is stored.
+   *
+   * Media uploads exist at four widths (see image-sizes.ts). The content
+   * document stores whichever the editor picked; a template that wants
+   * another — a thumbnail in a list, the full width in a hero — binds the
+   * size it needs:
+   *
+   *   {{ coverImage_s }}  {{ coverImage_m }}  {{ coverImage_l }}  {{ coverImage_xl }}
+   *
+   * Only strings this CMS can resize gain siblings (its own uploads, Unsplash
+   * photos); a pasted external URL is left alone. Older single-file uploads
+   * answer to every size with that one file, so a template can bind a size
+   * without knowing how old the image is.
+   */
+  private static flattenImageSizes(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    let result = data;
+
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value !== 'string' || !value) continue;
+      const sizes = imageSizeUrls(value);
+      if (!sizes) continue;
+
+      if (result === data) result = { ...data };
+      for (const size of IMAGE_SIZES) {
+        result[`${key}_${size}`] = sizes[size];
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Expands a stored colour into the forms a stylesheet wants.
+   *
+   * A `color` field stores a hex string, so `{{ brand }}` already works as a
+   * CSS value. Beside it:
+   *
+   *   {{ brand_rgb }}         rgb(26, 115, 232)
+   *   {{ brand_rgb_values }}  26, 115, 232  — for rgba({{ brand_rgb_values }}, .5)
+   *
+   * Keyed on the value's shape, like flattenVideos: a string that starts with
+   * `#` and parses as a hex colour gains the siblings. The hash is required
+   * here even though the editor accepts its absence — a text field holding
+   * "bad" or "cafe" is a word, not a colour. The stored value is left as is.
+   */
+  private static flattenColors(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    let result = data;
+
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value !== 'string' || !value.startsWith('#')) continue;
+      const color = parseHexColor(value);
+      if (!color) continue;
+
+      if (result === data) result = { ...data };
+      result[`${key}_rgb`] = color.rgb;
+      result[`${key}_rgb_values`] = color.rgbValues;
+    }
+
+    return result;
+  }
+
+  /**
    * Expands stored icon tokens into the plain strings a template binds to.
    *
    * An `icon` field stores an object (`{ classes, markup, label, name }`), and
@@ -137,7 +209,7 @@ export class TemplateHydrationService {
    *   {{ card_icon_name }}   star              — the bare name
    *
    * The suffixes are underscored because field keys are themselves forced to
-   * `^[a-z0-9_]+$`, so `card_iconSvg` would be the odd one out.
+   * `^[a-z0-9_-]+$`, so `card_iconSvg` would be the odd one out.
    *
    * Documented in TEMPLATES.md. Runs on a copy; the caller's data is not
    * touched.
@@ -192,12 +264,158 @@ export class TemplateHydrationService {
         if (key.startsWith('_ref_')) {
           const cleanKey = key.substring(1); // remove leading underscore
           if (data[cleanKey] === undefined) {
-             data = { ...data, [cleanKey]: customFields[key] };
+            data = { ...data, [cleanKey]: customFields[key] };
           }
         }
       });
     }
 
+    // 0.5. Process data-arc-repeat / numeric precision repetition
+    // Universally handles integers, decimals (e.g. 3.5), progress steppers, ratings, meters, and multi-state templates
+    $('[data-arc-repeat], [data-arc-loop-count], [data-arc-loop-single]').each((_, element) => {
+      const $el = $(element);
+      const attrName = $el.attr('data-arc-repeat') !== undefined
+        ? 'data-arc-repeat'
+        : $el.attr('data-arc-loop-count') !== undefined
+          ? 'data-arc-loop-count'
+          : 'data-arc-loop-single';
+
+      const attrValue = ($el.attr(attrName) || '').trim();
+
+      // 1. Resolve raw value from data or fallback to literal attribute value
+      let rawValue = TemplateHydrationService.getNestedValue(data, attrValue);
+      if (rawValue === undefined || rawValue === null) {
+        rawValue = attrValue;
+      }
+
+      // Parse as float for high precision (e.g. 3.5, 75.0)
+      let numValue = Math.max(0, parseFloat(String(rawValue)) || 0);
+
+      // Check optional data-max / data-total (e.g. data-max="5" or data-max="totalSteps")
+      const maxAttr = ($el.attr('data-max') || $el.attr('data-total') || '').trim();
+      let maxResolved = maxAttr ? TemplateHydrationService.getNestedValue(data, maxAttr) : undefined;
+      if (maxResolved === undefined || maxResolved === null) {
+        maxResolved = maxAttr;
+      }
+      const maxLimit = maxResolved ? Math.max(1, parseFloat(String(maxResolved)) || 0) : 0;
+
+      if (maxLimit > 0) {
+        numValue = Math.min(numValue, maxLimit);
+      }
+
+      // Calculate precision and fractional states
+      const fullCount = Math.floor(numValue);
+      const remainder = numValue - fullCount;
+      // Precision thresholds: >= 0.75 rounds up to full, 0.25 <= remainder < 0.75 is partial/half
+      const isRoundUp = remainder >= 0.75;
+      const isPartial = remainder >= 0.25 && remainder < 0.75;
+      const adjustedFullCount = fullCount + (isRoundUp ? 1 : 0);
+      const partialCount = isPartial ? 1 : 0;
+
+      const $children = $el.children();
+      const childCount = $children.length;
+
+      const hydrateItem = (
+        template: string,
+        idx: number,
+        total: number,
+        state: 'full' | 'half' | 'empty',
+        fraction: number
+      ): string => {
+        const percent = total > 0 ? Math.round((numValue / total) * 100) : 0;
+        const itemPercent = total > 0 ? Math.round(((idx + 1) / total) * 100) : 0;
+        return template
+          .replace(/\{\{\s*@index\s*\}\}/g, String(idx))
+          .replace(/\{\{\s*@number\s*\}\}/g, String(idx + 1))
+          .replace(/\{\{\s*@value\s*\}\}/g, String(numValue))
+          .replace(/\{\{\s*@total\s*\}\}/g, String(total))
+          .replace(/\{\{\s*@max\s*\}\}/g, String(total))
+          .replace(/\{\{\s*@state\s*\}\}/g, state)
+          .replace(/\{\{\s*@percent\s*\}\}/g, String(percent))
+          .replace(/\{\{\s*@itemPercent\s*\}\}/g, String(itemPercent))
+          .replace(/\{\{\s*@fraction\s*\}\}/g, fraction.toFixed(2));
+      };
+
+      if (childCount > 0) {
+        let generatedHtml = '';
+
+        if (childCount >= 3) {
+          // 3 templates: [0] Full / Active, [1] Partial / Half / In-Progress, [2] Empty / Inactive
+          const totalSlots = maxLimit > 0 ? maxLimit : Math.max(5, adjustedFullCount + partialCount);
+          const emptyCount = Math.max(0, totalSlots - adjustedFullCount - partialCount);
+
+          const fullTpl = $.html($children.eq(0));
+          const partialTpl = $.html($children.eq(1));
+          const emptyTpl = $.html($children.eq(2));
+
+          let curIdx = 0;
+          for (let i = 0; i < adjustedFullCount; i++) {
+            generatedHtml += hydrateItem(fullTpl, curIdx, totalSlots, 'full', 1);
+            curIdx++;
+          }
+          for (let i = 0; i < partialCount; i++) {
+            generatedHtml += hydrateItem(partialTpl, curIdx, totalSlots, 'half', remainder);
+            curIdx++;
+          }
+          for (let i = 0; i < emptyCount; i++) {
+            generatedHtml += hydrateItem(emptyTpl, curIdx, totalSlots, 'empty', 0);
+            curIdx++;
+          }
+        } else if (childCount === 2) {
+          // 2 templates: [0] Full / Active, [1] Partial / Half
+          const totalSlots = maxLimit > 0 ? maxLimit : (adjustedFullCount + partialCount);
+          const fullTpl = $.html($children.eq(0));
+          const partialTpl = $.html($children.eq(1));
+
+          let curIdx = 0;
+          for (let i = 0; i < adjustedFullCount; i++) {
+            generatedHtml += hydrateItem(fullTpl, curIdx, totalSlots, 'full', 1);
+            curIdx++;
+          }
+          for (let i = 0; i < partialCount; i++) {
+            generatedHtml += hydrateItem(partialTpl, curIdx, totalSlots, 'half', remainder);
+            curIdx++;
+          }
+        } else {
+          // 1 template: Single element (e.g. generic step, counter, card, meter segment)
+          const singleTpl = $.html($children.eq(0));
+
+          if (maxLimit > 0) {
+            for (let i = 0; i < maxLimit; i++) {
+              const state = (i + 1 <= adjustedFullCount)
+                ? 'full'
+                : (i === adjustedFullCount && isPartial)
+                  ? 'half'
+                  : 'empty';
+              const fraction = state === 'full' ? 1 : state === 'half' ? remainder : 0;
+              generatedHtml += hydrateItem(singleTpl, i, maxLimit, state, fraction);
+            }
+          } else {
+            const repeatTimes = adjustedFullCount + partialCount;
+            for (let i = 0; i < repeatTimes; i++) {
+              const state = (i < adjustedFullCount) ? 'full' : 'half';
+              const fraction = state === 'full' ? 1 : remainder;
+              generatedHtml += hydrateItem(singleTpl, i, repeatTimes, state, fraction);
+            }
+          }
+        }
+
+        $el.html(generatedHtml);
+      } else {
+        // Direct text / character node
+        const textContent = $el.text();
+        if (textContent.length > 0) {
+          const repeatTimes = Math.round(numValue);
+          $el.text(textContent.repeat(repeatTimes));
+        } else if (numValue === 0) {
+          $el.empty();
+        }
+      }
+
+      $el.removeAttr(attrName);
+      $el.removeAttr('data-max');
+      $el.removeAttr('data-total');
+    });
     // Custom fields also answer to their unprefixed name, so a shared
     // template can name them. See aliasCustomFields.
     data = this.aliasCustomFields(data);
@@ -205,20 +423,20 @@ export class TemplateHydrationService {
     data = this.flattenIcons(data);
     // YouTube URLs gain their id, embed and poster. See flattenVideos.
     data = this.flattenVideos(data);
+    // Hex colours gain their rgb forms. See flattenColors.
+    data = this.flattenColors(data);
+    // Image URLs gain their other sizes. See flattenImageSizes.
+    data = this.flattenImageSizes(data);
     // Coordinates gain their map embed and directions link. See flattenLocations.
     data = this.flattenLocations(data);
 
 
     // 1. Process Angular-style Interpolation {{ variable }}
-    
+
     // Helper to replace {{ key }} with value
     const replaceInterpolation = (text: string): string => {
-      // Dot notation (user.name) and hyphens, which custom-field keys carry:
-      // the app prefixes every custom field with its content type slug, so a
-      // field on `awards-recognition` is stored as
-      // `awards-recognition_card_icon`. Without the hyphen the binding
-      // rendered as literal text on exactly the types most likely to use one.
-      return text.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, key) => {
+      // Updated regex to support hyphens and dot notation (e.g. all-entry-points_themeColor, user.name)
+      return text.replace(/\{\{\s*([a-zA-Z0-9_\-.]+)\s*\}\}/g, (match, key) => {
         // Use getNestedValue to handle dotted paths
         const value = TemplateHydrationService.getNestedValue(data, key);
         return value !== undefined && value !== null ? String(value) : '';
@@ -236,26 +454,26 @@ export class TemplateHydrationService {
         const value = this.getNestedValue(data, key);
 
         if (!value) {
-            $(element).remove();
-            return; // Skip further processing for this element
+          $(element).remove();
+          return; // Skip further processing for this element
         } else {
-            $(element).removeAttr('data-arc-if');
+          $(element).removeAttr('data-arc-if');
         }
       }
 
       for (const attrName in attribs) {
         const attrValue = attribs[attrName];
         if (attrName === '[innerHTML]' || attrName === '[innerhtml]') {
-            const key = attrValue;
-            if (data[key] !== undefined && data[key] !== null) {
-                $(element).html(String(data[key]));
-                $(element).removeClass('arc-skeleton');
-                if (!$(element).attr('class')) {
-                    $(element).removeAttr('class');
-                }
+          const key = attrValue;
+          if (data[key] !== undefined && data[key] !== null) {
+            $(element).html(String(data[key]));
+            $(element).removeClass('arc-skeleton');
+            if (!$(element).attr('class')) {
+              $(element).removeAttr('class');
             }
-            $(element).removeAttr(attrName);
-            continue;
+          }
+          $(element).removeAttr(attrName);
+          continue;
         }
 
         if (attrValue.includes('{{')) {
@@ -264,15 +482,15 @@ export class TemplateHydrationService {
 
         // Process [attribute] bindings (e.g. [src], [href])
         if (attrName.startsWith('[') && attrName.endsWith(']')) {
-            const rawAttrName = attrName.substring(1, attrName.length - 1);
-            const key = attrValue;
-            
-            const value = this.getNestedValue(data, key);
-            
-            if (value !== undefined && value !== null) {
-                $(element).attr(rawAttrName, String(value));
-            }
-            $(element).removeAttr(attrName);
+          const rawAttrName = attrName.substring(1, attrName.length - 1);
+          const key = attrValue;
+
+          const value = this.getNestedValue(data, key);
+
+          if (value !== undefined && value !== null) {
+            $(element).attr(rawAttrName, String(value));
+          }
+          $(element).removeAttr(attrName);
         }
       }
 
@@ -281,11 +499,11 @@ export class TemplateHydrationService {
         if (child.type === 'text' && child.data && child.data.includes('{{')) {
           const newData = replaceInterpolation(child.data);
           if (child.data !== newData) {
-             child.data = newData;
-             $(element).removeClass('arc-skeleton');
-             if (!$(element).attr('class')) {
-                 $(element).removeAttr('class');
-             }
+            child.data = newData;
+            $(element).removeClass('arc-skeleton');
+            if (!$(element).attr('class')) {
+              $(element).removeAttr('class');
+            }
           }
         }
       });
@@ -334,7 +552,7 @@ export class TemplateHydrationService {
           }
           $el.removeClass('arc-skeleton');
           if (!$el.attr('class')) {
-              $el.removeAttr('class');
+            $el.removeAttr('class');
           }
         }
 
@@ -347,7 +565,7 @@ export class TemplateHydrationService {
     $('[data-arc-style-background]').each((_, element) => {
       const $el = $(element);
       const bindKey = $el.attr('data-arc-style-background') || '';
-      
+
       const bindValue = TemplateHydrationService.getNestedValue(data, bindKey);
       if (bindValue !== undefined && bindValue !== null) {
         const colorValue = String(bindValue);
@@ -453,7 +671,7 @@ export class TemplateHydrationService {
     if (!customFields) return loops;
 
     const taken = new Set(reserved);
-    const prefix = slug ? `${slug}_` : '';
+    const prefixes = slug ? [`${slug}-`, `${slug}_`] : [];
     const aliases: Record<string, any[]> = {};
 
     for (const [key, value] of Object.entries(customFields)) {
@@ -468,7 +686,8 @@ export class TemplateHydrationService {
 
       loops[key] = ordered;
 
-      if (prefix && key.startsWith(prefix) && key.length > prefix.length) {
+      const prefix = prefixes.find((p) => key.startsWith(p) && key.length > p.length);
+      if (prefix) {
         const bare = key.slice(prefix.length);
         if (!taken.has(bare)) aliases[bare] = ordered;
       }

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ContentPartialsComponent } from './content-partials.component';
 import { HttpClient } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
-import { signal, makeStateKey, TransferState } from '@angular/core';
+import { signal, makeStateKey } from '@angular/core';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
 import { ActivatedRoute, Router } from '@angular/router';

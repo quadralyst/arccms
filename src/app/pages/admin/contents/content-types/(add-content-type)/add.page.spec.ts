@@ -339,7 +339,7 @@ describe('AddContentTypeComponent', () => {
             component.onSubmit();
             const callArgs = mockStore.add.mock.calls[0][0];
             expect(callArgs.fields).toHaveLength(1);
-            expect(callArgs.fields[0].key).toBe('test-type_title');
+            expect(callArgs.fields[0].key).toBe('test-type-title');
         });
 
         it('should show success message on successful submission', async () => {
@@ -447,8 +447,12 @@ describe('AddContentTypeComponent', () => {
             expect(component.fieldTypes).toContain('radio');
         });
 
-        it('should have 15 field types total', () => {
-            expect(component.fieldTypes.length).toBe(15);
+        it('should have 16 field types total', () => {
+            expect(component.fieldTypes.length).toBe(16);
+        });
+
+        it('should include the color type', () => {
+            expect(component.fieldTypes).toContain('color');
         });
 
         it('should include datetime field type', () => {
@@ -531,41 +535,66 @@ describe('AddContentTypeComponent', () => {
         });
     });
 
-    describe('Duplicate Field Key Validation', () => {
-        it('should detect duplicate field keys', () => {
+    describe('Field names and derived keys', () => {
+        it('derives the key from the name', () => {
             component.addField();
-            component.addField();
-            component.fields.at(0).patchValue({ key: 'my_field', label: 'F1', type: 'text' });
-            component.fields.at(1).patchValue({ key: 'my_field', label: 'F2', type: 'text' });
+            component.fields.at(0).patchValue({ label: 'Field Color', type: 'text' });
 
-            expect(component.fields.errors).toBeTruthy();
-            expect(component.fields.errors?.['duplicateKeys']).toContain('my_field');
+            expect(component.fields.at(0).get('key')?.value).toBe('field-color');
         });
 
-        it('should not flag unique field keys as duplicates', () => {
+        it('previews the stored key with the type slug', () => {
+            component.addForm.patchValue({ name: 'Awards', slug: 'awards-recognition' });
+            component.addField();
+            component.fields.at(0).patchValue({ label: 'Prize' });
+
+            expect(component.fieldKeyPreview(0)).toBe('awards-recognition-prize');
+        });
+
+        it('rejects a name that leaves no key', () => {
+            component.addField();
+            component.fields.at(0).patchValue({ label: '###' });
+
+            expect(component.fields.at(0).get('key')?.invalid).toBe(true);
+        });
+
+        it('flags two fields with the same name', () => {
             component.addField();
             component.addField();
-            component.fields.at(0).patchValue({ key: 'field_a', label: 'A', type: 'text' });
-            component.fields.at(1).patchValue({ key: 'field_b', label: 'B', type: 'text' });
+            component.fields.at(0).patchValue({ label: 'Prize', type: 'text' });
+            component.fields.at(1).patchValue({ label: 'prize', type: 'text' });
+
+            expect(component.fields.errors?.['duplicateKeys']).toContain('prize');
+            expect(component.fields.errors?.['duplicateNames']).toContain('prize');
+            expect(component.isDuplicateField(0)).toBe(true);
+            expect(component.isDuplicateField(1)).toBe(true);
+        });
+
+        it('flags two names that collapse to the same key', () => {
+            component.addField();
+            component.addField();
+            component.fields.at(0).patchValue({ label: 'Field Color' });
+            component.fields.at(1).patchValue({ label: 'field_color' });
+
+            expect(component.fields.errors?.['duplicateKeys']).toEqual(['field-color']);
+        });
+
+        it('does not flag distinct names', () => {
+            component.addField();
+            component.addField();
+            component.fields.at(0).patchValue({ label: 'A', type: 'text' });
+            component.fields.at(1).patchValue({ label: 'B', type: 'text' });
 
             expect(component.fields.errors).toBeNull();
+            expect(component.isDuplicateField(0)).toBe(false);
         });
 
-        it('should detect duplicates case-insensitively', () => {
-            component.addField();
-            component.addField();
-            component.fields.at(0).patchValue({ key: 'MyField', label: 'F1', type: 'text' });
-            component.fields.at(1).patchValue({ key: 'myfield', label: 'F2', type: 'text' });
-
-            expect(component.fields.errors?.['duplicateKeys']).toBeTruthy();
-        });
-
-        it('should not submit form when duplicate keys exist', () => {
+        it('should not submit form when duplicate names exist', () => {
             component.addForm.patchValue({ name: 'Test Type', slug: 'test-type' });
             component.addField();
             component.addField();
-            component.fields.at(0).patchValue({ key: 'dup', label: 'L1', type: 'text' });
-            component.fields.at(1).patchValue({ key: 'dup', label: 'L2', type: 'text' });
+            component.fields.at(0).patchValue({ label: 'Dup', type: 'text' });
+            component.fields.at(1).patchValue({ label: 'dup', type: 'text' });
 
             component.onSubmit();
             expect(mockStore.add).not.toHaveBeenCalled();
@@ -588,7 +617,7 @@ describe('AddContentTypeComponent', () => {
 
             component.onSubmit();
             const callArgs = mockStore.add.mock.calls[0][0];
-            expect(callArgs.fields[0].key).toBe('articles_author');
+            expect(callArgs.fields[0].key).toBe('articles-author');
         });
 
         it('should not double-prepend slug if already prefixed', () => {
@@ -598,7 +627,7 @@ describe('AddContentTypeComponent', () => {
             });
             component.addField();
             component.fields.at(0).patchValue({
-                key: 'articles_author',
+                key: 'articles-author',
                 label: 'Author',
                 type: 'text',
                 required: false,
@@ -606,7 +635,7 @@ describe('AddContentTypeComponent', () => {
 
             component.onSubmit();
             const callArgs = mockStore.add.mock.calls[0][0];
-            expect(callArgs.fields[0].key).toBe('articles_author');
+            expect(callArgs.fields[0].key).toBe('articles-author');
         });
     });
 });

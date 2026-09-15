@@ -83,7 +83,7 @@ Use `data-arc-bind` to inject content values into elements:
 
 The placeholder text is replaced with actual content at render time.
 
-### Loops
+### Loops (Collections)
 
 Use `data-arc-loop` to repeat elements for collections:
 
@@ -99,6 +99,56 @@ Use `data-arc-loop` to repeat elements for collections:
 - `data-arc-loop="items"` — Loops over content items
 - `data-arc-loop="tags"` — Loops over tags
 - `data-limit="N"` — Limits the number of items displayed
+
+### Numeric Precision & Multi-State Repetition (`data-arc-repeat`)
+
+`data-arc-repeat` is a universal directive for rendering numbers, float decimals (e.g. `3.5`), progress bars, steppers, battery meters, pagination indicators, and star ratings:
+
+#### 1. Floating-Point Ratings & Precision Icons (Full / Half / Empty)
+Supply 2 or 3 child elements to automatically represent **Full**, **Half/Partial**, and **Empty** states:
+
+```html
+<!-- Rating: 3.5 out of 5 stars (Renders 3 full + 1 half + 1 empty) -->
+<div class="voices__stars" data-arc-repeat="voices-of-impact_rating" data-max="5">
+    <i class="fa-solid fa-star"></i>             <!-- Template 1: Full -->
+    <i class="fa-solid fa-star-half-stroke"></i>  <!-- Template 2: Half / Partial -->
+    <i class="fa-regular fa-star"></i>           <!-- Template 3: Empty -->
+</div>
+```
+
+#### 2. Progress Steppers & Milestone Gauges
+Use `data-max` with `@state`, `@percent`, and `@itemPercent` metadata variables:
+
+```html
+<!-- Progress: 2.5 of 4 steps -->
+<div class="stepper" data-arc-repeat="progress" data-max="4">
+    <div class="step step--{{ @state }}" style="width: {{ @itemPercent }}%">
+        Step {{ @number }} ({{ @state }}) - Overall {{ @percent }}%
+    </div>
+</div>
+```
+
+#### 3. Meter & Battery Bars (Active / Half / Inactive)
+```html
+<!-- Battery: 2.5 of 4 bars -->
+<div class="battery-meter" data-arc-repeat="batteryLevel" data-max="4">
+    <span class="bar bar--active"></span>
+    <span class="bar bar--half"></span>
+    <span class="bar bar--inactive"></span>
+</div>
+```
+
+#### Available Template Metadata Variables:
+| Variable | Description | Example |
+|---|---|---|
+| `{{ @index }}` | 0-based index | `0, 1, 2...` |
+| `{{ @number }}` | 1-based index | `1, 2, 3...` |
+| `{{ @state }}` | Slot state | `'full'`, `'half'`, `'empty'` |
+| `{{ @value }}` | The raw numeric value | `3.5`, `75` |
+| `{{ @max }}` / `{{ @total }}` | Maximum/total capacity | `5`, `100` |
+| `{{ @percent }}` | Overall progress percentage | `70` (for 3.5 / 5) |
+| `{{ @itemPercent }}` | Step-specific percentage | `20, 40, 60...` |
+| `{{ @fraction }}` | Fractional remainder | `0.50`, `0.00` |
 
 ### Style Binding
 
@@ -206,14 +256,19 @@ Any custom fields you define on a content type are automatically available using
 <span data-arc-bind="price">0</span>
 ```
 
-> **Field keys are prefixed with the content type slug.** Enter `subtitle` as
-> the key on a content type slugged `awards-recognition` and it is stored — and
-> bound — as `awards-recognition_subtitle`. Check the key shown in
+> **Field keys are derived from the field's name and prefixed with the
+> content type slug.** Name a field "Subtitle" on a content type slugged
+> `awards-recognition` and it is stored — and bound — as
+> `awards-recognition-subtitle`: the name in lowercase with words joined by
+> hyphens, after the slug and a hyphen. The key is fixed once the type is
+> saved; renaming the field later does not change it. Types created before
+> this convention carry `awards-recognition_subtitle` (an underscore) and keep
+> it. Check the key shown under the field name in
 > **Admin > Contents > Content Types** if a binding renders blank; the examples
 > below use short keys for readability.
 >
 > **Every custom field also answers to its bare key.** `data-arc-loop` and
-> `data-arc-bind` both accept `awards-recognition_gallery` or just `gallery`.
+> `data-arc-bind` both accept `awards-recognition-gallery` or just `gallery`.
 > The short form is what lets one shared template serve every content type.
 > The one rule: an alias never replaces a built-in, so a field keyed
 > `articles_title` cannot shadow the page's real `title`.
@@ -598,10 +653,11 @@ card, a dark footer and a themed accent without anyone re-exporting anything.
 ### Adding an Icon field
 
 1. Go to **Admin > Contents > Content Types** and edit your content type.
-2. Add a field, set its **Type** to `icon`, and give it a key (e.g. `card_icon`).
-   Field keys must be lowercase letters, digits and underscores — `^[a-z0-9_]+$`
-   — and are then stored prefixed with the content type slug, so the binding
-   for `card_icon` on `articles` is `articles_card_icon`.
+2. Add a field, set its **Type** to `icon`, and name it (e.g. "Card Icon").
+   The key follows from the name and the content type slug, so the binding
+   for "Card Icon" on `articles` is `articles-card-icon` — or `card-icon` for
+   short. The examples below use `card_icon` as a stand-in for whatever your
+   stored key is.
 3. When editing content, that field opens an icon picker. Search by name, by
    label, or by what the icon *means* — "search", "trophy", "chart" all work.
    The picker offers icons only; the image tabs are hidden, because a photo
@@ -703,6 +759,116 @@ npm run icons:index
 Run it after upgrading that package, and keep the package version in step with
 the Font Awesome stylesheet in `cssUrls` — an index built from a newer release
 offers class names the older stylesheet cannot draw. A test enforces both.
+
+---
+
+## Image sizes
+
+Every image uploaded through the Media Manager is stored in four sizes. Each
+is a bound on the image's **longest side**, so a size means the same box
+whether the photo is landscape or portrait:
+
+| Size | Longest side | |
+|------|--------------|-|
+| `s` | ¼ of the maximum | thumbnails, avatars, list cards |
+| `m` | ½ of the maximum | **the default** an editor gets when inserting |
+| `l` | ¾ of the maximum | article bodies |
+| `xl` | the maximum | heroes, covers, the social-share image |
+
+The maximum is **Admin > Settings > Misc > Max image size** — 1200px on a
+new install, so the sizes are 300 / 600 / 900 / 1200: a 3:2 landscape photo
+is stored at 1200 × 800, 900 × 600, 600 × 400 and 300 × 200; the same photo
+in portrait at 800 × 1200 and so on. Uploads are stored as WebP unless that
+is switched off there. A picture smaller than a size is not enlarged; that
+size simply reuses the next one down.
+
+The cover image is recommended — and its picker opens — at XL.
+
+When an editor inserts an image — the cover, an image field, a gallery or
+info-card row — they pick a size (M unless they change it) and that URL is
+what the document stores. A template that wants another size does not need
+the editor to have chosen it: every image binding has four siblings.
+
+### Rendering a size
+
+| Binding | Contains |
+|---------|----------|
+| `{{ coverImage }}` | The size the editor picked |
+| `{{ coverImage_s }}` | The S size |
+| `{{ coverImage_m }}` | The M size |
+| `{{ coverImage_l }}` | The L size |
+| `{{ coverImage_xl }}` | The XL size |
+
+The same suffixes work on any image — a custom `image` field (`{{ photo_xl }}`),
+and `{{ image_s }}` inside a gallery or info-card row. A responsive image is
+then one `srcset`:
+
+```html
+<img src="{{ coverImage_m }}"
+     srcset="{{ coverImage_s }} 300w, {{ coverImage_m }} 600w, {{ coverImage_l }} 900w, {{ coverImage_xl }} 1200w"
+     sizes="(max-width: 600px) 100vw, 600px"
+     alt="{{ title }}">
+```
+
+The `w` descriptors above are the longest-side limits, exact for a landscape
+image; a portrait one is narrower at each size, which the browser handles.
+
+Images from before sizes existed have one file; every size binding returns
+it, so the template above still renders. Unsplash photos are resized by
+Unsplash's CDN at the same widths. An image pasted in from elsewhere gets no
+size bindings — there is nothing to resize it with.
+
+---
+
+## Colours
+
+The **Color** custom field type gives an editor a colour picker. Use it for
+anything a template wants to tint per item — a category's accent, a card
+background, a brand colour on a partner page.
+
+### Adding a Color field
+
+1. **Admin > Contents > Content Types**, edit your type, add a field.
+2. Set **Type** to `color` and name it, e.g. "Accent". As with every custom
+   field the stored key is derived from the name with the slug prefix
+   (`programs-accent`), and the bare key (`accent`) also works in templates.
+3. When editing content, the field shows a swatch that opens the picker and a
+   hex box beside it — type `#1a73e8` (or the `#fff` shorthand) or pick.
+
+The stored value is the hex string. Required colour fields must be filled
+before publishing, like any other required field.
+
+### Rendering a colour
+
+One colour gives three bindings, all derived from the field key:
+
+| Binding | Contains | Use for |
+|---------|----------|---------|
+| `{{ accent }}` | `#1a73e8` | Any CSS colour value — **this is the usual one** |
+| `{{ accent_rgb }}` | `rgb(26, 115, 232)` | The same colour in rgb form |
+| `{{ accent_rgb_values }}` | `26, 115, 232` | Building a translucent tint: `rgba({{ accent_rgb_values }}, 0.15)` |
+
+Substitute your own **stored** field key for `accent` throughout.
+
+```html
+<article class="card" style="--accent: {{ accent }}; --accent-soft: rgba({{ accent_rgb_values }}, 0.12)">
+  <h3 style="color: var(--accent)">{{ title }}</h3>
+</article>
+```
+
+Or with the style binding, which needs no inline `style` attribute:
+
+```html
+<span class="tag" data-arc-style-background="accent" data-arc-bind="title">Tag</span>
+```
+
+The bindings are derived at render time, so a colour left empty renders as
+nothing — pair it with `data-arc-if="accent"` or a CSS fallback
+(`var(--accent, #333)`) when the field is optional.
+
+CSV import accepts the hex form in the colour's column and rejects anything
+else. In the admin contents list a colour column shows the swatch beside its
+value.
 
 ---
 

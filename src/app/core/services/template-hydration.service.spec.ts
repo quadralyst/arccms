@@ -798,6 +798,74 @@ describe('TemplateHydrationService', () => {
         });
     });
 
+    describe('Color Flattening', () => {
+        it('derives the rgb forms from a stored hex colour', () => {
+            const html = '<span style="color: {{ brand }}; background: rgba({{ brand_rgb_values }}, 0.5)">{{ brand_rgb }}</span>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { brand: '#1A73E8' });
+
+            expect(result).toContain('color: #1A73E8');
+            expect(result).toContain('rgba(26, 115, 232, 0.5)');
+            expect(result).toContain('rgb(26, 115, 232)');
+        });
+
+        it('expands shorthand', () => {
+            const result = TemplateHydrationService.hydrateTemplate('<i>{{ c_rgb }}</i>', { c: '#fff' });
+            expect(result).toContain('rgb(255, 255, 255)');
+        });
+
+        it('leaves a hex-looking word without a hash alone', () => {
+            // "cafe" is a text field's word, not a colour.
+            const result = TemplateHydrationService.hydrateTemplate('<i>[{{ name_rgb }}]</i>', { name: 'cafe' });
+            expect(result).toContain('[]');
+        });
+
+        it('does not mutate the caller data object', () => {
+            const data: Record<string, any> = { brand: '#000' };
+            TemplateHydrationService.hydrateTemplate('<i>{{ brand_rgb }}</i>', data);
+            expect(Object.keys(data)).toEqual(['brand']);
+        });
+    });
+
+    describe('Image Size Flattening', () => {
+        const BASE = 'https://firebasestorage.googleapis.com/v0/b/demo.appspot.com/o/mediaImages%2Fhero-abc123';
+
+        it('derives every size from the stored one', () => {
+            const html = '<img src="{{ coverImage_s }}" data-xl="{{ coverImage_xl }}">';
+            const result = TemplateHydrationService.hydrateTemplate(html, { coverImage: `${BASE}-m.webp?alt=media&token=t` });
+
+            expect(result).toContain(`src="${BASE}-s.webp?alt=media"`);
+            expect(result).toContain(`data-xl="${BASE}-xl.webp?alt=media"`);
+        });
+
+        it('keeps the stored URL itself as it is', () => {
+            const stored = `${BASE}-m.webp?alt=media&token=t`;
+            const result = TemplateHydrationService.hydrateTemplate('<img data-arc-bind="coverImage">', { coverImage: stored });
+            expect(result).toContain('token=t');
+        });
+
+        it('serves an older single-file upload at every size', () => {
+            const legacy = `${BASE}.jpg?alt=media&token=t`;
+            const result = TemplateHydrationService.hydrateTemplate('<i>{{ coverImage_xl }}</i>', { coverImage: legacy });
+            // `&` is entity-encoded in text, as it should be — the URL is the same file.
+            expect(result).toContain(`${BASE}.jpg?alt=media&amp;token=t`);
+        });
+
+        it('leaves an external image alone', () => {
+            const result = TemplateHydrationService.hydrateTemplate('<i>[{{ pic_s }}]</i>', { pic: 'https://example.com/a.jpg' });
+            expect(result).toContain('[]');
+        });
+
+        it('derives per row inside a gallery loop', () => {
+            const html = '<div data-arc-loop="gallery"><img src="{{ image_s }}"></div>';
+            const rows = [{ id: 'r', position: 1, image: `${BASE}-l.webp?alt=media` }];
+            const result = TemplateHydrationService.processLoops(
+                html,
+                TemplateHydrationService.arrayLoopData({ gallery: rows }),
+            );
+            expect(result).toContain(`${BASE}-s.webp?alt=media`);
+        });
+    });
+
     describe('Hyphenated custom field keys', () => {
         // Custom fields are stored prefixed with their content type slug, so a
         // field on `awards-recognition` is keyed `awards-recognition_subtitle`.
@@ -1231,6 +1299,181 @@ describe('TemplateHydrationService', () => {
             const result = TemplateHydrationService.hydrateTemplate(html, data);
 
             expect(result).toContain('No Custom Fields');
+        });
+    });
+
+    describe('data-arc-repeat (numeric repetition)', () => {
+        it('should repeat child element N times from numeric data property', () => {
+            const html = '<div class="stars" data-arc-repeat="rating"><i class="fa-solid fa-star"></i></div>';
+            const data = { rating: 5 };
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            const starCount = (result.match(/fa-star/g) || []).length;
+            expect(starCount).toBe(5);
+            expect(result).not.toContain('data-arc-repeat');
+        });
+
+        it('should repeat child element N times from string number in data', () => {
+            const html = '<div class="stars" data-arc-repeat="voices-of-impact_rating"><i class="fa-star"></i></div>';
+            const data = { 'voices-of-impact_rating': '4' };
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            const starCount = (result.match(/fa-star/g) || []).length;
+            expect(starCount).toBe(4);
+        });
+
+        it('should repeat child element N times from literal number in attribute', () => {
+            const html = '<ul data-arc-repeat="3"><li>Item</li></ul>';
+            const data = {};
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            const itemCount = (result.match(/<li>Item<\/li>/g) || []).length;
+            expect(itemCount).toBe(3);
+        });
+
+        it('should interpolate {{@index}} and {{@number}} in repeated elements', () => {
+            const html = '<ul data-arc-repeat="3"><li data-idx="{{ @index }}">Step {{ @number }}</li></ul>';
+            const data = {};
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            expect(result).toContain('data-idx="0">Step 1</li>');
+            expect(result).toContain('data-idx="1">Step 2</li>');
+            expect(result).toContain('data-idx="2">Step 3</li>');
+        });
+
+        it('should repeat text node when no child elements exist', () => {
+            const html = '<span class="stars" data-arc-repeat="rating">★</span>';
+            const data = { rating: 5 };
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            expect(result).toContain('★★★★★');
+        });
+
+        it('should empty container when count is 0 or key is missing', () => {
+            const html = '<div class="stars" data-arc-repeat="rating"><i class="fa-star"></i></div>';
+            const data = { rating: 0 };
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            expect(result).not.toContain('fa-star');
+        });
+
+        it('should support data-arc-loop-count and data-arc-loop-single aliases', () => {
+            const html1 = '<div data-arc-loop-count="count"><span>A</span></div>';
+            const html2 = '<div data-arc-loop-single="count"><span>B</span></div>';
+            const data = { count: 2 };
+
+            const res1 = TemplateHydrationService.hydrateTemplate(html1, data);
+            const res2 = TemplateHydrationService.hydrateTemplate(html2, data);
+
+            expect((res1.match(/<span>A<\/span>/g) || []).length).toBe(2);
+            expect((res2.match(/<span>B<\/span>/g) || []).length).toBe(2);
+        });
+
+        it('should work seamlessly inside data-arc-loop items', () => {
+            const html = `
+                <ul data-arc-loop="testimonials">
+                    <li>
+                        <h4>{{ author }}</h4>
+                        <div class="stars" data-arc-repeat="rating"><i class="star"></i></div>
+                    </li>
+                </ul>
+            `;
+            const listData = {
+                testimonials: [
+                    { author: 'Alice', rating: 5 },
+                    { author: 'Bob', rating: 3 },
+                ]
+            };
+
+            const result = TemplateHydrationService.processLoops(html, listData);
+
+            expect(result).toContain('Alice');
+            expect(result).toContain('Bob');
+            const totalStars = (result.match(/class="star"/g) || []).length;
+            expect(totalStars).toBe(8); // 5 + 3 = 8
+        });
+
+        it('should handle floating point numbers (e.g. 3.5) with 2 templates (full + half)', () => {
+            const html = `
+                <div class="stars" data-arc-repeat="rating">
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star-half-stroke"></i>
+                </div>
+            `;
+            const data = { rating: '3.5' };
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            const fullStars = (result.match(/fa-star"/g) || []).length;
+            const halfStars = (result.match(/fa-star-half-stroke/g) || []).length;
+
+            expect(fullStars).toBe(3);
+            expect(halfStars).toBe(1);
+        });
+
+        it('should handle floating point numbers with 3 templates (full + half + empty) and data-max', () => {
+            const html = `
+                <div class="stars" data-arc-repeat="rating" data-max="5">
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star-half-stroke"></i>
+                    <i class="fa-regular fa-star"></i>
+                </div>
+            `;
+            const data = { rating: 3.5 };
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            const fullStars = (result.match(/fa-solid fa-star"/g) || []).length;
+            const halfStars = (result.match(/fa-solid fa-star-half-stroke/g) || []).length;
+            const emptyStars = (result.match(/fa-regular fa-star"/g) || []).length;
+
+            expect(fullStars).toBe(3);
+            expect(halfStars).toBe(1);
+            expect(emptyStars).toBe(1); // 3 full + 1 half + 1 empty = 5 total
+        });
+
+        it('should support progress steppers with data-max and @state / @percent metadata', () => {
+            const html = `
+                <div class="stepper" data-arc-repeat="progress" data-max="4">
+                    <div class="step step--{{ @state }}" data-step="{{ @number }}">Progress {{ @percent }}%</div>
+                </div>
+            `;
+            const data = { progress: 2.5 };
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            expect(result).toContain('class="step step--full" data-step="1"');
+            expect(result).toContain('class="step step--full" data-step="2"');
+            expect(result).toContain('class="step step--half" data-step="3"');
+            expect(result).toContain('class="step step--empty" data-step="4"');
+            expect(result).toContain('Progress 63%'); // 2.5 / 4 * 100 = 62.5% -> 63%
+        });
+
+        it('should support meter bars with 3 templates and dynamic data-max from context', () => {
+            const html = `
+                <div class="meter" data-arc-repeat="battery" data-max="totalBars">
+                    <span class="bar bar--active"></span>
+                    <span class="bar bar--half"></span>
+                    <span class="bar bar--inactive"></span>
+                </div>
+            `;
+            const data = { battery: '2.5', totalBars: 4 };
+
+            const result = TemplateHydrationService.hydrateTemplate(html, data);
+
+            const activeBars = (result.match(/bar--active/g) || []).length;
+            const halfBars = (result.match(/bar--half/g) || []).length;
+            const inactiveBars = (result.match(/bar--inactive/g) || []).length;
+
+            expect(activeBars).toBe(2);
+            expect(halfBars).toBe(1);
+            expect(inactiveBars).toBe(1);
         });
     });
 

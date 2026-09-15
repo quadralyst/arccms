@@ -7,6 +7,7 @@
  */
 
 import { inject, Injectable } from '@angular/core';
+import { DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/misc-settings.model';
 import { Firestore, doc, collection, setDoc, getDoc, getDocs, query, where, serverTimestamp } from '@angular/fire/firestore';
 import { Observable, defer, from, map, of, catchError, switchMap } from 'rxjs';
 import { DEFAULT_CONTENT_TYPES, DEFAULT_WAITLIST, DEFAULT_SITE_CSS_URLS } from './onboarding-defaults';
@@ -65,8 +66,13 @@ export class OnboardingSetupService {
             updatedAt: serverTimestamp(),
         }, { merge: true });
 
+        // Media defaults are written out explicitly so a new install is on
+        // record as WebP at 1200px, rather than relying on code-side fallbacks.
         await setDoc(doc(this.firestore, 'Settings', 'misc'), {
             showPoweredBy: true,
+            mediaMaxFileSize: DEFAULT_MISC_SETTINGS.mediaMaxFileSize,
+            mediaMaxSize: DEFAULT_MISC_SETTINGS.mediaMaxSize,
+            mediaConvertToWebp: DEFAULT_MISC_SETTINGS.mediaConvertToWebp,
         }, { merge: true });
 
         await setDoc(doc(this.firestore, 'Settings', 'integrations'), {

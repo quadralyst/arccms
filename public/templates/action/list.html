@@ -1,0 +1,356 @@
+<div class="arc-cms-template">
+
+    <main class="iml-page">
+        <section class="iml-intro">
+            <div class="iml-shell">
+                <nav class="iml-crumbs" aria-label="Breadcrumb">
+                    <ol class="iml-crumbs__list">
+                        <li class="iml-crumbs__item"><a class="iml-crumbs__link" href="/"><i class="fa-solid fa-house"
+                                    aria-hidden="true"></i> Home</a></li>
+                        <li class="iml-crumbs__item iml-crumbs__item--current" aria-current="page"
+                            data-arc-bind="contentType"></li>
+                    </ol>
+                </nav>
+
+                <h1 class="iml-intro__title" data-arc-bind="contentType"></h1>
+                <p class="iml-intro__sub" data-arc-bind="description"></p>
+            </div>
+        </section>
+        <section class="iml-grid-wrap">
+            <div class="iml-shell">
+                <div class="iml-grid" data-arc-loop="items" data-limit="36">
+
+                    <article class="iml-tile">
+                        <a class="iml-tile__link" data-arc-bind="url" href="detail.html">
+                            <img class="iml-tile__media" data-arc-bind="coverImage"
+                                src="../assets/img/impact-tile-1.svg" alt="" width="640" height="800">
+                            <span class="iml-tile__chip" data-arc-if="impact-actions_sub_tag_heading"
+                                data-arc-bind="impact-actions_sub_tag_heading"></span>
+                            <span class="iml-tile__play" data-arc-if="impact-actions_has_video" aria-hidden="true"><i
+                                    class="fa-solid fa-play"></i></span>
+                            <span class="iml-tile__body">
+                                <span class="iml-tile__title" data-arc-bind="title"></span>
+                                <span class="iml-tile__place" data-arc-if="impact-actions_located">
+                                    <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                                    <span data-arc-bind="impact-actions_located"></span>
+                                </span>
+                                <span class="iml-tile__cta">Read more <i class="fa-solid fa-chevron-right"
+                                        aria-hidden="true"></i></span>
+                            </span>
+                        </a>
+                    </article>
+
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<style>
+    @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css");
+
+
+    .iml-page {
+        --iml-accent: #1a56db;
+        --iml-accent-dark: #1443ae;
+        --iml-accent-soft: #eaf1fd;
+
+        --iml-ink: #0f172a;
+        --iml-body: #4b5563;
+        --iml-muted: #6b7280;
+        --iml-line: #e5e9f0;
+        --iml-surface: #ffffff;
+        --iml-surface-2: #f8fafc;
+        --iml-on-dark: #ffffff;
+
+        --iml-fs-xs: .6875rem;
+        --iml-fs-sm: .75rem;
+        --iml-fs-md: .875rem;
+        --iml-fs-lg: 1rem;
+        --iml-fs-3xl: clamp(1.5rem, 1.05rem + 2vw, 2.25rem);
+
+        --iml-1: .25rem;
+        --iml-2: .5rem;
+        --iml-3: .75rem;
+        --iml-4: 1rem;
+        --iml-5: 1.25rem;
+        --iml-6: 1.5rem;
+        --iml-8: 2rem;
+        --iml-10: 2.5rem;
+        --iml-12: 3rem;
+        --iml-section: 3.5rem;
+        /* vertical rhythm between bands */
+
+        --iml-r-sm: 8px;
+        --iml-r-md: 12px;
+        --iml-r-pill: 999px;
+        --iml-sh-sm: 0 1px 2px rgba(15, 23, 42, .06);
+        --iml-sh-lg: 0 12px 32px rgba(15, 23, 42, .14);
+
+        --iml-w: 75rem;
+        --iml-gutter: 1.25rem;
+
+        font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        font-size: var(--iml-fs-md);
+        line-height: 1.6;
+        color: var(--iml-body);
+        background: var(--iml-surface);
+    }
+
+    .iml-page *,
+    .iml-page *::before,
+    .iml-page *::after {
+        box-sizing: border-box;
+    }
+
+    .iml-page :where(h1, h2) {
+        margin: 0;
+        line-height: 1.18;
+        font-weight: 700;
+    }
+
+    .iml-page :where(p) {
+        margin: 0;
+    }
+
+    .iml-page :where(ul, ol) {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .iml-page :where(img) {
+        display: block;
+        max-width: 100%;
+        height: auto;
+    }
+
+    .iml-page :where(a) {
+        text-decoration: none;
+    }
+
+    .iml-shell {
+        width: 100%;
+        max-width: var(--iml-w);
+        margin-inline: auto;
+        padding-inline: var(--iml-gutter);
+    }
+
+    /* --- Intro (fully centred) ------------------------------------ */
+    .iml-intro {
+        padding: var(--iml-8) 0 var(--iml-section);
+        background: linear-gradient(180deg, var(--iml-surface-2) 0%, var(--iml-surface) 100%);
+        text-align: center;
+    }
+
+    .iml-crumbs {
+        margin-bottom: var(--iml-8);
+    }
+
+    .iml-crumbs__list {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: var(--iml-2);
+    }
+
+    .iml-crumbs__item {
+        display: flex;
+        align-items: center;
+        gap: var(--iml-2);
+        font-size: var(--iml-fs-sm);
+        color: var(--iml-muted);
+    }
+
+    .iml-crumbs__item::after {
+        content: "/";
+        color: #94a3b8;
+    }
+
+    .iml-crumbs__item--current {
+        color: var(--iml-ink);
+        font-weight: 600;
+    }
+
+    .iml-crumbs__item--current::after {
+        content: none;
+    }
+
+    .iml-crumbs__link {
+        color: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--iml-2);
+    }
+
+    .iml-crumbs__link:hover {
+        color: var(--iml-accent);
+    }
+
+    .iml-intro__title {
+        color: var(--iml-ink);
+        font-size: var(--iml-fs-3xl);
+        font-weight: 800;
+        letter-spacing: -.02em;
+        text-wrap: balance;
+    }
+
+    .iml-intro__sub {
+        margin: var(--iml-4) auto 0;
+        max-width: 40rem;
+        font-size: var(--iml-fs-lg);
+        color: var(--iml-muted);
+        text-wrap: balance;
+    }
+
+    /* --- Tile grid ------------------------------------------------- */
+    .iml-grid-wrap {
+        padding: 0 0 var(--iml-section);
+    }
+
+    .iml-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+        gap: var(--iml-5);
+    }
+
+    .iml-grid:empty {
+        display: none;
+    }
+
+    .iml-tile {
+        position: relative;
+        border-radius: var(--iml-r-md);
+        overflow: hidden;
+        background: var(--iml-surface-2);
+        box-shadow: var(--iml-sh-sm);
+        transition: box-shadow .2s ease, transform .2s ease;
+    }
+
+    .iml-tile:hover {
+        box-shadow: var(--iml-sh-lg);
+        transform: translateY(-3px);
+    }
+
+    .iml-tile__link {
+        position: relative;
+        display: block;
+        color: var(--iml-on-dark);
+    }
+
+    .iml-tile__media {
+        width: 100%;
+        aspect-ratio: 4 / 5;
+        object-fit: cover;
+    }
+
+    .iml-tile__link::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(15, 23, 42, .42) 0%, rgba(15, 23, 42, .04) 24%, rgba(15, 23, 42, .34) 50%, rgba(15, 23, 42, .86) 74%, rgba(15, 23, 42, .96) 100%);
+    }
+
+    .iml-tile__chip {
+        position: absolute;
+        top: var(--iml-3);
+        left: var(--iml-3);
+        z-index: 1;
+        padding: .2rem .7rem;
+        border-radius: var(--iml-r-pill);
+        background: rgba(255, 255, 255, .92);
+        color: var(--iml-accent-dark);
+        font-size: var(--iml-fs-xs);
+        font-weight: 700;
+    }
+
+    .iml-tile__play {
+        position: absolute;
+        top: 34%;
+        left: 50%;
+        z-index: 1;
+        transform: translate(-50%, -50%);
+        display: grid;
+        place-items: center;
+        width: 3rem;
+        height: 3rem;
+        border-radius: var(--iml-r-pill);
+        background: rgba(255, 255, 255, .92);
+        color: var(--iml-ink);
+        font-size: 1rem;
+        transition: transform .2s ease;
+    }
+
+    .iml-tile__link:hover .iml-tile__play {
+        transform: translate(-50%, -50%) scale(1.08);
+    }
+
+    .iml-tile__body {
+        position: absolute;
+        inset: auto 0 0 0;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        gap: var(--iml-2);
+        padding: var(--iml-5);
+    }
+
+    .iml-tile__title {
+        font-size: var(--iml-fs-lg);
+        font-weight: 700;
+        line-height: 1.25;
+        text-wrap: balance;
+    }
+
+    .iml-tile__place {
+        display: flex;
+        align-items: center;
+        gap: var(--iml-2);
+        font-size: var(--iml-fs-xs);
+        color: rgba(255, 255, 255, .82);
+    }
+
+    .iml-tile__cta {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--iml-2);
+        margin-top: var(--iml-1);
+        font-size: var(--iml-fs-sm);
+        font-weight: 700;
+        color: var(--iml-on-dark);
+    }
+
+    .iml-tile__link:hover .iml-tile__cta {
+        color: #bfd6ff;
+    }
+
+    /* --- Breakpoints ----------------------------------------------- */
+    @media (min-width: 48em) {
+        .iml-page {
+            --iml-gutter: 1.5rem;
+        }
+    }
+
+    @media (min-width: 64em) {
+        .iml-page {
+            --iml-section: 5.5rem;
+        }
+
+        .iml-intro {
+            padding-top: var(--iml-12);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .iml-tile:hover {
+            transform: none;
+        }
+
+        .iml-page * {
+            transition: none !important;
+        }
+    }
+
+</style>

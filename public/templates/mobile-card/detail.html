@@ -1,0 +1,1246 @@
+<div class="arc-cms-template impact-action-detail-page">
+    <arc-header></arc-header>
+
+    <article class="action-detail">
+        <header class="action-hero">
+            <div class="container">
+                <nav class="action-breadcrumb" aria-label="breadcrumb">
+                    <a href="/"><i class="fas fa-home me-1"></i> Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="/{{ contentTypeSlug }}" class="breadcrumb-link">{{ contentType }}</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="current-crumb arc-skeleton">{{ title }}</span>
+                </nav>
+
+                <div class="action-hero-grid">
+                    <div class="action-hero-content">
+                        <div class="action-badges-row">
+                            <span class="badge-pill badge-hero">
+                                <i class="fas {{ impact-actions_sub_tag_icon }} me-1"
+                                    data-arc-bind="impact-actions_sub_tag_icon"></i> <span
+                                    data-arc-bind="impact-actions_sub_tag">{{ impact-actions_sub_tag }}{{
+                                    impact-actions_su_tag }}{{ impact-actions_sub_card }}{{ sub_tag }}</span>
+                            </span>
+
+                            <span data-arc-loop="impact-actions_head_tag">
+                                <span class="badge-pill badge-sub" data-arc-style-background="color"></span>
+                            </span>
+
+                            <span data-arc-loop="impact-actions_sub_tag">
+                                <span class="badge-pill badge-sub" data-arc-style-background="color"></span>
+                            </span>
+
+                            <span data-arc-loop="head_tag">
+                                <span class="badge-pill badge-sub" data-arc-style-background="color"></span>
+                            </span>
+
+                            <span data-arc-loop="sub_tag">
+                                <span class="badge-pill badge-sub" data-arc-style-background="color"></span>
+                            </span>
+
+                            <span data-arc-loop="tags">
+                                <span class="badge-pill badge-sub" data-arc-style-background="color"></span>
+                            </span>
+
+                            <span class="badge-pill badge-sub" data-arc-bind="category_badge_1"
+                                data-arc-if="category_badge_1">Education</span>
+                            <span class="badge-pill badge-sub" data-arc-bind="category_badge_2"
+                                data-arc-if="category_badge_2">Volunteering</span>
+                            <span class="badge-pill badge-sub" data-arc-bind="category_badge_3"
+                                data-arc-if="category_badge_3">Nagpur</span>
+                        </div>
+                        <section class="glance" data-arc-if="details">
+                            <h3 data-arc-if="details_heading">At a glance
+                            </h3>
+
+                            <dl class="glance-list" data-arc-loop="details">
+                                <div class="glance-row">
+                                    <dt data-arc-bind="label">Label</dt>
+                                    <dd data-arc-bind="value">Value</dd>
+                                </div>
+                            </dl>
+                        </section>
+                        <h1 class="action-hero-title arc-skeleton">{{ title }}</h1>
+
+                        <p class="action-hero-subtitle arc-skeleton">{{ metaDescription }}</p>
+
+                        <div class="action-hero-meta">
+                            <span class="meta-item" data-arc-bind="location">
+                                <i class="fas fa-map-marker-alt"></i> Government School, Nagpur
+                            </span>
+                            <span class="meta-item">
+                                <i class="far fa-calendar"></i> <span class="arc-skeleton">{{ date }}</span>
+                            </span>
+                            <span class="meta-item">
+                                <i class="far fa-clock"></i> <span class="arc-skeleton">{{ readingTime }}</span>
+                            </span>
+                        </div>
+
+                        <div class="action-hero-buttons">
+                            <a href="#action-media" class="btn btn-action-primary">
+                                <i class="fas fa-play me-2"></i> Watch the film
+                            </a>
+                            <a href="/{{ contentTypeSlug }}" class="btn btn-action-secondary">
+                                All stories <i class="fas fa-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="action-hero-media">
+                        <div class="action-hero-cover-wrapper">
+                            <img src="{{ coverImage }}" alt="{{ title }}" class="action-hero-cover-image">
+                            <div class="action-hero-cover-fallback">
+                                <div class="fallback-illustration">
+                                    <div class="board-element"></div>
+                                    <div class="people-row">
+                                        <div class="person p-teacher"></div>
+                                        <div class="person p-student1"></div>
+                                        <div class="person p-student2"></div>
+                                        <div class="person p-student3"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section class="action-stats-section">
+            <div class="container">
+                <div class="stats-header text-center">
+                    <span class="stats-kicker">BY THE NUMBERS</span>
+                    <h2 class="stats-title">What changed</h2>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" data-arc-bind="stat_number_1">120</div>
+                        <div class="stat-label" data-arc-bind="stat_label_1">Children reached</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" data-arc-bind="stat_number_2">12</div>
+                        <div class="stat-label" data-arc-bind="stat_label_2">Sessions run</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" data-arc-bind="stat_number_3">36</div>
+                        <div class="stat-label" data-arc-bind="stat_label_3">Volunteer hours</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" data-arc-bind="stat_number_4">240</div>
+                        <div class="stat-label" data-arc-bind="stat_label_4">Books distributed</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="action-media-section" id="action-media">
+            <div class="container">
+                <div class="media-header">
+                    <h3 class="media-title"><i class="fas fa-play-circle text-primary me-2"></i> From the day</h3>
+                    <p class="media-subtitle">Photographs and film shot on site by the volunteer team.</p>
+                </div>
+
+                <div class="media-showcase-box">
+                    <div class="showcase-video-wrapper">
+                        <img src="{{ coverImage }}" alt="Media showcase" class="showcase-main-image">
+                        <div class="showcase-fallback-screen">
+                            <div class="fallback-play-graphic">
+                                <div class="green-banner"></div>
+                                <div class="teacher-figure"></div>
+                                <div class="student-figure"></div>
+                            </div>
+                        </div>
+                        <div class="showcase-overlay">
+                            <button class="showcase-play-btn" aria-label="Play video">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <div class="showcase-caption">
+                                <span>Film: the class in their own words</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="media-thumbnails-row">
+                    <div class="thumb-item active">
+                        <img src="{{ coverImage }}" alt="Thumbnail 1">
+                        <div class="thumb-play-icon"><i class="fas fa-play"></i></div>
+                    </div>
+                    <div class="thumb-item">
+                        <div class="thumb-placeholder p1"></div>
+                    </div>
+                    <div class="thumb-item">
+                        <div class="thumb-placeholder p2"></div>
+                    </div>
+                    <div class="thumb-item">
+                        <div class="thumb-placeholder p3"></div>
+                    </div>
+                    <div class="thumb-item">
+                        <div class="thumb-placeholder p4"></div>
+                    </div>
+                    <div class="thumb-item">
+                        <div class="thumb-placeholder p5"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="action-body-section">
+            <div class="container">
+                <div class="action-body-grid">
+                    <div class="action-main-content">
+                        <div class="article-content" [innerHTML]="content">
+                            <p class="arc-skeleton">Article content loads here...</p>
+                        </div>
+                    </div>
+
+                    <aside class="action-sidebar">
+                        <div class="sidebar-card story-details-card">
+                            <h4 class="sidebar-card-title">
+                                <i class="fas fa-info-circle text-primary me-2"></i> Story details
+                            </h4>
+                            <ul class="details-list" data-arc-loop="details">
+                                <li class="details-row">
+                                    <span class="details-label" data-arc-bind="label">{{ label }}</span>
+                                    <strong class="details-value" data-arc-bind="value">{{ value }}</strong>
+                                </li>
+                            </ul>
+                            <ul class="details-list" data-arc-if="!details">
+                                <li class="details-row">
+                                    <span class="details-label">Date</span>
+                                    <strong class="details-value" data-arc-bind="impact-actions_date">8 March
+                                        2025</strong>
+                                </li>
+                                <li class="details-row">
+                                    <span class="details-label">Partner</span>
+                                    <strong class="details-value" data-arc-bind="impact-actions_partner">Aasha
+                                        Foundation</strong>
+                                </li>
+                                <li class="details-row">
+                                    <span class="details-label">Volunteers</span>
+                                    <strong class="details-value"
+                                        data-arc-bind="impact-actions_volunteer_count">6</strong>
+                                </li>
+                                <li class="details-row">
+                                    <span class="details-label">Duration</span>
+                                    <strong class="details-value" data-arc-bind="impact-actions_duration">12
+                                        weeks</strong>
+                                </li>
+                                <li class="details-row">
+                                    <span class="details-label">Still running</span>
+                                    <strong class="details-value"
+                                        data-arc-bind="impact-actions_still_running">Yes</strong>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="sidebar-card share-card">
+                            <h4 class="sidebar-card-title">
+                                <i class="fas fa-share-alt text-primary me-2"></i> Share this story
+                            </h4>
+                            <div class="share-social-row">
+                                <a href="{{ share.linkedin }}" target="_blank" class="share-circle-btn"
+                                    title="LinkedIn">
+                                    <i class="fab fa-linkedin-in"></i>
+                                </a>
+                                <a href="{{ share.facebook }}" target="_blank" class="share-circle-btn"
+                                    title="Facebook">
+                                    <i class="fab fa-facebook-f"></i>
+                                </a>
+                                <a href="{{ share.twitter }}" target="_blank" class="share-circle-btn"
+                                    title="Twitter / X">
+                                    <i class="fab fa-x-twitter"></i>
+                                </a>
+                                <a href="{{ share.whatsapp }}" target="_blank" class="share-circle-btn"
+                                    title="WhatsApp">
+                                    <i class="fab fa-whatsapp"></i>
+                                </a>
+                                <a href="{{ share.email }}" class="share-circle-btn" title="Email">
+                                    <i class="fas fa-envelope"></i>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="sidebar-card cta-sidebar-card">
+                            <h4 class="cta-card-title">
+                                <i class="fas fa-paper-plane me-2"></i> Want one of these?
+                            </h4>
+                            <p class="cta-card-text">
+                                Sessions like this start with one person picking a listing near them.
+                            </p>
+                            <a href="/{{ contentTypeSlug }}" class="btn btn-cta-light">
+                                Find a drive near you <i class="fas fa-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </section>
+
+        <section class="action-banner-section">
+            <div class="container">
+                <div class="action-full-cta-banner">
+                    <div class="full-cta-text">
+                        <h2>Every story here started with somebody saying yes</h2>
+                        <p>There is a school/listing near you this weekend. It takes three hours.</p>
+                    </div>
+                    <div class="full-cta-action">
+                        <a href="/{{ contentTypeSlug }}" class="btn btn-full-cta">
+                            Get involved <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="action-more-section">
+            <div class="container">
+                <div class="more-section-header">
+                    <div>
+                        <h3 class="more-title"><i class="fas fa-check-circle text-primary me-2"></i> More Impact in
+                            action</h3>
+                        <p class="more-subtitle">Real stories from real people, across 22 cities.</p>
+                    </div>
+                    <a href="/{{ contentTypeSlug }}" class="more-view-all">
+                        View full gallery <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+
+                <div class="more-cards-grid">
+                    <div class="more-card">
+                        <span class="more-card-badge">IMPACT IN ACTION</span>
+                        <h4 class="more-card-title">Four hundred saplings in a morning</h4>
+                        <p class="more-card-excerpt">Read what happened, who showed up and what it changed.</p>
+                        <a href="/{{ contentTypeSlug }}" class="btn btn-more-read">Read story <i
+                                class="fas fa-chevron-right ms-1"></i></a>
+                    </div>
+                    <div class="more-card">
+                        <span class="more-card-badge">IMPACT IN ACTION</span>
+                        <h4 class="more-card-title">Two hundred kits, one afternoon</h4>
+                        <p class="more-card-excerpt">Read what happened, who showed up and what it changed.</p>
+                        <a href="/{{ contentTypeSlug }}" class="btn btn-more-read">Read story <i
+                                class="fas fa-chevron-right ms-1"></i></a>
+                    </div>
+                    <div class="more-card more-card-browse">
+                        <span class="more-card-badge">BROWSE</span>
+                        <h4 class="more-card-title">The full gallery</h4>
+                        <p class="more-card-excerpt">Every story we have documented, newest first, photos and film.</p>
+                        <a href="/{{ contentTypeSlug }}" class="btn btn-more-read">Read story <i
+                                class="fas fa-chevron-right ms-1"></i></a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </article>
+
+    <arc-footer></arc-footer>
+</div>
+
+<style>
+    .impact-action-detail-page {
+        background-color: #f8fafc;
+        min-height: 100vh;
+        color: #0f172a;
+    }
+
+    .action-hero {
+        padding: 2.5rem 0 3rem;
+        background: linear-gradient(180deg, #f1f5f9 0%, #f8fafc 100%);
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .action-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: #64748b;
+        margin-bottom: 2rem;
+    }
+
+    .action-breadcrumb a {
+        color: #64748b;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s ease;
+    }
+
+    .action-breadcrumb a:hover {
+        color: #1d4ed8;
+    }
+
+    .action-breadcrumb .breadcrumb-separator {
+        color: #cbd5e1;
+    }
+
+    .action-breadcrumb .current-crumb {
+        color: #0f172a;
+        font-weight: 600;
+    }
+
+    .action-hero-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 3rem;
+        align-items: center;
+    }
+
+    .action-badges-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .badge-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.85rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .badge-hero {
+        background-color: #2563eb;
+        color: #ffffff;
+    }
+
+    .badge-sub {
+        color: #2563eb;
+    }
+
+    .action-hero-title {
+        font-size: 2.75rem;
+        font-weight: 800;
+        color: #1e293b;
+        line-height: 1.2;
+        letter-spacing: -0.03em;
+        margin-bottom: 1.25rem;
+    }
+
+    .action-hero-subtitle {
+        font-size: 1.1rem;
+        line-height: 1.65;
+        color: #475569;
+        margin-bottom: 1.75rem;
+    }
+
+    .action-hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.5rem;
+        font-size: 0.875rem;
+        color: #64748b;
+        margin-bottom: 2rem;
+    }
+
+    .action-hero-meta .meta-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .action-hero-buttons {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .btn-action-primary {
+        background-color: #2563eb;
+        color: #ffffff;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-decoration: none;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+        transition: all 0.2s ease;
+    }
+
+    .btn-action-primary:hover {
+        background-color: #1d4ed8;
+        color: #ffffff;
+        transform: translateY(-1px);
+    }
+
+    .btn-action-secondary {
+        background-color: #ffffff;
+        color: #1e293b;
+        border: 1px solid #cbd5e1;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .btn-action-secondary:hover {
+        background-color: #f8fafc;
+        border-color: #94a3b8;
+        color: #1e293b;
+    }
+
+    .action-hero-cover-wrapper {
+        position: relative;
+        border-radius: 20px;
+        overflow: hidden;
+        background-color: #e5e0d8;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        min-height: 280px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .action-hero-cover-image {
+        width: 100%;
+        height: auto;
+        display: block;
+        object-fit: cover;
+    }
+
+    .action-hero-cover-fallback {
+        width: 100%;
+        height: 280px;
+        background: #e8e2d7;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 2rem;
+        position: relative;
+    }
+
+    .fallback-illustration {
+        position: relative;
+        width: 80%;
+        height: 180px;
+    }
+
+    .fallback-illustration .board-element {
+        position: absolute;
+        top: 10px;
+        left: 20px;
+        width: 140px;
+        height: 80px;
+        background: #1b8a47;
+        border-radius: 4px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .fallback-illustration .people-row {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        display: flex;
+        justify-content: space-around;
+        align-items: flex-end;
+    }
+
+    .person {
+        width: 20px;
+        height: 50px;
+        border-radius: 10px 10px 0 0;
+    }
+
+    .p-teacher {
+        background: #2563eb;
+        height: 60px;
+    }
+
+    .p-student1 {
+        background: #38bdf8;
+    }
+
+    .p-student2 {
+        background: #f59e0b;
+    }
+
+    .p-student3 {
+        background: #10b981;
+    }
+
+    /* SECTION 2: STATS */
+    .action-stats-section {
+        padding: 3.5rem 0;
+        background: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .stats-kicker {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: #2563eb;
+        letter-spacing: 0.1em;
+        display: block;
+        margin-bottom: 0.35rem;
+    }
+
+    .stats-title {
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 2.5rem;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+    }
+
+    .stat-card {
+        text-align: center;
+        padding: 1rem;
+        position: relative;
+    }
+
+    .stat-card:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 20%;
+        height: 60%;
+        width: 1px;
+        background-color: #e2e8f0;
+    }
+
+    .stat-number {
+        font-size: 3rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.1;
+        margin-bottom: 0.35rem;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+
+    .action-media-section {
+        padding: 4rem 0;
+        background: #ffffff;
+    }
+
+    .media-header {
+        margin-bottom: 1.75rem;
+    }
+
+    .media-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.35rem;
+    }
+
+    .media-subtitle {
+        color: #64748b;
+        font-size: 0.95rem;
+    }
+
+    .media-showcase-box {
+        position: relative;
+        border-radius: 20px;
+        overflow: hidden;
+        background-color: #e8e2d7;
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1.5rem;
+        min-height: 420px;
+    }
+
+    .showcase-video-wrapper {
+        position: relative;
+        width: 100%;
+        height: 440px;
+        background: #e8e2d7;
+    }
+
+    .showcase-main-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .showcase-fallback-screen {
+        position: absolute;
+        inset: 0;
+        background: #e8e2d7;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fallback-play-graphic {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        background: #e8e2d7;
+    }
+
+    .fallback-play-graphic .green-banner {
+        position: absolute;
+        top: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60%;
+        height: 60px;
+        background: #15803d;
+        border-radius: 12px;
+    }
+
+    .showcase-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0) 50%, rgba(15, 23, 42, 0.85) 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 2rem;
+    }
+
+    .showcase-play-btn {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #ffffff;
+        color: #0f172a;
+        border: none;
+        font-size: 1.35rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-left: 4px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .showcase-play-btn:hover {
+        transform: scale(1.1);
+        background: #ffffff;
+    }
+
+    .showcase-caption {
+        position: absolute;
+        bottom: 1.5rem;
+        left: 2rem;
+        color: #ffffff;
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+
+    .media-thumbnails-row {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 1rem;
+    }
+
+    .thumb-item {
+        height: 90px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #e5e0d8;
+        cursor: pointer;
+        position: relative;
+        border: 2px solid transparent;
+        transition: border-color 0.2s ease;
+    }
+
+    .thumb-item.active,
+    .thumb-item:hover {
+        border-color: #2563eb;
+    }
+
+    .thumb-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .thumb-placeholder {
+        width: 100%;
+        height: 100%;
+        background: #e5e0d8;
+    }
+
+    .thumb-placeholder.p1 {
+        background: #dcd6c9;
+    }
+
+    .thumb-placeholder.p2 {
+        background: #e2dcd0;
+    }
+
+    .thumb-placeholder.p3 {
+        background: #dbd4c6;
+    }
+
+    .thumb-placeholder.p4 {
+        background: #e5dfd3;
+    }
+
+    .thumb-placeholder.p5 {
+        background: #ded7c9;
+    }
+
+    .thumb-play-icon {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        font-size: 0.9rem;
+        background: rgba(0, 0, 0, 0.25);
+    }
+
+    .action-body-section {
+        padding: 4rem 0;
+        background: #ffffff;
+    }
+
+    .action-body-grid {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 3.5rem;
+    }
+
+    .action-main-content {
+        min-width: 0;
+    }
+
+    .action-main-content .article-content {
+        font-size: 1.05rem;
+        line-height: 1.75;
+        color: #334155;
+    }
+
+    .action-main-content .article-content h2 {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-top: 2.5rem;
+        margin-bottom: 1rem;
+        letter-spacing: -0.02em;
+    }
+
+    .action-main-content .article-content p {
+        margin-bottom: 1.35rem;
+    }
+
+    .action-main-content .article-content blockquote {
+        background-color: #eff6ff;
+        border-left: 4px solid #2563eb;
+        border-radius: 0 12px 12px 0;
+        padding: 1.5rem;
+        margin: 2rem 0;
+        font-style: normal;
+        color: #1e293b;
+        font-weight: 500;
+    }
+
+    .action-main-content .article-content ul {
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 1.5rem;
+    }
+
+    .action-main-content .article-content li {
+        position: relative;
+        padding-left: 1.25rem;
+        margin-bottom: 0.75rem;
+        color: #334155;
+    }
+
+    .action-main-content .article-content li::before {
+        content: '•';
+        color: #2563eb;
+        font-size: 1.3rem;
+        position: absolute;
+        left: 0;
+        top: -0.15rem;
+    }
+
+    .action-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        position: sticky;
+        top: 2rem;
+        max-height: calc(100vh - 3rem);
+        overflow-y: auto;
+        padding-right: 0.25rem;
+    }
+
+    .action-sidebar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .action-sidebar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .action-sidebar::-webkit-scrollbar-thumb {
+        background: #bfdbfe;
+        border-radius: 10px;
+    }
+
+    .action-sidebar::-webkit-scrollbar-thumb:hover {
+        background: #2563eb;
+    }
+
+    .sidebar-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+    }
+
+    .sidebar-card-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .details-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .details-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        font-size: 0.875rem;
+    }
+
+    .details-row:not(:last-child) {
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .details-label {
+        color: #64748b;
+    }
+
+    .details-value {
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    .share-social-row {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+    }
+
+    .share-circle-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #eff6ff;
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+
+    .share-circle-btn:hover {
+        background-color: #2563eb;
+        color: #ffffff;
+        transform: translateY(-2px);
+    }
+
+    .cta-sidebar-card {
+        background: linear-gradient(135deg, #1649bb 0%, #1d4ed8 100%);
+        color: #ffffff;
+        border: none;
+        box-shadow: 0 10px 25px rgba(22, 73, 187, 0.25);
+    }
+
+    .cta-sidebar-card .cta-card-title {
+        color: #ffffff;
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 0.65rem;
+    }
+
+    .cta-sidebar-card .cta-card-text {
+        color: #e0e7ff;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        margin-bottom: 1.25rem;
+    }
+
+    .btn-cta-light {
+        background-color: #ffffff;
+        color: #1d4ed8;
+        width: 100%;
+        padding: 0.65rem 1rem;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.875rem;
+        text-align: center;
+        text-decoration: none;
+        display: block;
+        transition: all 0.2s ease;
+    }
+
+    .btn-cta-light:hover {
+        background-color: #f8fafc;
+        color: #1649bb;
+    }
+
+    .action-banner-section {
+        padding: 2rem 0;
+        background: #ffffff;
+    }
+
+    .action-full-cta-banner {
+        background: linear-gradient(135deg, #1649bb 0%, #1d4ed8 100%);
+        border-radius: 16px;
+        padding: 2.5rem 3rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 2rem;
+        color: #ffffff;
+        box-shadow: 0 10px 30px rgba(22, 73, 187, 0.2);
+    }
+
+    .full-cta-text h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin: 0 0 0.4rem 0;
+    }
+
+    .full-cta-text p {
+        margin: 0;
+        color: #e0e7ff;
+        font-size: 0.95rem;
+    }
+
+    .btn-full-cta {
+        background-color: #ffffff;
+        color: #1d4ed8;
+        padding: 0.7rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        text-decoration: none;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+    }
+
+    .btn-full-cta:hover {
+        background-color: #f8fafc;
+        color: #1649bb;
+    }
+
+    /* SECTION 6: MORE IMPACT IN ACTION */
+    .action-more-section {
+        padding: 4rem 0 5rem;
+        background: #f8fafc;
+    }
+
+    .more-section-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+    }
+
+    .more-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.35rem;
+    }
+
+    .more-subtitle {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .more-view-all {
+        color: #2563eb;
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-decoration: none;
+    }
+
+    .more-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+    }
+
+    .more-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.75rem;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .more-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    }
+
+    .more-card-badge {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: #64748b;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.85rem;
+        display: block;
+    }
+
+    .more-card-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.65rem;
+        line-height: 1.35;
+    }
+
+    .more-card-excerpt {
+        font-size: 0.9rem;
+        color: #64748b;
+        margin-bottom: 1.75rem;
+        line-height: 1.5;
+        flex: 1;
+    }
+
+    .btn-more-read {
+        background-color: #2563eb;
+        color: #ffffff;
+        padding: 0.65rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        text-decoration: none;
+        text-align: center;
+        transition: all 0.2s ease;
+    }
+
+    .btn-more-read:hover {
+        background-color: #1d4ed8;
+        color: #ffffff;
+    }
+
+    .more-card-browse {
+        background-color: #eff6ff;
+        border-color: #bfdbfe;
+    }
+
+    @media (max-width: 991px) {
+        .action-hero-grid {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        .action-hero-title {
+            font-size: 2.25rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+        }
+
+        .stat-card:not(:last-child)::after {
+            display: none;
+        }
+
+        .action-body-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .more-cards-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .action-full-cta-banner {
+            flex-direction: column;
+            text-align: center;
+            padding: 2rem 1.5rem;
+        }
+
+        .media-thumbnails-row {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+</style>
+
+<script>
+    (function () {
+        function processImages() {
+            document.querySelectorAll('.action-hero-cover-image, .showcase-main-image').forEach(function (img) {
+                var fallback = img.nextElementSibling;
+                if (!img.src || img.src === window.location.href || img.src === '' ||
+                    (img.complete && img.naturalHeight === 0)) {
+                    img.style.display = 'none';
+                    if (fallback) fallback.style.display = 'block';
+                } else {
+                    img.style.display = 'block';
+                    if (fallback) fallback.style.display = 'none';
+                }
+
+                img.onerror = function () {
+                    this.style.display = 'none';
+                    var fb = this.nextElementSibling;
+                    if (fb) fb.style.display = 'block';
+                };
+            });
+
+            var subTagIconEl = document.querySelector('.badge-hero i');
+            var subTagTextEl = document.querySelector('.badge-hero span');
+            if (subTagIconEl) {
+                var cls = subTagIconEl.className || '';
+                if (cls.includes('{{') || cls.trim() === 'fas me-1' || cls.trim() === 'fas') {
+                    subTagIconEl.className = 'fas fa-award me-1';
+                }
+            }
+            if (subTagTextEl) {
+                var txt = subTagTextEl.textContent || '';
+                txt = txt.replace(/\{\{[^}]+\}\}/g, '').trim();
+                if (!txt) {
+                    subTagTextEl.textContent = 'Impact Story';
+                } else {
+                    subTagTextEl.textContent = txt;
+                }
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', processImages);
+        } else {
+            processImages();
+        }
+        setTimeout(processImages, 300);
+        setTimeout(processImages, 1000);
+    })();
+</script>
