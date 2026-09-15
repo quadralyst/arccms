@@ -29,7 +29,7 @@ export interface TableColumn {
      * switch updates the headings without every page rebuilding its columns.
      */
     header: string;
-    type?: 'text' | 'badge' | 'actions' | 'code' | 'index' | 'date' | 'tags' | 'html' | 'icon' | 'image'; // Added 'html', 'icon' and 'image'
+    type?: 'text' | 'badge' | 'actions' | 'code' | 'index' | 'date' | 'tags' | 'html' | 'icon' | 'image' | 'color'; // Added 'html', 'icon', 'image' and 'color'
     sortable?: boolean;
 
     // Config-driven options replacing TemplateRef

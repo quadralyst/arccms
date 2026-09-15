@@ -654,6 +654,70 @@ describe('CreateContentComponent', () => {
             expect(missing).toContain('SKU');
             expect(missing).not.toContain('Description'); // Not required
         });
+
+        describe('missing required fields are pointed at, not just toasted', () => {
+            beforeEach(() => {
+                mockContentTypesStore.items.set([
+                    {
+                        name: 'Product',
+                        slug: 'product',
+                        fields: [
+                            { key: 'price', label: 'Price', type: 'number', required: true, order: 0 },
+                            { key: 'sku', label: 'SKU', type: 'text', required: true, order: 1 },
+                        ]
+                    }
+                ]);
+                fixture = TestBed.createComponent(CreateContentComponent);
+                component = fixture.componentInstance;
+                component.contentTypeSlug = 'product';
+                fixture.detectChanges();
+            });
+
+            it('lists the missing keys in on-screen order, title first', () => {
+                component.pageTitle = '';
+                component.customFieldValues = { price: 10 };
+                expect(component.validateForPublish().missing).toEqual(['title', 'sku']);
+            });
+
+            it('flags the missing fields and focuses the first one on publish', async () => {
+                component.pageTitle = 'Test';
+                component.customFieldValues = {};
+                component.activeTab = 'seo';
+                fixture.detectChanges();
+
+                component.directPublishContent();
+                expect(mockDraftContentsStore.add).not.toHaveBeenCalled();
+                expect(component.isRequiredMissing('price')).toBe(true);
+                expect(component.isRequiredMissing('sku')).toBe(true);
+                expect(component.isRequiredMissing('title')).toBe(false);
+                // Custom fields live on the Basic tab, so that is where the editor lands.
+                expect(component.activeTab).toBe('basic');
+
+                fixture.detectChanges();
+                await new Promise((resolve) => setTimeout(resolve, 0));
+                fixture.detectChanges();
+                const wrapper = fixture.nativeElement.querySelector('#req-price') as HTMLElement;
+                expect(wrapper.classList.contains('has-error')).toBe(true);
+                expect(wrapper.textContent).toContain('is required');
+                expect(document.activeElement).toBe(wrapper.querySelector('input'));
+            });
+
+            it('clears the outline as soon as the field has a value', () => {
+                component.pageTitle = 'Test';
+                component.customFieldValues = {};
+                component.directPublishContent();
+                expect(component.isRequiredMissing('price')).toBe(true);
+
+                component.onCustomFieldChange('price', 5);
+                expect(component.isRequiredMissing('price')).toBe(false);
+                expect(component.isRequiredMissing('sku')).toBe(true);
+            });
+
+            it('marks the title as required in the template', () => {
+                const titleWrapper = fixture.nativeElement.querySelector('#req-title') as HTMLElement;
+                expect(titleWrapper.querySelector('.required-marker')?.textContent?.trim()).toBe('*');
+            });
+        });
     });
 
     describe('Editor Content', () => {

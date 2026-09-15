@@ -4,6 +4,7 @@ import { read, utils, writeFile } from 'xlsx';
 import { ContentTypeField, ContentTypeFieldType } from '../content-types/content-types.model';
 import { DraftContentsData } from '../draft-content-store/draft-contents.model';
 import { isRepeaterType } from '../../../../../shared/models/repeater.model';
+import { isHexColor } from '../../../../../shared/utils/color';
 
 export interface ParsedFile {
     headers: string[];
@@ -185,6 +186,10 @@ export class BulkImportService {
                     if (!['true', 'false', 'yes', 'no', '1', '0'].includes(norm)) {
                         errors[fieldDef.key] = 'Invalid boolean (use true/false, yes/no, 1/0)';
                     }
+                } else if (fieldDef.type === 'color') {
+                    if (!isHexColor(String(rawVal))) {
+                        errors[fieldDef.key] = 'Invalid colour (use hex, e.g. #1a73e8)';
+                    }
                 }
             }
         });
@@ -337,6 +342,7 @@ export class BulkImportService {
                     case 'boolean': return 'TRUE';
                     case 'date': return '2023-12-31';
                     case 'richtext': return '<p>Text</p>';
+                    case 'color': return '#1a73e8';
                     default: return 'Sample Text';
                 }
             })

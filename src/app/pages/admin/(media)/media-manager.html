@@ -213,7 +213,7 @@
 
                                     @for(element of searchResults; track element.id; let i = $index){
                                     <figure [ngClass]="{'selected_item': isMultiSelect ? isPicked(element) : element.id === selectedMediaUrl?.id}">
-                                        <img (click)="selectMedia(element)" [src]="element.url" alt="..."
+                                        <img (click)="selectMedia(element)" [src]="thumbnailUrl(element)" alt="..."
                                             class="search_img" />
                                         <figcaption><a href="#">{{ i + 1 }}</a></figcaption>
                                         @if(isMultiSelect && isPicked(element)){
@@ -336,6 +336,29 @@
                             <span class="metadata-label">{{ 'admin.media.uploaded' | transloco }}</span>
                             <span class="metadata-value">{{ selectedMediaUrl.uploadTime | date:'medium' }}</span>
                         </div>
+                        }
+                        @if(_DIALOG_DATA.isDialogOpen) {
+                        <div class="metadata-row size-row">
+                            <span class="metadata-label">{{ 'admin.media.size' | transloco }}</span>
+                            @if(hasSizeChoice(selectedMediaUrl)) {
+                            <div class="size-chips" role="radiogroup" [attr.aria-label]="'admin.media.size' | transloco">
+                                @for(size of imageSizes; track size) {
+                                <button type="button" class="size-chip" role="radio"
+                                    [class.active]="selectedSize === size"
+                                    [attr.aria-checked]="selectedSize === size"
+                                    [title]="sizeDimensions(selectedMediaUrl, size)"
+                                    (click)="selectSize(size)">
+                                    {{ imageSizeLabels[size] }}
+                                </button>
+                                }
+                            </div>
+                            } @else {
+                            <span class="metadata-value" [title]="'admin.media.size_original_hint' | transloco">{{ 'admin.media.size_original' | transloco }}</span>
+                            }
+                        </div>
+                        @if(hasSizeChoice(selectedMediaUrl)) {
+                        <div class="size-hint">{{ sizeDimensions(selectedMediaUrl, selectedSize) }}</div>
+                        }
                         }
                     </div>
                     }

@@ -236,9 +236,9 @@
         "max_file_size": "Max File Size (MB)",
         "max_file_size_hint": "Maximum allowed file size before upload (default: 5 MB).",
         "max_width": "Max Width (px)",
-        "max_width_hint": "Images wider than this will be resized (default: 1920).",
+        "max_width_hint": "Images wider than this will be resized (default: 1200). Also the width of the XL size; S, M and L are a quarter, half and three-quarters of it.",
         "max_height": "Max Height (px)",
-        "max_height_hint": "Images taller than this will be resized (default: 1080).",
+        "max_height_hint": "Images taller than this will be resized (default: 1200).",
         "convert_webp": "Convert all images to WebP",
         "save_media": "Save Media Settings",
         "media_saved": "Media settings saved successfully",
@@ -688,7 +688,9 @@
           "coordinates": "Latitude, longitude",
           "bad_coordinates": "Enter coordinates as \"18.5204, 73.8567\".",
           "clear": "Clear location"
-        }
+        },
+        "required_marker": "Required",
+        "title_label": "Title"
       },
       "list": {
         "type_not_found": "Content Type Not Found",
@@ -863,7 +865,10 @@
         "insert": "Insert Icon",
         "style_label": "Style",
         "name_label": "Name"
-      }
+      },
+      "size": "Size",
+      "size_original": "Original",
+      "size_original_hint": "Uploaded before sizes existed — one file only."
     },
     "transactions": {
       "title": "Transactions",
@@ -877,7 +882,9 @@
       "col_customer": "Customer",
       "col_amount": "Amount",
       "col_plan": "Plan",
-      "col_event": "Event"
+      "col_event": "Event",
+      "test_badge": "test",
+      "test_badge_hint": "Admin test checkout — granted no access or credits"
     },
     "products": {
       "title": "Products",
