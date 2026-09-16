@@ -66,12 +66,22 @@ export interface QueueEmailParams {
    * paths such as broadcasts). When omitted, it is read once here.
    */
   emailSettings?: EmailSettings;
+  /**
+   * Stable per-event key. When given, the `pending` log's document id is
+   * derived from `type` + key, so re-processing the same event (a webhook
+   * trigger that retries on failure) can never enqueue a second copy. A
+   * blocked send still gets an auto-id log: the block is a decision made
+   * now, and a retry after the cause is fixed must be free to send.
+   */
+  dedupeKey?: string;
 }
 
 export interface QueueEmailResult {
   id: string;
   status: 'pending' | 'skipped' | 'suppressed';
   skipReason?: EmailSkipReason;
+  /** True when `dedupeKey` matched a log already enqueued; nothing was written. */
+  duplicate?: boolean;
 }
 
 /**
@@ -170,17 +180,44 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
   //    Custom field values ride along on the log (U4.5) so ##FIELD:key## tags
   //    resolve without a second read at send time, and the log records exactly
   //    what was merged into the message.
-  const id = await writeLog({
+  const pending = {
     ...base,
     status: 'pending',
     ...(contact.fields ? { contactFields: contact.fields } : {}),
-  });
-  return { id, status: 'pending' };
+  };
+  if (!params.dedupeKey) {
+    const id = await writeLog(pending);
+    return { id, status: 'pending' };
+  }
+
+  // create() fails with ALREADY_EXISTS if this email was already enqueued for
+  // this event — the idempotent no-op wanted when a trigger retries.
+  const id = emailLogId(params.type, params.dedupeKey);
+  try {
+    await db.collection('EmailLogs').doc(id).create(pending);
+    return { id, status: 'pending' };
+  } catch (error) {
+    if (isAlreadyExists(error)) {
+      return { id, status: 'pending', duplicate: true };
+    }
+    throw error;
+  }
 }
 
 async function writeLog(data: Record<string, unknown>): Promise<string> {
   const ref = await db.collection('EmailLogs').add(data);
   return ref.id;
+}
+
+/** Deterministic EmailLogs doc id. `/` is illegal in a doc id; keys may contain it. */
+function emailLogId(type: string, dedupeKey: string): string {
+  return `${type}__${dedupeKey}`.replace(/\//g, '_').slice(0, 1500);
+}
+
+/** True for a Firestore ALREADY_EXISTS error (gRPC status 6). */
+function isAlreadyExists(error: unknown): boolean {
+  const code = (error as { code?: unknown })?.code;
+  return code === 6 || code === 'already-exists';
 }
 
 async function readEmailSettings(): Promise<EmailSettings | undefined> {

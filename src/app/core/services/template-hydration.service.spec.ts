@@ -798,6 +798,74 @@ describe('TemplateHydrationService', () => {
         });
     });
 
+    describe('Color Flattening', () => {
+        it('derives the rgb forms from a stored hex colour', () => {
+            const html = '<span style="color: {{ brand }}; background: rgba({{ brand_rgb_values }}, 0.5)">{{ brand_rgb }}</span>';
+            const result = TemplateHydrationService.hydrateTemplate(html, { brand: '#1A73E8' });
+
+            expect(result).toContain('color: #1A73E8');
+            expect(result).toContain('rgba(26, 115, 232, 0.5)');
+            expect(result).toContain('rgb(26, 115, 232)');
+        });
+
+        it('expands shorthand', () => {
+            const result = TemplateHydrationService.hydrateTemplate('<i>{{ c_rgb }}</i>', { c: '#fff' });
+            expect(result).toContain('rgb(255, 255, 255)');
+        });
+
+        it('leaves a hex-looking word without a hash alone', () => {
+            // "cafe" is a text field's word, not a colour.
+            const result = TemplateHydrationService.hydrateTemplate('<i>[{{ name_rgb }}]</i>', { name: 'cafe' });
+            expect(result).toContain('[]');
+        });
+
+        it('does not mutate the caller data object', () => {
+            const data: Record<string, any> = { brand: '#000' };
+            TemplateHydrationService.hydrateTemplate('<i>{{ brand_rgb }}</i>', data);
+            expect(Object.keys(data)).toEqual(['brand']);
+        });
+    });
+
+    describe('Image Size Flattening', () => {
+        const BASE = 'https://firebasestorage.googleapis.com/v0/b/demo.appspot.com/o/mediaImages%2Fhero-abc123';
+
+        it('derives every size from the stored one', () => {
+            const html = '<img src="{{ coverImage_s }}" data-xl="{{ coverImage_xl }}">';
+            const result = TemplateHydrationService.hydrateTemplate(html, { coverImage: `${BASE}-m.webp?alt=media&token=t` });
+
+            expect(result).toContain(`src="${BASE}-s.webp?alt=media"`);
+            expect(result).toContain(`data-xl="${BASE}-xl.webp?alt=media"`);
+        });
+
+        it('keeps the stored URL itself as it is', () => {
+            const stored = `${BASE}-m.webp?alt=media&token=t`;
+            const result = TemplateHydrationService.hydrateTemplate('<img data-arc-bind="coverImage">', { coverImage: stored });
+            expect(result).toContain('token=t');
+        });
+
+        it('serves an older single-file upload at every size', () => {
+            const legacy = `${BASE}.jpg?alt=media&token=t`;
+            const result = TemplateHydrationService.hydrateTemplate('<i>{{ coverImage_xl }}</i>', { coverImage: legacy });
+            // `&` is entity-encoded in text, as it should be — the URL is the same file.
+            expect(result).toContain(`${BASE}.jpg?alt=media&amp;token=t`);
+        });
+
+        it('leaves an external image alone', () => {
+            const result = TemplateHydrationService.hydrateTemplate('<i>[{{ pic_s }}]</i>', { pic: 'https://example.com/a.jpg' });
+            expect(result).toContain('[]');
+        });
+
+        it('derives per row inside a gallery loop', () => {
+            const html = '<div data-arc-loop="gallery"><img src="{{ image_s }}"></div>';
+            const rows = [{ id: 'r', position: 1, image: `${BASE}-l.webp?alt=media` }];
+            const result = TemplateHydrationService.processLoops(
+                html,
+                TemplateHydrationService.arrayLoopData({ gallery: rows }),
+            );
+            expect(result).toContain(`${BASE}-s.webp?alt=media`);
+        });
+    });
+
     describe('Hyphenated custom field keys', () => {
         // Custom fields are stored prefixed with their content type slug, so a
         // field on `awards-recognition` is keyed `awards-recognition_subtitle`.
