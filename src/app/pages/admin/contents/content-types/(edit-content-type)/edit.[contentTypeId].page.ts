@@ -20,6 +20,7 @@ import { IconPickerComponent } from '../../../../../../shared/components/icon-pi
 import { TranslocoPipe } from '@jsverse/transloco';
 import { OmitCommonFields } from '../../../../../../shared/models/base-model';
 import { LocalizationService } from '../../../../../core/services/localization.service';
+import { SearchService } from '../../../../../core/services/search.service';
 import { ContentTypeNames, TranslatableTypeText, pruneNameTranslations, pruneFieldLabelTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
 import { ContentTypesStore } from '../content-types.store';
 import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator } from '../collection-ref-helpers';
@@ -45,6 +46,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     contentTypesStore = inject(ContentTypesStore);
     templateFolderService = inject(TemplateFolderService);
     private localization = inject(LocalizationService);
+    private searchService = inject(SearchService);
     action = input('action');
     errorMessages: string[] = [];
     public domain: string = '';
@@ -110,6 +112,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             fieldLabelTranslations: currentItem.fieldLabelTranslations || {},
             description: currentItem.description || '',
             hasPublicUrl: currentItem.hasPublicUrl !== false,
+            searchFields: currentItem.searchFields || [],
             slug: currentItem.slug || '',
             icon: currentItem.icon || 'fa-solid fa-folder',
             order: currentItem.order || 0,
@@ -141,6 +144,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
                 fieldLabelTranslations: {},
                 description: '',
                 hasPublicUrl: true,
+                searchFields: [],
                 slug: '',
                 icon: 'fa-solid fa-folder',
                 order: 0,
@@ -181,6 +185,8 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         fieldLabelTranslations: new FormControl<Record<string, Record<string, string>>>({}),
         description: new FormControl(''),
         hasPublicUrl: new FormControl(true),
+        // Prefixed custom field keys to index for search (S-D15).
+        searchFields: new FormControl<string[]>([]),
         slug: new FormControl('', [Validators.required, Validators.pattern(/^[a-z0-9-]+$/)]),
         icon: new FormControl('fa-solid fa-folder'),
         order: new FormControl(0),
@@ -221,6 +227,48 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             }))
             .filter(field => !!field.key)
             .map(field => ({ key: field.key, label: field.label || field.key }));
+    }
+
+    /**
+     * The plain text fields an admin may make searchable, keyed the way they
+     * are stored (slug-prefixed). Read from the live form like
+     * translatableFields(), for the same reason.
+     */
+    searchableFields(): Array<{ key: string; label: string }> {
+        const slug = (this.editForm.get('slug')?.value as string) || '';
+        const array = this.editForm.get('fields') as FormArray | null;
+        return (array?.controls ?? [])
+            .filter(control => (control.get('type')?.value as string) === 'text')
+            .map(control => {
+                const rawKey = (control.get('key')?.value as string) || '';
+                const key = rawKey && slug && !rawKey.startsWith(slug + '_') ? slug + '_' + rawKey : rawKey;
+                return { key, label: (control.get('label')?.value as string) || rawKey };
+            })
+            .filter(field => !!field.key);
+    }
+
+    isSearchField(key: string): boolean {
+        return ((this.editForm.get('searchFields')?.value as string[]) || []).includes(key);
+    }
+
+    toggleSearchField(key: string, checked: boolean): void {
+        const control = this.editForm.get('searchFields');
+        const current = new Set<string>((control?.value as string[]) || []);
+        if (checked) current.add(key); else current.delete(key);
+        control?.setValue([...current]);
+        control?.markAsDirty();
+    }
+
+    /**
+     * Both content indexes of this type are rebuilt when the searchable
+     * fields change. Fire and forget: the type is saved either way, and the
+     * Settings page has a rebuild button for when this fails.
+     */
+    private reindexSearch(slug: string): void {
+        for (const [source, collection] of [['content', `arc_${slug}`], ['content-drafts', `arc_${slug}_drafts`]]) {
+            this.searchService.reindex({ source, collection }).catch(error =>
+                console.error(`Search reindex failed for ${collection}:`, error));
+        }
     }
 
     translatedFieldLabel(lang: string, fieldKey: string): string {
@@ -355,6 +403,8 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             icon: formValue.icon || 'fa-solid fa-folder',
             order: formValue.order || 0,
             hasPublicUrl: formValue.hasPublicUrl !== false,
+            searchFields: (formValue.searchFields || []).filter(key =>
+                this.searchableFields().some(field => field.key === key)),
             templateFolder: formValue.templateFolder || 'default',
             fields: (formValue.fields || []).map((field: any, index: number) => {
                 const mapped = mapFieldWithCollectionRef(field, index, this.contentTypesStore);
@@ -365,8 +415,13 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             }),
         };
 
+        const previous = (this.currentItem() as ContentType | null)?.searchFields || [];
+        const searchFieldsChanged =
+            JSON.stringify([...previous].sort()) !== JSON.stringify([...(updatedContentType.searchFields || [])].sort());
+
         this.contentTypesStore.update(this.id, updatedContentType).subscribe({
             next: () => {
+                if (searchFieldsChanged) this.reindexSearch(slug);
                 this.notify.success('admin.contents.types.updated');
                 this.editForm.reset();
                 this.close.emit();

@@ -159,6 +159,11 @@ describe('candidateQueries', () => {
         ]);
     });
 
+    it("issues one unfiltered query per target for lang 'all'", () => {
+        const queries = candidateQueries(parseRequest({ q: 'x', lang: 'all', scope: 'public' }));
+        expect(queries).toEqual([{ field: 'scope', value: 'public', lang: 'all' }]);
+    });
+
     it('queries per named source instead of per scope', () => {
         const queries = candidateQueries(parseRequest({ q: 'x', lang: 'hi', scope: 'admin', sources: ['content', 'content-drafts'] }));
         expect(queries.map(q => `${q.field}=${q.value}/${q.lang}`)).toEqual([
@@ -185,6 +190,17 @@ describe('runSearch', () => {
     it('honours the language filter', async () => {
         const response = await runSearch(parseRequest({ q: 'गुंजन', lang: 'hi', scope: 'public' }));
         expect(response.results.map(r => r.docId)).toEqual(['h']);
+    });
+
+    it("searches every language for lang 'all' and folds a document's variants into one row", async () => {
+        index.push(entry('a-hi', 'content', 'public', 'hi', 'Gunjan Karun (hi)', '', 3));
+        index[index.length - 1].docId = 'a';
+        const response = await runSearch(parseRequest({ q: 'gunjan', lang: 'all', scope: 'public' }));
+        const ids = response.results.map(r => r.docId);
+        expect(ids.filter(id => id === 'a')).toHaveLength(1);
+        const hindi = await runSearch(parseRequest({ q: 'गुंजन', lang: 'all', scope: 'public' }));
+        expect(hindi.results.map(r => r.docId)).toEqual(['h']);
+        expect(issuedQueries.every(q => !q.filters.some(([field]) => field === 'lang'))).toBe(true);
     });
 
     it('includes admin entries for an admin-scope request', async () => {

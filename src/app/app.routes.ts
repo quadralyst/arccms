@@ -135,6 +135,11 @@ export const routes: Routes = [
               import('./pages/admin/(settings)/localization/localization-settings.page').then((m) => m.LocalizationSettingsPage),
           },
           {
+            path: 'search',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/search/search-settings.page').then((m) => m.SearchSettingsPage),
+          },
+          {
             path: 'misc',
             loadComponent: () =>
               import('./pages/admin/(settings)/misc/misc-settings.page').then((m) => m.MiscSettingsPage),
@@ -272,6 +277,22 @@ export const routes: Routes = [
         path: '',
         loadComponent: () =>
           import('./pages/admin/(contact-tags)/contact-tags.page').then((m) => m.default),
+      },
+    ],
+  },
+  // Admin search results (docs/search-spec.md, S4). Explicit like every
+  // other admin route.
+  {
+    path: 'admin/search',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(search)/search.page').then((m) => m.default),
       },
     ],
   },
