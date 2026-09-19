@@ -40,6 +40,13 @@ export interface ContentType extends IBaseModel {
     fields: ContentTypeField[];
     templateFolder?: string; // Template folder name (e.g., "blog") or "default" for built-in template
     listColumns?: string[]; // Keys of columns to show in the list view
+    /**
+     * Custom field keys (prefixed, as stored in `fields[].key`) whose values
+     * are searchable alongside title and summary. Plain `text` fields only;
+     * the indexer ignores any other type listed here.
+     * Spec: docs/search-spec.md, decision S-D15.
+     */
+    searchFields?: string[];
     hasPublicUrl?: boolean; // When false, no static HTML pages are generated for this content type
     /**
      * Per-language display text, keyed by BCP-47 code — e.g.

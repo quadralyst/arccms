@@ -103,7 +103,13 @@
     },
     "optional": "(optional)",
     "not_available": "N/A",
-    "unknown_error": "Unknown error"
+    "unknown_error": "Unknown error",
+    "search": {
+      "placeholder": "Search content...",
+      "empty": "No results",
+      "showing_for": "Showing results for \"{{term}}\"",
+      "all_results": "See all results"
+    }
   },
   "admin": {
     "nav": {
@@ -217,6 +223,10 @@
         "misc": {
           "label": "Miscellaneous",
           "description": "Branding and media upload"
+        },
+        "search": {
+          "label": "Search",
+          "description": "Search index and rebuild tools"
         }
       },
       "about": {
@@ -534,6 +544,28 @@
         "message": "Message",
         "check_folders": "Please check your <strong>Inbox</strong> and <strong>Spam/Junk</strong> folder after sending. If you don't receive it, check your SMTP settings.",
         "send": "Send Test Email"
+      },
+      "search": {
+        "title": "Search",
+        "intro": "Search runs on an index of titles, summaries and any custom fields marked searchable on a content type. The index updates itself as content is saved and published. Rebuild it after changing which fields are searchable, or whenever results look wrong.",
+        "col_source": "Source",
+        "col_scope": "Who can search",
+        "col_documents": "Documents",
+        "col_entries": "Entries",
+        "col_last_rebuilt": "Last rebuilt",
+        "never": "Never",
+        "scope_public": "Everyone",
+        "scope_authenticated": "Signed-in users",
+        "scope_admin": "Admins",
+        "source_content": "Published content",
+        "source_content_drafts": "Drafts",
+        "rebuild": "Rebuild",
+        "rebuild_all": "Rebuild everything",
+        "rebuilding": "Rebuilding...",
+        "rebuilt": "Index rebuilt: {{entries}} entries from {{documents}} documents.",
+        "rebuild_failed": "The rebuild failed. Check the function logs.",
+        "entries_hint": "One entry per document per language.",
+        "developer_note": "Developers can add other collections as search sources. See docs/search-developer-guide.md."
       }
     },
     "contents": {
@@ -603,7 +635,10 @@
           "translating_into": "Translating into <strong>{{ lang }}</strong>. Blank fields fall back to the {{ defaultLang }} text. Keys, types and settings are shared across languages.",
           "default_badge": "default",
           "default_template": "Default Template",
-          "field_n": "Field {{ n }}"
+          "field_n": "Field {{ n }}",
+          "search_fields": "Searchable custom fields",
+          "search_fields_hint": "Titles and summaries are always searchable. Tick the plain text fields that should be too. Saving rebuilds the search index for this type.",
+          "search_fields_none": "Add a plain text field to make it searchable."
         },
         "fix_slug": "Please fix the slug error before submitting.",
         "created": "Content type created successfully",
@@ -1049,6 +1084,15 @@
         "restore_failed": "Restore failed: {{ error }}",
         "upload_n": "Upload {{ count }} Files"
       }
+    },
+    "search": {
+      "title": "Search",
+      "subtitle": "Drafts and published content, every language, matched on titles, summaries and searchable fields.",
+      "results_for": "Results for \"{{query}}\"",
+      "count": "{{count}} result(s) in {{ms}} ms",
+      "no_query": "Type in the search box above to find content.",
+      "empty": "Nothing matched \"{{query}}\".",
+      "open": "Open"
     }
   },
   "user": {
