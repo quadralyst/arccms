@@ -30,7 +30,11 @@ const CACHE_LIMIT = 200;
 
 @Injectable({ providedIn: 'root' })
 export class SearchService {
-    private functions = inject(Functions);
+    /**
+     * Optional so a host without Firebase Functions (a spec rendering the
+     * public header, a storybook) gets an empty answer rather than a crash.
+     */
+    private functions = inject(Functions, { optional: true });
     private cache = new Map<string, SearchResponse>();
     private sequence = 0;
 
@@ -62,6 +66,7 @@ export class SearchService {
 
     /** Rebuilds the index. Admin only; the function enforces it. */
     async reindex(request: ReindexRequest = {}): Promise<SourceReindexResult[]> {
+        if (!this.functions) throw new Error('Firebase Functions is not available.');
         const callable = httpsCallable<ReindexRequest, { results: SourceReindexResult[] }>(this.functions, 'reindexSearch');
         const result = await callable(request);
         this.cache.clear();
@@ -74,6 +79,7 @@ export class SearchService {
     }
 
     protected async call(request: SearchRequest): Promise<SearchResponse> {
+        if (!this.functions) return { results: [], tookMs: 0 };
         const callable = httpsCallable<SearchRequest, SearchResponse>(this.functions, 'search');
         const result = await callable(request);
         return result.data;
