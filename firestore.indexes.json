@@ -364,6 +364,50 @@
           ]
         }
       ]
+    },
+    {
+      "collectionGroup": "SearchIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "scope",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lang",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tokens",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "sortAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "SearchIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "source",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lang",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tokens",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "sortAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ]
 }

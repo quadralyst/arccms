@@ -423,14 +423,14 @@ Fixtures: **A** title "Gunjan Karun". **B** title "Firebase Hosting Guide", summ
 | `kar` | A, B | Title prefix hit outranks summary prefix hit |
 | `Karun Gunjan` | A, B, C | Order-free; A and B match both tokens, C one |
 | `gunjan fire` | C, B, A | C and B match both; C has both in the title |
-| `GUNJÁN` | A, B, C | Lowercased, Latin accents folded |
-| `karun's` | A, B | Apostrophe removed to `karuns`; `karun` is its prefix, so both directions match |
+| `GUNJÁN` | A, C, B | Lowercased, Latin accents folded; title hits rank above summary hits |
+| `karun's` | A, B with fallback `karun` | Apostrophe removed to `karuns`, which nothing indexed; the fallback shortens it to `karun` |
 | `arun` | none | Infix matching is unsupported by design |
-| `gunjam` | A, B, C with fallback `gunja` | Zero results, last token shortened once |
+| `gunjam` | A, C, B with fallback `gunja` | Zero results, last token shortened once |
 | `the` | none | Stop words dropped, empty query, no read |
 | `2024` | B | Numbers are ordinary tokens |
 | `firebase hosting guide` | B, C | B matches all three in the title; C matches one |
-| `Gunjan Karun` | A, B | Phrase bonus puts the exact title first |
+| `Gunjan Karun` | A, B, C | Phrase bonus puts the exact title first; C matches one token |
 | `गुंजन` (Hindi, on `/hi/`) | the Hindi entry only | Devanagari marks untouched, language filter honoured |
 
 ## Appendix C: Source registration example

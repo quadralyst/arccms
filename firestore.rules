@@ -122,6 +122,9 @@ service cloud.firestore {
       // analytics_status — authenticated read (frontend listener for GA connect flow);
       // writes are Cloud Function only (Admin SDK bypasses rules).
       allow read: if settingId == 'analytics_status' && isAuthenticated();
+      // search_status — per-source counts from the reindex tool. Admin read;
+      // writes are Cloud Function only.
+      allow read: if settingId == 'search_status' && isAdmin();
       // dodo-payments — holds API keys + webhook secret. Admin only (secrets are
       // also masked on read in the UI layer). Listed explicitly for clarity.
       allow read, write: if settingId == 'dodo-payments' && isAdmin();
@@ -189,6 +192,13 @@ service cloud.firestore {
     match /CreditLedger/{docId} {
       allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow write: if false;
+    }
+
+    // Search index — written by Cloud Functions only, read by the `search`
+    // callable only. Closed to clients on purpose: the callable is where
+    // scope is enforced (docs/search-spec.md, S-D1 and S-D8).
+    match /SearchIndex/{entryId} {
+      allow read, write: if false;
     }
 
     // Publish queue — admin writes trigger docs; Cloud Function processes them
