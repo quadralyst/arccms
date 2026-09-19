@@ -112,6 +112,11 @@ describe('parseRequest', () => {
         expect(parseRequest({ q: 'x', lang: ' EN ' }).lang).toBe('en');
     });
 
+    it('treats null fields as absent, the way the client SDK sends them', () => {
+        const parsed = parseRequest({ q: 'kar', lang: null, scope: null, sources: null, limit: null });
+        expect(parsed).toMatchObject({ q: 'kar', lang: '*', scope: 'public', sources: null, limit: 8 });
+    });
+
     it('rejects bad input', () => {
         expect(() => parseRequest({})).toThrow(/q must be/);
         expect(() => parseRequest({ q: 'x', scope: 'root' })).toThrow(/scope/);
