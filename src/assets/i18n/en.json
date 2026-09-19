@@ -565,7 +565,8 @@
         "rebuilt": "Index rebuilt: {{entries}} entries from {{documents}} documents.",
         "rebuild_failed": "The rebuild failed. Check the function logs.",
         "entries_hint": "One entry per document per language.",
-        "developer_note": "Developers can add other collections as search sources. See docs/search-developer-guide.md."
+        "developer_note": "Developers can add other collections as search sources. See docs/search-developer-guide.md.",
+        "source_products": "Products"
       }
     },
     "contents": {

@@ -835,6 +835,7 @@ export type TranslationKey =
     | 'admin.settings.search.scope_public'
     | 'admin.settings.search.source_content'
     | 'admin.settings.search.source_content_drafts'
+    | 'admin.settings.search.source_products'
     | 'admin.settings.search.title'
     | 'admin.settings.site_usage.accept_placeholder'
     | 'admin.settings.site_usage.accept_text'
@@ -1857,6 +1858,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.search.scope_public',
     'admin.settings.search.source_content',
     'admin.settings.search.source_content_drafts',
+    'admin.settings.search.source_products',
     'admin.settings.search.title',
     'admin.settings.site_usage.accept_placeholder',
     'admin.settings.site_usage.accept_text',

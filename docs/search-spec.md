@@ -1,6 +1,7 @@
 # ArcCMS Search: Build Spec
 
-**Status:** Approved for phased build (discussion completed 2026-09-18). Nothing built yet.
+**Status:** S1 to S6 built on `feat/search` (2026-09-19) with unit coverage; awaiting deploy to
+the dev project and browser verification (see section 6). Discussion completed 2026-09-18.
 **Branch:** `feat/search` (cut from `dev`)
 **Scope:** database-backed token search over short fields (titles, summaries and any
 other short field a source declares), served by a Cloud Function, with type-ahead in the
@@ -28,7 +29,7 @@ like). Both were rejected before this spec was written.
 | S-D8 | Scope is enforced in the function | Each source is `public`, `authenticated` or `admin`. The callable checks the caller against every requested source and refuses the request if any fails. Firestore rules never see a client query on the index, so one collection with a `scope` field is safe. |
 | S-D9 | Typo fallback is query-side | When a query returns nothing and its last token is at least 4 characters, the function shortens that token by one character and retries, at most twice, never below 3 characters. Firestore has no fuzzy matching; this is the cheap substitute. |
 | S-D10 | Language handling | An index entry carries one `lang`. Multilingual sources write one entry per language, merging each translation over the base document so an untranslated summary indexes the fallback text. Language-neutral sources write `lang: '*'`. The callable runs the requested language and `*` as two parallel queries and merges them, because Firestore will not combine that filter with the token filter in one query. |
-| S-D11 | Per-source queries, not `in` filters | When a caller narrows to some sources, the function runs one query per source in parallel (at most 5 sources per call) rather than an `in` filter. Keeps every query at one disjunctive clause, so the 30-value limit applies to tokens alone, and needs only two composite indexes. |
+| S-D11 | Per-source queries, not `in` filters | When a caller narrows to some sources, the function runs one query per source in parallel (at most 5 sources per call) rather than an `in` filter. Keeps every query at one disjunctive clause, so the 30-value limit applies to tokens alone. Four composite indexes cover it: `(scope, lang, tokens, sortAt)`, `(source, lang, tokens, sortAt)` and the two without `lang` for S-D20. |
 | S-D12 | How index entries get written | Three paths. (1) A generic `onDocumentWritten('{collection}/{docId}')` trigger that looks the collection up in the registry and returns at once on no match. (2) An explicit `upsertSearchEntries` / `removeSearchEntries` API for code that writes data itself; the publish pipeline uses it so publishing and indexing land together. (3) An admin `reindexSearch` callable that rebuilds one source or all of them. |
 | S-D13 | The generic trigger is accepted overhead | It fires on every top-level write in the database, including email logs and users, and returns in under a millisecond for unregistered collections. At this product's scale that stays inside the free tier. It is the only way to cover collections that do not exist at deploy time, such as `arc_{slug}_drafts` for a content type created tomorrow. |
 | S-D14 | Content is two sources | `content` (published, `arc_{slug}`, scope public, excluded when the content type has `hasPublicUrl: false`) and `content-drafts` (`arc_{slug}_drafts`, scope admin, links to the editor). Same fields, different audience and link. The two never collide because the index document ID includes the source ID. |
@@ -36,6 +37,9 @@ like). Both were rejected before this spec was written.
 | S-D16 | Public widget is server-injected, like the language switcher | The header partial carries `<arc-search>`. The static renderer replaces it with markup, a small stylesheet and one deferred script tag, mirroring `<arc-language-switcher>` in `html-document.ts`. The SPA fallback has an Angular `arc-search` component for the same tag. Both call the same callable. |
 | S-D17 | Admin search lives in the page header | `arc-page-header` gains a search box docked beside the notification bell, shown to admins only. Every admin page already renders that header, so nothing else needs wiring. `Cmd+K` / `Ctrl+K` focuses it. |
 | S-D18 | Results page is an SPA route | Enter in either search box goes to `/search?q=` (public, with the `/{lang}` prefix where applicable) or `/admin/search?q=`. No static file exists at those paths, so Hosting falls through to the Angular shell. |
+| S-D20 | Admin search spans every language | `lang: 'all'` skips the language filter and folds a document's variants into its best-ranked row. The admin header uses it: an editor wants the document whichever language the words were typed in. Public search still asks for one language. Added during S4. |
+| S-D21 | Entry IDs include the collection | `SearchIndex/{source}:{collection}:{docId}:{lang}`, not `{source}:{docId}:{lang}` as first drafted, because a pattern source spans many collections and imported documents may reuse IDs across them. Added during S1. |
+| S-D22 | Products is a real third source | The guide's worked example (`products`, public, links to `/pricing`) stays registered rather than being removed before merge: it is small, useful ("gold" finds the Gold plan) and keeps the guide honest. Decided in S6. |
 | S-D19 | Cold start is accepted, not pre-paid | `minInstances` stays 0 at launch. The first search after idle costs about a second. Raise it from function config only if measured latency on the public site justifies the monthly cost. |
 
 ### Explicit non-goals (deferred or permanently out)
@@ -146,14 +150,16 @@ exist and are tested, with no source registered yet.
    (localization, content types) so a source never has to fetch them itself.
 3. **Registry** `functions/src/search/registry.ts`: exports `SEARCH_SOURCES: SearchSource[]`
    and `findSource(collectionId)`. Empty in this phase apart from a test fixture.
-4. **Index entry** written to `SearchIndex/{sourceId}:{docId}:{lang}`:
+4. **Index entry** written to `SearchIndex/{sourceId}:{collection}:{docId}:{lang}` (S-D21):
    ```ts
    {
        source, scope, lang, collection, docId,
        tokens: string[],
        fields: Record<string, string>,   // the indexed text per path, first 500 chars, for ranking and highlighting
+       weights: Record<string, number>,  // field weights, so an entry ranks itself without its source
+       boost,
        title, snippet, badge, link, meta,
-       sortAt: Timestamp,                 // publishedOn, modifiedAt or createdAt, source's choice via display.meta.sortAt
+       sortAt: Timestamp,                 // publishedOn, modifiedAt or createdAt, the source's choice via display.sortAt
        indexedAt: Timestamp,
    }
    ```
@@ -170,9 +176,9 @@ exist and are tested, with no source registered yet.
    `expandCollections`), rebuilds every entry, deletes orphans whose documents are gone,
    and writes `Settings/search_status` with per-source counts and timestamps.
 8. **Firestore**: rules deny all client access to `SearchIndex`; `Settings/search_status`
-   admin read, function write. Two composite indexes on `SearchIndex`:
-   `(scope ASC, lang ASC, tokens CONTAINS, sortAt DESC)` and
-   `(scope ASC, source ASC, lang ASC, tokens CONTAINS, sortAt DESC)`.
+   admin read, function write. Four composite indexes on `SearchIndex` (S-D11):
+   `(scope, lang, tokens CONTAINS, sortAt DESC)`, `(source, lang, tokens CONTAINS, sortAt DESC)`,
+   `(scope, tokens CONTAINS, sortAt DESC)` and `(source, tokens CONTAINS, sortAt DESC)`.
 9. **Tests**: tokenizer spec driven by the examples table in Appendix B; writer spec
    with a mocked `db`; trigger spec proving an unregistered collection performs no reads
    or writes.
@@ -235,7 +241,8 @@ languages for each source.
 1. **Contract** `functions/src/search/search.ts`, `onCall` named `search`:
    ```ts
    // request
-   { q: string; lang: string; scope: 'public' | 'admin'; sources?: string[]; limit?: number }
+   { q: string; lang: string; scope: 'public' | 'authenticated' | 'admin'; sources?: string[]; limit?: number }
+   // lang: a language code, or 'all' (S-D20)
    // response
    { results: SearchResult[]; tookMs: number; fallbackUsed?: string }
    interface SearchResult {
@@ -248,10 +255,9 @@ languages for each source.
    `q` is trimmed and capped at 120 characters; `limit` defaults to 8 and caps at 20;
    at most 5 `sources`; an empty or stop-word-only query returns no results without a
    database read.
-2. **Scope check**: `public` scope may only touch `public` sources. `admin` scope
-   requires an authenticated admin and may touch any source. `authenticated` sources are
-   reachable by any signed-in caller through `scope: 'admin'` requests that name them
-   explicitly (kept simple until a product needs finer control).
+2. **Scope check**: `public` scope may only touch `public` sources. `authenticated`
+   scope requires a signed-in caller and may touch `public` and `authenticated` sources.
+   `admin` scope requires an authenticated admin and may touch any source.
 3. **Candidate fetch**: for each (source or "all sources in scope") and each of
    `[lang, '*']`, one query: equality filters, `array-contains-any` on the query tokens,
    `orderBy sortAt desc`, `limit 50`. All queries run in parallel; results are merged by
@@ -292,10 +298,13 @@ each Appendix B row and confirm the ordering.
    result, "Showing results for …" line when the fallback fired, empty state text, Enter
    goes to the results page. Inputs: `scope`, `sources`, `lang`, `placeholder`. Output:
    `picked`. Self-contained styles, works inside `.arc-admin` and the user shell.
-3. **`arc-page-header`**: renders `arc-search-box` beside the bell when the signed-in
-   user is an admin and `showSearch` (default true) is on. `scope: 'admin'`,
-   `sources: ['content-drafts']` by default. `Cmd+K` / `Ctrl+K` focuses it. Spec updates
-   for the header and `headerTestProviders()` gain a `SearchService` mock.
+3. **`arc-page-header`**: renders `arc-admin-search` beside the bell when `showSearch`
+   (default true) is on; that wrapper injects `AuthState` and shows `arc-search-box` for
+   admins only (`scope: 'admin'`, `sources: ['content-drafts']`, `lang: 'all'`). The
+   wrapper exists so the header itself injects nothing new: it is created inside an
+   `@if` block on change detection, like the bell, which keeps specs that never call
+   `detectChanges()` from constructing the real auth store. `Cmd+K` / `Ctrl+K` focuses it.
+   `headerTestProviders()` gains a `SearchService` mock.
 4. **Results page** `/admin/search` (explicit route): full list of 20 with the same
    rendering, driven by the `q` query parameter.
 5. Transloco keys for placeholder, empty state, fallback line and the results page title.
@@ -352,16 +361,24 @@ Lighthouse shows no layout shift from the widget.
    ("`display` output is what the client sees, so never put private fields there"), and
    the limits (600 tokens per entry, 30 query tokens, 5 sources per call).
 2. `functions/src/search/sources/_template.ts`: a commented copy-and-rename source file.
-3. Prove the guide by following it: register a throwaway `Products` source on the dev
-   project (the `Products` collection exists and is public-read), search it from the
-   admin header with `sources: ['products']`, then decide whether to keep it or remove it
-   before merge.
+3. Prove the guide by following it: register a `Products` source (the `Products`
+   collection exists and is public-read), kept as the third real source (S-D22).
 
 **Deploy:** functions if the sample source stays.
 **Exit criteria:** the guide was followed verbatim to add the sample source and needed
 no correction.
 
 ---
+
+## 3b. Build notes (2026-09-19)
+
+Everything above is built and unit-tested (`npm run test`: the only failing file,
+`src/test/default-template.spec.ts`, predates this work and fails on `dev` too). Not yet
+done: the deploy to the dev project and the browser checks in each phase's manual test.
+Deploy order: `firestore:rules`, `firestore:indexes` (the four composite indexes take a
+few minutes to build), functions, then `npm run deploy:dev` for the hosting assets and
+partials, then Reindex all from Settings, Search, then a `redeploy-all` from the publish
+queue so published pages pick up the widget.
 
 ## 4. Sequencing & dependencies
 

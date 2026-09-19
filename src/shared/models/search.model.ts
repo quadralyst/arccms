@@ -81,6 +81,7 @@ export interface SearchStatus {
 export const KNOWN_SEARCH_SOURCES: { id: string; labelKey: string; scope: SearchScope }[] = [
     { id: 'content', labelKey: 'admin.settings.search.source_content', scope: 'public' },
     { id: 'content-drafts', labelKey: 'admin.settings.search.source_content_drafts', scope: 'admin' },
+    { id: 'products', labelKey: 'admin.settings.search.source_products', scope: 'public' },
 ];
 
 /** Splits a string into plain and highlighted segments from character ranges. */
