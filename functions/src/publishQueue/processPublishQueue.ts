@@ -7,6 +7,11 @@ import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js'
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
 import { generateAndDeploySitemap } from '../pages/generateSitemap.js';
 import { generateAndDeployRssFeeds } from '../pages/generateRssFeed.js';
+import { contentSource, CONTENT_SOURCE_ID } from '../search/sources/content.js';
+import { CONTENT_DRAFTS_SOURCE_ID } from '../search/sources/content-drafts.js';
+import { buildSearchContext } from '../search/context.js';
+import { indexDocument, removeSearchEntries } from '../search/writer.js';
+import { runReindex } from '../search/reindexSearch.js';
 
 interface QueueItem {
     action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all';
@@ -130,6 +135,35 @@ async function stampLastPublishedAt(draftCollection: string, docId: string): Pro
 }
 
 /**
+ * Puts the published document into the search index, every language of it.
+ *
+ * Called from here rather than left to the wildcard trigger so that a failed
+ * index write is logged beside the publish it belongs to (S-D12). Never
+ * fails the publish: a page that deployed but cannot be searched is a far
+ * smaller problem than one that was not deployed.
+ */
+async function indexPublished(publishedCollection: string, docId: string): Promise<void> {
+    try {
+        const snap = await db.collection(publishedCollection).doc(docId).get();
+        const ctx = await buildSearchContext(publishedCollection, docId);
+        const entries = await indexDocument(contentSource, snap.exists ? snap.data() : null, ctx);
+        console.log(`Search index: ${entries} entr${entries === 1 ? 'y' : 'ies'} for ${publishedCollection}/${docId}`);
+    } catch (error) {
+        console.error(`Search index update failed for ${publishedCollection}/${docId}:`, error);
+    }
+}
+
+/** Takes a document out of the published search index (and, on delete, the drafts index too). */
+async function unindexPublished(contentTypeSlug: string, docId: string, alsoDrafts = false): Promise<void> {
+    try {
+        await removeSearchEntries(CONTENT_SOURCE_ID, getPublishedCollectionName(contentTypeSlug), docId);
+        if (alsoDrafts) await removeSearchEntries(CONTENT_DRAFTS_SOURCE_ID, getDraftCollectionName(contentTypeSlug), docId);
+    } catch (error) {
+        console.error(`Search index removal failed for ${docId}:`, error);
+    }
+}
+
+/**
  * Processes publish queue items.
  *
  * The admin app writes a trigger document to `_publish_queue` whenever
@@ -180,6 +214,13 @@ export const processPublishQueue = onDocumentCreated({
         } catch (error) {
             console.error('Site-wide redeploy failed:', error);
         }
+        // The published search index is rebuilt with the pages: a site-wide
+        // repair should leave nothing behind that a search cannot find.
+        try {
+            await runReindex({ source: CONTENT_SOURCE_ID });
+        } catch (error) {
+            console.error('Search reindex after redeploy-all failed:', error);
+        }
         if (queueDocRef) await queueDocRef.delete();
         return;
     }
@@ -214,6 +255,7 @@ export const processPublishQueue = onDocumentCreated({
                 console.log(`Published: ${publishedCollection}/${docId}`);
                 await syncTranslations(draftCollection, publishedCollection, docId);
                 await stampLastPublishedAt(draftCollection, docId);
+                await indexPublished(publishedCollection, docId);
 
                 // Deploy static HTML (detail + list pages)
                 // Skip entirely when ContentType.hasPublicUrl is false
@@ -291,6 +333,7 @@ export const processPublishQueue = onDocumentCreated({
                 await updateBatch.commit();
                 await syncTranslations(draftCollection, publishedCollection, docId);
                 await stampLastPublishedAt(draftCollection, docId);
+                await indexPublished(publishedCollection, docId);
 
                 // Deploy static HTML (detail + list pages)
                 // Skip entirely when ContentType.hasPublicUrl is false
@@ -315,6 +358,7 @@ export const processPublishQueue = onDocumentCreated({
                     await publishedRef.delete();
                     console.log(`Unpublished: ${publishedCollection}/${docId}`);
                 }
+                await unindexPublished(contentTypeSlug, docId);
 
                 // Remove static HTML and regenerate list page
                 if (hasPublicUrl) {
@@ -340,6 +384,7 @@ export const processPublishQueue = onDocumentCreated({
                     await publishedRef.delete();
                     console.log(`Deleted published: ${publishedCollection}/${docId}`);
                 }
+                await unindexPublished(contentTypeSlug, docId, true);
 
                 // Safety net: also delete draft if it still exists
                 // (The frontend normally deletes the draft first, but this ensures
