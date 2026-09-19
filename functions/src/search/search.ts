@@ -30,6 +30,12 @@ import {
 } from './source.js';
 
 export const MAX_QUERY_LENGTH = 120;
+/**
+ * `lang: 'all'` searches every language and folds the variants of one
+ * document into its best-ranked one. The admin header uses it: an editor
+ * wants the document whatever language the words were typed in.
+ */
+export const ALL_LANGUAGES = 'all';
 export const DEFAULT_LIMIT = 8;
 export const MAX_LIMIT = 20;
 export const MAX_SOURCES_PER_CALL = 5;
@@ -144,12 +150,15 @@ export async function authorize(request: CallableRequest, parsed: ParsedRequest)
 interface CandidateQuery {
     field: 'scope' | 'source';
     value: string;
+    /** A language, ANY_LANGUAGE, or ALL_LANGUAGES for no language filter. */
     lang: string;
 }
 
 /** One Firestore query per (scope or source) and per (lang, any-language). */
 export function candidateQueries(parsed: ParsedRequest): CandidateQuery[] {
-    const langs = parsed.lang === ANY_LANGUAGE ? [ANY_LANGUAGE] : [parsed.lang, ANY_LANGUAGE];
+    const langs = parsed.lang === ANY_LANGUAGE || parsed.lang === ALL_LANGUAGES
+        ? [parsed.lang]
+        : [parsed.lang, ANY_LANGUAGE];
     const targets: { field: 'scope' | 'source'; value: string }[] = parsed.sources
         ? parsed.sources.map(source => ({ field: 'source', value: source.id }))
         : readableScopes(parsed.scope)
@@ -159,15 +168,15 @@ export function candidateQueries(parsed: ParsedRequest): CandidateQuery[] {
 }
 
 async function fetchCandidates(queries: CandidateQuery[], tokens: string[]): Promise<Map<string, SearchIndexEntry>> {
-    const snapshots = await Promise.all(queries.map(query =>
-        db.collection(SEARCH_INDEX_COLLECTION)
-            .where(query.field, '==', query.value)
-            .where('lang', '==', query.lang)
+    const snapshots = await Promise.all(queries.map(query => {
+        let ref = db.collection(SEARCH_INDEX_COLLECTION).where(query.field, '==', query.value);
+        if (query.lang !== ALL_LANGUAGES) ref = ref.where('lang', '==', query.lang);
+        return ref
             .where('tokens', 'array-contains-any', tokens)
             .orderBy('sortAt', 'desc')
             .limit(CANDIDATES_PER_QUERY)
-            .get(),
-    ));
+            .get();
+    }));
     const byId = new Map<string, SearchIndexEntry>();
     for (const snap of snapshots) {
         for (const doc of snap.docs) byId.set(doc.id, doc.data() as SearchIndexEntry);
@@ -187,7 +196,17 @@ export async function runSearch(parsed: ParsedRequest): Promise<SearchResponse> 
         const candidates = await fetchCandidates(queries, attempt.tokens);
         if (candidates.size === 0) continue;
 
-        const ranked = rank([...candidates.values()], attempt.tokens, attempt.fallback ? '' : phrase);
+        let ranked = rank([...candidates.values()], attempt.tokens, attempt.fallback ? '' : phrase);
+        if (parsed.lang === ALL_LANGUAGES) {
+            // One row per document: the best-ranked language variant wins.
+            const seen = new Set<string>();
+            ranked = ranked.filter(({ entry }) => {
+                const key = `${entry.source}:${entry.collection}:${entry.docId}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        }
         if (ranked.length === 0) continue;
 
         const results: SearchResult[] = ranked.slice(0, parsed.limit).map(({ entry, score, highlights }) => ({

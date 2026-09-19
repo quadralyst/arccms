@@ -195,6 +195,9 @@ export type TranslationKey =
     | 'admin.contents.types.form.public_pages'
     | 'admin.contents.types.form.public_pages_off'
     | 'admin.contents.types.form.save'
+    | 'admin.contents.types.form.search_fields'
+    | 'admin.contents.types.form.search_fields_hint'
+    | 'admin.contents.types.form.search_fields_none'
     | 'admin.contents.types.form.select_collection'
     | 'admin.contents.types.form.select_display_field'
     | 'admin.contents.types.form.singular_hint'
@@ -490,6 +493,13 @@ export type TranslationKey =
     | 'admin.products.updates_years'
     | 'admin.products.view_details'
     | 'admin.products.yearly'
+    | 'admin.search.count'
+    | 'admin.search.empty'
+    | 'admin.search.no_query'
+    | 'admin.search.open'
+    | 'admin.search.results_for'
+    | 'admin.search.subtitle'
+    | 'admin.search.title'
     | 'admin.settings.about.address'
     | 'admin.settings.about.address_hint'
     | 'admin.settings.about.address_placeholder'
@@ -640,6 +650,8 @@ export type TranslationKey =
     | 'admin.settings.hub.misc.label'
     | 'admin.settings.hub.payments.description'
     | 'admin.settings.hub.payments.label'
+    | 'admin.settings.hub.search.description'
+    | 'admin.settings.hub.search.label'
     | 'admin.settings.hub.site-usage.description'
     | 'admin.settings.hub.site-usage.label'
     | 'admin.settings.hub.subtitle'
@@ -804,6 +816,26 @@ export type TranslationKey =
     | 'admin.settings.payments.webhook_note'
     | 'admin.settings.payments.webhook_note_end'
     | 'admin.settings.payments.webhook_secret'
+    | 'admin.settings.search.col_documents'
+    | 'admin.settings.search.col_entries'
+    | 'admin.settings.search.col_last_rebuilt'
+    | 'admin.settings.search.col_scope'
+    | 'admin.settings.search.col_source'
+    | 'admin.settings.search.developer_note'
+    | 'admin.settings.search.entries_hint'
+    | 'admin.settings.search.intro'
+    | 'admin.settings.search.never'
+    | 'admin.settings.search.rebuild'
+    | 'admin.settings.search.rebuild_all'
+    | 'admin.settings.search.rebuild_failed'
+    | 'admin.settings.search.rebuilding'
+    | 'admin.settings.search.rebuilt'
+    | 'admin.settings.search.scope_admin'
+    | 'admin.settings.search.scope_authenticated'
+    | 'admin.settings.search.scope_public'
+    | 'admin.settings.search.source_content'
+    | 'admin.settings.search.source_content_drafts'
+    | 'admin.settings.search.title'
     | 'admin.settings.site_usage.accept_placeholder'
     | 'admin.settings.site_usage.accept_text'
     | 'admin.settings.site_usage.accept_text_required'
@@ -906,6 +938,10 @@ export type TranslationKey =
     | 'common.paginator.previous_page'
     | 'common.paginator.range'
     | 'common.paginator.range_empty'
+    | 'common.search.all_results'
+    | 'common.search.empty'
+    | 'common.search.placeholder'
+    | 'common.search.showing_for'
     | 'common.state.loading'
     | 'common.status.draft'
     | 'common.status.edited'
@@ -1181,6 +1217,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.form.public_pages',
     'admin.contents.types.form.public_pages_off',
     'admin.contents.types.form.save',
+    'admin.contents.types.form.search_fields',
+    'admin.contents.types.form.search_fields_hint',
+    'admin.contents.types.form.search_fields_none',
     'admin.contents.types.form.select_collection',
     'admin.contents.types.form.select_display_field',
     'admin.contents.types.form.singular_hint',
@@ -1476,6 +1515,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.products.updates_years',
     'admin.products.view_details',
     'admin.products.yearly',
+    'admin.search.count',
+    'admin.search.empty',
+    'admin.search.no_query',
+    'admin.search.open',
+    'admin.search.results_for',
+    'admin.search.subtitle',
+    'admin.search.title',
     'admin.settings.about.address',
     'admin.settings.about.address_hint',
     'admin.settings.about.address_placeholder',
@@ -1626,6 +1672,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.misc.label',
     'admin.settings.hub.payments.description',
     'admin.settings.hub.payments.label',
+    'admin.settings.hub.search.description',
+    'admin.settings.hub.search.label',
     'admin.settings.hub.site-usage.description',
     'admin.settings.hub.site-usage.label',
     'admin.settings.hub.subtitle',
@@ -1790,6 +1838,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.payments.webhook_note',
     'admin.settings.payments.webhook_note_end',
     'admin.settings.payments.webhook_secret',
+    'admin.settings.search.col_documents',
+    'admin.settings.search.col_entries',
+    'admin.settings.search.col_last_rebuilt',
+    'admin.settings.search.col_scope',
+    'admin.settings.search.col_source',
+    'admin.settings.search.developer_note',
+    'admin.settings.search.entries_hint',
+    'admin.settings.search.intro',
+    'admin.settings.search.never',
+    'admin.settings.search.rebuild',
+    'admin.settings.search.rebuild_all',
+    'admin.settings.search.rebuild_failed',
+    'admin.settings.search.rebuilding',
+    'admin.settings.search.rebuilt',
+    'admin.settings.search.scope_admin',
+    'admin.settings.search.scope_authenticated',
+    'admin.settings.search.scope_public',
+    'admin.settings.search.source_content',
+    'admin.settings.search.source_content_drafts',
+    'admin.settings.search.title',
     'admin.settings.site_usage.accept_placeholder',
     'admin.settings.site_usage.accept_text',
     'admin.settings.site_usage.accept_text_required',
@@ -1892,6 +1960,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.paginator.previous_page',
     'common.paginator.range',
     'common.paginator.range_empty',
+    'common.search.all_results',
+    'common.search.empty',
+    'common.search.placeholder',
+    'common.search.showing_for',
     'common.state.loading',
     'common.status.draft',
     'common.status.edited',

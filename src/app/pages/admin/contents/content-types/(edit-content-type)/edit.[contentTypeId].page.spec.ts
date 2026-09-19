@@ -9,12 +9,14 @@ import EditContentTypeComponent from './edit.[contentTypeId].page';
 import { ContentTypesStore } from '../content-types.store';
 import { IconPickerComponent } from '../../../../../../shared/components/icon-picker/icon-picker.component';
 import { ToastService } from '../../../../../../shared/services/toast.service';
+import { SearchService } from '../../../../../core/services/search.service';
 import { ContentType } from '../content-types.model';
 
 describe('EditContentTypeComponent', () => {
     let component: EditContentTypeComponent;
     let fixture: ComponentFixture<EditContentTypeComponent>;
     let mockStore: any;
+    const mockSearchService = { reindex: vi.fn().mockResolvedValue([]) };
     let mockToastService: any;
     let mockRouter: any;
 
@@ -69,6 +71,7 @@ describe('EditContentTypeComponent', () => {
                 { provide: ContentTypesStore, useValue: mockStore },
                 { provide: ToastService, useValue: mockToastService },
                 { provide: Router, useValue: mockRouter },
+                { provide: SearchService, useValue: mockSearchService },
                 {
                     provide: ActivatedRoute,
                     useValue: { snapshot: { params: { contentTypeId: 'test-id' } } },
