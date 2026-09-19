@@ -105,6 +105,12 @@
             panel.innerHTML = html;
             panel.hidden = false;
             input.setAttribute('aria-expanded', 'true');
+            // Open to the right of the box unless that runs off the screen,
+            // as it does for a box at the right end of a header.
+            panel.classList.remove('arc-search__panel--right');
+            if (panel.getBoundingClientRect().right > window.innerWidth - 8) {
+                panel.classList.add('arc-search__panel--right');
+            }
         }
 
         function setActive(index) {

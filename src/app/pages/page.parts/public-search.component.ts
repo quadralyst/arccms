@@ -48,7 +48,7 @@ export type PublicSearchStringKey = keyof typeof PUBLIC_SEARCH_STRINGS;
             [showingForText]="text('search_showing_for')"
             [allResultsText]="text('search_all_results')"></arc-search-box>
     `,
-    styles: [':host { display: block; width: 220px; max-width: 100%; }'],
+    styles: [':host { display: block; flex: 0 1 220px; min-width: 120px; max-width: 100%; }'],
 })
 export class PublicSearchComponent {
     private localization = inject(LocalizationService);
