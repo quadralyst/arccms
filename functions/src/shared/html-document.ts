@@ -171,6 +171,7 @@ export function replaceArcComponents(
     headerHtml: string,
     footerHtml: string,
     languageSwitcherHtml = '',
+    searchWidgetHtml = '',
 ): string {
     const $ = cheerio.load(html, { xmlMode: false });
 
@@ -188,6 +189,15 @@ export function replaceArcComponents(
         switchers.replaceWith(languageSwitcherHtml);
     } else {
         switchers.remove();
+    }
+
+    // The search box is the same story: per-language strings and the
+    // callable URL are only known here. See functions/src/search/widget.ts.
+    const searches = $('arc-search');
+    if (searchWidgetHtml) {
+        searches.replaceWith(searchWidgetHtml);
+    } else {
+        searches.remove();
     }
 
     return $.html();
