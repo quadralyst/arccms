@@ -21,6 +21,8 @@ vi.mock('../shared/site-settings', () => ({
     getPartials: mockGetPartials,
     getSiteConfig: mockGetSiteConfig,
     getMiscSettings: mockGetMiscSettings,
+    // The search widget is built for the default language (S5).
+    getLocalizationSettings: vi.fn().mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: [] }),
 }));
 
 vi.mock('../pages/deployToHosting', () => ({

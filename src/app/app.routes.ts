@@ -491,6 +491,16 @@ export const routes: Routes = [
   // `canMatch` is what makes a wildcard first segment safe: a URL like
   // /admin/settings/localization has the right shape but 'admin' is not a
   // language, so the route is skipped rather than matched-and-broken.
+  // Search results (docs/search-spec.md, S-D18). The default language's
+  // /search is the file-based src/app/pages/search.page.ts; this is its
+  // /{lang}/search twin, listed before the two-segment content route so a
+  // language prefix plus 'search' is never read as a content type.
+  {
+    path: ':lang/search',
+    canMatch: [languageRouteGuard],
+    loadComponent: () =>
+      import('./pages/search.page').then((m) => m.default),
+  },
   {
     path: ':lang/:contentTypeSlug/:urlSlug',
     canMatch: [languageRouteGuard],
