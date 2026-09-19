@@ -18,7 +18,7 @@
 .arc-search.is-loading .arc-search__icon { animation: arc-search-pulse 1s infinite; }
 @keyframes arc-search-pulse { 50% { opacity: .3; } }
 .arc-search__panel {
-    position: absolute; top: calc(100% + 6px); right: 0; z-index: 1000;
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 1000;
     width: 360px; max-width: calc(100vw - 2rem); max-height: 420px; overflow-y: auto;
     background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
     box-shadow: 0 12px 32px rgba(0, 0, 0, .12); text-align: left;
@@ -41,6 +41,8 @@
     font-size: .85rem; color: #0066cc; text-align: center; text-decoration: none;
 }
 .arc-search__all:hover { background: #f8f9fb; }
+/* Added by arc-search.js when the panel would run off the right edge. */
+.arc-search__panel--right { left: auto; right: 0; }
 @media (max-width: 720px) {
     .arc-search__input { width: 110px; }
     .arc-search__panel { position: fixed; left: 1rem; right: 1rem; top: auto; width: auto; margin-top: 6px; }

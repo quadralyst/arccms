@@ -88,7 +88,10 @@ export function readableScopes(scope: SearchScope): SearchScope[] {
 }
 
 export function parseRequest(data: unknown): ParsedRequest {
-    const raw = (data ?? {}) as Partial<SearchRequest>;
+    // The client SDK sends an absent field as null, so null means "not given".
+    const raw = Object.fromEntries(
+        Object.entries((data ?? {}) as Record<string, unknown>).filter(([, value]) => value !== null),
+    ) as Partial<SearchRequest>;
 
     if (typeof raw.q !== 'string') throw new HttpsError('invalid-argument', 'q must be a string.');
     const q = raw.q.trim().slice(0, MAX_QUERY_LENGTH);
