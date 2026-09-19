@@ -557,7 +557,8 @@
         "rebuilt": "अनुक्रमणिका बनी: {{documents}} दस्तावेज़ों से {{entries}} प्रविष्टियाँ।",
         "rebuild_failed": "पुनर्निर्माण विफल रहा। फ़ंक्शन लॉग देखें।",
         "entries_hint": "प्रति दस्तावेज़ प्रति भाषा एक प्रविष्टि।",
-        "developer_note": "डेवलपर अन्य संग्रहों को खोज स्रोत के रूप में जोड़ सकते हैं। docs/search-developer-guide.md देखें।"
+        "developer_note": "डेवलपर अन्य संग्रहों को खोज स्रोत के रूप में जोड़ सकते हैं। docs/search-developer-guide.md देखें।",
+        "source_products": "उत्पाद"
       }
     },
     "contents": {

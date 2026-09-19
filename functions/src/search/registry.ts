@@ -12,10 +12,12 @@ import type { SearchSource } from './source.js';
 import { sourceMatches } from './source.js';
 import { contentSource } from './sources/content.js';
 import { contentDraftsSource } from './sources/content-drafts.js';
+import { productsSource } from './sources/products.js';
 
 export const SEARCH_SOURCES: readonly SearchSource[] = [
     contentSource,
     contentDraftsSource,
+    productsSource,
 ];
 
 /** Every registered source that watches a collection. A collection may feed several. */

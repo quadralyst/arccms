@@ -125,7 +125,7 @@ describe('reindexSource', () => {
 describe('runReindex', () => {
     it('records per-source status in Settings/search_status', async () => {
         const results = await runReindex();
-        expect(results.map(r => r.source)).toEqual(['content', 'content-drafts']);
+        expect(results.map(r => r.source)).toEqual(['content', 'content-drafts', 'products']);
         const write = state.settingsWrites[0] as Record<string, unknown>;
         expect(write['sources.content']).toMatchObject({ documents: 1, entries: 1 });
         expect(write['sources.content-drafts']).toMatchObject({ documents: 2, entries: 2 });

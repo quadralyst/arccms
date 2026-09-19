@@ -21,7 +21,7 @@ describe('SearchSettingsPage', () => {
             data: () => ({
                 sources: {
                     content: { documents: 3, entries: 4, reindexedAt: { seconds: 1_700_000_000 } },
-                    products: { documents: 1, entries: 1 },
+                    directory: { documents: 1, entries: 1 },
                 },
             }),
         });
@@ -47,7 +47,7 @@ describe('SearchSettingsPage', () => {
         const content = component.rows().find(r => r.id === 'content');
         expect(content?.status?.entries).toBe(4);
         expect(component.rows().find(r => r.id === 'content-drafts')?.status).toBeNull();
-        expect(component.unknownRows().map(r => r.id)).toEqual(['products']);
+        expect(component.unknownRows().map(r => r.id)).toEqual(['directory']);
         expect(component.reindexedAt(content!.status)?.getTime()).toBe(1_700_000_000_000);
     });
 
