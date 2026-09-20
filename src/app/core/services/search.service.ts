@@ -81,7 +81,11 @@ export class SearchService {
     protected async call(request: SearchRequest): Promise<SearchResponse> {
         if (!this.functions) return { results: [], tookMs: 0 };
         const callable = httpsCallable<SearchRequest, SearchResponse>(this.functions, 'search');
-        const result = await callable(request);
+        // The SDK would send an undefined field as null; leave it out instead.
+        const payload = Object.fromEntries(
+            Object.entries(request).filter(([, value]) => value !== undefined),
+        ) as SearchRequest;
+        const result = await callable(payload);
         return result.data;
     }
 

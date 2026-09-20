@@ -35,6 +35,7 @@ describe('SearchService', () => {
 
         expect(callableMock).toHaveBeenCalledTimes(1);
         expect(callableMock).toHaveBeenCalledWith('search', { q: 'kar', lang: 'en', scope: 'public' });
+        expect(Object.keys(callableMock.mock.calls[0][1])).not.toContain('sources');
         expect(second).toBe(first);
     });
 
