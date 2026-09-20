@@ -322,6 +322,13 @@ export default class SettingsPageComponent extends BaseComponent {
             description: 'Site languages & default language',
         },
         {
+            id: 'search',
+            label: 'Search',
+            icon: 'fa-solid fa-magnifying-glass',
+            route: '/admin/settings/search',
+            description: 'Search index and rebuild tools',
+        },
+        {
             id: 'misc',
             label: 'Miscellaneous',
             icon: 'fa-solid fa-cog',

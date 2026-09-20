@@ -1,5 +1,6 @@
 import { db } from '../init.js';
 import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings } from '../shared/site-settings.js';
+import { buildSearchWidget } from '../search/widget.js';
 import {
     ContentTranslation,
     TRANSLATABLE_BUILTIN_FIELDS,
@@ -336,6 +337,7 @@ export async function generateAndDeployContentDetailPage(
             chrome(partials.headerHtml),
             chrome(partials.footerHtml),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
+            buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings: uiStrings }),
         );
 
         // Extract inline styles/scripts from template
