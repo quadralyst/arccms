@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
+import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
@@ -484,7 +485,15 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
 
         // Subscribe to stores to load data
-        this.subscribeToData(this.contentTypesStore);
+        // Only the type this page is for. One equality query on `slug`
+        // (ordered by the same field, so no composite index is needed) instead
+        // of the store's default first page of ten ordered by createdAt, which
+        // silently dropped the oldest types on sites with more than ten.
+        this.subscribeToData(this.contentTypesStore, {
+            whereConditions: [{ field: 'slug', operator: '==', value: slug }],
+            orderByField: { field: 'slug', direction: 'asc' },
+            limitCount: 1,
+        });
         // Load published contents from the per-type collection
         this.contentsStore.getAll(undefined, slug || undefined);
     }
@@ -541,8 +550,24 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     /**
      * Load and hydrate custom template when content type and content are ready
      */
+    /** A template folder whose file turned out not to be a template; never fetched twice. */
+    private rejectedTemplateFolder: string | null = null;
+    /** The folder whose template request is in flight. */
+    private pendingTemplateFolder: string | null = null;
+
     private loadCustomTemplate(contentType: ContentType, contents: IContents[]): void {
         const templateFolder = contentType.templateFolder;
+
+        // Decided once per folder: the effect that calls this re-runs while
+        // useCustomTemplate stays false, and a rejected folder would be
+        // fetched again on every run.
+        if (templateFolder && templateFolder === this.rejectedTemplateFolder) {
+            this.useCustomTemplate.set(false);
+            return;
+        }
+        // One request per folder at a time; the effect can re-run several
+        // times before the first response lands.
+        if (templateFolder && templateFolder === this.pendingTemplateFolder) return;
 
         // Skip if using default template
         if (!templateFolder || templateFolder === 'default') {
@@ -568,15 +593,31 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         if (this.transferState.hasKey(stateKey)) {
             const cachedHtml = this.transferState.get(stateKey, '');
             this.transferState.remove(stateKey);
+            if (!isTemplateFragment(cachedHtml)) {
+                this.useCustomTemplate.set(false);
+                return;
+            }
             this.hydrateAndSetTemplate(cachedHtml, contentType, contents);
             return;
         }
 
+        this.pendingTemplateFolder = templateFolder;
         this.http.get(templateUrl, { responseType: 'text' }).subscribe({
             next: (templateHtml) => {
+                this.pendingTemplateFolder = null;
+                // A missing template folder answers with the SPA shell (HTTP
+                // 200, the 404 page); that is not a template. Fall back to
+                // the built-in layout instead of rendering a 404 inside the page.
+                if (!isTemplateFragment(templateHtml)) {
+                    console.warn(`[ContentListComponent] /templates/${templateFolder}/list.html is not a template fragment; using the default layout.`);
+                    this.rejectedTemplateFolder = templateFolder;
+                    this.useCustomTemplate.set(false);
+                    return;
+                }
                 this.hydrateAndSetTemplate(templateHtml, contentType, contents);
             },
             error: (error) => {
+                this.pendingTemplateFolder = null;
                 console.warn('[ContentListComponent] Failed to load custom template:', error.message);
                 this.useCustomTemplate.set(false);
             }

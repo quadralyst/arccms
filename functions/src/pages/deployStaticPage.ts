@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
-import { getPartials, getSiteConfig, getMiscSettings } from '../shared/site-settings.js';
+import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings } from '../shared/site-settings.js';
 import { replaceArcComponents, POWERED_BY_HTML } from '../shared/html-document.js';
+import { buildSearchWidget } from '../search/widget.js';
 import { deployFileToHosting } from './deployToHosting.js';
 
 /**
@@ -33,10 +34,20 @@ export async function generateAndDeployStaticPage(
     const rawHtml = await response.text();
 
     // 2. Load partials + site config + misc settings
-    const [partials, siteConfig, miscSettings] = await Promise.all([getPartials(), getSiteConfig(), getMiscSettings()]);
+    const [partials, siteConfig, miscSettings, localization] = await Promise.all([
+        getPartials(), getSiteConfig(), getMiscSettings(), getLocalizationSettings(),
+    ]);
 
-    // 3. Replace arc components
-    let processedHtml = replaceArcComponents(rawHtml, partials.headerHtml, partials.footerHtml);
+    // 3. Replace arc components. Static pages exist in the default language
+    //    only, so the search widget is built for that language.
+    const defaultLang = localization.defaultLanguage;
+    let processedHtml = replaceArcComponents(
+        rawHtml,
+        partials.headerHtml,
+        partials.footerHtml,
+        '',
+        buildSearchWidget({ projectId: siteId, lang: defaultLang, defaultLang }),
+    );
 
     // 4. Post-process: inject CSS, meta tags, and powered-by footer
     {

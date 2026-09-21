@@ -27,6 +27,8 @@ Arc CMS uses Firestore and Cloud Storage security rules to control data access. 
 | `arc_{slug}` (published) | Public | Authenticated | Published content |
 | `arc_{slug}_drafts` | Authenticated | Authenticated | Draft content |
 | `Tags_{slug}` | Public | Authenticated | Content tags |
+| `Authors/{id}` | Public | Admin | Author profiles printed on bylines and in JSON-LD; no private fields by design |
+| `Settings/discoverability` | Admin | Admin | Default author, crawler policy, IndexNow key |
 | `WaitlistUserTags_{id}` | Admin | Admin | Internal admin data |
 | `media/{id}` | Public | Authenticated | Images on public pages |
 | `email_lookup/{hash}` | Public | Authenticated | SHA-256 email hash for signup |
@@ -36,6 +38,7 @@ Arc CMS uses Firestore and Cloud Storage security rules to control data access. 
 | `Settings/cache` | Public | Admin | CDN cache config |
 | `Settings/global-message` | Public | Admin | Banner config |
 | `Settings/users` | Public | Admin | Signup toggle |
+| `Settings/about` | Public | Authenticated | Site identity (name, URL, address, logo, description, profile links, public contact email): the same data every static page publishes as schema.org JSON-LD; the SPA fallback reads it to emit the same nodes |
 | `Settings/email` | Admin | Admin | Contains SMTP credentials |
 | `Settings/integrations` | Admin | Admin | Contains API keys (Unsplash) |
 | `Settings/analytics` | Admin | Admin | Contains the Google OAuth client secret |

@@ -73,6 +73,15 @@
                 ]
             },
             {
+                "source": "**/*.@(md|txt)",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "public, max-age=300, s-maxage=3600"
+                    }
+                ]
+            },
+            {
                 "source": "**/*.xml",
                 "headers": [
                     {

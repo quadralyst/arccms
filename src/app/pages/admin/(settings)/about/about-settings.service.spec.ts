@@ -54,7 +54,28 @@ describe('AboutSettingsService', () => {
             const result = await service.load();
 
             expect(doc).toHaveBeenCalledWith(firestoreMock, 'Settings', 'about');
-            expect(result).toEqual(mockData);
+            // Documents written before the identity fields existed are filled
+            // with defaults so the page always has the full shape.
+            expect(result).toEqual({ ...DEFAULT_ABOUT_SETTINGS, ...mockData });
+        });
+
+        it('should keep identity fields and coerce bad values', async () => {
+            vi.mocked(doc).mockReturnValue('docRef' as any);
+            vi.mocked(getDoc).mockResolvedValue({
+                exists: () => true,
+                data: () => ({
+                    name: 'Jane',
+                    logoUrl: 'https://jane.dev/me.png',
+                    sameAs: 'not-an-array',
+                    organizationType: 'Weird',
+                }),
+            } as any);
+
+            const result = await service.load();
+
+            expect(result.logoUrl).toBe('https://jane.dev/me.png');
+            expect(result.sameAs).toEqual([]);
+            expect(result.organizationType).toBe('Organization');
         });
 
         it('should return defaults when document does not exist', async () => {

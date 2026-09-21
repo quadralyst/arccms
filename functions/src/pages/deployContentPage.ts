@@ -1,16 +1,27 @@
 import { db } from '../init.js';
-import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings } from '../shared/site-settings.js';
+import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings, getAboutConfig } from '../shared/site-settings.js';
+import { buildSearchWidget } from '../search/widget.js';
 import {
     ContentTranslation,
     TRANSLATABLE_BUILTIN_FIELDS,
     detailFilePath,
     detailUrl,
     langPrefix,
+    listUrl,
     localizedPageTitle,
     mergeTranslation,
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
 import { contentTypeName } from '../shared/content-type-names.js';
+import { buildBreadcrumbList, countWords } from '../shared/structured-data.js';
+import { buildSiteNodes } from '../shared/site-jsonld.js';
+import { resolveContentDates } from '../shared/content-dates.js';
+import { AuthorProfile, authorTemplateData, authorToPerson, getAuthor } from '../shared/authors.js';
+import { buildMarkdownTwin, markdownFilePath, markdownUrl } from '../shared/markdown-twin.js';
+import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../shared/content-blocks.js';
+import { buildMappedNode } from '../shared/schema-mapping.js';
+import { findRelated } from '../shared/related-content.js';
+import { cleanReferences } from '../shared/references.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -20,6 +31,7 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
+import { isTemplateFragment } from '../shared/template-fragment.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting, removeFileFromHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
@@ -116,7 +128,8 @@ async function loadDetailTemplate(templateFolder: string | undefined, siteId: st
         const res = await fetch(url);
         if (res.ok) {
             const text = await res.text();
-            if (text) return text;
+            // A missing folder answers with the SPA shell (HTTP 200): not a template.
+            if (isTemplateFragment(text)) return text;
         }
     } catch {
         // Fall through to Tier 3
@@ -137,9 +150,14 @@ function buildTemplateData(
     lang = 'en',
     defaultLang = 'en',
     translation?: ContentTranslation,
+    author: AuthorProfile | null = null,
 ): Record<string, any> {
     const readTime = content.readTime || calculateReadingTime(content.content || '');
     const publishedOn = formatContentDate(content.publishedOn, lang);
+    // "Updated" is shown only when the author marked a real revision after
+    // publishing; templates gate on `updatedOnDisplay` with data-arc-if.
+    const dates = resolveContentDates(content);
+    const updatedOn = dates.isUpdated ? formatContentDate(content.updatedOn, lang) : '';
 
     // Build canonical share URL — language variants share their content's
     // canonicalUrl only when the author set one explicitly.
@@ -185,15 +203,98 @@ function buildTemplateData(
         ...content,
         publishedOn,
         date: publishedOn,
+        updatedOn,
+        updatedOnDisplay: updatedOn,
         readTime,
         readingTime: `${readTime} min read`,
         ...((content.customFields as Record<string, any>) || {}),
         ...translatedOverrides,
+        // After custom fields on purpose: `author` is the byline object the
+        // default template binds (`{{ author.name }}`), and a legacy custom
+        // field with the same key would otherwise turn it into a string.
+        // Both are empty when the item has no author, so data-arc-if hides
+        // the box.
+        ...authorTemplateData(author),
+        // Cited sources (D-D11): a loop for templates, a flag for data-arc-if.
+        references: cleanReferences(content.references),
+        hasReferences: cleanReferences(content.references).length > 0,
         share,
         // Available to templates that want to build their own language links.
         lang,
         langPrefix: langPrefix(lang, defaultLang),
     };
+}
+
+/**
+ * The structured data for one language variant of a detail page: the site
+ * owner, the WebSite, the breadcrumb trail and the Article itself
+ * (docs/discoverability-spec.md, D1). Exported for the tests; pure.
+ */
+export function buildDetailJsonLd(input: {
+    content: Record<string, any>;
+    contentType: Record<string, any>;
+    siteConfig: { siteName: string; baseUrl: string };
+    about?: Record<string, any> | null;
+    lang: string;
+    defaultLang: string;
+    pageTitle: string;
+    pageUrl: string;
+    author?: AuthorProfile | null;
+}): Record<string, unknown>[] {
+    const { content, contentType, siteConfig, lang, defaultLang } = input;
+    const baseUrl = siteConfig.baseUrl.replace(/\/+$/, '');
+    const site = buildSiteNodes({ siteConfig, about: input.about, lang, defaultLang });
+    const dates = resolveContentDates(content);
+    const typeName = contentTypeName(contentType, lang);
+
+    const breadcrumbs = buildBreadcrumbList([
+        { name: siteConfig.siteName || baseUrl, url: `${baseUrl}${langPrefix(lang, defaultLang)}/` },
+        { name: typeName, url: listUrl(baseUrl, lang, defaultLang, contentType.slug) },
+        { name: content.title || input.pageTitle, url: input.pageUrl },
+    ]);
+
+    // Structured blocks in the body (D-D10) and cited sources (D-D11).
+    const blocks = extractBlocks(content.content || '');
+    const references = cleanReferences(content.references);
+
+    // The page's main node: Article (or a subtype) for most types, or the
+    // schema.org type the content type is mapped to (D-D12), read from the
+    // custom fields the admin paired with it.
+    const article = buildMappedNode({
+        schema: contentType.schema,
+        customFields: (content.customFields as Record<string, unknown>) || {},
+        ownerName: input.about?.name || siteConfig.siteName,
+        publisherId: site.publisherId,
+        howTo: blocks.howTos[0] ?? null,
+        article: {
+        url: input.pageUrl,
+        // The visible title, not the SEO title: the headline should match the
+        // <h1> a reader (or a crawler) sees on the page.
+        headline: content.title || input.pageTitle,
+        description: content.metaDescription || content.summary || '',
+        imageUrl: content.coverImage || '',
+        datePublished: dates.published,
+        dateModified: dates.modified,
+        inLanguage: lang,
+        keywords: content.tags || [],
+        articleSection: (content.categoryNameArr || [])[0] || typeName,
+        wordCount: countWords(content.content || ''),
+        abstract: abstractFromTakeaways(blocks.takeaways),
+        author: authorToPerson(input.author ?? null),
+        publisherId: site.publisherId,
+        citations: references,
+        },
+    });
+
+    // A HowTo page already carries its steps as the main node; emitting the
+    // block's HowTo as well would describe the procedure twice.
+    const blockNodes = blockJsonLd(blocks, input.pageUrl).filter(
+        node => !(article?.['@type'] === 'HowTo' && node['@type'] === 'HowTo'),
+    );
+
+    return [site.organization, site.webSite, breadcrumbs, article, ...blockNodes].filter(
+        (node): node is Record<string, unknown> => !!node,
+    );
 }
 
 // ─── Exported Functions ─────────────────────────────────────────────────────
@@ -245,11 +346,13 @@ export async function generateAndDeployContentDetailPage(
     const contentType = contentTypeQuery.docs[0].data();
 
     // 3. Load partials + site config + misc settings + languages (all cached)
-    const [partials, siteConfig, miscSettings, localization] = await Promise.all([
+    const [partials, siteConfig, miscSettings, localization, about, author] = await Promise.all([
         getPartials(),
         getSiteConfig(),
         getMiscSettings(),
         getLocalizationSettings(),
+        getAboutConfig(),
+        getAuthor(content.authorId),
     ]);
 
     // 4. Load detail template (3-tier fallback). The same template renders
@@ -295,11 +398,24 @@ export async function generateAndDeployContentDetailPage(
             lang,
             defaultLang,
             translations.get(lang),
+            author,
         );
 
         const tagsData =
             localizedContent.tagsWithColors ||
             (localizedContent.tags || []).map((t: string) => ({ name: t, color: '#6b7280' }));
+
+        // Related items from the search index (D-D15), per language so the
+        // links stay inside the language being read.
+        const related = await findRelated({
+            title: localizedContent.title || '',
+            tags: localizedContent.tags || [],
+            contentType: contentTypeSlug,
+            urlSlug: content.urlSlug,
+            lang,
+        });
+        templateData['related'] = related;
+        templateData['hasRelated'] = related.length > 0;
 
         // Hydrate template: process loops first, then bindings
         // Static chrome baked into the template ("Read Article", "min read").
@@ -318,6 +434,10 @@ export async function generateAndDeployContentDetailPage(
                 contentType.slug,
             ),
             tags: tagsData,
+            // Cited sources (D-D11): data-arc-loop="references" in templates.
+            references: cleanReferences(localizedContent.references),
+            // Related items (D-D15): data-arc-loop="related".
+            related,
         });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
@@ -336,22 +456,37 @@ export async function generateAndDeployContentDetailPage(
             chrome(partials.headerHtml),
             chrome(partials.footerHtml),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
+            buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings: uiStrings }),
         );
 
         // Extract inline styles/scripts from template
         const { body, styles, scripts } = extractStylesAndScripts(hydratedHtml);
 
+        const pageTitle = localizedPageTitle(localizedContent, translations.get(lang));
+        const pageUrl =
+            (lang === defaultLang ? localizedContent.canonicalUrl : '') ||
+            detailUrl(siteConfig.baseUrl, lang, defaultLang, contentTypeSlug, content.urlSlug);
+        const jsonLd = buildDetailJsonLd({
+            content: localizedContent,
+            contentType,
+            siteConfig,
+            about,
+            lang,
+            defaultLang,
+            pageTitle,
+            pageUrl,
+            author,
+        });
+
         const meta: PageMeta = {
-            title: localizedPageTitle(localizedContent, translations.get(lang)),
+            title: pageTitle,
             metaDescription: localizedContent.metaDescription || '',
             // An author-set canonical applies to the default-language page it
             // was written for. Reusing it on every variant would point them all
             // at one URL — directly contradicting the hreflang tags and telling
             // search engines to drop the translations. Variants are always
             // self-referential.
-            canonicalUrl:
-                (lang === defaultLang ? localizedContent.canonicalUrl : '') ||
-                detailUrl(siteConfig.baseUrl, lang, defaultLang, contentTypeSlug, content.urlSlug),
+            canonicalUrl: pageUrl,
             ogImage: localizedContent.coverImage || '',
             ogType: 'article',
             siteName: siteConfig.siteName,
@@ -360,12 +495,33 @@ export async function generateAndDeployContentDetailPage(
             rtl: language.rtl,
             alternates,
             defaultLang,
+            jsonLd,
+            markdownUrl: markdownUrl(siteConfig.baseUrl, lang, defaultLang, contentTypeSlug, content.urlSlug),
         };
 
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
         const fullHtml = buildHtmlDocument(body, meta, '', '', styles, scripts, poweredBy);
 
         target.add(detailFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug), fullHtml);
+
+        // The Markdown twin rides in the same release (D-D8).
+        const dates = resolveContentDates(localizedContent);
+        target.add(
+            markdownFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug),
+            buildMarkdownTwin({
+                title: localizedContent.title || pageTitle,
+                url: pageUrl,
+                siteName: siteConfig.siteName,
+                authorName: author?.name || localizedContent.authorName || '',
+                datePublished: dates.published,
+                dateModified: dates.modified,
+                summary: localizedContent.summary || localizedContent.metaDescription || '',
+                tags: localizedContent.tags || [],
+                lang,
+                bodyHtml: localizedContent.content || '',
+                references: cleanReferences(localizedContent.references),
+            }),
+        );
     }
 
     if (!batch) {
@@ -400,6 +556,7 @@ export async function removeContentPage(
 
     for (const language of localization.enabledLanguages) {
         target.remove(detailFilePath(language.code, defaultLang, contentTypeSlug, urlSlug));
+        target.remove(markdownFilePath(language.code, defaultLang, contentTypeSlug, urlSlug));
     }
 
     if (!batch) {

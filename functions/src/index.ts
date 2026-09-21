@@ -149,3 +149,11 @@ export * from './dodo-payments/consumeCredits.js';
 
 // One-time seed function — deploy all existing content as static HTML
 export { seedStaticPages } from './pages/seedStaticPages.js';
+// Settings > Discoverability: robots.txt, llms.txt and the IndexNow key (docs/discoverability-spec.md, D3).
+export { regenerateSeoFiles } from './pages/regenerateSeoFiles.js';
+
+// Search (S1 to S3): wildcard indexer, translation re-index, reindex tool,
+// and the one `search` callable every search box uses. docs/search-spec.md.
+export * from './search/onAnyDocumentWritten.js';
+export * from './search/reindexSearch.js';
+export * from './search/search.js';

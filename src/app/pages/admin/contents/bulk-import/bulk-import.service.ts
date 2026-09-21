@@ -93,7 +93,10 @@ export class BulkImportService {
             { key: 'seoTitle', label: 'SEO Title' },
             { key: 'metaDescription', label: 'Meta Description' },
             { key: 'canonicalUrl', label: 'Canonical URL' },
-            { key: 'isFeatured', label: 'Featured' }
+            { key: 'isFeatured', label: 'Featured' },
+            // A name, not an id: the dialog resolves it against Authors
+            // (matching or creating) after the rows are built (D2).
+            { key: 'authorName', label: 'Author' }
         ];
 
         return headers.map(header => {
@@ -234,6 +237,8 @@ export class BulkImportService {
                     item.tags = this.parseTags(String(rawVal || ''));
                 } else if (m.targetField === 'isFeatured') {
                     item.isFeatured = this.parseBoolean(rawVal);
+                } else if (m.targetField === 'authorName') {
+                    item.authorName = String(rawVal ?? '').trim();
                 } else {
                     item[m.targetField] = rawVal;
                 }

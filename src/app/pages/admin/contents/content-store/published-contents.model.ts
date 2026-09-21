@@ -19,6 +19,26 @@ export interface IContents extends IBaseModel {
     metaDescription: string;
     canonicalUrl: string;
     publishedOn: Date | null;
+    /**
+     * Editorial "last substantive revision" date, set from the SEO panel.
+     * Feeds `dateModified` in the page's structured data, the sitemap's
+     * `lastmod` and the visible "Updated" line, and only when it is later
+     * than `publishedOn`. Deliberately not `modifiedAt`, which moves on every
+     * save (docs/discoverability-spec.md, D-D3).
+     */
+    updatedOn?: Date | null;
+    /**
+     * The `Authors/{id}` this item is credited to, and the name denormalised
+     * for lists and search (docs/discoverability-spec.md, D-D5). The name is
+     * kept even if the author is later deleted.
+     */
+    authorId?: string | null;
+    authorName?: string;
+    /**
+     * Sources the author cited (docs/discoverability-spec.md, D-D11):
+     * rendered as a "Sources" list and emitted as Article.citation.
+     */
+    references?: { title: string; url: string }[];
     publishedStatus: boolean;
     isFeatured: boolean;
     readTime?: number; // Reading time in minutes

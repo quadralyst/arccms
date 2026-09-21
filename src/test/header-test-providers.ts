@@ -1,6 +1,7 @@
 import { of } from 'rxjs';
 import { AuthState } from '../app/pages/(auth)/auth.store';
 import { NotificationService } from '../shared/services/notification.service';
+import { SearchService } from '../app/core/services/search.service';
 
 /**
  * The shared <arc-page-header> embeds the notification bell, which needs
@@ -27,5 +28,16 @@ export function headerTestProviders() {
             },
         },
         { provide: AuthState, useValue: { currentUser: () => null, isAdmin: () => false } },
+        // The header's admin search box (rendered when isAdmin() is true)
+        // calls the `search` callable through this service.
+        {
+            provide: SearchService,
+            useValue: {
+                isSearchable: (q: string) => q.trim().length >= 2,
+                search: () => Promise.resolve({ results: [], tookMs: 0 }),
+                reindex: () => Promise.resolve([]),
+                clearCache: () => undefined,
+            },
+        },
     ];
 }

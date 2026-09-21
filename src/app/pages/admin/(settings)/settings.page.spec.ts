@@ -32,8 +32,8 @@ describe('SettingsPageComponent', () => {
         expect(component).toBeTruthy();
     });
 
-    it('should have ten setting categories', () => {
-        expect(component.settingCategories().length).toBe(10);
+    it('should have eleven setting categories', () => {
+        expect(component.settingCategories().length).toBe(12);
     });
 
     it('should have about as first category', () => {
@@ -77,7 +77,19 @@ describe('SettingsPageComponent', () => {
         expect(categories[6].route).toBe('/admin/settings/message');
         expect(categories[7].route).toBe('/admin/settings/site-usage');
         expect(categories[8].route).toBe('/admin/settings/localization');
-        expect(categories[9].route).toBe('/admin/settings/misc');
+        expect(categories[9].route).toBe('/admin/settings/search');
+        expect(categories[10].route).toBe('/admin/settings/discoverability');
+        expect(categories[11].route).toBe('/admin/settings/misc');
+    });
+
+    it('should have discoverability as eleventh category (D3)', () => {
+        expect(component.settingCategories()[10].id).toBe('discoverability');
+        expect(component.settingCategories()[10].label).toBe('Discoverability');
+    });
+
+    it('should have search as tenth category', () => {
+        expect(component.settingCategories()[9].id).toBe('search');
+        expect(component.settingCategories()[9].label).toBe('Search');
     });
 
     it('should have localization as ninth category', () => {

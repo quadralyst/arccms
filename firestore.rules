@@ -27,6 +27,16 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    // Authors - who writes for the site (docs/discoverability-spec.md, D-D5).
+    // Public read: the static pages print the same name, bio, photo and
+    // profile links on every byline and in the Article JSON-LD, and the SPA
+    // fallback needs them to render the same box. Nothing private is stored
+    // here by design (no email, no user id). Admin write.
+    match /Authors/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Dynamic content, tags, and waitlist-tag collections:
     //   arc_{slug}           → published content, public read
     //   arc_{slug}_drafts    → drafts, authenticated read
@@ -102,7 +112,12 @@ service cloud.firestore {
       // holds only `completed` and two timestamps — it says whether the site
       // finished its setup, which any visitor to an unfinished site can see
       // anyway. Writes stay authenticated via the block below.
-      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status'];
+      // `about` is public-read as well: it is the site's published identity
+      // (name, URL, address, logo, description, profile links, public contact
+      // email), the same data every static page already carries as schema.org
+      // JSON-LD. The SPA fallback pages need it to emit the same nodes
+      // (docs/discoverability-spec.md, D1). Nothing secret lives there.
+      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status', 'about'];
       // Frontend-managed settings — any authenticated user can read/write.
       // UI routes are admin-gated via role guard; rules only enforce auth.
       //
@@ -122,6 +137,13 @@ service cloud.firestore {
       // analytics_status — authenticated read (frontend listener for GA connect flow);
       // writes are Cloud Function only (Admin SDK bypasses rules).
       allow read: if settingId == 'analytics_status' && isAuthenticated();
+      // search_status — per-source counts from the reindex tool. Admin read;
+      // writes are Cloud Function only.
+      allow read: if settingId == 'search_status' && isAdmin();
+      // discoverability — default author (D2), crawler policy and IndexNow
+      // key (D3). Admin only; functions bake what the public needs into the
+      // static files, so no public read is required.
+      allow read, write: if settingId == 'discoverability' && isAdmin();
       // dodo-payments — holds API keys + webhook secret. Admin only (secrets are
       // also masked on read in the UI layer). Listed explicitly for clarity.
       allow read, write: if settingId == 'dodo-payments' && isAdmin();
@@ -189,6 +211,13 @@ service cloud.firestore {
     match /CreditLedger/{docId} {
       allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow write: if false;
+    }
+
+    // Search index — written by Cloud Functions only, read by the `search`
+    // callable only. Closed to clients on purpose: the callable is where
+    // scope is enforced (docs/search-spec.md, S-D1 and S-D8).
+    match /SearchIndex/{entryId} {
+      allow read, write: if false;
     }
 
     // Publish queue — admin writes trigger docs; Cloud Function processes them

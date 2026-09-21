@@ -1,5 +1,6 @@
 import { db } from '../init.js';
-import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings } from '../shared/site-settings.js';
+import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings, getAboutConfig } from '../shared/site-settings.js';
+import { buildSearchWidget } from '../search/widget.js';
 import {
     ContentTranslation,
     langPrefix,
@@ -9,6 +10,8 @@ import {
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
 import { contentTypeDescription, contentTypeName } from '../shared/content-type-names.js';
+import { buildBreadcrumbList, buildCollectionPage } from '../shared/structured-data.js';
+import { buildSiteNodes } from '../shared/site-jsonld.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -18,6 +21,7 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
+import { isTemplateFragment } from '../shared/template-fragment.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
@@ -104,7 +108,8 @@ async function loadListTemplate(templateFolder: string | undefined, siteId: stri
         const res = await fetch(url);
         if (res.ok) {
             const text = await res.text();
-            if (text) return text;
+            // A missing folder answers with the SPA shell (HTTP 200): not a template.
+            if (isTemplateFragment(text)) return text;
         }
     } catch {
         // Fall through to Tier 3
@@ -161,11 +166,12 @@ export async function generateAndDeployContentListPage(
     const contents = contentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     // 3. Load partials + site config + misc settings + languages
-    const [partials, siteConfig, miscSettings, localization] = await Promise.all([
+    const [partials, siteConfig, miscSettings, localization, about] = await Promise.all([
         getPartials(),
         getSiteConfig(),
         getMiscSettings(),
         getLocalizationSettings(),
+        getAboutConfig(),
     ]);
 
     // 4. Load list template (3-tier fallback) — one template, every language
@@ -257,7 +263,10 @@ export async function generateAndDeployContentListPage(
                 content: localized.content || '',
                 publishedOn: formatContentDateShort(localized.publishedOn, lang),
                 readTime: localized.readTime || calculateReadingTime(localized.content || ''),
-                author: localized.author || '',
+                // The credited author's name (D2); falls back to a legacy
+                // `author` custom field for templates that bound one.
+                authorName: localized.authorName || '',
+                author: localized.authorName || localized.author || '',
                 tags: tagsData,
                 tagsHtml,
                 tagsDisplay: (localized.tags || []).slice(0, 3).join(', '),
@@ -290,15 +299,35 @@ export async function generateAndDeployContentListPage(
             chrome(partials.headerHtml),
             chrome(partials.footerHtml),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
+            buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings: uiStrings }),
         );
 
         // Extract inline styles/scripts
         const { body, styles, scripts } = extractStylesAndScripts(hydratedHtml);
 
+        const pageUrl = listUrl(baseUrl, lang, defaultLang, contentTypeSlug);
+        const site = buildSiteNodes({ siteConfig, about, lang, defaultLang });
+        const jsonLd = [
+            site.organization,
+            site.webSite,
+            buildBreadcrumbList([
+                { name: siteConfig.siteName || baseUrl, url: `${baseUrl}${prefix}/` },
+                { name: typeName || 'Content', url: pageUrl },
+            ]),
+            buildCollectionPage({
+                url: pageUrl,
+                name: typeName || 'Content',
+                description: typeDescription,
+                inLanguage: lang,
+                publisherId: site.publisherId,
+                items: listData.map(item => ({ name: item.title, url: `${baseUrl}${item.url}` })),
+            }),
+        ];
+
         const meta: PageMeta = {
             title: typeName || 'Content',
             metaDescription: typeDescription || `Browse all ${typeName?.toLowerCase() || 'content'}`,
-            canonicalUrl: listUrl(baseUrl, lang, defaultLang, contentTypeSlug),
+            canonicalUrl: pageUrl,
             ogImage: '',
             ogType: 'website',
             siteName: siteConfig.siteName,
@@ -311,6 +340,7 @@ export async function generateAndDeployContentListPage(
             rtl: language.rtl,
             alternates,
             defaultLang,
+            jsonLd,
         };
 
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication

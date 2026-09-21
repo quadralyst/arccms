@@ -54,13 +54,90 @@ export type TranslationKey =
     | 'admin.audience.tags.tag'
     | 'admin.audience.tags.title'
     | 'admin.audience.tags.view_contacts'
+    | 'admin.contents.authors.bio'
+    | 'admin.contents.authors.bio_placeholder'
+    | 'admin.contents.authors.clear_default'
+    | 'admin.contents.authors.col_default'
+    | 'admin.contents.authors.col_job_title'
+    | 'admin.contents.authors.col_name'
+    | 'admin.contents.authors.create'
+    | 'admin.contents.authors.created'
+    | 'admin.contents.authors.default_badge'
+    | 'admin.contents.authors.default_set'
+    | 'admin.contents.authors.delete_confirm'
+    | 'admin.contents.authors.delete_failed'
+    | 'admin.contents.authors.deleted'
+    | 'admin.contents.authors.edit'
+    | 'admin.contents.authors.empty_description'
+    | 'admin.contents.authors.empty_title'
+    | 'admin.contents.authors.job_title'
+    | 'admin.contents.authors.job_title_placeholder'
+    | 'admin.contents.authors.load_failed'
+    | 'admin.contents.authors.name'
+    | 'admin.contents.authors.name_placeholder'
+    | 'admin.contents.authors.name_required'
+    | 'admin.contents.authors.new'
+    | 'admin.contents.authors.page_subtitle'
+    | 'admin.contents.authors.page_title'
+    | 'admin.contents.authors.photo_url'
+    | 'admin.contents.authors.photo_url_placeholder'
+    | 'admin.contents.authors.same_as'
+    | 'admin.contents.authors.same_as_hint'
+    | 'admin.contents.authors.same_as_placeholder'
+    | 'admin.contents.authors.save'
+    | 'admin.contents.authors.save_failed'
+    | 'admin.contents.authors.set_default'
+    | 'admin.contents.authors.updated'
+    | 'admin.contents.authors.url'
+    | 'admin.contents.authors.url_placeholder'
+    | 'admin.contents.checklist.answer_first'
+    | 'admin.contents.checklist.answer_first_fix'
+    | 'admin.contents.checklist.author'
+    | 'admin.contents.checklist.author_fix'
+    | 'admin.contents.checklist.blocks'
+    | 'admin.contents.checklist.blocks_fix'
+    | 'admin.contents.checklist.cover_image'
+    | 'admin.contents.checklist.cover_image_fix'
+    | 'admin.contents.checklist.freshness'
+    | 'admin.contents.checklist.freshness_fix'
+    | 'admin.contents.checklist.insert_link'
+    | 'admin.contents.checklist.internal_links'
+    | 'admin.contents.checklist.internal_links_fix'
+    | 'admin.contents.checklist.intro'
+    | 'admin.contents.checklist.length'
+    | 'admin.contents.checklist.length_fix'
+    | 'admin.contents.checklist.link_inserted'
+    | 'admin.contents.checklist.links_all_linked'
+    | 'admin.contents.checklist.links_heading'
+    | 'admin.contents.checklist.links_intro'
+    | 'admin.contents.checklist.links_none'
+    | 'admin.contents.checklist.list_or_table'
+    | 'admin.contents.checklist.list_or_table_fix'
+    | 'admin.contents.checklist.meta_description'
+    | 'admin.contents.checklist.meta_description_fix'
+    | 'admin.contents.checklist.passed'
+    | 'admin.contents.checklist.question_heading'
+    | 'admin.contents.checklist.question_heading_fix'
+    | 'admin.contents.checklist.refresh'
+    | 'admin.contents.checklist.score'
+    | 'admin.contents.checklist.sources'
+    | 'admin.contents.checklist.sources_fix'
+    | 'admin.contents.checklist.tags'
+    | 'admin.contents.checklist.tags_fix'
+    | 'admin.contents.checklist.title'
+    | 'admin.contents.checklist.title_length'
+    | 'admin.contents.checklist.title_length_fix'
+    | 'admin.contents.editor.add_reference'
+    | 'admin.contents.editor.author'
+    | 'admin.contents.editor.author_hint'
+    | 'admin.contents.editor.author_none'
     | 'admin.contents.editor.auto_saved'
     | 'admin.contents.editor.back_to_editor'
     | 'admin.contents.editor.change'
     | 'admin.contents.editor.clear_translation'
+    | 'admin.contents.editor.clear_updated'
     | 'admin.contents.editor.click_to_select_icon'
     | 'admin.contents.editor.click_to_select_image'
-    | 'admin.contents.editor.click_to_upload'
     | 'admin.contents.editor.cover_image'
     | 'admin.contents.editor.custom_fields'
     | 'admin.contents.editor.default_badge'
@@ -72,8 +149,8 @@ export type TranslationKey =
     | 'admin.contents.editor.editing_draft'
     | 'admin.contents.editor.expand'
     | 'admin.contents.editor.history'
-    | 'admin.contents.editor.image_recommendation'
     | 'admin.contents.editor.loading_options'
+    | 'admin.contents.editor.manage_authors'
     | 'admin.contents.editor.map.address'
     | 'admin.contents.editor.map.address_placeholder'
     | 'admin.contents.editor.map.bad_coordinates'
@@ -81,12 +158,16 @@ export type TranslationKey =
     | 'admin.contents.editor.map.coordinates'
     | 'admin.contents.editor.map.no_results'
     | 'admin.contents.editor.map.search_placeholder'
+    | 'admin.contents.editor.mark_updated_today'
     | 'admin.contents.editor.meta_description'
     | 'admin.contents.editor.next_content_hint'
     | 'admin.contents.editor.no_content_found'
     | 'admin.contents.editor.no_cover_image'
     | 'admin.contents.editor.preview'
     | 'admin.contents.editor.publish'
+    | 'admin.contents.editor.reference_title_placeholder'
+    | 'admin.contents.editor.references'
+    | 'admin.contents.editor.references_hint'
     | 'admin.contents.editor.remove_image'
     | 'admin.contents.editor.repeater.add'
     | 'admin.contents.editor.repeater.add_photos'
@@ -112,6 +193,7 @@ export type TranslationKey =
     | 'admin.contents.editor.summary'
     | 'admin.contents.editor.summary_hint'
     | 'admin.contents.editor.tab_basic'
+    | 'admin.contents.editor.tab_checks'
     | 'admin.contents.editor.tab_seo'
     | 'admin.contents.editor.tag_create_failed'
     | 'admin.contents.editor.tags'
@@ -123,7 +205,8 @@ export type TranslationKey =
     | 'admin.contents.editor.translation_save_failed'
     | 'admin.contents.editor.unknown_error'
     | 'admin.contents.editor.unsaved_changes'
-    | 'admin.contents.editor.upload_image'
+    | 'admin.contents.editor.updated_on'
+    | 'admin.contents.editor.updated_on_hint'
     | 'admin.contents.editor.url_copied'
     | 'admin.contents.editor.url_copy_failed'
     | 'admin.contents.editor.url_slug'
@@ -172,12 +255,18 @@ export type TranslationKey =
     | 'admin.contents.types.form.description_translation_hint'
     | 'admin.contents.types.form.display_field'
     | 'admin.contents.types.form.display_field_hint'
+    | 'admin.contents.types.form.duplicate_fields'
     | 'admin.contents.types.form.edit_title'
     | 'admin.contents.types.form.field_key'
+    | 'admin.contents.types.form.field_key_auto_hint'
+    | 'admin.contents.types.form.field_key_locked_hint'
     | 'admin.contents.types.form.field_key_placeholder'
     | 'admin.contents.types.form.field_label'
     | 'admin.contents.types.form.field_label_placeholder'
     | 'admin.contents.types.form.field_n'
+    | 'admin.contents.types.form.field_name'
+    | 'admin.contents.types.form.field_name_duplicate'
+    | 'admin.contents.types.form.field_name_placeholder'
     | 'admin.contents.types.form.field_required'
     | 'admin.contents.types.form.field_type'
     | 'admin.contents.types.form.icon'
@@ -195,6 +284,14 @@ export type TranslationKey =
     | 'admin.contents.types.form.public_pages'
     | 'admin.contents.types.form.public_pages_off'
     | 'admin.contents.types.form.save'
+    | 'admin.contents.types.form.schema_heading'
+    | 'admin.contents.types.form.schema_hint'
+    | 'admin.contents.types.form.schema_no_fields'
+    | 'admin.contents.types.form.schema_not_mapped'
+    | 'admin.contents.types.form.schema_recommended'
+    | 'admin.contents.types.form.search_fields'
+    | 'admin.contents.types.form.search_fields_hint'
+    | 'admin.contents.types.form.search_fields_none'
     | 'admin.contents.types.form.select_collection'
     | 'admin.contents.types.form.select_display_field'
     | 'admin.contents.types.form.singular_hint'
@@ -394,6 +491,7 @@ export type TranslationKey =
     | 'admin.nav.announcements'
     | 'admin.nav.audience'
     | 'admin.nav.audience_and_emails'
+    | 'admin.nav.authors'
     | 'admin.nav.brand_kit'
     | 'admin.nav.broadcasts'
     | 'admin.nav.composer'
@@ -490,13 +588,36 @@ export type TranslationKey =
     | 'admin.products.updates_years'
     | 'admin.products.view_details'
     | 'admin.products.yearly'
+    | 'admin.search.count'
+    | 'admin.search.empty'
+    | 'admin.search.no_query'
+    | 'admin.search.open'
+    | 'admin.search.results_for'
+    | 'admin.search.subtitle'
+    | 'admin.search.title'
     | 'admin.settings.about.address'
     | 'admin.settings.about.address_hint'
     | 'admin.settings.about.address_placeholder'
+    | 'admin.settings.about.contact_email'
+    | 'admin.settings.about.contact_email_hint'
+    | 'admin.settings.about.description'
+    | 'admin.settings.about.description_hint'
+    | 'admin.settings.about.description_placeholder'
+    | 'admin.settings.about.identity_heading'
+    | 'admin.settings.about.identity_intro'
     | 'admin.settings.about.intro'
+    | 'admin.settings.about.logo_url'
+    | 'admin.settings.about.logo_url_hint'
+    | 'admin.settings.about.logo_url_placeholder'
+    | 'admin.settings.about.organization_type'
+    | 'admin.settings.about.organization_type_org'
+    | 'admin.settings.about.organization_type_person'
     | 'admin.settings.about.production_url'
     | 'admin.settings.about.production_url_hint'
     | 'admin.settings.about.production_url_placeholder'
+    | 'admin.settings.about.same_as'
+    | 'admin.settings.about.same_as_hint'
+    | 'admin.settings.about.same_as_placeholder'
     | 'admin.settings.about.site_name'
     | 'admin.settings.about.site_name_hint'
     | 'admin.settings.about.site_name_placeholder'
@@ -570,6 +691,37 @@ export type TranslationKey =
     | 'admin.settings.analytics.why_note'
     | 'admin.settings.background_style'
     | 'admin.settings.banner_enabled'
+    | 'admin.settings.discoverability.allowed'
+    | 'admin.settings.discoverability.applied'
+    | 'admin.settings.discoverability.apply_failed'
+    | 'admin.settings.discoverability.blocked'
+    | 'admin.settings.discoverability.crawlers_heading'
+    | 'admin.settings.discoverability.crawlers_intro'
+    | 'admin.settings.discoverability.files_heading'
+    | 'admin.settings.discoverability.group_search'
+    | 'admin.settings.discoverability.group_search_hint'
+    | 'admin.settings.discoverability.group_training'
+    | 'admin.settings.discoverability.group_training_hint'
+    | 'admin.settings.discoverability.indexnow'
+    | 'admin.settings.discoverability.indexnow_heading'
+    | 'admin.settings.discoverability.indexnow_hint'
+    | 'admin.settings.discoverability.indexnow_key'
+    | 'admin.settings.discoverability.indexnow_key_hint'
+    | 'admin.settings.discoverability.indexnow_key_pending'
+    | 'admin.settings.discoverability.intro'
+    | 'admin.settings.discoverability.llms_txt'
+    | 'admin.settings.discoverability.llms_txt_hint'
+    | 'admin.settings.discoverability.save'
+    | 'admin.settings.discoverability.save_apply'
+    | 'admin.settings.discoverability.save_failed'
+    | 'admin.settings.discoverability.saved'
+    | 'admin.settings.discoverability.title'
+    | 'admin.settings.discoverability.verify_bing'
+    | 'admin.settings.discoverability.verify_gsc'
+    | 'admin.settings.discoverability.verify_heading'
+    | 'admin.settings.discoverability.verify_intro'
+    | 'admin.settings.discoverability.verify_llms'
+    | 'admin.settings.discoverability.verify_robots'
     | 'admin.settings.email.at_least_one'
     | 'admin.settings.email.auto_purge'
     | 'admin.settings.email.auto_purge_enable'
@@ -628,6 +780,8 @@ export type TranslationKey =
     | 'admin.settings.hub.about.label'
     | 'admin.settings.hub.analytics.description'
     | 'admin.settings.hub.analytics.label'
+    | 'admin.settings.hub.discoverability.description'
+    | 'admin.settings.hub.discoverability.label'
     | 'admin.settings.hub.email.description'
     | 'admin.settings.hub.email.label'
     | 'admin.settings.hub.integrations.description'
@@ -640,6 +794,8 @@ export type TranslationKey =
     | 'admin.settings.hub.misc.label'
     | 'admin.settings.hub.payments.description'
     | 'admin.settings.hub.payments.label'
+    | 'admin.settings.hub.search.description'
+    | 'admin.settings.hub.search.label'
     | 'admin.settings.hub.site-usage.description'
     | 'admin.settings.hub.site-usage.label'
     | 'admin.settings.hub.subtitle'
@@ -759,10 +915,8 @@ export type TranslationKey =
     | 'admin.settings.misc.convert_webp'
     | 'admin.settings.misc.max_file_size'
     | 'admin.settings.misc.max_file_size_hint'
-    | 'admin.settings.misc.max_height'
-    | 'admin.settings.misc.max_height_hint'
-    | 'admin.settings.misc.max_width'
-    | 'admin.settings.misc.max_width_hint'
+    | 'admin.settings.misc.max_size'
+    | 'admin.settings.misc.max_size_hint'
     | 'admin.settings.misc.media_intro'
     | 'admin.settings.misc.media_saved'
     | 'admin.settings.misc.media_upload'
@@ -804,6 +958,27 @@ export type TranslationKey =
     | 'admin.settings.payments.webhook_note'
     | 'admin.settings.payments.webhook_note_end'
     | 'admin.settings.payments.webhook_secret'
+    | 'admin.settings.search.col_documents'
+    | 'admin.settings.search.col_entries'
+    | 'admin.settings.search.col_last_rebuilt'
+    | 'admin.settings.search.col_scope'
+    | 'admin.settings.search.col_source'
+    | 'admin.settings.search.developer_note'
+    | 'admin.settings.search.entries_hint'
+    | 'admin.settings.search.intro'
+    | 'admin.settings.search.never'
+    | 'admin.settings.search.rebuild'
+    | 'admin.settings.search.rebuild_all'
+    | 'admin.settings.search.rebuild_failed'
+    | 'admin.settings.search.rebuilding'
+    | 'admin.settings.search.rebuilt'
+    | 'admin.settings.search.scope_admin'
+    | 'admin.settings.search.scope_authenticated'
+    | 'admin.settings.search.scope_public'
+    | 'admin.settings.search.source_content'
+    | 'admin.settings.search.source_content_drafts'
+    | 'admin.settings.search.source_products'
+    | 'admin.settings.search.title'
     | 'admin.settings.site_usage.accept_placeholder'
     | 'admin.settings.site_usage.accept_text'
     | 'admin.settings.site_usage.accept_text_required'
@@ -906,6 +1081,10 @@ export type TranslationKey =
     | 'common.paginator.previous_page'
     | 'common.paginator.range'
     | 'common.paginator.range_empty'
+    | 'common.search.all_results'
+    | 'common.search.empty'
+    | 'common.search.placeholder'
+    | 'common.search.showing_for'
     | 'common.state.loading'
     | 'common.status.draft'
     | 'common.status.edited'
@@ -1040,13 +1219,90 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.audience.tags.tag',
     'admin.audience.tags.title',
     'admin.audience.tags.view_contacts',
+    'admin.contents.authors.bio',
+    'admin.contents.authors.bio_placeholder',
+    'admin.contents.authors.clear_default',
+    'admin.contents.authors.col_default',
+    'admin.contents.authors.col_job_title',
+    'admin.contents.authors.col_name',
+    'admin.contents.authors.create',
+    'admin.contents.authors.created',
+    'admin.contents.authors.default_badge',
+    'admin.contents.authors.default_set',
+    'admin.contents.authors.delete_confirm',
+    'admin.contents.authors.delete_failed',
+    'admin.contents.authors.deleted',
+    'admin.contents.authors.edit',
+    'admin.contents.authors.empty_description',
+    'admin.contents.authors.empty_title',
+    'admin.contents.authors.job_title',
+    'admin.contents.authors.job_title_placeholder',
+    'admin.contents.authors.load_failed',
+    'admin.contents.authors.name',
+    'admin.contents.authors.name_placeholder',
+    'admin.contents.authors.name_required',
+    'admin.contents.authors.new',
+    'admin.contents.authors.page_subtitle',
+    'admin.contents.authors.page_title',
+    'admin.contents.authors.photo_url',
+    'admin.contents.authors.photo_url_placeholder',
+    'admin.contents.authors.same_as',
+    'admin.contents.authors.same_as_hint',
+    'admin.contents.authors.same_as_placeholder',
+    'admin.contents.authors.save',
+    'admin.contents.authors.save_failed',
+    'admin.contents.authors.set_default',
+    'admin.contents.authors.updated',
+    'admin.contents.authors.url',
+    'admin.contents.authors.url_placeholder',
+    'admin.contents.checklist.answer_first',
+    'admin.contents.checklist.answer_first_fix',
+    'admin.contents.checklist.author',
+    'admin.contents.checklist.author_fix',
+    'admin.contents.checklist.blocks',
+    'admin.contents.checklist.blocks_fix',
+    'admin.contents.checklist.cover_image',
+    'admin.contents.checklist.cover_image_fix',
+    'admin.contents.checklist.freshness',
+    'admin.contents.checklist.freshness_fix',
+    'admin.contents.checklist.insert_link',
+    'admin.contents.checklist.internal_links',
+    'admin.contents.checklist.internal_links_fix',
+    'admin.contents.checklist.intro',
+    'admin.contents.checklist.length',
+    'admin.contents.checklist.length_fix',
+    'admin.contents.checklist.link_inserted',
+    'admin.contents.checklist.links_all_linked',
+    'admin.contents.checklist.links_heading',
+    'admin.contents.checklist.links_intro',
+    'admin.contents.checklist.links_none',
+    'admin.contents.checklist.list_or_table',
+    'admin.contents.checklist.list_or_table_fix',
+    'admin.contents.checklist.meta_description',
+    'admin.contents.checklist.meta_description_fix',
+    'admin.contents.checklist.passed',
+    'admin.contents.checklist.question_heading',
+    'admin.contents.checklist.question_heading_fix',
+    'admin.contents.checklist.refresh',
+    'admin.contents.checklist.score',
+    'admin.contents.checklist.sources',
+    'admin.contents.checklist.sources_fix',
+    'admin.contents.checklist.tags',
+    'admin.contents.checklist.tags_fix',
+    'admin.contents.checklist.title',
+    'admin.contents.checklist.title_length',
+    'admin.contents.checklist.title_length_fix',
+    'admin.contents.editor.add_reference',
+    'admin.contents.editor.author',
+    'admin.contents.editor.author_hint',
+    'admin.contents.editor.author_none',
     'admin.contents.editor.auto_saved',
     'admin.contents.editor.back_to_editor',
     'admin.contents.editor.change',
     'admin.contents.editor.clear_translation',
+    'admin.contents.editor.clear_updated',
     'admin.contents.editor.click_to_select_icon',
     'admin.contents.editor.click_to_select_image',
-    'admin.contents.editor.click_to_upload',
     'admin.contents.editor.cover_image',
     'admin.contents.editor.custom_fields',
     'admin.contents.editor.default_badge',
@@ -1058,8 +1314,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.editing_draft',
     'admin.contents.editor.expand',
     'admin.contents.editor.history',
-    'admin.contents.editor.image_recommendation',
     'admin.contents.editor.loading_options',
+    'admin.contents.editor.manage_authors',
     'admin.contents.editor.map.address',
     'admin.contents.editor.map.address_placeholder',
     'admin.contents.editor.map.bad_coordinates',
@@ -1067,12 +1323,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.map.coordinates',
     'admin.contents.editor.map.no_results',
     'admin.contents.editor.map.search_placeholder',
+    'admin.contents.editor.mark_updated_today',
     'admin.contents.editor.meta_description',
     'admin.contents.editor.next_content_hint',
     'admin.contents.editor.no_content_found',
     'admin.contents.editor.no_cover_image',
     'admin.contents.editor.preview',
     'admin.contents.editor.publish',
+    'admin.contents.editor.reference_title_placeholder',
+    'admin.contents.editor.references',
+    'admin.contents.editor.references_hint',
     'admin.contents.editor.remove_image',
     'admin.contents.editor.repeater.add',
     'admin.contents.editor.repeater.add_photos',
@@ -1098,6 +1358,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.summary',
     'admin.contents.editor.summary_hint',
     'admin.contents.editor.tab_basic',
+    'admin.contents.editor.tab_checks',
     'admin.contents.editor.tab_seo',
     'admin.contents.editor.tag_create_failed',
     'admin.contents.editor.tags',
@@ -1109,7 +1370,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.translation_save_failed',
     'admin.contents.editor.unknown_error',
     'admin.contents.editor.unsaved_changes',
-    'admin.contents.editor.upload_image',
+    'admin.contents.editor.updated_on',
+    'admin.contents.editor.updated_on_hint',
     'admin.contents.editor.url_copied',
     'admin.contents.editor.url_copy_failed',
     'admin.contents.editor.url_slug',
@@ -1158,12 +1420,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.form.description_translation_hint',
     'admin.contents.types.form.display_field',
     'admin.contents.types.form.display_field_hint',
+    'admin.contents.types.form.duplicate_fields',
     'admin.contents.types.form.edit_title',
     'admin.contents.types.form.field_key',
+    'admin.contents.types.form.field_key_auto_hint',
+    'admin.contents.types.form.field_key_locked_hint',
     'admin.contents.types.form.field_key_placeholder',
     'admin.contents.types.form.field_label',
     'admin.contents.types.form.field_label_placeholder',
     'admin.contents.types.form.field_n',
+    'admin.contents.types.form.field_name',
+    'admin.contents.types.form.field_name_duplicate',
+    'admin.contents.types.form.field_name_placeholder',
     'admin.contents.types.form.field_required',
     'admin.contents.types.form.field_type',
     'admin.contents.types.form.icon',
@@ -1181,6 +1449,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.form.public_pages',
     'admin.contents.types.form.public_pages_off',
     'admin.contents.types.form.save',
+    'admin.contents.types.form.schema_heading',
+    'admin.contents.types.form.schema_hint',
+    'admin.contents.types.form.schema_no_fields',
+    'admin.contents.types.form.schema_not_mapped',
+    'admin.contents.types.form.schema_recommended',
+    'admin.contents.types.form.search_fields',
+    'admin.contents.types.form.search_fields_hint',
+    'admin.contents.types.form.search_fields_none',
     'admin.contents.types.form.select_collection',
     'admin.contents.types.form.select_display_field',
     'admin.contents.types.form.singular_hint',
@@ -1380,6 +1656,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.announcements',
     'admin.nav.audience',
     'admin.nav.audience_and_emails',
+    'admin.nav.authors',
     'admin.nav.brand_kit',
     'admin.nav.broadcasts',
     'admin.nav.composer',
@@ -1476,13 +1753,36 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.products.updates_years',
     'admin.products.view_details',
     'admin.products.yearly',
+    'admin.search.count',
+    'admin.search.empty',
+    'admin.search.no_query',
+    'admin.search.open',
+    'admin.search.results_for',
+    'admin.search.subtitle',
+    'admin.search.title',
     'admin.settings.about.address',
     'admin.settings.about.address_hint',
     'admin.settings.about.address_placeholder',
+    'admin.settings.about.contact_email',
+    'admin.settings.about.contact_email_hint',
+    'admin.settings.about.description',
+    'admin.settings.about.description_hint',
+    'admin.settings.about.description_placeholder',
+    'admin.settings.about.identity_heading',
+    'admin.settings.about.identity_intro',
     'admin.settings.about.intro',
+    'admin.settings.about.logo_url',
+    'admin.settings.about.logo_url_hint',
+    'admin.settings.about.logo_url_placeholder',
+    'admin.settings.about.organization_type',
+    'admin.settings.about.organization_type_org',
+    'admin.settings.about.organization_type_person',
     'admin.settings.about.production_url',
     'admin.settings.about.production_url_hint',
     'admin.settings.about.production_url_placeholder',
+    'admin.settings.about.same_as',
+    'admin.settings.about.same_as_hint',
+    'admin.settings.about.same_as_placeholder',
     'admin.settings.about.site_name',
     'admin.settings.about.site_name_hint',
     'admin.settings.about.site_name_placeholder',
@@ -1556,6 +1856,37 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.analytics.why_note',
     'admin.settings.background_style',
     'admin.settings.banner_enabled',
+    'admin.settings.discoverability.allowed',
+    'admin.settings.discoverability.applied',
+    'admin.settings.discoverability.apply_failed',
+    'admin.settings.discoverability.blocked',
+    'admin.settings.discoverability.crawlers_heading',
+    'admin.settings.discoverability.crawlers_intro',
+    'admin.settings.discoverability.files_heading',
+    'admin.settings.discoverability.group_search',
+    'admin.settings.discoverability.group_search_hint',
+    'admin.settings.discoverability.group_training',
+    'admin.settings.discoverability.group_training_hint',
+    'admin.settings.discoverability.indexnow',
+    'admin.settings.discoverability.indexnow_heading',
+    'admin.settings.discoverability.indexnow_hint',
+    'admin.settings.discoverability.indexnow_key',
+    'admin.settings.discoverability.indexnow_key_hint',
+    'admin.settings.discoverability.indexnow_key_pending',
+    'admin.settings.discoverability.intro',
+    'admin.settings.discoverability.llms_txt',
+    'admin.settings.discoverability.llms_txt_hint',
+    'admin.settings.discoverability.save',
+    'admin.settings.discoverability.save_apply',
+    'admin.settings.discoverability.save_failed',
+    'admin.settings.discoverability.saved',
+    'admin.settings.discoverability.title',
+    'admin.settings.discoverability.verify_bing',
+    'admin.settings.discoverability.verify_gsc',
+    'admin.settings.discoverability.verify_heading',
+    'admin.settings.discoverability.verify_intro',
+    'admin.settings.discoverability.verify_llms',
+    'admin.settings.discoverability.verify_robots',
     'admin.settings.email.at_least_one',
     'admin.settings.email.auto_purge',
     'admin.settings.email.auto_purge_enable',
@@ -1614,6 +1945,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.about.label',
     'admin.settings.hub.analytics.description',
     'admin.settings.hub.analytics.label',
+    'admin.settings.hub.discoverability.description',
+    'admin.settings.hub.discoverability.label',
     'admin.settings.hub.email.description',
     'admin.settings.hub.email.label',
     'admin.settings.hub.integrations.description',
@@ -1626,6 +1959,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.misc.label',
     'admin.settings.hub.payments.description',
     'admin.settings.hub.payments.label',
+    'admin.settings.hub.search.description',
+    'admin.settings.hub.search.label',
     'admin.settings.hub.site-usage.description',
     'admin.settings.hub.site-usage.label',
     'admin.settings.hub.subtitle',
@@ -1745,10 +2080,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.misc.convert_webp',
     'admin.settings.misc.max_file_size',
     'admin.settings.misc.max_file_size_hint',
-    'admin.settings.misc.max_height',
-    'admin.settings.misc.max_height_hint',
-    'admin.settings.misc.max_width',
-    'admin.settings.misc.max_width_hint',
+    'admin.settings.misc.max_size',
+    'admin.settings.misc.max_size_hint',
     'admin.settings.misc.media_intro',
     'admin.settings.misc.media_saved',
     'admin.settings.misc.media_upload',
@@ -1790,6 +2123,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.payments.webhook_note',
     'admin.settings.payments.webhook_note_end',
     'admin.settings.payments.webhook_secret',
+    'admin.settings.search.col_documents',
+    'admin.settings.search.col_entries',
+    'admin.settings.search.col_last_rebuilt',
+    'admin.settings.search.col_scope',
+    'admin.settings.search.col_source',
+    'admin.settings.search.developer_note',
+    'admin.settings.search.entries_hint',
+    'admin.settings.search.intro',
+    'admin.settings.search.never',
+    'admin.settings.search.rebuild',
+    'admin.settings.search.rebuild_all',
+    'admin.settings.search.rebuild_failed',
+    'admin.settings.search.rebuilding',
+    'admin.settings.search.rebuilt',
+    'admin.settings.search.scope_admin',
+    'admin.settings.search.scope_authenticated',
+    'admin.settings.search.scope_public',
+    'admin.settings.search.source_content',
+    'admin.settings.search.source_content_drafts',
+    'admin.settings.search.source_products',
+    'admin.settings.search.title',
     'admin.settings.site_usage.accept_placeholder',
     'admin.settings.site_usage.accept_text',
     'admin.settings.site_usage.accept_text_required',
@@ -1892,6 +2246,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.paginator.previous_page',
     'common.paginator.range',
     'common.paginator.range_empty',
+    'common.search.all_results',
+    'common.search.empty',
+    'common.search.placeholder',
+    'common.search.showing_for',
     'common.state.loading',
     'common.status.draft',
     'common.status.edited',

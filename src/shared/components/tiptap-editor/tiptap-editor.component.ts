@@ -29,7 +29,7 @@ import ListKeymap from '@tiptap/extension-list-keymap';
 import Mention from '@tiptap/extension-mention';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import Subscript from '@tiptap/extension-subscript';
-// Table extensions removed temporarily due to import issues
+import { TableKit } from '@tiptap/extension-table';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
 import TextAlign from '@tiptap/extension-text-align';
@@ -48,6 +48,7 @@ import { MenitonsList } from './service/mentions/mentions.component';
 import { SlashCommands } from './service/slash-commands';
 import { UrlAddDialog } from './service/url-add-dialog/add-url.component';
 import { YouTubeExt } from './service/youtube-extension';
+import { ARC_BLOCKS, ArcBlock, ArcBlockKind, ArcBlockMeta } from './service/arc-block-extension';
 import MediaManagerComponent from '../../../app/pages/admin/(media)/media.page';
 import { filterEmailTags, insertTagMention } from '../../constants/email-tags';
 
@@ -132,6 +133,20 @@ export default class TiptapEditorComponent {
   showFiller = false;
   isOpenFormateOverlay = false;
   isOpenListTypeOverlay = false;
+  /** Structured blocks offered in the toolbar (docs/discoverability-spec.md, D-D10). */
+  readonly arcBlocks: readonly ArcBlockMeta[] = ARC_BLOCKS;
+  isOpenBlocksOverlay = false;
+
+  insertArcBlock(kind: ArcBlockKind): void {
+    this.editor.chain().focus().insertArcBlock(kind).run();
+    this.isOpenBlocksOverlay = false;
+  }
+
+  insertTable(): void {
+    this.editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    this.isOpenBlocksOverlay = false;
+  }
+
   isOpenAlignOverlay = false;
   injector = inject(Injector);
   @ViewChild('fileInput') fileInput!: ElementRef;
@@ -454,7 +469,11 @@ export default class TiptapEditorComponent {
           linkOnPaste: true,
           validate: (href) => /^https?:\/\//.test(href),
         }),
-        // Table extensions removed temporarily
+        // Tables: the v3 package bundles the four table nodes as TableKit.
+        // They used to be left out over an import problem that is gone.
+        TableKit.configure({ table: { resizable: false } }),
+        // Structured blocks: FAQ, key takeaways, how-to, definition (D-D10).
+        ArcBlock,
         SlashCommands,
         Youtube,
         YouTubeExt,

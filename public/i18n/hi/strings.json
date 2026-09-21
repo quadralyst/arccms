@@ -9,11 +9,23 @@
   "empty_body": "नई सामग्री के लिए जल्द ही देखें।",
   "previous": " पिछला",
   "next": "अगला ",
-
   "nav_features": "विशेषताएँ",
   "nav_how_it_works": "यह कैसे काम करता है",
   "nav_ownership": "स्वामित्व",
   "nav_get_access": "एक्सेस प्राप्त करें",
   "nav_articles": "लेख",
-  "nav_contact": "संपर्क"
+  "nav_contact": "संपर्क",
+  "search_placeholder": "खोजें",
+  "search_empty": "कोई परिणाम नहीं",
+  "search_showing_for": "\"{{term}}\" के परिणाम दिखाए जा रहे हैं",
+  "search_all_results": "सभी परिणाम देखें",
+  "search_results_title": "खोज",
+  "search_results_for": "\"{{query}}\" के परिणाम",
+  "search_no_query": "खोजने के लिए कुछ टाइप करें।",
+  "search_loading": "खोजा जा रहा है...",
+  "updated_on": "अद्यतन {{ updatedOnDisplay }}",
+  "written_by": "लेखक",
+  "author_more": "{{ author.name }} के और लेख",
+  "sources": "स्रोत",
+  "related_title": "संबंधित"
 }

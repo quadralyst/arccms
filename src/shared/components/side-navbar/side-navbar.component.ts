@@ -247,6 +247,7 @@ export default class NavbarComponent extends BaseComponent {
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
                 { label: 'Content types', labelKey: 'admin.nav.content_types', route: '/admin/contents/content-types', icon: 'fa-solid fa-newspaper' },
+                { label: 'Authors', labelKey: 'admin.nav.authors', route: '/admin/authors', icon: 'fa-solid fa-user-pen' },
                 ...contentTypeLinks,
             ],
         };

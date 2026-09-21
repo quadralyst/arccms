@@ -6,6 +6,10 @@ import {
     validateCollectionRefField,
     mapFieldWithCollectionRef,
     duplicateFieldKeyValidator,
+    fieldKeyFromLabel,
+    bareFieldKey,
+    fullFieldKey,
+    hasSlugPrefix,
 } from './collection-ref-helpers';
 import { FormArray, FormControl, FormGroup } from '@angular/forms';
 
@@ -831,6 +835,66 @@ describe('collection-ref-helpers', () => {
             expect(dupes).toContain('a');
             expect(dupes).toContain('b');
             expect(dupes.length).toBe(2);
+        });
+
+        it('compares keys without the content-type prefix', () => {
+            const fa = new FormArray(
+                [
+                    new FormGroup({ key: new FormControl('articles_author'), label: new FormControl('Author') }),
+                    new FormGroup({ key: new FormControl('author'), label: new FormControl('Writer') }),
+                ],
+                [duplicateFieldKeyValidator(() => 'articles')],
+            );
+            expect(fa.errors?.['duplicateKeys']).toEqual(['author']);
+            expect(fa.errors?.['duplicateNames']).toBeUndefined();
+        });
+
+        it('detects duplicate names independently of keys', () => {
+            const fa = new FormArray(
+                [
+                    new FormGroup({ key: new FormControl('a'), label: new FormControl('Prize') }),
+                    new FormGroup({ key: new FormControl('b'), label: new FormControl(' prize ') }),
+                ],
+                [duplicateFieldKeyValidator()],
+            );
+            expect(fa.errors?.['duplicateNames']).toEqual(['prize']);
+        });
+    });
+
+    describe('fieldKeyFromLabel', () => {
+        it.each([
+            ['Field Color', 'field-color'],
+            ['  Prize  ', 'prize'],
+            ['awards_recognition prize', 'awards-recognition-prize'],
+            ['Café & Bar!', 'caf-bar'],
+            ['---', ''],
+            ['', ''],
+            [null, ''],
+        ])('%s → %s', (label, key) => {
+            expect(fieldKeyFromLabel(label as string)).toBe(key);
+        });
+    });
+
+    describe('bareFieldKey', () => {
+        it('strips the slug prefix with either separator', () => {
+            expect(bareFieldKey('articles-author', 'articles')).toBe('author');
+            expect(bareFieldKey('articles_author', 'articles')).toBe('author');
+            expect(bareFieldKey('author', 'articles')).toBe('author');
+            expect(bareFieldKey('Articles-Author', 'articles')).toBe('author');
+            expect(bareFieldKey('articles-author', '')).toBe('articles-author');
+        });
+
+        it('does not treat a longer slug as a prefix', () => {
+            // `articles-extra-author` on type `articles-extra`, not `articles`.
+            expect(bareFieldKey('articles-extra-author', 'articles')).toBe('extra-author');
+            expect(hasSlugPrefix('articles', 'articles')).toBe(false);
+        });
+    });
+
+    describe('fullFieldKey', () => {
+        it('joins slug and name with a hyphen', () => {
+            expect(fullFieldKey('awards-recognition', 'prize')).toBe('awards-recognition-prize');
+            expect(fullFieldKey('', 'prize')).toBe('prize');
         });
     });
 });

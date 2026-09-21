@@ -7,6 +7,15 @@ import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js'
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
 import { generateAndDeploySitemap } from '../pages/generateSitemap.js';
 import { generateAndDeployRssFeeds } from '../pages/generateRssFeed.js';
+import { generateAndDeployRobotsTxt } from '../pages/generateRobotsTxt.js';
+import { generateAndDeployLlmsTxt } from '../pages/generateLlmsTxt.js';
+import { ensureIndexNowKey, submitBatchToIndexNow } from '../pages/indexNow.js';
+import { getDiscoverabilitySettings } from '../shared/discoverability-settings.js';
+import { contentSource, CONTENT_SOURCE_ID } from '../search/sources/content.js';
+import { CONTENT_DRAFTS_SOURCE_ID } from '../search/sources/content-drafts.js';
+import { buildSearchContext } from '../search/context.js';
+import { indexDocument, removeSearchEntries } from '../search/writer.js';
+import { runReindex } from '../search/reindexSearch.js';
 
 interface QueueItem {
     action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all';
@@ -130,6 +139,35 @@ async function stampLastPublishedAt(draftCollection: string, docId: string): Pro
 }
 
 /**
+ * Puts the published document into the search index, every language of it.
+ *
+ * Called from here rather than left to the wildcard trigger so that a failed
+ * index write is logged beside the publish it belongs to (S-D12). Never
+ * fails the publish: a page that deployed but cannot be searched is a far
+ * smaller problem than one that was not deployed.
+ */
+async function indexPublished(publishedCollection: string, docId: string): Promise<void> {
+    try {
+        const snap = await db.collection(publishedCollection).doc(docId).get();
+        const ctx = await buildSearchContext(publishedCollection, docId);
+        const entries = await indexDocument(contentSource, snap.exists ? snap.data() : null, ctx);
+        console.log(`Search index: ${entries} entr${entries === 1 ? 'y' : 'ies'} for ${publishedCollection}/${docId}`);
+    } catch (error) {
+        console.error(`Search index update failed for ${publishedCollection}/${docId}:`, error);
+    }
+}
+
+/** Takes a document out of the published search index (and, on delete, the drafts index too). */
+async function unindexPublished(contentTypeSlug: string, docId: string, alsoDrafts = false): Promise<void> {
+    try {
+        await removeSearchEntries(CONTENT_SOURCE_ID, getPublishedCollectionName(contentTypeSlug), docId);
+        if (alsoDrafts) await removeSearchEntries(CONTENT_DRAFTS_SOURCE_ID, getDraftCollectionName(contentTypeSlug), docId);
+    } catch (error) {
+        console.error(`Search index removal failed for ${docId}:`, error);
+    }
+}
+
+/**
  * Processes publish queue items.
  *
  * The admin app writes a trigger document to `_publish_queue` whenever
@@ -139,6 +177,31 @@ async function stampLastPublishedAt(draftCollection: string, docId: string): Pro
  *
  * This replaces the old wildcard triggers that fired for every Firestore write.
  */
+/**
+ * robots.txt, llms.txt and the IndexNow key file ride in every publish
+ * release (docs/discoverability-spec.md, D3), so a settings change reaches
+ * Hosting at the next publish even if the admin never pressed "apply".
+ */
+async function addDiscoverabilityFiles(batch: HostingBatch): Promise<void> {
+    const steps: Array<[string, () => Promise<unknown>]> = [
+        ['robots.txt', () => generateAndDeployRobotsTxt(batch)],
+        ['llms.txt', () => generateAndDeployLlmsTxt(batch)],
+        ['IndexNow key', async () => {
+            const settings = await getDiscoverabilitySettings();
+            if (settings.indexNow.enabled) await ensureIndexNowKey(batch);
+        }],
+    ];
+    // Each file on its own: one failing must not cost the others, and none
+    // may cost the pages already in the batch.
+    for (const [name, step] of steps) {
+        try {
+            await step();
+        } catch (error) {
+            console.error(`${name} regeneration failed:`, error);
+        }
+    }
+}
+
 export const processPublishQueue = onDocumentCreated({
     document: '_publish_queue/{queueId}',
     // A 'redeploy-all' rebuilds every published page in one invocation —
@@ -173,12 +236,21 @@ export const processPublishQueue = onDocumentCreated({
             const pages = await collectAllPublishedPages(batch);
             await generateAndDeploySitemap(batch);
             await generateAndDeployRssFeeds(batch);
+            await addDiscoverabilityFiles(batch);
             if (!batch.isEmpty) {
                 await deployBatchToHosting(process.env.GCLOUD_PROJECT || '', batch, '', '');
+                await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
             }
             console.log(`Redeployed ${pages} page(s) in ${batch.size} file(s)`);
         } catch (error) {
             console.error('Site-wide redeploy failed:', error);
+        }
+        // The published search index is rebuilt with the pages: a site-wide
+        // repair should leave nothing behind that a search cannot find.
+        try {
+            await runReindex({ source: CONTENT_SOURCE_ID });
+        } catch (error) {
+            console.error('Search reindex after redeploy-all failed:', error);
         }
         if (queueDocRef) await queueDocRef.delete();
         return;
@@ -214,6 +286,7 @@ export const processPublishQueue = onDocumentCreated({
                 console.log(`Published: ${publishedCollection}/${docId}`);
                 await syncTranslations(draftCollection, publishedCollection, docId);
                 await stampLastPublishedAt(draftCollection, docId);
+                await indexPublished(publishedCollection, docId);
 
                 // Deploy static HTML (detail + list pages)
                 // Skip entirely when ContentType.hasPublicUrl is false
@@ -291,6 +364,7 @@ export const processPublishQueue = onDocumentCreated({
                 await updateBatch.commit();
                 await syncTranslations(draftCollection, publishedCollection, docId);
                 await stampLastPublishedAt(draftCollection, docId);
+                await indexPublished(publishedCollection, docId);
 
                 // Deploy static HTML (detail + list pages)
                 // Skip entirely when ContentType.hasPublicUrl is false
@@ -315,6 +389,7 @@ export const processPublishQueue = onDocumentCreated({
                     await publishedRef.delete();
                     console.log(`Unpublished: ${publishedCollection}/${docId}`);
                 }
+                await unindexPublished(contentTypeSlug, docId);
 
                 // Remove static HTML and regenerate list page
                 if (hasPublicUrl) {
@@ -340,6 +415,7 @@ export const processPublishQueue = onDocumentCreated({
                     await publishedRef.delete();
                     console.log(`Deleted published: ${publishedCollection}/${docId}`);
                 }
+                await unindexPublished(contentTypeSlug, docId, true);
 
                 // Safety net: also delete draft if it still exists
                 // (The frontend normally deletes the draft first, but this ensures
@@ -386,6 +462,11 @@ export const processPublishQueue = onDocumentCreated({
             } catch (rssErr) {
                 console.error('RSS feed regeneration failed:', rssErr);
             }
+            try {
+                await addDiscoverabilityFiles(batch);
+            } catch (discoverabilityErr) {
+                console.error('Discoverability files regeneration failed:', discoverabilityErr);
+            }
         }
     } catch (error) {
         console.error(`Error processing queue item (${action} ${publishedCollection}/${docId}):`, error);
@@ -399,6 +480,9 @@ export const processPublishQueue = onDocumentCreated({
             const siteId = process.env.GCLOUD_PROJECT || '';
             await deployBatchToHosting(siteId, batch, publishedCollection, docId);
             console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
+            // Only after the release succeeded: a ping for pages that never
+            // went live would send the engines to a 404 (D-D9).
+            await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
         } catch (deployErr) {
             console.error(`Hosting release failed for ${action} ${contentTypeSlug}/${docId}:`, deployErr);
         }

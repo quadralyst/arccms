@@ -4,6 +4,7 @@ import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js
 import { deploySeoFileToHosting } from './deploySeoFile.js';
 import { HostingBatch } from './deployToHosting.js';
 import { detailUrl, listUrl } from '../shared/content-translation.js';
+import { lastmodDate } from '../shared/content-dates.js';
 
 /** Known static pages to include in the sitemap. */
 const STATIC_PAGES = ['privacy-policy', 'cookie-policy'];
@@ -111,7 +112,9 @@ export async function generateAndDeploySitemap(batch?: HostingBatch): Promise<vo
                 urls.push(
                     buildUrlEntry(
                         alternate.url,
-                        toIsoDate(data.publishedOn || data.modifiedAt),
+                        // updatedOn when the author marked a revision, else the
+                        // publish date (docs/discoverability-spec.md, D-D3).
+                        lastmodDate(data),
                         'weekly',
                         '0.8',
                         detailAlternates,

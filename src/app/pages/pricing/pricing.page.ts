@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { Component, inject, OnDestroy, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,6 +10,9 @@ import { ProductsService } from '../admin/(products)/products.service';
 import { IProduct } from '../admin/(products)/product.model';
 import { PublicNavComponent } from '../payments-ui/public-nav.component';
 import { displayPrice, isDiscounted, formatMoney, resolveDisplayTier } from '../payments-ui/pricing-utils';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { buildOrganization, organizationId, setJsonLd } from '../../../shared/utils/structured-data';
+import { buildProductNodes } from '../../../shared/utils/product-jsonld';
 
 @Component({
     standalone: true,
@@ -339,8 +342,13 @@ import { displayPrice, isDiscounted, formatMoney, resolveDisplayTier } from '../
         }
     `],
 })
-export default class PricingPageComponent implements OnInit {
+export default class PricingPageComponent implements OnInit, OnDestroy {
     private productsService = inject(ProductsService);
+    private document = inject(DOCUMENT);
+    private platformId = inject(PLATFORM_ID);
+    private siteIdentity = inject(SiteIdentityService);
+    /** Upper bound on Product scripts this page keeps in <head>. */
+    private static readonly MAX_PRODUCT_NODES = 20;
     private functions = inject(Functions);
     private authState = inject(AuthState);
     private router = inject(Router);
@@ -364,9 +372,44 @@ export default class PricingPageComponent implements OnInit {
                 
                 this.products.set((result.collectionData ?? []).filter((p) => p.active));
                 this.isLoading.set(false);
+                this.applyStructuredData();
             },
             error: () => this.isLoading.set(false),
         });
+    }
+
+    /**
+     * Product + Offer per plan from the real price data (D5), with the site
+     * owner as seller. Written in the browser only, like the home page's
+     * nodes: this page is served by the SPA, not the publish pipeline.
+     */
+    private applyStructuredData(): void {
+        if (!isPlatformBrowser(this.platformId)) return;
+        this.siteIdentity.load().then(identity => {
+            const baseUrl = (identity.finalUrl || window.location.origin).replace(/\/+$/, '');
+            const pageUrl = `${baseUrl}/pricing`;
+            const owner = buildOrganization({
+                name: identity.name || this.document.title,
+                url: baseUrl,
+                logoUrl: identity.logoUrl,
+                sameAs: identity.sameAs,
+                organizationType: identity.organizationType,
+            });
+            setJsonLd(this.document, 'arc-ld-organization', owner);
+            const nodes = buildProductNodes(
+                this.products().map(p => ({ ...p, price: displayPrice(p) })),
+                pageUrl,
+                owner ? organizationId(baseUrl) : undefined,
+            );
+            for (let i = 0; i < PricingPageComponent.MAX_PRODUCT_NODES; i++) {
+                setJsonLd(this.document, `arc-ld-product-${i}`, nodes[i] ?? null);
+            }
+        }).catch(() => undefined);
+    }
+
+    ngOnDestroy(): void {
+        setJsonLd(this.document, 'arc-ld-organization', null);
+        for (let i = 0; i < PricingPageComponent.MAX_PRODUCT_NODES; i++) setJsonLd(this.document, `arc-ld-product-${i}`, null);
     }
 
     async buy(product: IProduct): Promise<void> {

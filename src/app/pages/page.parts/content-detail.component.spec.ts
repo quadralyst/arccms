@@ -17,6 +17,7 @@ import { Auth } from '@angular/fire/auth';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { Meta, Title } from '@angular/platform-browser';
 import { DOCUMENT } from '@angular/common';
+import { AuthorProfileService } from '../../core/services/author-profile.service';
 
 describe('ContentDetailComponent', () => {
     let component: ContentDetailComponent;
@@ -24,6 +25,7 @@ describe('ContentDetailComponent', () => {
     let mockContentsStore: any;
     let mockContentTypesStore: any;
     let mockDraftContentsStore: any;
+    let mockAuthorProfiles: any;
     let mockAuth: any;
     let mockHttpClient: any;
     let mockTitleService: any;
@@ -68,6 +70,13 @@ describe('ContentDetailComponent', () => {
         mockDraftContentsStore = {
             getBySlug: vi.fn().mockResolvedValue(null)
         };
+
+        mockAuthorProfiles = {
+            load: vi.fn().mockImplementation(async (id: string) =>
+                id === 'a1'
+                    ? { id: 'a1', name: 'Jane Doe', slug: 'jane-doe', bio: 'Writes.', photoUrl: 'https://x.com/j.jpg', jobTitle: 'Founder', url: 'https://jane.dev', sameAs: ['https://x.com/jane'] }
+                    : null),
+        };
         
         mockAuth = {
             onAuthStateChanged: vi.fn((callback) => {
@@ -89,6 +98,7 @@ describe('ContentDetailComponent', () => {
                 { provide: Meta, useValue: mockMetaService },
                 { provide: DOCUMENT, useValue: document },
                 { provide: GaTrackingService, useValue: mockGaTrackingService },
+                { provide: AuthorProfileService, useValue: mockAuthorProfiles },
                 {
                     provide: ActivatedRoute,
                     useValue: {
@@ -199,7 +209,9 @@ describe('ContentDetailComponent', () => {
             const mockDocument = {
                 querySelectorAll: vi.fn().mockReturnValue([mockScript]),
                 createElement: vi.fn().mockReturnValue(mockNewScript),
-                createTextNode: vi.fn().mockReturnValue({})
+                createTextNode: vi.fn().mockReturnValue({}),
+                // ngOnDestroy clears the page's JSON-LD nodes through this document.
+                getElementById: vi.fn().mockReturnValue(null),
             };
 
             // Inject mock document
@@ -753,6 +765,143 @@ describe('ContentDetailComponent', () => {
             } finally {
                 vi.useRealTimers();
             }
+        });
+    });
+
+    // ─── Author (docs/discoverability-spec.md, D2) ─────────────────────────
+
+    describe('author', () => {
+        function showDraft(draft: Record<string, unknown>): void {
+            component.isPreview.set(true);
+            component.draftContent.set(draft as any);
+        }
+
+        it('loads the credited author and nests it as a Person in the Article node', async () => {
+            showDraft({ title: 'A', urlSlug: 'a', type: 'articles', authorId: 'a1', authorName: 'Jane Doe', publishedOn: { seconds: 1705334400 } });
+            fixture.detectChanges();
+            await fixture.whenStable();
+            await new Promise(r => setTimeout(r, 0));
+            fixture.detectChanges();
+
+            expect(mockAuthorProfiles.load).toHaveBeenCalledWith('a1');
+            expect(component.author()?.name).toBe('Jane Doe');
+            const script = document.getElementById('arc-ld-article');
+            expect(script).toBeTruthy();
+            const node = JSON.parse(script!.textContent || '{}');
+            expect(node.author).toEqual({
+                '@type': 'Person', name: 'Jane Doe', url: 'https://jane.dev', image: 'https://x.com/j.jpg',
+                description: 'Writes.', jobTitle: 'Founder', sameAs: ['https://x.com/jane'],
+            });
+        });
+
+        it('falls back to a bare Person from authorName when the author document is gone', async () => {
+            showDraft({ title: 'A', urlSlug: 'a', type: 'articles', authorId: 'gone', authorName: 'Old Name', publishedOn: { seconds: 1705334400 } });
+            fixture.detectChanges();
+            await fixture.whenStable();
+            await new Promise(r => setTimeout(r, 0));
+            fixture.detectChanges();
+
+            expect(component.author()).toBeNull();
+            const node = JSON.parse(document.getElementById('arc-ld-article')!.textContent || '{}');
+            expect(node.author).toEqual({ '@type': 'Person', name: 'Old Name' });
+        });
+
+        it('gives custom templates author bindings only when there is a name', () => {
+            showDraft({ title: 'A', urlSlug: 'a', type: 'articles' });
+            expect((component as any).authorTemplateData()).toEqual({ author: {}, authorName: '' });
+            showDraft({ title: 'A', urlSlug: 'a', type: 'articles', authorName: 'Jane Doe' });
+            expect((component as any).authorTemplateData()).toEqual({
+                author: { name: 'Jane Doe', bio: '', photoUrl: '', jobTitle: '', url: '' },
+                authorName: 'Jane Doe',
+            });
+        });
+    });
+
+    // ─── Blocks and sources (docs/discoverability-spec.md, D-D10, D-D11) ───
+
+    describe('blocks and sources', () => {
+        function showDraft(draft: Record<string, unknown>): void {
+            component.isPreview.set(true);
+            component.draftContent.set(draft as any);
+        }
+
+        it('emits block nodes, the abstract and citations, and renders the Sources list', async () => {
+            showDraft({
+                title: 'A', urlSlug: 'a', type: 'articles', publishedOn: { seconds: 1705334400 },
+                content: '<section data-arc-block="takeaways"><h3>Key takeaways</h3><ul><li>Fast</li></ul></section>'
+                    + '<section data-arc-block="faq"><h3>Cost?</h3><p>Nothing.</p></section>',
+                references: [{ title: 'Spec', url: 'https://spec.example/one' }, { url: 'junk' }],
+            });
+            fixture.detectChanges();
+            await fixture.whenStable();
+            fixture.detectChanges();
+
+            const article = JSON.parse(document.getElementById('arc-ld-article')!.textContent || '{}');
+            expect(article.abstract).toBe('Fast.');
+            expect(article.citation).toEqual([{ '@type': 'CreativeWork', url: 'https://spec.example/one', name: 'Spec' }]);
+            const faq = JSON.parse(document.getElementById('arc-ld-block-0')!.textContent || '{}');
+            expect(faq['@type']).toBe('FAQPage');
+            expect(document.getElementById('arc-ld-block-1')).toBeNull();
+
+            const sources: HTMLElement = fixture.nativeElement.querySelector('.article-sources');
+            expect(sources).toBeTruthy();
+            expect(sources.querySelectorAll('li').length).toBe(1);
+            expect(sources.querySelector('a')?.getAttribute('href')).toBe('https://spec.example/one');
+        });
+
+        it('renders no Sources section and no block nodes for a plain article', async () => {
+            showDraft({ title: 'A', urlSlug: 'a', type: 'articles', content: '<p>plain</p>' });
+            fixture.detectChanges();
+            await fixture.whenStable();
+            fixture.detectChanges();
+            expect(fixture.nativeElement.querySelector('.article-sources')).toBeNull();
+            expect(document.getElementById('arc-ld-block-0')).toBeNull();
+        });
+    });
+
+    // ─── Mapped schema type (docs/discoverability-spec.md, D-D12) ──────────
+
+    describe('mapped schema type', () => {
+        it('publishes the item as the content type\'s mapped type in the head', async () => {
+            mockContentTypesStore.items.set([{
+                id: 'ct1', name: 'Articles', slug: 'articles', fields: [],
+                schema: { type: 'Product', fields: { price: 'articles_price', priceCurrency: 'articles_cur' } },
+            }] as any);
+            component.isPreview.set(true);
+            component.draftContent.set({
+                title: 'Widget', urlSlug: 'widget', type: 'articles', publishedOn: { seconds: 1705334400 },
+                customFields: { articles_price: '250', articles_cur: 'INR' },
+            } as any);
+            fixture.detectChanges();
+            await fixture.whenStable();
+            fixture.detectChanges();
+
+            const main = JSON.parse(document.getElementById('arc-ld-article')!.textContent || '{}');
+            expect(main['@type']).toBe('Product');
+            expect(main.name).toBe('Widget');
+            expect(main.offers).toEqual(expect.objectContaining({ price: 250, priceCurrency: 'INR' }));
+        });
+    });
+
+    // ─── Updated line (docs/discoverability-spec.md, D-D3) ─────────────────
+
+    describe('updatedOnDisplay', () => {
+        // currentContent is computed from the preview draft, so seed it that way.
+        function showDraft(draft: Record<string, unknown>): void {
+            component.isPreview.set(true);
+            component.draftContent.set(draft as any);
+        }
+
+        it('is empty without updatedOn or when it is not after the publish date', () => {
+            showDraft({ title: 'A', publishedOn: { seconds: 1705334400 } });
+            expect(component.updatedOnDisplay()).toBe('');
+            showDraft({ title: 'A', publishedOn: { seconds: 1705334400 }, updatedOn: { seconds: 1600000000 } });
+            expect(component.updatedOnDisplay()).toBe('');
+        });
+
+        it('formats updatedOn when it is a later revision', () => {
+            showDraft({ title: 'A', publishedOn: { seconds: 1705334400 }, updatedOn: { seconds: 1735689600 } });
+            expect(component.updatedOnDisplay()).toBe(component.formatContentDate({ seconds: 1735689600 }));
         });
     });
 });

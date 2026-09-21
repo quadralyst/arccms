@@ -160,7 +160,11 @@ export default class DashboardComponent extends BaseComponent {
 
   ngOnInit(): void {
     this.subscribeToData(this.analyticsStore);
-    this.subscribeToData(this.contentTypesStore);
+    // Every content type, through the store's own no-limit default. The
+    // BaseComponent helper pages at ten, which silently dropped the oldest
+    // types from the cards and the "Managing N content types" line on a
+    // site with more than ten (the same bug the public pages had).
+    this.contentTypesStore.getAll();
     this.waitlistAdminStore.subscribe();
     this.loadMediaCount();
     this.loadGrowthAndLeadsCounts();

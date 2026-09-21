@@ -15,10 +15,26 @@ export interface MiscSettings {
     showPoweredBy: boolean;
 }
 
+/**
+ * Site identity from Settings/about. The first three fields predate the
+ * discoverability work; the rest feed the Organization node every public page
+ * carries (docs/discoverability-spec.md, D-D4). Mirrors IAboutSettings in
+ * src/app/pages/admin/(settings)/about/about-settings.model.ts.
+ */
 export interface AboutConfig {
     name: string;
     finalUrl: string;
     address: string;
+    /** Absolute URL of a square-ish logo (Organization.logo). */
+    logoUrl: string;
+    /** One or two sentences on what the site or organisation is. */
+    description: string;
+    /** Profile URLs that are the same entity: social accounts, Wikipedia, Crunchbase, GitHub. */
+    sameAs: string[];
+    /** Public contact address; leave empty to publish none. */
+    contactEmail: string;
+    /** A personal site publishes as a Person rather than an Organization. */
+    organizationType: 'Organization' | 'Person';
 }
 
 /**
@@ -131,6 +147,11 @@ export async function getAboutConfig(): Promise<AboutConfig> {
         name: data?.name || '',
         finalUrl: data?.finalUrl || '',
         address: data?.address || '',
+        logoUrl: data?.logoUrl || '',
+        description: data?.description || '',
+        sameAs: Array.isArray(data?.sameAs) ? data.sameAs.filter((u: unknown) => typeof u === 'string') : [],
+        contactEmail: data?.contactEmail || '',
+        organizationType: data?.organizationType === 'Person' ? 'Person' : 'Organization',
     };
 
     aboutConfigCache = { data: about, timestamp: Date.now() };

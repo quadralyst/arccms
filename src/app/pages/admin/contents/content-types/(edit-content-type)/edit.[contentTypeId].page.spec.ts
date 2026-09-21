@@ -9,12 +9,14 @@ import EditContentTypeComponent from './edit.[contentTypeId].page';
 import { ContentTypesStore } from '../content-types.store';
 import { IconPickerComponent } from '../../../../../../shared/components/icon-picker/icon-picker.component';
 import { ToastService } from '../../../../../../shared/services/toast.service';
+import { SearchService } from '../../../../../core/services/search.service';
 import { ContentType } from '../content-types.model';
 
 describe('EditContentTypeComponent', () => {
     let component: EditContentTypeComponent;
     let fixture: ComponentFixture<EditContentTypeComponent>;
     let mockStore: any;
+    const mockSearchService = { reindex: vi.fn().mockResolvedValue([]) };
     let mockToastService: any;
     let mockRouter: any;
 
@@ -69,6 +71,7 @@ describe('EditContentTypeComponent', () => {
                 { provide: ContentTypesStore, useValue: mockStore },
                 { provide: ToastService, useValue: mockToastService },
                 { provide: Router, useValue: mockRouter },
+                { provide: SearchService, useValue: mockSearchService },
                 {
                     provide: ActivatedRoute,
                     useValue: { snapshot: { params: { contentTypeId: 'test-id' } } },
@@ -375,7 +378,7 @@ describe('EditContentTypeComponent', () => {
             component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
             expect(callArgs.fields).toHaveLength(1);
-            expect(callArgs.fields[0].key).toBe('updated-type_content');
+            expect(callArgs.fields[0].key).toBe('updated-type-content');
         });
 
         it('should show success message on successful submission', async () => {
@@ -643,26 +646,75 @@ describe('EditContentTypeComponent', () => {
 
             component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
-            // Key 'title' gets slug prepended to 'test-type_title'
-            expect(callArgs.fields[0].key).toBe('test-type_title');
+            // A stored key is written back exactly as loaded — never prefixed
+            // or re-derived, since content documents already refer to it.
+            expect(callArgs.fields[0].key).toBe('title');
+        });
+
+        it('keeps an older underscore-prefixed stored key untouched', () => {
+            component.id = 'test-id';
+            component['updateFormdata']({
+                ...mockContentType,
+                fields: [{ key: 'test-type_prize', label: 'Prize', type: 'text', required: false, order: 0 }],
+            });
+            component.fields.at(0).get('label')?.setValue('Award');
+            component.addField();
+            component.fields.at(1).patchValue({ label: 'Sponsor', type: 'text' });
+
+            component.onSubmit();
+            const callArgs = mockStore.update.mock.calls[0][1];
+            expect(callArgs.fields[0].key).toBe('test-type_prize');
+            expect(callArgs.fields[0].label).toBe('Award');
+            expect(callArgs.fields[1].key).toBe('test-type-sponsor');
         });
     });
 
-    describe('Duplicate Field Key Validation', () => {
-        it('should detect duplicate field keys in newly added fields', () => {
+    describe('Field names and derived keys', () => {
+        it('derives a new field\'s key from its name', () => {
             component.addField();
-            component.addField();
-            component.fields.at(0).patchValue({ key: 'dup_field', label: 'F1', type: 'text' });
-            component.fields.at(1).patchValue({ key: 'dup_field', label: 'F2', type: 'text' });
+            component.fields.at(0).patchValue({ label: 'Field Color', type: 'text' });
 
-            expect(component.fields.errors?.['duplicateKeys']).toBeTruthy();
+            expect(component.fields.at(0).get('key')?.value).toBe('field-color');
         });
 
-        it('should allow unique field keys', () => {
+        it('keeps a stored field\'s key when its name changes', () => {
+            component.id = 'test-id';
+            component['updateFormdata'](mockContentType);
+            component.fields.at(0).get('label')?.setValue('Headline');
+
+            expect(component.fields.at(0).get('key')?.value).toBe('title');
+            expect(component.fields.at(0).get('key')?.disabled).toBe(true);
+        });
+
+        it('flags a new field whose name collides with a stored key', () => {
+            component.id = 'test-id';
+            component['updateFormdata']({
+                ...mockContentType,
+                fields: [{ key: 'test-type_prize', label: 'Prize', type: 'text', required: false, order: 0 }],
+            });
+            component.addField();
+            component.fields.at(1).patchValue({ label: 'Prize' });
+
+            // The stored key carries the slug prefix; the new one does not yet.
+            expect(component.fields.errors?.['duplicateKeys']).toEqual(['prize']);
+            expect(component.isDuplicateField(1)).toBe(true);
+        });
+
+        it('should detect duplicate names in newly added fields', () => {
             component.addField();
             component.addField();
-            component.fields.at(0).patchValue({ key: 'field_a', label: 'A', type: 'text' });
-            component.fields.at(1).patchValue({ key: 'field_b', label: 'B', type: 'text' });
+            component.fields.at(0).patchValue({ label: 'Dup Field', type: 'text' });
+            component.fields.at(1).patchValue({ label: 'dup field', type: 'text' });
+
+            expect(component.fields.errors?.['duplicateKeys']).toBeTruthy();
+            expect(component.fields.errors?.['duplicateNames']).toBeTruthy();
+        });
+
+        it('should allow unique names', () => {
+            component.addField();
+            component.addField();
+            component.fields.at(0).patchValue({ label: 'A', type: 'text' });
+            component.fields.at(1).patchValue({ label: 'B', type: 'text' });
 
             expect(component.fields.errors).toBeNull();
         });
@@ -685,7 +737,7 @@ describe('EditContentTypeComponent', () => {
 
             component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
-            expect(callArgs.fields[0].key).toBe('articles_author');
+            expect(callArgs.fields[0].key).toBe('articles-author');
         });
 
         it('should not double-prepend slug if already prefixed', () => {
@@ -696,7 +748,7 @@ describe('EditContentTypeComponent', () => {
             });
             component.addField();
             component.fields.at(0).patchValue({
-                key: 'articles_author',
+                key: 'articles-author',
                 label: 'Author',
                 type: 'text',
                 required: false,
@@ -704,7 +756,58 @@ describe('EditContentTypeComponent', () => {
 
             component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
-            expect(callArgs.fields[0].key).toBe('articles_author');
+            expect(callArgs.fields[0].key).toBe('articles-author');
+        });
+    });
+
+    // ─── Structured data (docs/discoverability-spec.md, D-D12) ────────────
+
+    describe('Structured data mapping', () => {
+        function addField(key: string, type: string, label = key): void {
+            component.addField();
+            component.fields.at(component.fields.length - 1).patchValue({ key, label, type, required: false });
+        }
+
+        it('defaults to Article with no properties and saves an empty mapping', () => {
+            component.id = 'test-id';
+            component.editForm.patchValue({ name: 'Articles', slug: 'articles' });
+            expect(component.schemaType()).toBe('Article');
+            expect(component.schemaProperties()).toEqual([]);
+            component.onSubmit();
+            expect(mockStore.update.mock.calls[0][1].schema).toEqual({ type: 'Article', fields: {} });
+        });
+
+        it('offers only compatible fields per property and saves prefixed keys (new fields take the hyphen form)', () => {
+            component.id = 'test-id';
+            component.editForm.patchValue({ name: 'Products', slug: 'products' });
+            addField('price', 'number', 'Price');
+            addField('currency', 'text', 'Currency');
+            addField('photo', 'image', 'Photo');
+            component.setSchemaType('Product');
+
+            const priceProp = component.schemaProperties().find(p => p.key === 'price')!;
+            expect(component.fieldsForProperty(priceProp).map(f => f.key)).toEqual(['products-price', 'products-currency']);
+            const currencyProp = component.schemaProperties().find(p => p.key === 'priceCurrency')!;
+            expect(component.fieldsForProperty(currencyProp).map(f => f.key)).toEqual(['products-currency']);
+
+            component.setMappedField('price', 'products-price');
+            component.setMappedField('priceCurrency', 'products-currency');
+            component.setMappedField('sku', 'products-gone');
+            component.onSubmit();
+            expect(mockStore.update.mock.calls[0][1].schema).toEqual({
+                type: 'Product',
+                fields: { price: 'products-price', priceCurrency: 'products-currency' },
+            });
+        });
+
+        it('clears a mapping when set to Not mapped and rejects unknown types', () => {
+            component.setSchemaType('Event');
+            component.setMappedField('startDate', 'x_start');
+            expect(component.mappedField('startDate')).toBe('x_start');
+            component.setMappedField('startDate', '');
+            expect(component.mappedField('startDate')).toBe('');
+            component.setSchemaType('Spaceship');
+            expect(component.schemaType()).toBe('Article');
         });
     });
 });

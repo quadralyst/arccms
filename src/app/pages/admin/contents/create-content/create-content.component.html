@@ -256,6 +256,12 @@
                 <button class="tab-btn" [class.active]="activeTab === 'basic'"
                     (click)="activeTab = 'basic'">{{ 'admin.contents.editor.tab_basic' | transloco }}</button>
                 <button class="tab-btn" [class.active]="activeTab === 'seo'" (click)="activeTab = 'seo'">{{ 'admin.contents.editor.tab_seo' | transloco }}</button>
+                <button class="tab-btn" [class.active]="activeTab === 'checks'" (click)="openChecks()" data-testid="tab-checks">
+                    {{ 'admin.contents.editor.tab_checks' | transloco }}
+                    @if (checklist(); as report) {
+                    <span class="checks-score-pill" [class.good]="report.score >= 80" [class.warn]="report.score < 80 && report.score >= 50" [class.bad]="report.score < 50">{{ report.score }}</span>
+                    }
+                </button>
                 @if(publishedId){
                 <button class="tab-btn" [class.active]="activeTab === 'history'"
                     (click)="activeTab = 'history'">
@@ -350,9 +356,8 @@
                             <div class="cover-image-upload" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
                                 @if (!coverImage) {
                                 <div class="upload-area" (click)="openMediaManager()">
-                                    <p class="mb-1">{{ 'admin.contents.editor.click_to_upload' | transloco }}</p>
-                                    <small class="text-muted">{{ 'admin.contents.editor.image_recommendation' | transloco }}</small>
-                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2">{{ 'admin.contents.editor.upload_image' | transloco }}</button>
+                                    <p class="mb-1">{{ 'admin.contents.editor.click_to_select_image' | transloco }}</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2">{{ 'admin.contents.editor.select_image' | transloco }}</button>
                                     <input type="file" id="coverImageInput" hidden (change)="onFileSelected($event)"
                                         accept="image/*">
                                 </div>
@@ -439,6 +444,27 @@
                                 Full URL: {{ domain }}{{ contentTypeSlug }}/{{ publishForm.get('urlSlug')?.value }}
                             </small>
                             }
+                        </div>
+
+                        <!-- Author (docs/discoverability-spec.md, D2) -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                {{ 'admin.contents.editor.author' | transloco }}
+                                @if(isTranslating()){
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                }
+                            </label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <select class="form-select form-select-sm author-select" formControlName="authorId"
+                                    (change)="triggerAutoSave()" [attr.disabled]="isTranslating() ? '' : null" data-testid="author-select">
+                                    <option value="">{{ 'admin.contents.editor.author_none' | transloco }}</option>
+                                    @for (author of authors(); track author.id) {
+                                    <option [value]="author.id">{{ author.name }}</option>
+                                    }
+                                </select>
+                                <a routerLink="/admin/authors" class="btn btn-sm btn-link text-nowrap">{{ 'admin.contents.editor.manage_authors' | transloco }}</a>
+                            </div>
+                            <small class="text-muted">{{ 'admin.contents.editor.author_hint' | transloco }}</small>
                         </div>
 
                         <!-- Tags with Autocomplete -->
@@ -880,6 +906,59 @@
                                 placeholder="https://yourdomain.com/original-post-url" (input)="triggerAutoSave()"
                                 [readonly]="isTranslating()">
                         </div>
+                        <div class="form-group">
+                            <label class="form-label">
+                                {{ 'admin.contents.editor.updated_on' | transloco }}
+                                @if(isTranslating()){
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                }
+                            </label>
+                            <div class="d-flex gap-2 align-items-center flex-wrap">
+                                <input type="date" class="form-control form-control-sm updated-on-input" formControlName="updatedOn"
+                                    (change)="triggerAutoSave()" [readonly]="isTranslating()" data-testid="updated-on">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="markUpdatedToday()"
+                                    [disabled]="isTranslating()" data-testid="mark-updated-today">
+                                    <i class="fa-solid fa-pen me-1"></i>{{ 'admin.contents.editor.mark_updated_today' | transloco }}
+                                </button>
+                                @if(seoForm.get('updatedOn')?.value){
+                                <button type="button" class="btn btn-sm btn-link text-muted" (click)="clearUpdatedOn()"
+                                    [disabled]="isTranslating()" data-testid="clear-updated-on">
+                                    {{ 'admin.contents.editor.clear_updated' | transloco }}
+                                </button>
+                                }
+                            </div>
+                            <small class="text-muted">{{ 'admin.contents.editor.updated_on_hint' | transloco }}</small>
+                        </div>
+
+                        <!-- Sources (docs/discoverability-spec.md, D-D11) -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                {{ 'admin.contents.editor.references' | transloco }}
+                                @if(isTranslating()){
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                }
+                            </label>
+                            @for (ref of references(); track $index) {
+                            <div class="reference-row d-flex gap-2 mb-2" [attr.data-testid]="'reference-' + $index">
+                                <input type="text" class="form-control form-control-sm" [value]="ref.title"
+                                    (input)="updateReference($index, 'title', $any($event.target).value)"
+                                    [placeholder]="'admin.contents.editor.reference_title_placeholder' | transloco"
+                                    [readonly]="isTranslating()">
+                                <input type="url" class="form-control form-control-sm" [value]="ref.url"
+                                    (input)="updateReference($index, 'url', $any($event.target).value)"
+                                    placeholder="https://" [readonly]="isTranslating()">
+                                <button type="button" class="btn btn-sm btn-link text-danger px-1" (click)="removeReference($index)"
+                                    [disabled]="isTranslating()" [attr.aria-label]="'common.actions.delete' | transloco">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            }
+                            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="addReference()"
+                                [disabled]="isTranslating()" data-testid="add-reference">
+                                <i class="fa-solid fa-plus me-1"></i>{{ 'admin.contents.editor.add_reference' | transloco }}
+                            </button>
+                            <small class="text-muted d-block mt-1">{{ 'admin.contents.editor.references_hint' | transloco }}</small>
+                        </div>
 
                         <!-- Social Sharing Preview -->
                         <hr class="my-3">
@@ -915,6 +994,61 @@
                             </div>
                         </div>
                     </form>
+                </div>
+                }
+
+                <!-- Checks Tab (docs/discoverability-spec.md, D-D13, D-D16) -->
+                @if(activeTab === 'checks'){
+                <div class="tab-panel checks-panel">
+                    <div class="d-flex align-items-start justify-content-between gap-2">
+                        <div>
+                            <h6 class="meta-section-title mb-1"><i class="fa-solid fa-magnifying-glass-chart me-1"></i> {{ 'admin.contents.checklist.title' | transloco }}</h6>
+                            <p class="text-muted small mb-2">{{ 'admin.contents.checklist.intro' | transloco }}</p>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" (click)="runChecklist(); loadLinkSuggestions()" data-testid="checks-refresh">
+                            <i class="fa-solid fa-rotate me-1"></i>{{ 'admin.contents.checklist.refresh' | transloco }}
+                        </button>
+                    </div>
+                    @if (checklist(); as report) {
+                    <div class="checks-score" [class.good]="report.score >= 80" [class.warn]="report.score < 80 && report.score >= 50" [class.bad]="report.score < 50" data-testid="checks-score">
+                        <span class="checks-score-value">{{ report.score }}</span>
+                        <span class="checks-score-label">{{ 'admin.contents.checklist.passed' | transloco: { passed: report.passed, total: report.total } }}</span>
+                    </div>
+                    <ul class="checks-list list-unstyled">
+                        @for (rule of report.results; track rule.id) {
+                        <li class="checks-row" [class.ok]="rule.ok" [class.severity-high]="rule.severity === 'high'" [attr.data-testid]="'check-' + rule.id">
+                            <i class="fa-solid" [class.fa-circle-check]="rule.ok" [class.fa-circle-xmark]="!rule.ok"></i>
+                            <div class="checks-row-body">
+                                <span class="checks-row-label">{{ rule.labelKey | transloco }}@if (rule.detail) { <span class="text-muted">({{ rule.detail }})</span> }</span>
+                                @if (!rule.ok) { <span class="checks-row-fix text-muted">{{ rule.fixKey | transloco }}</span> }
+                            </div>
+                        </li>
+                        }
+                    </ul>
+                    }
+
+                    <hr class="my-3">
+                    <h6 class="meta-section-title mb-1"><i class="fa-solid fa-link me-1"></i> {{ 'admin.contents.checklist.links_heading' | transloco }}</h6>
+                    <p class="text-muted small mb-2">{{ 'admin.contents.checklist.links_intro' | transloco }}</p>
+                    @if (linkSuggestionsLoading()) {
+                    <p class="text-muted small"><i class="fas fa-spinner fa-spin me-1"></i></p>
+                    } @else if (linkSuggestions().length) {
+                    <ul class="link-suggestions list-unstyled">
+                        @for (item of linkSuggestions(); track item.link) {
+                        <li class="link-suggestion" [attr.data-testid]="'link-suggestion-' + item.docId">
+                            <div class="link-suggestion-body">
+                                <span class="link-suggestion-title">{{ item.title }}</span>
+                                <span class="link-suggestion-meta text-muted">{{ item.badge }} · {{ item.link }}</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" (click)="insertSuggestedLink(item)" [disabled]="isTranslating()">
+                                <i class="fa-solid fa-plus me-1"></i>{{ 'admin.contents.checklist.insert_link' | transloco }}
+                            </button>
+                        </li>
+                        }
+                    </ul>
+                    } @else {
+                    <p class="text-muted small">{{ (linkSuggestionsKey ? 'admin.contents.checklist.links_all_linked' : 'admin.contents.checklist.links_none') | transloco }}</p>
+                    }
                 </div>
                 }
 
