@@ -329,6 +329,13 @@ export default class SettingsPageComponent extends BaseComponent {
             description: 'Search index and rebuild tools',
         },
         {
+            id: 'discoverability',
+            label: 'Discoverability',
+            icon: 'fa-solid fa-robot',
+            route: '/admin/settings/discoverability',
+            description: 'AI crawlers, llms.txt & IndexNow',
+        },
+        {
             id: 'misc',
             label: 'Miscellaneous',
             icon: 'fa-solid fa-cog',

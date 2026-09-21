@@ -641,6 +641,37 @@ export type TranslationKey =
     | 'admin.settings.analytics.why_note'
     | 'admin.settings.background_style'
     | 'admin.settings.banner_enabled'
+    | 'admin.settings.discoverability.allowed'
+    | 'admin.settings.discoverability.applied'
+    | 'admin.settings.discoverability.apply_failed'
+    | 'admin.settings.discoverability.blocked'
+    | 'admin.settings.discoverability.crawlers_heading'
+    | 'admin.settings.discoverability.crawlers_intro'
+    | 'admin.settings.discoverability.files_heading'
+    | 'admin.settings.discoverability.group_search'
+    | 'admin.settings.discoverability.group_search_hint'
+    | 'admin.settings.discoverability.group_training'
+    | 'admin.settings.discoverability.group_training_hint'
+    | 'admin.settings.discoverability.indexnow'
+    | 'admin.settings.discoverability.indexnow_heading'
+    | 'admin.settings.discoverability.indexnow_hint'
+    | 'admin.settings.discoverability.indexnow_key'
+    | 'admin.settings.discoverability.indexnow_key_hint'
+    | 'admin.settings.discoverability.indexnow_key_pending'
+    | 'admin.settings.discoverability.intro'
+    | 'admin.settings.discoverability.llms_txt'
+    | 'admin.settings.discoverability.llms_txt_hint'
+    | 'admin.settings.discoverability.save'
+    | 'admin.settings.discoverability.save_apply'
+    | 'admin.settings.discoverability.save_failed'
+    | 'admin.settings.discoverability.saved'
+    | 'admin.settings.discoverability.title'
+    | 'admin.settings.discoverability.verify_bing'
+    | 'admin.settings.discoverability.verify_gsc'
+    | 'admin.settings.discoverability.verify_heading'
+    | 'admin.settings.discoverability.verify_intro'
+    | 'admin.settings.discoverability.verify_llms'
+    | 'admin.settings.discoverability.verify_robots'
     | 'admin.settings.email.at_least_one'
     | 'admin.settings.email.auto_purge'
     | 'admin.settings.email.auto_purge_enable'
@@ -699,6 +730,8 @@ export type TranslationKey =
     | 'admin.settings.hub.about.label'
     | 'admin.settings.hub.analytics.description'
     | 'admin.settings.hub.analytics.label'
+    | 'admin.settings.hub.discoverability.description'
+    | 'admin.settings.hub.discoverability.label'
     | 'admin.settings.hub.email.description'
     | 'admin.settings.hub.email.label'
     | 'admin.settings.hub.integrations.description'
@@ -1725,6 +1758,37 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.analytics.why_note',
     'admin.settings.background_style',
     'admin.settings.banner_enabled',
+    'admin.settings.discoverability.allowed',
+    'admin.settings.discoverability.applied',
+    'admin.settings.discoverability.apply_failed',
+    'admin.settings.discoverability.blocked',
+    'admin.settings.discoverability.crawlers_heading',
+    'admin.settings.discoverability.crawlers_intro',
+    'admin.settings.discoverability.files_heading',
+    'admin.settings.discoverability.group_search',
+    'admin.settings.discoverability.group_search_hint',
+    'admin.settings.discoverability.group_training',
+    'admin.settings.discoverability.group_training_hint',
+    'admin.settings.discoverability.indexnow',
+    'admin.settings.discoverability.indexnow_heading',
+    'admin.settings.discoverability.indexnow_hint',
+    'admin.settings.discoverability.indexnow_key',
+    'admin.settings.discoverability.indexnow_key_hint',
+    'admin.settings.discoverability.indexnow_key_pending',
+    'admin.settings.discoverability.intro',
+    'admin.settings.discoverability.llms_txt',
+    'admin.settings.discoverability.llms_txt_hint',
+    'admin.settings.discoverability.save',
+    'admin.settings.discoverability.save_apply',
+    'admin.settings.discoverability.save_failed',
+    'admin.settings.discoverability.saved',
+    'admin.settings.discoverability.title',
+    'admin.settings.discoverability.verify_bing',
+    'admin.settings.discoverability.verify_gsc',
+    'admin.settings.discoverability.verify_heading',
+    'admin.settings.discoverability.verify_intro',
+    'admin.settings.discoverability.verify_llms',
+    'admin.settings.discoverability.verify_robots',
     'admin.settings.email.at_least_one',
     'admin.settings.email.auto_purge',
     'admin.settings.email.auto_purge_enable',
@@ -1783,6 +1847,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.about.label',
     'admin.settings.hub.analytics.description',
     'admin.settings.hub.analytics.label',
+    'admin.settings.hub.discoverability.description',
+    'admin.settings.hub.discoverability.label',
     'admin.settings.hub.email.description',
     'admin.settings.hub.email.label',
     'admin.settings.hub.integrations.description',

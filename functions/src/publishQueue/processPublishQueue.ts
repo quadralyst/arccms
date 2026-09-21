@@ -7,6 +7,10 @@ import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js'
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
 import { generateAndDeploySitemap } from '../pages/generateSitemap.js';
 import { generateAndDeployRssFeeds } from '../pages/generateRssFeed.js';
+import { generateAndDeployRobotsTxt } from '../pages/generateRobotsTxt.js';
+import { generateAndDeployLlmsTxt } from '../pages/generateLlmsTxt.js';
+import { ensureIndexNowKey, submitBatchToIndexNow } from '../pages/indexNow.js';
+import { getDiscoverabilitySettings } from '../shared/discoverability-settings.js';
 import { contentSource, CONTENT_SOURCE_ID } from '../search/sources/content.js';
 import { CONTENT_DRAFTS_SOURCE_ID } from '../search/sources/content-drafts.js';
 import { buildSearchContext } from '../search/context.js';
@@ -173,6 +177,31 @@ async function unindexPublished(contentTypeSlug: string, docId: string, alsoDraf
  *
  * This replaces the old wildcard triggers that fired for every Firestore write.
  */
+/**
+ * robots.txt, llms.txt and the IndexNow key file ride in every publish
+ * release (docs/discoverability-spec.md, D3), so a settings change reaches
+ * Hosting at the next publish even if the admin never pressed "apply".
+ */
+async function addDiscoverabilityFiles(batch: HostingBatch): Promise<void> {
+    const steps: Array<[string, () => Promise<unknown>]> = [
+        ['robots.txt', () => generateAndDeployRobotsTxt(batch)],
+        ['llms.txt', () => generateAndDeployLlmsTxt(batch)],
+        ['IndexNow key', async () => {
+            const settings = await getDiscoverabilitySettings();
+            if (settings.indexNow.enabled) await ensureIndexNowKey(batch);
+        }],
+    ];
+    // Each file on its own: one failing must not cost the others, and none
+    // may cost the pages already in the batch.
+    for (const [name, step] of steps) {
+        try {
+            await step();
+        } catch (error) {
+            console.error(`${name} regeneration failed:`, error);
+        }
+    }
+}
+
 export const processPublishQueue = onDocumentCreated({
     document: '_publish_queue/{queueId}',
     // A 'redeploy-all' rebuilds every published page in one invocation —
@@ -207,8 +236,10 @@ export const processPublishQueue = onDocumentCreated({
             const pages = await collectAllPublishedPages(batch);
             await generateAndDeploySitemap(batch);
             await generateAndDeployRssFeeds(batch);
+            await addDiscoverabilityFiles(batch);
             if (!batch.isEmpty) {
                 await deployBatchToHosting(process.env.GCLOUD_PROJECT || '', batch, '', '');
+                await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
             }
             console.log(`Redeployed ${pages} page(s) in ${batch.size} file(s)`);
         } catch (error) {
@@ -431,6 +462,11 @@ export const processPublishQueue = onDocumentCreated({
             } catch (rssErr) {
                 console.error('RSS feed regeneration failed:', rssErr);
             }
+            try {
+                await addDiscoverabilityFiles(batch);
+            } catch (discoverabilityErr) {
+                console.error('Discoverability files regeneration failed:', discoverabilityErr);
+            }
         }
     } catch (error) {
         console.error(`Error processing queue item (${action} ${publishedCollection}/${docId}):`, error);
@@ -444,6 +480,9 @@ export const processPublishQueue = onDocumentCreated({
             const siteId = process.env.GCLOUD_PROJECT || '';
             await deployBatchToHosting(siteId, batch, publishedCollection, docId);
             console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
+            // Only after the release succeeded: a ping for pages that never
+            // went live would send the engines to a 404 (D-D9).
+            await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
         } catch (deployErr) {
             console.error(`Hosting release failed for ${action} ${contentTypeSlug}/${docId}:`, deployErr);
         }

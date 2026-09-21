@@ -1,7 +1,7 @@
 # ArcCMS Discoverability: Build Spec (Google + LLM citation)
 
-**Status:** D1 and D2 built 2026-09-21 with unit coverage (awaiting a functions + rules deploy
-to the dev project and validator checks, see section 5). D3 to D6 planned. Discussion completed 2026-09-20. Phases are
+**Status:** D1 to D3 built 2026-09-21 with unit coverage; D1/D2 verified in the browser against
+the dev project, D3's Hosting output awaits a functions deploy (see section 5). D4 to D6 planned. Discussion completed 2026-09-20. Phases are
 built one at a time; each ends with a report, a deploy to the dev project and a browser check
 before the next starts.
 **Branch:** `feat/discoverability` (cut from `feat/search`, which is a superset of `dev`; D6 uses
@@ -146,8 +146,9 @@ something changed.
 - `Settings/discoverability.crawlers` + settings page "Discoverability" (crawler toggles by group
   with a one-line explanation of each, llms.txt on/off, IndexNow on/off, links to Search Console
   and Bing Webmaster Tools).
-- `generateRobotsTxt.ts` renders per-agent groups; regenerated when the setting is saved
-  (callable `regenerateSeoFiles`) and on every publish.
+- `generateRobotsTxt.ts` renders a `Disallow: /` group per switched-off agent (allowed agents
+  need no mention); regenerated on every publish and on demand through the admin callable
+  `regenerateSeoFiles` ("Save and apply to site").
 - Markdown twin per page and language (`html-to-md.ts`, tested on headings, lists, tables,
   images, links, code, blockquotes); `<link rel="alternate" type="text/markdown">` in the HTML.
 - `/llms.txt` and `/llms-full.txt` generators on the sitemap pattern.
@@ -301,3 +302,34 @@ Verified in the browser 2026-09-21 against xlm (rules deployed). To verify:
    authors, new ones created once.
 After the functions deploy + a republish, the same appears in the static HTML and the search
 box finds items by author name.
+
+### D3 (built 2026-09-21)
+
+Files: `functions/src/shared/crawlers.ts` + `src/shared/constants/crawlers.ts` (mirrored
+registry, parity test), `functions/src/shared/discoverability-settings.ts` +
+`src/shared/models/discoverability.model.ts`, `pages/generateRobotsTxt.ts` (policy rendering),
+`shared/html-to-markdown.ts`, `shared/markdown-twin.ts`, `pages/generateLlmsTxt.ts`,
+`pages/indexNow.ts`, `pages/regenerateSeoFiles.ts` (callable), `publishQueue/processPublishQueue.ts`
+(robots + llms + key file in every release; IndexNow after a successful release),
+`pages/seedStaticPages.ts`, `deployContentPage.ts` (`.md` twin beside every `.html`, removed with
+it, `<link rel="alternate" type="text/markdown">`), `firebase.json` (cache headers for `.md`/`.txt`),
+Settings → Discoverability page, route, hub entry, i18n (en + hi).
+
+Verified in the browser 2026-09-21: the settings page loads, toggles persist to
+`Settings/discoverability` (merge; the D2 default author survives), and "Save" reports that
+the next publish applies them. "Save and apply" needs the `regenerateSeoFiles` function deployed.
+
+To verify after `firebase deploy --only functions` (no hosting deploy needed; the functions
+release the files themselves):
+1. Settings → Discoverability → switch off GPTBot → **Save and apply to site**: the message
+   reports the files updated; `curl https://<site>/robots.txt` shows `User-agent: GPTBot` /
+   `Disallow: /` after the `User-agent: *` group, plus `Sitemap:` and the llms.txt pointer.
+2. `curl https://<site>/llms.txt`: H1, blockquote, one section per public content type with
+   `- [title](…/slug.md): summary` lines newest first. `curl https://<site>/llms-full.txt`:
+   the twins concatenated.
+3. Publish (or edit + publish) one article: `curl https://<site>/articles/<slug>.md` returns
+   the twin with front matter; `view-source:` of the HTML has the `text/markdown` alternate link.
+4. Function logs show `IndexNow: 202, submitted N URL(s)`; the key file at `/{key}.txt` returns
+   the key; the key appears on the settings page after a reload. Bing Webmaster Tools →
+   IndexNow shows the submission within a day.
+5. Switch llms.txt off, publish: `/llms.txt` returns 404 after the release.

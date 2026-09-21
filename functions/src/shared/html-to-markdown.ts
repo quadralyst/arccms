@@ -11,6 +11,8 @@
 import * as cheerio from 'cheerio';
 import type { AnyNode, Element } from 'domhandler';
 
+const HARD_BREAK = '\u0000br\u0000';
+
 const BLOCK_TAGS = new Set([
     'p', 'div', 'section', 'article', 'aside', 'header', 'footer', 'main', 'nav',
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre',
@@ -22,7 +24,8 @@ export function htmlToMarkdown(html: string): string {
     const $ = cheerio.load(`<body>${html}</body>`, { xmlMode: false });
     $('script, style, template').remove();
     const out = renderChildren($('body')[0] as Element, $, 0);
-    return collapseBlankLines(out).trim() + (out.trim() ? '\n' : '');
+    const text = collapseBlankLines(out).trim().split(HARD_BREAK).join('  \n');
+    return text + (text ? '\n' : '');
 }
 
 function renderChildren(el: Element, $: cheerio.CheerioAPI, listDepth: number): string {
@@ -46,7 +49,9 @@ function renderNode(node: AnyNode, $: cheerio.CheerioAPI, listDepth: number): st
         case 'p':
             return `\n\n${inline(inner())}\n\n`;
         case 'br':
-            return '  \n';
+            // A placeholder survives inline() whitespace collapsing; it becomes
+            // a Markdown hard break (two spaces + newline) at the end.
+            return HARD_BREAK;
         case 'hr':
             return '\n\n---\n\n';
         case 'strong': case 'b':
@@ -161,7 +166,7 @@ function escapeText(text: string): string {
     // Only characters that would otherwise start Markdown syntax at line
     // starts get escaped; a stray asterisk or underscore mid-sentence is
     // harmless and escaping it makes the file harder to read.
-    return text.replace(/ /g, ' ');
+    return text.replace(/\u00a0/g, ' ');
 }
 
 function collapseBlankLines(text: string): string {

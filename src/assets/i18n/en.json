@@ -228,6 +228,10 @@
         "search": {
           "label": "Search",
           "description": "Search index and rebuild tools"
+        },
+        "discoverability": {
+          "label": "Discoverability",
+          "description": "AI crawlers, llms.txt & IndexNow"
         }
       },
       "about": {
@@ -584,6 +588,39 @@
         "entries_hint": "One entry per document per language.",
         "developer_note": "Developers can add other collections as search sources. See docs/search-developer-guide.md.",
         "source_products": "Products"
+      },
+      "discoverability": {
+        "title": "Discoverability",
+        "intro": "How search engines and AI assistants are allowed to read this site, and what they are handed. Everything here is applied to robots.txt and the other files on the next publish, or right away with Save and apply.",
+        "crawlers_heading": "AI crawlers",
+        "crawlers_intro": "Each crawler is allowed unless you switch it off. Switching one off adds a Disallow rule for it to robots.txt; well-behaved crawlers honour it, the rest ignore it.",
+        "group_search": "Search and answer bots",
+        "group_search_hint": "These fetch pages to answer a question right now and cite the source. Switching them off removes this site from those answers.",
+        "group_training": "Training bots",
+        "group_training_hint": "These collect pages to train models. Switching them off does not affect whether AI assistants cite the site today; it is a policy choice.",
+        "allowed": "Allowed",
+        "blocked": "Blocked",
+        "files_heading": "Machine-readable files",
+        "llms_txt": "Publish /llms.txt and /llms-full.txt",
+        "llms_txt_hint": "A Markdown index of the site for AI tools (llmstxt.org), plus a single file with every page. No major provider has confirmed reading these files yet; they cost nothing and some tools already look for them. Every page also gets a Markdown twin at the same URL with .md, regardless of this switch.",
+        "indexnow_heading": "IndexNow",
+        "indexnow": "Notify search engines on publish (IndexNow)",
+        "indexnow_hint": "After each publish, the changed URLs are sent to IndexNow, which feeds Bing (and through it ChatGPT search and Copilot), Yandex, Seznam and Naver. Google does not take part; the sitemap covers it.",
+        "indexnow_key": "Key",
+        "indexnow_key_hint": "Generated on the first publish and served at /{{ key }}.txt so the engines can verify the site.",
+        "indexnow_key_pending": "Generated on the next publish or apply.",
+        "verify_heading": "Verify from the outside",
+        "verify_intro": "Arc CMS cannot see crawler requests (static hosting keeps no request log), so use the engines' own tools:",
+        "verify_gsc": "Google Search Console",
+        "verify_bing": "Bing Webmaster Tools (also shows IndexNow submissions)",
+        "verify_robots": "View robots.txt",
+        "verify_llms": "View llms.txt",
+        "save": "Save",
+        "save_apply": "Save and apply to site",
+        "saved": "Settings saved. They reach the site on the next publish.",
+        "applied": "Applied: {{ files }} file(s) updated on the site.",
+        "save_failed": "Could not save the settings.",
+        "apply_failed": "Saved, but applying to the site failed. The next publish will apply them."
       }
     },
     "contents": {

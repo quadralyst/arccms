@@ -575,7 +575,8 @@ describe('deployContentPage', () => {
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            expect(deployedPaths()).toEqual(['/articles/test-article.html']);
+            // Each language page brings its Markdown twin (D-D8).
+            expect(deployedPaths()).toEqual(['/articles/test-article.html', '/articles/test-article.md']);
         });
 
         it('should deploy one page per translated language', async () => {
@@ -585,7 +586,9 @@ describe('deployContentPage', () => {
 
             expect(deployedPaths()).toEqual([
                 '/articles/test-article.html',
+                '/articles/test-article.md',
                 '/hi/articles/test-article.html',
+                '/hi/articles/test-article.md',
             ]);
         });
 
@@ -679,7 +682,8 @@ describe('deployContentPage', () => {
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            expect(deployedPaths()).toEqual(['/articles/test-article.html']);
+            // Each language page brings its Markdown twin (D-D8).
+            expect(deployedPaths()).toEqual(['/articles/test-article.html', '/articles/test-article.md']);
             consoleSpy.mockRestore();
         });
 
@@ -691,7 +695,9 @@ describe('deployContentPage', () => {
             const removed = mockRemoveFileFromHosting.mock.calls.map(call => call[1]);
             expect(removed).toEqual([
                 '/articles/test-article.html',
+                '/articles/test-article.md',
                 '/hi/articles/test-article.html',
+                '/hi/articles/test-article.md',
             ]);
         });
         it('should let a translated field win over a shadowing custom field', async () => {
@@ -1023,6 +1029,33 @@ describe('deployContentPage', () => {
             const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(html).not.toContain('By ');
             expect(html).not.toContain('box');
+        });
+
+        it('writes a Markdown twin beside the page and advertises it from the head (D-D8)', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true, id: 'doc123',
+                data: () => ({
+                    ...MOCK_CONTENT,
+                    content: '<h2>Why</h2><p>Because <strong>it</strong> matters.</p><ul><li>One</li><li>Two</li></ul>',
+                    authorName: 'Jane Doe',
+                }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const files: Array<{ path: string; content: string }> = mockDeployBatchToHosting.mock.calls[0][1].files;
+            const html = files.find(f => f.path === '/articles/test-article.html')!.content;
+            expect(html).toContain('<link rel="alternate" type="text/markdown" href="https://example.com/articles/test-article.md">');
+
+            const md = files.find(f => f.path === '/articles/test-article.md')!.content;
+            expect(md.startsWith('---\ntitle: "Test Article"\nurl: "https://example.com/articles/test-article"\n')).toBe(true);
+            expect(md).toContain('author: "Jane Doe"');
+            expect(md).toContain('datePublished: 2024-01-15');
+            expect(md).not.toContain('dateModified');
+            expect(md).toContain('tags: ["javascript", "testing"]');
+            expect(md).toContain('\n# Test Article\n');
+            expect(md).toContain('> A brief summary of the test article');
+            expect(md).toContain('## Why\n\nBecause **it** matters.\n\n- One\n- Two');
+            expect(md.trimEnd().endsWith('Source: https://example.com/articles/test-article')).toBe(true);
         });
 
         it('still emits Article and WebSite when Settings/about is empty', async () => {

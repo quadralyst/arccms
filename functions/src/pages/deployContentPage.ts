@@ -17,6 +17,7 @@ import { buildArticle, buildBreadcrumbList, countWords } from '../shared/structu
 import { buildSiteNodes } from '../shared/site-jsonld.js';
 import { resolveContentDates } from '../shared/content-dates.js';
 import { AuthorProfile, authorTemplateData, authorToPerson, getAuthor } from '../shared/authors.js';
+import { buildMarkdownTwin, markdownFilePath, markdownUrl } from '../shared/markdown-twin.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -448,12 +449,31 @@ export async function generateAndDeployContentDetailPage(
             alternates,
             defaultLang,
             jsonLd,
+            markdownUrl: markdownUrl(siteConfig.baseUrl, lang, defaultLang, contentTypeSlug, content.urlSlug),
         };
 
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
         const fullHtml = buildHtmlDocument(body, meta, '', '', styles, scripts, poweredBy);
 
         target.add(detailFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug), fullHtml);
+
+        // The Markdown twin rides in the same release (D-D8).
+        const dates = resolveContentDates(localizedContent);
+        target.add(
+            markdownFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug),
+            buildMarkdownTwin({
+                title: localizedContent.title || pageTitle,
+                url: pageUrl,
+                siteName: siteConfig.siteName,
+                authorName: author?.name || localizedContent.authorName || '',
+                datePublished: dates.published,
+                dateModified: dates.modified,
+                summary: localizedContent.summary || localizedContent.metaDescription || '',
+                tags: localizedContent.tags || [],
+                lang,
+                bodyHtml: localizedContent.content || '',
+            }),
+        );
     }
 
     if (!batch) {
@@ -488,6 +508,7 @@ export async function removeContentPage(
 
     for (const language of localization.enabledLanguages) {
         target.remove(detailFilePath(language.code, defaultLang, contentTypeSlug, urlSlug));
+        target.remove(markdownFilePath(language.code, defaultLang, contentTypeSlug, urlSlug));
     }
 
     if (!batch) {
