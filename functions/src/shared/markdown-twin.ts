@@ -23,6 +23,8 @@ export interface MarkdownTwinInput {
     lang?: string;
     /** The body HTML as edited. */
     bodyHtml: string;
+    /** Cited sources (D-D11), appended as a Sources list. */
+    references?: { title?: string; url: string }[];
 }
 
 /** Hosting path of the twin; sits beside the `.html` file. */
@@ -60,6 +62,12 @@ export function buildMarkdownTwin(input: MarkdownTwinInput): string {
     if (input.summary) lines.push(`> ${input.summary.trim()}`, '');
     const body = htmlToMarkdown(input.bodyHtml);
     if (body) lines.push(body.trimEnd(), '');
+    const references = (input.references || []).filter(r => r.url);
+    if (references.length) {
+        lines.push('## Sources', '');
+        for (const ref of references) lines.push(`- [${(ref.title || ref.url).trim()}](${ref.url.trim()})`);
+        lines.push('');
+    }
     lines.push(`Source: ${input.url}`, '');
     return lines.join('\n');
 }

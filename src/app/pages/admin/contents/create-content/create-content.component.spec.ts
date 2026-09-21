@@ -2095,6 +2095,33 @@ describe('CreateContentComponent', () => {
         });
     });
 
+    // ─── Sources (docs/discoverability-spec.md, D-D11) ─────────────────────
+
+    describe('references', () => {
+        it('starts empty, adds and edits rows, and saves only clean entries', () => {
+            expect(component.references()).toEqual([]);
+            component.addReference();
+            component.addReference();
+            component.updateReference(0, 'title', 'Spec');
+            component.updateReference(0, 'url', 'https://spec.example/one');
+            component.updateReference(1, 'url', 'not a url');
+            expect(component.references().length).toBe(2);
+
+            component.pageTitle = 'T';
+            component.contentId = 'existing-id';
+            component.saveAsDraft();
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.references).toEqual([{ title: 'Spec', url: 'https://spec.example/one' }]);
+        });
+
+        it('removes a row and loads stored references', () => {
+            (component as any).patchForms({ title: 'Loaded', references: [{ title: 'A', url: 'https://a.com' }, { url: 'junk' }] });
+            expect(component.references()).toEqual([{ title: 'A', url: 'https://a.com' }]);
+            component.removeReference(0);
+            expect(component.references()).toEqual([]);
+        });
+    });
+
     // ─── Canonical URL auto-fill ───────────────────────────────────────────
 
     describe('canonical URL auto-fill', () => {

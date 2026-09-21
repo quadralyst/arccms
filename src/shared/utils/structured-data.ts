@@ -55,8 +55,10 @@ export interface ArticleInput {
     keywords?: string[];
     articleSection?: string;
     wordCount?: number;
+    abstract?: string;
     author?: PersonInput;
     publisherId?: string;
+    citations?: { title?: string; url: string }[];
     type?: 'Article' | 'BlogPosting' | 'NewsArticle';
 }
 
@@ -167,9 +169,18 @@ export function buildArticle(input: ArticleInput): JsonLd | null {
     if (keywords.length) node['keywords'] = keywords.join(', ');
     setIf(node, 'articleSection', clean(input.articleSection));
     if (input.wordCount && input.wordCount > 0) node['wordCount'] = input.wordCount;
+    setIf(node, 'abstract', clean(input.abstract));
     const author = input.author ? buildPerson(input.author) : null;
     if (author) node['author'] = author;
     if (input.publisherId) node['publisher'] = { '@id': input.publisherId };
+    const citations = (input.citations || [])
+        .filter(c => clean(c.url))
+        .map(c => {
+            const cite: JsonLd = { '@type': 'CreativeWork', url: c.url.trim() };
+            setIf(cite, 'name', clean(c.title));
+            return cite;
+        });
+    if (citations.length) node['citation'] = citations;
     return node;
 }
 

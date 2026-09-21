@@ -817,6 +817,48 @@ describe('ContentDetailComponent', () => {
         });
     });
 
+    // ─── Blocks and sources (docs/discoverability-spec.md, D-D10, D-D11) ───
+
+    describe('blocks and sources', () => {
+        function showDraft(draft: Record<string, unknown>): void {
+            component.isPreview.set(true);
+            component.draftContent.set(draft as any);
+        }
+
+        it('emits block nodes, the abstract and citations, and renders the Sources list', async () => {
+            showDraft({
+                title: 'A', urlSlug: 'a', type: 'articles', publishedOn: { seconds: 1705334400 },
+                content: '<section data-arc-block="takeaways"><h3>Key takeaways</h3><ul><li>Fast</li></ul></section>'
+                    + '<section data-arc-block="faq"><h3>Cost?</h3><p>Nothing.</p></section>',
+                references: [{ title: 'Spec', url: 'https://spec.example/one' }, { url: 'junk' }],
+            });
+            fixture.detectChanges();
+            await fixture.whenStable();
+            fixture.detectChanges();
+
+            const article = JSON.parse(document.getElementById('arc-ld-article')!.textContent || '{}');
+            expect(article.abstract).toBe('Fast.');
+            expect(article.citation).toEqual([{ '@type': 'CreativeWork', url: 'https://spec.example/one', name: 'Spec' }]);
+            const faq = JSON.parse(document.getElementById('arc-ld-block-0')!.textContent || '{}');
+            expect(faq['@type']).toBe('FAQPage');
+            expect(document.getElementById('arc-ld-block-1')).toBeNull();
+
+            const sources: HTMLElement = fixture.nativeElement.querySelector('.article-sources');
+            expect(sources).toBeTruthy();
+            expect(sources.querySelectorAll('li').length).toBe(1);
+            expect(sources.querySelector('a')?.getAttribute('href')).toBe('https://spec.example/one');
+        });
+
+        it('renders no Sources section and no block nodes for a plain article', async () => {
+            showDraft({ title: 'A', urlSlug: 'a', type: 'articles', content: '<p>plain</p>' });
+            fixture.detectChanges();
+            await fixture.whenStable();
+            fixture.detectChanges();
+            expect(fixture.nativeElement.querySelector('.article-sources')).toBeNull();
+            expect(document.getElementById('arc-ld-block-0')).toBeNull();
+        });
+    });
+
     // ─── Updated line (docs/discoverability-spec.md, D-D3) ─────────────────
 
     describe('updatedOnDisplay', () => {

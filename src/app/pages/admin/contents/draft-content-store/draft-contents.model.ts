@@ -45,6 +45,11 @@ export interface IDraftContents extends IBaseModel {
      */
     authorId?: string | null;
     authorName?: string;
+    /**
+     * Sources the author cited (docs/discoverability-spec.md, D-D11):
+     * rendered as a "Sources" list and emitted as Article.citation.
+     */
+    references?: { title: string; url: string }[];
     publishedStatus: boolean;
     /**
      * When this draft was last copied to the published collection. Stamped by

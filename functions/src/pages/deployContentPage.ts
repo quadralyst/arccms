@@ -18,6 +18,8 @@ import { buildSiteNodes } from '../shared/site-jsonld.js';
 import { resolveContentDates } from '../shared/content-dates.js';
 import { AuthorProfile, authorTemplateData, authorToPerson, getAuthor } from '../shared/authors.js';
 import { buildMarkdownTwin, markdownFilePath, markdownUrl } from '../shared/markdown-twin.js';
+import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../shared/content-blocks.js';
+import { cleanReferences } from '../shared/references.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -27,6 +29,7 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
+import { isTemplateFragment } from '../shared/template-fragment.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting, removeFileFromHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
@@ -123,7 +126,8 @@ async function loadDetailTemplate(templateFolder: string | undefined, siteId: st
         const res = await fetch(url);
         if (res.ok) {
             const text = await res.text();
-            if (text) return text;
+            // A missing folder answers with the SPA shell (HTTP 200): not a template.
+            if (isTemplateFragment(text)) return text;
         }
     } catch {
         // Fall through to Tier 3
@@ -209,6 +213,9 @@ function buildTemplateData(
         // Both are empty when the item has no author, so data-arc-if hides
         // the box.
         ...authorTemplateData(author),
+        // Cited sources (D-D11): a loop for templates, a flag for data-arc-if.
+        references: cleanReferences(content.references),
+        hasReferences: cleanReferences(content.references).length > 0,
         share,
         // Available to templates that want to build their own language links.
         lang,
@@ -244,6 +251,10 @@ export function buildDetailJsonLd(input: {
         { name: content.title || input.pageTitle, url: input.pageUrl },
     ]);
 
+    // Structured blocks in the body (D-D10) and cited sources (D-D11).
+    const blocks = extractBlocks(content.content || '');
+    const references = cleanReferences(content.references);
+
     const article = buildArticle({
         url: input.pageUrl,
         // The visible title, not the SEO title: the headline should match the
@@ -257,11 +268,13 @@ export function buildDetailJsonLd(input: {
         keywords: content.tags || [],
         articleSection: (content.categoryNameArr || [])[0] || typeName,
         wordCount: countWords(content.content || ''),
+        abstract: abstractFromTakeaways(blocks.takeaways),
         author: authorToPerson(input.author ?? null),
         publisherId: site.publisherId,
+        citations: references,
     });
 
-    return [site.organization, site.webSite, breadcrumbs, article].filter(
+    return [site.organization, site.webSite, breadcrumbs, article, ...blockJsonLd(blocks, input.pageUrl)].filter(
         (node): node is Record<string, unknown> => !!node,
     );
 }
@@ -391,6 +404,8 @@ export async function generateAndDeployContentDetailPage(
                 contentType.slug,
             ),
             tags: tagsData,
+            // Cited sources (D-D11): data-arc-loop="references" in templates.
+            references: cleanReferences(localizedContent.references),
         });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
@@ -472,6 +487,7 @@ export async function generateAndDeployContentDetailPage(
                 tags: localizedContent.tags || [],
                 lang,
                 bodyHtml: localizedContent.content || '',
+                references: cleanReferences(localizedContent.references),
             }),
         );
     }

@@ -90,6 +90,7 @@ export type TranslationKey =
     | 'admin.contents.authors.updated'
     | 'admin.contents.authors.url'
     | 'admin.contents.authors.url_placeholder'
+    | 'admin.contents.editor.add_reference'
     | 'admin.contents.editor.author'
     | 'admin.contents.editor.author_hint'
     | 'admin.contents.editor.author_none'
@@ -129,6 +130,9 @@ export type TranslationKey =
     | 'admin.contents.editor.no_cover_image'
     | 'admin.contents.editor.preview'
     | 'admin.contents.editor.publish'
+    | 'admin.contents.editor.reference_title_placeholder'
+    | 'admin.contents.editor.references'
+    | 'admin.contents.editor.references_hint'
     | 'admin.contents.editor.remove_image'
     | 'admin.contents.editor.repeater.add'
     | 'admin.contents.editor.repeater.add_photos'
@@ -1207,6 +1211,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.authors.updated',
     'admin.contents.authors.url',
     'admin.contents.authors.url_placeholder',
+    'admin.contents.editor.add_reference',
     'admin.contents.editor.author',
     'admin.contents.editor.author_hint',
     'admin.contents.editor.author_none',
@@ -1246,6 +1251,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.no_cover_image',
     'admin.contents.editor.preview',
     'admin.contents.editor.publish',
+    'admin.contents.editor.reference_title_placeholder',
+    'admin.contents.editor.references',
+    'admin.contents.editor.references_hint',
     'admin.contents.editor.remove_image',
     'admin.contents.editor.repeater.add',
     'admin.contents.editor.repeater.add_photos',

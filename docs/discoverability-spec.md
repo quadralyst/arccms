@@ -1,7 +1,8 @@
 # ArcCMS Discoverability: Build Spec (Google + LLM citation)
 
-**Status:** D1 to D3 built 2026-09-21 with unit coverage; D1/D2 verified in the browser against
-the dev project, D3's Hosting output awaits a functions deploy (see section 5). D4 to D6 planned. Discussion completed 2026-09-20. Phases are
+**Status:** D1 to D4 built 2026-09-21 with unit coverage; D1, D2 and D4 verified in the browser
+against the dev project, D3's Hosting output awaits a functions deploy (see section 5). D5 and
+D6 planned. Discussion completed 2026-09-20. Phases are
 built one at a time; each ends with a report, a deploy to the dev project and a browser check
 before the next starts.
 **Branch:** `feat/discoverability` (cut from `feat/search`, which is a superset of `dev`; D6 uses
@@ -162,11 +163,14 @@ Tools shows the submission within a day.
 ### D4. Structured content blocks and sources
 **Goal:** authors can produce the shapes LLMs quote, without knowing why.
 
-- Tiptap nodes: FAQ (repeatable Q/A), Key takeaways (bulleted summary block), How-to steps
-  (ordered, each with title and body), Definition ("What is X?" with a one-sentence answer).
-  Each has a toolbar button, slash-menu entry, and renders to semantic HTML with
-  `data-arc-block`.
-- Confirm the Tiptap table extension is enabled in the content editor toolbar; if not, enable it.
+- One Tiptap node, `arcBlock`, with a `kind` attribute (faq, takeaways, howto, definition): a
+  wrapper around ordinary headings, paragraphs and lists, rendered as
+  `<section data-arc-block="…" class="arc-block">`. Toolbar "Insert block" menu and slash-menu
+  entries insert a seeded block; "Remove block" unwraps it. The editor labels each block; the
+  public page tints it. The shape (h3 = question, first `ol` = steps, …) is what the extractor
+  reads, so author and schema can never disagree.
+- Tables: the v3 `@tiptap/extension-table` bundles `TableKit`; enabled in the editor, toolbar
+  and slash menu (the old "import issues" note was stale).
 - `references: {title, url}[]` on content; SEO panel editor; default template renders a
   "Sources" section; `Article.citation` emitted.
 - Publish pipeline: `extractBlocks(bodyHtml)` → `FAQPage`, `HowTo`, `Article.abstract` (from key
@@ -333,3 +337,28 @@ release the files themselves):
    the key; the key appears on the settings page after a reload. Bing Webmaster Tools →
    IndexNow shows the submission within a day.
 5. Switch llms.txt off, publish: `/llms.txt` returns 404 after the release.
+
+### D4 (built 2026-09-21)
+
+Files: `src/shared/components/tiptap-editor/service/arc-block-extension.ts` (node, commands,
+seeds), editor component/HTML/SCSS (blocks menu, TableKit, block labels, table borders),
+`service/slash-commands.ts`; `functions/src/shared/content-blocks.ts` (+ client mirror
+`src/shared/utils/content-blocks.ts`): extraction and `FAQPage`, `HowTo`, `DefinedTerm`,
+`Article.abstract`; `functions/src/shared/references.ts` (+ `src/shared/models/references.model.ts`)
+and `Article.citation`; content models (`references`), editor SEO tab "Sources" rows;
+default template + SPA layout: block styling and a Sources section (`data-arc-loop="references"`,
+`data-arc-if="hasReferences"`); Markdown twin appends a Sources list; Hindi string `sources`.
+
+Verified in the browser 2026-09-21 on the "Test page version 0.1" draft (preview mode): all four
+blocks and a table inserted from the toolbar, saved, and the public page carried FAQPage, HowTo
+(with step names), DefinedTerm, `abstract` from the takeaways, `citation` and the Sources list.
+Note: the SPA preview inherits the item's stored canonical URL for `@id` and step anchors; items
+saved before the D1 canonical fix still carry the old value until the field is cleared.
+
+To verify: open any article, use the toolbar "Insert block" menu (grid icon) or type `/faq`,
+`/how`, `/key`, `/def`, `/table`; each block shows a label in the editor. Fill the SEO tab's
+Sources rows. Save, then open `/articles/<slug>?preview=true`: the blocks render as tinted
+sections, Sources appears above the tags, and DevTools → `<head>` has `arc-ld-block-*` scripts
+(FAQPage, HowTo, DefinedTerm) plus `abstract` and `citation` on the Article. After the
+functions deploy and a publish, the static HTML and the `.md` twin carry the same, and the
+Rich Results Test lists FAQ and HowTo.

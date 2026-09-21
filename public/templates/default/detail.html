@@ -117,6 +117,14 @@
                     </div>
                 </section>
 
+                <!-- Sources (docs/discoverability-spec.md, D-D11); hidden without any. -->
+                <section class="article-sources" data-arc-if="hasReferences">
+                    <h2 class="article-sources-title" data-arc-t="sources">Sources</h2>
+                    <ol class="article-sources-list" data-arc-loop="references">
+                        <li><a href="{{ url }}" target="_blank" rel="noopener">{{ title }}</a></li>
+                    </ol>
+                </section>
+
                 <div class="article-tags" data-arc-loop="tags">
                     <span class="article-tag">{{ name }}</span>
                 </div>
@@ -358,6 +366,76 @@
 }
 
 /* Share Buttons */
+/* Structured blocks (D-D10): FAQ, key takeaways, how-to, definition. */
+.article-content .arc-block {
+    margin: 2rem 0;
+    padding: 1.25rem 1.5rem;
+    border-radius: 12px;
+    background: #f5f5f7;
+}
+
+.article-content .arc-block > h2,
+.article-content .arc-block > h3,
+.article-content .arc-block > h4 {
+    margin-top: 1rem;
+    font-size: 1.125rem;
+}
+
+.article-content .arc-block > h2:first-child,
+.article-content .arc-block > h3:first-child,
+.article-content .arc-block > h4:first-child {
+    margin-top: 0;
+}
+
+.article-content .arc-block[data-arc-block="takeaways"] {
+    border-left: 4px solid #0066cc;
+}
+
+.article-content .arc-block[data-arc-block="definition"] > p:first-of-type {
+    font-size: 1.0625rem;
+    font-weight: 500;
+}
+
+.article-content .arc-block[data-arc-block="howto"] ol > li {
+    margin-bottom: 0.5rem;
+}
+
+.article-content .arc-block > :last-child {
+    margin-bottom: 0;
+}
+
+/* Sources list (D-D11). */
+.article-sources {
+    max-width: 720px;
+    margin: 2.5rem auto 0;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e8e8ed;
+}
+
+.article-sources-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem;
+    color: #1d1d1f;
+}
+
+.article-sources-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.9375rem;
+    line-height: 1.7;
+}
+
+.article-sources-list a {
+    color: #0066cc;
+    text-decoration: none;
+    word-break: break-word;
+}
+
+.article-sources-list a:hover {
+    text-decoration: underline;
+}
+
 .article-author-box {
     display: flex;
     gap: 1.25rem;

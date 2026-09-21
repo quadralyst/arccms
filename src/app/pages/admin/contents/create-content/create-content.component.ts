@@ -41,6 +41,7 @@ import { VersionHistoryComponent, VersionHistoryItem } from './version-history/v
 import { LocalizationService } from '../../../../core/services/localization.service';
 import { AuthorsService } from '../../(authors)/authors.service';
 import { IAuthor } from '../../../../../shared/models/author.model';
+import { IReference, cleanReferences } from '../../../../../shared/models/references.model';
 import { AuthState } from '../../../(auth)/auth.store';
 import { ILanguage } from '../../../../../shared/models/localization.model';
 import {
@@ -173,6 +174,9 @@ export class CreateContentComponent extends BaseComponent {
 
   /** Authors for the picker (D2); the default is pre-filled on new content. */
   authors = signal<IAuthor[]>([]);
+
+  /** Cited sources, edited as rows in the SEO tab (D-D11). Shared across languages. */
+  references = signal<IReference[]>([]);
   private defaultAuthorId = '';
   tagSearchTerm = signal<string>('');
   showTagDropdown = signal<boolean>(false);
@@ -1445,6 +1449,9 @@ export class CreateContentComponent extends BaseComponent {
       canonicalUrl: contentData?.canonicalUrl || '',
       updatedOn: toDateInputValue(contentData?.updatedOn),
     });
+    // patchForms runs from a computed (contentDetailedData), where a signal
+    // write is an error; untracked lifts this write out of that context.
+    untracked(() => this.references.set(cleanReferences(contentData?.references)));
 
     // Pre-populate custom field values
     if (contentData?.customFields) {
@@ -1551,6 +1558,20 @@ export class CreateContentComponent extends BaseComponent {
   markUpdatedToday(): void {
     this.seoForm.get('updatedOn')?.setValue(toDateInputValue(new Date()));
     this.seoForm.get('updatedOn')?.markAsDirty();
+    this.triggerAutoSave();
+  }
+
+  addReference(): void {
+    this.references.update(list => [...list, { title: '', url: '' }]);
+  }
+
+  updateReference(index: number, field: 'title' | 'url', value: string): void {
+    this.references.update(list => list.map((ref, i) => (i === index ? { ...ref, [field]: value } : ref)));
+    this.triggerAutoSave();
+  }
+
+  removeReference(index: number): void {
+    this.references.update(list => list.filter((_, i) => i !== index));
     this.triggerAutoSave();
   }
 
@@ -2236,6 +2257,7 @@ export class CreateContentComponent extends BaseComponent {
       updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
       authorId: this.publishForm.get('authorId')?.value || null,
       authorName: this.authorNameFor(this.publishForm.get('authorId')?.value),
+      references: cleanReferences(this.references()),
       type: contentType,
       status: this.constantVariables.DRAFT,
       updatedAt: new Date(),

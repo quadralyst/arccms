@@ -925,6 +925,36 @@
                             <small class="text-muted">{{ 'admin.contents.editor.updated_on_hint' | transloco }}</small>
                         </div>
 
+                        <!-- Sources (docs/discoverability-spec.md, D-D11) -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                {{ 'admin.contents.editor.references' | transloco }}
+                                @if(isTranslating()){
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                }
+                            </label>
+                            @for (ref of references(); track $index) {
+                            <div class="reference-row d-flex gap-2 mb-2" [attr.data-testid]="'reference-' + $index">
+                                <input type="text" class="form-control form-control-sm" [value]="ref.title"
+                                    (input)="updateReference($index, 'title', $any($event.target).value)"
+                                    [placeholder]="'admin.contents.editor.reference_title_placeholder' | transloco"
+                                    [readonly]="isTranslating()">
+                                <input type="url" class="form-control form-control-sm" [value]="ref.url"
+                                    (input)="updateReference($index, 'url', $any($event.target).value)"
+                                    placeholder="https://" [readonly]="isTranslating()">
+                                <button type="button" class="btn btn-sm btn-link text-danger px-1" (click)="removeReference($index)"
+                                    [disabled]="isTranslating()" [attr.aria-label]="'common.actions.delete' | transloco">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            }
+                            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="addReference()"
+                                [disabled]="isTranslating()" data-testid="add-reference">
+                                <i class="fa-solid fa-plus me-1"></i>{{ 'admin.contents.editor.add_reference' | transloco }}
+                            </button>
+                            <small class="text-muted d-block mt-1">{{ 'admin.contents.editor.references_hint' | transloco }}</small>
+                        </div>
+
                         <!-- Social Sharing Preview -->
                         <hr class="my-3">
                         <div class="social-preview-section">

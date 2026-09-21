@@ -34,6 +34,11 @@ export interface IContents extends IBaseModel {
      */
     authorId?: string | null;
     authorName?: string;
+    /**
+     * Sources the author cited (docs/discoverability-spec.md, D-D11):
+     * rendered as a "Sources" list and emitted as Article.citation.
+     */
+    references?: { title: string; url: string }[];
     publishedStatus: boolean;
     isFeatured: boolean;
     readTime?: number; // Reading time in minutes

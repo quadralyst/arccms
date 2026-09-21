@@ -242,3 +242,56 @@
   font-size: 12px;
   margin-left: 4px;
 }
+/* Structured blocks (docs/discoverability-spec.md, D-D10): a labelled,
+   tinted box so the author can see where a block starts and ends. The
+   public page styles them differently; see the default templates. */
+::ng-deep .ProseMirror section.arc-block {
+  position: relative;
+  margin: 1rem 0;
+  padding: 1.5rem 1rem 0.75rem;
+  border: 1px dashed #94a3b8;
+  border-radius: 8px;
+  background: #f8fafc;
+
+  &::before {
+    content: 'Block';
+    position: absolute;
+    top: -0.6rem;
+    left: 0.75rem;
+    padding: 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #475569;
+    background: #fff;
+    border-radius: 3px;
+  }
+
+  &[data-arc-block='faq']::before { content: 'FAQ · each H3 is a question'; }
+  &[data-arc-block='takeaways']::before { content: 'Key takeaways · bullet list'; }
+  &[data-arc-block='howto']::before { content: 'How-to · H3 title, numbered steps'; }
+  &[data-arc-block='definition']::before { content: 'Definition · "What is X?" then the answer'; }
+
+  > :last-child { margin-bottom: 0; }
+}
+
+/* Tables: the default browser rendering has no borders at all. */
+::ng-deep .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 0.4rem 0.6rem;
+    vertical-align: top;
+    min-width: 3rem;
+  }
+
+  th { background: #f1f5f9; font-weight: 600; }
+
+  .selectedCell { background: #e0f2fe; }
+}
+
+.blocks-list button i:first-child { width: 1.2em; }

@@ -788,7 +788,11 @@
         "author": "Author",
         "author_none": "No author",
         "author_hint": "Shown on the page byline and sent to search engines as the author. Manage authors under Content.",
-        "manage_authors": "Manage authors"
+        "manage_authors": "Manage authors",
+        "references": "Sources",
+        "references_hint": "Pages this piece draws on. Shown as a Sources list at the end and told to search engines as citations, which is a credibility signal for both Google and AI assistants.",
+        "reference_title_placeholder": "Title (optional)",
+        "add_reference": "Add source"
       },
       "list": {
         "type_not_found": "Content Type Not Found",

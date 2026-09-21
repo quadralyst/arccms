@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
+import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
@@ -27,6 +28,8 @@ import { DraftContentsService } from '../admin/contents/draft-content-store/draf
 import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { AuthorProfileService } from '../../core/services/author-profile.service';
 import { IAuthor } from '../../../shared/models/author.model';
+import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../../../shared/utils/content-blocks';
+import { cleanReferences } from '../../../shared/models/references.model';
 import {
     buildArticle,
     buildBreadcrumbList,
@@ -47,6 +50,9 @@ import {
  * Dynamic Content Detail Component
  * Shows individual content item for a given content type and URL slug
  */
+/** Upper bound on block-derived JSON-LD scripts a page keeps (FAQ + how-tos + definitions). */
+const MAX_BLOCK_NODES = 12;
+
 @Component({
     selector: 'arc-content-detail',
     standalone: true,
@@ -129,6 +135,18 @@ import {
             <div class="article-body">
                 <div class="container">
                     <div class="article-content" [innerHTML]="(currentContent()?.content || '') | safeHtml"></div>
+
+                    <!-- Sources (D-D11); mirrors public/templates/default/detail.html -->
+                    @if (references().length) {
+                    <section class="article-sources">
+                        <h2 class="article-sources-title" data-arc-t="sources">Sources</h2>
+                        <ol class="article-sources-list">
+                            @for (ref of references(); track ref.url) {
+                            <li><a [href]="ref.url" target="_blank" rel="noopener">{{ ref.title || ref.url }}</a></li>
+                            }
+                        </ol>
+                    </section>
+                    }
 
                     <!-- Tags -->
                     @if(currentContent()?.tags && currentContent()!.tags.length > 0) {
@@ -392,6 +410,18 @@ import {
         }
 
         /* Share Buttons */
+        .article-content .arc-block { margin: 2rem 0; padding: 1.25rem 1.5rem; border-radius: 12px; background: #f5f5f7; }
+        .article-content .arc-block > h2, .article-content .arc-block > h3, .article-content .arc-block > h4 { margin-top: 1rem; font-size: 1.125rem; }
+        .article-content .arc-block > h2:first-child, .article-content .arc-block > h3:first-child, .article-content .arc-block > h4:first-child { margin-top: 0; }
+        .article-content .arc-block[data-arc-block="takeaways"] { border-left: 4px solid #0066cc; }
+        .article-content .arc-block[data-arc-block="definition"] > p:first-of-type { font-size: 1.0625rem; font-weight: 500; }
+        .article-content .arc-block > :last-child { margin-bottom: 0; }
+        .article-sources { max-width: 720px; margin: 2.5rem auto 0; padding-top: 1.5rem; border-top: 1px solid #e8e8ed; }
+        .article-sources-title { font-size: 1rem; font-weight: 600; margin: 0 0 .75rem; color: #1d1d1f; }
+        .article-sources-list { margin: 0; padding-left: 1.25rem; font-size: .9375rem; line-height: 1.7; }
+        .article-sources-list a { color: #0066cc; text-decoration: none; word-break: break-word; }
+        .article-sources-list a:hover { text-decoration: underline; }
+
         .article-author-box {
             display: flex;
             gap: 1.25rem;
@@ -526,6 +556,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
     /** The credited author, once loaded (D2). Null when the item has none. */
     author = signal<IAuthor | null>(null);
+
+    /** Cited sources (D-D11), cleaned. */
+    references = computed(() => cleanReferences(this.currentContent()?.references));
     private document = inject(DOCUMENT);
     private platformId = inject(PLATFORM_ID);
     private transferState = inject(TransferState);
@@ -854,6 +887,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         for (const id of ['arc-ld-organization', 'arc-ld-website', 'arc-ld-breadcrumbs', 'arc-ld-article']) {
             setJsonLd(this.document, id, null);
         }
+        for (let i = 0; i < MAX_BLOCK_NODES; i++) setJsonLd(this.document, `arc-ld-block-${i}`, null);
         if (this.notFoundTimer !== null) {
             clearTimeout(this.notFoundTimer);
             this.notFoundTimer = null;
@@ -1037,6 +1071,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                 { name: content.title || pageTitle, url: pageUrl },
             ]);
             const dates = resolveContentDates(content);
+            const blocks = extractBlocks(content.content || '');
+            const references = cleanReferences(content.references);
             const article = buildArticle({
                 url: pageUrl,
                 headline: content.title || pageTitle,
@@ -1048,6 +1084,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                 keywords: content.tags || [],
                 articleSection: (content.categoryNameArr || [])[0] || typeName,
                 wordCount: countWords(content.content || ''),
+                abstract: abstractFromTakeaways(blocks.takeaways),
+                citations: references,
                 author: author
                     ? {
                         name: author.name,
@@ -1067,6 +1105,12 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             setJsonLd(this.document, 'arc-ld-website', webSite);
             setJsonLd(this.document, 'arc-ld-breadcrumbs', breadcrumbs);
             setJsonLd(this.document, 'arc-ld-article', article);
+            // Block-derived nodes (D-D10): one script per node, cleared first
+            // so a page with fewer blocks than the last one leaves none behind.
+            const blockNodes = blockJsonLd(blocks, pageUrl);
+            for (let i = 0; i < MAX_BLOCK_NODES; i++) {
+                setJsonLd(this.document, `arc-ld-block-${i}`, blockNodes[i] ?? null);
+            }
         };
 
         write();
@@ -1099,6 +1143,17 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private loadCustomTemplate(contentType: ContentType, content: IContents): void {
         const templateFolder = contentType.templateFolder;
 
+        // Decided once per folder: the effect that calls this re-runs while
+        // useCustomTemplate stays false, and a rejected folder would be
+        // fetched again on every run.
+        if (templateFolder && templateFolder === this.rejectedTemplateFolder) {
+            this.useCustomTemplate.set(false);
+            return;
+        }
+        // One request per folder at a time; the effect can re-run several
+        // times before the first response lands.
+        if (templateFolder && templateFolder === this.pendingTemplateFolder) return;
+
         // Skip if using default template
         if (!templateFolder || templateFolder === 'default') {
             this.useCustomTemplate.set(false);
@@ -1123,15 +1178,31 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         if (this.transferState.hasKey(stateKey)) {
             const cachedHtml = this.transferState.get(stateKey, '');
             this.transferState.remove(stateKey);
+            if (!isTemplateFragment(cachedHtml)) {
+                this.useCustomTemplate.set(false);
+                return;
+            }
             this.hydrateAndSetTemplate(cachedHtml, contentType, content);
             return;
         }
 
+        this.pendingTemplateFolder = templateFolder;
         this.http.get(templateUrl, { responseType: 'text' }).subscribe({
             next: (templateHtml) => {
+                this.pendingTemplateFolder = null;
+                // A missing template folder answers with the SPA shell (HTTP
+                // 200, the 404 page); that is not a template. Fall back to
+                // the built-in layout instead of rendering a 404 inside the page.
+                if (!isTemplateFragment(templateHtml)) {
+                    console.warn(`[ContentDetailComponent] /templates/${templateFolder}/detail.html is not a template fragment; using the default layout.`);
+                    this.rejectedTemplateFolder = templateFolder;
+                    this.useCustomTemplate.set(false);
+                    return;
+                }
                 this.hydrateAndSetTemplate(templateHtml, contentType, content);
             },
             error: (error) => {
+                this.pendingTemplateFolder = null;
                 console.warn('[ContentDetailComponent] Failed to load custom template:', error.message);
                 this.useCustomTemplate.set(false);
             }
@@ -1141,6 +1212,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     /**
      * Hydrate template HTML with content data and set it for rendering
      */
+    /** A template folder whose file turned out not to be a template; never fetched twice. */
+    private rejectedTemplateFolder: string | null = null;
+    /** The folder whose template request is in flight. */
+    private pendingTemplateFolder: string | null = null;
+
     /** The last custom template as loaded, so it can be re-hydrated when the author arrives. */
     private lastTemplate: { html: string; contentType: ContentType; content: IContents } | null = null;
 
@@ -1190,8 +1266,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             readTime: this.getReadTime(),
             readingTime: `${this.getReadTime()} min read`,        // alias: {{ readingTime }}
             ...((content as any).customFields || {}),
-            // After custom fields, mirroring deployContentPage.ts (D2).
+            // After custom fields, mirroring deployContentPage.ts (D2, D-D11).
             ...this.authorTemplateData(),
+            references: this.references(),
+            hasReferences: this.references().length > 0,
         };
 
         // Add share object (nested for hydration)
@@ -1226,6 +1304,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                 ['tags', 'items'],
                 this.contentTypeSlug(),
             ),
+            references: this.references(),
             tags: tagsData
         });
 

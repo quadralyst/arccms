@@ -6,6 +6,7 @@ import { contentTypeDescription, contentTypeName } from '../shared/content-type-
 import { detailUrl, listUrl } from '../shared/content-translation.js';
 import { resolveContentDates } from '../shared/content-dates.js';
 import { buildMarkdownTwin, markdownUrl } from '../shared/markdown-twin.js';
+import { cleanReferences } from '../shared/references.js';
 import { deploySeoFileToHosting } from './deploySeoFile.js';
 import { HostingBatch } from './deployToHosting.js';
 
@@ -131,6 +132,7 @@ export async function collectLlmsSite(): Promise<LlmsSiteInput> {
                     tags: data.tags || [],
                     lang,
                     bodyHtml: data.content || '',
+                    references: cleanReferences(data.references),
                 }),
             });
         }

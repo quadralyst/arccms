@@ -21,6 +21,7 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
+import { isTemplateFragment } from '../shared/template-fragment.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
@@ -107,7 +108,8 @@ async function loadListTemplate(templateFolder: string | undefined, siteId: stri
         const res = await fetch(url);
         if (res.ok) {
             const text = await res.text();
-            if (text) return text;
+            // A missing folder answers with the SPA shell (HTTP 200): not a template.
+            if (isTemplateFragment(text)) return text;
         }
     } catch {
         // Fall through to Tier 3

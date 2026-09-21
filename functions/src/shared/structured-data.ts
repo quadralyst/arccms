@@ -72,6 +72,8 @@ export interface ArticleInput {
     wordCount?: number;
     /** Plain-text body, used only for wordCount when that is not given. */
     bodyText?: string;
+    /** Short summary of the piece; from the key takeaways block (D-D10). */
+    abstract?: string;
     author?: PersonInput;
     /** Site owner, as returned by `organizationId(baseUrl)`; referenced, not repeated. */
     publisherId?: string;
@@ -217,6 +219,7 @@ export function buildArticle(input: ArticleInput): JsonLd | null {
     setIf(node, 'articleSection', clean(input.articleSection));
     const words = input.wordCount ?? (input.bodyText ? countWords(input.bodyText) : undefined);
     if (words && words > 0) node['wordCount'] = words;
+    setIf(node, 'abstract', clean(input.abstract));
     const author = input.author ? buildPerson(input.author) : null;
     if (author) node['author'] = author;
     if (input.publisherId) node['publisher'] = { '@id': input.publisherId };

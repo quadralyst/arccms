@@ -25,5 +25,6 @@
   "search_loading": "खोजा जा रहा है...",
   "updated_on": "अद्यतन {{ updatedOnDisplay }}",
   "written_by": "लेखक",
-  "author_more": "{{ author.name }} के और लेख"
+  "author_more": "{{ author.name }} के और लेख",
+  "sources": "स्रोत"
 }

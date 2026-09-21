@@ -54,6 +54,11 @@ describe('htmlToMarkdown (docs/discoverability-spec.md, D-D8)', () => {
             .toBe('Hello world\n');
     });
 
+    it('renders structured blocks as plain sections (D-D10)', () => {
+        const md = htmlToMarkdown('<p>Intro</p><section data-arc-block="faq"><h3>Cost?</h3><p>Nothing.</p></section><section data-arc-block="howto"><h3>How</h3><ol><li><p><strong>Install.</strong> Run.</p></li></ol></section>');
+        expect(md).toBe('Intro\n\n### Cost?\n\nNothing.\n\n### How\n\n1. **Install.** Run.\n');
+    });
+
     it('normalises non-breaking spaces and stray whitespace', () => {
         expect(htmlToMarkdown('<p>a&nbsp;b</p>\n\n\n<p>  c  </p>')).toBe('a b\n\nc\n');
     });

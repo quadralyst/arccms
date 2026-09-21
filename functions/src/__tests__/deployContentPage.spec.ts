@@ -1058,6 +1058,85 @@ describe('deployContentPage', () => {
             expect(md.trimEnd().endsWith('Source: https://example.com/articles/test-article')).toBe(true);
         });
 
+        it('emits FAQPage, HowTo, DefinedTerm and the abstract from body blocks (D-D10)', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true, id: 'doc123',
+                data: () => ({
+                    ...MOCK_CONTENT,
+                    content: '<p>Intro</p>'
+                        + '<section data-arc-block="takeaways"><h3>Key takeaways</h3><ul><li>Fast</li><li>Free</li></ul></section>'
+                        + '<section data-arc-block="faq"><h3>Cost?</h3><p>Nothing.</p></section>'
+                        + '<section data-arc-block="howto"><h3>How to start</h3><ol><li><strong>Install.</strong> Run it.</li></ol></section>'
+                        + '<section data-arc-block="definition"><h3>What is Arc?</h3><p>Arc is a CMS.</p></section>',
+                }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const types = jsonLdNodes().map(n => n['@type']);
+            expect(types).toEqual(['Organization', 'WebSite', 'BreadcrumbList', 'Article', 'FAQPage', 'HowTo', 'DefinedTerm']);
+            expect(nodeOfType('Article')!.abstract).toBe('Fast. Free.');
+            expect(nodeOfType('FAQPage')!.mainEntity[0].name).toBe('Cost?');
+            expect(nodeOfType('HowTo')!.step[0].url).toBe('https://example.com/articles/test-article#step-1');
+            expect(nodeOfType('DefinedTerm')!.name).toBe('Arc');
+        });
+
+        it('emits citations, renders a Sources loop and lists them in the Markdown twin (D-D11)', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true, id: 'doc123',
+                data: () => ({
+                    ...MOCK_CONTENT,
+                    references: [
+                        { title: 'Spec', url: 'https://spec.example/one' },
+                        { title: '', url: 'not a url' },
+                        { title: 'Dup', url: 'https://spec.example/one' },
+                        { url: 'https://spec.example/two' },
+                    ],
+                }),
+            });
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({
+                    html: '<article><h1>{{ title }}</h1><section data-arc-if="hasReferences"><ul data-arc-loop="references"><li><a href="{{ url }}">{{ title }}</a></li></ul></section></article>',
+                }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(nodeOfType('Article')!.citation).toEqual([
+                { '@type': 'CreativeWork', url: 'https://spec.example/one', name: 'Spec' },
+                { '@type': 'CreativeWork', url: 'https://spec.example/two' },
+            ]);
+            const files: Array<{ path: string; content: string }> = mockDeployBatchToHosting.mock.calls[0][1].files;
+            const html = files.find(f => f.path === '/articles/test-article.html')!.content;
+            expect(html).toContain('<a href="https://spec.example/one">Spec</a>');
+            expect(html.match(/<li>/g)).toHaveLength(2);
+            const md = files.find(f => f.path === '/articles/test-article.md')!.content;
+            expect(md).toContain('## Sources\n\n- [Spec](https://spec.example/one)\n- [https://spec.example/two](https://spec.example/two)');
+        });
+
+        it('hides the Sources section when there are none', async () => {
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<article><section data-arc-if="hasReferences">sources</section></article>' }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            expect(html).not.toContain('sources');
+            expect(nodeOfType('Article')).not.toHaveProperty('citation');
+        });
+
+        it('does not treat the SPA shell served for a missing template folder as the template', async () => {
+            mockDocGet.mockResolvedValue({ exists: false, data: () => undefined });
+            mockFetch.mockResolvedValue({
+                ok: true,
+                text: () => Promise.resolve('<!DOCTYPE html><html><head></head><body><arc-root><arc-not-found>404</arc-not-found></arc-root></body></html>'),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            expect(html).not.toContain('arc-not-found');
+            // Tier 3, the built-in fallback, rendered the title instead.
+            expect(html).toContain('Test Article');
+        });
+
         it('still emits Article and WebSite when Settings/about is empty', async () => {
             mockGetAboutConfig.mockResolvedValue({
                 name: '', finalUrl: '', address: '', logoUrl: '', description: '', sameAs: [], contactEmail: '', organizationType: 'Organization',
