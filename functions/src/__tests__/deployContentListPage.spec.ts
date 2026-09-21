@@ -562,6 +562,23 @@ describe('deployContentListPage', () => {
             expect(list.itemListElement[0].url).toMatch(/^https:\/\/example\.com\/articles\//);
         });
 
+        it('exposes authorName to list cards, hidden when absent (D2)', async () => {
+            mockContentsGet.mockResolvedValue({
+                docs: [
+                    { id: 'doc1', data: () => ({ ...MOCK_CONTENTS[0], authorId: 'a1', authorName: 'Jane Doe' }) },
+                    { id: 'doc2', data: () => ({ ...MOCK_CONTENTS[1] }) },
+                ],
+            });
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<ul data-arc-loop="items"><li><span class="by" data-arc-if="authorName">By {{ authorName }}</span>{{ title }}</li></ul>' }),
+            });
+            await generateAndDeployContentListPage('articles');
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            expect(html).toContain('By Jane Doe');
+            expect(html.match(/class="by"/g)).toHaveLength(1);
+        });
+
         it('builds a two-level breadcrumb trail', async () => {
             await generateAndDeployContentListPage('articles');
             const crumbs = jsonLdNodes().find(n => n['@type'] === 'BreadcrumbList')!.itemListElement;

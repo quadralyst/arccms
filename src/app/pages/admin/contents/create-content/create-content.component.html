@@ -441,6 +441,27 @@
                             }
                         </div>
 
+                        <!-- Author (docs/discoverability-spec.md, D2) -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                {{ 'admin.contents.editor.author' | transloco }}
+                                @if(isTranslating()){
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                }
+                            </label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <select class="form-select form-select-sm author-select" formControlName="authorId"
+                                    (change)="triggerAutoSave()" [attr.disabled]="isTranslating() ? '' : null" data-testid="author-select">
+                                    <option value="">{{ 'admin.contents.editor.author_none' | transloco }}</option>
+                                    @for (author of authors(); track author.id) {
+                                    <option [value]="author.id">{{ author.name }}</option>
+                                    }
+                                </select>
+                                <a routerLink="/admin/authors" class="btn btn-sm btn-link text-nowrap">{{ 'admin.contents.editor.manage_authors' | transloco }}</a>
+                            </div>
+                            <small class="text-muted">{{ 'admin.contents.editor.author_hint' | transloco }}</small>
+                        </div>
+
                         <!-- Tags with Autocomplete -->
                         <div class="form-group">
                             <label class="form-label">{{ 'admin.contents.editor.tags' | transloco }}</label>

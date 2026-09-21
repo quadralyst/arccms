@@ -21,6 +21,10 @@
                 </a>
                 <h1 class="article-title">{{ title }}</h1>
                 <div class="article-meta">
+                    <span class="article-author" data-arc-if="authorName">
+                        <i class="far fa-user"></i> {{ authorName }}
+                        <span class="meta-divider">&#8226;</span>
+                    </span>
                     <span class="article-date">
                         <i class="far fa-calendar"></i> {{ date }}
                     </span>
@@ -116,6 +120,22 @@
                 <div class="article-tags" data-arc-loop="tags">
                     <span class="article-tag">{{ name }}</span>
                 </div>
+
+                <!-- Author box (docs/discoverability-spec.md, D2). Hidden when the
+                     item has no author; the same person is the Article's
+                     schema.org author in <head>. -->
+                <aside class="article-author-box" data-arc-if="author.name">
+                    <img class="article-author-photo" data-arc-if="author.photoUrl" src="{{ author.photoUrl }}" alt="{{ author.name }}">
+                    <div class="article-author-body">
+                        <span class="article-author-label" data-arc-t="written_by">Written by</span>
+                        <h3 class="article-author-name">{{ author.name }}</h3>
+                        <p class="article-author-title" data-arc-if="author.jobTitle">{{ author.jobTitle }}</p>
+                        <p class="article-author-bio" data-arc-if="author.bio">{{ author.bio }}</p>
+                        <a class="article-author-link" data-arc-if="author.url" href="{{ author.url }}" target="_blank" rel="noopener author">
+                            <span data-arc-t="author_more">More from {{ author.name }}</span> <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </aside>
 
                 <div class="article-share">
                     <span class="share-label" data-arc-t="share_this_article">Share this article</span>
@@ -338,6 +358,67 @@
 }
 
 /* Share Buttons */
+.article-author-box {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+    margin: 2rem auto 0;
+    padding: 1.5rem;
+    max-width: 720px;
+    background: #f5f5f7;
+    border-radius: 12px;
+}
+
+.article-author-photo {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.article-author-label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6e6e73;
+    margin-bottom: 0.25rem;
+}
+
+.article-author-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+    color: #1d1d1f;
+}
+
+.article-author-title {
+    margin: 0.125rem 0 0;
+    font-size: 0.875rem;
+    color: #6e6e73;
+}
+
+.article-author-bio {
+    margin: 0.75rem 0 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: #424245;
+}
+
+.article-author-link {
+    display: inline-block;
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #0066cc;
+    text-decoration: none;
+}
+
+.article-author-link:hover {
+    text-decoration: underline;
+}
+
 .article-share {
     display: flex;
     align-items: center;

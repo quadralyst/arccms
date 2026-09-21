@@ -16,6 +16,7 @@ import { contentTypeName } from '../shared/content-type-names.js';
 import { buildArticle, buildBreadcrumbList, countWords } from '../shared/structured-data.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
 import { resolveContentDates } from '../shared/content-dates.js';
+import { AuthorProfile, authorTemplateData, authorToPerson, getAuthor } from '../shared/authors.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -142,6 +143,7 @@ function buildTemplateData(
     lang = 'en',
     defaultLang = 'en',
     translation?: ContentTranslation,
+    author: AuthorProfile | null = null,
 ): Record<string, any> {
     const readTime = content.readTime || calculateReadingTime(content.content || '');
     const publishedOn = formatContentDate(content.publishedOn, lang);
@@ -200,6 +202,12 @@ function buildTemplateData(
         readingTime: `${readTime} min read`,
         ...((content.customFields as Record<string, any>) || {}),
         ...translatedOverrides,
+        // After custom fields on purpose: `author` is the byline object the
+        // default template binds (`{{ author.name }}`), and a legacy custom
+        // field with the same key would otherwise turn it into a string.
+        // Both are empty when the item has no author, so data-arc-if hides
+        // the box.
+        ...authorTemplateData(author),
         share,
         // Available to templates that want to build their own language links.
         lang,
@@ -221,6 +229,7 @@ export function buildDetailJsonLd(input: {
     defaultLang: string;
     pageTitle: string;
     pageUrl: string;
+    author?: AuthorProfile | null;
 }): Record<string, unknown>[] {
     const { content, contentType, siteConfig, lang, defaultLang } = input;
     const baseUrl = siteConfig.baseUrl.replace(/\/+$/, '');
@@ -247,6 +256,7 @@ export function buildDetailJsonLd(input: {
         keywords: content.tags || [],
         articleSection: (content.categoryNameArr || [])[0] || typeName,
         wordCount: countWords(content.content || ''),
+        author: authorToPerson(input.author ?? null),
         publisherId: site.publisherId,
     });
 
@@ -304,12 +314,13 @@ export async function generateAndDeployContentDetailPage(
     const contentType = contentTypeQuery.docs[0].data();
 
     // 3. Load partials + site config + misc settings + languages (all cached)
-    const [partials, siteConfig, miscSettings, localization, about] = await Promise.all([
+    const [partials, siteConfig, miscSettings, localization, about, author] = await Promise.all([
         getPartials(),
         getSiteConfig(),
         getMiscSettings(),
         getLocalizationSettings(),
         getAboutConfig(),
+        getAuthor(content.authorId),
     ]);
 
     // 4. Load detail template (3-tier fallback). The same template renders
@@ -355,6 +366,7 @@ export async function generateAndDeployContentDetailPage(
             lang,
             defaultLang,
             translations.get(lang),
+            author,
         );
 
         const tagsData =
@@ -415,6 +427,7 @@ export async function generateAndDeployContentDetailPage(
             defaultLang,
             pageTitle,
             pageUrl,
+            author,
         });
 
         const meta: PageMeta = {

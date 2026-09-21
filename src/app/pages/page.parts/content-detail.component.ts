@@ -25,6 +25,8 @@ import { ArcTranslateDirective } from '../../core/directives/arc-translate.direc
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { AuthorProfileService } from '../../core/services/author-profile.service';
+import { IAuthor } from '../../../shared/models/author.model';
 import {
     buildArticle,
     buildBreadcrumbList,
@@ -93,6 +95,12 @@ import {
                     </a>
                     <h1 class="article-title">{{ currentContent()?.title }}</h1>
                     <div class="article-meta">
+                        @if (currentContent()?.authorName) {
+                        <span class="article-author">
+                            <i class="far fa-user"></i> {{ currentContent()?.authorName }}
+                            <span class="meta-divider">•</span>
+                        </span>
+                        }
                         <span class="article-date">
                             <i class="far fa-calendar"></i> {{ formatContentDate(currentContent()?.publishedOn) }}
                         </span>
@@ -132,6 +140,26 @@ import {
                     }
 
                     <!-- Share Buttons -->
+                    <!-- Author box (D2); mirrors public/templates/default/detail.html -->
+                    @if (author(); as a) {
+                    <aside class="article-author-box">
+                        @if (a.photoUrl) {
+                        <img class="article-author-photo" [src]="a.photoUrl" [attr.alt]="a.name">
+                        }
+                        <div class="article-author-body">
+                            <span class="article-author-label" data-arc-t="written_by">Written by</span>
+                            <h3 class="article-author-name">{{ a.name }}</h3>
+                            @if (a.jobTitle) { <p class="article-author-title">{{ a.jobTitle }}</p> }
+                            @if (a.bio) { <p class="article-author-bio">{{ a.bio }}</p> }
+                            @if (a.url) {
+                            <a class="article-author-link" [href]="a.url" target="_blank" rel="noopener author">
+                                <span data-arc-t="author_more" [data-arc-t-params]="{ author: a }">More from {{ a.name }}</span> <i class="fas fa-arrow-right"></i>
+                            </a>
+                            }
+                        </div>
+                    </aside>
+                    }
+
                     <div class="article-share">
                         <span class="share-label" data-arc-t="share_this_article">Share this article</span>
                         <div class="share-buttons">
@@ -364,6 +392,24 @@ import {
         }
 
         /* Share Buttons */
+        .article-author-box {
+            display: flex;
+            gap: 1.25rem;
+            align-items: flex-start;
+            margin: 2rem auto 0;
+            padding: 1.5rem;
+            max-width: 720px;
+            background: #f5f5f7;
+            border-radius: 12px;
+        }
+        .article-author-photo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .article-author-label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6e6e73; margin-bottom: 0.25rem; }
+        .article-author-name { font-size: 1.125rem; font-weight: 600; margin: 0; color: #1d1d1f; }
+        .article-author-title { margin: 0.125rem 0 0; font-size: 0.875rem; color: #6e6e73; }
+        .article-author-bio { margin: 0.75rem 0 0; font-size: 0.9375rem; line-height: 1.6; color: #424245; }
+        .article-author-link { display: inline-block; margin-top: 0.75rem; font-size: 0.875rem; font-weight: 500; color: #0066cc; text-decoration: none; }
+        .article-author-link:hover { text-decoration: underline; }
+
         .article-share {
             display: flex;
             align-items: center;
@@ -476,6 +522,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private titleService = inject(Title);
     private metaService = inject(Meta);
     private siteIdentity = inject(SiteIdentityService);
+    private authorProfiles = inject(AuthorProfileService);
+
+    /** The credited author, once loaded (D2). Null when the item has none. */
+    author = signal<IAuthor | null>(null);
     private document = inject(DOCUMENT);
     private platformId = inject(PLATFORM_ID);
     private transferState = inject(TransferState);
@@ -654,11 +704,35 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             });
         });
 
+        // The author document is separate from the content; fetch it once
+        // per authorId and let the page (byline box, JSON-LD) react.
+        effect(() => {
+            const authorId = this.currentContent()?.authorId || '';
+            untracked(() => {
+                if (!authorId || !isPlatformBrowser(this.platformId)) {
+                    this.author.set(null);
+                    return;
+                }
+                this.authorProfiles.load(authorId).then(author => {
+                    this.author.set(author);
+                    // A custom template hydrated before the author document
+                    // arrived has no byline yet; hydrate it again, without
+                    // re-running its scripts.
+                    if (author && this.lastTemplate && this.useCustomTemplate()) {
+                        const { html, contentType, content } = this.lastTemplate;
+                        this.hydrateAndSetTemplate(html, contentType, content, false);
+                    }
+                });
+            });
+        });
+
         effect(() => {
             const contentType = this.currentContentType();
             const content = this.currentContent();
             const isLoading = this.contentTypesStore.isLoading() || this.contentsStore.isLoading();
             const isCheckingDraft = this.isCheckingDraft();
+            // Read so the structured data is rewritten once the author lands.
+            this.author();
 
             // Update SEO meta tags when content is available
             if (content && !isLoading && !isCheckingDraft) {
@@ -797,6 +871,23 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         return dates.isUpdated ? this.formatContentDate(content.updatedOn) : '';
     });
 
+    /** `author.*` bindings and `authorName` for custom templates; empty without an author. */
+    private authorTemplateData(): { author: Record<string, string>; authorName: string } {
+        const author = this.author();
+        const name = author?.name || this.currentContent()?.authorName || '';
+        if (!name) return { author: {}, authorName: '' };
+        return {
+            author: {
+                name,
+                bio: author?.bio || '',
+                photoUrl: author?.photoUrl || '',
+                jobTitle: author?.jobTitle || '',
+                url: author?.url || '',
+            },
+            authorName: name,
+        };
+    }
+
     formatContentDate(date: any): string {
         if (!date) return '';
         const dateObj = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
@@ -911,6 +1002,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private updateStructuredData(content: IContents, pageTitle: string, pageUrl: string): void {
         const write = () => {
             const identity = this.siteIdentity.identity();
+            const author = this.author();
             const origin = this.pageOrigin();
             const baseUrl = (identity.finalUrl || origin).replace(/\/+$/, '');
             const lang = this.pageLang() || this.localization.defaultLanguage();
@@ -956,6 +1048,18 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                 keywords: content.tags || [],
                 articleSection: (content.categoryNameArr || [])[0] || typeName,
                 wordCount: countWords(content.content || ''),
+                author: author
+                    ? {
+                        name: author.name,
+                        url: author.url || undefined,
+                        imageUrl: author.photoUrl || undefined,
+                        description: author.bio || undefined,
+                        jobTitle: author.jobTitle || undefined,
+                        sameAs: author.sameAs,
+                    }
+                    : content.authorName
+                        ? { name: content.authorName }
+                        : undefined,
                 publisherId,
             });
 
@@ -1037,7 +1141,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     /**
      * Hydrate template HTML with content data and set it for rendering
      */
-    private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, content: IContents): void {
+    /** The last custom template as loaded, so it can be re-hydrated when the author arrives. */
+    private lastTemplate: { html: string; contentType: ContentType; content: IContents } | null = null;
+
+    private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, content: IContents, runScripts = true): void {
+        this.lastTemplate = { html: templateHtml, contentType, content };
         // Prepare next/previous content objects
         const nextContent = content.nextContent ? {
             ...content.nextContent,
@@ -1082,6 +1190,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             readTime: this.getReadTime(),
             readingTime: `${this.getReadTime()} min read`,        // alias: {{ readingTime }}
             ...((content as any).customFields || {}),
+            // After custom fields, mirroring deployContentPage.ts (D2).
+            ...this.authorTemplateData(),
         };
 
         // Add share object (nested for hydration)
@@ -1125,8 +1235,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         this.templateHtml.set(hydratedHtml);
         this.useCustomTemplate.set(true);
         
-        // Execute scripts after view update (browser only)
-        if (isPlatformBrowser(this.platformId)) {
+        // Execute scripts after view update (browser only). Skipped on a
+        // re-hydration: the scripts already ran against this page.
+        if (runScripts && isPlatformBrowser(this.platformId)) {
             setTimeout(() => this.runTemplateScripts(), 0);
         }
     }

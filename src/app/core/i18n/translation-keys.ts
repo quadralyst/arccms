@@ -54,6 +54,45 @@ export type TranslationKey =
     | 'admin.audience.tags.tag'
     | 'admin.audience.tags.title'
     | 'admin.audience.tags.view_contacts'
+    | 'admin.contents.authors.bio'
+    | 'admin.contents.authors.bio_placeholder'
+    | 'admin.contents.authors.clear_default'
+    | 'admin.contents.authors.col_default'
+    | 'admin.contents.authors.col_job_title'
+    | 'admin.contents.authors.col_name'
+    | 'admin.contents.authors.create'
+    | 'admin.contents.authors.created'
+    | 'admin.contents.authors.default_badge'
+    | 'admin.contents.authors.default_set'
+    | 'admin.contents.authors.delete_confirm'
+    | 'admin.contents.authors.delete_failed'
+    | 'admin.contents.authors.deleted'
+    | 'admin.contents.authors.edit'
+    | 'admin.contents.authors.empty_description'
+    | 'admin.contents.authors.empty_title'
+    | 'admin.contents.authors.job_title'
+    | 'admin.contents.authors.job_title_placeholder'
+    | 'admin.contents.authors.load_failed'
+    | 'admin.contents.authors.name'
+    | 'admin.contents.authors.name_placeholder'
+    | 'admin.contents.authors.name_required'
+    | 'admin.contents.authors.new'
+    | 'admin.contents.authors.page_subtitle'
+    | 'admin.contents.authors.page_title'
+    | 'admin.contents.authors.photo_url'
+    | 'admin.contents.authors.photo_url_placeholder'
+    | 'admin.contents.authors.same_as'
+    | 'admin.contents.authors.same_as_hint'
+    | 'admin.contents.authors.same_as_placeholder'
+    | 'admin.contents.authors.save'
+    | 'admin.contents.authors.save_failed'
+    | 'admin.contents.authors.set_default'
+    | 'admin.contents.authors.updated'
+    | 'admin.contents.authors.url'
+    | 'admin.contents.authors.url_placeholder'
+    | 'admin.contents.editor.author'
+    | 'admin.contents.editor.author_hint'
+    | 'admin.contents.editor.author_none'
     | 'admin.contents.editor.auto_saved'
     | 'admin.contents.editor.back_to_editor'
     | 'admin.contents.editor.change'
@@ -75,6 +114,7 @@ export type TranslationKey =
     | 'admin.contents.editor.history'
     | 'admin.contents.editor.image_recommendation'
     | 'admin.contents.editor.loading_options'
+    | 'admin.contents.editor.manage_authors'
     | 'admin.contents.editor.map.address'
     | 'admin.contents.editor.map.address_placeholder'
     | 'admin.contents.editor.map.bad_coordinates'
@@ -401,6 +441,7 @@ export type TranslationKey =
     | 'admin.nav.announcements'
     | 'admin.nav.audience'
     | 'admin.nav.audience_and_emails'
+    | 'admin.nav.authors'
     | 'admin.nav.brand_kit'
     | 'admin.nav.broadcasts'
     | 'admin.nav.composer'
@@ -1097,6 +1138,45 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.audience.tags.tag',
     'admin.audience.tags.title',
     'admin.audience.tags.view_contacts',
+    'admin.contents.authors.bio',
+    'admin.contents.authors.bio_placeholder',
+    'admin.contents.authors.clear_default',
+    'admin.contents.authors.col_default',
+    'admin.contents.authors.col_job_title',
+    'admin.contents.authors.col_name',
+    'admin.contents.authors.create',
+    'admin.contents.authors.created',
+    'admin.contents.authors.default_badge',
+    'admin.contents.authors.default_set',
+    'admin.contents.authors.delete_confirm',
+    'admin.contents.authors.delete_failed',
+    'admin.contents.authors.deleted',
+    'admin.contents.authors.edit',
+    'admin.contents.authors.empty_description',
+    'admin.contents.authors.empty_title',
+    'admin.contents.authors.job_title',
+    'admin.contents.authors.job_title_placeholder',
+    'admin.contents.authors.load_failed',
+    'admin.contents.authors.name',
+    'admin.contents.authors.name_placeholder',
+    'admin.contents.authors.name_required',
+    'admin.contents.authors.new',
+    'admin.contents.authors.page_subtitle',
+    'admin.contents.authors.page_title',
+    'admin.contents.authors.photo_url',
+    'admin.contents.authors.photo_url_placeholder',
+    'admin.contents.authors.same_as',
+    'admin.contents.authors.same_as_hint',
+    'admin.contents.authors.same_as_placeholder',
+    'admin.contents.authors.save',
+    'admin.contents.authors.save_failed',
+    'admin.contents.authors.set_default',
+    'admin.contents.authors.updated',
+    'admin.contents.authors.url',
+    'admin.contents.authors.url_placeholder',
+    'admin.contents.editor.author',
+    'admin.contents.editor.author_hint',
+    'admin.contents.editor.author_none',
     'admin.contents.editor.auto_saved',
     'admin.contents.editor.back_to_editor',
     'admin.contents.editor.change',
@@ -1118,6 +1198,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.history',
     'admin.contents.editor.image_recommendation',
     'admin.contents.editor.loading_options',
+    'admin.contents.editor.manage_authors',
     'admin.contents.editor.map.address',
     'admin.contents.editor.map.address_placeholder',
     'admin.contents.editor.map.bad_coordinates',
@@ -1444,6 +1525,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.announcements',
     'admin.nav.audience',
     'admin.nav.audience_and_emails',
+    'admin.nav.authors',
     'admin.nav.brand_kit',
     'admin.nav.broadcasts',
     'admin.nav.composer',

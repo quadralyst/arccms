@@ -185,4 +185,17 @@ describe('BulkImportService', () => {
             expect(XLSX.writeFile).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('import_template_articles'));
         });
     });
+
+    describe('authorName (D2)', () => {
+        it('offers Author as a standard target and stores the trimmed name', () => {
+            const mapping = service.autoMapColumns(['Author'], []);
+            expect(mapping[0].targetField).toBe('authorName');
+            const item = service.buildContentItem(
+                { Author: '  Jane Doe ' },
+                [{ fileHeader: 'Author', targetField: 'authorName', isCustomField: false }],
+                'articles',
+            ) as any;
+            expect(item.authorName).toBe('Jane Doe');
+        });
+    });
 });

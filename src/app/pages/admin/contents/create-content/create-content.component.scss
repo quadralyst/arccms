@@ -1445,3 +1445,8 @@
   width: auto;
   max-width: 11rem;
 }
+
+// Author picker in the Basic tab (docs/discoverability-spec.md, D2)
+.author-select {
+  max-width: 20rem;
+}

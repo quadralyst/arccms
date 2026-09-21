@@ -5,18 +5,18 @@ import { GlobalMessageBannerComponent } from './pages/page.parts/global-message-
 import { SiteUsageBannerComponent } from './pages/page.parts/site-usage-banner.component';
 import { GaTrackingService } from '../shared/services/ga-tracking.service';
 import { PoweredByFooterComponent } from './pages/page.parts/powered-by-footer.component';
-import { PageSpinnerComponent } from './pages/page.parts/page-spinner.component';
+import { NavProgressComponent } from './pages/page.parts/nav-progress.component';
 
 @Component({
   selector: 'arc-root',
-  imports: [RouterOutlet, GlobalMessageBannerComponent, SiteUsageBannerComponent, PoweredByFooterComponent, PageSpinnerComponent],
+  imports: [RouterOutlet, GlobalMessageBannerComponent, SiteUsageBannerComponent, PoweredByFooterComponent, NavProgressComponent],
   template: `
     <arc-global-message-banner />
+    @if (navigating()) {
+      <arc-nav-progress />
+    }
     <main class="arc-route-host">
-      @if (navigating() && !outletActive()) {
-        <arc-page-spinner />
-      }
-      <router-outlet (activate)="outletActive.set(true)" (deactivate)="outletActive.set(false)" />
+      <router-outlet />
     </main>
     <arc-powered-by-footer />
     <arc-site-usage-banner />
@@ -50,13 +50,12 @@ export class App {
   private router = inject(Router);
 
   /**
-   * True while the router is between pages — the lazy chunk of the next
-   * route may still be downloading. The spinner only shows once the outlet
-   * is empty, so the page being left is not covered while its replacement
-   * loads; on first load the outlet starts empty.
+   * True while the router is between pages, when the lazy chunk of the next
+   * route may still be downloading. Shown as a fixed top bar
+   * (NavProgressComponent) rather than an in-flow spinner, so the page being
+   * left, or the server-rendered page being hydrated, is never pushed down.
    */
   navigating = signal(false);
-  outletActive = signal(false);
 
   constructor() {
     this.gaTracking.initializeTracking();

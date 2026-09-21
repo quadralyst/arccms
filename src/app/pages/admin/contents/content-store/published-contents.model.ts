@@ -27,6 +27,13 @@ export interface IContents extends IBaseModel {
      * save (docs/discoverability-spec.md, D-D3).
      */
     updatedOn?: Date | null;
+    /**
+     * The `Authors/{id}` this item is credited to, and the name denormalised
+     * for lists and search (docs/discoverability-spec.md, D-D5). The name is
+     * kept even if the author is later deleted.
+     */
+    authorId?: string | null;
+    authorName?: string;
     publishedStatus: boolean;
     isFeatured: boolean;
     readTime?: number; // Reading time in minutes

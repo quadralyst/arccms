@@ -19,6 +19,7 @@ import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { ContentsService } from '../content-store/published-contents.service';
 import { LocalizationService } from '../../../../core/services/localization.service';
 import { AuthState } from '../../../(auth)/auth.store';
+import { AuthorsService } from '../../(authors)/authors.service';
 
 describe('CreateContentComponent', () => {
     let component: CreateContentComponent;
@@ -30,6 +31,7 @@ describe('CreateContentComponent', () => {
     let mockGlobalService: any;
     let mockToastService: any;
     let mockFirestore: any;
+    let mockAuthorsService: any;
     let mockDraftContentsService: any;
     let mockCollectionRefSyncService: any;
     let mockDialog: any;
@@ -139,6 +141,15 @@ describe('CreateContentComponent', () => {
 
         mockFirestore = {};
 
+        mockAuthorsService = {
+            list: vi.fn().mockReturnValue(of([
+                { id: 'a1', name: 'Jane Doe' },
+                { id: 'a2', name: 'John Roe' },
+            ])),
+            loadSettings: vi.fn().mockResolvedValue({ defaultAuthorId: 'a1' }),
+            ensureAdminAuthor: vi.fn().mockResolvedValue(null),
+        };
+
         mockDialog = {
             open: vi.fn().mockReturnValue({
                 afterClosed: vi.fn().mockReturnValue(of(null)),
@@ -168,6 +179,7 @@ describe('CreateContentComponent', () => {
                 { provide: ContentsService, useValue: { pollDeployStatus: vi.fn().mockReturnValue(of({})), getPublishedHistory: vi.fn().mockReturnValue(of([])) } },
                 { provide: LocalizationService, useValue: mockLocalizationService },
                 { provide: AuthState, useValue: mockAuthState },
+                { provide: AuthorsService, useValue: mockAuthorsService },
             ]
         }).compileComponents();
 
@@ -2035,6 +2047,51 @@ describe('CreateContentComponent', () => {
                 updatedOn: { seconds: Date.UTC(2025, 0, 15, 12) / 1000 },
             });
             expect(component.seoForm.get('updatedOn')?.value).toBe(toDateInputValue(new Date(Date.UTC(2025, 0, 15, 12))));
+        });
+    });
+
+    // ─── Author (docs/discoverability-spec.md, D2) ─────────────────────────
+
+    describe('author', () => {
+        it('loads the author list and pre-fills the default on new content', async () => {
+            await (component as any).initAuthors();
+            expect(component.authors().map(a => a.id)).toEqual(['a1', 'a2']);
+            expect(component.publishForm.get('authorId')?.value).toBe('a1');
+        });
+
+        it('does not override an existing item\'s author', async () => {
+            component.contentId = 'existing-id';
+            (component as any).patchForms({ title: 'Loaded', authorId: 'a2' });
+            await (component as any).initAuthors();
+            expect(component.publishForm.get('authorId')?.value).toBe('a2');
+        });
+
+        it('leaves an existing item without an author alone', async () => {
+            component.contentId = 'existing-id';
+            (component as any).patchForms({ title: 'Loaded' });
+            await (component as any).initAuthors();
+            expect(component.publishForm.get('authorId')?.value).toBe('');
+        });
+
+        it('saves authorId with the denormalised authorName', async () => {
+            await (component as any).initAuthors();
+            component.publishForm.get('authorId')?.setValue('a2');
+            component.pageTitle = 'T';
+            component.contentId = 'existing-id';
+            component.saveAsDraft();
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.authorId).toBe('a2');
+            expect(payload.authorName).toBe('John Roe');
+        });
+
+        it('saves null and an empty name when no author is chosen', () => {
+            component.publishForm.get('authorId')?.setValue('');
+            component.pageTitle = 'T';
+            component.contentId = 'existing-id';
+            component.saveAsDraft();
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.authorId).toBeNull();
+            expect(payload.authorName).toBe('');
         });
     });
 

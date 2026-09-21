@@ -1,25 +1,43 @@
 import { getSiteConfig } from '../shared/site-settings.js';
+import { getDiscoverabilitySettings, type DiscoverabilitySettings } from '../shared/discoverability-settings.js';
+import { CRAWLERS } from '../shared/crawlers.js';
 import { deploySeoFileToHosting } from './deploySeoFile.js';
+import type { HostingBatch } from './deployToHosting.js';
 
 /**
- * Generates and deploys a robots.txt file to Firebase Hosting.
+ * The robots.txt text for a site (docs/discoverability-spec.md, D-D6).
  *
- * Output format:
- *   User-agent: *
- *   Allow: /
- *   Sitemap: {baseUrl}/sitemap.xml
+ * Everything is allowed by default; only crawlers the owner switched off get
+ * a `Disallow: /` group of their own. An allowed AI crawler needs no
+ * mention: the `User-agent: *` group already covers it, and listing it with
+ * `Allow: /` would only invite copy-paste drift. Pure, for the tests.
  */
-export async function generateAndDeployRobotsTxt(): Promise<void> {
-    const siteConfig = await getSiteConfig();
-    const baseUrl = siteConfig.baseUrl.replace(/\/+$/, '');
+export function renderRobotsTxt(baseUrl: string, settings: DiscoverabilitySettings): string {
+    const base = baseUrl.replace(/\/+$/, '');
+    const lines: string[] = ['User-agent: *', 'Allow: /', ''];
 
-    const robotsTxt = [
-        'User-agent: *',
-        'Allow: /',
-        '',
-        `Sitemap: ${baseUrl}/sitemap.xml`,
-        '',
-    ].join('\n');
+    const denied = CRAWLERS.filter(agent => settings.crawlers[agent.id] === false);
+    if (denied.length) {
+        lines.push('# AI crawlers switched off in Settings > Discoverability');
+        for (const agent of denied) {
+            lines.push(`User-agent: ${agent.userAgent}`, 'Disallow: /', '');
+        }
+    }
 
-    await deploySeoFileToHosting('/robots.txt', robotsTxt);
+    lines.push(`Sitemap: ${base}/sitemap.xml`);
+    if (settings.llmsTxt) {
+        // Not a robots directive; a pointer for people and tools reading the file.
+        lines.push(`# LLM-friendly index: ${base}/llms.txt`);
+    }
+    lines.push('');
+    return lines.join('\n');
+}
+
+/**
+ * Generates and deploys robots.txt. With a batch, the file rides along in
+ * the caller's release; without one it is released on its own.
+ */
+export async function generateAndDeployRobotsTxt(batch?: HostingBatch): Promise<void> {
+    const [siteConfig, settings] = await Promise.all([getSiteConfig(), getDiscoverabilitySettings()]);
+    await deploySeoFileToHosting('/robots.txt', renderRobotsTxt(siteConfig.baseUrl, settings), batch);
 }

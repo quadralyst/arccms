@@ -1,7 +1,7 @@
 # ArcCMS Discoverability: Build Spec (Google + LLM citation)
 
-**Status:** D1 built 2026-09-21 with unit coverage (awaiting deploy to the dev project and
-validator checks, see section 5). D2 to D6 planned. Discussion completed 2026-09-20. Phases are
+**Status:** D1 and D2 built 2026-09-21 with unit coverage (awaiting a functions + rules deploy
+to the dev project and validator checks, see section 5). D3 to D6 planned. Discussion completed 2026-09-20. Phases are
 built one at a time; each ends with a report, a deploy to the dev project and a browser check
 before the next starts.
 **Branch:** `feat/discoverability` (cut from `feat/search`, which is a superset of `dev`; D6 uses
@@ -28,6 +28,7 @@ Hosting serves static files without request logging (see D-D14).
 | D-D2 | Which schema types by default | Detail pages: `Article` (`BlogPosting` is a subtype; `Article` is what Google documents and what retrieval pipelines look for). List pages: `CollectionPage` with `ItemList`. Home page and every page: `WebSite` (with `SearchAction` when search is enabled) and `Organization` as `publisher`. Every detail and list page: `BreadcrumbList`. Per-type override arrives in D5. |
 | D-D3 | `dateModified` is an editorial field, not `modifiedAt` | `modifiedAt` changes on every save, including a typo fix, so using it would tell Google and LLMs the page is fresher than it is and would be noticed. New optional content field **`updatedOn`** (date), set by the author from the SEO panel ("Mark as updated today"). `dateModified = updatedOn ?? publishedOn`. Sitemap `lastmod` uses the same rule. The default detail template shows "Updated {date}" only when `updatedOn` is later than `publishedOn`. |
 | D-D4 | Organisation identity extends `Settings/about` | `about` already carries name, finalUrl and address and is public-safe. It gains `logoUrl`, `description`, `sameAs: string[]` (social and profile URLs), `contactEmail` (public, optional) and `organizationType` (`Organization` or `Person` for a personal site). No new settings document for identity. |
+| D-D5a | The admin is the first author, automatically | On a site with no authors, the first admin visit to Content → Authors or to the editor seeds `Authors/admin-{uid}` from the signed-in admin (name, photo, bio "Admin of {site name}.") and makes it the default. Idempotent by id, runs only while the collection is empty, and everything the admin edits afterwards sticks. The first article gets a real byline without any setup. |
 | D-D5 | Authors are a first-class collection, not users and not a content type | `Authors/{id}`: `name`, `slug`, `bio`, `photoUrl`, `jobTitle`, `url`, `sameAs[]`. Not on the user document: guest and past authors are not users, and user documents carry private fields. Not a user-defined content type: JSON-LD cannot depend on a type the admin may rename or delete. Content gains `authorId` and a denormalised `authorName` for lists. `Settings/discoverability.defaultAuthorId` fills new content. Authors are public-read (no private fields exist on them) so the SPA fallback can render the author box. |
 | D-D6 | AI crawler policy is a per-site setting with citation-friendly defaults | `Settings/discoverability.crawlers` holds one allow/deny per known agent, grouped as *search and answer bots* (`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Googlebot`, `Bingbot`; default allow, these are what produce citations) and *training bots* (`GPTBot`, `ClaudeBot`, `Google-Extended`, `Applebot-Extended`, `CCBot`, `Bytespider`, `meta-externalagent`; default allow, owner may deny). `generateRobotsTxt.ts` renders the groups. The list of agents lives in one constant so it can be updated without a schema change. |
 | D-D7 | `llms.txt` is a cheap bet, labelled as such | Generated at `/llms.txt` (site name, description, one line per content type, then one line per published page with its summary, most recent first, capped at 500 links) and `/llms-full.txt` (concatenated Markdown twins, capped at 2 MB). No major provider has confirmed consuming either file; the cost is one generator on the sitemap pattern, so it ships, and the settings page says plainly that adoption is unconfirmed. |
@@ -125,8 +126,8 @@ moves when `updatedOn` is set; Hindi variant carries `inLanguage: "hi"`.
 ### D2. Authors and publisher identity
 **Goal:** every page names a real person and a real organisation, on the page and in the data.
 
-- `Authors` collection, rules (public read, admin write), admin page under Settings → Authors
-  (list, create, edit, delete with "in use by N items" guard).
+- `Authors` collection, rules (public read, admin write), admin page at Content → Authors
+  (`/admin/authors`: list, create, edit, delete; deleting keeps the denormalised name on content).
 - `Settings/discoverability` created with `defaultAuthorId`.
 - Content gains `authorId` + `authorName`; editor gets an author picker defaulting to the
   default author; bulk import accepts `authorName` and matches or creates.
@@ -270,3 +271,33 @@ item ("Redeploy all" or edit + publish):
    carries `inLanguage: "hi"` and a `/hi/search?q=` SearchAction.
 5. Settings → About: fill Logo URL, Description, sameAs; republish; Organization gains `logo`,
    `description`, `sameAs`.
+
+### D2 (built 2026-09-21)
+
+Files: `src/shared/models/author.model.ts` (IAuthor, normalisation, name key),
+`functions/src/shared/authors.ts` (cached loader, Person input, template bindings),
+`firestore.rules` (`Authors` public read / admin write; `Settings/discoverability` admin),
+`src/app/pages/admin/(authors)/` (service, page, drawer form, default-author star), route
+`/admin/authors` + sidebar link under Content; editor Basic tab author picker with default
+pre-fill and denormalised `authorName`; bulk import "Author" column (match or create by name);
+`deployContentPage.ts` (Article.author Person, `author.*` + `authorName` bindings),
+`deployContentListPage.ts` (`authorName` byline), `content-fields.ts` (search indexes
+`authorName`); default templates (header byline, author box, list card byline) + Hindi strings;
+SPA twin (`AuthorProfileService`, byline, author box, Person node, custom-template re-hydration).
+
+Also in D2: the app shell's between-routes spinner became a fixed top progress bar
+(`nav-progress.component.ts`); the old in-flow spinner pushed the hydrated page down by 60vh on
+every admin navigation.
+
+Verified in the browser 2026-09-21 against xlm (rules deployed). To verify:
+1. Content → Authors: with no authors, the page seeds the signed-in admin as the first author
+   (bio "Admin of {site name}.") and marks it Default. Edit it, add others, toggle default, delete.
+2. Open an article: the Basic tab shows the Author picker; a new article pre-selects the default.
+   Save; the draft carries `authorId` and `authorName`.
+3. Public `/articles/<slug>` (SPA): byline in the header, author box above the share row, and
+   the Article JSON-LD in `<head>` has `author` as a Person with url/image/sameAs.
+4. `/articles`: cards show the byline.
+5. Bulk import a CSV with an "Author" column: names matched case-insensitively to existing
+   authors, new ones created once.
+After the functions deploy + a republish, the same appears in the static HTML and the search
+box finds items by author name.

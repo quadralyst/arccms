@@ -6,7 +6,7 @@ import { SafeHtml } from '@angular/platform-browser';
 import { CommonModule, formatDate } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { IDraftContents, INextContentReference } from '../draft-content-store/draft-contents.model';
-import { ActivatedRoute, ParamMap, Router } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
 import { ContentTypesStore } from '../content-types/content-types.store';
@@ -35,10 +35,12 @@ import { getDocs, query, orderBy, limit } from '@angular/fire/firestore';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { ContentsService, DeployStatusUpdate } from '../content-store/published-contents.service';
 import { FullscreenEditorDialogComponent } from './fullscreen-editor-dialog/fullscreen-editor-dialog.component';
-import { Subject, Subscription } from 'rxjs';
+import { Subject, Subscription, firstValueFrom } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 import { VersionHistoryComponent, VersionHistoryItem } from './version-history/version-history.component';
 import { LocalizationService } from '../../../../core/services/localization.service';
+import { AuthorsService } from '../../(authors)/authors.service';
+import { IAuthor } from '../../../../../shared/models/author.model';
 import { AuthState } from '../../../(auth)/auth.store';
 import { ILanguage } from '../../../../../shared/models/localization.model';
 import {
@@ -102,6 +104,7 @@ export function fromDateInputValue(value: unknown): Date | null {
     TranslocoPipe,
     FieldRepeaterComponent,
     ResizableDirective,
+    RouterLink,
   ],
   templateUrl: './create-content.component.html',
   styleUrl: './create-content.component.scss',
@@ -167,6 +170,10 @@ export class CreateContentComponent extends BaseComponent {
   // For selecting tags
   isOpenTopMenu = false;
   selectedTags = signal<{ label: string; color: string }[]>([]);
+
+  /** Authors for the picker (D2); the default is pre-filled on new content. */
+  authors = signal<IAuthor[]>([]);
+  private defaultAuthorId = '';
   tagSearchTerm = signal<string>('');
   showTagDropdown = signal<boolean>(false);
   tagsStore = inject(TagsStore);
@@ -197,6 +204,7 @@ export class CreateContentComponent extends BaseComponent {
   // document and its editing path is unchanged; any other language is held in
   // the same forms but saved to arc_{slug}_drafts/{id}/translations/{lang}.
   private localization = inject(LocalizationService);
+  private authorsService = inject(AuthorsService);
   private authState = inject(AuthState);
 
   /** Language currently being edited. Empty until the language list loads. */
@@ -927,6 +935,41 @@ export class CreateContentComponent extends BaseComponent {
     }
     this.fetchCurrentUrl();
     this.initLanguages();
+    this.initAuthors();
+  }
+
+  /**
+   * Loads the author list once and, for new content, pre-fills the default
+   * author. Existing content keeps whatever it was saved with, including no
+   * author at all.
+   */
+  private async initAuthors(): Promise<void> {
+    if (typeof window === 'undefined') return;
+    try {
+      // Smart default: on a site with no authors the admin becomes the first
+      // one here, so even the very first article gets a byline.
+      await this.authorsService.ensureAdminAuthor();
+      const [authors, settings] = await Promise.all([
+        firstValueFrom(this.authorsService.list()),
+        this.authorsService.loadSettings(),
+      ]);
+      this.authors.set(authors);
+      this.defaultAuthorId = settings.defaultAuthorId;
+      const control = this.publishForm.get('authorId');
+      if (!this.contentId && control && !control.value && this.defaultAuthorId) {
+        control.setValue(this.defaultAuthorId, { emitEvent: false });
+      }
+      this.cdr.detectChanges();
+    } catch (error) {
+      // No authors (or rules not deployed) must not break the editor.
+      console.error('Error loading authors:', error);
+    }
+  }
+
+  /** The denormalised name saved beside authorId. */
+  private authorNameFor(authorId: string | null | undefined): string {
+    if (!authorId) return '';
+    return this.authors().find(a => a.id === authorId)?.name || '';
   }
 
   // ── Translation editing (M2) ─────────────────────────────────────────────
@@ -1393,6 +1436,7 @@ export class CreateContentComponent extends BaseComponent {
       tags: contentData?.tags || [],
       coverImage:
         contentData?.coverImage !== '' ? contentData?.coverImage : null,
+      authorId: contentData?.authorId || '',
     });
 
     this.seoForm.patchValue({
@@ -1458,6 +1502,7 @@ export class CreateContentComponent extends BaseComponent {
       urlSlug: [''],
       tags: [[]],
       coverImage: [null],
+      authorId: [''],
     });
 
     // Sync summary changes to metaDescription
@@ -2189,6 +2234,8 @@ export class CreateContentComponent extends BaseComponent {
       ...this.publishForm.value,
       ...this.seoForm.value,
       updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
+      authorId: this.publishForm.get('authorId')?.value || null,
+      authorName: this.authorNameFor(this.publishForm.get('authorId')?.value),
       type: contentType,
       status: this.constantVariables.DRAFT,
       updatedAt: new Date(),

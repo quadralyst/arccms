@@ -17,6 +17,7 @@ import { Auth } from '@angular/fire/auth';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { Meta, Title } from '@angular/platform-browser';
 import { DOCUMENT } from '@angular/common';
+import { AuthorProfileService } from '../../core/services/author-profile.service';
 
 describe('ContentDetailComponent', () => {
     let component: ContentDetailComponent;
@@ -24,6 +25,7 @@ describe('ContentDetailComponent', () => {
     let mockContentsStore: any;
     let mockContentTypesStore: any;
     let mockDraftContentsStore: any;
+    let mockAuthorProfiles: any;
     let mockAuth: any;
     let mockHttpClient: any;
     let mockTitleService: any;
@@ -68,6 +70,13 @@ describe('ContentDetailComponent', () => {
         mockDraftContentsStore = {
             getBySlug: vi.fn().mockResolvedValue(null)
         };
+
+        mockAuthorProfiles = {
+            load: vi.fn().mockImplementation(async (id: string) =>
+                id === 'a1'
+                    ? { id: 'a1', name: 'Jane Doe', slug: 'jane-doe', bio: 'Writes.', photoUrl: 'https://x.com/j.jpg', jobTitle: 'Founder', url: 'https://jane.dev', sameAs: ['https://x.com/jane'] }
+                    : null),
+        };
         
         mockAuth = {
             onAuthStateChanged: vi.fn((callback) => {
@@ -89,6 +98,7 @@ describe('ContentDetailComponent', () => {
                 { provide: Meta, useValue: mockMetaService },
                 { provide: DOCUMENT, useValue: document },
                 { provide: GaTrackingService, useValue: mockGaTrackingService },
+                { provide: AuthorProfileService, useValue: mockAuthorProfiles },
                 {
                     provide: ActivatedRoute,
                     useValue: {
@@ -755,6 +765,55 @@ describe('ContentDetailComponent', () => {
             } finally {
                 vi.useRealTimers();
             }
+        });
+    });
+
+    // ─── Author (docs/discoverability-spec.md, D2) ─────────────────────────
+
+    describe('author', () => {
+        function showDraft(draft: Record<string, unknown>): void {
+            component.isPreview.set(true);
+            component.draftContent.set(draft as any);
+        }
+
+        it('loads the credited author and nests it as a Person in the Article node', async () => {
+            showDraft({ title: 'A', urlSlug: 'a', type: 'articles', authorId: 'a1', authorName: 'Jane Doe', publishedOn: { seconds: 1705334400 } });
+            fixture.detectChanges();
+            await fixture.whenStable();
+            await new Promise(r => setTimeout(r, 0));
+            fixture.detectChanges();
+
+            expect(mockAuthorProfiles.load).toHaveBeenCalledWith('a1');
+            expect(component.author()?.name).toBe('Jane Doe');
+            const script = document.getElementById('arc-ld-article');
+            expect(script).toBeTruthy();
+            const node = JSON.parse(script!.textContent || '{}');
+            expect(node.author).toEqual({
+                '@type': 'Person', name: 'Jane Doe', url: 'https://jane.dev', image: 'https://x.com/j.jpg',
+                description: 'Writes.', jobTitle: 'Founder', sameAs: ['https://x.com/jane'],
+            });
+        });
+
+        it('falls back to a bare Person from authorName when the author document is gone', async () => {
+            showDraft({ title: 'A', urlSlug: 'a', type: 'articles', authorId: 'gone', authorName: 'Old Name', publishedOn: { seconds: 1705334400 } });
+            fixture.detectChanges();
+            await fixture.whenStable();
+            await new Promise(r => setTimeout(r, 0));
+            fixture.detectChanges();
+
+            expect(component.author()).toBeNull();
+            const node = JSON.parse(document.getElementById('arc-ld-article')!.textContent || '{}');
+            expect(node.author).toEqual({ '@type': 'Person', name: 'Old Name' });
+        });
+
+        it('gives custom templates author bindings only when there is a name', () => {
+            showDraft({ title: 'A', urlSlug: 'a', type: 'articles' });
+            expect((component as any).authorTemplateData()).toEqual({ author: {}, authorName: '' });
+            showDraft({ title: 'A', urlSlug: 'a', type: 'articles', authorName: 'Jane Doe' });
+            expect((component as any).authorTemplateData()).toEqual({
+                author: { name: 'Jane Doe', bio: '', photoUrl: '', jobTitle: '', url: '' },
+                authorName: 'Jane Doe',
+            });
         });
     });
 

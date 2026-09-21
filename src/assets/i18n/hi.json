@@ -137,7 +137,8 @@
       "audience_and_emails": "दर्शक और ईमेल",
       "email_templates": "ईमेल टेम्पलेट",
       "logout_confirm": "क्या आप वाकई लॉग आउट करना चाहते हैं ?",
-      "logout_success": "लॉग आउट हो गया।"
+      "logout_success": "लॉग आउट हो गया।",
+      "authors": "लेखक"
     },
     "settings": {
       "localization": {
@@ -738,7 +739,11 @@
           "clear": "स्थान हटाएँ"
         },
         "required_marker": "आवश्यक",
-        "title_label": "शीर्षक"
+        "title_label": "शीर्षक",
+        "author": "लेखक",
+        "author_none": "कोई लेखक नहीं",
+        "author_hint": "पृष्ठ की बायलाइन पर दिखाया जाता है और खोज इंजनों को लेखक के रूप में भेजा जाता है। लेखकों का प्रबंधन Content के अंतर्गत करें।",
+        "manage_authors": "लेखक प्रबंधित करें"
       },
       "list": {
         "type_not_found": "सामग्री प्रकार नहीं मिला",
@@ -762,6 +767,44 @@
         "view_save_failed": "दृश्य प्राथमिकताएँ सहेजी नहीं जा सकीं।",
         "add_item": "{{ type }} जोड़ें",
         "manage_subtitle": "अपने {{ type }} प्रबंधित करें"
+      },
+      "authors": {
+        "page_title": "लेखक",
+        "page_subtitle": "इस साइट के लिए कौन लिखता है। बायलाइन पर दिखाया जाता है और खोज इंजनों तथा AI सहायकों को पृष्ठ के लेखक के रूप में बताया जाता है।",
+        "new": "नया लेखक",
+        "edit": "लेखक संपादित करें",
+        "col_name": "नाम",
+        "col_job_title": "भूमिका",
+        "col_default": "डिफ़ॉल्ट",
+        "default_badge": "डिफ़ॉल्ट",
+        "set_default": "नई सामग्री के लिए डिफ़ॉल्ट बनाएँ",
+        "clear_default": "डिफ़ॉल्ट हटाएँ",
+        "name": "नाम",
+        "name_placeholder": "जैसे गुंजन करुण",
+        "job_title": "भूमिका या पद",
+        "job_title_placeholder": "जैसे संस्थापक",
+        "bio": "संक्षिप्त परिचय",
+        "bio_placeholder": "दो या तीन वाक्य जिन पर पाठक और खोज इंजन भरोसा कर सकें।",
+        "photo_url": "फ़ोटो URL",
+        "photo_url_placeholder": "https://…/photo.jpg",
+        "url": "वेबसाइट या प्रोफ़ाइल पृष्ठ",
+        "url_placeholder": "https://…",
+        "same_as": "अन्य जगह प्रोफ़ाइल (प्रति पंक्ति एक)",
+        "same_as_placeholder": "https://www.linkedin.com/in/…\nhttps://x.com/…",
+        "same_as_hint": "LinkedIn, X, GitHub, Mastodon। ये खोज इंजनों को बताते हैं कि ये प्रोफ़ाइल एक ही व्यक्ति हैं।",
+        "save": "सहेजें",
+        "create": "लेखक बनाएँ",
+        "created": "लेखक बनाया गया",
+        "updated": "लेखक अद्यतन हुआ",
+        "deleted": "लेखक हटाया गया",
+        "name_required": "लेखक का नाम आवश्यक है",
+        "save_failed": "लेखक सहेजा नहीं जा सका",
+        "delete_failed": "लेखक हटाया नहीं जा सका",
+        "delete_confirm": "<strong>{{ name }}</strong> को हटाएँ? इस लेखक वाली सामग्री में नाम सादे पाठ के रूप में रहेगा, लेकिन परिचय, फ़ोटो और लिंक हट जाएँगे।",
+        "empty_title": "अभी कोई लेखक नहीं",
+        "empty_description": "इस साइट के लिए लिखने वाले लोगों को जोड़ें। नई सामग्री को डिफ़ॉल्ट लेखक अपने आप मिल जाता है।",
+        "default_set": "डिफ़ॉल्ट लेखक अद्यतन हुआ",
+        "load_failed": "लेखक लोड नहीं हो सके। जाँचें कि Authors संग्रह के लिए Firestore नियम डिप्लॉय हैं।"
       }
     },
     "users": {

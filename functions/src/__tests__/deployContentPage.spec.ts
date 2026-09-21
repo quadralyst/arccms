@@ -12,6 +12,7 @@ const {
     mockGetLocalizationSettings,
     mockGetUiStrings,
     mockGetAboutConfig,
+    mockGetAuthor,
     mockTranslationsGet,
     // Firestore mocks
     mockDocGet,
@@ -31,6 +32,7 @@ const {
     mockGetLocalizationSettings: vi.fn(),
     mockGetUiStrings: vi.fn(),
     mockGetAboutConfig: vi.fn(),
+    mockGetAuthor: vi.fn(),
     mockTranslationsGet: vi.fn(),
     // Firestore chain mocks
     mockDocGet: vi.fn(),
@@ -62,6 +64,11 @@ vi.mock('../pages/deployToHosting', async (importOriginal) => {
         deployFileToHosting: mockDeployFileToHosting,
         removeFileFromHosting: mockRemoveFileFromHosting,
     };
+});
+
+vi.mock('../shared/authors', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../shared/authors.js')>();
+    return { ...actual, getAuthor: mockGetAuthor };
 });
 
 vi.mock('../shared/site-settings', () => ({
@@ -151,6 +158,7 @@ function restoreMockImplementations() {
     mockGetSiteConfig.mockResolvedValue(MOCK_SITE_CONFIG);
     mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
     mockGetAboutConfig.mockResolvedValue(MOCK_ABOUT);
+    mockGetAuthor.mockResolvedValue(null);
     // Single-language site by default, so the pre-M3 expectations hold.
     mockGetLocalizationSettings.mockResolvedValue({
         defaultLanguage: 'en',
@@ -965,6 +973,56 @@ describe('deployContentPage', () => {
             expect(article['@id']).toBe('https://example.com/hi/articles/test-article');
             const site = nodes.find((n: any) => n['@type'] === 'WebSite');
             expect(site.potentialAction.target.urlTemplate).toBe('https://example.com/hi/search?q={search_term_string}');
+        });
+
+        it('nests the credited author as a Person and exposes byline bindings (D2)', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true, id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, authorId: 'a1', authorName: 'Jane Doe' }),
+            });
+            mockGetAuthor.mockResolvedValue({
+                id: 'a1', name: 'Jane Doe', slug: 'jane-doe', bio: 'Writes about CMSes.',
+                photoUrl: 'https://example.com/jane.jpg', jobTitle: 'Founder', url: 'https://jane.dev',
+                sameAs: ['https://x.com/jane'],
+            });
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({
+                    html: '<article><h1>{{ title }}</h1><span data-arc-if="authorName">By {{ authorName }}</span>'
+                        + '<aside data-arc-if="author.name"><b>{{ author.name }}</b><i>{{ author.jobTitle }}</i></aside></article>',
+                }),
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(mockGetAuthor).toHaveBeenCalledWith('a1');
+            const article = nodeOfType('Article')!;
+            expect(article.author).toEqual({
+                '@type': 'Person', name: 'Jane Doe', url: 'https://jane.dev', image: 'https://example.com/jane.jpg',
+                description: 'Writes about CMSes.', jobTitle: 'Founder', sameAs: ['https://x.com/jane'],
+            });
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            expect(html).toContain('By Jane Doe');
+            expect(html).toContain('<b>Jane Doe</b><i>Founder</i>');
+        });
+
+        it('hides the byline and omits Article.author when the author is unknown', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true, id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, authorId: 'gone', authorName: 'Old Name' }),
+            });
+            mockGetAuthor.mockResolvedValue(null);
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<article><span data-arc-if="authorName">By {{ authorName }}</span><aside data-arc-if="author.name">box</aside></article>' }),
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(nodeOfType('Article')).not.toHaveProperty('author');
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            expect(html).not.toContain('By ');
+            expect(html).not.toContain('box');
         });
 
         it('still emits Article and WebSite when Settings/about is empty', async () => {

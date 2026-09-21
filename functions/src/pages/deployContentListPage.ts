@@ -261,7 +261,10 @@ export async function generateAndDeployContentListPage(
                 content: localized.content || '',
                 publishedOn: formatContentDateShort(localized.publishedOn, lang),
                 readTime: localized.readTime || calculateReadingTime(localized.content || ''),
-                author: localized.author || '',
+                // The credited author's name (D2); falls back to a legacy
+                // `author` custom field for templates that bound one.
+                authorName: localized.authorName || '',
+                author: localized.authorName || localized.author || '',
                 tags: tagsData,
                 tagsHtml,
                 tagsDisplay: (localized.tags || []).slice(0, 3).join(', '),

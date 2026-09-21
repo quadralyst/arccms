@@ -246,6 +246,22 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Authors route (docs/discoverability-spec.md, D2). Explicit like
+  // every other admin feature route.
+  {
+    path: 'admin/authors',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(authors)/authors.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin Audience Route (custom Fields, U4.5).
   {
     path: 'admin/contact-fields',

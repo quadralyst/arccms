@@ -19,6 +19,8 @@ import {
 export const CONTENT_TITLE_WEIGHT = 3;
 export const CONTENT_SUMMARY_WEIGHT = 2;
 export const CONTENT_CUSTOM_WEIGHT = 1;
+/** The credited author's name (docs/discoverability-spec.md, D2): "posts by Jane". */
+export const CONTENT_AUTHOR_WEIGHT = 1;
 
 /** Custom field types whose values are short prose worth indexing. */
 const INDEXABLE_FIELD_TYPES = new Set(['text']);
@@ -37,6 +39,7 @@ export function contentSearchFields(type: SearchContentType | undefined): Search
     const specs: SearchFieldSpec[] = [
         { path: 'title', weight: CONTENT_TITLE_WEIGHT, prefix: true },
         { path: 'summary', weight: CONTENT_SUMMARY_WEIGHT, prefix: true },
+        { path: 'authorName', weight: CONTENT_AUTHOR_WEIGHT, prefix: true },
     ];
     if (!type) return specs;
 

@@ -27,6 +27,16 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    // Authors - who writes for the site (docs/discoverability-spec.md, D-D5).
+    // Public read: the static pages print the same name, bio, photo and
+    // profile links on every byline and in the Article JSON-LD, and the SPA
+    // fallback needs them to render the same box. Nothing private is stored
+    // here by design (no email, no user id). Admin write.
+    match /Authors/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Dynamic content, tags, and waitlist-tag collections:
     //   arc_{slug}           → published content, public read
     //   arc_{slug}_drafts    → drafts, authenticated read
@@ -130,6 +140,10 @@ service cloud.firestore {
       // search_status — per-source counts from the reindex tool. Admin read;
       // writes are Cloud Function only.
       allow read: if settingId == 'search_status' && isAdmin();
+      // discoverability — default author (D2), crawler policy and IndexNow
+      // key (D3). Admin only; functions bake what the public needs into the
+      // static files, so no public read is required.
+      allow read, write: if settingId == 'discoverability' && isAdmin();
       // dodo-payments — holds API keys + webhook secret. Admin only (secrets are
       // also masked on read in the UI layer). Listed explicitly for clarity.
       allow read, write: if settingId == 'dodo-payments' && isAdmin();

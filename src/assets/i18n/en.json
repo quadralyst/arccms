@@ -145,7 +145,8 @@
       "audience_and_emails": "Audience & emails",
       "email_templates": "Email Templates",
       "logout_confirm": "Are you sure you want to logout ?",
-      "logout_success": "Logout successful."
+      "logout_success": "Logout successful.",
+      "authors": "Authors"
     },
     "settings": {
       "localization": {
@@ -746,7 +747,11 @@
           "clear": "Clear location"
         },
         "required_marker": "Required",
-        "title_label": "Title"
+        "title_label": "Title",
+        "author": "Author",
+        "author_none": "No author",
+        "author_hint": "Shown on the page byline and sent to search engines as the author. Manage authors under Content.",
+        "manage_authors": "Manage authors"
       },
       "list": {
         "type_not_found": "Content Type Not Found",
@@ -770,6 +775,44 @@
         "view_save_failed": "Failed to save view preferences.",
         "add_item": "Add {{ type }}",
         "manage_subtitle": "Manage your {{ type }}"
+      },
+      "authors": {
+        "page_title": "Authors",
+        "page_subtitle": "Who writes for this site. Shown on bylines and told to search engines and AI assistants as the page author.",
+        "new": "New author",
+        "edit": "Edit author",
+        "col_name": "Name",
+        "col_job_title": "Role",
+        "col_default": "Default",
+        "default_badge": "Default",
+        "set_default": "Use as default for new content",
+        "clear_default": "Stop using as default",
+        "name": "Name",
+        "name_placeholder": "e.g. Gunjan Karun",
+        "job_title": "Role or job title",
+        "job_title_placeholder": "e.g. Founder",
+        "bio": "Short bio",
+        "bio_placeholder": "Two or three sentences readers and search engines can trust.",
+        "photo_url": "Photo URL",
+        "photo_url_placeholder": "https://…/photo.jpg",
+        "url": "Website or profile page",
+        "url_placeholder": "https://…",
+        "same_as": "Profiles elsewhere (one per line)",
+        "same_as_placeholder": "https://www.linkedin.com/in/…\nhttps://x.com/…",
+        "same_as_hint": "LinkedIn, X, GitHub, Mastodon. They tell search engines these profiles are the same person.",
+        "save": "Save",
+        "create": "Create author",
+        "created": "Author created",
+        "updated": "Author updated",
+        "deleted": "Author deleted",
+        "name_required": "The author needs a name",
+        "save_failed": "Failed to save the author",
+        "delete_failed": "Failed to delete the author",
+        "delete_confirm": "Delete <strong>{{ name }}</strong>? Content that names this author keeps the name as plain text but loses the bio, photo and links.",
+        "empty_title": "No authors yet",
+        "empty_description": "Add the people who write for this site. New content is assigned the default author automatically.",
+        "default_set": "Default author updated",
+        "load_failed": "Could not load authors. Check that the Firestore rules for the Authors collection are deployed."
       }
     },
     "users": {

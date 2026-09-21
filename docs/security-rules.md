@@ -27,6 +27,8 @@ Arc CMS uses Firestore and Cloud Storage security rules to control data access. 
 | `arc_{slug}` (published) | Public | Authenticated | Published content |
 | `arc_{slug}_drafts` | Authenticated | Authenticated | Draft content |
 | `Tags_{slug}` | Public | Authenticated | Content tags |
+| `Authors/{id}` | Public | Admin | Author profiles printed on bylines and in JSON-LD; no private fields by design |
+| `Settings/discoverability` | Admin | Admin | Default author, crawler policy, IndexNow key |
 | `WaitlistUserTags_{id}` | Admin | Admin | Internal admin data |
 | `media/{id}` | Public | Authenticated | Images on public pages |
 | `email_lookup/{hash}` | Public | Authenticated | SHA-256 email hash for signup |
