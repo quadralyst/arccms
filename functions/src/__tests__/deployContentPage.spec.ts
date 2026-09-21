@@ -13,6 +13,7 @@ const {
     mockGetUiStrings,
     mockGetAboutConfig,
     mockGetAuthor,
+    mockFindRelated,
     mockTranslationsGet,
     // Firestore mocks
     mockDocGet,
@@ -33,6 +34,7 @@ const {
     mockGetUiStrings: vi.fn(),
     mockGetAboutConfig: vi.fn(),
     mockGetAuthor: vi.fn(),
+    mockFindRelated: vi.fn(),
     mockTranslationsGet: vi.fn(),
     // Firestore chain mocks
     mockDocGet: vi.fn(),
@@ -69,6 +71,11 @@ vi.mock('../pages/deployToHosting', async (importOriginal) => {
 vi.mock('../shared/authors', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../shared/authors.js')>();
     return { ...actual, getAuthor: mockGetAuthor };
+});
+
+vi.mock('../shared/related-content', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../shared/related-content.js')>();
+    return { ...actual, findRelated: mockFindRelated };
 });
 
 vi.mock('../shared/site-settings', () => ({
@@ -159,6 +166,7 @@ function restoreMockImplementations() {
     mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
     mockGetAboutConfig.mockResolvedValue(MOCK_ABOUT);
     mockGetAuthor.mockResolvedValue(null);
+    mockFindRelated.mockResolvedValue([]);
     // Single-language site by default, so the pre-M3 expectations hold.
     mockGetLocalizationSettings.mockResolvedValue({
         defaultLanguage: 'en',
@@ -1174,6 +1182,29 @@ describe('deployContentPage', () => {
             const types = jsonLdNodes().map(n => n['@type']);
             expect(types.filter(t => t === 'HowTo')).toHaveLength(1);
             expect(nodeOfType('HowTo')!.name).toBe('How to test');
+        });
+
+        it('renders a Related block from the search index, hidden when empty (D-D15)', async () => {
+            mockFindRelated.mockResolvedValue([
+                { title: 'Second', snippet: 'About second', url: '/articles/second', badge: 'Articles' },
+                { title: 'Third', snippet: '', url: '/articles/third', badge: 'Articles' },
+            ]);
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<article><h1>{{ title }}</h1><nav data-arc-if="hasRelated"><ul data-arc-loop="related"><li><a href="{{ url }}">{{ title }}</a></li></ul></nav></article>' }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            expect(mockFindRelated).toHaveBeenCalledWith(expect.objectContaining({
+                title: 'Test Article', tags: ['javascript', 'testing'], contentType: 'articles', urlSlug: 'test-article', lang: 'en',
+            }));
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            expect(html).toContain('<a href="/articles/second">Second</a>');
+            expect(html).toContain('<a href="/articles/third">Third</a>');
+
+            mockDeployBatchToHosting.mockClear();
+            mockFindRelated.mockResolvedValue([]);
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            expect(mockDeployBatchToHosting.mock.calls[0][1].files[0].content).not.toContain('<nav');
         });
 
         it('still emits Article and WebSite when Settings/about is empty', async () => {

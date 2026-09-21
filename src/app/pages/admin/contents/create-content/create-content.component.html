@@ -256,6 +256,12 @@
                 <button class="tab-btn" [class.active]="activeTab === 'basic'"
                     (click)="activeTab = 'basic'">{{ 'admin.contents.editor.tab_basic' | transloco }}</button>
                 <button class="tab-btn" [class.active]="activeTab === 'seo'" (click)="activeTab = 'seo'">{{ 'admin.contents.editor.tab_seo' | transloco }}</button>
+                <button class="tab-btn" [class.active]="activeTab === 'checks'" (click)="openChecks()" data-testid="tab-checks">
+                    {{ 'admin.contents.editor.tab_checks' | transloco }}
+                    @if (checklist(); as report) {
+                    <span class="checks-score-pill" [class.good]="report.score >= 80" [class.warn]="report.score < 80 && report.score >= 50" [class.bad]="report.score < 50">{{ report.score }}</span>
+                    }
+                </button>
                 @if(publishedId){
                 <button class="tab-btn" [class.active]="activeTab === 'history'"
                     (click)="activeTab = 'history'">
@@ -989,6 +995,61 @@
                             </div>
                         </div>
                     </form>
+                </div>
+                }
+
+                <!-- Checks Tab (docs/discoverability-spec.md, D-D13, D-D16) -->
+                @if(activeTab === 'checks'){
+                <div class="tab-panel checks-panel">
+                    <div class="d-flex align-items-start justify-content-between gap-2">
+                        <div>
+                            <h6 class="meta-section-title mb-1"><i class="fa-solid fa-magnifying-glass-chart me-1"></i> {{ 'admin.contents.checklist.title' | transloco }}</h6>
+                            <p class="text-muted small mb-2">{{ 'admin.contents.checklist.intro' | transloco }}</p>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" (click)="runChecklist(); loadLinkSuggestions()" data-testid="checks-refresh">
+                            <i class="fa-solid fa-rotate me-1"></i>{{ 'admin.contents.checklist.refresh' | transloco }}
+                        </button>
+                    </div>
+                    @if (checklist(); as report) {
+                    <div class="checks-score" [class.good]="report.score >= 80" [class.warn]="report.score < 80 && report.score >= 50" [class.bad]="report.score < 50" data-testid="checks-score">
+                        <span class="checks-score-value">{{ report.score }}</span>
+                        <span class="checks-score-label">{{ 'admin.contents.checklist.passed' | transloco: { passed: report.passed, total: report.total } }}</span>
+                    </div>
+                    <ul class="checks-list list-unstyled">
+                        @for (rule of report.results; track rule.id) {
+                        <li class="checks-row" [class.ok]="rule.ok" [class.severity-high]="rule.severity === 'high'" [attr.data-testid]="'check-' + rule.id">
+                            <i class="fa-solid" [class.fa-circle-check]="rule.ok" [class.fa-circle-xmark]="!rule.ok"></i>
+                            <div class="checks-row-body">
+                                <span class="checks-row-label">{{ rule.labelKey | transloco }}@if (rule.detail) { <span class="text-muted">({{ rule.detail }})</span> }</span>
+                                @if (!rule.ok) { <span class="checks-row-fix text-muted">{{ rule.fixKey | transloco }}</span> }
+                            </div>
+                        </li>
+                        }
+                    </ul>
+                    }
+
+                    <hr class="my-3">
+                    <h6 class="meta-section-title mb-1"><i class="fa-solid fa-link me-1"></i> {{ 'admin.contents.checklist.links_heading' | transloco }}</h6>
+                    <p class="text-muted small mb-2">{{ 'admin.contents.checklist.links_intro' | transloco }}</p>
+                    @if (linkSuggestionsLoading()) {
+                    <p class="text-muted small"><i class="fas fa-spinner fa-spin me-1"></i></p>
+                    } @else if (linkSuggestions().length) {
+                    <ul class="link-suggestions list-unstyled">
+                        @for (item of linkSuggestions(); track item.link) {
+                        <li class="link-suggestion" [attr.data-testid]="'link-suggestion-' + item.docId">
+                            <div class="link-suggestion-body">
+                                <span class="link-suggestion-title">{{ item.title }}</span>
+                                <span class="link-suggestion-meta text-muted">{{ item.badge }} · {{ item.link }}</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" (click)="insertSuggestedLink(item)" [disabled]="isTranslating()">
+                                <i class="fa-solid fa-plus me-1"></i>{{ 'admin.contents.checklist.insert_link' | transloco }}
+                            </button>
+                        </li>
+                        }
+                    </ul>
+                    } @else {
+                    <p class="text-muted small">{{ (linkSuggestionsKey ? 'admin.contents.checklist.links_all_linked' : 'admin.contents.checklist.links_none') | transloco }}</p>
+                    }
                 </div>
                 }
 

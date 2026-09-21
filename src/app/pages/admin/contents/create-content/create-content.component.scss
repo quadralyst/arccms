@@ -1450,3 +1450,63 @@
 .author-select {
   max-width: 20rem;
 }
+
+// Checks tab (docs/discoverability-spec.md, D-D13, D-D16)
+.checks-score-pill {
+  display: inline-block;
+  min-width: 1.6rem;
+  margin-left: 0.35rem;
+  padding: 0 0.35rem;
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-align: center;
+  background: #e5e7eb;
+  color: #374151;
+  &.good { background: #dcfce7; color: #166534; }
+  &.warn { background: #fef3c7; color: #92400e; }
+  &.bad { background: #fee2e2; color: #991b1b; }
+}
+
+.checks-score {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #f3f4f6;
+  margin-bottom: 0.75rem;
+  &.good { background: #dcfce7; }
+  &.warn { background: #fef3c7; }
+  &.bad { background: #fee2e2; }
+  .checks-score-value { font-size: 1.75rem; font-weight: 700; line-height: 1; }
+  .checks-score-label { font-size: 0.8125rem; color: #4b5563; }
+}
+
+.checks-list { margin: 0; }
+.checks-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.8125rem;
+  i { margin-top: 0.15rem; color: #dc2626; }
+  &.ok i { color: #16a34a; }
+  &.severity-high:not(.ok) .checks-row-label { font-weight: 600; }
+  .checks-row-body { display: flex; flex-direction: column; gap: 0.1rem; }
+  .checks-row-fix { font-size: 0.75rem; }
+}
+
+.link-suggestions { margin: 0; }
+.link-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.8125rem;
+  .link-suggestion-body { display: flex; flex-direction: column; min-width: 0; }
+  .link-suggestion-title { font-weight: 500; }
+  .link-suggestion-meta { font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}

@@ -64,6 +64,23 @@ export class SearchService {
         return response;
     }
 
+    /**
+     * One search outside the type-ahead's cancel-the-older-one sequence:
+     * for lookups such as related items (D-D15) or link suggestions
+     * (D-D16), which must neither cancel a header search in flight nor be
+     * cancelled by one. Cached like any other search.
+     */
+    async lookup(request: SearchRequest): Promise<SearchResponse> {
+        const q = request.q.trim();
+        if (!this.isSearchable(q)) return { results: [], tookMs: 0 };
+        const key = this.cacheKey({ ...request, q });
+        const cached = this.cache.get(key);
+        if (cached) return cached;
+        const response = await this.call({ ...request, q });
+        this.remember(key, response);
+        return response;
+    }
+
     /** Rebuilds the index. Admin only; the function enforces it. */
     async reindex(request: ReindexRequest = {}): Promise<SourceReindexResult[]> {
         if (!this.functions) throw new Error('Firebase Functions is not available.');

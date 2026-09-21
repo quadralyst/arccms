@@ -20,6 +20,7 @@ import { AuthorProfile, authorTemplateData, authorToPerson, getAuthor } from '..
 import { buildMarkdownTwin, markdownFilePath, markdownUrl } from '../shared/markdown-twin.js';
 import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../shared/content-blocks.js';
 import { buildMappedNode } from '../shared/schema-mapping.js';
+import { findRelated } from '../shared/related-content.js';
 import { cleanReferences } from '../shared/references.js';
 import {
     buildHtmlDocument,
@@ -404,6 +405,18 @@ export async function generateAndDeployContentDetailPage(
             localizedContent.tagsWithColors ||
             (localizedContent.tags || []).map((t: string) => ({ name: t, color: '#6b7280' }));
 
+        // Related items from the search index (D-D15), per language so the
+        // links stay inside the language being read.
+        const related = await findRelated({
+            title: localizedContent.title || '',
+            tags: localizedContent.tags || [],
+            contentType: contentTypeSlug,
+            urlSlug: content.urlSlug,
+            lang,
+        });
+        templateData['related'] = related;
+        templateData['hasRelated'] = related.length > 0;
+
         // Hydrate template: process loops first, then bindings
         // Static chrome baked into the template ("Read Article", "min read").
         // Applied before hydration so a translated value may carry its own
@@ -423,6 +436,8 @@ export async function generateAndDeployContentDetailPage(
             tags: tagsData,
             // Cited sources (D-D11): data-arc-loop="references" in templates.
             references: cleanReferences(localizedContent.references),
+            // Related items (D-D15): data-arc-loop="related".
+            related,
         });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 

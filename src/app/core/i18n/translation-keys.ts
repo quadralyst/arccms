@@ -90,6 +90,43 @@ export type TranslationKey =
     | 'admin.contents.authors.updated'
     | 'admin.contents.authors.url'
     | 'admin.contents.authors.url_placeholder'
+    | 'admin.contents.checklist.answer_first'
+    | 'admin.contents.checklist.answer_first_fix'
+    | 'admin.contents.checklist.author'
+    | 'admin.contents.checklist.author_fix'
+    | 'admin.contents.checklist.blocks'
+    | 'admin.contents.checklist.blocks_fix'
+    | 'admin.contents.checklist.cover_image'
+    | 'admin.contents.checklist.cover_image_fix'
+    | 'admin.contents.checklist.freshness'
+    | 'admin.contents.checklist.freshness_fix'
+    | 'admin.contents.checklist.insert_link'
+    | 'admin.contents.checklist.internal_links'
+    | 'admin.contents.checklist.internal_links_fix'
+    | 'admin.contents.checklist.intro'
+    | 'admin.contents.checklist.length'
+    | 'admin.contents.checklist.length_fix'
+    | 'admin.contents.checklist.link_inserted'
+    | 'admin.contents.checklist.links_all_linked'
+    | 'admin.contents.checklist.links_heading'
+    | 'admin.contents.checklist.links_intro'
+    | 'admin.contents.checklist.links_none'
+    | 'admin.contents.checklist.list_or_table'
+    | 'admin.contents.checklist.list_or_table_fix'
+    | 'admin.contents.checklist.meta_description'
+    | 'admin.contents.checklist.meta_description_fix'
+    | 'admin.contents.checklist.passed'
+    | 'admin.contents.checklist.question_heading'
+    | 'admin.contents.checklist.question_heading_fix'
+    | 'admin.contents.checklist.refresh'
+    | 'admin.contents.checklist.score'
+    | 'admin.contents.checklist.sources'
+    | 'admin.contents.checklist.sources_fix'
+    | 'admin.contents.checklist.tags'
+    | 'admin.contents.checklist.tags_fix'
+    | 'admin.contents.checklist.title'
+    | 'admin.contents.checklist.title_length'
+    | 'admin.contents.checklist.title_length_fix'
     | 'admin.contents.editor.add_reference'
     | 'admin.contents.editor.author'
     | 'admin.contents.editor.author_hint'
@@ -158,6 +195,7 @@ export type TranslationKey =
     | 'admin.contents.editor.summary'
     | 'admin.contents.editor.summary_hint'
     | 'admin.contents.editor.tab_basic'
+    | 'admin.contents.editor.tab_checks'
     | 'admin.contents.editor.tab_seo'
     | 'admin.contents.editor.tag_create_failed'
     | 'admin.contents.editor.tags'
@@ -1216,6 +1254,43 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.authors.updated',
     'admin.contents.authors.url',
     'admin.contents.authors.url_placeholder',
+    'admin.contents.checklist.answer_first',
+    'admin.contents.checklist.answer_first_fix',
+    'admin.contents.checklist.author',
+    'admin.contents.checklist.author_fix',
+    'admin.contents.checklist.blocks',
+    'admin.contents.checklist.blocks_fix',
+    'admin.contents.checklist.cover_image',
+    'admin.contents.checklist.cover_image_fix',
+    'admin.contents.checklist.freshness',
+    'admin.contents.checklist.freshness_fix',
+    'admin.contents.checklist.insert_link',
+    'admin.contents.checklist.internal_links',
+    'admin.contents.checklist.internal_links_fix',
+    'admin.contents.checklist.intro',
+    'admin.contents.checklist.length',
+    'admin.contents.checklist.length_fix',
+    'admin.contents.checklist.link_inserted',
+    'admin.contents.checklist.links_all_linked',
+    'admin.contents.checklist.links_heading',
+    'admin.contents.checklist.links_intro',
+    'admin.contents.checklist.links_none',
+    'admin.contents.checklist.list_or_table',
+    'admin.contents.checklist.list_or_table_fix',
+    'admin.contents.checklist.meta_description',
+    'admin.contents.checklist.meta_description_fix',
+    'admin.contents.checklist.passed',
+    'admin.contents.checklist.question_heading',
+    'admin.contents.checklist.question_heading_fix',
+    'admin.contents.checklist.refresh',
+    'admin.contents.checklist.score',
+    'admin.contents.checklist.sources',
+    'admin.contents.checklist.sources_fix',
+    'admin.contents.checklist.tags',
+    'admin.contents.checklist.tags_fix',
+    'admin.contents.checklist.title',
+    'admin.contents.checklist.title_length',
+    'admin.contents.checklist.title_length_fix',
     'admin.contents.editor.add_reference',
     'admin.contents.editor.author',
     'admin.contents.editor.author_hint',
@@ -1284,6 +1359,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.summary',
     'admin.contents.editor.summary_hint',
     'admin.contents.editor.tab_basic',
+    'admin.contents.editor.tab_checks',
     'admin.contents.editor.tab_seo',
     'admin.contents.editor.tag_create_failed',
     'admin.contents.editor.tags',

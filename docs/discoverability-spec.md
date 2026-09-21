@@ -1,8 +1,9 @@
 # ArcCMS Discoverability: Build Spec (Google + LLM citation)
 
-**Status:** D1 to D5 built 2026-09-21 with unit coverage; D1, D2, D4 and D5 verified in the
-browser against the dev project, D3's Hosting output awaits a functions deploy (see section 5).
-D6 planned. Discussion completed 2026-09-20. Phases are
+**Status:** D1 to D6 built 2026-09-21 with unit coverage; D1, D2, D4, D5 and D6 verified in the
+browser against the dev project. D3's Hosting output, the static Related block and the AI
+assistants analytics panel await a functions deploy (see section 5). Guides:
+`docs/discoverability-developer-guide.md`, `docs/discoverability-content-guide.md`. Discussion completed 2026-09-20. Phases are
 built one at a time; each ends with a report, a deploy to the dev project and a browser check
 before the next starts.
 **Branch:** `feat/discoverability` (cut from `feat/search`, which is a superset of `dev`; D6 uses
@@ -388,3 +389,30 @@ Currency to your fields, Update. Open an item of that type (`?preview=true` for 
 `arc-ld-article` script in `<head>` is now a Product with an Offer. After the functions deploy
 and a republish, the static HTML carries the same and the Rich Results Test shows Product
 snippets. `/pricing` shows Product + Offer per plan.
+
+### D6 (built 2026-09-21)
+
+Files: `src/shared/utils/discoverability-checklist.ts` (13 weighted rules, pure; translation
+keys `admin.contents.checklist.*`), the editor's **Checks** tab (score pill on the tab, rule
+rows with the one fix each, link suggestions with **Insert link**),
+`SearchService.lookup()` (a search outside the type-ahead's cancel sequence),
+`functions/src/shared/related-content.ts` + `src/shared/utils/related-content.ts` (title and
+tags through the search ranking, self dropped, top 4), `deployContentPage.ts` (`related`,
+`hasRelated` bindings and loop), default template + SPA layout Related block, Hindi string
+`related_title`; `functions/src/shared/ai-referrers.ts` and a fifth acquisition panel
+"AI assistants" from GA4 `sessionSource` (`analyticsHelpers.ts`); the two guides.
+
+Verified in the browser 2026-09-21 on "Test page version 0.1": Checks tab scored 64/100 with
+the expected rules failing; suggestions listed the two other indexed pages and not the page
+itself; Insert link put the anchor in the body; `/articles/test-page?preview=true` showed the
+Related block with those two pages (SPA twin, live callable).
+
+To verify: open any article → **Checks** tab; change the draft, press Re-check. After
+`firebase deploy --only functions` and a republish, the static page carries the Related block
+and, once Google Analytics is connected and refreshed, the dashboard shows the "AI assistants"
+panel (empty until an assistant sends a visitor; test with a visit whose referrer is
+chatgpt.com).
+
+### Deferred (non-goals recorded in section 0)
+Topic hubs / pillar collections, category landing pages, Search Console API, per-request
+crawler logs, more schema types than the D-D12 list, Review/AggregateRating markup.

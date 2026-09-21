@@ -26,5 +26,6 @@
   "updated_on": "अद्यतन {{ updatedOnDisplay }}",
   "written_by": "लेखक",
   "author_more": "{{ author.name }} के और लेख",
-  "sources": "स्रोत"
+  "sources": "स्रोत",
+  "related_title": "संबंधित"
 }

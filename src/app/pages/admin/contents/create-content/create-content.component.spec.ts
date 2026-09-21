@@ -20,6 +20,7 @@ import { ContentsService } from '../content-store/published-contents.service';
 import { LocalizationService } from '../../../../core/services/localization.service';
 import { AuthState } from '../../../(auth)/auth.store';
 import { AuthorsService } from '../../(authors)/authors.service';
+import { SearchService } from '../../../../core/services/search.service';
 
 describe('CreateContentComponent', () => {
     let component: CreateContentComponent;
@@ -32,6 +33,7 @@ describe('CreateContentComponent', () => {
     let mockToastService: any;
     let mockFirestore: any;
     let mockAuthorsService: any;
+    let mockSearchService: any;
     let mockDraftContentsService: any;
     let mockCollectionRefSyncService: any;
     let mockDialog: any;
@@ -141,6 +143,13 @@ describe('CreateContentComponent', () => {
 
         mockFirestore = {};
 
+        mockSearchService = {
+            lookup: vi.fn().mockResolvedValue({ results: [
+                { source: 'content', docId: 'd1', lang: 'en', title: 'Other page', snippet: '', badge: 'Articles', link: '/articles/other', meta: { contentType: 'articles', urlSlug: 'other' }, score: 1, highlights: { title: [], snippet: [] } },
+                { source: 'content', docId: 'd2', lang: 'en', title: 'Linked page', snippet: '', badge: 'Articles', link: '/articles/linked', meta: { contentType: 'articles', urlSlug: 'linked' }, score: 1, highlights: { title: [], snippet: [] } },
+                { source: 'content', docId: 'd3', lang: 'en', title: 'Self', snippet: '', badge: 'Articles', link: '/articles/self', meta: { contentType: 'articles', urlSlug: 'self' }, score: 1, highlights: { title: [], snippet: [] } },
+            ], tookMs: 1 }),
+        };
         mockAuthorsService = {
             list: vi.fn().mockReturnValue(of([
                 { id: 'a1', name: 'Jane Doe' },
@@ -180,6 +189,7 @@ describe('CreateContentComponent', () => {
                 { provide: LocalizationService, useValue: mockLocalizationService },
                 { provide: AuthState, useValue: mockAuthState },
                 { provide: AuthorsService, useValue: mockAuthorsService },
+                { provide: SearchService, useValue: mockSearchService },
             ]
         }).compileComponents();
 
@@ -2119,6 +2129,47 @@ describe('CreateContentComponent', () => {
             expect(component.references()).toEqual([{ title: 'A', url: 'https://a.com' }]);
             component.removeReference(0);
             expect(component.references()).toEqual([]);
+        });
+    });
+
+    // ─── Checks tab (docs/discoverability-spec.md, D-D13, D-D16) ───────────
+
+    describe('checks tab', () => {
+        it('scores the draft and lists failing rules with fixes', () => {
+            component.pageTitle = 'How much does it cost?';
+            component.publishForm.get('content')?.setValue('<p>' + 'word '.repeat(20) + '</p>');
+            component.runChecklist();
+            const report = component.checklist()!;
+            expect(report.total).toBeGreaterThan(10);
+            expect(report.results.find(r => r.id === 'answer_first')?.ok).toBe(true);
+            expect(report.results.find(r => r.id === 'sources')?.ok).toBe(false);
+            component.publishForm.get('authorId')?.setValue('');
+            component.runChecklist();
+            expect(component.checklist()!.results.find(r => r.id === 'author')?.ok).toBe(false);
+            expect(report.score).toBeGreaterThan(0);
+            expect(report.score).toBeLessThan(100);
+        });
+
+        it('suggests related pages that are not the draft itself and not already linked', async () => {
+            component.contentTypeSlug = 'articles';
+            component.pageTitle = 'Self page';
+            component.publishForm.get('urlSlug')?.setValue('self');
+            component.publishForm.get('content')?.setValue('<p>See <a href="/articles/linked">this</a></p>');
+            await component.loadLinkSuggestions();
+            expect(mockSearchService.lookup).toHaveBeenCalledWith(expect.objectContaining({ scope: 'admin', lang: 'all', sources: ['content'] }));
+            expect(component.linkSuggestions().map(r => r.title)).toEqual(['Other page']);
+        });
+
+        it('inserts a suggested link into the body editor and drops the suggestion', async () => {
+            component.contentTypeSlug = 'articles';
+            component.pageTitle = 'Self page';
+            await component.loadLinkSuggestions();
+            const insert = vi.fn();
+            (component as any).bodyEditor = { insertTextAtCursor: insert };
+            const item = component.linkSuggestions()[0];
+            component.insertSuggestedLink(item);
+            expect(insert).toHaveBeenCalledWith('<a href="/articles/other">Other page</a>');
+            expect(component.linkSuggestions()).not.toContain(item);
         });
     });
 

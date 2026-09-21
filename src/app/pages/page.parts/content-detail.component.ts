@@ -31,6 +31,8 @@ import { IAuthor } from '../../../shared/models/author.model';
 import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../../../shared/utils/content-blocks';
 import { cleanReferences } from '../../../shared/models/references.model';
 import { buildMappedNode } from '../../../shared/utils/schema-mapping';
+import { SearchService } from '../../core/services/search.service';
+import { RELATED_LIMIT, RelatedItem, pickRelated, relatedQuery } from '../../../shared/utils/related-content';
 import {
     buildBreadcrumbList,
     buildOrganization,
@@ -158,6 +160,22 @@ const MAX_BLOCK_NODES = 12;
                     }
 
                     <!-- Share Buttons -->
+                    <!-- Related items (D-D15); mirrors public/templates/default/detail.html -->
+                    @if (related().length) {
+                    <section class="article-related">
+                        <h2 class="article-related-title" data-arc-t="related_title">Related</h2>
+                        <div class="article-related-grid">
+                            @for (item of related(); track item.url) {
+                            <a class="article-related-card" [href]="item.url">
+                                <span class="article-related-badge">{{ item.badge }}</span>
+                                <span class="article-related-name">{{ item.title }}</span>
+                                <span class="article-related-snippet">{{ item.snippet }}</span>
+                            </a>
+                            }
+                        </div>
+                    </section>
+                    }
+
                     <!-- Author box (D2); mirrors public/templates/default/detail.html -->
                     @if (author(); as a) {
                     <aside class="article-author-box">
@@ -422,6 +440,15 @@ const MAX_BLOCK_NODES = 12;
         .article-sources-list a { color: #0066cc; text-decoration: none; word-break: break-word; }
         .article-sources-list a:hover { text-decoration: underline; }
 
+        .article-related { max-width: 720px; margin: 2.5rem auto 0; padding-top: 1.5rem; border-top: 1px solid #e8e8ed; }
+        .article-related-title { font-size: 1rem; font-weight: 600; margin: 0 0 1rem; color: #1d1d1f; }
+        .article-related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+        .article-related-card { display: flex; flex-direction: column; gap: .25rem; padding: 1rem; border-radius: 12px; background: #f5f5f7; text-decoration: none; color: inherit; }
+        .article-related-card:hover { background: #ebebf0; }
+        .article-related-badge { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: #6e6e73; }
+        .article-related-name { font-weight: 600; color: #1d1d1f; line-height: 1.35; }
+        .article-related-snippet { font-size: .875rem; color: #6e6e73; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
         .article-author-box {
             display: flex;
             gap: 1.25rem;
@@ -559,6 +586,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
     /** Cited sources (D-D11), cleaned. */
     references = computed(() => cleanReferences(this.currentContent()?.references));
+
+    /** Related items from the search index (D-D15); the static page has them baked in. */
+    related = signal<RelatedItem[]>([]);
+    private searchService = inject(SearchService);
+    private relatedKey = '';
     private document = inject(DOCUMENT);
     private platformId = inject(PLATFORM_ID);
     private transferState = inject(TransferState);
@@ -734,6 +766,26 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                 // The switcher may now offer exactly the languages this item
                 // has, rather than everything enabled site-wide.
                 this.announceVariants(this.contentTypeSlug(), match.id);
+            });
+        });
+
+        // Related items: one lookup per item and language, never blocking render.
+        effect(() => {
+            const content = this.currentContent();
+            const typeSlug = this.contentTypeSlug();
+            const lang = this.pageLang() || this.localization.defaultLanguage();
+            untracked(() => {
+                if (!content?.urlSlug || !isPlatformBrowser(this.platformId)) return;
+                const key = `${typeSlug}/${content.urlSlug}/${lang}`;
+                if (key === this.relatedKey) return;
+                this.relatedKey = key;
+                this.related.set([]);
+                const q = relatedQuery(content.title || '', content.tags || []);
+                if (!q) return;
+                this.searchService
+                    .lookup({ q, lang, scope: 'public', sources: ['content'], limit: RELATED_LIMIT + 1 })
+                    .then(res => { if (this.relatedKey === key) this.related.set(pickRelated(res.results, { contentType: typeSlug, urlSlug: content.urlSlug })); })
+                    .catch(() => undefined);
             });
         });
 
@@ -1282,6 +1334,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             ...this.authorTemplateData(),
             references: this.references(),
             hasReferences: this.references().length > 0,
+            related: this.related(),
+            hasRelated: this.related().length > 0,
         };
 
         // Add share object (nested for hydration)
@@ -1317,6 +1371,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                 this.contentTypeSlug(),
             ),
             references: this.references(),
+            related: this.related(),
             tags: tagsData
         });
 

@@ -42,6 +42,9 @@ import { LocalizationService } from '../../../../core/services/localization.serv
 import { AuthorsService } from '../../(authors)/authors.service';
 import { IAuthor } from '../../../../../shared/models/author.model';
 import { IReference, cleanReferences } from '../../../../../shared/models/references.model';
+import { ChecklistReport, evaluateDiscoverability } from '../../../../../shared/utils/discoverability-checklist';
+import { SearchService } from '../../../../core/services/search.service';
+import { SearchResult } from '../../../../../shared/models/search.model';
 import { AuthState } from '../../../(auth)/auth.store';
 import { ILanguage } from '../../../../../shared/models/localization.model';
 import {
@@ -91,6 +94,10 @@ export function fromDateInputValue(value: unknown): Date | null {
   // JS rolls "2025-13-45" forward instead of failing; insist on a round trip.
   const valid = date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
   return valid ? date : null;
+}
+
+function escapeHtml(text: string): string {
+  return (text || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 }
 
 @Component({
@@ -194,7 +201,15 @@ export class CreateContentComponent extends BaseComponent {
   lastDraftSavedDate: Date | null = null;
   lastPublishedDate: Date | null = null;
   paramContentType: string | null = null;
-  activeTab: 'basic' | 'seo' | 'history' = 'basic';
+  activeTab: 'basic' | 'seo' | 'checks' | 'history' = 'basic';
+
+  // ── Discoverability checks (docs/discoverability-spec.md, D-D13, D-D16) ──
+  private searchService = inject(SearchService);
+  @ViewChild(TiptapEditorComponent) private bodyEditor?: TiptapEditorComponent;
+  checklist = signal<ChecklistReport | null>(null);
+  linkSuggestions = signal<SearchResult[]>([]);
+  linkSuggestionsLoading = signal(false);
+  linkSuggestionsKey = '';
 
   // Version preview — when set, replaces the editor area with a read-only preview
   previewingVersion = signal<VersionHistoryItem | null>(null);
@@ -1559,6 +1574,69 @@ export class CreateContentComponent extends BaseComponent {
     this.seoForm.get('updatedOn')?.setValue(toDateInputValue(new Date()));
     this.seoForm.get('updatedOn')?.markAsDirty();
     this.triggerAutoSave();
+  }
+
+  /** Runs the checklist and refreshes link suggestions; called when the Checks tab opens or on demand. */
+  openChecks(): void {
+    this.activeTab = 'checks';
+    this.runChecklist();
+    this.loadLinkSuggestions();
+  }
+
+  runChecklist(): void {
+    const base = this.baseLanguageValues();
+    this.checklist.set(evaluateDiscoverability({
+      title: base.title || this.pageTitle || '',
+      bodyHtml: base.content || '',
+      summary: base.summary || '',
+      metaDescription: base.metaDescription || '',
+      coverImage: this.coverImage,
+      authorId: this.publishForm.get('authorId')?.value || null,
+      references: this.references(),
+      tags: this.selectedTags().map(t => t.label),
+      publishedOn: this.lastPublishedDate,
+      updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
+      siteOrigin: this.domain,
+    }));
+  }
+
+  /**
+   * Content on this site related to the draft that the body does not link
+   * to yet (D-D16): the admin search over published items and drafts, with
+   * the item itself and anything already linked removed.
+   */
+  async loadLinkSuggestions(): Promise<void> {
+    const base = this.baseLanguageValues();
+    const q = [base.title || this.pageTitle || '', ...this.selectedTags().map(t => t.label)].join(' ').trim().slice(0, 120);
+    const key = `${q}|${this.contentId}`;
+    if (!q || key === this.linkSuggestionsKey) return;
+    this.linkSuggestionsKey = key;
+    this.linkSuggestionsLoading.set(true);
+    try {
+      const res = await this.searchService.lookup({ q, lang: 'all', scope: 'admin', sources: ['content'], limit: 12 });
+      const body = (base.content || '').toLowerCase();
+      const own = { type: this.contentTypeSlug || this.publishForm.get('type')?.value, slug: this.publishForm.get('urlSlug')?.value };
+      this.linkSuggestions.set(res.results.filter(r => {
+        if (r.meta?.['contentType'] === own.type && r.meta?.['urlSlug'] === own.slug) return false;
+        return !body.includes(`href="${r.link.toLowerCase()}"`) && !body.includes(`${r.link.toLowerCase()}"`);
+      }).slice(0, 6));
+    } catch (error) {
+      console.error('Link suggestions failed:', error);
+      this.linkSuggestions.set([]);
+    } finally {
+      this.linkSuggestionsLoading.set(false);
+    }
+  }
+
+  /** Inserts the page as a link at the cursor in the body editor. */
+  insertSuggestedLink(item: SearchResult): void {
+    const html = `<a href="${item.link}">${escapeHtml(item.title)}</a>`;
+    if (this.bodyEditor) {
+      this.bodyEditor.insertTextAtCursor(html);
+      this.notify.success('admin.contents.checklist.link_inserted');
+      this.linkSuggestions.update(list => list.filter(r => r !== item));
+      this.triggerAutoSave();
+    }
   }
 
   addReference(): void {
