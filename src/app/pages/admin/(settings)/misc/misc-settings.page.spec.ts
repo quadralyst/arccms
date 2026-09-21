@@ -15,8 +15,7 @@ describe('MiscSettingsPage', () => {
     const mockSettings: IMiscSettings = {
         showPoweredBy: true,
         mediaMaxFileSize: 10,
-        mediaMaxWidth: 2560,
-        mediaMaxHeight: 1440,
+        mediaMaxSize: 1200,
         mediaConvertToWebp: true,
     };
 

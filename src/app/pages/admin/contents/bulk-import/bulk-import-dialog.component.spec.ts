@@ -126,11 +126,12 @@ describe('BulkImportDialogComponent', () => {
         const callArgs = mockContentTypesStore.update.mock.calls[0];
         expect(callArgs[0]).toBe('1'); // ID from mock store
         expect(callArgs[1].fields.length).toBe(1);
-        expect(callArgs[1].fields[0].key).toBe('unknown');
+        // New fields follow the `<slug>-<name>` key convention.
+        expect(callArgs[1].fields[0].key).toBe('articles-unknown');
         
         // Should update mapping
         const mapping = component.columnMappings()[0];
-        expect(mapping.targetField).toBe('unknown');
+        expect(mapping.targetField).toBe('articles-unknown');
         expect(mapping.isCustomField).toBe(true);
     });
 

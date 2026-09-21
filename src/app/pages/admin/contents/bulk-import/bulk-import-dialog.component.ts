@@ -1,4 +1,5 @@
 
+import { fieldKeyFromLabel, fullFieldKey } from '../content-types/collection-ref-helpers';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -201,7 +202,7 @@ export class BulkImportDialogComponent {
         const suggestedType = this.bulkImportService.suggestFieldType(sampleValues);
         
         const newField: ContentTypeField = {
-            key: headerName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+            key: fullFieldKey(ct.slug, fieldKeyFromLabel(headerName)),
             label: headerName,
             type: suggestedType,
             required: false,

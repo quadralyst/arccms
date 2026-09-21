@@ -138,7 +138,6 @@ export type TranslationKey =
     | 'admin.contents.editor.clear_updated'
     | 'admin.contents.editor.click_to_select_icon'
     | 'admin.contents.editor.click_to_select_image'
-    | 'admin.contents.editor.click_to_upload'
     | 'admin.contents.editor.cover_image'
     | 'admin.contents.editor.custom_fields'
     | 'admin.contents.editor.default_badge'
@@ -150,7 +149,6 @@ export type TranslationKey =
     | 'admin.contents.editor.editing_draft'
     | 'admin.contents.editor.expand'
     | 'admin.contents.editor.history'
-    | 'admin.contents.editor.image_recommendation'
     | 'admin.contents.editor.loading_options'
     | 'admin.contents.editor.manage_authors'
     | 'admin.contents.editor.map.address'
@@ -209,7 +207,6 @@ export type TranslationKey =
     | 'admin.contents.editor.unsaved_changes'
     | 'admin.contents.editor.updated_on'
     | 'admin.contents.editor.updated_on_hint'
-    | 'admin.contents.editor.upload_image'
     | 'admin.contents.editor.url_copied'
     | 'admin.contents.editor.url_copy_failed'
     | 'admin.contents.editor.url_slug'
@@ -258,12 +255,18 @@ export type TranslationKey =
     | 'admin.contents.types.form.description_translation_hint'
     | 'admin.contents.types.form.display_field'
     | 'admin.contents.types.form.display_field_hint'
+    | 'admin.contents.types.form.duplicate_fields'
     | 'admin.contents.types.form.edit_title'
     | 'admin.contents.types.form.field_key'
+    | 'admin.contents.types.form.field_key_auto_hint'
+    | 'admin.contents.types.form.field_key_locked_hint'
     | 'admin.contents.types.form.field_key_placeholder'
     | 'admin.contents.types.form.field_label'
     | 'admin.contents.types.form.field_label_placeholder'
     | 'admin.contents.types.form.field_n'
+    | 'admin.contents.types.form.field_name'
+    | 'admin.contents.types.form.field_name_duplicate'
+    | 'admin.contents.types.form.field_name_placeholder'
     | 'admin.contents.types.form.field_required'
     | 'admin.contents.types.form.field_type'
     | 'admin.contents.types.form.icon'
@@ -912,10 +915,8 @@ export type TranslationKey =
     | 'admin.settings.misc.convert_webp'
     | 'admin.settings.misc.max_file_size'
     | 'admin.settings.misc.max_file_size_hint'
-    | 'admin.settings.misc.max_height'
-    | 'admin.settings.misc.max_height_hint'
-    | 'admin.settings.misc.max_width'
-    | 'admin.settings.misc.max_width_hint'
+    | 'admin.settings.misc.max_size'
+    | 'admin.settings.misc.max_size_hint'
     | 'admin.settings.misc.media_intro'
     | 'admin.settings.misc.media_saved'
     | 'admin.settings.misc.media_upload'
@@ -1302,7 +1303,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.clear_updated',
     'admin.contents.editor.click_to_select_icon',
     'admin.contents.editor.click_to_select_image',
-    'admin.contents.editor.click_to_upload',
     'admin.contents.editor.cover_image',
     'admin.contents.editor.custom_fields',
     'admin.contents.editor.default_badge',
@@ -1314,7 +1314,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.editing_draft',
     'admin.contents.editor.expand',
     'admin.contents.editor.history',
-    'admin.contents.editor.image_recommendation',
     'admin.contents.editor.loading_options',
     'admin.contents.editor.manage_authors',
     'admin.contents.editor.map.address',
@@ -1373,7 +1372,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.unsaved_changes',
     'admin.contents.editor.updated_on',
     'admin.contents.editor.updated_on_hint',
-    'admin.contents.editor.upload_image',
     'admin.contents.editor.url_copied',
     'admin.contents.editor.url_copy_failed',
     'admin.contents.editor.url_slug',
@@ -1422,12 +1420,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.form.description_translation_hint',
     'admin.contents.types.form.display_field',
     'admin.contents.types.form.display_field_hint',
+    'admin.contents.types.form.duplicate_fields',
     'admin.contents.types.form.edit_title',
     'admin.contents.types.form.field_key',
+    'admin.contents.types.form.field_key_auto_hint',
+    'admin.contents.types.form.field_key_locked_hint',
     'admin.contents.types.form.field_key_placeholder',
     'admin.contents.types.form.field_label',
     'admin.contents.types.form.field_label_placeholder',
     'admin.contents.types.form.field_n',
+    'admin.contents.types.form.field_name',
+    'admin.contents.types.form.field_name_duplicate',
+    'admin.contents.types.form.field_name_placeholder',
     'admin.contents.types.form.field_required',
     'admin.contents.types.form.field_type',
     'admin.contents.types.form.icon',
@@ -2076,10 +2080,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.misc.convert_webp',
     'admin.settings.misc.max_file_size',
     'admin.settings.misc.max_file_size_hint',
-    'admin.settings.misc.max_height',
-    'admin.settings.misc.max_height_hint',
-    'admin.settings.misc.max_width',
-    'admin.settings.misc.max_width_hint',
+    'admin.settings.misc.max_size',
+    'admin.settings.misc.max_size_hint',
     'admin.settings.misc.media_intro',
     'admin.settings.misc.media_saved',
     'admin.settings.misc.media_upload',

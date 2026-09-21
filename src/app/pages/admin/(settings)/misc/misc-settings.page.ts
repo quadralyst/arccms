@@ -6,13 +6,14 @@
  * - Media upload constraints
  */
 
-import { Component, inject, Injector, runInInjectionContext, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, inject, Injector, runInInjectionContext, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { injectT } from '../../../../core/i18n/inject-t';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
 import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
+import { imageSizeLimits } from '../../../../../shared/utils/image-sizes';
 
 @Component({
   selector: 'arc-misc-settings',
@@ -40,32 +41,18 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
           <small class="text-muted d-block mt-1">{{ 'admin.settings.misc.max_file_size_hint' | transloco }}</small>
         </div>
 
-        <div class="col-md-4 mb-3">
-          <label class="form-label" for="mediaMaxWidth">{{ 'admin.settings.misc.max_width' | transloco }}</label>
+        <div class="col-md-8 mb-3">
+          <label class="form-label" for="mediaMaxSize">{{ 'admin.settings.misc.max_size' | transloco }}</label>
           <input
             type="number"
             class="form-control"
-            id="mediaMaxWidth"
-            [ngModel]="settings().mediaMaxWidth"
-            (ngModelChange)="updateField('mediaMaxWidth', $event)"
+            id="mediaMaxSize"
+            [ngModel]="settings().mediaMaxSize"
+            (ngModelChange)="updateField('mediaMaxSize', $event)"
             min="100"
             max="7680"
           />
-          <small class="text-muted d-block mt-1">{{ 'admin.settings.misc.max_width_hint' | transloco }}</small>
-        </div>
-
-        <div class="col-md-4 mb-3">
-          <label class="form-label" for="mediaMaxHeight">{{ 'admin.settings.misc.max_height' | transloco }}</label>
-          <input
-            type="number"
-            class="form-control"
-            id="mediaMaxHeight"
-            [ngModel]="settings().mediaMaxHeight"
-            (ngModelChange)="updateField('mediaMaxHeight', $event)"
-            min="100"
-            max="4320"
-          />
-          <small class="text-muted d-block mt-1">{{ 'admin.settings.misc.max_height_hint' | transloco }}</small>
+          <small class="text-muted d-block mt-1">{{ 'admin.settings.misc.max_size_hint' | transloco: { s: sizeLimits().s, m: sizeLimits().m, l: sizeLimits().l, xl: sizeLimits().xl } }}</small>
         </div>
       </div>
 
@@ -177,6 +164,10 @@ export class MiscSettingsPage implements OnInit {
   private injector = inject(Injector);
 
   settings = signal<IMiscSettings>(DEFAULT_MISC_SETTINGS);
+
+  /** The four stored sizes the current maximum yields, for the hint under the field. */
+
+  sizeLimits = computed(() => imageSizeLimits(this.settings().mediaMaxSize ?? DEFAULT_MISC_SETTINGS.mediaMaxSize ?? 1200));
   isSavingBranding = signal(false);
   brandingSaveMessage = signal('');
   isSavingMedia = signal(false);
@@ -221,8 +212,8 @@ export class MiscSettingsPage implements OnInit {
     this.isSavingMedia.set(true);
     try {
       const docRef = doc(this.firestore, 'Settings', 'misc');
-      const { mediaMaxFileSize, mediaMaxWidth, mediaMaxHeight, mediaConvertToWebp } = this.settings();
-      await setDoc(docRef, { mediaMaxFileSize, mediaMaxWidth, mediaMaxHeight, mediaConvertToWebp }, { merge: true });
+      const { mediaMaxFileSize, mediaMaxSize, mediaConvertToWebp } = this.settings();
+      await setDoc(docRef, { mediaMaxFileSize, mediaMaxSize, mediaConvertToWebp }, { merge: true });
       this.mediaSaveMessage.set(this.t('admin.settings.misc.media_saved'));
       setTimeout(() => this.mediaSaveMessage.set(''), 3000);
     } catch (error) {

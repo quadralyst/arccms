@@ -1,4 +1,5 @@
 import { parseHexColor } from '../../../../../shared/utils/color';
+import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -99,6 +100,9 @@ export function fromDateInputValue(value: unknown): Date | null {
 function escapeHtml(text: string): string {
   return (text || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 }
+
+/** The cover doubles as the social-share image, so its picker opens at full size. */
+const COVER_IMAGE_SIZE: ImageSize = 'xl';
 
 @Component({
   selector: 'arc-create-content',
@@ -2603,8 +2607,11 @@ export class CreateContentComponent extends BaseComponent {
       maxHeight: '90vh',
       panelClass: 'common-dialog-box',
       disableClose: true,
+      // The cover doubles as the social-share image, which wants the whole
+      // 1200px; the picker opens on XL so that is what an admin gets by default.
       data: {
         isDialogOpen: true,
+        size: COVER_IMAGE_SIZE,
       },
     });
 

@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { deleteObject, getDownloadURL, ref, Storage, uploadBytesResumable } from '@angular/fire/storage';
 import { deleteDoc, doc, Firestore, getDoc } from '@angular/fire/firestore';
-import { IMAGE_SIZES, ImageSize, imageSizeWidths } from '../utils/image-sizes';
+import { fitLongestSide, IMAGE_SIZES, ImageSize, imageSizeLimits } from '../utils/image-sizes';
 
 /** Allowed MIME types for media upload */
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -16,8 +16,8 @@ const MIME_TO_EXTENSION: Record<string, string> = {
 
 export interface MediaUploadSettings {
     maxFileSize: number;   // in MB
-    maxWidth: number;      // in px — also the width of the XL size
-    maxHeight: number;     // in px
+    /** Longest side of the XL size, in px; S/M/L are quarters of it. */
+    maxSize: number;
     convertToWebp: boolean; // Convert uploaded images to WebP (except GIFs)
 }
 
@@ -27,8 +27,7 @@ export interface MediaUploadSettings {
  */
 export const DEFAULT_UPLOAD_SETTINGS: MediaUploadSettings = {
     maxFileSize: 5,
-    maxWidth: 1200,
-    maxHeight: 1200,
+    maxSize: 1200,
     convertToWebp: true,
 };
 
@@ -175,16 +174,6 @@ export class FileUploadService {
     }
 
     /**
-     * Bounds `width × height` to fit within `maxWidth × maxHeight`, never
-     * enlarging. Returns the same numbers when the image already fits.
-     */
-    private fitWithin(width: number, height: number, maxWidth: number, maxHeight: number): { width: number; height: number } {
-        const scale = Math.min(1, maxWidth / width, maxHeight / height);
-        if (scale === 1) return { width, height };
-        return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
-    }
-
-    /**
      * Draws `img` at `width × height` and encodes it — WebP when asked, else
      * the source type. Lossy types get a fixed quality.
      */
@@ -227,8 +216,10 @@ export class FileUploadService {
     /**
      * Upload a File to Firebase Storage in every size.
      *
-     * Flow: File → validate → decode → XL bounded by the max dimensions →
-     * L / M / S at ¾, ½, ¼ of the max width → upload each → one record.
+     * Flow: File → validate → decode → XL with its longest side bounded by
+     * the max size → L / M / S bounded at ¾, ½, ¼ of it → upload each → one
+     * record. Bounding the longest side means "M" is a 600px box whether the
+     * photo is landscape or portrait.
      *
      * A size the image is too small to fill is not upscaled: it reuses the
      * next size up, so a 500px photo stores S and M and points L and XL at M.
@@ -257,14 +248,12 @@ export class FileUploadService {
         const img = await this.loadImageFromFile(file);
 
         // Decide the pixel size of every variant before encoding anything.
-        const xl = this.fitWithin(img.naturalWidth, img.naturalHeight, settings.maxWidth, settings.maxHeight);
-        const targetWidths = imageSizeWidths(settings.maxWidth);
+        const limits = imageSizeLimits(settings.maxSize);
         const dimensions = {} as Record<ImageSize, { width: number; height: number }>;
         for (const size of IMAGE_SIZES) {
-            dimensions[size] = size === 'xl'
-                ? xl
-                : this.fitWithin(xl.width, xl.height, targetWidths[size], Number.POSITIVE_INFINITY);
+            dimensions[size] = fitLongestSide(img.naturalWidth, img.naturalHeight, limits[size]);
         }
+        const xl = dimensions.xl;
 
         // Encode each distinct pixel size once; equal sizes share one file.
         const encoded = new Map<string, { blob: Blob; width: number; height: number }>();

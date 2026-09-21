@@ -24,7 +24,7 @@ import { SearchService } from '../../../../../core/services/search.service';
 import { ContentTypeNames, TranslatableTypeText, pruneNameTranslations, pruneFieldLabelTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
 import { ARTICLE_FAMILY, ContentTypeSchema, SCHEMA_TYPES, SchemaProperty, SchemaTypeId, schemaTypeMeta } from '../../../../../../shared/constants/schema-types';
 import { ContentTypesStore } from '../content-types.store';
-import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator } from '../collection-ref-helpers';
+import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator, bareFieldKey, fieldKeyFromLabel, fullFieldKey, hasSlugPrefix } from '../collection-ref-helpers';
 import { roleGuard } from '../../../../../guards/role.guard';
 import { TemplateFolderService, TemplateFolder } from '../../../../../core/services/template-folder.service';
 
@@ -197,7 +197,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         icon: new FormControl('fa-solid fa-folder'),
         order: new FormControl(0),
         templateFolder: new FormControl('default'),
-        fields: new FormArray([], [duplicateFieldKeyValidator()]),
+        fields: new FormArray([], [duplicateFieldKeyValidator((): string => (this.editForm?.get('slug')?.value as string) || '')]),
     });
 
     /**
@@ -246,9 +246,8 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         return (array?.controls ?? [])
             .filter(control => (control.get('type')?.value as string) === 'text')
             .map(control => {
-                const rawKey = (control.get('key')?.value as string) || '';
-                const key = rawKey && slug && !rawKey.startsWith(slug + '_') ? slug + '_' + rawKey : rawKey;
-                return { key, label: (control.get('label')?.value as string) || rawKey };
+                const key = this.storedKeyOf(control as FormGroup, slug);
+                return { key, label: (control.get('label')?.value as string) || key };
             })
             .filter(field => !!field.key);
     }
@@ -283,9 +282,8 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         return (array?.controls ?? [])
             .filter(control => (prop.fieldTypes as string[]).includes(control.get('type')?.value as string))
             .map(control => {
-                const rawKey = (control.get('key')?.value as string) || '';
-                const key = rawKey && slug && !rawKey.startsWith(slug + '_') ? slug + '_' + rawKey : rawKey;
-                return { key, label: (control.get('label')?.value as string) || rawKey };
+                const key = this.storedKeyOf(control as FormGroup, slug);
+                return { key, label: (control.get('label')?.value as string) || key };
             })
             .filter(field => !!field.key);
     }
@@ -454,17 +452,21 @@ export default class EditContentTypeComponent extends BaseComponent implements O
 
         const slug = formValue.slug || '';
 
+        // A stored field's key is written back exactly as loaded — content
+        // documents refer to it, and older types use `_` where new keys use
+        // `-`. Only a field added in this session gets the `<slug>-<name>`
+        // form. Position in the form array is the only link to the stored
+        // group, since getRawValue() carries no control state.
+        const storedKeys = (formValue.fields || []).map((_field: any, index: number) =>
+            this.storedKeyOf(this.fields.at(index) as FormGroup, slug),
+        );
+
         const updatedContentType: Partial<ContentType> = {
             name: formValue.name || '',
             singularName: formValue.singularName || '',
             nameTranslations: pruneNameTranslations(formValue.nameTranslations),
-            fieldLabelTranslations: pruneFieldLabelTranslations(
-                formValue.fieldLabelTranslations,
-                // Prefixed keys, matching what is written to `fields` below.
-                (formValue.fields || []).map((field: any) =>
-                    field.key && !field.key.startsWith(slug + '_') ? slug + '_' + field.key : field.key,
-                ),
-            ),
+            // Prefixed keys, matching what is written to `fields` below.
+            fieldLabelTranslations: pruneFieldLabelTranslations(formValue.fieldLabelTranslations, storedKeys),
             slug: slug,
             description: formValue.description || '',
             icon: formValue.icon || 'fa-solid fa-folder',
@@ -476,9 +478,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             templateFolder: formValue.templateFolder || 'default',
             fields: (formValue.fields || []).map((field: any, index: number) => {
                 const mapped = mapFieldWithCollectionRef(field, index, this.contentTypesStore);
-                if (mapped.key && !mapped.key.startsWith(slug + '_')) {
-                    mapped.key = slug + '_' + mapped.key;
-                }
+                mapped.key = storedKeys[index];
                 return mapped;
             }),
         };
@@ -546,9 +546,14 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     }
 
     addField(): void {
+        const key = new FormControl('', [Validators.required, Validators.pattern(/^[a-z0-9-]+$/)]);
+        const label = new FormControl('', [Validators.required]);
+        // A new field's key follows its name. Stored fields keep the key they
+        // were saved with (see updateFormdata) — content already refers to it.
+        label.valueChanges.subscribe((value) => key.setValue(fieldKeyFromLabel(value)));
         const fieldGroup = new FormGroup({
-            key: new FormControl('', [Validators.required]),
-            label: new FormControl('', [Validators.required]),
+            key,
+            label,
             type: new FormControl<ContentTypeFieldType>('text', [Validators.required]),
             required: new FormControl(false),
             options: new FormControl(''),
@@ -563,6 +568,45 @@ export default class EditContentTypeComponent extends BaseComponent implements O
 
     removeField(index: number): void {
         this.fields.removeAt(index);
+    }
+
+    /** The stored key of this field: as saved, or as it will be saved for a new one. */
+    fieldKeyPreview(index: number): string {
+        return this.storedKeyOf(this.getFieldGroup(index), this.editForm.get('slug')?.value || '');
+    }
+
+    /**
+     * The key a field control is (or will be) stored under. A stored field
+     * keeps its key untouched, `_` or `-` separator alike; a field added in
+     * this session gets `<slug>-<name>` unless it is already prefixed. Every
+     * reader of stored keys (save, preview, search and schema pickers) goes
+     * through here so they cannot disagree.
+     */
+    private storedKeyOf(group: FormGroup, slug: string): string {
+        const key = (group.get('key')?.value as string) || '';
+        if (!key || this.isStoredField(group)) return key;
+        return hasSlugPrefix(key, slug) ? key : fullFieldKey(slug, key);
+    }
+
+    /**
+     * A field loaded from the stored type, as opposed to one added in this
+     * session. Its key is disabled in updateFormdata and is written back
+     * exactly as loaded — never re-derived, never re-prefixed.
+     */
+    private isStoredField(group: FormGroup): boolean {
+        return group.get('key')?.disabled === true;
+    }
+
+    /** True when another field in this type has the same name or key. */
+    isDuplicateField(index: number): boolean {
+        const errors = this.fields.errors;
+        if (!errors) return false;
+        const group = this.getFieldGroup(index);
+        const slug = this.editForm.get('slug')?.value || '';
+        const key = bareFieldKey(group.get('key')?.value, slug);
+        const name = (group.get('label')?.value || '').trim().toLowerCase();
+        return (!!key && (errors['duplicateKeys'] || []).includes(key))
+            || (!!name && (errors['duplicateNames'] || []).includes(name));
     }
 
     getFieldGroup(index: number): FormGroup {

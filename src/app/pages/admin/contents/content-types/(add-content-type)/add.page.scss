@@ -385,3 +385,24 @@ hr {
   font-size: 0.75rem;
   color: #6c757d;
 }
+
+// Custom field card: key hint and the Required switch on one line.
+.field-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+
+    .field-key-hint {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        cursor: help;
+    }
+
+    .field-required-switch {
+        margin: 0;
+        white-space: nowrap;
+    }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { imageSizeUrls, imageSizeWidths, unsplashAtWidth } from './image-sizes';
+import { fitLongestSide, imageSizeLimits, imageSizeUrls, unsplashAtSize } from './image-sizes';
 import { imageSizeUrls as imageSizeUrlsServerSide } from '../../../functions/src/shared/image-sizes';
 
 const BUCKET = 'https://firebasestorage.googleapis.com/v0/b/demo.appspot.com/o/';
@@ -15,9 +15,31 @@ const URLS: [string, string][] = [
     ['a sized upload without a token', `${BUCKET}mediaImages%2Fx-s.webp?alt=media`],
 ];
 
-describe('imageSizeWidths', () => {
-    it('quarters the maximum width', () => {
-        expect(imageSizeWidths(1200)).toEqual({ s: 300, m: 600, l: 900, xl: 1200 });
+describe('imageSizeLimits', () => {
+    it('defaults to 300 / 600 / 900 / 1200', () => {
+        expect(imageSizeLimits()).toEqual({ s: 300, m: 600, l: 900, xl: 1200 });
+    });
+
+    it('quarters whatever maximum is set', () => {
+        expect(imageSizeLimits(1600)).toEqual({ s: 400, m: 800, l: 1200, xl: 1600 });
+        expect(imageSizeLimits('1000')).toEqual({ s: 250, m: 500, l: 750, xl: 1000 });
+    });
+
+    it('falls back to the default for an unusable maximum', () => {
+        expect(imageSizeLimits(0)).toEqual({ s: 300, m: 600, l: 900, xl: 1200 });
+        expect(imageSizeLimits('abc')).toEqual({ s: 300, m: 600, l: 900, xl: 1200 });
+    });
+});
+
+describe('fitLongestSide', () => {
+    it('bounds the longest side whichever way the image faces', () => {
+        expect(fitLongestSide(1440, 1080, 1200)).toEqual({ width: 1200, height: 900 });
+        expect(fitLongestSide(1080, 1440, 1200)).toEqual({ width: 900, height: 1200 });
+        expect(fitLongestSide(3000, 3000, 600)).toEqual({ width: 600, height: 600 });
+    });
+
+    it('never enlarges', () => {
+        expect(fitLongestSide(500, 300, 1200)).toEqual({ width: 500, height: 300 });
     });
 });
 
@@ -43,12 +65,20 @@ describe('imageSizeUrls', () => {
         expect(sizes.xl).toBe(LEGACY);
     });
 
-    it('resizes an Unsplash photo through the CDN', () => {
-        const sizes = imageSizeUrls(UNSPLASH, 1200)!;
+    it('resizes an Unsplash photo through the CDN, bounding both sides', () => {
+        const sizes = imageSizeUrls(UNSPLASH)!;
         expect(sizes.s).toContain('w=300');
+        expect(sizes.s).toContain('h=300');
         expect(sizes.xl).toContain('w=1200');
+        expect(sizes.m).toContain('fit=max');
         expect(sizes.m).toContain('fm=webp');
         expect(sizes.m).toContain('ixid=xyz');
+    });
+
+    it('uses the maximum it is given for an Unsplash photo', () => {
+        const sizes = imageSizeUrls(UNSPLASH, 1600)!;
+        expect(sizes.s).toContain('w=400');
+        expect(sizes.xl).toContain('w=1600');
     });
 
     it('yields nothing for an image it cannot resize', () => {
@@ -57,8 +87,8 @@ describe('imageSizeUrls', () => {
         expect(imageSizeUrls(42)).toBeNull();
     });
 
-    it('unsplashAtWidth keeps an existing quality', () => {
-        expect(unsplashAtWidth('https://images.unsplash.com/photo-1?q=60', 300)).toContain('q=60');
+    it('unsplashAtSize keeps an existing quality', () => {
+        expect(unsplashAtSize('https://images.unsplash.com/photo-1?q=60', 300)).toContain('q=60');
     });
 
     describe('parity with the Cloud Functions mirror', () => {
