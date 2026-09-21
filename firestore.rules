@@ -102,7 +102,12 @@ service cloud.firestore {
       // holds only `completed` and two timestamps — it says whether the site
       // finished its setup, which any visitor to an unfinished site can see
       // anyway. Writes stay authenticated via the block below.
-      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status'];
+      // `about` is public-read as well: it is the site's published identity
+      // (name, URL, address, logo, description, profile links, public contact
+      // email), the same data every static page already carries as schema.org
+      // JSON-LD. The SPA fallback pages need it to emit the same nodes
+      // (docs/discoverability-spec.md, D1). Nothing secret lives there.
+      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status', 'about'];
       // Frontend-managed settings — any authenticated user can read/write.
       // UI routes are admin-gated via role guard; rules only enforce auth.
       //

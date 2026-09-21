@@ -199,7 +199,9 @@ describe('ContentDetailComponent', () => {
             const mockDocument = {
                 querySelectorAll: vi.fn().mockReturnValue([mockScript]),
                 createElement: vi.fn().mockReturnValue(mockNewScript),
-                createTextNode: vi.fn().mockReturnValue({})
+                createTextNode: vi.fn().mockReturnValue({}),
+                // ngOnDestroy clears the page's JSON-LD nodes through this document.
+                getElementById: vi.fn().mockReturnValue(null),
             };
 
             // Inject mock document
@@ -753,6 +755,28 @@ describe('ContentDetailComponent', () => {
             } finally {
                 vi.useRealTimers();
             }
+        });
+    });
+
+    // ─── Updated line (docs/discoverability-spec.md, D-D3) ─────────────────
+
+    describe('updatedOnDisplay', () => {
+        // currentContent is computed from the preview draft, so seed it that way.
+        function showDraft(draft: Record<string, unknown>): void {
+            component.isPreview.set(true);
+            component.draftContent.set(draft as any);
+        }
+
+        it('is empty without updatedOn or when it is not after the publish date', () => {
+            showDraft({ title: 'A', publishedOn: { seconds: 1705334400 } });
+            expect(component.updatedOnDisplay()).toBe('');
+            showDraft({ title: 'A', publishedOn: { seconds: 1705334400 }, updatedOn: { seconds: 1600000000 } });
+            expect(component.updatedOnDisplay()).toBe('');
+        });
+
+        it('formats updatedOn when it is a later revision', () => {
+            showDraft({ title: 'A', publishedOn: { seconds: 1705334400 }, updatedOn: { seconds: 1735689600 } });
+            expect(component.updatedOnDisplay()).toBe(component.formatContentDate({ seconds: 1735689600 }));
         });
     });
 });

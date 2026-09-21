@@ -484,7 +484,15 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
 
         // Subscribe to stores to load data
-        this.subscribeToData(this.contentTypesStore);
+        // Only the type this page is for. One equality query on `slug`
+        // (ordered by the same field, so no composite index is needed) instead
+        // of the store's default first page of ten ordered by createdAt, which
+        // silently dropped the oldest types on sites with more than ten.
+        this.subscribeToData(this.contentTypesStore, {
+            whereConditions: [{ field: 'slug', operator: '==', value: slug }],
+            orderByField: { field: 'slug', direction: 'asc' },
+            limitCount: 1,
+        });
         // Load published contents from the per-type collection
         this.contentsStore.getAll(undefined, slug || undefined);
     }

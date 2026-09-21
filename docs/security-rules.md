@@ -36,6 +36,7 @@ Arc CMS uses Firestore and Cloud Storage security rules to control data access. 
 | `Settings/cache` | Public | Admin | CDN cache config |
 | `Settings/global-message` | Public | Admin | Banner config |
 | `Settings/users` | Public | Admin | Signup toggle |
+| `Settings/about` | Public | Authenticated | Site identity (name, URL, address, logo, description, profile links, public contact email): the same data every static page publishes as schema.org JSON-LD; the SPA fallback reads it to emit the same nodes |
 | `Settings/email` | Admin | Admin | Contains SMTP credentials |
 | `Settings/integrations` | Admin | Admin | Contains API keys (Unsplash) |
 | `Settings/analytics` | Admin | Admin | Contains the Google OAuth client secret |

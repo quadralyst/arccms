@@ -30,6 +30,14 @@ export interface IDraftContents extends IBaseModel {
     metaDescription: string;
     canonicalUrl: string;
     publishedOn: Date | null;
+    /**
+     * Editorial "last substantive revision" date, set from the SEO panel.
+     * Feeds `dateModified` in the page's structured data, the sitemap's
+     * `lastmod` and the visible "Updated" line, and only when it is later
+     * than `publishedOn`. Deliberately not `modifiedAt`, which moves on every
+     * save (docs/discoverability-spec.md, D-D3).
+     */
+    updatedOn?: Date | null;
     publishedStatus: boolean;
     /**
      * When this draft was last copied to the published collection. Stamped by

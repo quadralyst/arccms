@@ -64,6 +64,32 @@ interface TranslatableValues {
   customFields: { [key: string]: any };
 }
 
+/**
+ * Firestore date-ish value → 'YYYY-MM-DD' for an <input type="date">, or ''.
+ * Local calendar date, matching what the author picked.
+ */
+export function toDateInputValue(value: unknown): string {
+  if (!value) return '';
+  const date = (value as { seconds?: number })?.seconds !== undefined
+    ? new Date((value as { seconds: number }).seconds * 1000)
+    : typeof (value as { toDate?: unknown })?.toDate === 'function'
+      ? (value as { toDate: () => Date }).toDate()
+      : new Date(value as string | number | Date);
+  if (isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** 'YYYY-MM-DD' → Date at local midnight, or null for blank/invalid. */
+export function fromDateInputValue(value: unknown): Date | null {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [y, m, d] = value.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  // JS rolls "2025-13-45" forward instead of failing; insist on a round trip.
+  const valid = date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+  return valid ? date : null;
+}
+
 @Component({
   selector: 'arc-create-content',
   standalone: true,
@@ -1373,6 +1399,7 @@ export class CreateContentComponent extends BaseComponent {
       seoTitle: contentData?.seoTitle || '',
       metaDescription: contentData?.metaDescription || '',
       canonicalUrl: contentData?.canonicalUrl || '',
+      updatedOn: toDateInputValue(contentData?.updatedOn),
     });
 
     // Pre-populate custom field values
@@ -1445,6 +1472,9 @@ export class CreateContentComponent extends BaseComponent {
       seoTitle: [''],
       metaDescription: [''],
       canonicalUrl: [''],
+      // Held as 'YYYY-MM-DD' for the date input; converted to a Date (or
+      // null) on the way out, see buildDraftFormValues.
+      updatedOn: [''],
     });
   }
 
@@ -1470,6 +1500,19 @@ export class CreateContentComponent extends BaseComponent {
 
   get canonicalUrl() {
     return this.seoForm?.get('canonicalUrl');
+  }
+
+  /** Stamps today as the last substantive revision (docs/discoverability-spec.md, D-D3). */
+  markUpdatedToday(): void {
+    this.seoForm.get('updatedOn')?.setValue(toDateInputValue(new Date()));
+    this.seoForm.get('updatedOn')?.markAsDirty();
+    this.triggerAutoSave();
+  }
+
+  clearUpdatedOn(): void {
+    this.seoForm.get('updatedOn')?.setValue('');
+    this.seoForm.get('updatedOn')?.markAsDirty();
+    this.triggerAutoSave();
   }
 
   private setCurrentDateTime(): void {
@@ -1572,7 +1615,17 @@ export class CreateContentComponent extends BaseComponent {
 
   private setSlugValue(slug: string): void {
     this.publishForm.get('urlSlug')?.setValue(slug);
-    this.seoForm.get('canonicalUrl')?.setValue(this.domain + slug);
+    this.seoForm.get('canonicalUrl')?.setValue(this.publicUrlFor(slug));
+  }
+
+  /**
+   * The page's real public URL: `{origin}/{type}/{slug}`. The canonical used
+   * to be written without the type segment, so it pointed at a URL that does
+   * not exist and, since D1, that wrong URL became the Article `@id` too.
+   */
+  private publicUrlFor(slug: string): string {
+    const type = this.contentTypeSlug || this.publishForm.get('type')?.value || '';
+    return type ? `${this.domain}${type}/${slug}` : this.domain + slug;
   }
 
   toggleSlugEdit(): void {
@@ -2135,6 +2188,7 @@ export class CreateContentComponent extends BaseComponent {
     return {
       ...this.publishForm.value,
       ...this.seoForm.value,
+      updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
       type: contentType,
       status: this.constantVariables.DRAFT,
       updatedAt: new Date(),
@@ -2434,7 +2488,7 @@ export class CreateContentComponent extends BaseComponent {
    */
   async copyUrlToClipboard(): Promise<void> {
     const urlSlug = this.publishForm.get('urlSlug')?.value || '';
-    const fullUrl = `${this.domain}${this.contentTypeSlug}/${urlSlug}`;
+    const fullUrl = this.publicUrlFor(urlSlug);
 
     const success = await this.globalService.copyToClipboard(fullUrl);
     if (success) {

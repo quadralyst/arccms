@@ -16,7 +16,15 @@ export class AboutSettingsService {
         const docRef = doc(this.firestore, 'Settings', 'about');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-            return { ...DEFAULT_ABOUT_SETTINGS, ...docSnap.data() } as IAboutSettings;
+            const data = docSnap.data() as Partial<IAboutSettings>;
+            return {
+                ...DEFAULT_ABOUT_SETTINGS,
+                ...data,
+                // Documents written before the identity fields existed have no
+                // array here; keep the type honest for the page.
+                sameAs: Array.isArray(data.sameAs) ? data.sameAs : [],
+                organizationType: data.organizationType === 'Person' ? 'Person' : 'Organization',
+            };
         }
         return { ...DEFAULT_ABOUT_SETTINGS };
     }

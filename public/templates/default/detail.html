@@ -28,6 +28,10 @@
                     <span class="article-read-time">
                         <i class="far fa-clock"></i> <span data-arc-t="reading_time">{{ readingTime }}</span>
                     </span>
+                    <span class="article-updated" data-arc-if="updatedOnDisplay">
+                        <span class="meta-divider">&#8226;</span>
+                        <i class="fas fa-pen"></i> <span data-arc-t="updated_on">Updated {{ updatedOnDisplay }}</span>
+                    </span>
                 </div>
             </div>
         </header>

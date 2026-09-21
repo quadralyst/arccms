@@ -58,6 +58,7 @@ export type TranslationKey =
     | 'admin.contents.editor.back_to_editor'
     | 'admin.contents.editor.change'
     | 'admin.contents.editor.clear_translation'
+    | 'admin.contents.editor.clear_updated'
     | 'admin.contents.editor.click_to_select_icon'
     | 'admin.contents.editor.click_to_select_image'
     | 'admin.contents.editor.click_to_upload'
@@ -81,6 +82,7 @@ export type TranslationKey =
     | 'admin.contents.editor.map.coordinates'
     | 'admin.contents.editor.map.no_results'
     | 'admin.contents.editor.map.search_placeholder'
+    | 'admin.contents.editor.mark_updated_today'
     | 'admin.contents.editor.meta_description'
     | 'admin.contents.editor.next_content_hint'
     | 'admin.contents.editor.no_content_found'
@@ -123,6 +125,8 @@ export type TranslationKey =
     | 'admin.contents.editor.translation_save_failed'
     | 'admin.contents.editor.unknown_error'
     | 'admin.contents.editor.unsaved_changes'
+    | 'admin.contents.editor.updated_on'
+    | 'admin.contents.editor.updated_on_hint'
     | 'admin.contents.editor.upload_image'
     | 'admin.contents.editor.url_copied'
     | 'admin.contents.editor.url_copy_failed'
@@ -503,10 +507,26 @@ export type TranslationKey =
     | 'admin.settings.about.address'
     | 'admin.settings.about.address_hint'
     | 'admin.settings.about.address_placeholder'
+    | 'admin.settings.about.contact_email'
+    | 'admin.settings.about.contact_email_hint'
+    | 'admin.settings.about.description'
+    | 'admin.settings.about.description_hint'
+    | 'admin.settings.about.description_placeholder'
+    | 'admin.settings.about.identity_heading'
+    | 'admin.settings.about.identity_intro'
     | 'admin.settings.about.intro'
+    | 'admin.settings.about.logo_url'
+    | 'admin.settings.about.logo_url_hint'
+    | 'admin.settings.about.logo_url_placeholder'
+    | 'admin.settings.about.organization_type'
+    | 'admin.settings.about.organization_type_org'
+    | 'admin.settings.about.organization_type_person'
     | 'admin.settings.about.production_url'
     | 'admin.settings.about.production_url_hint'
     | 'admin.settings.about.production_url_placeholder'
+    | 'admin.settings.about.same_as'
+    | 'admin.settings.about.same_as_hint'
+    | 'admin.settings.about.same_as_placeholder'
     | 'admin.settings.about.site_name'
     | 'admin.settings.about.site_name_hint'
     | 'admin.settings.about.site_name_placeholder'
@@ -1081,6 +1101,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.back_to_editor',
     'admin.contents.editor.change',
     'admin.contents.editor.clear_translation',
+    'admin.contents.editor.clear_updated',
     'admin.contents.editor.click_to_select_icon',
     'admin.contents.editor.click_to_select_image',
     'admin.contents.editor.click_to_upload',
@@ -1104,6 +1125,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.map.coordinates',
     'admin.contents.editor.map.no_results',
     'admin.contents.editor.map.search_placeholder',
+    'admin.contents.editor.mark_updated_today',
     'admin.contents.editor.meta_description',
     'admin.contents.editor.next_content_hint',
     'admin.contents.editor.no_content_found',
@@ -1146,6 +1168,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.translation_save_failed',
     'admin.contents.editor.unknown_error',
     'admin.contents.editor.unsaved_changes',
+    'admin.contents.editor.updated_on',
+    'admin.contents.editor.updated_on_hint',
     'admin.contents.editor.upload_image',
     'admin.contents.editor.url_copied',
     'admin.contents.editor.url_copy_failed',
@@ -1526,10 +1550,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.about.address',
     'admin.settings.about.address_hint',
     'admin.settings.about.address_placeholder',
+    'admin.settings.about.contact_email',
+    'admin.settings.about.contact_email_hint',
+    'admin.settings.about.description',
+    'admin.settings.about.description_hint',
+    'admin.settings.about.description_placeholder',
+    'admin.settings.about.identity_heading',
+    'admin.settings.about.identity_intro',
     'admin.settings.about.intro',
+    'admin.settings.about.logo_url',
+    'admin.settings.about.logo_url_hint',
+    'admin.settings.about.logo_url_placeholder',
+    'admin.settings.about.organization_type',
+    'admin.settings.about.organization_type_org',
+    'admin.settings.about.organization_type_person',
     'admin.settings.about.production_url',
     'admin.settings.about.production_url_hint',
     'admin.settings.about.production_url_placeholder',
+    'admin.settings.about.same_as',
+    'admin.settings.about.same_as_hint',
+    'admin.settings.about.same_as_placeholder',
     'admin.settings.about.site_name',
     'admin.settings.about.site_name_hint',
     'admin.settings.about.site_name_placeholder',

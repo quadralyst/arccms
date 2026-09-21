@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CreateContentComponent } from './create-content.component';
+import { CreateContentComponent, toDateInputValue, fromDateInputValue } from './create-content.component';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { signal, NgZone } from '@angular/core';
@@ -1996,5 +1996,87 @@ describe('CreateContentComponent', () => {
                 expect(component.isFieldLocked(numberField)).toBe(true);
             });
         });
+    });
+
+    // ─── Last updated date (docs/discoverability-spec.md, D-D3) ────────────
+
+    describe('updatedOn', () => {
+        it('starts empty and is saved as null', () => {
+            expect(component.seoForm.get('updatedOn')?.value).toBe('');
+            component.pageTitle = 'T';
+            component.contentId = 'existing-id';
+            component.saveAsDraft();
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.updatedOn).toBeNull();
+        });
+
+        it('markUpdatedToday stamps today and saves it as a Date', () => {
+            component.markUpdatedToday();
+            const value = component.seoForm.get('updatedOn')?.value as string;
+            expect(value).toBe(toDateInputValue(new Date()));
+
+            component.pageTitle = 'T';
+            component.contentId = 'existing-id';
+            component.saveAsDraft();
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.updatedOn).toBeInstanceOf(Date);
+            expect(toDateInputValue(payload.updatedOn)).toBe(value);
+        });
+
+        it('clearUpdatedOn empties the field', () => {
+            component.markUpdatedToday();
+            component.clearUpdatedOn();
+            expect(component.seoForm.get('updatedOn')?.value).toBe('');
+        });
+
+        it('loads a stored Timestamp into the date input', () => {
+            (component as any).patchForms({
+                title: 'Loaded',
+                updatedOn: { seconds: Date.UTC(2025, 0, 15, 12) / 1000 },
+            });
+            expect(component.seoForm.get('updatedOn')?.value).toBe(toDateInputValue(new Date(Date.UTC(2025, 0, 15, 12))));
+        });
+    });
+
+    // ─── Canonical URL auto-fill ───────────────────────────────────────────
+
+    describe('canonical URL auto-fill', () => {
+        it('includes the content type segment', () => {
+            component.domain = 'https://x.com/';
+            component.contentTypeSlug = 'articles';
+            (component as any).setSlugValue('hello');
+            expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://x.com/articles/hello');
+            expect(component.publishForm.get('urlSlug')?.value).toBe('hello');
+        });
+
+        it('falls back to the form type when no route slug is set', () => {
+            component.domain = 'https://x.com/';
+            component.contentTypeSlug = '';
+            component.publishForm.get('type')?.setValue('manuals');
+            (component as any).setSlugValue('hello');
+            expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://x.com/manuals/hello');
+        });
+    });
+});
+
+describe('date input helpers', () => {
+    it('round-trips a Date through the input format', () => {
+        const date = new Date(2025, 2, 9);
+        expect(toDateInputValue(date)).toBe('2025-03-09');
+        expect(fromDateInputValue('2025-03-09')).toEqual(date);
+    });
+
+    it('reads Timestamp-like and toDate() values', () => {
+        const ts = { seconds: new Date(2024, 5, 1).getTime() / 1000 };
+        expect(toDateInputValue(ts)).toBe('2024-06-01');
+        expect(toDateInputValue({ toDate: () => new Date(2024, 6, 4) })).toBe('2024-07-04');
+    });
+
+    it('treats blanks and junk as empty / null', () => {
+        expect(toDateInputValue(null)).toBe('');
+        expect(toDateInputValue('garbage')).toBe('');
+        expect(fromDateInputValue('')).toBeNull();
+        expect(fromDateInputValue('2025-13-45')).toBeNull();
+        expect(fromDateInputValue(42)).toBeNull();
     });
 });

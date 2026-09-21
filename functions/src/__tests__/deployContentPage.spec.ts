@@ -11,6 +11,7 @@ const {
     mockGetMiscSettings,
     mockGetLocalizationSettings,
     mockGetUiStrings,
+    mockGetAboutConfig,
     mockTranslationsGet,
     // Firestore mocks
     mockDocGet,
@@ -29,6 +30,7 @@ const {
     mockGetMiscSettings: vi.fn(),
     mockGetLocalizationSettings: vi.fn(),
     mockGetUiStrings: vi.fn(),
+    mockGetAboutConfig: vi.fn(),
     mockTranslationsGet: vi.fn(),
     // Firestore chain mocks
     mockDocGet: vi.fn(),
@@ -68,6 +70,7 @@ vi.mock('../shared/site-settings', () => ({
     getMiscSettings: mockGetMiscSettings,
     getLocalizationSettings: mockGetLocalizationSettings,
     getUiStrings: mockGetUiStrings,
+    getAboutConfig: mockGetAboutConfig,
 }));
 
 // Let template-hydration and html-document run unmocked (real logic)
@@ -106,6 +109,17 @@ const MOCK_CONTENT_TYPE = {
     fields: [],
 };
 
+const MOCK_ABOUT = {
+    name: 'Test Site',
+    finalUrl: 'https://example.com',
+    address: '',
+    logoUrl: 'https://example.com/logo.png',
+    description: 'A site for testing.',
+    sameAs: ['https://twitter.com/testsite'],
+    contactEmail: '',
+    organizationType: 'Organization' as const,
+};
+
 const MOCK_PARTIALS = {
     headerHtml: '<header>Site Header</header>',
     footerHtml: '<footer>Site Footer</footer>',
@@ -136,6 +150,7 @@ function restoreMockImplementations() {
     mockGetPartials.mockResolvedValue(MOCK_PARTIALS);
     mockGetSiteConfig.mockResolvedValue(MOCK_SITE_CONFIG);
     mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
+    mockGetAboutConfig.mockResolvedValue(MOCK_ABOUT);
     // Single-language site by default, so the pre-M3 expectations hold.
     mockGetLocalizationSettings.mockResolvedValue({
         defaultLanguage: 'en',
@@ -827,6 +842,142 @@ describe('deployContentPage', () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
             expect(htmlFor('/hi/articles/test-article.html')).toContain('Articles');
+        });
+    });
+
+    // ─── Structured data (docs/discoverability-spec.md, D1) ───────────────
+
+    describe('structured data', () => {
+        /** Every JSON-LD node in the first deployed file, parsed. */
+        function jsonLdNodes(): Array<Record<string, any>> {
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            const matches = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)];
+            return matches.map(m => JSON.parse(m[1]));
+        }
+        function nodeOfType(type: string): Record<string, any> | undefined {
+            return jsonLdNodes().find(n => n['@type'] === type);
+        }
+
+        it('emits Organization, WebSite, BreadcrumbList and Article', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            expect(jsonLdNodes().map(n => n['@type'])).toEqual(['Organization', 'WebSite', 'BreadcrumbList', 'Article']);
+        });
+
+        it('describes the article from the visible fields, not the SEO title', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            const article = nodeOfType('Article')!;
+            expect(article.headline).toBe('Test Article');
+            expect(article['@id']).toBe('https://example.com/articles/test-article');
+            expect(article.mainEntityOfPage['@id']).toBe('https://example.com/articles/test-article');
+            expect(article.description).toBe('A test article for unit testing');
+            expect(article.image).toBe('https://example.com/image.jpg');
+            expect(article.datePublished).toBe('2024-01-15T16:00:00.000Z');
+            expect(article.dateModified).toBe('2024-01-15T16:00:00.000Z');
+            expect(article.inLanguage).toBe('en');
+            expect(article.keywords).toBe('javascript, testing');
+            expect(article.articleSection).toBe('Articles');
+            expect(article.wordCount).toBeGreaterThan(5);
+            expect(article.publisher).toEqual({ '@id': 'https://example.com/#organization' });
+            expect(article).not.toHaveProperty('author');
+        });
+
+        it('links the publisher to the Organization node built from Settings/about', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            const org = nodeOfType('Organization')!;
+            expect(org['@id']).toBe('https://example.com/#organization');
+            expect(org.name).toBe('Test Site');
+            expect(org.logo).toEqual({ '@type': 'ImageObject', url: 'https://example.com/logo.png' });
+            expect(org.sameAs).toEqual(['https://twitter.com/testsite']);
+            const site = nodeOfType('WebSite')!;
+            expect(site.publisher).toEqual({ '@id': 'https://example.com/#organization' });
+            expect(site.potentialAction.target.urlTemplate).toBe('https://example.com/search?q={search_term_string}');
+        });
+
+        it('builds a three-level breadcrumb trail', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            const crumbs = nodeOfType('BreadcrumbList')!.itemListElement;
+            expect(crumbs.map((c: any) => c.item)).toEqual([
+                'https://example.com/',
+                'https://example.com/articles',
+                'https://example.com/articles/test-article',
+            ]);
+        });
+
+        it('uses updatedOn as dateModified when it is later than the publish date', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, updatedOn: { seconds: 1735689600, nanoseconds: 0 } }), // 2025-01-01
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            const article = nodeOfType('Article')!;
+            expect(article.datePublished).toBe('2024-01-15T16:00:00.000Z');
+            expect(article.dateModified).toBe('2025-01-01T00:00:00.000Z');
+        });
+
+        it('ignores an updatedOn that is not after the publish date', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, updatedOn: { seconds: 1700000000, nanoseconds: 0 } }), // before publish
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            expect(nodeOfType('Article')!.dateModified).toBe('2024-01-15T16:00:00.000Z');
+        });
+
+        it('shows the Updated line in the template only for a real revision', async () => {
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({
+                    html: '<article><h1>{{ title }}</h1><span data-arc-if="updatedOnDisplay">Updated {{ updatedOnDisplay }}</span></article>',
+                }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            expect(mockDeployBatchToHosting.mock.calls[0][1].files[0].content).not.toContain('Updated');
+
+            mockDeployBatchToHosting.mockClear();
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, updatedOn: { seconds: 1735689600, nanoseconds: 0 } }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            expect(mockDeployBatchToHosting.mock.calls[0][1].files[0].content).toContain('Updated January 1, 2025');
+        });
+
+        it('carries the language into inLanguage on a translated variant', async () => {
+            mockGetLocalizationSettings.mockResolvedValue({
+                defaultLanguage: 'en',
+                enabledLanguages: [
+                    { code: 'en', label: 'English', nativeLabel: 'English' },
+                    { code: 'hi', label: 'Hindi', nativeLabel: 'Hindi' },
+                ],
+            });
+            mockTranslationsGet.mockResolvedValue({
+                docs: [{ id: 'hi', data: () => ({ lang: 'hi', title: 'हिंदी शीर्षक' }) }],
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            const hi = mockDeployBatchToHosting.mock.calls[0][1].files.find((f: any) => f.path === '/hi/articles/test-article.html');
+            const nodes = [...hi.content.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((m: any) => JSON.parse(m[1]));
+            const article = nodes.find((n: any) => n['@type'] === 'Article');
+            expect(article.inLanguage).toBe('hi');
+            expect(article.headline).toBe('हिंदी शीर्षक');
+            expect(article['@id']).toBe('https://example.com/hi/articles/test-article');
+            const site = nodes.find((n: any) => n['@type'] === 'WebSite');
+            expect(site.potentialAction.target.urlTemplate).toBe('https://example.com/hi/search?q={search_term_string}');
+        });
+
+        it('still emits Article and WebSite when Settings/about is empty', async () => {
+            mockGetAboutConfig.mockResolvedValue({
+                name: '', finalUrl: '', address: '', logoUrl: '', description: '', sameAs: [], contactEmail: '', organizationType: 'Organization',
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            // The owner name falls back to the site name, so an Organization still exists.
+            const types = jsonLdNodes().map(n => n['@type']);
+            expect(types).toContain('Article');
+            expect(types).toContain('WebSite');
+            expect(nodeOfType('Organization')!.name).toBe('Test Site');
+            expect(nodeOfType('Organization')).not.toHaveProperty('logo');
         });
     });
 });

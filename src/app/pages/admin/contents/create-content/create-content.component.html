@@ -880,6 +880,29 @@
                                 placeholder="https://yourdomain.com/original-post-url" (input)="triggerAutoSave()"
                                 [readonly]="isTranslating()">
                         </div>
+                        <div class="form-group">
+                            <label class="form-label">
+                                {{ 'admin.contents.editor.updated_on' | transloco }}
+                                @if(isTranslating()){
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                }
+                            </label>
+                            <div class="d-flex gap-2 align-items-center flex-wrap">
+                                <input type="date" class="form-control form-control-sm updated-on-input" formControlName="updatedOn"
+                                    (change)="triggerAutoSave()" [readonly]="isTranslating()" data-testid="updated-on">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="markUpdatedToday()"
+                                    [disabled]="isTranslating()" data-testid="mark-updated-today">
+                                    <i class="fa-solid fa-pen me-1"></i>{{ 'admin.contents.editor.mark_updated_today' | transloco }}
+                                </button>
+                                @if(seoForm.get('updatedOn')?.value){
+                                <button type="button" class="btn btn-sm btn-link text-muted" (click)="clearUpdatedOn()"
+                                    [disabled]="isTranslating()" data-testid="clear-updated-on">
+                                    {{ 'admin.contents.editor.clear_updated' | transloco }}
+                                </button>
+                                }
+                            </div>
+                            <small class="text-muted">{{ 'admin.contents.editor.updated_on_hint' | transloco }}</small>
+                        </div>
 
                         <!-- Social Sharing Preview -->
                         <hr class="my-3">

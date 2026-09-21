@@ -1,5 +1,5 @@
 import { db } from '../init.js';
-import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings } from '../shared/site-settings.js';
+import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings, getAboutConfig } from '../shared/site-settings.js';
 import { buildSearchWidget } from '../search/widget.js';
 import {
     ContentTranslation,
@@ -7,11 +7,15 @@ import {
     detailFilePath,
     detailUrl,
     langPrefix,
+    listUrl,
     localizedPageTitle,
     mergeTranslation,
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
 import { contentTypeName } from '../shared/content-type-names.js';
+import { buildArticle, buildBreadcrumbList, countWords } from '../shared/structured-data.js';
+import { buildSiteNodes } from '../shared/site-jsonld.js';
+import { resolveContentDates } from '../shared/content-dates.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -141,6 +145,10 @@ function buildTemplateData(
 ): Record<string, any> {
     const readTime = content.readTime || calculateReadingTime(content.content || '');
     const publishedOn = formatContentDate(content.publishedOn, lang);
+    // "Updated" is shown only when the author marked a real revision after
+    // publishing; templates gate on `updatedOnDisplay` with data-arc-if.
+    const dates = resolveContentDates(content);
+    const updatedOn = dates.isUpdated ? formatContentDate(content.updatedOn, lang) : '';
 
     // Build canonical share URL — language variants share their content's
     // canonicalUrl only when the author set one explicitly.
@@ -186,6 +194,8 @@ function buildTemplateData(
         ...content,
         publishedOn,
         date: publishedOn,
+        updatedOn,
+        updatedOnDisplay: updatedOn,
         readTime,
         readingTime: `${readTime} min read`,
         ...((content.customFields as Record<string, any>) || {}),
@@ -195,6 +205,54 @@ function buildTemplateData(
         lang,
         langPrefix: langPrefix(lang, defaultLang),
     };
+}
+
+/**
+ * The structured data for one language variant of a detail page: the site
+ * owner, the WebSite, the breadcrumb trail and the Article itself
+ * (docs/discoverability-spec.md, D1). Exported for the tests; pure.
+ */
+export function buildDetailJsonLd(input: {
+    content: Record<string, any>;
+    contentType: Record<string, any>;
+    siteConfig: { siteName: string; baseUrl: string };
+    about?: Record<string, any> | null;
+    lang: string;
+    defaultLang: string;
+    pageTitle: string;
+    pageUrl: string;
+}): Record<string, unknown>[] {
+    const { content, contentType, siteConfig, lang, defaultLang } = input;
+    const baseUrl = siteConfig.baseUrl.replace(/\/+$/, '');
+    const site = buildSiteNodes({ siteConfig, about: input.about, lang, defaultLang });
+    const dates = resolveContentDates(content);
+    const typeName = contentTypeName(contentType, lang);
+
+    const breadcrumbs = buildBreadcrumbList([
+        { name: siteConfig.siteName || baseUrl, url: `${baseUrl}${langPrefix(lang, defaultLang)}/` },
+        { name: typeName, url: listUrl(baseUrl, lang, defaultLang, contentType.slug) },
+        { name: content.title || input.pageTitle, url: input.pageUrl },
+    ]);
+
+    const article = buildArticle({
+        url: input.pageUrl,
+        // The visible title, not the SEO title: the headline should match the
+        // <h1> a reader (or a crawler) sees on the page.
+        headline: content.title || input.pageTitle,
+        description: content.metaDescription || content.summary || '',
+        imageUrl: content.coverImage || '',
+        datePublished: dates.published,
+        dateModified: dates.modified,
+        inLanguage: lang,
+        keywords: content.tags || [],
+        articleSection: (content.categoryNameArr || [])[0] || typeName,
+        wordCount: countWords(content.content || ''),
+        publisherId: site.publisherId,
+    });
+
+    return [site.organization, site.webSite, breadcrumbs, article].filter(
+        (node): node is Record<string, unknown> => !!node,
+    );
 }
 
 // ─── Exported Functions ─────────────────────────────────────────────────────
@@ -246,11 +304,12 @@ export async function generateAndDeployContentDetailPage(
     const contentType = contentTypeQuery.docs[0].data();
 
     // 3. Load partials + site config + misc settings + languages (all cached)
-    const [partials, siteConfig, miscSettings, localization] = await Promise.all([
+    const [partials, siteConfig, miscSettings, localization, about] = await Promise.all([
         getPartials(),
         getSiteConfig(),
         getMiscSettings(),
         getLocalizationSettings(),
+        getAboutConfig(),
     ]);
 
     // 4. Load detail template (3-tier fallback). The same template renders
@@ -343,17 +402,30 @@ export async function generateAndDeployContentDetailPage(
         // Extract inline styles/scripts from template
         const { body, styles, scripts } = extractStylesAndScripts(hydratedHtml);
 
+        const pageTitle = localizedPageTitle(localizedContent, translations.get(lang));
+        const pageUrl =
+            (lang === defaultLang ? localizedContent.canonicalUrl : '') ||
+            detailUrl(siteConfig.baseUrl, lang, defaultLang, contentTypeSlug, content.urlSlug);
+        const jsonLd = buildDetailJsonLd({
+            content: localizedContent,
+            contentType,
+            siteConfig,
+            about,
+            lang,
+            defaultLang,
+            pageTitle,
+            pageUrl,
+        });
+
         const meta: PageMeta = {
-            title: localizedPageTitle(localizedContent, translations.get(lang)),
+            title: pageTitle,
             metaDescription: localizedContent.metaDescription || '',
             // An author-set canonical applies to the default-language page it
             // was written for. Reusing it on every variant would point them all
             // at one URL — directly contradicting the hreflang tags and telling
             // search engines to drop the translations. Variants are always
             // self-referential.
-            canonicalUrl:
-                (lang === defaultLang ? localizedContent.canonicalUrl : '') ||
-                detailUrl(siteConfig.baseUrl, lang, defaultLang, contentTypeSlug, content.urlSlug),
+            canonicalUrl: pageUrl,
             ogImage: localizedContent.coverImage || '',
             ogType: 'article',
             siteName: siteConfig.siteName,
@@ -362,6 +434,7 @@ export async function generateAndDeployContentDetailPage(
             rtl: language.rtl,
             alternates,
             defaultLang,
+            jsonLd,
         };
 
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication

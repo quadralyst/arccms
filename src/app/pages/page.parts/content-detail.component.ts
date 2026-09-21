@@ -24,6 +24,17 @@ import { UiStringsService } from '../../core/services/ui-strings.service';
 import { ArcTranslateDirective } from '../../core/directives/arc-translate.directive';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import {
+    buildArticle,
+    buildBreadcrumbList,
+    buildOrganization,
+    buildWebSite,
+    countWords,
+    organizationId,
+    resolveContentDates,
+    setJsonLd,
+} from '../../../shared/utils/structured-data';
 import {
     IContentTranslation,
     localizedPageTitle,
@@ -89,6 +100,12 @@ import {
                         <span class="article-read-time">
                             <i class="far fa-clock"></i> <span data-arc-t="min_read" [data-arc-t-params]="{ readTime: getReadTime() }">{{ getReadTime() }} min read</span>
                         </span>
+                        @if (updatedOnDisplay()) {
+                        <span class="article-updated">
+                            <span class="meta-divider">•</span>
+                            <i class="fas fa-pen"></i> <span data-arc-t="updated_on" [data-arc-t-params]="{ updatedOnDisplay: updatedOnDisplay() }">Updated {{ updatedOnDisplay() }}</span>
+                        </span>
+                        }
                     </div>
                 </div>
             </header>
@@ -458,6 +475,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private http = inject(HttpClient);
     private titleService = inject(Title);
     private metaService = inject(Meta);
+    private siteIdentity = inject(SiteIdentityService);
     private document = inject(DOCUMENT);
     private platformId = inject(PLATFORM_ID);
     private transferState = inject(TransferState);
@@ -729,7 +747,15 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         }
 
         // Subscribe to stores to load data
-        this.subscribeToData(this.contentTypesStore);
+        // Only the type this page is for. One equality query on `slug`
+        // (ordered by the same field, so no composite index is needed) instead
+        // of the store's default first page of ten ordered by createdAt, which
+        // silently dropped the oldest types on sites with more than ten.
+        this.subscribeToData(this.contentTypesStore, {
+            whereConditions: [{ field: 'slug', operator: '==', value: typeSlug }],
+            orderByField: { field: 'slug', direction: 'asc' },
+            limitCount: 1,
+        });
         // Load published contents from the per-type collection
         this.contentsStore.getAll(undefined, typeSlug || undefined);
     }
@@ -750,11 +776,26 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     ngOnDestroy(): void {
         // The next page may have no variants at all.
         this.localization.languageVariants.set(null);
+        // Nor the same structured data: the home page writes its own site nodes.
+        for (const id of ['arc-ld-organization', 'arc-ld-website', 'arc-ld-breadcrumbs', 'arc-ld-article']) {
+            setJsonLd(this.document, id, null);
+        }
         if (this.notFoundTimer !== null) {
             clearTimeout(this.notFoundTimer);
             this.notFoundTimer = null;
         }
     }
+
+    /**
+     * "Updated {date}" text, or '' unless `updatedOn` is later than the publish
+     * date. Same rule as the static renderer (docs/discoverability-spec.md, D-D3).
+     */
+    updatedOnDisplay = computed(() => {
+        const content = this.currentContent();
+        if (!content) return '';
+        const dates = resolveContentDates(content);
+        return dates.isUpdated ? this.formatContentDate(content.updatedOn) : '';
+    });
 
     formatContentDate(date: any): string {
         if (!date) return '';
@@ -856,6 +897,83 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         if (content.coverImage) {
             this.metaService.updateTag({ name: 'twitter:image', content: content.coverImage });
         }
+
+        this.updateStructuredData(content, pageTitle || '', pageUrl);
+    }
+
+    /**
+     * The same JSON-LD the static page carries (docs/discoverability-spec.md,
+     * D1), mirrored from functions/src/pages/deployContentPage.ts. The SPA
+     * fallback only serves pages that have no static file yet, so this exists
+     * for parity, not as the primary path. Identity arrives asynchronously;
+     * the nodes are written once without it and rewritten when it lands.
+     */
+    private updateStructuredData(content: IContents, pageTitle: string, pageUrl: string): void {
+        const write = () => {
+            const identity = this.siteIdentity.identity();
+            const origin = this.pageOrigin();
+            const baseUrl = (identity.finalUrl || origin).replace(/\/+$/, '');
+            const lang = this.pageLang() || this.localization.defaultLanguage();
+            const prefix = this.pageLang() ? `/${this.pageLang()}` : '';
+            const siteName = identity.name || this.document.title || '';
+            const typeName = this.typeName();
+
+            const organization = buildOrganization({
+                name: identity.name || siteName,
+                url: baseUrl,
+                logoUrl: identity.logoUrl,
+                description: identity.description,
+                sameAs: identity.sameAs,
+                contactEmail: identity.contactEmail,
+                address: identity.address,
+                organizationType: identity.organizationType,
+            });
+            const publisherId = organization ? organizationId(baseUrl) : undefined;
+            const webSite = buildWebSite(
+                {
+                    name: siteName,
+                    url: baseUrl,
+                    description: identity.description,
+                    inLanguage: lang,
+                    searchUrlTemplate: `${baseUrl}${prefix}/search?q={search_term_string}`,
+                },
+                publisherId,
+            );
+            const breadcrumbs = buildBreadcrumbList([
+                { name: siteName || baseUrl, url: `${baseUrl}${prefix}/` },
+                { name: typeName, url: `${baseUrl}${prefix}/${this.contentTypeSlug()}` },
+                { name: content.title || pageTitle, url: pageUrl },
+            ]);
+            const dates = resolveContentDates(content);
+            const article = buildArticle({
+                url: pageUrl,
+                headline: content.title || pageTitle,
+                description: content.metaDescription || content.summary || '',
+                imageUrl: content.coverImage || '',
+                datePublished: dates.published,
+                dateModified: dates.modified,
+                inLanguage: lang,
+                keywords: content.tags || [],
+                articleSection: (content.categoryNameArr || [])[0] || typeName,
+                wordCount: countWords(content.content || ''),
+                publisherId,
+            });
+
+            setJsonLd(this.document, 'arc-ld-organization', organization);
+            setJsonLd(this.document, 'arc-ld-website', webSite);
+            setJsonLd(this.document, 'arc-ld-breadcrumbs', breadcrumbs);
+            setJsonLd(this.document, 'arc-ld-article', article);
+        };
+
+        write();
+        // Firestore is not reachable during prerendering; only rewrite in the browser.
+        if (isPlatformBrowser(this.platformId)) {
+            this.siteIdentity.load().then(write).catch(() => undefined);
+        }
+    }
+
+    private pageOrigin(): string {
+        return isPlatformBrowser(this.platformId) ? window.location.origin : '';
     }
 
     /**
@@ -958,6 +1076,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             ...content, // Spread content fields (title, content, tags, etc.)
             publishedOn: this.formatContentDate(content.publishedOn),
             date: this.formatContentDate(content.publishedOn),    // alias: {{ date }}
+            // Mirrors deployContentPage.ts: shown only for a real revision (D-D3).
+            updatedOn: this.updatedOnDisplay(),
+            updatedOnDisplay: this.updatedOnDisplay(),
             readTime: this.getReadTime(),
             readingTime: `${this.getReadTime()} min read`,        // alias: {{ readingTime }}
             ...((content as any).customFields || {}),
