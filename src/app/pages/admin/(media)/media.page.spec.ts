@@ -308,6 +308,25 @@ describe('MediaManagerComponent', () => {
             await component.deleteUploadedMedia('media-id-123');
             expect(mockMediaManagerService.getMediaListFromFirestore).toHaveBeenCalled();
         });
+
+        it('clears the preview and the pick list when the deleted item was selected', async () => {
+            component.selectedMediaUrl = { id: 'media-id-123', url: 'http://example.com/gone.jpg' } as any;
+            component.selectedImageDimensions = '1200 × 400';
+            component.selectedMediaList = [
+                { id: 'media-id-123', url: 'http://example.com/gone.jpg' },
+                { id: 'other', url: 'http://example.com/stays.jpg' },
+            ] as any;
+            await component.deleteUploadedMedia('media-id-123');
+            expect(component.selectedMediaUrl).toBeNull();
+            expect(component.selectedImageDimensions).toBeNull();
+            expect(component.selectedMediaList.map((m) => m.id)).toEqual(['other']);
+        });
+
+        it('keeps a different selection when another item is deleted', async () => {
+            component.selectedMediaUrl = { id: 'other', url: 'http://example.com/stays.jpg' } as any;
+            await component.deleteUploadedMedia('media-id-123');
+            expect(component.selectedMediaUrl?.id).toBe('other');
+        });
     });
 
     describe('confirmationToDeleteItem', () => {

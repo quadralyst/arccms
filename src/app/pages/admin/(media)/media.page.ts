@@ -647,6 +647,13 @@ export default class MediaManagerComponent extends BaseComponent {
     async deleteUploadedMedia(mediaId: string) {
         try {
             await this.fileUploadService.deleteMediaItem(mediaId);
+            // The preview and the pick list must not keep showing an item
+            // that no longer exists.
+            if (this.selectedMediaUrl?.id === mediaId) {
+                this.selectedMediaUrl = null;
+                this.selectedImageDimensions = null;
+            }
+            this.selectedMediaList = this.selectedMediaList.filter((picked) => picked.id !== mediaId);
             this.loadMediaItems();
         } catch (error) {
             console.error('Failed to delete media item:', error);
