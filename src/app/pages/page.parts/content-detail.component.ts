@@ -30,8 +30,8 @@ import { AuthorProfileService } from '../../core/services/author-profile.service
 import { IAuthor } from '../../../shared/models/author.model';
 import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../../../shared/utils/content-blocks';
 import { cleanReferences } from '../../../shared/models/references.model';
+import { buildMappedNode } from '../../../shared/utils/schema-mapping';
 import {
-    buildArticle,
     buildBreadcrumbList,
     buildOrganization,
     buildWebSite,
@@ -1073,7 +1073,16 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             const dates = resolveContentDates(content);
             const blocks = extractBlocks(content.content || '');
             const references = cleanReferences(content.references);
-            const article = buildArticle({
+            // The page's main node: the content type's mapped schema.org type,
+            // or Article (D-D12). Mirrors deployContentPage.ts.
+            const contentType = this.currentContentType();
+            const article = buildMappedNode({
+                schema: contentType?.schema,
+                customFields: ((content as any).customFields as Record<string, unknown>) || {},
+                ownerName: identity.name || siteName,
+                publisherId,
+                howTo: blocks.howTos[0] ?? null,
+                article: {
                 url: pageUrl,
                 headline: content.title || pageTitle,
                 description: content.metaDescription || content.summary || '',
@@ -1099,6 +1108,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                         ? { name: content.authorName }
                         : undefined,
                 publisherId,
+                },
             });
 
             setJsonLd(this.document, 'arc-ld-organization', organization);
@@ -1107,7 +1117,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             setJsonLd(this.document, 'arc-ld-article', article);
             // Block-derived nodes (D-D10): one script per node, cleared first
             // so a page with fewer blocks than the last one leaves none behind.
-            const blockNodes = blockJsonLd(blocks, pageUrl);
+            const blockNodes = blockJsonLd(blocks, pageUrl).filter(
+                node => !(article?.['@type'] === 'HowTo' && node['@type'] === 'HowTo'),
+            );
             for (let i = 0; i < MAX_BLOCK_NODES; i++) {
                 setJsonLd(this.document, `arc-ld-block-${i}`, blockNodes[i] ?? null);
             }

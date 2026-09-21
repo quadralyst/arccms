@@ -367,6 +367,49 @@
 
         <hr />
 
+        <!-- Structured data (docs/discoverability-spec.md, D-D12) -->
+        <div class="form-section-title">{{ 'admin.contents.types.form.schema_heading' | transloco }}</div>
+        <div class="form-group mb-3">
+            <small class="text-muted d-block mb-2">{{ 'admin.contents.types.form.schema_hint' | transloco }}</small>
+            <select class="form-select form-select-sm schema-type-select" [value]="schemaType()"
+                (change)="setSchemaType($any($event.target).value)" data-testid="schema-type">
+                @for (type of schemaTypes; track type.id) {
+                    <option [value]="type.id">{{ type.label }}</option>
+                }
+            </select>
+            <small class="text-muted d-block mt-1">{{ schemaTypeDescription() }}</small>
+
+            @if (schemaProperties().length) {
+                <div class="schema-properties mt-3">
+                    @for (prop of schemaProperties(); track prop.key) {
+                        <div class="schema-property row g-2 align-items-center mb-2" [attr.data-testid]="'schema-prop-' + prop.key">
+                            <div class="col-md-4">
+                                <span class="fw-medium">{{ prop.label }}</span>
+                                @if (prop.recommended) {
+                                    <span class="badge bg-light text-secondary ms-1">{{ 'admin.contents.types.form.schema_recommended' | transloco }}</span>
+                                }
+                                <small class="text-muted d-block">{{ prop.hint }}</small>
+                            </div>
+                            <div class="col-md-8">
+                                <select class="form-select form-select-sm" [value]="mappedField(prop.key)"
+                                    (change)="setMappedField(prop.key, $any($event.target).value)">
+                                    <option value="">{{ 'admin.contents.types.form.schema_not_mapped' | transloco }}</option>
+                                    @for (field of fieldsForProperty(prop); track field.key) {
+                                        <option [value]="field.key">{{ field.label }} ({{ field.key }})</option>
+                                    }
+                                </select>
+                                @if (!fieldsForProperty(prop).length) {
+                                    <small class="text-muted">{{ 'admin.contents.types.form.schema_no_fields' | transloco: { types: prop.fieldTypes.join(', ') } }}</small>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <hr />
+
         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
             <button type="button" class="btn btn-secondary me-md-2" (click)="closeEdit()">{{ 'common.actions.cancel' | transloco }}</button>
             <button type="submit" class="btn btn-primary"

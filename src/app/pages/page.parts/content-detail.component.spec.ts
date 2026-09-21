@@ -859,6 +859,30 @@ describe('ContentDetailComponent', () => {
         });
     });
 
+    // ─── Mapped schema type (docs/discoverability-spec.md, D-D12) ──────────
+
+    describe('mapped schema type', () => {
+        it('publishes the item as the content type\'s mapped type in the head', async () => {
+            mockContentTypesStore.items.set([{
+                id: 'ct1', name: 'Articles', slug: 'articles', fields: [],
+                schema: { type: 'Product', fields: { price: 'articles_price', priceCurrency: 'articles_cur' } },
+            }] as any);
+            component.isPreview.set(true);
+            component.draftContent.set({
+                title: 'Widget', urlSlug: 'widget', type: 'articles', publishedOn: { seconds: 1705334400 },
+                customFields: { articles_price: '250', articles_cur: 'INR' },
+            } as any);
+            fixture.detectChanges();
+            await fixture.whenStable();
+            fixture.detectChanges();
+
+            const main = JSON.parse(document.getElementById('arc-ld-article')!.textContent || '{}');
+            expect(main['@type']).toBe('Product');
+            expect(main.name).toBe('Widget');
+            expect(main.offers).toEqual(expect.objectContaining({ price: 250, priceCurrency: 'INR' }));
+        });
+    });
+
     // ─── Updated line (docs/discoverability-spec.md, D-D3) ─────────────────
 
     describe('updatedOnDisplay', () => {

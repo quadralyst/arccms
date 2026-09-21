@@ -13,12 +13,13 @@ import {
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
 import { contentTypeName } from '../shared/content-type-names.js';
-import { buildArticle, buildBreadcrumbList, countWords } from '../shared/structured-data.js';
+import { buildBreadcrumbList, countWords } from '../shared/structured-data.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
 import { resolveContentDates } from '../shared/content-dates.js';
 import { AuthorProfile, authorTemplateData, authorToPerson, getAuthor } from '../shared/authors.js';
 import { buildMarkdownTwin, markdownFilePath, markdownUrl } from '../shared/markdown-twin.js';
 import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../shared/content-blocks.js';
+import { buildMappedNode } from '../shared/schema-mapping.js';
 import { cleanReferences } from '../shared/references.js';
 import {
     buildHtmlDocument,
@@ -255,7 +256,16 @@ export function buildDetailJsonLd(input: {
     const blocks = extractBlocks(content.content || '');
     const references = cleanReferences(content.references);
 
-    const article = buildArticle({
+    // The page's main node: Article (or a subtype) for most types, or the
+    // schema.org type the content type is mapped to (D-D12), read from the
+    // custom fields the admin paired with it.
+    const article = buildMappedNode({
+        schema: contentType.schema,
+        customFields: (content.customFields as Record<string, unknown>) || {},
+        ownerName: input.about?.name || siteConfig.siteName,
+        publisherId: site.publisherId,
+        howTo: blocks.howTos[0] ?? null,
+        article: {
         url: input.pageUrl,
         // The visible title, not the SEO title: the headline should match the
         // <h1> a reader (or a crawler) sees on the page.
@@ -272,9 +282,16 @@ export function buildDetailJsonLd(input: {
         author: authorToPerson(input.author ?? null),
         publisherId: site.publisherId,
         citations: references,
+        },
     });
 
-    return [site.organization, site.webSite, breadcrumbs, article, ...blockJsonLd(blocks, input.pageUrl)].filter(
+    // A HowTo page already carries its steps as the main node; emitting the
+    // block's HowTo as well would describe the procedure twice.
+    const blockNodes = blockJsonLd(blocks, input.pageUrl).filter(
+        node => !(article?.['@type'] === 'HowTo' && node['@type'] === 'HowTo'),
+    );
+
+    return [site.organization, site.webSite, breadcrumbs, article, ...blockNodes].filter(
         (node): node is Record<string, unknown> => !!node,
     );
 }

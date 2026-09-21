@@ -1,7 +1,7 @@
 # ArcCMS Discoverability: Build Spec (Google + LLM citation)
 
-**Status:** D1 to D4 built 2026-09-21 with unit coverage; D1, D2 and D4 verified in the browser
-against the dev project, D3's Hosting output awaits a functions deploy (see section 5). D5 and
+**Status:** D1 to D5 built 2026-09-21 with unit coverage; D1, D2, D4 and D5 verified in the
+browser against the dev project, D3's Hosting output awaits a functions deploy (see section 5).
 D6 planned. Discussion completed 2026-09-20. Phases are
 built one at a time; each ends with a report, a deploy to the dev project and a browser check
 before the next starts.
@@ -184,8 +184,10 @@ rich results eligible; Markdown twin contains the same Q/A text.
 ### D5. Schema mapping per content type
 **Goal:** non-article types describe themselves correctly.
 
-- `ContentType.schema` (D-D12) and a "Structured data" tab in the content type editor: choose a
-  type, map its properties to custom fields with dropdowns filtered by compatible field type.
+- `ContentType.schema` (D-D12) and a "Structured data" section in the content type editor:
+  choose a type, map its properties to custom fields with dropdowns filtered by compatible field
+  type; unmapped or vanished fields are dropped on save. Registry of types and properties in
+  `schema-types.ts` (mirrored, parity-tested).
 - Builders for `Product` (+ `Offer`), `Service`, `Event` (+ `Place`), `Person`, `Recipe`,
   `NewsArticle`, `BlogPosting`, `HowTo`; unmapped required properties are omitted, never
   invented.
@@ -362,3 +364,27 @@ sections, Sources appears above the tags, and DevTools → `<head>` has `arc-ld-
 (FAQPage, HowTo, DefinedTerm) plus `abstract` and `citation` on the Article. After the
 functions deploy and a publish, the static HTML and the `.md` twin carry the same, and the
 Rich Results Test lists FAQ and HowTo.
+
+### D5 (built 2026-09-21)
+
+Files: `functions/src/shared/schema-types.ts` + `src/shared/constants/schema-types.ts` (registry:
+Article, BlogPosting, NewsArticle, Product, Service, Event, Person, Recipe, HowTo, with the
+mappable properties and compatible field types), `functions/src/shared/schema-mapping.ts` +
+`src/shared/utils/schema-mapping.ts` (normalisation and builders; Offer needs price and
+currency, Event Place from venue fields, Recipe durations and ingredient lines, HowTo page from
+the first how-to block, otherwise Article), `deployContentPage.ts` and the SPA detail page use
+the mapped node as the page's main node (a HowTo page does not double-emit the block's HowTo);
+`content-types.model.ts` (`schema`), the type editor's Structured data section;
+`src/shared/utils/product-jsonld.ts` and `/pricing` (Product + Offer per active plan from the
+real display price, seller = site owner).
+
+Verified in the browser 2026-09-21: Testimonials mapped to Person with jobTitle →
+`testimonials_designation` (only text fields offered per property), `/testimonials/testimonial-1`
+carried a Person node with that jobTitle; reverted to Article afterwards. `/pricing` carried four
+Product nodes with Offers (monthly and annual price specifications, seller reference).
+
+To verify: Content types → edit a type → Structured data → pick Product, map Price and
+Currency to your fields, Update. Open an item of that type (`?preview=true` for drafts): the
+`arc-ld-article` script in `<head>` is now a Product with an Offer. After the functions deploy
+and a republish, the static HTML carries the same and the Rich Results Test shows Product
+snippets. `/pricing` shows Product + Offer per plan.

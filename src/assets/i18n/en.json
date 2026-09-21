@@ -693,7 +693,12 @@
           "field_n": "Field {{ n }}",
           "search_fields": "Searchable custom fields",
           "search_fields_hint": "Titles and summaries are always searchable. Tick the plain text fields that should be too. Saving rebuilds the search index for this type.",
-          "search_fields_none": "Add a plain text field to make it searchable."
+          "search_fields_none": "Add a plain text field to make it searchable.",
+          "schema_heading": "Structured data",
+          "schema_hint": "What this content is, in schema.org terms. Search engines and AI assistants read it from every page. Article fits most writing; pick another type and map its properties to your custom fields. Anything unmapped is simply left out.",
+          "schema_recommended": "recommended",
+          "schema_not_mapped": "Not mapped",
+          "schema_no_fields": "Add a custom field of type {{ types }} to map this."
         },
         "fix_slug": "Please fix the slug error before submitting.",
         "created": "Content type created successfully",

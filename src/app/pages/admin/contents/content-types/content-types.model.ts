@@ -1,4 +1,5 @@
 import { IBaseModel } from '../../../../../shared/models/base-model';
+import type { ContentTypeSchema } from '../../../../../shared/constants/schema-types';
 
 export type ContentTypeFieldType = 'text' | 'number' | 'richtext' | 'date' | 'datetime' | 'image' | 'icon' | 'boolean' | 'dropdown' | 'checkbox' | 'radio' | 'infocard' | 'gallery' | 'labelvalue' | 'maplocation' | 'color';
 
@@ -48,6 +49,13 @@ export interface ContentType extends IBaseModel {
      */
     searchFields?: string[];
     hasPublicUrl?: boolean; // When false, no static HTML pages are generated for this content type
+    /**
+     * Which schema.org type this content publishes as, and which custom
+     * fields fill its properties (docs/discoverability-spec.md, D-D12), e.g.
+     * `{ type: 'Product', fields: { price: 'products_price', priceCurrency: 'products_currency' } }`.
+     * Absent means Article. Unmapped properties are omitted from the JSON-LD.
+     */
+    schema?: ContentTypeSchema;
     /**
      * Per-language display text, keyed by BCP-47 code — e.g.
      * `{ hi: { name: 'लेख', singularName: 'लेख', description: '...' } }`.

@@ -22,6 +22,7 @@ import { OmitCommonFields } from '../../../../../../shared/models/base-model';
 import { LocalizationService } from '../../../../../core/services/localization.service';
 import { SearchService } from '../../../../../core/services/search.service';
 import { ContentTypeNames, TranslatableTypeText, pruneNameTranslations, pruneFieldLabelTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
+import { ARTICLE_FAMILY, ContentTypeSchema, SCHEMA_TYPES, SchemaProperty, SchemaTypeId, schemaTypeMeta } from '../../../../../../shared/constants/schema-types';
 import { ContentTypesStore } from '../content-types.store';
 import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator } from '../collection-ref-helpers';
 import { roleGuard } from '../../../../../guards/role.guard';
@@ -113,6 +114,8 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             description: currentItem.description || '',
             hasPublicUrl: currentItem.hasPublicUrl !== false,
             searchFields: currentItem.searchFields || [],
+            schemaType: currentItem.schema?.type || 'Article',
+            schemaFields: { ...(currentItem.schema?.fields || {}) },
             slug: currentItem.slug || '',
             icon: currentItem.icon || 'fa-solid fa-folder',
             order: currentItem.order || 0,
@@ -187,6 +190,9 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         hasPublicUrl: new FormControl(true),
         // Prefixed custom field keys to index for search (S-D15).
         searchFields: new FormControl<string[]>([]),
+        // Structured data (D-D12): the schema.org type and its property → field map.
+        schemaType: new FormControl<SchemaTypeId>('Article', { nonNullable: true }),
+        schemaFields: new FormControl<Record<string, string>>({}, { nonNullable: true }),
         slug: new FormControl('', [Validators.required, Validators.pattern(/^[a-z0-9-]+$/)]),
         icon: new FormControl('fa-solid fa-folder'),
         order: new FormControl(0),
@@ -245,6 +251,67 @@ export default class EditContentTypeComponent extends BaseComponent implements O
                 return { key, label: (control.get('label')?.value as string) || rawKey };
             })
             .filter(field => !!field.key);
+    }
+
+    // ── Structured data (docs/discoverability-spec.md, D-D12) ──────────────
+
+    readonly schemaTypes = SCHEMA_TYPES;
+
+    schemaType(): SchemaTypeId {
+        return (this.editForm.get('schemaType')?.value as SchemaTypeId) || 'Article';
+    }
+
+    /** The properties the chosen type can map; empty for the Article family. */
+    schemaProperties(): SchemaProperty[] {
+        return schemaTypeMeta(this.schemaType())?.properties ?? [];
+    }
+
+    schemaTypeDescription(): string {
+        return schemaTypeMeta(this.schemaType())?.description ?? '';
+    }
+
+    setSchemaType(type: string): void {
+        const control = this.editForm.get('schemaType');
+        control?.setValue((schemaTypeMeta(type)?.id ?? 'Article') as SchemaTypeId);
+        control?.markAsDirty();
+    }
+
+    /** Custom fields (prefixed keys, from the live form) a property may be filled from. */
+    fieldsForProperty(prop: SchemaProperty): Array<{ key: string; label: string }> {
+        const slug = (this.editForm.get('slug')?.value as string) || '';
+        const array = this.editForm.get('fields') as FormArray | null;
+        return (array?.controls ?? [])
+            .filter(control => (prop.fieldTypes as string[]).includes(control.get('type')?.value as string))
+            .map(control => {
+                const rawKey = (control.get('key')?.value as string) || '';
+                const key = rawKey && slug && !rawKey.startsWith(slug + '_') ? slug + '_' + rawKey : rawKey;
+                return { key, label: (control.get('label')?.value as string) || rawKey };
+            })
+            .filter(field => !!field.key);
+    }
+
+    mappedField(prop: string): string {
+        return ((this.editForm.get('schemaFields')?.value as Record<string, string>) || {})[prop] || '';
+    }
+
+    setMappedField(prop: string, fieldKey: string): void {
+        const control = this.editForm.get('schemaFields');
+        const next = { ...((control?.value as Record<string, string>) || {}) };
+        if (fieldKey) next[prop] = fieldKey; else delete next[prop];
+        control?.setValue(next);
+        control?.markAsDirty();
+    }
+
+    /** What is written to `ContentType.schema`: only mappings to fields that still exist. */
+    private schemaForSave(): ContentTypeSchema {
+        const type = this.schemaType();
+        if ((ARTICLE_FAMILY as readonly string[]).includes(type)) return { type, fields: {} };
+        const fields: Record<string, string> = {};
+        for (const prop of this.schemaProperties()) {
+            const key = this.mappedField(prop.key);
+            if (key && this.fieldsForProperty(prop).some(field => field.key === key)) fields[prop.key] = key;
+        }
+        return { type, fields };
     }
 
     isSearchField(key: string): boolean {
@@ -405,6 +472,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             hasPublicUrl: formValue.hasPublicUrl !== false,
             searchFields: (formValue.searchFields || []).filter(key =>
                 this.searchableFields().some(field => field.key === key)),
+            schema: this.schemaForSave(),
             templateFolder: formValue.templateFolder || 'default',
             fields: (formValue.fields || []).map((field: any, index: number) => {
                 const mapped = mapFieldWithCollectionRef(field, index, this.contentTypesStore);

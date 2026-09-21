@@ -243,6 +243,11 @@ export type TranslationKey =
     | 'admin.contents.types.form.public_pages'
     | 'admin.contents.types.form.public_pages_off'
     | 'admin.contents.types.form.save'
+    | 'admin.contents.types.form.schema_heading'
+    | 'admin.contents.types.form.schema_hint'
+    | 'admin.contents.types.form.schema_no_fields'
+    | 'admin.contents.types.form.schema_not_mapped'
+    | 'admin.contents.types.form.schema_recommended'
     | 'admin.contents.types.form.search_fields'
     | 'admin.contents.types.form.search_fields_hint'
     | 'admin.contents.types.form.search_fields_none'
@@ -1364,6 +1369,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.form.public_pages',
     'admin.contents.types.form.public_pages_off',
     'admin.contents.types.form.save',
+    'admin.contents.types.form.schema_heading',
+    'admin.contents.types.form.schema_hint',
+    'admin.contents.types.form.schema_no_fields',
+    'admin.contents.types.form.schema_not_mapped',
+    'admin.contents.types.form.schema_recommended',
     'admin.contents.types.form.search_fields',
     'admin.contents.types.form.search_fields_hint',
     'admin.contents.types.form.search_fields_none',

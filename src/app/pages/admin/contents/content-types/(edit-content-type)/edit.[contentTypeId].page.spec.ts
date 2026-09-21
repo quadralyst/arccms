@@ -710,4 +710,55 @@ describe('EditContentTypeComponent', () => {
             expect(callArgs.fields[0].key).toBe('articles_author');
         });
     });
+
+    // ─── Structured data (docs/discoverability-spec.md, D-D12) ────────────
+
+    describe('Structured data mapping', () => {
+        function addField(key: string, type: string, label = key): void {
+            component.addField();
+            component.fields.at(component.fields.length - 1).patchValue({ key, label, type, required: false });
+        }
+
+        it('defaults to Article with no properties and saves an empty mapping', () => {
+            component.id = 'test-id';
+            component.editForm.patchValue({ name: 'Articles', slug: 'articles' });
+            expect(component.schemaType()).toBe('Article');
+            expect(component.schemaProperties()).toEqual([]);
+            component.onSubmit();
+            expect(mockStore.update.mock.calls[0][1].schema).toEqual({ type: 'Article', fields: {} });
+        });
+
+        it('offers only compatible fields per property and saves prefixed keys', () => {
+            component.id = 'test-id';
+            component.editForm.patchValue({ name: 'Products', slug: 'products' });
+            addField('price', 'number', 'Price');
+            addField('currency', 'text', 'Currency');
+            addField('photo', 'image', 'Photo');
+            component.setSchemaType('Product');
+
+            const priceProp = component.schemaProperties().find(p => p.key === 'price')!;
+            expect(component.fieldsForProperty(priceProp).map(f => f.key)).toEqual(['products_price', 'products_currency']);
+            const currencyProp = component.schemaProperties().find(p => p.key === 'priceCurrency')!;
+            expect(component.fieldsForProperty(currencyProp).map(f => f.key)).toEqual(['products_currency']);
+
+            component.setMappedField('price', 'products_price');
+            component.setMappedField('priceCurrency', 'products_currency');
+            component.setMappedField('sku', 'products_gone');
+            component.onSubmit();
+            expect(mockStore.update.mock.calls[0][1].schema).toEqual({
+                type: 'Product',
+                fields: { price: 'products_price', priceCurrency: 'products_currency' },
+            });
+        });
+
+        it('clears a mapping when set to Not mapped and rejects unknown types', () => {
+            component.setSchemaType('Event');
+            component.setMappedField('startDate', 'x_start');
+            expect(component.mappedField('startDate')).toBe('x_start');
+            component.setMappedField('startDate', '');
+            expect(component.mappedField('startDate')).toBe('');
+            component.setSchemaType('Spaceship');
+            expect(component.schemaType()).toBe('Article');
+        });
+    });
 });

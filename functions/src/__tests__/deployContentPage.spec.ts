@@ -1137,6 +1137,45 @@ describe('deployContentPage', () => {
             expect(html).toContain('Test Article');
         });
 
+        it('publishes a mapped content type as its schema.org type instead of Article (D-D12)', async () => {
+            mockContentTypeLimitGet.mockResolvedValue({
+                empty: false,
+                docs: [{ data: () => ({
+                    ...MOCK_CONTENT_TYPE,
+                    schema: { type: 'Product', fields: { price: 'articles_price', priceCurrency: 'articles_currency', availability: 'articles_stock' } },
+                }) }],
+            });
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true, id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, customFields: { articles_price: '1999', articles_currency: 'INR', articles_stock: 'InStock' } }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(jsonLdNodes().map(n => n['@type'])).toEqual(['Organization', 'WebSite', 'BreadcrumbList', 'Product']);
+            const product = nodeOfType('Product')!;
+            expect(product.name).toBe('Test Article');
+            expect(product.brand).toEqual({ '@type': 'Brand', name: 'Test Site' });
+            expect(product.offers).toEqual({
+                '@type': 'Offer', price: 1999, priceCurrency: 'INR',
+                url: 'https://example.com/articles/test-article', availability: 'https://schema.org/InStock',
+            });
+        });
+
+        it('keeps a Blog post subtype and does not double-emit HowTo for a HowTo page', async () => {
+            mockContentTypeLimitGet.mockResolvedValue({
+                empty: false,
+                docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, schema: { type: 'HowTo', fields: {} } }) }],
+            });
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true, id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, content: '<section data-arc-block="howto"><h3>How to test</h3><ol><li>Run it.</li></ol></section>' }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            const types = jsonLdNodes().map(n => n['@type']);
+            expect(types.filter(t => t === 'HowTo')).toHaveLength(1);
+            expect(nodeOfType('HowTo')!.name).toBe('How to test');
+        });
+
         it('still emits Article and WebSite when Settings/about is empty', async () => {
             mockGetAboutConfig.mockResolvedValue({
                 name: '', finalUrl: '', address: '', logoUrl: '', description: '', sameAs: [], contactEmail: '', organizationType: 'Organization',
