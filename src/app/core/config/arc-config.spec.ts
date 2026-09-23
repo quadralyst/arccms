@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { arcInstall } from '../../../environments/arc-install';
 import { arcConfig, DEFAULT_DATABASE_ID, resolveArcConfig, withStoragePrefix } from './arc-config';
 
 describe('arc-config (frontend)', () => {
-    describe('defaults: no `arc` block behaves as before CO2', () => {
+    describe('defaults: an empty arc-install.ts behaves as before CO2', () => {
         it('resolves to the (default) database, the firebaseConfig bucket and no prefix', () => {
             expect(resolveArcConfig(undefined)).toEqual({
                 databaseId: '(default)',
@@ -13,8 +14,8 @@ describe('arc-config (frontend)', () => {
             expect(DEFAULT_DATABASE_ID).toBe('(default)');
         });
 
-        it('the committed environment has no arc block, so the app runs on the defaults', () => {
-            expect(arcConfig).toEqual(resolveArcConfig(undefined));
+        it('arcConfig is arc-install.ts resolved (empty when committed, set by arc:configure)', () => {
+            expect(arcConfig).toEqual(resolveArcConfig(arcInstall));
         });
 
         it('leaves upload paths untouched', () => {

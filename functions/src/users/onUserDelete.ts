@@ -12,6 +12,7 @@
 
 import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { owner, db } from '../init.js';
+import { arcDocument } from '../arc-config.js';
 
 const EMAIL_LOOKUP_COLLECTION = 'email_lookup';
 
@@ -26,7 +27,7 @@ async function hashEmail(email: string): Promise<string> {
 }
 
 export const onUserDeleted = onDocumentDeleted(
-    'users/{docId}',
+    arcDocument('users/{docId}'),
     async (event) => {
         const deletedData = event.data?.data();
         if (!deletedData) return;

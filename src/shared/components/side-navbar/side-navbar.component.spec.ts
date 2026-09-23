@@ -233,3 +233,56 @@ describe('NavbarComponent', () => {
         expect(logoutIndex).toBe(aboutIndex + 1);
     });
 });
+
+/**
+ * A fresh install reaches the admin from the onboarding wizard, which loads no
+ * admin strings, so the nav can render before `en.json` is in. It must pick
+ * the labels up when the file arrives, not only after a reload.
+ */
+describe('NavbarComponent: translations that load after the first render', () => {
+    it('replaces the bare keys once the translation file loads', async () => {
+        const { TranslocoService, TranslocoTestingModule } = await import('@jsverse/transloco');
+        const { firstValueFrom } = await import('rxjs');
+        const en = (await import('../../../assets/i18n/en.json')).default;
+
+        await TestBed.configureTestingModule({
+            imports: [
+                NavbarComponent,
+                NoopAnimationsModule,
+                TranslocoTestingModule.forRoot({
+                    langs: { en },
+                    translocoConfig: { availableLangs: ['en'], defaultLang: 'en' },
+                    preloadLangs: false,
+                }),
+            ],
+            providers: [
+                { provide: AuthState, useValue: { currentUser: signal({ name: 'Admin', role: 'admin', photo: '' }), logout: vi.fn() } },
+                { provide: ContentTypesStore, useValue: { items: signal([]), getAll: vi.fn() } },
+                { provide: WaitlistAdminStore, useValue: { items: signal([]), subscribe: vi.fn() } },
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                {
+                    provide: Router,
+                    useValue: {
+                        events: of(), navigate: vi.fn(), isActive: vi.fn(),
+                        createUrlTree: vi.fn().mockReturnValue({}), serializeUrl: vi.fn().mockReturnValue(''), url: '/',
+                    },
+                },
+                { provide: ActivatedRoute, useValue: {} },
+            ],
+        }).compileComponents();
+
+        const fixture = TestBed.createComponent(NavbarComponent);
+        fixture.detectChanges();
+        const nav = fixture.componentInstance;
+
+        // A memoised computed recomputes only when a signal it read changes,
+        // which is exactly what an OnPush template relies on.
+        const { computed } = await import('@angular/core');
+        const label = computed(() => nav.menuLabel({ label: 'Dashboard', labelKey: 'admin.nav.dashboard' }));
+        expect(label()).toBe('admin.nav.dashboard');
+
+        await firstValueFrom(TestBed.inject(TranslocoService).load('en'));
+
+        expect(label()).toBe('Dashboard');
+    });
+});

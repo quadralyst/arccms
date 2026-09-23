@@ -2,9 +2,10 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { getEmailTemplate, createWelcomeEmailLog } from '../../utils/emailTemplateHelper.js';
 import { WaitlistUserData } from '../../types.js';
 import { db } from '../../init.js';
+import { arcDocument } from '../../arc-config.js';
 
 export const onWaitlistUserCreate = onDocumentCreated(
-  'Waitlists/{WaitlistsId}/users/{usersId}',
+  arcDocument('Waitlists/{WaitlistsId}/users/{usersId}'),
   async (event) => {
     const waitlistedUsersData = event.data?.data() as WaitlistUserData | undefined;
     if (!waitlistedUsersData) return;

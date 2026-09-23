@@ -4,6 +4,7 @@ import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { waitlistListId } from '../email-core/contacts.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Keep a form's mirrored audience list named after the form.
@@ -12,7 +13,7 @@ import { waitlistListId } from '../email-core/contacts.js';
  * form name is the single source of truth. Only creation paths create the list —
  * a rename never resurrects a list that was deliberately removed.
  */
-export const onWaitlistsUpdate = onDocumentUpdated('Waitlists/{waitlistsId}', async (event) => {
+export const onWaitlistsUpdate = onDocumentUpdated(arcDocument('Waitlists/{waitlistsId}'), async (event) => {
   const before = event.data?.before.data();
   const after = event.data?.after.data();
   if (!before || !after) return;

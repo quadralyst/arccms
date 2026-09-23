@@ -2,6 +2,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { queueEmail } from '../email-core/queueEmail.js';
 import type { EmailTemplateData } from '../types.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Welcome-on-signup (D9): when a user document is created, queue a
@@ -12,7 +13,7 @@ import type { EmailTemplateData } from '../types.js';
  * Separate from `onUserCreated` (which maintains `email_lookup`) so email
  * delivery and lookup-maintenance fail independently.
  */
-export const onUserCreateWelcomeEmail = onDocumentCreated('users/{docId}', async (event) => {
+export const onUserCreateWelcomeEmail = onDocumentCreated(arcDocument('users/{docId}'), async (event) => {
   const user = event.data?.data();
   if (!user?.['email']) return;
 

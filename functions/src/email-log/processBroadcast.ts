@@ -6,6 +6,7 @@ import type { BroadcastEmailDoc, ProviderRateLimits, EmailSettings } from '../ty
 import { processRecipientBatch } from './broadcastHelper.js';
 import { runAudienceBroadcast } from './broadcastAudience.js';
 import { resolveProviderLimits, legacyToProviderLimits, checkQuota } from '../mail-config/emailCounter.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Maximum processing time budget (ms).
@@ -43,7 +44,7 @@ function isPostU4Broadcast(data: BroadcastEmailDoc): boolean {
  * Each EmailLog triggers onEmailLogCreate → sendMail() for actual delivery.
  */
 export const processBroadcast = onDocumentCreated(
-    'BroadcastEmails/{broadcastId}',
+    arcDocument('BroadcastEmails/{broadcastId}'),
     async (event) => {
         const broadcastData = event.data?.data() as BroadcastEmailDoc | undefined;
         const broadcastId = event.params.broadcastId;

@@ -25,6 +25,7 @@ import { onDocumentWrittenWithAuthContext } from 'firebase-functions/v2/firestor
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import { owner, db } from '../init.js';
+import { arcDocument } from '../arc-config.js';
 
 /** Roles anyone may hold without an admin granting them. Keep in step with firestore.rules. */
 export const SELF_ASSIGNABLE_ROLES: readonly string[] = ['', 'user'];
@@ -72,7 +73,7 @@ export async function isTrustedRoleWriter(authType: string | undefined, authId: 
  * When a user document is created or updated, sync the role to Firebase Auth custom claims.
  */
 export const onUserRoleChange = onDocumentWrittenWithAuthContext(
-    'users/{docId}',
+    arcDocument('users/{docId}'),
     async (event) => {
         const afterSnap = event.data?.after;
         const afterData = afterSnap?.data();

@@ -66,6 +66,24 @@ process.env.GOOGLE_APPLICATION_CREDENTIALS = tmpAdc;
 process.env.GCLOUD_PROJECT = projectId;
 process.env.FIREBASE_CONFIG = JSON.stringify({ projectId });
 
+// The install's database and hosting site (docs/coexistence-spec.md, CO3). The
+// deployed functions get these from functions/.env through the Firebase CLI;
+// this script runs the same code outside it, so it reads the same files the CLI
+// does: .env, then .env.<projectId>. Values already in the environment win.
+for (const file of ['.env', `.env.${projectId}`]) {
+    let text;
+    try {
+        text = fs.readFileSync(path.join(__dirname, '..', file), 'utf-8');
+    } catch {
+        continue;
+    }
+    for (const line of text.split('\n')) {
+        const match = /^\s*(ARC_[A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
+        if (match && process.env[match[1]] === undefined) process.env[match[1]] = match[2];
+    }
+}
+const hostingSite = process.env.ARC_HOSTING_SITE || projectId;
+
 async function main() {
     // Dynamic import() because the compiled output is ESM ("type": "module")
     const { runSeed } = await import('../lib/pages/seedStaticPages.js');
@@ -77,7 +95,8 @@ async function main() {
     console.log('╚══════════════════════════════════════════════╝');
     console.log('');
     console.log(`  Project:  ${projectId}`);
-    console.log(`  Hosting:  https://${projectId}.web.app`);
+    console.log(`  Database: ${process.env.ARC_DATABASE_ID || '(default)'}`);
+    console.log(`  Hosting:  https://${hostingSite}.web.app`);
     console.log('');
     console.log('  Initializing Firebase Admin SDK...');
 

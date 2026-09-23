@@ -7,7 +7,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const DEFAULT_DATABASE_ID = '(default)';
 export const CONFIG_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'arccms.config.json');
@@ -25,4 +25,10 @@ export function readArcInstallConfig(path = CONFIG_PATH) {
 /** The Firestore database the install uses. */
 export function arcDatabaseId(config = readArcInstallConfig()) {
     return (typeof config.databaseId === 'string' && config.databaseId.trim()) || DEFAULT_DATABASE_ID;
+}
+
+// `node scripts/arc-install-config.mjs --database-id` prints the database id,
+// for npm scripts that pass it to the Firebase CLI.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href && process.argv[2] === '--database-id') {
+    process.stdout.write(arcDatabaseId());
 }

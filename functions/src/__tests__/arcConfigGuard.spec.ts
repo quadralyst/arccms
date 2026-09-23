@@ -37,4 +37,13 @@ describe('arc-config guard (functions)', () => {
             .map((f) => f.path);
         expect(offenders).toEqual([]);
     });
+
+    it('every Firestore trigger binds to the install database through arcDocument()', () => {
+        const trigger = /onDocument(?:Created|Updated|Deleted|Written)(?:WithAuthContext)?\((?!\s*(?:arcDocument\(|\{\s*\.\.\.arcDocument\())/;
+        const offenders = files
+            .filter((f) => f.path !== 'arc-config.ts')
+            .filter((f) => trigger.test(f.code))
+            .map((f) => f.path);
+        expect(offenders).toEqual([]);
+    });
 });

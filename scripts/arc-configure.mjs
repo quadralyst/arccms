@@ -1,0 +1,248 @@
+#!/usr/bin/env node
+/**
+ * npm run arc:configure: turns `arccms.config.json` into the three files that
+ * need its values (docs/coexistence-spec.md, CO-D3, CO3):
+ *
+ *   src/environments/arc-install.ts   database, bucket, upload folder for the app
+ *   functions/.env                    ARC_DATABASE_ID, ARC_HOSTING_SITE (other lines kept)
+ *   firebase.arccms.json              Firebase CLI config for a named database,
+ *                                     own bucket or own hosting site; removed when
+ *                                     none is set, so plain firebase.json applies
+ *
+ * Flags update arccms.config.json first:
+ *   --profile=standalone|backend  --database=<id>  --site=<hosting site>
+ *   --bucket=<bucket>  --prefix=<upload folder>  --region=<location>
+ *   --dry-run   print what would change, write nothing
+ *
+ * With no arccms.config.json and no flags, every output is the default and a
+ * standalone install is left exactly as it was.
+ *
+ * The script never creates cloud resources. For a backend profile it prints the
+ * commands that create the database, hosting site and bucket.
+ */
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { DEFAULT_DATABASE_ID } from './arc-install-config.mjs';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+export const PATHS = {
+    config: resolve(ROOT, 'arccms.config.json'),
+    firebase: resolve(ROOT, 'firebase.json'),
+    generatedFirebase: resolve(ROOT, 'firebase.arccms.json'),
+    install: resolve(ROOT, 'src/environments/arc-install.ts'),
+    functionsEnv: resolve(ROOT, 'functions/.env'),
+};
+
+const PROFILES = ['standalone', 'backend'];
+const FLAG_KEYS = {
+    profile: 'profile',
+    database: 'databaseId',
+    site: 'hostingSite',
+    bucket: 'storageBucket',
+    prefix: 'storagePrefix',
+    region: 'region',
+};
+
+/** `--database=arccms` style flags → config keys. Unknown flags throw. */
+export function parseFlags(argv) {
+    const updates = {};
+    let dryRun = false;
+    for (const arg of argv) {
+        if (arg === '--dry-run') { dryRun = true; continue; }
+        const match = /^--([a-z]+)=(.*)$/.exec(arg);
+        if (!match || !(match[1] in FLAG_KEYS)) throw new Error(`Unknown argument: ${arg}`);
+        updates[FLAG_KEYS[match[1]]] = match[2];
+    }
+    return { updates, dryRun };
+}
+
+/** Trims values, drops blanks and fills the profile default. */
+export function normalizeConfig(raw) {
+    const config = {};
+    for (const [key, value] of Object.entries(raw ?? {})) {
+        if (typeof value !== 'string') continue;
+        const trimmed = value.trim();
+        if (trimmed) config[key] = trimmed;
+    }
+    if (config.storageBucket) config.storageBucket = config.storageBucket.replace(/^gs:\/\//, '').replace(/\/+$/, '');
+    config.profile = config.profile ?? 'standalone';
+    return config;
+}
+
+/** Problems that make the config unsafe to deploy. Empty when it is fine. */
+export function validateConfig(config) {
+    const errors = [];
+    if (!PROFILES.includes(config.profile)) {
+        errors.push(`profile must be one of ${PROFILES.join(', ')}, not "${config.profile}".`);
+    }
+    if (config.profile === 'backend') {
+        // CO-D11: sharing (default) with another app means sharing its rules,
+        // indexes and triggers, which is the conflict this whole setup avoids.
+        if (!config.databaseId || config.databaseId === DEFAULT_DATABASE_ID) {
+            errors.push('A backend install shares its project, so it needs its own database: set databaseId (for example "arccms"), not "(default)".');
+        }
+        if (!config.hostingSite) errors.push('A backend install needs its own hosting site: set hostingSite.');
+        // CO-D9: storage rules are one file per bucket.
+        if (!config.storageBucket) errors.push('A backend install needs its own storage bucket: set storageBucket.');
+    }
+    if (config.databaseId && !/^(\(default\)|[a-z][a-z0-9-]{2,62})$/.test(config.databaseId)) {
+        errors.push(`databaseId "${config.databaseId}" is not a valid Firestore database id (lowercase letters, digits and hyphens, 3 to 63 characters, starting with a letter).`);
+    }
+    return errors;
+}
+
+const isNamedDatabase = (config) => !!config.databaseId && config.databaseId !== DEFAULT_DATABASE_ID;
+
+/** Contents of src/environments/arc-install.ts. */
+export function renderArcInstall(config) {
+    const values = {};
+    if (isNamedDatabase(config)) values.databaseId = config.databaseId;
+    if (config.storageBucket) values.storageBucket = config.storageBucket;
+    if (config.storagePrefix) values.storagePrefix = config.storagePrefix;
+    const body = Object.keys(values).length === 0
+        ? '{}'
+        : `{\n${Object.entries(values).map(([k, v]) => `    ${k}: ${JSON.stringify(v)},`).join('\n')}\n}`;
+    return `/**
+ * Install configuration for the browser app and SSR (docs/coexistence-spec.md, CO-D3).
+ *
+ * Written by \`npm run arc:configure\` from \`arccms.config.json\`; do not edit by hand.
+ * Empty means the defaults every standalone install uses: the \`(default)\`
+ * Firestore database, the bucket in \`firebaseConfig.storageBucket\`, uploads at
+ * the bucket root.
+ */
+import type { ArcInstallConfig } from '../app/core/config/arc-config';
+
+export const arcInstall: ArcInstallConfig = ${body};
+`;
+}
+
+/**
+ * functions/.env with the ARC_* keys set or removed and every other line kept
+ * as it was. Keys at their default are removed rather than written.
+ */
+export function updateFunctionsEnv(existing, config) {
+    const wanted = {
+        ARC_DATABASE_ID: isNamedDatabase(config) ? config.databaseId : undefined,
+        ARC_HOSTING_SITE: config.hostingSite,
+    };
+    const lines = (existing ?? '').split('\n').filter((line) => {
+        const key = /^\s*([A-Z0-9_]+)\s*=/.exec(line)?.[1];
+        return !(key && key in wanted);
+    });
+    while (lines.length && lines[lines.length - 1] === '') lines.pop();
+    for (const [key, value] of Object.entries(wanted)) {
+        if (value) lines.push(`${key}=${value}`);
+    }
+    return lines.length ? `${lines.join('\n')}\n` : '';
+}
+
+/**
+ * The Firebase CLI config for this install, derived from the committed
+ * firebase.json, or `null` when the install uses only defaults.
+ */
+export function renderFirebaseConfig(base, config) {
+    if (!isNamedDatabase(config) && !config.storageBucket && !config.hostingSite) return null;
+    const out = structuredClone(base);
+    if (isNamedDatabase(config)) {
+        const firestore = Array.isArray(base.firestore) ? base.firestore[0] : base.firestore;
+        out.firestore = [{ database: config.databaseId, ...stripDatabase(firestore) }];
+    }
+    if (config.storageBucket) {
+        const storage = Array.isArray(base.storage) ? base.storage[0] : base.storage;
+        out.storage = [{ bucket: config.storageBucket, rules: storage.rules }];
+    }
+    if (config.hostingSite) {
+        out.hosting = { site: config.hostingSite, ...stripSite(base.hosting) };
+    }
+    return out;
+}
+
+function stripDatabase({ database: _ignored, ...rest }) { return rest; }
+function stripSite({ site: _ignored, target: _alsoIgnored, ...rest }) { return rest; }
+
+/**
+ * The commands that create what a backend install needs. Printed, never run.
+ *
+ * The Firebase CLI creates a missing named database itself on the first deploy
+ * (and, as of CLI 15, even on `deploy --dry-run`), in the project's default
+ * location. Creating it first is how the location gets chosen deliberately.
+ */
+export function setupCommands(config) {
+    if (config.profile !== 'backend') return [];
+    const location = config.region ?? '<location of the host app, such as nam5 or us-central1>';
+    return [
+        `firebase firestore:databases:create ${config.databaseId} --location=${location}`,
+        `firebase hosting:sites:create ${config.hostingSite}`,
+        `gcloud storage buckets create gs://${config.storageBucket} --location=${location}`,
+        `# then link the bucket to Firebase: console, Storage, bucket menu, "Import existing Google Cloud Storage buckets"`,
+    ];
+}
+
+function readJson(path) {
+    return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
+}
+
+function write(path, content, dryRun, changes) {
+    const current = existsSync(path) ? readFileSync(path, 'utf8') : null;
+    if (content === null) {
+        if (current !== null) {
+            changes.push(`remove ${path}`);
+            if (!dryRun) rmSync(path);
+        }
+        return;
+    }
+    if (current === content) return;
+    changes.push(`${current === null ? 'create' : 'update'} ${path}`);
+    if (!dryRun) writeFileSync(path, content);
+}
+
+export function main(argv = process.argv.slice(2), paths = PATHS, log = console.log) {
+    const { updates, dryRun } = parseFlags(argv);
+    const stored = readJson(paths.config) ?? {};
+    const config = normalizeConfig({ ...stored, ...updates });
+
+    const errors = validateConfig(config);
+    if (errors.length) {
+        for (const error of errors) log(`error: ${error}`);
+        return 1;
+    }
+
+    const changes = [];
+    if (Object.keys(updates).length) {
+        const { profile, ...rest } = config;
+        const toStore = profile === 'standalone' ? rest : config;
+        write(paths.config, `${JSON.stringify(toStore, null, 2)}\n`, dryRun, changes);
+    }
+    write(paths.install, renderArcInstall(config), dryRun, changes);
+
+    const env = updateFunctionsEnv(existsSync(paths.functionsEnv) ? readFileSync(paths.functionsEnv, 'utf8') : '', config);
+    write(paths.functionsEnv, env || (existsSync(paths.functionsEnv) ? '' : null), dryRun, changes);
+
+    const firebase = renderFirebaseConfig(readJson(paths.firebase), config);
+    write(paths.generatedFirebase, firebase && `${JSON.stringify(firebase, null, 4)}\n`, dryRun, changes);
+
+    log(`ArcCMS install: profile ${config.profile}, database ${config.databaseId ?? DEFAULT_DATABASE_ID}`
+        + `${config.hostingSite ? `, hosting site ${config.hostingSite}` : ''}`
+        + `${config.storageBucket ? `, bucket ${config.storageBucket}` : ''}`
+        + `${config.storagePrefix ? `, upload folder ${config.storagePrefix}` : ''}.`);
+    log(changes.length ? `${dryRun ? 'Would ' : ''}${changes.join('\n')}` : 'Nothing to change.');
+
+    const commands = setupCommands(config);
+    if (commands.length) {
+        log('\nIf they do not exist yet, create the resources this install uses.');
+        log('(A deploy, even with --dry-run, creates a missing database itself in the project\'s default location.)');
+        for (const command of commands) log(`  ${command}`);
+        log('\nThen deploy with npm run deploy (it picks up firebase.arccms.json).');
+    }
+    return 0;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    try {
+        process.exitCode = main();
+    } catch (error) {
+        console.error(`error: ${error.message}`);
+        process.exitCode = 1;
+    }
+}

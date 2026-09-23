@@ -101,6 +101,15 @@ export default class NavbarComponent extends BaseComponent {
      * because they are also fed to `matTooltip`, sorted, and compared.
      */
     private readonly activeLang = signal(this.transloco.getActiveLang());
+    /**
+     * Bumped when a translation file finishes loading. The labels are resolved
+     * with a synchronous `translate()`, which returns the bare key until the
+     * file is in. On a first visit that can be after the nav has rendered (a
+     * fresh install arrives from the onboarding wizard, which loads no admin
+     * strings), and the active language never changes, so without this the
+     * menu keeps showing keys until a reload.
+     */
+    private readonly translationsLoaded = signal(0);
     readonly waitlistAdminStore = inject(WaitlistAdminStore);
 
     baseMenuItems: MenuItem[] = [
@@ -303,6 +312,7 @@ export default class NavbarComponent extends BaseComponent {
     /** A menu item's display label: translated when we authored it, data otherwise. */
     menuLabel(item: MenuItem): string {
         this.activeLang();
+        this.translationsLoaded();
         return item.labelKey ? this.transloco.translate(item.labelKey) : item.label;
     }
 
@@ -310,6 +320,12 @@ export default class NavbarComponent extends BaseComponent {
         this.transloco.langChanges$
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe(lang => this.activeLang.set(lang));
+        this.transloco.events$
+            .pipe(
+                filter((event) => event.type === 'translationLoadSuccess'),
+                takeUntilDestroyed(this.destroyRef),
+            )
+            .subscribe(() => this.translationsLoaded.update((n) => n + 1));
         this.contentTypesStore.getAll();
         this.waitlistAdminStore.subscribe();
         this.router.events

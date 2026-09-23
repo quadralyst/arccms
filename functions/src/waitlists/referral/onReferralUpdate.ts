@@ -1,6 +1,7 @@
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { constant } from '../../constant.js';
 import { incrementReferralCounts } from '../../utils/referralHelper.js';
+import { arcDocument } from '../../arc-config.js';
 
 interface ReferralData {
   status?: string;
@@ -14,7 +15,7 @@ interface ReferralData {
  * from the path rather than from fields on the record.
  */
 export const onReferralUpdate = onDocumentUpdated(
-  'Waitlists/{waitlistId}/users/{memberId}/referrals/{referralsId}',
+  arcDocument('Waitlists/{waitlistId}/users/{memberId}/referrals/{referralsId}'),
   async (event) => {
     const before = event.data?.before.data() as ReferralData | undefined;
     const after = event.data?.after.data() as ReferralData | undefined;

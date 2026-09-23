@@ -16,7 +16,7 @@ import { CONTENT_DRAFTS_SOURCE_ID } from '../search/sources/content-drafts.js';
 import { buildSearchContext } from '../search/context.js';
 import { indexDocument, removeSearchEntries } from '../search/writer.js';
 import { runReindex } from '../search/reindexSearch.js';
-import { arcHostingSite } from '../arc-config.js';
+import { arcDocument, arcHostingSite } from '../arc-config.js';
 
 interface QueueItem {
     action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all';
@@ -204,7 +204,7 @@ async function addDiscoverabilityFiles(batch: HostingBatch): Promise<void> {
 }
 
 export const processPublishQueue = onDocumentCreated({
-    document: '_publish_queue/{queueId}',
+    ...arcDocument('_publish_queue/{queueId}'),
     // A 'redeploy-all' rebuilds every published page in one invocation —
     // template fetches and all — which does not fit in the 60s default.
     timeoutSeconds: 540,

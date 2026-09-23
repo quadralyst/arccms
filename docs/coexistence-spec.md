@@ -1,6 +1,6 @@
 # ArcCMS Coexistence: Build Spec
 
-**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 built on `feat/coexistence` (2026-09-23), not yet deployed. CO3 to CO8 not started.
+**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (committed 094007a) and CO3 built on `feat/coexistence` (2026-09-23), not yet deployed. CO4 to CO8 not started.
 **Branch:** `feat/coexistence`, cut from `fix/role-escalation-rules` (CO1) because `dev` lacks the search, discoverability and multilingual work this builds on.
 **Scope:** let ArcCMS share a Firebase project with other applications (their own
 functions, triggers, rules, storage, Firestore data and hosting) without either side
@@ -38,7 +38,7 @@ projects) are the default install with nothing to configure.
 |---|----------|--------|
 | CO-D1 | How ArcCMS data is isolated | **A named Firestore database, not prefixed collection names.** A prefix would touch about 490 collection references in about 157 files, dynamic names (`arc_{slug}`, `Tags_{slug}`, `WaitlistUserTags_{id}`), every rules `match`, every index and every trigger path, then force a copy of every document on existing installs because Firestore cannot rename collections. It would still leave ArcCMS and the host app sharing one rules file and one index file, which is the actual conflict. A named database has its own rules, its own indexes and its own triggers, and needs about a dozen code changes. Pricing of the extra database was accepted on 2026-09-23. |
 | CO-D2 | Default database | The database id is install config. **Absent config means `(default)`**, which is exactly today's behaviour. Existing installs change nothing. |
-| CO-D3 | Where install config lives | One optional file, **`arccms.config.json`**, at the repo root (untracked, like `environment.ts`). No file means every default below. `npm run arc:configure` reads it and writes the three places that need the values: the frontend environment, `functions/.env`, and a generated `firebase.arccms.json`. The committed `firebase.json` stays the P1 default so upstream updates never conflict with an install's choices. |
+| CO-D3 | Where install config lives | One optional file, **`arccms.config.json`**, at the repo root (untracked, like `environment.ts`). No file means every default below. `npm run arc:configure` reads it and writes the three places that need the values: `src/environments/arc-install.ts` (committed empty), `functions/.env`, and a generated, gitignored `firebase.arccms.json`. The committed `firebase.json` stays the P1 default so upstream updates never conflict with an install's choices. |
 | CO-D4 | Functions deploy group | Every install moves to **`"codebase": "arccms"`**. Functions deployed without a codebase are labelled `default`, so a host app and ArcCMS both on `default` would each offer to delete the other's functions on deploy. A named codebase makes `firebase deploy --only functions:arccms` touch only ArcCMS. |
 | CO-D5 | Function names | **Fixed prefix `arccms-`** for every function, produced by one grouped export (`export * as arccms from './all.js'`), so `sendTestEmail` deploys as `arccms-sendTestEmail`. Firebase joins groups with a hyphen; `arccms_` would mean renaming about 150 exports by hand for no gain. Fixed, not per install: a per-install prefix only matters for CO8. Secret and param names get the same prefix (`ARC_...`) so they never collide in Secret Manager. |
 | CO-D6 | URLs already out in the world | A tiny second codebase, **`arccms-legacy`** (own source folder, no shared code), keeps the old names of the HTTP endpoints alive as server-side proxies to the new ones. Covers the open-tracking pixel and unsubscribe links in emails already sent, the Dodo and email-provider webhooks registered in their dashboards, and the `search` callable baked into static pages published before the upgrade. Fresh installs never deploy it. Existing installs deploy it once and can remove it after reconfiguring webhooks and republishing pages. Proxy, not redirect: webhook senders often do not follow redirects, and signatures depend on the raw body. |
@@ -102,7 +102,7 @@ Findings from reading the code on `feat/field-keys-media-size`, 2026-09-23.
 
 | Consumer | Source | Read when |
 |----------|--------|-----------|
-| Browser app and SSR | `environment.arc` block (optional; code falls back to defaults) | Build time |
+| Browser app and SSR | `src/environments/arc-install.ts`, written by `arc:configure`; committed as `{}` | Build time |
 | Cloud Functions | `functions/.env` keys `ARC_DATABASE_ID`, `ARC_HOSTING_SITE`. No storage keys: the functions never touch Storage. | Deploy time (trigger bindings) and run time |
 | Firebase CLI | `firebase.arccms.json` (generated) or the committed `firebase.json` | Deploy time |
 | Admin scripts in `scripts/` | `arccms.config.json` directly | Run time |
@@ -192,8 +192,8 @@ any client apps to the new database id. Not automated.
 | **CO7** Docs | `INSTALL.md` per profile, `docs/coexistence-guide.md`, `docs/coexistence-upgrade-runbook.md`. | Everyone | |
 | **CO8** (deferred) Many instances in one project | Per-instance function group name (generated entry file), per-instance claim key, per-instance database, bucket and site. | P4 in one project | Only if separate projects prove insufficient. |
 
-**CO2 as built (2026-09-23).** Frontend: `src/app/core/config/arc-config.ts` (reads the optional
-`environment.arc` block, `withStoragePrefix()`) and `arc-firebase.ts` (the Firestore and Storage
+**CO2 as built (2026-09-23).** Frontend: `src/app/core/config/arc-config.ts` (reads
+`src/environments/arc-install.ts` since CO3; CO2 first read an `environment.arc` block, `withStoragePrefix()`) and `arc-firebase.ts` (the Firestore and Storage
 factories used by `app.config.ts` and `app.config.server.ts`; with defaults they are exactly
 `getFirestore()` and `getStorage()`). New upload paths go through `withStoragePrefix()` in
 `file-upload.service.ts` and `import-files.service.ts`. Functions: `functions/src/arc-config.ts`
@@ -204,9 +204,56 @@ configured database; the five analytics callables use `db` from `init.ts` instea
 URL, not a hosting one. Scripts: `scripts/arc-install-config.mjs` reads `arccms.config.json`;
 `purge-email-testing-doc.mjs` uses it and takes `--database=`. `arccms.config.example.json` added,
 `arccms.config.json` gitignored. Guard tests fail if code outside the config modules calls
-`getFirestore()` / `getStorage()` or derives the hosting site from the project id. Setting a
-non-default database before CO3 would point reads at it while triggers still listen on
-`(default)`, so nobody should set one until CO3 ships `arc:configure`.
+`getFirestore()` / `getStorage()` or derives the hosting site from the project id. (Before CO3,
+setting a non-default database would have split reads from triggers; CO3 closes that.)
+
+**CO3 as built (2026-09-23).** `arcDocument(path)` in `functions/src/arc-config.ts` returns
+`{ document, database: arcDatabaseParam }`, where `arcDatabaseParam` is
+`defineString('ARC_DATABASE_ID', { default: '(default)' })`; all 29 `onDocument*` triggers use it
+(a guard test fails on any raw path). It must be a param: the first version read `process.env`,
+which is empty when the Firebase CLI loads the code to deploy it (`functions/.env` is only
+applied to params at that point and to `process.env` at run time), so every trigger deployed on
+`(default)` while callables, reading `process.env` at run time, wrote to `arccms`. Found on the
+dev project the same day by onboarding into an empty `arccms` database: the admin was created
+but no contact, list or `email_lookup` entry appeared. Verified after the fix with
+`firebase functions:list --json`: 29 ArcCMS Firestore triggers on `arccms`. With no config the database is `(default)`, Firebase's own default, so default installs
+deploy identical triggers. `scripts/arc-configure.mjs` (`npm run arc:configure`) takes
+`--profile --database --site --bucket --prefix --region --dry-run`, validates (a backend
+profile needs a named database, its own site and its own bucket), writes the three outputs,
+removes `firebase.arccms.json` when the config returns to defaults, keeps unrelated
+`functions/.env` lines, and prints the create commands without running them.
+`scripts/arc-deploy.mjs` (`npm run deploy`) is `firebase deploy` plus `--config
+firebase.arccms.json` when that file exists; `deploy:dev`, `deploy:prod` and the functions
+`deploy` script go through it, and `export-indexes` reads the configured database.
+
+Findings during CO3:
+- **The Firebase CLI creates a named database listed in the config on deploy, even with
+  `--dry-run`** (CLI 15.24). A validation dry run on 2026-09-23 created an empty `arccms`
+  database (nam5) on the dev project `xlm-project-864ff`. Creating it with
+  `firestore:databases:create` first is how an install picks the location.
+- `deploy:dev` and `deploy:prod` pass `--force`, which deletes functions missing from the
+  source without asking. Harmless on a project ArcCMS owns; on a shared project it would
+  delete the host app's functions. CO4's `arccms` codebase is what makes it safe; until then
+  a backend install must not use those two scripts.
+- **Recreating a database orphans its triggers.** After the `arccms` database was deleted and
+  created again under the same id, the triggers bound to it (by name, per `functions:list`)
+  stopped receiving events, and a plain redeploy (an in-place update with the same filters) did
+  not bring them back. Deleting the trigger function and deploying it again did, verified with
+  `onWaitlistsCreate` on 2026-09-23. Runbook rule: whenever an install's database is recreated,
+  or its triggers move to another database, delete and redeploy the Firestore triggers rather
+  than updating them. `arc:upgrade` (CO4) should do this for the trigger subset.
+- Triggers for a named database fire from the database's region (asia-south1 on the dev
+  project) even when the function runs in us-central1; the CLI warns about the cross-region hop.
+  Pinning trigger regions to the database location is a later cleanup.
+- The dev project `xlm-project-864ff` already hosts another app's functions in a separate
+  codebase (`functions`: 32 Firestore triggers on `(default)`, including `onUserCreate` /
+  `onUserDelete` on `users/{userId}`). ArcCMS deploys left them untouched, which is the P3 shape
+  this spec targets, and the shared `users` name shows why ArcCMS needs its own database.
+- Fresh-install findings from the same test, fixed on this branch: the admin nav and the
+  paginator showed raw translation keys after onboarding, because they translate in code and
+  only refreshed on a language change, not when the translation file finished loading (the
+  wizard loads no admin strings, so the admin rendered first). Both now also refresh on
+  Transloco's `translationLoadSuccess`, with regression tests.
 
 Order: CO1 → CO2 → CO3 → CO4 → CO5 → CO6 → CO7. CO1 to CO3 change nothing for an
 existing install. CO4 is the release that needs the runbook.

@@ -7,6 +7,7 @@ import { createNotification } from './notifications.js';
 import { queueEmail } from './queueEmail.js';
 import { computeEmailHash } from './unsubscribeToken.js';
 import { upsertContact, addContactToLists, removeContactFromLists } from './contacts.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Generic event bus (spec §3.11, D11). Product code calls {@link emitAppEvent};
@@ -72,7 +73,7 @@ function fillTemplate(tpl: string, data: Record<string, unknown>): string {
 }
 
 /** Process an AppEvent against its mapping. */
-export const onAppEventCreate = onDocumentCreated('AppEvents/{id}', async (event) => {
+export const onAppEventCreate = onDocumentCreated(arcDocument('AppEvents/{id}'), async (event) => {
   const data = event.data?.data();
   const id = event.params.id;
   if (!data || data['processed'] === true) return;

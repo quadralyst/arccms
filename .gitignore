@@ -60,3 +60,4 @@ public_new/*
 
 # ArcCMS install config (docs/coexistence-spec.md). Per install, like environment.ts.
 arccms.config.json
+firebase.arccms.json

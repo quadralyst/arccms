@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { arcDatabaseId, arcHostingOrigin, arcHostingSite, DEFAULT_DATABASE_ID } from '../arc-config.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { arcDatabaseId, arcDatabaseParam, arcDocument, arcHostingOrigin, arcHostingSite, DEFAULT_DATABASE_ID } from '../arc-config.js';
 
 describe('arc-config (functions)', () => {
     describe('defaults: an install with no ARC_* variables behaves as before CO2', () => {
@@ -39,5 +41,24 @@ describe('arc-config (functions)', () => {
         } finally {
             process.env.GCLOUD_PROJECT = before;
         }
+    });
+
+    describe('arcDocument (CO3)', () => {
+        it('binds through the ARC_DATABASE_ID param, which the CLI resolves from functions/.env at deploy', () => {
+            const options = arcDocument('users/{docId}');
+            expect(options.document).toBe('users/{docId}');
+            expect(options.database).toBe(arcDatabaseParam);
+            expect(arcDatabaseParam.name).toBe('ARC_DATABASE_ID');
+        });
+
+        it('defaults the param to (default), which is Firebase\'s own default', () => {
+            expect(arcDatabaseParam.options?.default).toBe('(default)');
+        });
+
+        it('is not a plain process.env read: that is empty when the CLI loads triggers', () => {
+            const code = readFileSync(join(__dirname, '..', 'arc-config.ts'), 'utf8');
+            const body = code.slice(code.indexOf('export function arcDocument'));
+            expect(body).not.toMatch(/process\.env|arcDatabaseId\(/);
+        });
     });
 });

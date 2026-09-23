@@ -19,6 +19,7 @@ import { setContactFields } from './contactFields.js';
 import { flushDueEnrollments } from './dripSend.js';
 import type { WaitlistUserData } from '../types.js';
 import { emitAppEvent } from './appEvents.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Contacts auto-sync (spec §Phase-3.1). Each product moment that creates or
@@ -104,7 +105,7 @@ async function applyFormFields(
 }
 
 /** New user → contact (source `signup`), joins the `all-users` system list. */
-export const onUserCreateContact = onDocumentCreated('users/{docId}', async (event) => {
+export const onUserCreateContact = onDocumentCreated(arcDocument('users/{docId}'), async (event) => {
   const user = event.data?.data();
   const email: string | undefined = user?.['email'];
   if (!user || !email) return;
@@ -125,7 +126,7 @@ export const onUserCreateContact = onDocumentCreated('users/{docId}', async (eve
 });
 
 /** User deleted → unlink + drop from system lists (cleanup). */
-export const onUserDeleteContact = onDocumentDeleted('users/{docId}', async (event) => {
+export const onUserDeleteContact = onDocumentDeleted(arcDocument('users/{docId}'), async (event) => {
   const email: string | undefined = event.data?.data()?.['email'];
   if (!email) return;
   try {
@@ -148,7 +149,7 @@ export const onUserDeleteContact = onDocumentDeleted('users/{docId}', async (eve
  * form keeps their consent (and an `unsubscribed` one stays suppressed).
  */
 export const onWaitlistUserCreateContact = onDocumentCreated(
-  'Waitlists/{waitlistId}/users/{userId}',
+  arcDocument('Waitlists/{waitlistId}/users/{userId}'),
   async (event) => {
     const member = event.data?.data() as WaitlistUserData | undefined;
     if (!member?.email) return;
@@ -187,7 +188,7 @@ export const onWaitlistUserCreateContact = onDocumentCreated(
 
 /** Waitlist member becomes verified → contact (source `waitlist`), joins `waitlist-{id}`. */
 export const onWaitlistVerifiedContact = onDocumentUpdated(
-  'Waitlists/{waitlistId}/users/{userId}',
+  arcDocument('Waitlists/{waitlistId}/users/{userId}'),
   async (event) => {
     const before = event.data?.before.data() as WaitlistUserData | undefined;
     const after = event.data?.after.data() as WaitlistUserData | undefined;
@@ -271,7 +272,7 @@ export const onWaitlistVerifiedContact = onDocumentUpdated(
  *   through another list, or whose consent record we are obliged to keep.
  */
 export const onWaitlistUserDeleted = onDocumentDeleted(
-  'Waitlists/{waitlistId}/users/{userId}',
+  arcDocument('Waitlists/{waitlistId}/users/{userId}'),
   async (event) => {
     const member = event.data?.data() as WaitlistUserData | undefined;
     if (!member?.email) return;

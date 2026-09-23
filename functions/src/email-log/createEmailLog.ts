@@ -1,12 +1,13 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { sendMail } from '../mail-config/mailConfig.js';
 import type { EmailLogData } from '../types.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Triggered when an EmailLog document is created.
  * Sends the email using the configured mail provider.
  */
-export const onEmailLogCreate = onDocumentCreated('EmailLogs/{EmailLogsId}', async (event) => {
+export const onEmailLogCreate = onDocumentCreated(arcDocument('EmailLogs/{EmailLogsId}'), async (event) => {
   const emailLogsData = event.data?.data();
   const emailLogsId = event.params.EmailLogsId;
 

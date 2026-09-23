@@ -1,11 +1,12 @@
 import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
+import { arcDocument } from '../arc-config.js';
 
 const BATCH_LIMIT = 400;
 
 export const onContentTypeDeleted = onDocumentDeleted(
-    'ContentTypes/{contentTypeId}',
+    arcDocument('ContentTypes/{contentTypeId}'),
     async (event) => {
         const deletedData = event.data?.data();
         if (!deletedData?.slug) return;

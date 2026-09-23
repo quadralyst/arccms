@@ -1,6 +1,7 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Keeps `Waitlists/{id}.otpEnabled` in step with the form's OTP template.
@@ -21,7 +22,7 @@ import { db } from '../init.js';
  * `isActive` on the template is authoritative; this mirrors it. Writing to
  * `Waitlists` (never `EmailTemplate`) means it cannot retrigger itself.
  */
-export const syncOtpEnabledFlag = onDocumentWritten('EmailTemplate/{templateId}', async (event) => {
+export const syncOtpEnabledFlag = onDocumentWritten(arcDocument('EmailTemplate/{templateId}'), async (event) => {
   const after = event.data?.after;
   if (!after?.exists) return; // deletion: the default is recreated on demand
 

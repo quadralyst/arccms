@@ -1,20 +1,19 @@
 /**
  * Install configuration for the browser app and SSR (docs/coexistence-spec.md, CO-D2, CO-D3).
  *
- * Read from the optional `arc` block of the environment file. Every key is
- * optional; a missing key means today's behaviour: the `(default)` Firestore
- * database, the bucket named in `firebaseConfig.storageBucket`, and uploads at
- * the bucket root. An install that shares its Firebase project with another app
- * gets these values from `npm run arc:configure`.
+ * Read from `src/environments/arc-install.ts`, which `npm run arc:configure`
+ * writes from `arccms.config.json`. Every key is optional; a missing key means
+ * today's behaviour: the `(default)` Firestore database, the bucket named in
+ * `firebaseConfig.storageBucket`, and uploads at the bucket root.
  *
  * This module is the only place in the frontend that reads them.
  */
-import { environment } from '../../../environments/environment';
+import { arcInstall } from '../../../environments/arc-install';
 
 /** The id Firestore gives the database every project starts with. */
 export const DEFAULT_DATABASE_ID = '(default)';
 
-/** The `arc` block of an environment file, as written by hand or by `arc:configure`. */
+/** The shape of `arc-install.ts`, as written by `arc:configure`. */
 export interface ArcInstallConfig {
     /** Firestore database id. Default `(default)`. */
     databaseId?: string;
@@ -43,9 +42,7 @@ export function resolveArcConfig(raw: ArcInstallConfig | undefined): ResolvedArc
     };
 }
 
-export const arcConfig: ResolvedArcConfig = resolveArcConfig(
-    (environment as { arc?: ArcInstallConfig }).arc,
-);
+export const arcConfig: ResolvedArcConfig = resolveArcConfig(arcInstall);
 
 /**
  * Puts a new upload's path inside the install's storage folder. A path that is

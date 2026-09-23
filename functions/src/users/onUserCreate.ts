@@ -12,6 +12,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { emitAppEvent } from '../email-core/appEvents.js';
 import { notifyAdmins } from '../email-core/adminAlerts.js';
+import { arcDocument } from '../arc-config.js';
 
 const EMAIL_LOOKUP_COLLECTION = 'email_lookup';
 
@@ -26,7 +27,7 @@ async function hashEmail(email: string): Promise<string> {
 }
 
 export const onUserCreated = onDocumentCreated(
-    'users/{docId}',
+    arcDocument('users/{docId}'),
     async (event) => {
         const createdData = event.data?.data();
         if (!createdData) return;

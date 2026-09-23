@@ -3,6 +3,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
 import { ensureFormList } from '../email-core/contacts.js';
 import { ensureWaitlistTemplates } from '../email-core/defaultTemplates.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * A new signup form (waitlist) gets:
@@ -15,7 +16,7 @@ import { ensureWaitlistTemplates } from '../email-core/defaultTemplates.js';
  * Both steps are idempotent: a retried or re-fired trigger upserts the same
  * list and the same two template docs rather than duplicating them.
  */
-export const onWaitlistsCreate = onDocumentCreated('Waitlists/{waitlistsId}', async (event: any) => {
+export const onWaitlistsCreate = onDocumentCreated(arcDocument('Waitlists/{waitlistsId}'), async (event: any) => {
   const waitlistsId = event.params.waitlistsId;
   const name = event.data?.data()?.['name'] || `Waitlist ${waitlistsId}`;
 
