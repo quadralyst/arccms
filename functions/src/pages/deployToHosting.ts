@@ -2,6 +2,7 @@ import { db } from '../init.js';
 import { GoogleAuth } from 'google-auth-library';
 import * as zlib from 'node:zlib';
 import * as crypto from 'node:crypto';
+import { arcHostingSite } from '../arc-config.js';
 
 const API_BASE = 'https://firebasehosting.googleapis.com/v1beta1';
 
@@ -197,7 +198,7 @@ export async function deployBatchToHosting(
     const batchRemovals = batch.removedPaths;
     // Reported in status/logs; a batch is described by its first file.
     const filePath = batchFiles[0]?.path || batchRemovals[0] || '';
-    siteId = siteId || process.env.GCLOUD_PROJECT || '';
+    siteId = siteId || arcHostingSite();
     const steps: DeployStep[] = [];
     const startedAt = new Date();
     let errorMessage: string | null = null;
@@ -393,7 +394,7 @@ export async function removeFileFromHosting(
     siteId: string,
     filePath: string,
 ): Promise<void> {
-    siteId = siteId || process.env.GCLOUD_PROJECT || '';
+    siteId = siteId || arcHostingSite();
 
     // Step 1: Auth
     const token = await getAuthToken();

@@ -16,6 +16,7 @@ import { CONTENT_DRAFTS_SOURCE_ID } from '../search/sources/content-drafts.js';
 import { buildSearchContext } from '../search/context.js';
 import { indexDocument, removeSearchEntries } from '../search/writer.js';
 import { runReindex } from '../search/reindexSearch.js';
+import { arcHostingSite } from '../arc-config.js';
 
 interface QueueItem {
     action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all';
@@ -238,7 +239,7 @@ export const processPublishQueue = onDocumentCreated({
             await generateAndDeployRssFeeds(batch);
             await addDiscoverabilityFiles(batch);
             if (!batch.isEmpty) {
-                await deployBatchToHosting(process.env.GCLOUD_PROJECT || '', batch, '', '');
+                await deployBatchToHosting(arcHostingSite(), batch, '', '');
                 await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
             }
             console.log(`Redeployed ${pages} page(s) in ${batch.size} file(s)`);
@@ -477,7 +478,7 @@ export const processPublishQueue = onDocumentCreated({
         try {
             // First argument is the Hosting *site*, not the collection — the
             // deploy silently targets a site that does not exist otherwise.
-            const siteId = process.env.GCLOUD_PROJECT || '';
+            const siteId = arcHostingSite();
             await deployBatchToHosting(siteId, batch, publishedCollection, docId);
             console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
             // Only after the release succeeded: a ping for pages that never

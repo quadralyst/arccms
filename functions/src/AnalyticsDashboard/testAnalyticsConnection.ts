@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { GoogleAuth } from 'google-auth-library';
 import { google } from 'googleapis';
-import { getFirestore } from 'firebase-admin/firestore';
+import { db } from '../init.js';
 import { AnalyticsPropertyInfo } from '../types.js';
 
 // Debug function to test Analytics connection
@@ -19,7 +19,6 @@ export const testAnalyticsConnection = onCall(
       console.log('=== ANALYTICS DEBUG ===');
 
       // Fetch settings from Firestore
-      const db = getFirestore();
       const settingsDoc = await db.collection('Settings').doc('analytics').get();
       const settings = settingsDoc.data();
 

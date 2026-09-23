@@ -6,6 +6,7 @@ import {
     Storage,
     uploadBytesResumable,
 } from '@angular/fire/storage';
+import { withStoragePrefix } from '../../../../core/config/arc-config';
 import { FileImportProgress, UploadResult } from '../data-constants';
 
 export interface FileWithPath {
@@ -26,7 +27,8 @@ export class ImportFilesService {
         storagePath: string,
         progressCallback: (progress: number) => void,
     ): Promise<{ downloadURL: string; fullPath: string }> {
-        const storageRef = ref(this.storage, storagePath);
+        const fullPath = withStoragePrefix(storagePath);
+        const storageRef = ref(this.storage, fullPath);
         const uploadTask = uploadBytesResumable(storageRef, file);
 
         return new Promise((resolve, reject) => {
@@ -39,7 +41,7 @@ export class ImportFilesService {
                 (error) => reject(error),
                 async () => {
                     const downloadURL = await getDownloadURL(storageRef);
-                    resolve({ downloadURL, fullPath: storagePath });
+                    resolve({ downloadURL, fullPath });
                 },
             );
         });
@@ -65,10 +67,10 @@ export class ImportFilesService {
             });
 
             try {
-                const { downloadURL } = await this.uploadFile(file, storagePath, () => {});
+                const { downloadURL, fullPath } = await this.uploadFile(file, storagePath, () => {});
                 results.push({
                     fileName: file.name,
-                    storagePath,
+                    storagePath: fullPath,
                     downloadURL,
                     success: true,
                 });

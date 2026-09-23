@@ -1,7 +1,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { OAuth2Client } from 'google-auth-library';
 import { google } from 'googleapis';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { db } from '../init.js';
 import { fetchAndStoreAnalyticsData } from './analyticsHelpers.js';
 
 export const connectGoogleAnalytics = onCall(
@@ -22,7 +23,6 @@ export const connectGoogleAnalytics = onCall(
       throw new HttpsError('invalid-argument', 'Authorization code is required.');
     }
 
-    const db = getFirestore();
 
     // 1. Read OAuth client credentials from Settings/analytics
     const settingsDoc = await db.collection('Settings').doc('analytics').get();

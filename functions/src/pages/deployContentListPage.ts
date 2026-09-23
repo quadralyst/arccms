@@ -25,6 +25,7 @@ import { isTemplateFragment } from '../shared/template-fragment.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
+import { arcHostingSite } from '../arc-config.js';
 
 // ─── Fallback Template ──────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ export async function generateAndDeployContentListPage(
 ): Promise<void> {
     // See generateAndDeployContentDetailPage.
     const target = batch ?? new HostingBatch();
-    const siteId = process.env.GCLOUD_PROJECT || '';
+    const siteId = arcHostingSite();
 
     // 1. Read ContentType
     const contentTypeQuery = await db

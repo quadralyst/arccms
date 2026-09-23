@@ -5,6 +5,7 @@ import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { generateAndDeployRobotsTxt } from './generateRobotsTxt.js';
 import { generateAndDeployLlmsTxt } from './generateLlmsTxt.js';
 import { ensureIndexNowKey } from './indexNow.js';
+import { arcHostingSite } from '../arc-config.js';
 
 /**
  * Applies Settings > Discoverability to Hosting right away
@@ -23,7 +24,7 @@ export const regenerateSeoFiles = onCall({ timeoutSeconds: 300, memory: '512MiB'
         await generateAndDeployLlmsTxt(batch);
         const settings = await getDiscoverabilitySettings();
         const indexNowKey = settings.indexNow.enabled ? await ensureIndexNowKey(batch) : '';
-        await deployBatchToHosting(process.env.GCLOUD_PROJECT || '', batch, '', '');
+        await deployBatchToHosting(arcHostingSite(), batch, '', '');
         return {
             files: batch.files.map(f => f.path),
             removed: batch.removedPaths,

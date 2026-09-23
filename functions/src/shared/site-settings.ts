@@ -1,4 +1,5 @@
 import { db } from '../init.js';
+import { arcHostingOrigin, arcHostingSite } from '../arc-config.js';
 
 export interface Partials {
     headerHtml: string;
@@ -81,10 +82,9 @@ function isCacheValid(cache: { timestamp: number } | null): boolean {
  * Used as fallback when Firestore Settings/partials is empty.
  */
 async function fetchPartialFromHosting(filename: string): Promise<string> {
-    const projectId = process.env.GCLOUD_PROJECT || '';
-    if (!projectId) return '';
+    if (!arcHostingSite()) return '';
 
-    const url = `https://${projectId}.web.app/_partials/${filename}`;
+    const url = `${arcHostingOrigin()}/_partials/${filename}`;
     try {
         const response = await fetch(url);
         if (!response.ok) return '';
@@ -163,7 +163,7 @@ export async function getAboutConfig(): Promise<AboutConfig> {
  *
  * Priority chain:
  *  - siteName: Settings/about.name → Settings/site.siteName → ''
- *  - baseUrl:  Settings/about.finalUrl → Settings/site.baseUrl → https://{GCLOUD_PROJECT}.web.app
+ *  - baseUrl:  Settings/about.finalUrl → Settings/site.baseUrl → https://{hosting site}.web.app
  *  - cssUrls:  Settings/site.cssUrls → ['/assets/css/main.css']
  *
  * Cached for 5 minutes per Cloud Function instance.
@@ -184,12 +184,9 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     let siteName = aboutConfig.name || siteData?.siteName || '';
     let baseUrl = aboutConfig.finalUrl || siteData?.baseUrl || '';
 
-    // Fallback: derive baseUrl from project ID if still empty
-    if (!baseUrl) {
-        const projectId = process.env.GCLOUD_PROJECT || '';
-        if (projectId) {
-            baseUrl = `https://${projectId}.web.app`;
-        }
+    // Fallback: the hosting site's own origin if still empty
+    if (!baseUrl && arcHostingSite()) {
+        baseUrl = arcHostingOrigin();
     }
 
     const config: SiteConfig = {
@@ -321,12 +318,11 @@ export async function getUiStrings(lang: string): Promise<Record<string, string>
     const cached = uiStringsCache.get(lang);
     if (cached && isCacheValid(cached)) return cached.data;
 
-    const projectId = process.env.GCLOUD_PROJECT || '';
     let strings: Record<string, string> = {};
 
-    if (projectId) {
+    if (arcHostingSite()) {
         try {
-            const res = await fetch(`https://${projectId}.web.app/i18n/${lang}/strings.json`);
+            const res = await fetch(`${arcHostingOrigin()}/i18n/${lang}/strings.json`);
             if (res.ok) {
                 const parsed = await res.json();
                 if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {

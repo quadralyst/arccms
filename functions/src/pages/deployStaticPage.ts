@@ -3,6 +3,7 @@ import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings } 
 import { replaceArcComponents, POWERED_BY_HTML } from '../shared/html-document.js';
 import { buildSearchWidget } from '../search/widget.js';
 import { deployFileToHosting } from './deployToHosting.js';
+import { arcHostingOrigin, arcHostingSite } from '../arc-config.js';
 
 /**
  * Generates and deploys a processed static page (e.g., privacy-policy, cookie-policy).
@@ -21,10 +22,10 @@ import { deployFileToHosting } from './deployToHosting.js';
 export async function generateAndDeployStaticPage(
     pageSlug: string,
 ): Promise<void> {
-    const siteId = process.env.GCLOUD_PROJECT || '';
+    const siteId = arcHostingSite();
 
     // 1. Fetch raw HTML from hosting
-    const rawUrl = `https://${siteId}.web.app/pages/${pageSlug}.html`;
+    const rawUrl = `${arcHostingOrigin()}/pages/${pageSlug}.html`;
     const response = await fetch(rawUrl);
     if (!response.ok) {
         throw new Error(

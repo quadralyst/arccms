@@ -57,3 +57,6 @@ public_new/*
 
 # Claude Code local config
 .claude/
+
+# ArcCMS install config (docs/coexistence-spec.md). Per install, like environment.ts.
+arccms.config.json

@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { OAuth2Client } from 'google-auth-library';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { db } from '../init.js';
 
 export const disconnectGoogleAnalytics = onCall(
   { cors: true, enforceAppCheck: false },
@@ -13,7 +14,6 @@ export const disconnectGoogleAnalytics = onCall(
       throw new HttpsError('permission-denied', 'Admin access required.');
     }
 
-    const db = getFirestore();
     const settingsDoc = await db.collection('Settings').doc('analytics').get();
     const settings = settingsDoc.data();
 

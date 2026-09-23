@@ -17,8 +17,8 @@ import { provideFileRouter, requestContextInterceptor, withExtraRoutes } from '@
 // Firebase imports
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { provideAuth, getAuth } from '@angular/fire/auth';
-import { getFirestore, provideFirestore } from '@angular/fire/firestore';
-import { getStorage, provideStorage } from '@angular/fire/storage';
+import { provideFirestore } from '@angular/fire/firestore';
+import { provideStorage } from '@angular/fire/storage';
 import { getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getAnalytics, provideAnalytics, ScreenTrackingService, UserTrackingService } from '@angular/fire/analytics';
 
@@ -27,6 +27,7 @@ import { MatPaginatorIntl } from '@angular/material/paginator';
 
 import { routes } from './app.routes';
 import { environment } from '../environments/environment';
+import { arcFirestore, arcStorage } from './core/config/arc-firebase';
 import { ADMIN_LANGUAGE_CODES, DEFAULT_ADMIN_LANGUAGE } from './core/i18n/admin-languages';
 import { AdminTranslationLoader } from './core/i18n/translation.loader';
 import { provideAdminLocale } from './core/i18n/admin-locale.provider';
@@ -55,8 +56,8 @@ export const appConfig: ApplicationConfig = {
 
     // Firebase Core Providers
     provideFirebaseApp(() => initializeApp(environment.firebaseConfig)),
-    provideFirestore(() => getFirestore()),
-    provideStorage(() => getStorage()),
+    provideFirestore((injector) => arcFirestore(injector)),
+    provideStorage((injector) => arcStorage(injector)),
     provideFunctions(() => getFunctions()),
 
     // Firebase Auth Provider

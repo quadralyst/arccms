@@ -2,6 +2,7 @@ import * as zlib from 'node:zlib';
 import * as crypto from 'node:crypto';
 import { GoogleAuth } from 'google-auth-library';
 import { HostingBatch } from './deployToHosting.js';
+import { arcHostingSite } from '../arc-config.js';
 
 const API_BASE = 'https://firebasehosting.googleapis.com/v1beta1';
 
@@ -57,7 +58,7 @@ export async function deploySeoFileToHosting(
     fileContent: string,
     batch?: HostingBatch,
 ): Promise<void> {
-    const siteId = process.env.GCLOUD_PROJECT || '';
+    const siteId = arcHostingSite();
 
     // When the caller is batching a publish, the SEO file rides along in the
     // same release instead of racing the content pages — see HostingBatch.

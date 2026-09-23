@@ -20,6 +20,9 @@
  *
  * Pass --dry-run to report what would be deleted without deleting it.
  *
+ * The script uses the install's Firestore database from arccms.config.json, or
+ * `(default)` when there is no such file. Pass --database=<id> to override.
+ *
  * Deleting the document does NOT rotate the secrets it held. If it existed and
  * carried a password or API key, treat that credential as exposed to anyone who
  * had read access to it and rotate it at the provider.
@@ -28,11 +31,13 @@
 import { cert, initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
+import { arcDatabaseId, DEFAULT_DATABASE_ID } from './arc-install-config.mjs';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const projectArg = args.find((a) => a.startsWith('--project='));
 const keyArg = args.find((a) => a.startsWith('--key='));
+const databaseArg = args.find((a) => a.startsWith('--database='));
 
 const projectId = projectArg?.split('=')[1] || process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT;
 
@@ -56,7 +61,8 @@ initializeApp({
     projectId,
 });
 
-const db = getFirestore();
+const databaseId = databaseArg?.split('=')[1] || arcDatabaseId();
+const db = databaseId === DEFAULT_DATABASE_ID ? getFirestore() : getFirestore(databaseId);
 
 /** Field paths that held a credential, reported so operators know what to rotate. */
 const SECRET_PATHS = [

@@ -25,4 +25,14 @@ export const environment = {
         appId: 'YOUR_APP_ID',
         measurementId: 'G-YOUR_MEASUREMENT_ID',
     },
+
+    // Optional. Leave this out for a normal install: ArcCMS then uses the
+    // (default) Firestore database, the storageBucket above and uploads at the
+    // bucket root. Set it only when ArcCMS shares its Firebase project with
+    // another app (docs/coexistence-spec.md).
+    // arc: {
+    //     databaseId: 'arccms',
+    //     storageBucket: 'your-project-arccms',
+    //     storagePrefix: '',
+    // },
 };

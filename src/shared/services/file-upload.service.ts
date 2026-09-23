@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { deleteObject, getDownloadURL, ref, Storage, uploadBytesResumable } from '@angular/fire/storage';
 import { deleteDoc, doc, Firestore, getDoc } from '@angular/fire/firestore';
 import { fitLongestSide, IMAGE_SIZES, ImageSize, imageSizeLimits } from '../utils/image-sizes';
+import { withStoragePrefix } from '../../app/core/config/arc-config';
 
 /** Allowed MIME types for media upload */
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -257,7 +258,7 @@ export class FileUploadService {
             const sizeError = this.validateFileSize(file, settings.maxFileSize);
             if (sizeError) throw new Error(sizeError);
             const filename = this.generateSeoFilename(file.name, file.type);
-            const downloadURL = await this.uploadBlob(`mediaImages/${filename}`, file, file.type, progressCallback);
+            const downloadURL = await this.uploadBlob(withStoragePrefix(`mediaImages/${filename}`), file, file.type, progressCallback);
             return { downloadURL, name: filename, uploadTime: new Date() };
         }
 
@@ -309,7 +310,7 @@ export class FileUploadService {
             if (uploaded.has(dimKey)) continue;
 
             const { blob } = encoded.get(dimKey)!;
-            const path = `mediaImages/${baseName}-${size}${extension}`;
+            const path = withStoragePrefix(`mediaImages/${baseName}-${size}${extension}`);
             const url = await this.uploadBlob(path, blob, outputMimeType, (pct) => {
                 progressCallback(totalBytes ? ((doneBytes + (blob.size * pct) / 100) / totalBytes) * 100 : pct);
             });
@@ -341,7 +342,7 @@ export class FileUploadService {
             const storage = this.storage;
             const uniquename = this.generateUniqueImageName();
 
-            const storageRef = ref(storage, `mediaImages/${uniquename}.jpg`);
+            const storageRef = ref(storage, withStoragePrefix(`mediaImages/${uniquename}.jpg`));
             const byteCharacters = atob(base64Image.split(',')[1]);
             const byteNumbers = new Array(byteCharacters.length);
 

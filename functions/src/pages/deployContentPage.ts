@@ -35,6 +35,7 @@ import { isTemplateFragment } from '../shared/template-fragment.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting, removeFileFromHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
+import { arcHostingSite } from '../arc-config.js';
 
 // ─── Fallback Template ──────────────────────────────────────────────────────
 
@@ -320,7 +321,7 @@ export async function generateAndDeployContentDetailPage(
     // When the caller supplies a batch, files join it and are released with the
     // rest of the publish in one version — see HostingBatch for why.
     const target = batch ?? new HostingBatch();
-    const siteId = process.env.GCLOUD_PROJECT || '';
+    const siteId = arcHostingSite();
 
     // 1. Read published content
     const collectionName = getPublishedCollectionName(contentTypeSlug);
@@ -549,7 +550,7 @@ export async function removeContentPage(
     urlSlug: string,
     batch?: HostingBatch,
 ): Promise<void> {
-    const siteId = process.env.GCLOUD_PROJECT || '';
+    const siteId = arcHostingSite();
     const localization = await getLocalizationSettings();
     const defaultLang = localization.defaultLanguage;
     const target = batch ?? new HostingBatch();
