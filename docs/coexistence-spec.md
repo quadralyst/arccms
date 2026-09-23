@@ -41,7 +41,7 @@ projects) are the default install with nothing to configure.
 | CO-D3 | Where install config lives | One optional file, **`arccms.config.json`**, at the repo root (untracked, like `environment.ts`). No file means every default below. `npm run arc:configure` reads it and writes the three places that need the values: `src/environments/arc-install.ts` (committed empty), `functions/.env`, and a generated, gitignored `firebase.arccms.json`. The committed `firebase.json` stays the P1 default so upstream updates never conflict with an install's choices. |
 | CO-D4 | Functions deploy group | Every install moves to **`"codebase": "arccms"`**. Functions deployed without a codebase are labelled `default`, so a host app and ArcCMS both on `default` would each offer to delete the other's functions on deploy. A named codebase makes `firebase deploy --only functions:arccms` touch only ArcCMS. |
 | CO-D5 | Function names | **Fixed prefix `arccms-`** for every function, produced by one grouped export (`export * as arccms from './all.js'`), so `sendTestEmail` deploys as `arccms-sendTestEmail`. Firebase joins groups with a hyphen; `arccms_` would mean renaming about 150 exports by hand for no gain. Fixed, not per install: a per-install prefix only matters for CO8. Secret and param names get the same prefix (`ARC_...`) so they never collide in Secret Manager. |
-| CO-D6 | URLs already out in the world | A tiny second codebase, **`arccms-legacy`** (own source folder, no shared code), keeps the old names of the HTTP endpoints alive as server-side proxies to the new ones. Covers the open-tracking pixel and unsubscribe links in emails already sent, the Dodo and email-provider webhooks registered in their dashboards, and the `search` callable baked into static pages published before the upgrade. Fresh installs never deploy it. Existing installs deploy it once and can remove it after reconfiguring webhooks and republishing pages. Proxy, not redirect: webhook senders often do not follow redirects, and signatures depend on the raw body. |
+| CO-D6 | URLs already out in the world | **No legacy proxies** (decided 2026-09-23, reversing the first choice). An upgraded install loses the old URLs: open-tracking pixels and links in emails already sent, webhook URLs registered with Dodo and the email provider, and the `search` endpoint in static pages published before the upgrade. The upgrade runbook re-registers webhooks and republishes pages. A proxy codebase was built in CO4 and removed the same day as untested weight with no install that needs it. |
 | CO-D7 | Roles and claims | ArcCMS reads its role from a **namespaced claim, `arccms_role`**, and writes it **merged** with existing claims. Today `setCustomUserClaims(uid, { role })` wipes every claim a host app set, and a host app's own `role: 'admin'` would grant ArcCMS admin. Transition: rules and functions accept `arccms_role` or the legacy `role` for one release on `(default)`; a backfill copies `role` to `arccms_role` for every user; the next release drops `role`. Named-database installs never accept the legacy claim. |
 | CO-D8 | Security baseline first | CO1 closes the holes that a shared Auth pool makes worse, and ships to every install before anything else: role self-promotion, all-users read of `users`, and "any signed-in user may write" on content, tags and storage. In P3 every host-app user is a signed-in user of the same project. See section 2. |
 | CO-D9 | Storage | Two settings: `storageBucket` (default: the project's default bucket) and `storagePrefix` (default: empty, today's paths). P3 uses **its own bucket**, because storage rules are one file per bucket and sharing the default bucket would mean merging rules with the host app. Existing files are never moved: media documents store full download URLs, which keep working. |
@@ -78,7 +78,7 @@ Findings from reading the code on `feat/field-keys-media-size`, 2026-09-23.
 | Content writes | `ContentTypes`, `arc_*`, `Tags_*` writable by any signed-in user | Same class of problem, worse in P3. CO1. |
 | Entitlement contract | `docs/dodo-payments-entitlement-contract.md` tells client apps to read `users/{docId}` in the same database | This is P3 already running on `(default)`. Existing client apps keep working because existing installs stay on `(default)` (CO-D2). New P3 installs point the client at the `arccms` database (section 6). |
 | Media | Documents store `downloadURL`; uploads go to paths like `mediaImages/...` | A new `storagePrefix` only affects new uploads; old URLs keep working. |
-| Open-tracking URL | `constant.TRACKING_PIXEL_URL`, set by hand to the function URL | Becomes derived from config, and the legacy proxy (CO-D6) keeps old pixels working. |
+| Open-tracking URL | `constant.TRACKING_PIXEL_URL`, set by hand to the function URL | Stays an opt-in setting; an upgraded install that set it must point it at `arccms-trackEmailOpen`. |
 
 ---
 
@@ -154,12 +154,12 @@ the function rename (CO-D4, CO-D5), handled by a one-time upgrade with a runbook
 |------|--------------------------------|---------------|
 | Firestore data, rules, indexes | Unchanged, still `(default)` | None |
 | Storage files and URLs | Unchanged | None |
-| Hosting site and published pages | Unchanged | Republish pages at leisure to pick up the new `search` URL; the legacy proxy covers old ones meanwhile |
+| Hosting site and published pages | Unchanged | Republish pages so their search box calls `arccms-search` |
 | Client apps reading `users` (entitlement contract) | Unchanged, still `(default)` | None |
 | Admin claims | `role` still accepted for one release; backfill adds `arccms_role` | Run the backfill callable once (runbook) |
 | Function names and codebase | Renamed to `arccms-*` in codebase `arccms` | **Upgrade runbook** |
-| Webhook URLs (Dodo, email provider) | Old URLs served by `arccms-legacy` proxies | Optional: point the dashboards at the new URLs, then drop the proxies |
-| Emails already sent (pixel, unsubscribe) | Served by `arccms-legacy` proxies | None; keep the proxies for as long as old emails matter |
+| Webhook URLs (Dodo, email provider) | Old URLs stop working | Re-register `arccms-dodoWebhook` and `arccms-handleEmailWebhook` in the provider dashboards during the upgrade |
+| Emails already sent (pixel, unsubscribe) | Unsubscribe and preference links go to the hosting site and keep working; a configured tracking pixel stops counting opens for old emails | None |
 
 ### 4.1 Upgrade runbook (outline; full text in `docs/coexistence-upgrade-runbook.md`, CO7)
 
@@ -168,7 +168,7 @@ and new triggers both running (duplicate welcome emails, duplicate drip steps).
 Deleting first leaves a gap. The gap is the lesser harm, so:
 
 1. Pick a quiet time. `npm run arc:upgrade -- --dry-run` lists the old functions it will delete and the new ones it will deploy.
-2. `npm run arc:upgrade` deletes the old `default`-codebase functions, deploys `arccms`, deploys `arccms-legacy`, deploys hosting (so the SPA calls the new callable names), then runs the claims backfill. Expected gap: a few minutes, during which Firestore trigger events are lost and scheduled jobs skip a tick.
+2. `npm run arc:upgrade` deletes the old ArcCMS functions and deploys `arccms`. Hosting is deployed straight after, by hand, so the SPA calls the new callable names. Expected gap: a few minutes, during which Firestore trigger events are lost and scheduled jobs skip a tick.
 3. The script prints a checklist: re-register webhooks (optional), republish pages (optional), verify one test email and one test checkout.
 
 Existing installs stay on `(default)`, including those that already share it with a
@@ -186,7 +186,7 @@ any client apps to the new database id. Not automated.
 | **CO1** Security baseline | `users`: create only your own doc with no `role` field, update cannot touch `role`, read only your own doc or as admin. Role-gated writes on `ContentTypes`, `arc_*`, `Tags_*` and storage (admin or editor, from the claim). `onUserRoleChange` merges claims and writes `arccms_role` alongside `role`. Backfill callable. Rules and functions accept either claim. Rules unit tests for each case. | Every install | Independent of the rest; can ship as a hotfix first. |
 | **CO2** Config plumbing | `arccms.config.json` schema, `arcConfig` modules, `environment.arc`, `functions/.env` keys, the three Firestore handles, hosting site and storage bucket/prefix read from config everywhere listed in section 2. | Every install | No behaviour change at defaults; tests prove it. |
 | **CO3** Named database | Trigger helper (`arcDocument('Waitlists/{id}')` returns `{ document, database }`), all triggers migrated, `arc:configure`, generated `firebase.arccms.json`, deploy scripts. | Every install | Test: default config generates a Firebase config equal to the committed `firebase.json`. |
-| **CO4** Function codebase and names | `codebase: arccms`, grouped `arccms-` export, one frontend `callArc(name)` helper for about 37 callable sites, `search` widget URL and tracking-pixel URL derived from config, `ARC_` secret names, `functions-legacy/` proxy codebase, `arc:upgrade` script. | Every install | The one breaking change; see section 4.1. |
+| **CO4** Function codebase and names | `codebase: arccms`, grouped `arccms-` export, one frontend `callArc(name)` helper for about 37 callable sites, `search` widget URL and tracking-pixel URL derived from config, `ARC_` secret names, `arc:upgrade` script. | Every install | The one breaking change; see section 4.1. |
 | **CO5** Storage and hosting isolation | Bucket target support, rules scoped to `storagePrefix` when set, second-site hosting verified end to end (publish a page in P3 and fetch it). | P3 | |
 | **CO6** Backend profile | `arccms-ensureAppUser` callable and admin "Import app users" action (CO-D13), `authOwner` field and the guarded `onUserDeleted` (CO-D16), event ingestion callable for the host app, entitlement contract updated for the named database, host-app snippet printed by `arc:configure`. Every admin module stays available in every profile. | P3 | |
 | **CO7** Docs | `INSTALL.md` per profile, `docs/coexistence-guide.md`, `docs/coexistence-upgrade-runbook.md`. | Everyone | |
@@ -280,20 +280,13 @@ test fails on any direct `httpsCallable`). The static-page search widget calls
 `arccms-search`. The payments settings hint names `arccms-dodoWebhook`.
 `functions/scripts/check-callable-access.sh` probes the prefixed names.
 
-`functions-legacy/` (codebase `arccms-legacy`, config `firebase.legacy.json`, not in
-`firebase.json`, so fresh installs never deploy it) forwards `trackEmailOpen`,
-`handleUnsubscribe`, `handleEmailPreferences`, `handleEmailWebhook`, `dodoWebhook` and `search`
-to their `arccms-` successors: method, headers minus hop headers, raw body byte for byte,
-status and response headers back, CORS preflights included. Tested in
-`scripts/__tests__/legacy-proxy.spec.ts`.
-
-`npm run arc:upgrade -- --project=<alias> [--dry-run] [--no-legacy]` builds the functions,
-reads the ArcCMS function names from the build, and deletes only deployed functions with
-those names that are not already in the `arccms` or `arccms-legacy` codebase (another app's
-functions are never candidates), then deploys `arccms` and the legacy proxies. It does not
-deploy hosting: the previous frontend calls the old callable names, which stop existing, so
-hosting must be deployed straight after. Dry run against the dev project listed exactly the
-104 ArcCMS functions and none of the other app's 32.
+`npm run arc:upgrade -- --project=<alias> [--dry-run]` builds the functions, reads the
+ArcCMS function names from the build, and deletes only deployed functions with those names
+that are not already in the `arccms` codebase (another app's functions are never
+candidates), then deploys `arccms`. It does not deploy hosting: the previous frontend calls
+the old callable names, which stop existing, so hosting must be deployed straight after.
+Dry run against the dev project listed exactly the 104 ArcCMS functions and none of the
+other app's 32. The legacy proxy codebase first built here was removed (CO-D6).
 
 Not in CO4 as built: the namespaced `arccms_role` claim (CO-D7) was not part of CO1 as built
 either and is still open; the tracking pixel URL stays an opt-in setting.
@@ -339,7 +332,7 @@ existing install. CO4 is the release that needs the runbook.
 
 ### Decided 2026-09-23
 1. **Separator:** `arccms-`, from the grouped export (CO-D5).
-2. **Legacy proxies:** keep `arccms-legacy` as specified (CO-D6).
+2. **Legacy proxies:** none (CO-D6, reversed 2026-09-23).
 4. **P1 vs P2:** no infrastructure difference. Both are the standalone profile.
 5. **Module toggles:** nothing is hidden in any profile. A P3 install is a full ArcCMS and can also run the marketing website.
 6. **Existing installs that share `(default)` with a client app:** left as they are. No migration planned.

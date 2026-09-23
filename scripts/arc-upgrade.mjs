@@ -1,14 +1,18 @@
 /**
- * npm run arc:upgrade -- --project=<alias or id> [--dry-run] [--no-legacy]
+ * npm run arc:upgrade -- --project=<alias or id> [--dry-run]
  *
  * One-time move of an existing install to the arccms- function names
  * (docs/coexistence-spec.md, CO4, section 4.1).
  *
  * Old and new names cannot overlap: two copies of every trigger would send every
  * welcome email, drip step and notification twice. So this deletes the old
- * ArcCMS functions first, then deploys the arccms codebase, then the
- * arccms-legacy proxies that keep old URLs working. Expect a few minutes in
- * which Firestore events are not handled; run it at a quiet time.
+ * ArcCMS functions first, then deploys the arccms codebase. Expect a few
+ * minutes in which Firestore events are not handled; run it at a quiet time.
+ *
+ * Old URLs stop working: open-tracking pixels and links in emails already sent,
+ * webhook URLs registered with Dodo and the email provider, and the search
+ * endpoint in static pages published before the upgrade. Re-register the
+ * webhooks and republish pages afterwards (docs/coexistence-spec.md, CO-D6).
  *
  * Only functions whose names ArcCMS exports AND that are not already in the
  * arccms codebase are deleted, so another app's functions in the same project
@@ -18,13 +22,11 @@
  * calls the old callable names, which no longer exist once this has run.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NEW_CODEBASE = 'arccms';
-const LEGACY_CODEBASE = 'arccms-legacy';
 
 /** Codebase label of a deployed function, as `firebase functions:list --json` reports it. */
 export function codebaseOf(fn) {
@@ -33,14 +35,14 @@ export function codebaseOf(fn) {
 
 /**
  * What to delete: deployed functions with an ArcCMS name that are not already
- * in the arccms (or arccms-legacy) codebase, grouped by region.
+ * in the arccms codebase, grouped by region.
  */
 export function planUpgrade(deployed, arcNames) {
     const names = new Set(arcNames);
     const byRegion = {};
     for (const fn of deployed) {
         const codebase = codebaseOf(fn);
-        if (codebase === NEW_CODEBASE || codebase === LEGACY_CODEBASE) continue;
+        if (codebase === NEW_CODEBASE) continue;
         if (!names.has(fn.id)) continue;
         (byRegion[fn.region] ??= []).push(fn.id);
     }
@@ -69,10 +71,9 @@ async function arcFunctionNames() {
 }
 
 function parseArgs(argv) {
-    const opts = { dryRun: false, legacy: true, project: '' };
+    const opts = { dryRun: false, project: '' };
     for (const arg of argv) {
         if (arg === '--dry-run') opts.dryRun = true;
-        else if (arg === '--no-legacy') opts.legacy = false;
         else if (arg.startsWith('--project=')) opts.project = arg.slice('--project='.length);
         else throw new Error(`Unknown argument: ${arg}`);
     }
@@ -94,7 +95,7 @@ export async function main(argv = process.argv.slice(2)) {
         console.log(`Old-name ArcCMS functions to delete (${plan.count}):`);
         for (const [region, ids] of Object.entries(plan.byRegion)) console.log(`  ${region}: ${ids.join(' ')}`);
     }
-    console.log(`Then deploy the "${NEW_CODEBASE}" codebase${opts.legacy ? ` and the "${LEGACY_CODEBASE}" proxies` : ''}.`);
+    console.log(`Then deploy the "${NEW_CODEBASE}" codebase.`);
     if (opts.dryRun) {
         console.log('\nDry run: nothing changed.');
         return 0;
@@ -107,18 +108,13 @@ export async function main(argv = process.argv.slice(2)) {
     // It only manages the codebases in the config, so nothing outside ArcCMS is affected.
     run('node', ['scripts/arc-deploy.mjs', '--only', 'functions', '--project', opts.project, '--non-interactive', '--force']);
 
-    if (opts.legacy) {
-        if (!existsSync(resolve(ROOT, 'functions-legacy/node_modules'))) run('npm', ['install', '--prefix', 'functions-legacy']);
-        run('firebase', ['deploy', '--config', 'firebase.legacy.json', '--only', 'functions', '--project', opts.project, '--non-interactive', '--force']);
-    }
-
     console.log(`
 Done. Next, straight away:
   1. Deploy hosting. The previous frontend calls the old callable names, which no
      longer exist.
-  2. Re-register webhooks at the new URLs when convenient (the legacy proxies
-     cover the old ones until then): arccms-dodoWebhook, arccms-handleEmailWebhook.
-  3. Republish static pages at leisure; old ones reach search through the proxy.
+  2. Re-register webhooks at the new URLs: arccms-dodoWebhook and
+     arccms-handleEmailWebhook. Until then, provider events are lost.
+  3. Republish static pages, so their search box calls arccms-search.
   4. Send one test email and make one test checkout.`);
     return 0;
 }

@@ -1,9 +1,0 @@
-{
-    "functions": [
-        {
-            "source": "functions-legacy",
-            "codebase": "arccms-legacy",
-            "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log"]
-        }
-    ]
-}

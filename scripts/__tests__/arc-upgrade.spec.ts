@@ -23,9 +23,8 @@ describe('arc-upgrade plan (CO4)', () => {
         expect(plan.count).toBe(0);
     });
 
-    it('leaves functions already in the arccms and arccms-legacy codebases alone, so it can be rerun', () => {
+    it('leaves functions already in the arccms codebase alone, so it can be rerun', () => {
         const plan = planUpgrade([
-            { id: 'search', region: 'us-central1', labels: { 'firebase-functions-codebase': 'arccms-legacy' } },
             { id: 'dodoWebhook', region: 'us-central1', codebase: 'arccms' },
         ], arcNames);
         expect(plan.count).toBe(0);
