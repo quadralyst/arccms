@@ -9,6 +9,7 @@
 import { inject, Injectable } from '@angular/core';
 import { DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/misc-settings.model';
 import { Firestore, doc, collection, setDoc, getDoc, getDocs, query, where, serverTimestamp } from '@angular/fire/firestore';
+import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Observable, defer, from, map, of, catchError, switchMap } from 'rxjs';
 import { DEFAULT_CONTENT_TYPES, DEFAULT_WAITLIST, DEFAULT_SITE_CSS_URLS } from './onboarding-defaults';
 import { DEFAULT_EMAIL_SETTINGS, IEmailSettings, hasValidProviderConfig } from '../admin/(settings)/email-setting/email-setting.model';
@@ -26,7 +27,23 @@ export type OnboardingState = 'first-run' | 'in-progress' | 'complete';
 @Injectable({ providedIn: 'root' })
 export class OnboardingSetupService {
     private firestore = inject(Firestore);
+    private functions = inject(Functions);
     private authService = inject(AuthService);
+
+    /**
+     * Make the signed-in user the site's first admin.
+     *
+     * The wizard's account is created as an ordinary `role: 'user'` document,
+     * because the rules let nobody write their own role. The `claimFirstAdmin`
+     * callable then grants admin, server side, and only while the site has no
+     * admin at all, so a finished install cannot be taken over by revisiting
+     * the wizard. It also sets the custom claim before returning, so a forced
+     * token refresh straight afterwards sees it. Safe to call again: it is a
+     * no-op for the admin it already created.
+     */
+    async claimFirstAdmin(): Promise<void> {
+        await httpsCallable(this.functions, 'claimFirstAdmin')();
+    }
 
     /**
      * Save site identity info.

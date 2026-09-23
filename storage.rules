@@ -2,17 +2,39 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    
-    // Helper function to check if user is authenticated
+
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    // Same claim the Firestore rules use (firestore.rules, isEditor()). It is
+    // set by the onUserRoleChange Cloud Function, and only admins or the Admin
+    // SDK can change a user's role.
+    function isEditor() {
+      return isAuthenticated() &&
+        (request.auth.token.role == 'admin' || request.auth.token.role == 'editor');
+    }
+
+    function isSmallImage() {
+      return request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Everything the admin tools write: the media library (mediaImages/...),
+    // the data import/export files, and any other path. Staff only: this was
+    // "any signed-in user", and sign-up is open, so anyone could upload to the
+    // bucket or overwrite and delete the site's images.
     match /{allPaths=**} {
       // Public read — images are served on public pages and SSR
       allow read: if true;
-      // Authenticated write — any logged-in user can upload
-      allow write: if isAuthenticated();
+      allow write: if isEditor();
+    }
+
+    // Member profile photos. A signed-in user may write images only in their
+    // own folder; the profile page stores the download URL in users.photo.
+    match /avatars/{uid}/{fileName} {
+      allow write: if isAuthenticated() && request.auth.uid == uid
+        && (request.resource == null || isSmallImage());
     }
   }
 }

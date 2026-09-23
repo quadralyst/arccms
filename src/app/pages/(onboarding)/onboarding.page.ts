@@ -120,15 +120,19 @@ export default class OnboardingComponent implements OnInit {
                 this.isSubmitted.set(false);
             }
 
-            // After signup succeeds, wait for custom claim then advance to step 3
-            if (success && currentUser && !error && !this.signupHandled) {
+            // After signup succeeds, claim admin, then wait for the claim and
+            // advance to step 3. `isSubmitted` rather than only `isSuccess`: the
+            // account is created as role 'user', and the auth listener reports
+            // isSuccess false for that role, so it can race the signup's own flag.
+            if ((success || this.isSubmitted()) && currentUser && !error && !this.signupHandled) {
                 this.signupHandled = true;
                 this.toastService.success('Admin account created! Setting up your site…');
-                // Mark onboarding as in-progress so abandoned wizards are detected
-                this.setupService.markOnboardingStarted()
-                    .catch((err) => console.warn('Failed to mark onboarding started (non-fatal):', err));
-                
-                this.signupTimeoutId = setTimeout(() => this.checkAdminClaim(0), 2000);
+                this.claimAdmin().then(() => {
+                    // Mark onboarding as in-progress so abandoned wizards are detected
+                    this.setupService.markOnboardingStarted()
+                        .catch((err) => console.warn('Failed to mark onboarding started (non-fatal):', err));
+                    return this.checkAdminClaim(0);
+                });
             }
         });
 
@@ -147,6 +151,10 @@ export default class OnboardingComponent implements OnInit {
             } else if (state === 'in-progress') {
                 // Re-entry: admin account exists but wizard wasn't finished
                 this.signupHandled = true; // prevent effect from re-firing
+                // The admin claim may never have been granted (claimFirstAdmin
+                // failed last time), so the first admin-only step re-checks it
+                // and retries the claim through ensureAdminClaim().
+                this.adminClaimPending.set(true);
                 this.currentStep.set(3);
             }
             // 'first-run' — stay on step 1 and create the admin account.
@@ -174,9 +182,22 @@ export default class OnboardingComponent implements OnInit {
     }
 
     /**
+     * Ask the server to make this account the first admin. Failure is logged,
+     * not thrown: the callers go on to check the token, and report a missing
+     * claim in words the admin can act on.
+     */
+    private async claimAdmin(): Promise<void> {
+        try {
+            await this.setupService.claimFirstAdmin();
+        } catch (err) {
+            console.warn('claimFirstAdmin failed:', err);
+        }
+    }
+
+    /**
      * Force-refresh the ID token and report whether it carries `role: admin`.
      * The refresh is the point — the claim is set server-side by
-     * `onUserRoleChange` after signup, and a cached token will not show it.
+     * `claimFirstAdmin` after signup, and a cached token will not show it.
      */
     private async hasAdminClaim(): Promise<boolean> {
         try {
@@ -205,6 +226,13 @@ export default class OnboardingComponent implements OnInit {
     private async ensureAdminClaim(): Promise<boolean> {
         if (!this.adminClaimPending()) return true;
 
+        if (await this.hasAdminClaim()) {
+            this.adminClaimPending.set(false);
+            return true;
+        }
+
+        // Still no claim: the claim call itself may have failed. Retry it once.
+        await this.claimAdmin();
         if (await this.hasAdminClaim()) {
             this.adminClaimPending.set(false);
             return true;
@@ -298,7 +326,10 @@ export default class OnboardingComponent implements OnInit {
             name: this.onboardingForm.get('name')?.value?.trim(),
             email: this.onboardingForm.get('email')?.value?.trim().toLowerCase(),
             password: this.onboardingForm.get('password')?.value,
-            role: this.constantVariables.ADMIN,
+            // Not ADMIN: the rules refuse a self-written admin role. The wizard
+            // claims admin through the claimFirstAdmin callable once this
+            // account exists (see the effect in the constructor).
+            role: 'user',
             status: 'Active',
             isActive: true,
             emailVerified: true,

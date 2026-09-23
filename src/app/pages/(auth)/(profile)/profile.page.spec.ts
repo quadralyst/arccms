@@ -32,6 +32,41 @@ describe('ProfileComponent', () => {
             expect(typeof ProfileComponent.prototype.openPhotoSelector).toBe('function');
         });
 
+        it('opens the file picker, not the media library, for a non-admin', () => {
+            const click = vi.fn();
+            const open = vi.fn();
+            const ctx = { currentUser: () => ({ role: 'user' }), dialog: { open } };
+            ProfileComponent.prototype.openPhotoSelector.call(ctx, { click } as any);
+            expect(click).toHaveBeenCalled();
+            expect(open).not.toHaveBeenCalled();
+        });
+
+        it('opens the media library for an admin', () => {
+            const click = vi.fn();
+            const open = vi.fn().mockReturnValue({ afterClosed: () => ({ subscribe: vi.fn() }) });
+            const ctx = { currentUser: () => ({ role: 'admin' }), dialog: { open } };
+            ProfileComponent.prototype.openPhotoSelector.call(ctx, { click } as any);
+            expect(open).toHaveBeenCalled();
+            expect(click).not.toHaveBeenCalled();
+        });
+
+        it('uploads a member avatar to their own folder and saves the URL', async () => {
+            const uploadAvatar = vi.fn().mockResolvedValue('https://cdn/avatar.webp');
+            const updateUserProfile = vi.fn().mockResolvedValue(undefined);
+            const ctx = {
+                currentUser: () => ({ id: 'doc1', uid: 'uid1', role: 'user' }),
+                fileUpload: { uploadAvatar },
+                authStore: { updateUserProfile, isSuccess: () => true, error: () => '' },
+                clearMessages: vi.fn(),
+                successMsg: { set: vi.fn() },
+                errorMsg: { set: vi.fn() },
+            };
+            const file = new File(['x'], 'me.png', { type: 'image/png' });
+            await ProfileComponent.prototype.onAvatarFileSelected.call(ctx, { target: { files: [file], value: 'x' } } as any);
+            expect(uploadAvatar).toHaveBeenCalledWith('uid1', file);
+            expect(updateUserProfile).toHaveBeenCalledWith('doc1', { photo: 'https://cdn/avatar.webp' });
+        });
+
         it('should have removePhoto method', () => {
             expect(ProfileComponent.prototype.removePhoto).toBeDefined();
             expect(typeof ProfileComponent.prototype.removePhoto).toBe('function');
@@ -327,7 +362,7 @@ describe('ProfileComponent', () => {
         });
 
         it('should call openPhotoSelector on avatar click', () => {
-            expect(template).toContain('openPhotoSelector()');
+            expect(template).toContain('openPhotoSelector(avatarInput)');
         });
 
         it('should have Personal Information section', () => {

@@ -65,7 +65,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   showLoginPassword = signal(false);
   showPassword = signal(false);
   showConfirmPassword = signal(false);
-  private defaultRole = 'user';
   signupSettings: any;
 
   private countdownInterval: any;
@@ -130,7 +129,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       // Check if signups are enabled
       this.userSettingService.getSettings().subscribe(settings => {
         this.signupSettings = settings;
-        this.defaultRole = settings.defaultRole || 'user';
       });
 
       // Listen for auth state changes on initial load
@@ -407,7 +405,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       name: this.registrationForm.get('name')?.value,
       email: this.registrationForm.get('email')?.value?.trim().toLowerCase(),
       password: this.registrationForm.get('password')?.value,
-      role: this.defaultRole,
+      // Always 'user': the rules refuse any other self-written role. The
+      // site's default role (Settings/users.defaultRole) is applied by the
+      // onUserRoleChange Cloud Function right after this document is created.
+      role: 'user',
       status: 'Active',
       isActive: true,
       // Verified only if the user actually completed the OTP step. When email is

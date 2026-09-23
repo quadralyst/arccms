@@ -12,6 +12,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { AuthState } from '../auth.store';
 import MediaManagerComponent from '../../admin/(media)/media.page';
+import { FileUploadService } from '../../../../shared/services/file-upload.service';
 
 export const routeMeta: RouteMeta = {
   title: 'Profile | Arc CMS',
@@ -28,6 +29,7 @@ export const routeMeta: RouteMeta = {
 export default class ProfileComponent extends BaseComponent {
   authStore = inject(AuthState);
   private dialog = inject(MatDialog);
+  private fileUpload = inject(FileUploadService);
 
   // Section editing states
   isEditingName = signal(false);
@@ -89,7 +91,37 @@ export default class ProfileComponent extends BaseComponent {
 
   // --- Photo ---
 
-  openPhotoSelector(): void {
+  async onAvatarFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    const user = this.currentUser();
+    if (!file || !user?.uid) return;
+
+    this.clearMessages();
+    try {
+      const url = await this.fileUpload.uploadAvatar(user.uid, file);
+      await this.authStore.updateUserProfile(user.id, { photo: url });
+      if (this.authStore.isSuccess()) {
+        this.successMsg.set('Profile photo updated!');
+      } else {
+        this.errorMsg.set(this.authStore.error() || 'Failed to update photo');
+      }
+    } catch (err) {
+      this.errorMsg.set(err instanceof Error ? err.message : 'Failed to upload photo');
+    }
+  }
+
+  /**
+   * Admins pick from the media library. Everyone else uploads a file to their
+   * own `avatars/{uid}/` folder: the media library and its storage paths are
+   * staff-only in the rules.
+   */
+  openPhotoSelector(fileInput?: HTMLInputElement): void {
+    if (this.currentUser()?.role !== 'admin') {
+      fileInput?.click();
+      return;
+    }
     const dialogRef = this.dialog.open(MediaManagerComponent, {
       enterAnimationDuration: '450ms',
       exitAnimationDuration: '300ms',

@@ -30,7 +30,9 @@
     <!-- CARD 1: Avatar Section -->
     <div class="profile-card avatar-card">
       <div class="avatar-section">
-        <div class="avatar-wrapper" (click)="openPhotoSelector()">
+        <input #avatarInput type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden
+               (change)="onAvatarFileSelected($event)" />
+        <div class="avatar-wrapper" (click)="openPhotoSelector(avatarInput)">
           @if (currentUser()?.photo) {
             <img [src]="currentUser()?.photo" alt="Profile Photo" class="avatar-img" />
           } @else {
@@ -44,7 +46,7 @@
         </div>
 
         <div class="avatar-actions">
-          <button class="btn btn-sm btn-outline-primary" (click)="openPhotoSelector()">
+          <button class="btn btn-sm btn-outline-primary" (click)="openPhotoSelector(avatarInput)">
             <i class="fas fa-image me-1"></i> Change Photo
           </button>
           @if (currentUser()?.photo) {

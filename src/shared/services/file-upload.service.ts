@@ -214,6 +214,23 @@ export class FileUploadService {
     }
 
     /**
+     * Upload a member's profile photo to `avatars/{uid}/`, the one storage
+     * folder a non-admin may write (storage.rules). Resized to a 512px WebP
+     * square-ish bound; no media library record, since members have no access
+     * to the media library. Resolves to the download URL for `users.photo`.
+     */
+    async uploadAvatar(uid: string, file: File): Promise<string> {
+        const typeError = this.validateFileType(file);
+        if (typeError) {
+            throw new Error(typeError);
+        }
+        const img = await this.loadImageFromFile(file);
+        const { width, height } = fitLongestSide(img.naturalWidth, img.naturalHeight, 512);
+        const blob = await this.encodeImage(img, width, height, 'image/webp');
+        return this.uploadBlob(`avatars/${uid}/avatar-${Date.now()}.webp`, blob, 'image/webp', () => {});
+    }
+
+    /**
      * Upload a File to Firebase Storage in every size.
      *
      * Flow: File → validate → decode → XL with its longest side bounded by

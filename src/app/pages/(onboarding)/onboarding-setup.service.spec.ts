@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { Firestore } from '@angular/fire/firestore';
+import { Functions } from '@angular/fire/functions';
 import { Observable, of } from 'rxjs';
 import { AuthService } from '../(auth)/auth.service';
 import { OnboardingSetupService } from './onboarding-setup.service';
@@ -34,6 +35,17 @@ vi.mock('@angular/fire/firestore', async () => {
     };
 });
 
+const mockCallable = vi.fn().mockResolvedValue({ data: { role: 'admin' } });
+const mockHttpsCallable = vi.fn((..._args: any[]) => mockCallable);
+
+vi.mock('@angular/fire/functions', async () => {
+    const actual = await vi.importActual('@angular/fire/functions');
+    return {
+        ...actual,
+        httpsCallable: (...args: any[]) => mockHttpsCallable(...args),
+    };
+});
+
 describe('OnboardingSetupService', () => {
     let service: OnboardingSetupService;
     const mockFirestore = {};
@@ -48,11 +60,25 @@ describe('OnboardingSetupService', () => {
             providers: [
                 OnboardingSetupService,
                 { provide: Firestore, useValue: mockFirestore },
+                { provide: Functions, useValue: {} },
                 { provide: AuthService, useValue: mockAuthService },
             ],
         });
 
         service = TestBed.inject(OnboardingSetupService);
+    });
+
+    describe('claimFirstAdmin', () => {
+        it('calls the claimFirstAdmin callable', async () => {
+            await service.claimFirstAdmin();
+            expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'claimFirstAdmin');
+            expect(mockCallable).toHaveBeenCalled();
+        });
+
+        it('propagates a refusal so the caller can report it', async () => {
+            mockCallable.mockRejectedValueOnce(new Error('This site already has an administrator.'));
+            await expect(service.claimFirstAdmin()).rejects.toThrow('already has an administrator');
+        });
     });
 
     describe('saveSiteInfo', () => {

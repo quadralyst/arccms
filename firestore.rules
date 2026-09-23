@@ -16,15 +16,28 @@ service cloud.firestore {
         request.auth.token.role == 'admin';
     }
 
+    // Content staff: may write content types, content, tags, media and the
+    // publish queue. Admins, plus an `editor` role that CO1 reserves
+    // (docs/coexistence-spec.md). Nothing in the app grants `editor` today and
+    // every admin route is admin-only, so in practice this is admins. The claim
+    // comes from onUserRoleChange, and only admins or the Admin SDK can set a
+    // user's `role` (see the users rules below), so nobody can self-assign it.
+    function isEditor() {
+      return isAdmin() ||
+        (isAuthenticated() && request.auth.token.role == 'editor');
+    }
+
     // ============================================================
     // 1. PUBLIC READ + AUTHENTICATED WRITE
     //    SSR (unauthenticated) needs to read these collections.
     // ============================================================
 
-    // ContentTypes - content type definitions, SSR reads for routing
+    // ContentTypes - content type definitions, SSR reads for routing.
+    // Writes are staff only: any signed-in user used to be able to rewrite a
+    // content type, and deleting one cascades through its content.
     match /ContentTypes/{docId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if isEditor();
     }
 
     // Authors - who writes for the site (docs/discoverability-spec.md, D-D5).
@@ -39,7 +52,7 @@ service cloud.firestore {
 
     // Dynamic content, tags, and waitlist-tag collections:
     //   arc_{slug}           → published content, public read
-    //   arc_{slug}_drafts    → drafts, authenticated read
+    //   arc_{slug}_drafts    → drafts, staff read
     //   Tags_{slug}          → tags, public read
     //   WaitlistUserTags_{id}→ admin only
     // Firestore does NOT support prefix matching in paths, so we
@@ -47,16 +60,17 @@ service cloud.firestore {
     match /{collection}/{docId} {
       // Published content: arc_* but NOT *_drafts → public read
       allow read: if collection.matches('arc_.*') && !collection.matches('.*_drafts');
-      // Draft content: arc_*_drafts → authenticated read
-      allow read: if collection.matches('arc_.*_drafts') && isAuthenticated();
+      // Draft content: arc_*_drafts → staff read (only the admin editor reads drafts)
+      allow read: if collection.matches('arc_.*_drafts') && isEditor();
       // Tags: Tags_* → public read
       allow read: if collection.matches('Tags_.*');
       // WaitlistUserTags: admin read
       allow read: if collection.matches('WaitlistUserTags_.*') && isAdmin();
 
-      // Writes: arc_* and Tags_* → authenticated
+      // Writes: arc_* and Tags_* → staff. These were writable by any signed-in
+      // user, and sign-up is open, so anyone could publish or deface content.
       allow write: if (collection.matches('arc_.*') || collection.matches('Tags_.*'))
-                   && isAuthenticated();
+                   && isEditor();
       // WaitlistUserTags → admin write; allow unauthenticated usageCount increment for signup flow
       allow create, delete: if collection.matches('WaitlistUserTags_.*') && isAdmin();
       allow update: if collection.matches('WaitlistUserTags_.*')
@@ -73,20 +87,23 @@ service cloud.firestore {
 
       // translations/{lang} subcollection — per-language content variants (M2).
       // Mirrors the parent's access model:
-      //   arc_*_drafts → authored in the editor, so authenticated read/write
+      //   arc_*_drafts → authored in the editor, so staff read/write
       //   arc_*        → published variants, public read (the language pages
       //                  and the SPA fallback are public); written only by the
       //                  publish pipeline, which bypasses rules via Admin SDK.
       match /translations/{lang} {
-        allow read, write: if collection.matches('arc_.*_drafts') && isAuthenticated();
+        allow read, write: if collection.matches('arc_.*_drafts') && isEditor();
         allow read: if collection.matches('arc_.*') && !collection.matches('.*_drafts');
       }
     }
 
-    // Media metadata - images displayed on public pages
+    // Media metadata - images displayed on public pages. Staff write: the
+    // media library is an admin tool. Members set a profile photo through
+    // their own storage folder (storage.rules, avatars/{uid}) and never
+    // create media documents.
     match /media/{docId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if isEditor();
     }
 
     // Email lookup - SHA-256 hashed emails for signup flow
@@ -121,6 +138,11 @@ service cloud.firestore {
       // Frontend-managed settings — any authenticated user can read/write.
       // UI routes are admin-gated via role guard; rules only enforce auth.
       //
+      // `users` is NOT in this list (public read above, admin write below): it
+      // holds `defaultRole`, which onUserRoleChange applies to every self
+      // sign-up. A signed-in user who could write it could set it to 'admin'
+      // and sign up a second account as an admin.
+      //
       // `email`, `integrations` and `analytics` are deliberately NOT in this list:
       // all three carry live secrets — `email` holds smtp.password / gmail.password
       // / resend.apiKey, `integrations` holds the Unsplash secretKey and the geo
@@ -131,7 +153,7 @@ service cloud.firestore {
       // Only the admin settings pages read them, and those are admin-gated already.
       allow read, write: if isAuthenticated() && settingId in [
         'about', 'site', 'email_status',
-        'users', 'global-message', 'misc',
+        'global-message', 'misc',
         'site-usage', 'onboarding_status'
       ];
       // analytics_status — authenticated read (frontend listener for GA connect flow);
@@ -164,24 +186,58 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // 3. USERS - Authenticated read, owner/admin write
+    // 3. USERS - own doc or admin
     // ============================================================
 
+    // Doc IDs are auto-generated, so ownership is the `uid` field, not the id.
+    //
+    // `role` is the source of the Auth custom claim that isAdmin() checks
+    // (functions/src/users/syncUserRole.ts copies it). So a user must never be
+    // able to set it:
+    //   - create: only a doc for yourself, with no role or role 'user'. The
+    //     site's `Settings/users.defaultRole` is applied afterwards by
+    //     onUserRoleChange, with the Admin SDK.
+    //   - update: never `role`, `uid`, the admin switches (`isActive`,
+    //     `status`), or the premium fields; `emailVerified` may only go to false.
+    //   - the first admin of a fresh install comes from the `claimFirstAdmin`
+    //     callable, which grants admin once and only while no admin exists.
+    // Reads are own doc or admin. Client queries on `users` must therefore
+    // filter on `uid == request.auth.uid` (getCurrentUserByUid does).
+    function isOwnUserDoc() {
+      return isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    function isSelfAssignableRole(data) {
+      return !('role' in data) || data.role == 'user';
+    }
+
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() || isAdmin();
-      // Doc IDs are auto-generated; compare auth uid against the uid field in the doc.
-      // Admin can update any user doc (migration re-keying). A user may update their
-      // own doc EXCEPT the premium entitlement fields — those are written only by
-      // Cloud Functions (Admin SDK bypasses rules) so users cannot self-grant access.
+      allow read: if isAdmin() || isOwnUserDoc();
+      allow create: if isAdmin() ||
+        (isAuthenticated()
+         && request.resource.data.uid == request.auth.uid
+         && isSelfAssignableRole(request.resource.data));
+      // Admin can update any user doc (migration re-keying, role changes). A
+      // user may update their own doc EXCEPT the fields above. The premium
+      // entitlement fields are written only by Cloud Functions (Admin SDK
+      // bypasses rules) so users cannot self-grant access.
       allow update: if isAdmin() ||
-        (isAuthenticated() && resource.data.uid == request.auth.uid
+        (isOwnUserDoc()
          && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
+              .hasAny(['role', 'uid', 'isActive', 'status',
+                       'isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
                        'premiumExpiresAt', 'provider', 'providerSubscriptionId', 'providerCustomerId',
                        'premiumTrialReminderSent', 'premiumEventAt', 'updatesUntil',
-                       'premiumTierLabel', 'premiumDiscountCode', 'creditBalance']));
+                       'premiumTierLabel', 'premiumDiscountCode', 'creditBalance'])
+         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['emailVerified'])
+             || request.resource.data.emailVerified == false));
       allow delete: if isAdmin();
+    }
+
+    // First-admin sentinel, written once by the claimFirstAdmin callable.
+    // Admin SDK only: a client that could delete it could claim admin again.
+    match /_system/{docId} {
+      allow read, write: if false;
     }
 
     // ============================================================
@@ -220,10 +276,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Publish queue — admin writes trigger docs; Cloud Function processes them
+    // Publish queue: staff write trigger docs; Cloud Function processes them
     match /_publish_queue/{docId} {
       allow read: if false;       // Cloud Functions use Admin SDK (bypasses rules)
-      allow write: if isAuthenticated();
+      allow write: if isEditor();
     }
 
     // ============================================================

@@ -31,6 +31,7 @@ describe('OnboardingComponent', () => {
         adminClaimPending: signal(false),
         ensureAdminClaim: (OnboardingComponent.prototype as any).ensureAdminClaim,
         hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
+        claimAdmin: vi.fn().mockResolvedValue(undefined),
     });
 
     describe('Component Definition', () => {
@@ -319,7 +320,7 @@ describe('OnboardingComponent', () => {
             expect(signup).not.toHaveBeenCalled();
         });
 
-        it('calls authStore.signup with role=admin when form is valid', () => {
+        it('calls authStore.signup with role=user when form is valid (admin is claimed server side)', () => {
             const signup = vi.fn();
             const formValues: Record<string, string> = {
                 name: 'Alice Admin',
@@ -341,7 +342,7 @@ describe('OnboardingComponent', () => {
             };
             OnboardingComponent.prototype.register.call(ctx);
             expect(signup).toHaveBeenCalledWith(
-                expect.objectContaining({ role: 'admin', isActive: true, emailVerified: true })
+                expect.objectContaining({ role: 'user', isActive: true, emailVerified: true })
             );
         });
     });
@@ -368,11 +369,15 @@ describe('OnboardingComponent', () => {
                 router: { navigate },
                 signupHandled: false,
                 currentStep: signal<number>(1),
+                adminClaimPending: signal(false),
             };
             OnboardingComponent.prototype.ngOnInit.call(ctx);
             expect(navigate).not.toHaveBeenCalled();
             expect(ctx.currentStep()).toBe(3);
             expect(ctx.signupHandled).toBe(true);
+            // The claim may never have been granted, so the next admin-only
+            // step must re-check it (and retry claimFirstAdmin).
+            expect(ctx.adminClaimPending()).toBe(true);
         });
 
         it('stays on step 1 when it IS first run', () => {
@@ -937,13 +942,41 @@ describe('OnboardingComponent', () => {
                 errorMessage: signal(''),
                 auth: { currentUser: { getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }) } },
                 hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
+                claimAdmin: vi.fn().mockResolvedValue(undefined),
             };
 
             const ok = await (OnboardingComponent.prototype as any).ensureAdminClaim.call(ctx);
 
+            expect(ctx.claimAdmin).toHaveBeenCalledTimes(1);
             expect(ok).toBe(false);
             expect(ctx.adminClaimPending()).toBe(true);
             expect(ctx.errorMessage()).toContain('propagating');
+        });
+
+        it('retries claimFirstAdmin once and proceeds when that grants the claim', async () => {
+            const getIdTokenResult = vi.fn()
+                .mockResolvedValueOnce({ claims: {} })
+                .mockResolvedValueOnce({ claims: { role: 'admin' } });
+            const ctx = {
+                adminClaimPending: signal(true),
+                errorMessage: signal(''),
+                auth: { currentUser: { getIdTokenResult } },
+                hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
+                claimAdmin: vi.fn().mockResolvedValue(undefined),
+            };
+
+            const ok = await (OnboardingComponent.prototype as any).ensureAdminClaim.call(ctx);
+
+            expect(ctx.claimAdmin).toHaveBeenCalledTimes(1);
+            expect(ok).toBe(true);
+            expect(ctx.adminClaimPending()).toBe(false);
+        });
+
+        it('claimAdmin swallows a refused claim so the token check can report it', async () => {
+            const claimFirstAdmin = vi.fn().mockRejectedValue(new Error('already has an administrator'));
+            const ctx = { setupService: { claimFirstAdmin } };
+            await expect((OnboardingComponent.prototype as any).claimAdmin.call(ctx)).resolves.toBeUndefined();
+            expect(claimFirstAdmin).toHaveBeenCalled();
         });
 
         it('blocks the admin-only writes in step 3 while the claim is missing', async () => {
