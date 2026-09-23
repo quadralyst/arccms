@@ -1,6 +1,6 @@
 # ArcCMS Coexistence: Build Spec
 
-**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1, CO3.2 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is deployed on `xlm-project-864ff` next to the old install (see CO4 below). CO5 in progress. CO6 to CO8 not started.
+**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1, CO3.2 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is deployed on `xlm-project-864ff` next to the old install (see CO4 below). CO5 done (hosting off, upload folder). CO6a built; CO6b (arccms_role) next. CO7, CO8 not started.
 **Branch:** `feat/coexistence`, cut from `fix/role-escalation-rules` (CO1) because `dev` lacks the search, discoverability and multilingual work this builds on.
 **Scope:** let ArcCMS share a Firebase project with other applications (their own
 functions, triggers, rules, storage, Firestore data and hosting) without either side
@@ -360,6 +360,26 @@ configured through it: `projects.xlm-project-864ff.databaseId = arccms`.
 - Known exception: member avatars stay at `avatars/{uid}/` in the bucket root, where the
   Storage rule lets each user write their own; prefixing them would need a rules change.
   File names are per user and timestamped, so the two installs cannot overwrite each other.
+
+**CO6a as built (2026-09-23): app users.** `functions/src/users/appUsers.ts`:
+- `arccms-ensureAppUser` (callable, as the signed-in user): identity from the verified
+  token only; creates the `users` doc in a transaction (no duplicates on concurrent first
+  sign-in) with `role: 'user'`, `authOwner: 'host'`, `source: 'app'`; on later calls
+  refreshes email, verification, language and `lastSeenAt`, never role or `authOwner`, and
+  keeps an existing name. Optional `name`, `language`, `attributes` (written as contact
+  fields, only for keys defined in Audience, Fields). Returns the entitlement: `isPro`,
+  `premiumType`, `premiumStatus`, `premiumExpiresAt`, `creditBalance`.
+- `arccms-importAppUsers` (callable, admin): pages through Firebase Auth; each account with an
+  email and no `users` doc gets one (`authOwner: 'host'`, `source: 'import'`, `importedAt`,
+  `sendWelcome`); `dryRun` counts only; one summary admin notice per run.
+- Triggers: `onUserDeleted` deletes the Auth account only when `authOwner` is not `host`;
+  `onUserCreated` emits `user.imported` (not `user.signed_up`) and no per-person admin notice
+  for imported users; `onUserCreateWelcomeEmail` skips `sendWelcome: false`;
+  `onUserRoleChange` writes no claim for a host-owned user with an ordinary role (it would
+  replace the host app's own `role` claim; CO6b namespaces the claim).
+- Rules: clients can neither create nor change `authOwner`, `importedAt`, `sendWelcome`.
+- Admin UI: Users, "Import app users" opens a dialog that dry-runs first, shows the counts,
+  and offers "Send the welcome email to N imported users", off by default.
 
 Order: CO1 → CO2 → CO3 → CO4 → CO5 → CO6 → CO7. CO1 to CO3 change nothing for an
 existing install. CO4 is the release that needs the runbook.

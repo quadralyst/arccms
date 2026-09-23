@@ -7,7 +7,7 @@
 
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, DatePipe } from '@angular/common';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, ViewChild, TemplateRef } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -29,6 +29,7 @@ import EditUserComponent from './(edit-user)/edit.[userId].page';
 import ViewUserComponent from './(view-user)/view.[userId].page';
 import { IUser } from './user.model';
 import { UserStore } from './user.store';
+import { ImportAppUsersDialogComponent, ImportAppUsersResult } from './import-app-users-dialog.component';
 import { roleGuard } from '../../../guards/role.guard';
 import { AuthService } from '../../(auth)/auth.service';
 import { AuthState } from '../../(auth)/auth.store';
@@ -76,6 +77,7 @@ export default class UsersComponent {
     route = inject(ActivatedRoute);
     router = inject(Router);
     constantVariables = inject(ConstantVariables);
+    private transloco = inject(TranslocoService);
 
     // State signals
     currentId = signal('');
@@ -182,6 +184,17 @@ export default class UsersComponent {
         this.currentAction.set('add');
         this.currentId.set('');
         this.drawer?.open();
+    }
+
+    /** Import app users: accounts a host app created, into ArcCMS (docs/coexistence-spec.md, CO6). */
+    openImport(): void {
+        this.dialog.open<ImportAppUsersDialogComponent, void, ImportAppUsersResult>(ImportAppUsersDialogComponent, { width: '520px' })
+            .afterClosed()
+            .subscribe((result) => {
+                if (!result) return;
+                this.toastService.success(this.transloco.translate('admin.users.import_done', { count: result.imported }));
+                this.fetchData();
+            });
     }
 
     openEdit(id: string): void {

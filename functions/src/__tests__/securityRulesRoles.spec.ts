@@ -52,8 +52,17 @@ describe('firestore.rules: users', () => {
     });
 
     it('blocks role, uid and the admin switches on self-update', () => {
-        const blocked = users.match(/hasAny\(\[([^\]]+)\]\)/)?.[1] ?? '';
+        // The self-update guard: the hasAny() list following affectedKeys().
+        const blocked = users.match(/affectedKeys\(\)\s*\.hasAny\(\[([^\]]+)\]\)/)?.[1] ?? '';
         for (const key of ['role', 'uid', 'isActive', 'status', 'isPro', 'creditBalance']) {
+            expect(blocked).toContain(`'${key}'`);
+        }
+    });
+
+    it('keeps the app-user fields (CO6) for the Admin SDK only', () => {
+        expect(users).toMatch(/!request\.resource\.data\.keys\(\)\.hasAny\(\['authOwner', 'importedAt', 'sendWelcome'\]\)/);
+        const blocked = users.match(/affectedKeys\(\)\s*\.hasAny\(\[([^\]]+)\]\)/)?.[1] ?? '';
+        for (const key of ['authOwner', 'importedAt', 'sendWelcome']) {
             expect(blocked).toContain(`'${key}'`);
         }
     });

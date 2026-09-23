@@ -22,6 +22,12 @@
                 <!-- Content Area -->
                 <div class="content-area">
                     <arc-page-header [title]="'admin.users.page_title' | transloco" [subtitle]="'admin.users.page_subtitle' | transloco">
+                        @if (!role) {
+                        <button mat-stroked-button (click)="openImport()">
+                            <mat-icon>group_add</mat-icon>
+                            {{ 'admin.users.import' | transloco }}
+                        </button>
+                        }
                         <button mat-raised-button color="primary" (click)="openAdd()">
                             <mat-icon>add</mat-icon>
                             @for (roles of constantVariables.roles; track roles.userType) {

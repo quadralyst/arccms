@@ -17,6 +17,9 @@ import { arcDocument } from '../arc-config.js';
 export const onUserCreateWelcomeEmail = onDocumentCreated(arcDocument('users/{docId}'), async (event) => {
   const user = event.data?.data();
   if (!user?.['email']) return;
+  // An import run can leave welcome emails off (the default), so existing app
+  // users are not all emailed at once (CO-D13).
+  if (user['sendWelcome'] === false) return;
 
   try {
     const findTemplate = () => db

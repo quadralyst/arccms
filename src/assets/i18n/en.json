@@ -912,7 +912,17 @@
       "empty_description": "No users found matching your criteria.",
       "invalid_action": "Invalid action",
       "none_selected": "No user selected",
-      "verify": "Verify"
+      "verify": "Verify",
+      "import": "Import app users",
+      "import_intro": "Creates a user record for every account in this Firebase project's sign-in that ArcCMS does not know yet, such as people who signed up in your app. No accounts are created, nobody is signed in or emailed unless you choose to.",
+      "import_counting": "Counting accounts…",
+      "import_counts": "{{ imported }} to import, {{ present }} already here, {{ noEmail }} without an email address (skipped).",
+      "import_nothing": "Every account already has a user record. Nothing to import.",
+      "import_send_welcome": "Send the welcome email to the {{ count }} imported users",
+      "import_confirm": "Import {{ count }} users",
+      "import_running": "Importing…",
+      "import_done": "Imported {{ count }} app users.",
+      "import_failed": "Import failed: {{ error }}"
     },
     "audience": {
       "contacts": {

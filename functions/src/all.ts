@@ -74,6 +74,7 @@ export * from './users/onUserCreate.js';
 
 // Delete Firebase Auth account and email_lookup entry when a user document is deleted
 export * from './users/onUserDelete.js';
+export * from './users/appUsers.js';
 
 // For wait list user lifecycle
 export * from './waitlists/waitlist-details/onWaitlistUserCreate.js';

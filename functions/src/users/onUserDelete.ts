@@ -13,6 +13,7 @@
 import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { owner, db } from '../init.js';
 import { arcDocument } from '../arc-config.js';
+import { arccmsOwnsAuthAccount } from './appUsers.js';
 
 const EMAIL_LOOKUP_COLLECTION = 'email_lookup';
 
@@ -37,8 +38,13 @@ export const onUserDeleted = onDocumentDeleted(
 
         const tasks: Promise<void>[] = [];
 
-        // 1. Delete Firebase Auth account
-        if (uid) {
+        // 1. Delete Firebase Auth account, unless it belongs to a host app
+        //    (CO-D16): removing an app user from ArcCMS must not delete their
+        //    login to the app they actually use.
+        if (uid && !arccmsOwnsAuthAccount(deletedData)) {
+            console.log(`Kept Auth account uid=${uid}: owned by the host app (authOwner: host).`);
+        }
+        if (uid && arccmsOwnsAuthAccount(deletedData)) {
             tasks.push(
                 owner.deleteUser(uid)
                     .then(() => {
