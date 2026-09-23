@@ -33,6 +33,7 @@ import { UserSettingService } from '../../admin/(settings)/user-setting/user-set
 import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { arcCallable } from '../../../core/config/arc-functions';
+import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
 
 export const routeMeta: RouteMeta = {
   title: 'Signup | Arc CMS',
@@ -43,7 +44,7 @@ type SignupStep = 'request' | 'login' | 'verify' | 'signup' | 'disabled';
 @Component({
   selector: 'arc-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterModule, NgOptimizedImage],
+  imports: [ReactiveFormsModule, CommonModule, RouterModule, NgOptimizedImage, LegalNoticeComponent],
   templateUrl: './signup.page.html',
   styleUrls: ['./signup.page.scss'],
 })

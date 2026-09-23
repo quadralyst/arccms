@@ -35,6 +35,7 @@ import {
     PROVIDER_DEFAULT_LIMITS,
 } from '../admin/(settings)/email-setting/email-setting.model';
 import { environment } from '../../../environments/environment';
+import { LegalNoticeComponent } from '../../../shared/components/legal-notice/legal-notice.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Onboarding | Arc CMS',
@@ -43,7 +44,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     selector: 'arc-onboarding',
     standalone: true,
-    imports: [ReactiveFormsModule, CommonModule, MatDialogModule, RouterLink],
+    imports: [ReactiveFormsModule, CommonModule, MatDialogModule, RouterLink, LegalNoticeComponent],
     templateUrl: './onboarding.page.html',
     styleUrls: ['./onboarding.page.scss'],
 })

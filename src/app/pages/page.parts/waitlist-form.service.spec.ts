@@ -864,4 +864,32 @@ describe('WaitlistFormService', () => {
             expect(mockWaitlistService.getWaitlist).not.toHaveBeenCalled();
         });
     });
+
+    describe('terms notice on every signup form', () => {
+        const notice = (form: HTMLFormElement) => form.querySelectorAll('[data-legal-notice]');
+
+        it('adds the notice above the submit button', () => {
+            const form = document.createElement('form');
+            form.innerHTML = '<input name="email" /><button type="submit">Join</button>';
+            (service as any).ensureLegalNotice(form);
+            expect(notice(form)).toHaveLength(1);
+            expect(notice(form)[0].nextElementSibling?.tagName).toBe('BUTTON');
+        });
+
+        it('leaves a form that already carries its own notice alone', () => {
+            const form = document.createElement('form');
+            form.innerHTML = '<p data-legal-notice>Custom terms</p><button type="submit">Join</button>';
+            (service as any).ensureLegalNotice(form);
+            (service as any).ensureLegalNotice(form);
+            expect(notice(form)).toHaveLength(1);
+            expect(notice(form)[0].textContent).toBe('Custom terms');
+        });
+
+        it('appends it when the form has no submit button', () => {
+            const form = document.createElement('form');
+            form.innerHTML = '<input name="email" />';
+            (service as any).ensureLegalNotice(form);
+            expect(form.lastElementChild?.hasAttribute('data-legal-notice')).toBe(true);
+        });
+    });
 });

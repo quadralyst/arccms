@@ -16,6 +16,7 @@ import { Firestore, doc, getDoc, collection } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
 import { DEFAULT_INTEGRATIONS_SETTINGS, IGeoConfig } from '../admin/(settings)/integrations-setting/integrations-setting.model';
 import { DEFAULT_WAITLIST_FORM_ID, LEGACY_DEFAULT_WAITLIST_FORM_IDS } from '../../../shared/constants/waitlist-form';
+import { buildLegalNoticeElement, legalNoticeLang } from '../../../shared/constants/legal-notice';
 import { arcCallable } from '../../core/config/arc-functions';
 
 type WaitlistStep = 'signup' | 'verify' | 'success' | 'existing-user' | 'error';
@@ -74,6 +75,24 @@ export class WaitlistFormService {
         }
         // None yet: the page's own id, which ensureWaitlistExists will create.
         return DEFAULT_WAITLIST_FORM_ID;
+    }
+
+    /**
+     * Every signup form carries the terms notice (shared/constants/legal-notice.ts).
+     * Landing pages are HTML their owners edit, so rather than rely on each
+     * template including it, it is added above the submit button of any form
+     * that does not already have one (`[data-legal-notice]`).
+     */
+    private ensureLegalNotice(form: HTMLFormElement): void {
+        if (form.querySelector('[data-legal-notice]')) return;
+        const doc = form.ownerDocument;
+        const notice = buildLegalNoticeElement(doc, legalNoticeLang(doc.documentElement.lang));
+        const submit = form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
+        if (submit?.parentNode) {
+            submit.parentNode.insertBefore(notice, submit);
+        } else {
+            form.appendChild(notice);
+        }
     }
 
     private async waitlistExists(id: string): Promise<boolean> {
@@ -457,6 +476,10 @@ export class WaitlistFormService {
                 this.renderDisabledOverlay(form as HTMLFormElement, waitlist);
                 continue;
             }
+
+            // Before originalFormHtml is captured, so the notice survives the
+            // form re-rendering itself (for example back from an error step).
+            this.ensureLegalNotice(form as HTMLFormElement);
 
             const state: WaitlistFormState = {
                 step: 'signup',
