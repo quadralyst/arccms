@@ -1,6 +1,6 @@
 # ArcCMS Coexistence: Build Spec
 
-**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1, CO3.2 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is deployed on `xlm-project-864ff` next to the old install (see CO4 below). CO5 to CO8 not started.
+**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1, CO3.2 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is deployed on `xlm-project-864ff` next to the old install (see CO4 below). CO5 in progress. CO6 to CO8 not started.
 **Branch:** `feat/coexistence`, cut from `fix/role-escalation-rules` (CO1) because `dev` lacks the search, discoverability and multilingual work this builds on.
 **Scope:** let ArcCMS share a Firebase project with other applications (their own
 functions, triggers, rules, storage, Firestore data and hosting) without either side
@@ -339,6 +339,27 @@ includes functions runs `functions/scripts/check-callable-access.sh` against it,
 deploy if a callable is blocked (`--no-probe` skips it). `export-indexes` and the purge script
 read the database per project. This checkout's own dev project, `xlm-project-864ff`, is
 configured through it: `projects.xlm-project-864ff.databaseId = arccms`.
+
+**CO5 as built, first part (2026-09-23): hosting off, and an upload folder.**
+- `ARC_HOSTING_SITE=none` (`arc:configure --site=none`) turns publishing to Firebase Hosting
+  off. `arcHostingSite()` returns '' and every Hosting path treats that as "do not touch
+  Hosting": `deployBatchToHosting` records `deployStatus: 'skipped'` (code `HOSTING_OFF`) on
+  the content and releases nothing; removals, static-page generation, SEO files and the
+  template fetch from the site are skipped; the site-settings readers already skipped an
+  empty site. The editor treats `skipped` as final and shows "Website publishing off" with an
+  info toast. The generated Firebase config gets no `hosting.site`.
+- Why it was needed: an install without its own site defaults to the project's main site.
+  On `xlm-project-864ff` that is the old install's site, so the new install's publishes
+  would have released pages into it.
+- Found on the way: `deployBatchToHosting` records failures instead of throwing, so the
+  publish queue pinged IndexNow even when a release failed. It now returns whether it
+  released, and the queue pings only then.
+- `xlm-project-864ff` is configured with `hostingSite: none` and `storagePrefix: arccms/`,
+  so the new install's media land under `arccms/` in the shared default bucket. Content is
+  tested on localhost, where the app renders pages itself when no static file exists.
+- Known exception: member avatars stay at `avatars/{uid}/` in the bucket root, where the
+  Storage rule lets each user write their own; prefixing them would need a rules change.
+  File names are per user and timestamped, so the two installs cannot overwrite each other.
 
 Order: CO1 → CO2 → CO3 → CO4 → CO5 → CO6 → CO7. CO1 to CO3 change nothing for an
 existing install. CO4 is the release that needs the runbook.

@@ -7,7 +7,8 @@ import { EMPTY, Observable, from, map } from 'rxjs';
 import { IContentTranslation } from '../draft-content-store/content-translation.model';
 
 export interface DeployStatusUpdate {
-    deployStatus: 'deployed' | 'failed' | 'pending' | null;
+    /** `skipped`: the install has website publishing turned off (ARC_HOSTING_SITE=none). */
+    deployStatus: 'deployed' | 'failed' | 'pending' | 'skipped' | null;
     deployError: string;
     deployErrorCode: string;
     deployedAt: Date | null;
@@ -84,7 +85,7 @@ export class ContentsService extends DbService<IContents> {
      *
      * Uses Firestore onSnapshot listener on the published collection document.
      * Automatically completes after:
-     *  - deployStatus changes to 'deployed' or 'failed'
+     *  - deployStatus changes to 'deployed', 'failed' or 'skipped'
      *  - 60 seconds timeout (emits { deployStatus: null } as timeout signal)
      *
      * Never polls during SSR. Publishing is user-triggered, so this is not
@@ -136,7 +137,7 @@ export class ContentsService extends DbService<IContents> {
                 subscriber.next(status);
 
                 // Auto-complete when we reach a terminal state
-                if (status.deployStatus === 'deployed' || status.deployStatus === 'failed') {
+                if (status.deployStatus === 'deployed' || status.deployStatus === 'failed' || status.deployStatus === 'skipped') {
                     clearTimeout(timeoutId);
                     subscriber.complete();
                     unsubscribe();

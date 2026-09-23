@@ -105,6 +105,13 @@ describe('arc-configure', () => {
                 .toBe('RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n');
         });
 
+        it('--site=none turns hosting off: the env says so, the CLI config gets no site', () => {
+            const off = configure.normalizeConfig({ databaseId: 'arccms', hostingSite: 'none' });
+            expect(configure.updateFunctionsEnv('', off)).toBe('ARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=none\n');
+            expect(configure.renderFirebaseConfig(committedFirebase, off).hosting.site).toBeUndefined();
+            expect(configure.renderFirebaseConfig(committedFirebase, configure.normalizeConfig({ hostingSite: 'none' }))).toBeNull();
+        });
+
         it('prints the commands that create the resources', () => {
             const commands = configure.setupCommands({ ...config, region: 'nam5' }).join('\n');
             expect(commands).toContain('firebase firestore:databases:create arccms --location=nam5');

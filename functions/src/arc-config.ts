@@ -23,20 +23,33 @@ export function arcDatabaseId(env: Env = process.env): string {
     return env.ARC_DATABASE_ID?.trim() || DEFAULT_DATABASE_ID;
 }
 
+/** `ARC_HOSTING_SITE=none`: this install publishes nothing to Firebase Hosting (CO5). */
+export const HOSTING_OFF = 'none';
+
 /**
  * The Firebase Hosting site ArcCMS publishes to. `ARC_HOSTING_SITE`, default the
- * project id, which is the site every project starts with.
+ * project id, which is the site every project starts with. Empty when the
+ * install has hosting turned off (`ARC_HOSTING_SITE=none`): every caller treats
+ * an empty site as "do not touch Hosting".
  *
  * Read at call time rather than at import, because `GCLOUD_PROJECT` is set by the
  * runtime and tests change it between cases.
  */
 export function arcHostingSite(env: Env = process.env): string {
-    return env.ARC_HOSTING_SITE?.trim() || env.GCLOUD_PROJECT || '';
+    const configured = env.ARC_HOSTING_SITE?.trim();
+    if (configured === HOSTING_OFF) return '';
+    return configured || env.GCLOUD_PROJECT || '';
 }
 
-/** `https://{site}.web.app`, the hosting origin that always serves the deployed files. */
+/** Whether this install publishes to Firebase Hosting at all. */
+export function arcHostingEnabled(env: Env = process.env): boolean {
+    return arcHostingSite(env) !== '';
+}
+
+/** `https://{site}.web.app`, the hosting origin that always serves the deployed files; '' with hosting off. */
 export function arcHostingOrigin(env: Env = process.env): string {
-    return `https://${arcHostingSite(env)}.web.app`;
+    const site = arcHostingSite(env);
+    return site ? `https://${site}.web.app` : '';
 }
 
 /**

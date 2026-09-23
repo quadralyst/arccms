@@ -143,6 +143,8 @@ export type TranslationKey =
     | 'admin.contents.editor.default_badge'
     | 'admin.contents.editor.deploy_error'
     | 'admin.contents.editor.deploy_failed'
+    | 'admin.contents.editor.deploy_skipped'
+    | 'admin.contents.editor.deploy_skipped_info'
     | 'admin.contents.editor.deployed'
     | 'admin.contents.editor.deployed_success'
     | 'admin.contents.editor.deploying'
@@ -1308,6 +1310,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.default_badge',
     'admin.contents.editor.deploy_error',
     'admin.contents.editor.deploy_failed',
+    'admin.contents.editor.deploy_skipped',
+    'admin.contents.editor.deploy_skipped_info',
     'admin.contents.editor.deployed',
     'admin.contents.editor.deployed_success',
     'admin.contents.editor.deploying',

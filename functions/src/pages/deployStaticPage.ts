@@ -23,6 +23,10 @@ export async function generateAndDeployStaticPage(
     pageSlug: string,
 ): Promise<void> {
     const siteId = arcHostingSite();
+    if (!siteId) {
+        console.log(`Hosting is off; not generating static page ${pageSlug}.`);
+        return;
+    }
 
     // 1. Fetch raw HTML from hosting
     const rawUrl = `${arcHostingOrigin()}/pages/${pageSlug}.html`;

@@ -13,5 +13,6 @@ import type { ArcInstallConfig } from '../app/core/config/arc-config';
 export const arcInstall: Record<string, ArcInstallConfig> = {
     "xlm-project-864ff": {
         databaseId: "arccms",
+        storagePrefix: "arccms/",
     },
 };

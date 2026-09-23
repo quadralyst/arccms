@@ -479,11 +479,15 @@ export const processPublishQueue = onDocumentCreated({
             // First argument is the Hosting *site*, not the collection — the
             // deploy silently targets a site that does not exist otherwise.
             const siteId = arcHostingSite();
-            await deployBatchToHosting(siteId, batch, publishedCollection, docId);
-            console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
+            const released = await deployBatchToHosting(siteId, batch, publishedCollection, docId);
             // Only after the release succeeded: a ping for pages that never
-            // went live would send the engines to a 404 (D-D9).
-            await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
+            // went live would send the engines to a 404 (D-D9). deployBatchToHosting
+            // records a failure (or hosting being off) rather than throwing, so the
+            // answer has to come from its return value.
+            if (released) {
+                console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
+                await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
+            }
         } catch (deployErr) {
             console.error(`Hosting release failed for ${action} ${contentTypeSlug}/${docId}:`, deployErr);
         }

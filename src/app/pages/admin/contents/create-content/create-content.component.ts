@@ -2452,6 +2452,8 @@ export class CreateContentComponent extends BaseComponent {
 
             if (status.deployStatus === 'deployed') {
               this.notify.success('admin.contents.editor.deployed_success');
+            } else if (status.deployStatus === 'skipped') {
+              this.notify.info('admin.contents.editor.deploy_skipped_info');
             } else if (status.deployStatus === 'failed') {
               this.notify.error('admin.contents.editor.deploy_error', {
                 error: status.deployError || this.transloco.translate('admin.contents.editor.unknown_error'),

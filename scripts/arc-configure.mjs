@@ -19,7 +19,7 @@
  * it is the `default` alias, as with the Firebase CLI.
  *
  * Flags update that project's entry in arccms.config.json first:
- *   --profile=standalone|backend  --database=<id>  --site=<hosting site>
+ *   --profile=standalone|backend  --database=<id>  --site=<hosting site | none>
  *   --bucket=<bucket>  --prefix=<upload folder>  --region=<location>
  *   --dry-run   print what would change, write nothing
  *
@@ -112,6 +112,9 @@ export function validateConfig(config) {
 }
 
 const isNamedDatabase = (config) => !!config.databaseId && config.databaseId !== DEFAULT_DATABASE_ID;
+/** `--site=none`: the install publishes nothing to Firebase Hosting (CO5). */
+export const HOSTING_OFF = 'none';
+const ownHostingSite = (config) => !!config.hostingSite && config.hostingSite !== HOSTING_OFF;
 
 /** The values the app needs for one project, or null when it uses only defaults. */
 export function appValues(config) {
@@ -180,7 +183,7 @@ export function updateFunctionsEnv(existing, config) {
  * firebase.json, or `null` when the install uses only defaults.
  */
 export function renderFirebaseConfig(base, config) {
-    if (!isNamedDatabase(config) && !config.storageBucket && !config.hostingSite) return null;
+    if (!isNamedDatabase(config) && !config.storageBucket && !ownHostingSite(config)) return null;
     const out = structuredClone(base);
     if (isNamedDatabase(config)) {
         const firestore = Array.isArray(base.firestore) ? base.firestore[0] : base.firestore;
@@ -190,7 +193,7 @@ export function renderFirebaseConfig(base, config) {
         const storage = Array.isArray(base.storage) ? base.storage[0] : base.storage;
         out.storage = [{ bucket: config.storageBucket, rules: storage.rules }];
     }
-    if (config.hostingSite) {
+    if (ownHostingSite(config)) {
         out.hosting = { site: config.hostingSite, ...stripSite(base.hosting) };
     }
     return out;
@@ -211,7 +214,7 @@ export function setupCommands(config) {
     const location = config.region ?? '<location of the host app, such as nam5 or us-central1>';
     return [
         `firebase firestore:databases:create ${config.databaseId} --location=${location}`,
-        `firebase hosting:sites:create ${config.hostingSite}`,
+        ...(ownHostingSite(config) ? [`firebase hosting:sites:create ${config.hostingSite}`] : []),
         `gcloud storage buckets create gs://${config.storageBucket} --location=${location}`,
         `# then link the bucket to Firebase: console, Storage, bucket menu, "Import existing Google Cloud Storage buckets"`,
     ];

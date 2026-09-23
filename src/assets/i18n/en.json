@@ -764,6 +764,8 @@
         "slug_exists": "URL slug \"{{ slug }}\" already exists. Please use a different slug.",
         "deployed_success": "Static page deployed successfully!",
         "deploy_error": "Deployment failed: {{ error }}",
+        "deploy_skipped": "Website publishing off",
+        "deploy_skipped_info": "Saved. Publishing to the website is turned off for this install, so no page was released.",
         "unknown_error": "Unknown error",
         "version_restored": "Restored version v{{ version }}. Review and save when ready.",
         "url_copied": "URL copied to clipboard",

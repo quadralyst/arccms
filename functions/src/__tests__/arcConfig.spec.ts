@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { arcDatabaseId, arcDatabaseParam, arcDocument, arcHostingOrigin, arcHostingSite, DEFAULT_DATABASE_ID } from '../arc-config.js';
+import { arcDatabaseId, arcDatabaseParam, arcDocument, arcHostingEnabled, arcHostingOrigin, arcHostingSite, DEFAULT_DATABASE_ID } from '../arc-config.js';
 
 describe('arc-config (functions)', () => {
     describe('defaults: an install with no ARC_* variables behaves as before CO2', () => {
@@ -59,6 +59,19 @@ describe('arc-config (functions)', () => {
             const code = readFileSync(join(__dirname, '..', 'arc-config.ts'), 'utf8');
             const body = code.slice(code.indexOf('export function arcDocument'));
             expect(body).not.toMatch(/process\.env|arcDatabaseId\(/);
+        });
+    });
+
+    describe('hosting off (CO5)', () => {
+        it('ARC_HOSTING_SITE=none means no site, no origin, publishing off', () => {
+            const env = { ARC_HOSTING_SITE: 'none', GCLOUD_PROJECT: 'p' };
+            expect(arcHostingSite(env)).toBe('');
+            expect(arcHostingOrigin(env)).toBe('');
+            expect(arcHostingEnabled(env)).toBe(false);
+        });
+
+        it('is on by default', () => {
+            expect(arcHostingEnabled({ GCLOUD_PROJECT: 'p' })).toBe(true);
         });
     });
 });

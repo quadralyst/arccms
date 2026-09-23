@@ -67,6 +67,8 @@ export async function deploySeoFileToHosting(
         return;
     }
 
+    if (!siteId) return; // Hosting is off for this install (CO5).
+
     // Step 1: Auth
     const token = await getAuthToken();
 

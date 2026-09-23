@@ -123,8 +123,8 @@ async function loadDetailTemplate(templateFolder: string | undefined, siteId: st
         // Fall through to Tier 2
     }
 
-    // Tier 2: Fetch from hosting
-    try {
+    // Tier 2: Fetch from hosting (none to fetch from when hosting is off)
+    if (siteId) try {
         const url = `https://${siteId}.web.app/templates/${folder}/detail.html`;
         const res = await fetch(url);
         if (res.ok) {
