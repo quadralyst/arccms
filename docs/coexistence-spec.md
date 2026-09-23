@@ -1,6 +1,6 @@
 # ArcCMS Coexistence: Build Spec
 
-**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is deployed on `xlm-project-864ff` next to the old install (see CO4 below). CO5 to CO8 not started.
+**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1, CO3.2 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is deployed on `xlm-project-864ff` next to the old install (see CO4 below). CO5 to CO8 not started.
 **Branch:** `feat/coexistence`, cut from `fix/role-escalation-rules` (CO1) because `dev` lacks the search, discoverability and multilingual work this builds on.
 **Scope:** let ArcCMS share a Firebase project with other applications (their own
 functions, triggers, rules, storage, Firestore data and hosting) without either side
@@ -102,9 +102,9 @@ Findings from reading the code on `feat/field-keys-media-size`, 2026-09-23.
 
 | Consumer | Source | Read when |
 |----------|--------|-----------|
-| Browser app and SSR | `src/environments/arc-install.ts`, written by `arc:configure`; committed as `{}` | Build time |
-| Cloud Functions | `functions/.env` keys `ARC_DATABASE_ID`, `ARC_HOSTING_SITE`. No storage keys: the functions never touch Storage. | Deploy time (trigger bindings) and run time |
-| Firebase CLI | `firebase.arccms.json` (generated) or the committed `firebase.json` | Deploy time |
+| Browser app and SSR | `src/environments/arc-install.ts`, a map keyed by project id, written by `arc:configure` (CO3.2) | Build time |
+| Cloud Functions | `functions/.env` (committed default) and `functions/.env.<projectId>` keys `ARC_DATABASE_ID`, `ARC_HOSTING_SITE`. No storage keys: the functions never touch Storage. | Deploy time (trigger bindings, through the `ARC_DATABASE_ID` param) and run time |
+| Firebase CLI | `firebase.<projectId>.json` (generated) or the committed `firebase.json` | Deploy time |
 | Admin scripts in `scripts/` | `arccms.config.json` directly | Run time |
 
 A single `arcConfig` module on each side (frontend, functions) is the only code that
@@ -320,6 +320,25 @@ Findings:
 
 Not in CO4 as built: the namespaced `arccms_role` claim (CO-D7) was not part of CO1 as built
 either and is still open; the tracking pixel URL stays an opt-in setting.
+
+**CO3.2: install config per Firebase project (2026-09-23).** One checkout deploys to several
+projects (dev, production, a test project), and the CO3 config could describe only one, so
+switching meant editing files by hand. Now:
+
+| Piece | Where each project's settings live |
+|-------|-------------------------------------|
+| `arccms.config.json` | Top-level keys are shared; `projects.<projectId>` overrides them. A pre-CO3.2 file (top-level keys only) still applies to every project. |
+| Frontend | `src/environments/arc-install.ts` is a committed map keyed by project id (`{}` means all defaults); `arcConfig` uses the entry for `environment.firebaseConfig.projectId` (`installConfigFor`, which still reads a pre-CO3.2 single-entry file). |
+| Functions | `functions/.env` is committed with `ARC_DATABASE_ID=(default)`; `arc:configure` writes `functions/.env.<projectId>`, which the Firebase CLI loads after it. |
+| Firebase CLI | `firebase.<projectId>.json` (gitignored, `firebase.*.json`), generated only for a project that needs one. |
+
+`arc:configure -- --project=<alias or id>` resolves `.firebaserc` aliases (no flag means the
+`default` alias, as with the CLI) and changes only that project. `npm run deploy` finds the
+project in `--project`/`-P`, adds that project's generated config, and after any deploy that
+includes functions runs `functions/scripts/check-callable-access.sh` against it, failing the
+deploy if a callable is blocked (`--no-probe` skips it). `export-indexes` and the purge script
+read the database per project. This checkout's own dev project, `xlm-project-864ff`, is
+configured through it: `projects.xlm-project-864ff.databaseId = arccms`.
 
 Order: CO1 → CO2 → CO3 → CO4 → CO5 → CO6 → CO7. CO1 to CO3 change nothing for an
 existing install. CO4 is the release that needs the runbook.

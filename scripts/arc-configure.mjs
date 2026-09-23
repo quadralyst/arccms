@@ -1,15 +1,24 @@
 #!/usr/bin/env node
 /**
- * npm run arc:configure: turns `arccms.config.json` into the three files that
- * need its values (docs/coexistence-spec.md, CO-D3, CO3):
+ * npm run arc:configure -- [--project=<alias or id>] [flags]
  *
- *   src/environments/arc-install.ts   database, bucket, upload folder for the app
- *   functions/.env                    ARC_DATABASE_ID, ARC_HOSTING_SITE (other lines kept)
- *   firebase.arccms.json              Firebase CLI config for a named database,
- *                                     own bucket or own hosting site; removed when
- *                                     none is set, so plain firebase.json applies
+ * Turns `arccms.config.json` into the files that need its values, for one
+ * Firebase project at a time (docs/coexistence-spec.md, CO-D3, CO3.2):
  *
- * Flags update arccms.config.json first:
+ *   src/environments/arc-install.ts   every project's database, bucket and upload
+ *                                     folder, keyed by project id; the app picks
+ *                                     its own by firebaseConfig.projectId
+ *   functions/.env.<projectId>        ARC_DATABASE_ID, ARC_HOSTING_SITE for that
+ *                                     project (other lines kept); the committed
+ *                                     functions/.env stays the default
+ *   firebase.<projectId>.json         Firebase CLI config for a named database, own
+ *                                     bucket or own hosting site; removed when the
+ *                                     project uses none, so plain firebase.json applies
+ *
+ * The project is an alias from .firebaserc or a project id; without --project
+ * it is the `default` alias, as with the Firebase CLI.
+ *
+ * Flags update that project's entry in arccms.config.json first:
  *   --profile=standalone|backend  --database=<id>  --site=<hosting site>
  *   --bucket=<bucket>  --prefix=<upload folder>  --region=<location>
  *   --dry-run   print what would change, write nothing
@@ -23,16 +32,24 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { DEFAULT_DATABASE_ID } from './arc-install-config.mjs';
+import {
+    DEFAULT_DATABASE_ID, configForProject, readFirebaseAliases, resolveProjectId,
+} from './arc-install-config.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PATHS = {
     config: resolve(ROOT, 'arccms.config.json'),
     firebase: resolve(ROOT, 'firebase.json'),
-    generatedFirebase: resolve(ROOT, 'firebase.arccms.json'),
+    firebaserc: resolve(ROOT, '.firebaserc'),
+    root: ROOT,
     install: resolve(ROOT, 'src/environments/arc-install.ts'),
-    functionsEnv: resolve(ROOT, 'functions/.env'),
+    functionsDir: resolve(ROOT, 'functions'),
 };
+
+/** The generated Firebase CLI config for a project. */
+export function generatedFirebasePath(projectId, root = ROOT) {
+    return resolve(root, `firebase.${projectId}.json`);
+}
 
 const PROFILES = ['standalone', 'backend'];
 const FLAG_KEYS = {
@@ -48,13 +65,15 @@ const FLAG_KEYS = {
 export function parseFlags(argv) {
     const updates = {};
     let dryRun = false;
+    let project = '';
     for (const arg of argv) {
         if (arg === '--dry-run') { dryRun = true; continue; }
+        if (arg.startsWith('--project=')) { project = arg.slice('--project='.length); continue; }
         const match = /^--([a-z]+)=(.*)$/.exec(arg);
         if (!match || !(match[1] in FLAG_KEYS)) throw new Error(`Unknown argument: ${arg}`);
         updates[FLAG_KEYS[match[1]]] = match[2];
     }
-    return { updates, dryRun };
+    return { updates, dryRun, project };
 }
 
 /** Trims values, drops blanks and fills the profile default. */
@@ -94,26 +113,41 @@ export function validateConfig(config) {
 
 const isNamedDatabase = (config) => !!config.databaseId && config.databaseId !== DEFAULT_DATABASE_ID;
 
-/** Contents of src/environments/arc-install.ts. */
-export function renderArcInstall(config) {
+/** The values the app needs for one project, or null when it uses only defaults. */
+export function appValues(config) {
     const values = {};
     if (isNamedDatabase(config)) values.databaseId = config.databaseId;
     if (config.storageBucket) values.storageBucket = config.storageBucket;
     if (config.storagePrefix) values.storagePrefix = config.storagePrefix;
-    const body = Object.keys(values).length === 0
+    return Object.keys(values).length ? values : null;
+}
+
+/**
+ * Contents of src/environments/arc-install.ts: an entry per project that uses
+ * anything but defaults. `byProject` maps project id to its resolved config.
+ */
+export function renderArcInstall(byProject = {}) {
+    const entries = Object.entries(byProject)
+        .map(([projectId, config]) => [projectId, appValues(config)])
+        .filter(([, values]) => values)
+        .sort(([a], [b]) => a.localeCompare(b));
+    const body = entries.length === 0
         ? '{}'
-        : `{\n${Object.entries(values).map(([k, v]) => `    ${k}: ${JSON.stringify(v)},`).join('\n')}\n}`;
+        : `{\n${entries.map(([projectId, values]) =>
+            `    ${JSON.stringify(projectId)}: {\n${Object.entries(values).map(([k, v]) => `        ${k}: ${JSON.stringify(v)},`).join('\n')}\n    },`).join('\n')}\n}`;
     return `/**
- * Install configuration for the browser app and SSR (docs/coexistence-spec.md, CO-D3).
+ * Install configuration for the browser app and SSR, per Firebase project
+ * (docs/coexistence-spec.md, CO-D3, CO3.2).
  *
  * Written by \`npm run arc:configure\` from \`arccms.config.json\`; do not edit by hand.
- * Empty means the defaults every standalone install uses: the \`(default)\`
+ * The app uses the entry for its own \`firebaseConfig.projectId\`. A project with
+ * no entry uses the defaults every standalone install uses: the \`(default)\`
  * Firestore database, the bucket in \`firebaseConfig.storageBucket\`, uploads at
  * the bucket root.
  */
 import type { ArcInstallConfig } from '../app/core/config/arc-config';
 
-export const arcInstall: ArcInstallConfig = ${body};
+export const arcInstall: Record<string, ArcInstallConfig> = ${body};
 `;
 }
 
@@ -202,9 +236,21 @@ function write(path, content, dryRun, changes) {
 }
 
 export function main(argv = process.argv.slice(2), paths = PATHS, log = console.log) {
-    const { updates, dryRun } = parseFlags(argv);
+    const { updates, dryRun, project } = parseFlags(argv);
+    const aliases = readFirebaseAliases(paths.firebaserc);
+    const projectId = resolveProjectId(project, aliases);
+    if (!projectId) {
+        log('error: no project. Pass --project=<alias or id>, or add a "default" alias to .firebaserc.');
+        return 1;
+    }
+
     const stored = readJson(paths.config) ?? {};
-    const config = normalizeConfig({ ...stored, ...updates });
+    const file = structuredClone(stored);
+    if (Object.keys(updates).length) {
+        file.projects ??= {};
+        file.projects[projectId] = { ...(file.projects[projectId] ?? {}), ...updates };
+    }
+    const config = normalizeConfig(configForProject(file, projectId));
 
     const errors = validateConfig(config);
     if (errors.length) {
@@ -214,19 +260,22 @@ export function main(argv = process.argv.slice(2), paths = PATHS, log = console.
 
     const changes = [];
     if (Object.keys(updates).length) {
-        const { profile, ...rest } = config;
-        const toStore = profile === 'standalone' ? rest : config;
-        write(paths.config, `${JSON.stringify(toStore, null, 2)}\n`, dryRun, changes);
+        write(paths.config, `${JSON.stringify(file, null, 2)}\n`, dryRun, changes);
     }
-    write(paths.install, renderArcInstall(config), dryRun, changes);
 
-    const env = updateFunctionsEnv(existsSync(paths.functionsEnv) ? readFileSync(paths.functionsEnv, 'utf8') : '', config);
-    write(paths.functionsEnv, env || (existsSync(paths.functionsEnv) ? '' : null), dryRun, changes);
+    // The app gets every configured project at once; it picks its own at run time.
+    const byProject = {};
+    for (const id of Object.keys(file.projects ?? {})) byProject[id] = normalizeConfig(configForProject(file, id));
+    write(paths.install, renderArcInstall(byProject), dryRun, changes);
+
+    const envPath = resolve(paths.functionsDir, `.env.${projectId}`);
+    const env = updateFunctionsEnv(existsSync(envPath) ? readFileSync(envPath, 'utf8') : '', config);
+    write(envPath, env, dryRun, changes);
 
     const firebase = renderFirebaseConfig(readJson(paths.firebase), config);
-    write(paths.generatedFirebase, firebase && `${JSON.stringify(firebase, null, 4)}\n`, dryRun, changes);
+    write(generatedFirebasePath(projectId, paths.root), firebase && `${JSON.stringify(firebase, null, 4)}\n`, dryRun, changes);
 
-    log(`ArcCMS install: profile ${config.profile}, database ${config.databaseId ?? DEFAULT_DATABASE_ID}`
+    log(`ArcCMS install for ${projectId}: profile ${config.profile}, database ${config.databaseId ?? DEFAULT_DATABASE_ID}`
         + `${config.hostingSite ? `, hosting site ${config.hostingSite}` : ''}`
         + `${config.storageBucket ? `, bucket ${config.storageBucket}` : ''}`
         + `${config.storagePrefix ? `, upload folder ${config.storagePrefix}` : ''}.`);
@@ -237,7 +286,7 @@ export function main(argv = process.argv.slice(2), paths = PATHS, log = console.
         log('\nIf they do not exist yet, create the resources this install uses.');
         log('(A deploy, even with --dry-run, creates a missing database itself in the project\'s default location.)');
         for (const command of commands) log(`  ${command}`);
-        log('\nThen deploy with npm run deploy (it picks up firebase.arccms.json).');
+        log(`\nThen deploy with npm run deploy -- --project ${project || 'default'} (it picks up firebase.${projectId}.json).`);
     }
     return 0;
 }

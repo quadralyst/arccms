@@ -1,7 +1,12 @@
 {
-  "profile": "backend",
-  "databaseId": "arccms",
-  "hostingSite": "your-project-arccms",
-  "storageBucket": "your-project-arccms",
-  "storagePrefix": ""
+  "profile": "standalone",
+  "projects": {
+    "your-project-id": {
+      "profile": "backend",
+      "databaseId": "arccms",
+      "hostingSite": "your-project-arccms",
+      "storageBucket": "your-project-arccms",
+      "storagePrefix": ""
+    }
+  }
 }

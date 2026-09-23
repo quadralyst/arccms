@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { arcInstall } from '../../../environments/arc-install';
-import { arcConfig, DEFAULT_DATABASE_ID, resolveArcConfig, withStoragePrefix } from './arc-config';
+import { arcConfig, DEFAULT_DATABASE_ID, installConfigFor, resolveArcConfig, withStoragePrefix } from './arc-config';
+import { environment } from '../../../environments/environment';
 
 describe('arc-config (frontend)', () => {
     describe('defaults: an empty arc-install.ts behaves as before CO2', () => {
@@ -14,8 +15,8 @@ describe('arc-config (frontend)', () => {
             expect(DEFAULT_DATABASE_ID).toBe('(default)');
         });
 
-        it('arcConfig is arc-install.ts resolved (empty when committed, set by arc:configure)', () => {
-            expect(arcConfig).toEqual(resolveArcConfig(arcInstall));
+        it("arcConfig is this build's project entry in arc-install.ts, resolved", () => {
+            expect(arcConfig).toEqual(resolveArcConfig(installConfigFor(arcInstall, environment.firebaseConfig.projectId)));
         });
 
         it('leaves upload paths untouched', () => {
@@ -45,6 +46,24 @@ describe('arc-config (frontend)', () => {
             expect(withStoragePrefix('mediaImages/a.webp', 'arccms/')).toBe('arccms/mediaImages/a.webp');
             expect(withStoragePrefix('/mediaImages/a.webp', 'arccms/')).toBe('arccms/mediaImages/a.webp');
             expect(withStoragePrefix('arccms/mediaImages/a.webp', 'arccms/')).toBe('arccms/mediaImages/a.webp');
+        });
+    });
+
+    describe('installConfigFor (CO3.2)', () => {
+        const file = { 'acme-prod': { databaseId: 'arccms' }, 'acme-dev': { storagePrefix: 'dev/' } };
+
+        it("picks the build's own project", () => {
+            expect(installConfigFor(file, 'acme-prod')).toEqual({ databaseId: 'arccms' });
+            expect(installConfigFor(file, 'acme-dev')).toEqual({ storagePrefix: 'dev/' });
+        });
+
+        it('gives a project with no entry the defaults', () => {
+            expect(resolveArcConfig(installConfigFor(file, 'someone-else'))).toEqual(resolveArcConfig(undefined));
+            expect(installConfigFor({}, 'acme-prod')).toBeUndefined();
+        });
+
+        it('still reads a single-entry file written before CO3.2, for every project', () => {
+            expect(installConfigFor({ databaseId: 'arccms' }, 'anything')).toEqual({ databaseId: 'arccms' });
         });
     });
 });
