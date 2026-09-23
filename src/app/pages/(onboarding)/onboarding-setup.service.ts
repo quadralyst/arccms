@@ -10,6 +10,7 @@ import { inject, Injectable } from '@angular/core';
 import { DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/misc-settings.model';
 import { Firestore, doc, collection, setDoc, getDoc, getDocs, query, where, serverTimestamp } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Auth } from '@angular/fire/auth';
 import { Observable, defer, from, map, of, catchError, switchMap } from 'rxjs';
 import { DEFAULT_CONTENT_TYPES, DEFAULT_WAITLIST, DEFAULT_SITE_CSS_URLS } from './onboarding-defaults';
 import { DEFAULT_EMAIL_SETTINGS, IEmailSettings, hasValidProviderConfig } from '../admin/(settings)/email-setting/email-setting.model';
@@ -24,11 +25,28 @@ import { AuthService } from '../(auth)/auth.service';
  */
 export type OnboardingState = 'first-run' | 'in-progress' | 'complete';
 
+/**
+ * Who may resume an unfinished wizard (`in-progress`).
+ *
+ * `owner`      — signed in as the person who started it (or, on a flag written
+ *                before `startedBy` existed, anyone signed in).
+ * `signed-out` — nobody is signed in; they must sign in first.
+ * `other`      — signed in as someone else; the wizard is not theirs to finish.
+ */
+export type OnboardingResumeAccess = 'owner' | 'signed-out' | 'other';
+
+interface OnboardingStatus {
+    state: OnboardingState;
+    /** uid of the admin who started the wizard, when the flag records it. */
+    startedBy?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OnboardingSetupService {
     private firestore = inject(Firestore);
     private functions = inject(Functions);
     private authService = inject(AuthService);
+    private auth = inject(Auth, { optional: true });
 
     /**
      * Make the signed-in user the site's first admin.
@@ -237,9 +255,13 @@ export class OnboardingSetupService {
      * Called after admin account creation (step 2) so we can detect abandoned wizards.
      */
     async markOnboardingStarted(): Promise<void> {
+        const startedBy = this.auth?.currentUser?.uid;
         await setDoc(doc(this.firestore, 'Settings', 'onboarding_status'), {
             completed: false,
             startedAt: serverTimestamp(),
+            // Who may resume it. Everyone else is left alone while it is
+            // unfinished; see shouldShowOnboarding().
+            ...(startedBy ? { startedBy } : {}),
         });
     }
 
@@ -285,15 +307,45 @@ export class OnboardingSetupService {
      * `/onboarding` by hand.
      */
     getOnboardingState(): Observable<OnboardingState> {
+        return this.readOnboardingStatus().pipe(map((status) => status.state));
+    }
+
+    private readOnboardingStatus(): Observable<OnboardingStatus> {
         const docRef = doc(this.firestore, 'Settings', 'onboarding_status');
         return from(getDoc(docRef)).pipe(
-            switchMap((snapshot): Observable<OnboardingState> => {
+            switchMap((snapshot): Observable<OnboardingStatus> => {
                 if (snapshot.exists()) {
-                    return of(snapshot.data()?.['completed'] === true ? 'complete' : 'in-progress');
+                    const data = snapshot.data();
+                    if (data?.['completed'] === true) return of({ state: 'complete' });
+                    const startedBy = typeof data?.['startedBy'] === 'string' ? data['startedBy'] : undefined;
+                    return of({ state: 'in-progress', startedBy });
                 }
-                return this.detectFirstRun();
+                return this.detectFirstRun().pipe(map((state) => ({ state })));
             }),
-            catchError(() => this.detectFirstRun()),
+            catchError(() => this.detectFirstRun().pipe(map((state) => ({ state })))),
+        );
+    }
+
+    /**
+     * The signed-in user's uid, once Firebase has restored any saved session,
+     * or null. `currentUser` alone reads null for a moment on every page load
+     * even for someone who is signed in.
+     */
+    private currentUid(): Observable<string | null> {
+        return defer(async () => {
+            if (!this.auth) return null;
+            await this.auth.authStateReady?.();
+            return this.auth.currentUser?.uid ?? null;
+        }).pipe(catchError(() => of(null)));
+    }
+
+    /** Whether the current visitor may resume an unfinished wizard. */
+    resumeAccess(): Observable<OnboardingResumeAccess> {
+        return this.readOnboardingStatus().pipe(
+            switchMap((status) => this.currentUid().pipe(map((uid): OnboardingResumeAccess => {
+                if (!uid) return 'signed-out';
+                return !status.startedBy || status.startedBy === uid ? 'owner' : 'other';
+            }))),
         );
     }
 
@@ -319,9 +371,23 @@ export class OnboardingSetupService {
 
     /**
      * Should this visitor be redirected into the wizard?
-     * True for both `first-run` and `in-progress`.
+     *
+     * Always on a `first-run`: nobody can use a site with no admin, and the
+     * wizard is how the first admin is made. For `in-progress` only the person
+     * finishing setup is sent back. Sending everyone used to turn an unfinished
+     * wizard into a lock on the whole site: visitors got the wizard instead of
+     * the site, and so did `/signup`, where the admin signs in, while the wizard
+     * itself has no sign-in form (found testing a fresh install, 2026-09-23).
      */
     shouldShowOnboarding(): Observable<boolean> {
-        return this.getOnboardingState().pipe(map((state) => state !== 'complete'));
+        return this.readOnboardingStatus().pipe(
+            switchMap((status) => {
+                if (status.state === 'first-run') return of(true);
+                if (status.state === 'complete') return of(false);
+                return this.currentUid().pipe(
+                    map((uid) => !!uid && (!status.startedBy || status.startedBy === uid)),
+                );
+            }),
+        );
     }
 }

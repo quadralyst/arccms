@@ -17,7 +17,7 @@ import {
     ValidationErrors,
     Validators,
 } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { take, firstValueFrom } from 'rxjs';
 import { Auth } from '@angular/fire/auth';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -43,7 +43,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     selector: 'arc-onboarding',
     standalone: true,
-    imports: [ReactiveFormsModule, CommonModule, MatDialogModule],
+    imports: [ReactiveFormsModule, CommonModule, MatDialogModule, RouterLink],
     templateUrl: './onboarding.page.html',
     styleUrls: ['./onboarding.page.scss'],
 })
@@ -91,6 +91,12 @@ export default class OnboardingComponent implements OnInit {
     // and the connection-test callable refuses a claimless caller, so each of
     // those entry points re-checks through `ensureAdminClaim()` before acting.
     adminClaimPending = signal(false);
+    /**
+     * Setup was started, but nobody is signed in. The wizard cannot continue
+     * without the admin's session (every later step writes admin-only data),
+     * and it has no sign-in form, so it says so and links to /signup.
+     */
+    needsSignIn = signal(false);
 
     // Forms
     onboardingForm!: FormGroup;
@@ -151,11 +157,22 @@ export default class OnboardingComponent implements OnInit {
             } else if (state === 'in-progress') {
                 // Re-entry: admin account exists but wizard wasn't finished
                 this.signupHandled = true; // prevent effect from re-firing
-                // The admin claim may never have been granted (claimFirstAdmin
-                // failed last time), so the first admin-only step re-checks it
-                // and retries the claim through ensureAdminClaim().
-                this.adminClaimPending.set(true);
-                this.currentStep.set(3);
+                this.setupService.resumeAccess().pipe(take(1)).subscribe((access) => {
+                    if (access === 'other') {
+                        // Someone else started setup; it is theirs to finish.
+                        this.router.navigate(['/']);
+                        return;
+                    }
+                    if (access === 'signed-out') {
+                        this.needsSignIn.set(true);
+                        return;
+                    }
+                    // The admin claim may never have been granted (claimFirstAdmin
+                    // failed last time), so the first admin-only step re-checks it
+                    // and retries the claim through ensureAdminClaim().
+                    this.adminClaimPending.set(true);
+                    this.currentStep.set(3);
+                });
             }
             // 'first-run' — stay on step 1 and create the admin account.
         });
@@ -224,6 +241,12 @@ export default class OnboardingComponent implements OnInit {
      * the caller report a generic failure for a permission error.
      */
     private async ensureAdminClaim(): Promise<boolean> {
+        // Signed out (the session ended mid-wizard): no claim can arrive, and
+        // "still propagating" would send the admin waiting for nothing.
+        if (!this.auth?.currentUser) {
+            this.needsSignIn.set(true);
+            return false;
+        }
         if (!this.adminClaimPending()) return true;
 
         if (await this.hasAdminClaim()) {
@@ -595,6 +618,20 @@ export default class OnboardingComponent implements OnInit {
     }
 
     async skipSetupAndGo(): Promise<void> {
+        // Skip is offered after completeSetup() failed. Still try for the
+        // defaults, each on its own: the failure may have been the one thing a
+        // retry cannot fix, and a site with no content type and no signup form
+        // is a worse start than one with whichever of them could be made.
+        for (const create of [
+            () => this.setupService.createDefaultContentTypes(),
+            () => this.setupService.createDefaultWaitlist(),
+        ]) {
+            try {
+                await create();
+            } catch (err) {
+                console.warn('Default could not be created on skip (non-fatal):', err);
+            }
+        }
         try {
             await this.setupService.markOnboardingComplete();
         } catch (err) {

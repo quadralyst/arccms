@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Firestore } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
+import { Auth } from '@angular/fire/auth';
 import { Observable, of } from 'rxjs';
 import { AuthService } from '../(auth)/auth.service';
 import { OnboardingSetupService } from './onboarding-setup.service';
@@ -50,11 +51,17 @@ describe('OnboardingSetupService', () => {
     let service: OnboardingSetupService;
     const mockFirestore = {};
     const mockAuthService = { isFirstRun: vi.fn().mockReturnValue(of(false)) };
+    // The Firebase Auth instance: who is signed in, once the session is restored.
+    const mockAuth: { currentUser: { uid: string } | null; authStateReady: () => Promise<void> } = {
+        currentUser: null,
+        authStateReady: vi.fn().mockResolvedValue(undefined),
+    };
 
     beforeEach(() => {
         vi.clearAllMocks();
         mockGetDocs.mockResolvedValue({ empty: true });
         mockAuthService.isFirstRun.mockReturnValue(of(false));
+        mockAuth.currentUser = null;
 
         TestBed.configureTestingModule({
             providers: [
@@ -62,6 +69,7 @@ describe('OnboardingSetupService', () => {
                 { provide: Firestore, useValue: mockFirestore },
                 { provide: Functions, useValue: {} },
                 { provide: AuthService, useValue: mockAuthService },
+                { provide: Auth, useValue: mockAuth },
             ],
         });
 
@@ -410,6 +418,16 @@ describe('OnboardingSetupService', () => {
     });
 
     describe('markOnboardingStarted', () => {
+        it('records who started setup, so only they are sent back to it', async () => {
+            mockAuth.currentUser = { uid: 'admin-uid' };
+            await service.markOnboardingStarted();
+            expect(mockSetDoc.mock.calls[0][1]).toEqual({
+                completed: false,
+                startedAt: 'server-timestamp',
+                startedBy: 'admin-uid',
+            });
+        });
+
         it('should write Settings/onboarding_status with completed: false', async () => {
             await service.markOnboardingStarted();
 
@@ -512,8 +530,34 @@ describe('OnboardingSetupService', () => {
             expect(await read()).toBe(false);
         });
 
-        it('should be true when the wizard was started but never finished', async () => {
-            mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ completed: false }) });
+        const inProgress = (startedBy?: string) =>
+            mockGetDoc.mockResolvedValueOnce({
+                exists: () => true,
+                data: () => ({ completed: false, ...(startedBy ? { startedBy } : {}) }),
+            });
+
+        it('should be true for the admin who started an unfinished wizard', async () => {
+            inProgress('admin-uid');
+            mockAuth.currentUser = { uid: 'admin-uid' };
+            expect(await read()).toBe(true);
+        });
+
+        it('should be false for signed-out visitors while setup is unfinished', async () => {
+            // The lock this prevents: every visitor, and /signup where the admin
+            // signs in, used to be sent to a wizard with no sign-in form.
+            inProgress('admin-uid');
+            expect(await read()).toBe(false);
+        });
+
+        it('should be false for anyone else signed in while setup is unfinished', async () => {
+            inProgress('admin-uid');
+            mockAuth.currentUser = { uid: 'someone-else' };
+            expect(await read()).toBe(false);
+        });
+
+        it('should be true for any signed-in user on a flag that predates startedBy', async () => {
+            inProgress();
+            mockAuth.currentUser = { uid: 'admin-uid' };
             expect(await read()).toBe(true);
         });
 
@@ -521,6 +565,33 @@ describe('OnboardingSetupService', () => {
             mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
             mockAuthService.isFirstRun.mockReturnValue(of(true));
             expect(await read()).toBe(true);
+        });
+    });
+
+    describe('resumeAccess', () => {
+        const read = () => new Promise<string>((resolve) => {
+            service.resumeAccess().subscribe(resolve);
+        });
+        const inProgress = () => mockGetDoc.mockResolvedValueOnce({
+            exists: () => true,
+            data: () => ({ completed: false, startedBy: 'admin-uid' }),
+        });
+
+        it('is owner for the admin who started setup', async () => {
+            inProgress();
+            mockAuth.currentUser = { uid: 'admin-uid' };
+            expect(await read()).toBe('owner');
+        });
+
+        it('is signed-out when nobody is signed in', async () => {
+            inProgress();
+            expect(await read()).toBe('signed-out');
+        });
+
+        it('is other for a different signed-in user', async () => {
+            inProgress();
+            mockAuth.currentUser = { uid: 'someone-else' };
+            expect(await read()).toBe('other');
         });
     });
 });

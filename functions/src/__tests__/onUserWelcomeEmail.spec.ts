@@ -4,7 +4,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockTemplateGet, mockQueueEmail } = vi.hoisted(() => ({
+const { mockTemplateGet, mockQueueEmail, mockEnsureDefaults } = vi.hoisted(() => ({
+  mockEnsureDefaults: vi.fn().mockResolvedValue({ created: [], skipped: [] }),
   mockTemplateGet: vi.fn(),
   mockQueueEmail: vi.fn().mockResolvedValue({ id: 'log-1', status: 'pending' }),
 }));
@@ -18,6 +19,7 @@ vi.mock('../init', () => ({
 }));
 
 vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
+vi.mock('../email-core/defaultTemplates', () => ({ ensureDefaultTemplates: mockEnsureDefaults }));
 
 vi.mock('firebase-functions/v2/firestore', () => ({
   onDocumentCreated: vi.fn((_path: string, handler: any) => handler),
@@ -75,5 +77,19 @@ describe('onUserCreateWelcomeEmail', () => {
   it('does not throw when queueEmail fails', async () => {
     mockQueueEmail.mockRejectedValue(new Error('boom'));
     await expect(handler(event({ email: 'x@y.com' }))).resolves.toBeUndefined();
+  });
+
+  it('seeds the default templates when a new install has none, then sends', async () => {
+    mockTemplateGet.mockResolvedValueOnce({ empty: true, docs: [] }).mockResolvedValueOnce(template);
+
+    await handler(event({ email: 'first@user.com', name: 'First' }));
+
+    expect(mockEnsureDefaults).toHaveBeenCalledTimes(1);
+    expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({ toEmail: 'first@user.com' }));
+  });
+
+  it('does not seed when the template already exists', async () => {
+    await handler(event({ email: 'new@user.com' }));
+    expect(mockEnsureDefaults).not.toHaveBeenCalled();
   });
 });

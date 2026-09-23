@@ -67,7 +67,24 @@
           ></div>
         </div>
 
-        @if (currentStep() <= 2) {
+        @if (needsSignIn()) {
+        <!-- Setup was started but whoever is here is signed out. The wizard has
+             no sign-in form of its own, so send them to the one that exists. -->
+        <div class="request-container">
+          <div class="card request-card border-0">
+            <div class="card-body customPadding">
+              <h2 class="auth-title">Finish setting up</h2>
+              <p class="auth-subtitle">
+                Setup for this site was started but not finished. Sign in with
+                the administrator account you created to continue where you left off.
+              </p>
+              <a class="btn btn-primary w-100 mt-4" routerLink="/signup">
+                Sign in to continue <i class="fas fa-arrow-right ms-1"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+        } @else if (currentStep() <= 2) {
         <form class="wizard-form-wrapper" [formGroup]="onboardingForm" (ngSubmit)="register()">
           <div class="request-container">
             <div class="card request-card border-0">
@@ -312,7 +329,7 @@
         }
 
         <!-- ─── STEP 3: Site Info ─── -->
-        @if (currentStep() === 3) {
+        @if (currentStep() === 3 && !needsSignIn()) {
         <div class="request-container">
           <div class="card request-card border-0">
             <div class="card-body customPadding">
@@ -399,7 +416,7 @@
         }
 
         <!-- ─── STEP 4: Email Setup ─── -->
-        @if (currentStep() === 4) {
+        @if (currentStep() === 4 && !needsSignIn()) {
         <div class="request-container request-container-review">
           <div class="card request-card border-0">
             <div class="card-body customPadding">
@@ -780,7 +797,7 @@
         }
 
         <!-- ─── STEP 5: Complete ─── -->
-        @if (currentStep() === 5) {
+        @if (currentStep() === 5 && !needsSignIn()) {
         <div class="request-container request-container-review">
           <div class="card request-card border-0">
             <div class="card-body customPadding">

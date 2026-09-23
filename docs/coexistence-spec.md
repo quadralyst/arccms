@@ -1,6 +1,6 @@
 # ArcCMS Coexistence: Build Spec
 
-**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (committed 094007a) and CO3 built on `feat/coexistence` (2026-09-23), not yet deployed. CO4 to CO8 not started.
+**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92) and CO3.1 built on `feat/coexistence` (2026-09-23); functions deployed to the dev project `xlm-project-864ff` on its `arccms` database for testing. CO4 to CO8 not started.
 **Branch:** `feat/coexistence`, cut from `fix/role-escalation-rules` (CO1) because `dev` lacks the search, discoverability and multilingual work this builds on.
 **Scope:** let ArcCMS share a Firebase project with other applications (their own
 functions, triggers, rules, storage, Firestore data and hosting) without either side
@@ -254,6 +254,21 @@ Findings during CO3:
   only refreshed on a language change, not when the translation file finished loading (the
   wizard loads no admin strings, so the admin rendered first). Both now also refresh on
   Transloco's `translationLoadSuccess`, with regression tests.
+
+**CO3.1: new-install fixes (2026-09-23).** Found by onboarding into an empty `arccms`
+database on the dev project; they are not coexistence-specific and apply to every new install.
+
+| # | Problem | Fix |
+|---|---------|-----|
+| 1 | An unfinished wizard locked the site: every visitor, and `/signup` where the admin signs in, was sent to the wizard, which has no sign-in form. A signed-out admin saw "permissions have not finished propagating" forever. | `onboarding_status` records `startedBy`. `shouldShowOnboarding()` sends everyone to the wizard only on a first run; while it is in progress only its owner goes back (a flag without `startedBy` falls back to any signed-in user). The wizard shows signed-out visitors "Finish setting up" with a sign-in link, sends other users to `/`, and `ensureAdminClaim()` reports a missing session as such. |
+| 2 | "Skip & Go to Dashboard" (offered after step 5 fails) created no content type and no waitlist. | It now tries each default independently before marking setup complete. |
+| 3 | Unsubscribe and preference links were empty on every new install: nothing generated `unsubscribeSecret`. | `getUnsubscribeSecret()` creates one on first use in `_system/unsubscribe_secret` (closed to clients), once, in a transaction. Not in `Settings/email`, which the admin UI and the wizard save whole. A secret configured by hand in `Settings/email` still wins, so links already sent keep working. |
+| 4 | No welcome email for a new site's first users: no template existed until the Announcements page seeded them. | `onUserCreateWelcomeEmail` runs the idempotent `ensureDefaultTemplates()` when the template is missing. |
+| 5 | The admin page header squeezed its title to one word per line and pushed actions out of view when a page had several actions (Contacts at about 1000px). | The header wraps; the title keeps 280px and the actions take their own row when both cannot fit. |
+
+Open from the same test: every new contact defaults to `consent: subscribed`, including users
+who never opted in (the backfilled admin showed as subscribed). Changing the default is a
+product and legal decision, left to the owner.
 
 Order: CO1 → CO2 → CO3 → CO4 → CO5 → CO6 → CO7. CO1 to CO3 change nothing for an
 existing install. CO4 is the release that needs the runbook.

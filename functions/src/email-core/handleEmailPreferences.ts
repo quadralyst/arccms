@@ -5,6 +5,7 @@ import { db } from '../init.js';
 import type { EmailSettings } from '../types.js';
 import { verifyUnsubscribeToken } from './unsubscribeToken.js';
 import { setContactConsent, getContactConsent } from './contacts.js';
+import { getUnsubscribeSecret } from './unsubscribeSecret.js';
 
 /**
  * Public preference center (spec §Phase-3.4): `/email-preferences?e={hash}&t={hmac}`.
@@ -22,7 +23,7 @@ export const handleEmailPreferences = onRequest(async (req, res) => {
   const action = String(req.query['action'] || '');
 
   const settings = await readEmailSettings();
-  const secret = settings?.unsubscribeSecret;
+  const secret = await getUnsubscribeSecret(settings?.unsubscribeSecret);
 
   if (!verifyUnsubscribeToken(emailHash, token, secret || '')) {
     logger.warn('handleEmailPreferences: invalid token');

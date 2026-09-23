@@ -7,6 +7,7 @@ import { checkQuota, incrementSendCount, resolveProviderLimits } from './emailCo
 import { getMiscSettings } from '../shared/site-settings.js';
 import { POWERED_BY_EMAIL_HTML } from '../shared/html-document.js';
 import { buildUnsubscribeUrl, buildPreferencesUrl } from '../email-core/unsubscribeToken.js';
+import { getUnsubscribeSecret } from '../email-core/unsubscribeSecret.js';
 
 /** Base retry backoff unit: 5 minutes. */
 const RETRY_BASE_MS = 5 * 60 * 1000;
@@ -86,6 +87,10 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
     } catch (quotaErr) {
         console.warn('sendMail: quota check failed, proceeding with send:', quotaErr);
     }
+
+    // Unsubscribe and preference links need the site's secret; it is created
+    // on first use rather than expected in Settings/email (see unsubscribeSecret.ts).
+    settings.unsubscribeSecret = await getUnsubscribeSecret(settings.unsubscribeSecret);
 
     try {
         updatedTemplate = await processEmailTemplate(emailLogsData, settings);

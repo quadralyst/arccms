@@ -6,6 +6,7 @@ import type { EmailSettings } from '../types.js';
 import { verifyUnsubscribeToken } from './unsubscribeToken.js';
 import { setContactConsent } from './contacts.js';
 import { exitAllEnrollments } from './dripEnrollment.js';
+import { getUnsubscribeSecret } from './unsubscribeSecret.js';
 
 /**
  * One-click unsubscribe endpoint: `/unsubscribe?e={emailHash}&t={hmac}`.
@@ -25,7 +26,7 @@ export const handleUnsubscribe = onRequest(async (req, res) => {
   const isPost = req.method === 'POST';
 
   const settings = await readEmailSettings();
-  const secret = settings?.unsubscribeSecret;
+  const secret = await getUnsubscribeSecret(settings?.unsubscribeSecret);
 
   if (!verifyUnsubscribeToken(emailHash, token, secret || '')) {
     logger.warn('handleUnsubscribe: invalid or unverifiable token');

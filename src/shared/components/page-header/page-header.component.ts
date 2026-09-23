@@ -52,12 +52,19 @@ import { AdminSearchComponent } from '../admin-search/admin-search.component';
     styles: [`
         .arc-page-header {
             display: flex;
+            flex-wrap: wrap;
             align-items: flex-start;
             justify-content: space-between;
             gap: 1rem;
             margin-bottom: 24px;
         }
-        .lead { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        /*
+         * The title keeps at least 280px. When it and the actions cannot share a
+         * row, the actions wrap onto their own. They used to refuse to shrink,
+         * which on a page with several actions (Contacts, at about 1000px) left
+         * the subtitle one word per line and pushed buttons out of view.
+         */
+        .lead { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 280px; }
         .back-btn {
             flex-shrink: 0;
             width: 36px;
@@ -87,7 +94,8 @@ import { AdminSearchComponent } from '../admin-search/admin-search.component';
             display: flex;
             align-items: center;
             gap: 8px;
-            flex-shrink: 0;
+            flex: 0 1 auto;
+            max-width: 100%;
             flex-wrap: wrap;
             justify-content: flex-end;
         }
