@@ -307,7 +307,7 @@ describe('WaitlistFormService', () => {
       `;
 
             const url = service.getLeaderboardUrl(container);
-            expect(url).toBe('/leaderboard/default');
+            expect(url).toBe('/leaderboard/waitlist-form');
         });
     });
 
@@ -828,6 +828,40 @@ describe('WaitlistFormService', () => {
                     signupMetadata: mockMetadata
                 })
             );
+        });
+    });
+
+    describe('default form id resolution', () => {
+        const resolve = (id: string) => (service as any).resolveWaitlistId(id) as Promise<string>;
+        const existing = (ids: string[]) => {
+            mockWaitlistService.getWaitlist.mockImplementation(async (id: string) => (ids.includes(id) ? { id } : null));
+            mockWaitlistService.getWaitlistBySlug.mockResolvedValue(null);
+        };
+
+        it('uses waitlist-form when it exists', async () => {
+            existing(['waitlist-form', 'get-early-access-to-arc-cms']);
+            expect(await resolve('waitlist-form')).toBe('waitlist-form');
+        });
+
+        it('keeps an older install on its existing default form, so signups do not move', async () => {
+            existing(['get-early-access-to-arc-cms', 'default']);
+            expect(await resolve('waitlist-form')).toBe('get-early-access-to-arc-cms');
+        });
+
+        it('falls back to the onboarding "default" form when that is the only one', async () => {
+            existing(['default']);
+            expect(await resolve('waitlist-form')).toBe('default');
+        });
+
+        it('asks for waitlist-form on a fresh install with no form yet', async () => {
+            existing([]);
+            expect(await resolve('waitlist-form')).toBe('waitlist-form');
+        });
+
+        it('never rewrites any other form id', async () => {
+            existing(['get-early-access-to-arc-cms']);
+            expect(await resolve('product-launch')).toBe('product-launch');
+            expect(mockWaitlistService.getWaitlist).not.toHaveBeenCalled();
         });
     });
 });

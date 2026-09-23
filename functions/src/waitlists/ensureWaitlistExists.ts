@@ -1,5 +1,6 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { db } from '../init.js';
+import { DEFAULT_WAITLIST_FORM_ID } from './defaultForm.js';
 
 /**
  * Callable cloud function to ensure a waitlist document exists.
@@ -31,8 +32,10 @@ export const ensureWaitlistExists = onCall(async (request) => {
     }
 
     // 3. Create with defaults
-    const formattedTitle = waitlistId === 'default'
-        ? 'Default Waitlist'
+    // The default form, under its current or its original id, gets the same
+    // plain name onboarding gives it.
+    const formattedTitle = waitlistId === DEFAULT_WAITLIST_FORM_ID || waitlistId === 'default'
+        ? 'Waitlist'
         : waitlistId
             .split('-')
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))

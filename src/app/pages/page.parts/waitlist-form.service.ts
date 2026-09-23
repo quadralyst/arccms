@@ -15,6 +15,7 @@ import { GlobalService } from '../../../shared/services/global.service';
 import { Firestore, doc, getDoc, collection } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { DEFAULT_INTEGRATIONS_SETTINGS, IGeoConfig } from '../admin/(settings)/integrations-setting/integrations-setting.model';
+import { DEFAULT_WAITLIST_FORM_ID, LEGACY_DEFAULT_WAITLIST_FORM_IDS } from '../../../shared/constants/waitlist-form';
 
 type WaitlistStep = 'signup' | 'verify' | 'success' | 'existing-user' | 'error';
 
@@ -50,7 +51,37 @@ export class WaitlistFormService {
     private injector = inject(Injector);
 
     private formStates = new Map<HTMLFormElement, WaitlistFormState>();
-    private defaultWaitlistId = 'default';
+    private defaultWaitlistId = DEFAULT_WAITLIST_FORM_ID;
+    private resolvedDefaultForm: Promise<string> | null = null;
+
+    /**
+     * The form a page's `data-waitlist-id` should post to. Only the default form
+     * id is ever rewritten: on an install that predates it, with its default form
+     * under a legacy id and no `waitlist-form`, the page keeps using the legacy
+     * form, so signups do not start collecting in a new, empty one. Any other id
+     * is used as written. Resolved once per page load.
+     */
+    private resolveWaitlistId(requested: string): Promise<string> {
+        if (requested !== DEFAULT_WAITLIST_FORM_ID) return Promise.resolve(requested);
+        this.resolvedDefaultForm ??= this.findDefaultForm();
+        return this.resolvedDefaultForm;
+    }
+
+    private async findDefaultForm(): Promise<string> {
+        for (const id of [DEFAULT_WAITLIST_FORM_ID, ...LEGACY_DEFAULT_WAITLIST_FORM_IDS]) {
+            if (await this.waitlistExists(id)) return id;
+        }
+        // None yet: the page's own id, which ensureWaitlistExists will create.
+        return DEFAULT_WAITLIST_FORM_ID;
+    }
+
+    private async waitlistExists(id: string): Promise<boolean> {
+        try {
+            return !!(await this.waitlistService.getWaitlist(id)) || !!(await this.waitlistService.getWaitlistBySlug(id));
+        } catch {
+            return false;
+        }
+    }
 
     /**
      * Check if OTP verification template is enabled for a waitlist.
@@ -164,8 +195,9 @@ export class WaitlistFormService {
             }
 
             if (waitlistId) {
+                const formId = await this.resolveWaitlistId(waitlistId);
                 try {
-                    let count = countCache.get(waitlistId);
+                    let count = countCache.get(formId);
 
                     if (count === undefined) {
                         // #51: read the denormalised counter off the form document
@@ -174,14 +206,14 @@ export class WaitlistFormService {
                         // addresses, and that is the exposure this closes. The form doc
                         // is public by design — it is what renders the page.
                         const formSnap = await runInInjectionContext(this.injector, () =>
-                            getDoc(doc(this.firestore, 'Waitlists', waitlistId)));
+                            getDoc(doc(this.firestore, 'Waitlists', formId)));
                         const data = formSnap.exists() ? formSnap.data() : null;
                         // Note the small semantic shift: the aggregate counted every
                         // member document, `totalSignups` counts confirmed ones. For a
                         // "N people have joined" label that is the more honest number,
                         // and it no longer requires reading anyone's record.
                         count = Number(data?.['totalSignups'] ?? 0);
-                        countCache.set(waitlistId, count);
+                        countCache.set(formId, count);
                     }
 
                     element.classList.remove('arc-skeleton');
@@ -195,7 +227,7 @@ export class WaitlistFormService {
                         }
                     }
                 } catch (error) {
-                    console.error(`Error fetching waitlist count for ${waitlistId}:`, error);
+                    console.error(`Error fetching waitlist count for ${formId}:`, error);
                 }
             } else {
                 console.warn('Waitlist counts: Could not resolve waitlist ID for element', element);
@@ -405,7 +437,7 @@ export class WaitlistFormService {
         const forms = Array.from(container.querySelectorAll('form[data-waitlist-form]'));
 
         for (const form of forms) {
-            const waitlistId = form.getAttribute('data-waitlist-id') || this.defaultWaitlistId;
+            const waitlistId = await this.resolveWaitlistId(form.getAttribute('data-waitlist-id') || this.defaultWaitlistId);
 
             let waitlist = await this.waitlistService.getWaitlistBySlug(waitlistId);
             if (!waitlist) {

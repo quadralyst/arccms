@@ -352,14 +352,15 @@ describe('OnboardingSetupService', () => {
     });
 
     describe('createDefaultWaitlist', () => {
-        it('should create Waitlists/default document', async () => {
+        it('should create the default form under the shared id the landing pages use', async () => {
             await service.createDefaultWaitlist();
 
             expect(mockSetDoc).toHaveBeenCalledTimes(1);
+            expect(mockDoc).toHaveBeenCalledWith(expect.anything(), 'Waitlists', 'waitlist-form');
 
             const data = mockSetDoc.mock.calls[0][1];
             expect(data).toEqual(expect.objectContaining({
-                slug: 'default',
+                slug: 'waitlist-form',
                 name: 'Waitlist',
                 isActive: true,
                 otpEnabled: true,

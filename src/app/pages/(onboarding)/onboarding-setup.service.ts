@@ -203,13 +203,14 @@ export class OnboardingSetupService {
 
     /**
      * Create the default waitlist.
-     * Uses 'default' as the document ID so landing page forms work immediately.
+     * Uses the shared default form id as the document id, the one the bundled
+     * landing pages post to, so their forms work immediately.
      *
      * IMPORTANT: Must be called AFTER saveEmailConfig/saveEmailSkipped so the
      * onWaitlistsCreate cloud function reads correct email settings for template creation.
      */
     async createDefaultWaitlist(): Promise<void> {
-        await setDoc(doc(this.firestore, 'Waitlists', 'default'), {
+        await setDoc(doc(this.firestore, 'Waitlists', DEFAULT_WAITLIST.slug), {
             ...DEFAULT_WAITLIST,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),

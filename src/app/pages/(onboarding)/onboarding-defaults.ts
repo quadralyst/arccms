@@ -7,6 +7,7 @@
 
 import { ContentType } from '../admin/contents/content-types/content-types.model';
 import { DEFAULT_UI_CONFIG } from '../waitlist/waitlist.model';
+import { DEFAULT_WAITLIST_FORM_ID } from '../../../shared/constants/waitlist-form';
 
 /**
  * Default CSS URLs for the site (matches cloud function defaults in site-settings.ts)
@@ -65,11 +66,12 @@ export const DEFAULT_CONTENT_TYPES: Omit<ContentType, 'id' | 'createdAt' | 'modi
 ];
 
 /**
- * Default waitlist created during onboarding.
- * Doc ID will be 'default' so landing pages using data-waitlist-id="default" work immediately.
+ * Default waitlist created during onboarding. Its id and slug are the shared
+ * default form id, which the bundled landing pages post to, so the page and the
+ * wizard use one form.
  */
 export const DEFAULT_WAITLIST = {
-    slug: 'default',
+    slug: DEFAULT_WAITLIST_FORM_ID,
     name: 'Waitlist',
     description: 'Default waitlist for early access signups',
     isActive: true,
