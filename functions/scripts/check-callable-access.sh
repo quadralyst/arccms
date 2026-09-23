@@ -37,6 +37,8 @@ CALLABLES=(
   normalizeWaitlistTemplateIds dedupeEmailTemplates seedEmailTemplates
   previewBroadcastAudience sendTestEmail sendAnnouncement unsubscribeLegacyLink
   getOptimizedLeaderboard ensureWaitlistExists
+  joinForm finalizeFormSignup getPublicMemberView getPublicLeaderboard creditReferral
+  getMyNotificationPrefs updateMyNotificationPrefs claimFirstAdmin search
 )
 
 blocked=()
@@ -67,7 +69,7 @@ if [ ${#blocked[@]} -eq 0 ]; then
 else
   echo "Run these to fix:"
   for fn in "${blocked[@]}"; do
-    echo "  gcloud run services add-iam-policy-binding $(echo "$fn" | tr '[:upper:]' '[:lower:]') \\"
+    echo "  gcloud run services add-iam-policy-binding arccms-$(echo "$fn" | tr '[:upper:]' '[:lower:]') \\"
     echo "    --region=$REGION --member=allUsers --role=roles/run.invoker --project=$PROJECT"
   done
   exit 1
