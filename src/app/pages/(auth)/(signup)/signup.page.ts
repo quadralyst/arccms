@@ -19,6 +19,7 @@ import {
   OnInit,
   PLATFORM_ID,
   signal,
+  untracked,
 } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -92,8 +93,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
       // Handle error
       if (error) {
-        this.errorMessage.set(error);
-        this.authActionPending = false; // a failed attempt must not redirect later
+        untracked(() => this.handleAuthError(error, this.authStore.errorCode()));
       }
 
       // Redirect once a signup/login the user just initiated has produced a
@@ -106,6 +106,24 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.handleLoginSuccess();
       }
     });
+  }
+
+  /**
+   * Show a failed sign-up or sign-in. A sign-up refused because the email is
+   * already registered goes to the sign-in step instead: the "is this email
+   * new?" check reads Firestore (email_lookup), but the account lives in
+   * Firebase Auth, and the two disagree whenever the lookup entry was never
+   * written (its trigger failed, the database was replaced) or the Auth pool is
+   * shared with another app. Auth is the truth, so ask for the password.
+   */
+  handleAuthError(error: string, code: string): void {
+    this.authActionPending = false; // a failed attempt must not redirect later
+    if (code === 'auth/email-already-in-use' && this.currentStep() === 'signup') {
+      this.goToStep('login');
+      this.errorMessage.set('An account with this email already exists. Enter your password to sign in.');
+      return;
+    }
+    this.errorMessage.set(error);
   }
 
   ngOnInit() {

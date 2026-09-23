@@ -231,7 +231,7 @@
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                         <input [type]="showPassword() ? 'text' : 'password'" formControlName="password"
-                                            class="form-control" id="password" placeholder="********"
+                                            class="form-control p-2" id="password" placeholder="********"
                                             [class.is-invalid]="isFieldInvalid('password')" [readOnly]="isLoading()" />
                                         <span class="input-group-text password-toggle eye_btn"
                                             (click)="showPassword.set(!showPassword())" style="cursor: pointer;">
@@ -269,6 +269,12 @@
                                     </div>
                                     }
                                 </div>
+
+                                @if (errorMessage()) {
+                                <div class="alert alert-danger mt-3">
+                                    {{ errorMessage() }}
+                                </div>
+                                }
 
                                 <button type="button" (click)="register()"
                                     class="btn btn-primary signup-button w-100 mt-4" [disabled]="isLoading()">

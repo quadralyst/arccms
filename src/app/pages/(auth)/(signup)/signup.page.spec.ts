@@ -475,4 +475,28 @@ describe('SignupComponent', () => {
             });
         });
     });
+
+    describe('handleAuthError', () => {
+        const ctx = (step: string) => ({
+            currentStep: vi.fn(() => step),
+            goToStep: vi.fn(),
+            errorMessage: { set: vi.fn() },
+            authActionPending: true,
+        });
+
+        it('sends an already-registered email to sign-in instead of failing silently', () => {
+            const c = ctx('signup');
+            SignupComponent.prototype.handleAuthError.call(c, 'User already exists!', 'auth/email-already-in-use');
+            expect(c.goToStep).toHaveBeenCalledWith('login');
+            expect(c.errorMessage.set).toHaveBeenCalledWith(expect.stringContaining('already exists'));
+            expect(c.authActionPending).toBe(false);
+        });
+
+        it('shows any other error where it happened', () => {
+            const c = ctx('signup');
+            SignupComponent.prototype.handleAuthError.call(c, 'Something went wrong!', 'auth/network-request-failed');
+            expect(c.goToStep).not.toHaveBeenCalled();
+            expect(c.errorMessage.set).toHaveBeenCalledWith('Something went wrong!');
+        });
+    });
 });
