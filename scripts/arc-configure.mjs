@@ -118,12 +118,16 @@ export const arcInstall: ArcInstallConfig = ${body};
 }
 
 /**
- * functions/.env with the ARC_* keys set or removed and every other line kept
- * as it was. Keys at their default are removed rather than written.
+ * functions/.env with the ARC_* keys set and every other line kept as it was.
+ *
+ * ARC_DATABASE_ID is always written, `(default)` included: it backs a deploy-time
+ * param, and the Firebase CLI refuses a non-interactive deploy when a param has
+ * no value in a dotenv file, default or not. ARC_HOSTING_SITE is written only
+ * when set (its default comes from the project id at run time).
  */
 export function updateFunctionsEnv(existing, config) {
     const wanted = {
-        ARC_DATABASE_ID: isNamedDatabase(config) ? config.databaseId : undefined,
+        ARC_DATABASE_ID: config.databaseId || DEFAULT_DATABASE_ID,
         ARC_HOSTING_SITE: config.hostingSite,
     };
     const lines = (existing ?? '').split('\n').filter((line) => {

@@ -45,6 +45,9 @@ Thumbs.db
 
 # Environment files
 .env*
+# The install config default (docs/coexistence-spec.md, CO3): holds no secrets, and the
+# Firebase CLI needs ARC_DATABASE_ID set to deploy non-interactively.
+!functions/.env
 
 # Firebase project config (contains project IDs — keep out of source control)
 .firebaserc

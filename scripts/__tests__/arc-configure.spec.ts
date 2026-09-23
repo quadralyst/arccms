@@ -33,9 +33,15 @@ describe('arc-configure', () => {
             expect(configure.renderArcInstall(config)).toContain('export const arcInstall: ArcInstallConfig = {};');
         });
 
-        it('writes no ARC_* keys and keeps other functions/.env lines', () => {
-            expect(configure.updateFunctionsEnv('', config)).toBe('');
-            expect(configure.updateFunctionsEnv('RESEND_KEY=x\nARC_DATABASE_ID=old\n', config)).toBe('RESEND_KEY=x\n');
+        it('writes ARC_DATABASE_ID=(default), which a non-interactive deploy needs, and keeps other lines', () => {
+            expect(configure.updateFunctionsEnv('', config)).toBe('ARC_DATABASE_ID=(default)\n');
+            expect(configure.updateFunctionsEnv('RESEND_KEY=x\nARC_DATABASE_ID=old\n', config))
+                .toBe('RESEND_KEY=x\nARC_DATABASE_ID=(default)\n');
+        });
+
+        it('matches the committed functions/.env, so a fresh clone deploys without running configure', () => {
+            const committed = readFileSync(join(ROOT, 'functions/.env'), 'utf8');
+            expect(committed).toMatch(/^ARC_DATABASE_ID=\(default\)$/m);
         });
 
         it('prints no setup commands', () => {
@@ -136,7 +142,7 @@ describe('arc-configure', () => {
             writeFileSync(paths.config, '{}');
             expect(run()).toBe(0);
             expect(existsSync(paths.generatedFirebase)).toBe(false);
-            expect(readFileSync(paths.functionsEnv, 'utf8')).toBe('RESEND_KEY=x\n');
+            expect(readFileSync(paths.functionsEnv, 'utf8')).toBe('RESEND_KEY=x\nARC_DATABASE_ID=(default)\n');
         });
 
         it('refuses an unsafe config and writes nothing', () => {

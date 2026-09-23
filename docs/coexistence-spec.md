@@ -235,6 +235,14 @@ Findings during CO3:
   source without asking. Harmless on a project ArcCMS owns; on a shared project it would
   delete the host app's functions. CO4's `arccms` codebase is what makes it safe; until then
   a backend install must not use those two scripts.
+- **A param needs a value in a dotenv file for non-interactive deploys, default or not.**
+  `firebase deploy --non-interactive` stopped with "no value for ARC_DATABASE_ID" on a
+  checkout without `functions/.env`, though the param defaults to `(default)`. That would
+  have broken every standalone install deploying from CI or `deploy:dev`/`deploy:prod`. So
+  `functions/.env` is now committed with `ARC_DATABASE_ID=(default)` (it holds no secrets),
+  and `arc:configure` always writes the key. The CLI's "error retrieving the Firestore
+  database ... {{ params.ARC_DATABASE_ID }}" lines during a deploy are noise: it looks the
+  database up before resolving the param.
 - **Recreating a database orphans its triggers.** After the `arccms` database was deleted and
   created again under the same id, the triggers bound to it (by name, per `functions:list`)
   stopped receiving events, and a plain redeploy (an in-place update with the same filters) did
