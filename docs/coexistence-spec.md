@@ -1,6 +1,6 @@
 # ArcCMS Coexistence: Build Spec
 
-**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is not deployed yet. CO5 to CO8 not started.
+**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is deployed on `xlm-project-864ff` next to the old install (see CO4 below). CO5 to CO8 not started.
 **Branch:** `feat/coexistence`, cut from `fix/role-escalation-rules` (CO1) because `dev` lacks the search, discoverability and multilingual work this builds on.
 **Scope:** let ArcCMS share a Firebase project with other applications (their own
 functions, triggers, rules, storage, Firestore data and hosting) without either side
@@ -295,6 +295,28 @@ candidates), then deploys `arccms`. It does not deploy hosting: the previous fro
 the old callable names, which stop existing, so hosting must be deployed straight after.
 Dry run against the dev project listed exactly the 104 ArcCMS functions and none of the
 other app's 32. The legacy proxy codebase first built here was removed (CO-D6).
+
+**CO4 deployed next to the old install (2026-09-23).** The dev project `xlm-project-864ff`
+now runs two ArcCMS installs side by side, which is the P3 shape with the old install as the
+"host app": codebase `default` (104 functions, old names, triggers on `(default)`, restored
+from `020227f`) and codebase `arccms` (104 `arccms-*` functions, triggers on the `arccms`
+database), plus another app's `functions` (44) and `ssr` (1) codebases. No upgrade was run.
+The `arccms` setting comes from `functions/.env.xlm-project-864ff`, which the CLI loads after
+`.env`. Verified: a public waitlist signup through `arccms-joinForm` and
+`arccms-finalizeFormSignup`, search through `arccms-search`, all 36 probed callables reachable.
+
+Findings:
+- **A callable whose creation times out is left without public access.** Six creations
+  ended in "Deadline Exceeded" while the CLI polled Cloud Run; redeploying them succeeded
+  but, as updates, did not grant `allUsers` the invoker role, so browsers got a 403
+  (`finalizeFormSignup` among them, which breaks every public signup). Deleting and
+  deploying them again fixed it. `functions/scripts/check-callable-access.sh` now covers the
+  public callables and prints `arccms-` service names; run it after any functions deploy.
+- `--only` for a grouped function in a named codebase is
+  `functions:<codebase>:<group>.<name>`, for example `functions:arccms:arccms.joinForm`.
+  `functions:arccms-joinForm` and `functions:arccms.joinForm` match nothing.
+- The first public signup on a freshly deployed install takes about 40 seconds (cold
+  `joinForm`, `requestFormOtp`, `finalizeFormSignup` in sequence).
 
 Not in CO4 as built: the namespaced `arccms_role` claim (CO-D7) was not part of CO1 as built
 either and is still open; the tracking pixel URL stays an opt-in setting.
