@@ -147,7 +147,14 @@ export async function upsertContact(params: UpsertContactParams): Promise<Upsert
     sources: FieldValue.arrayUnion(params.source),
     updatedAt: now,
   };
-  if (params.name) data['name'] = params.name;
+  if (params.name) {
+    data['name'] = params.name;
+  } else if (params.firstName && !snap.data()?.['name']) {
+    // Signup forms collect one "Your name" field and store it as firstName, so
+    // their contacts had no name at all and showed as "—". Use it as the name
+    // until something better arrives; a real name already on the contact wins.
+    data['name'] = params.firstName;
+  }
   if (params.firstName) data['firstName'] = params.firstName;
   if (params.userId) data['userId'] = params.userId;
 

@@ -76,7 +76,7 @@ export default class ContactsPageComponent implements OnInit {
         const tag = this.tagFilter();
 
         return this.contacts().filter((c) => {
-            if (term && !(c.email?.toLowerCase().includes(term) || c.name?.toLowerCase().includes(term))) {
+            if (term && !(c.email?.toLowerCase().includes(term) || (c.name || c.firstName)?.toLowerCase().includes(term))) {
                 return false;
             }
             // Contacts written before U2 have no consent field; they predate the
@@ -104,7 +104,7 @@ export default class ContactsPageComponent implements OnInit {
 
     columns: TableColumn[] = [
         { key: 'email', header: 'common.table.email', type: 'text' },
-        { key: 'name', header: 'common.table.name', type: 'text', transformFn: (r) => r.name || '—' },
+        { key: 'name', header: 'common.table.name', type: 'text', transformFn: (r) => r.name || r.firstName || '—' },
         { key: 'sources', header: 'admin.audience.contacts.sources', type: 'text', classFn: () => 'small', transformFn: (r) => (r.sources || []).join(', ') || '—' },
         { key: 'listIds', header: 'admin.audience.contacts.lists', type: 'text', transformFn: (r) => (r.listIds || []).length },
         {
