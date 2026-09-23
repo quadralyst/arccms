@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -19,6 +19,7 @@ import { CreditLedgerService } from '../../payments-ui/credit-ledger.service';
 import { ICreditLedgerEntry } from '../../payments-ui/credit-ledger.model';
 import { toJsDate } from '../../payments-ui/date-utils';
 import { formatMoney } from '../../payments-ui/pricing-utils';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
     title: 'Dashboard | Arc CMS',
@@ -343,7 +344,7 @@ export default class UsersDashboardComponent implements OnInit {
         this.spending.set(true);
         this.creditError.set('');
         try {
-            const consume = httpsCallable(this.functions, 'consumeCredits');
+            const consume = arcCallable(this.functions, 'consumeCredits');
             await consume({ amount: 1, note: 'dashboard' });
             this.entitlements.load().subscribe(); // refresh balance
             this.loadActivity();

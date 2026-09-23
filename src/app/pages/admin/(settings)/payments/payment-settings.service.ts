@@ -4,7 +4,7 @@ import {
     Firestore, doc, getDoc, setDoc, serverTimestamp,
     collection, getDocs, query, where, addDoc, updateDoc,
 } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { from, map, Observable, of, catchError } from 'rxjs';
 import { DEFAULT_DODO_PAYMENT_SETTINGS, IDodoPaymentSettings, MASKED_VALUE } from './payment-settings.model';
 import {
@@ -12,6 +12,7 @@ import {
     DEFAULT_PAYMENT_SUCCEEDED_TEMPLATE, DEFAULT_PAYMENT_FAILED_TEMPLATE,
     DEFAULT_SUBSCRIPTION_LIFECYCLE_TEMPLATE, DEFAULT_TRIAL_ENDING_TEMPLATE,
 } from '../../(waitlists)/email-template.model';
+import { arcCallable } from '../../../../core/config/arc-functions';
 
 const SETTINGS_COLLECTION = 'Settings';
 const DODO_DOC = 'dodo-payments';
@@ -102,7 +103,7 @@ export class PaymentSettingsService {
 
     /** Ask the backend to validate the stored credentials. */
     async testConnection(): Promise<{ success: boolean; mode?: string; error?: string }> {
-        const result = await this.inCtx(() => httpsCallable(this.functions, 'testDodoConnection')({}));
+        const result = await this.inCtx(() => arcCallable(this.functions, 'testDodoConnection')({}));
         return result.data as { success: boolean; mode?: string; error?: string };
     }
 

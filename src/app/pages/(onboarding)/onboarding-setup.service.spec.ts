@@ -79,7 +79,7 @@ describe('OnboardingSetupService', () => {
     describe('claimFirstAdmin', () => {
         it('calls the claimFirstAdmin callable', async () => {
             await service.claimFirstAdmin();
-            expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'claimFirstAdmin');
+            expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'arccms-claimFirstAdmin');
             expect(mockCallable).toHaveBeenCalled();
         });
 

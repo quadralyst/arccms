@@ -1,6 +1,6 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { Firestore, doc, getDoc, setDoc, serverTimestamp } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { from, map, Observable, of, catchError } from 'rxjs';
 import {
     DEFAULT_EMAIL_SETTINGS,
@@ -8,6 +8,7 @@ import {
     IConnectionTestResult,
     IEmailSettings,
 } from './email-setting.model';
+import { arcCallable } from '../../../../core/config/arc-functions';
 
 const SETTINGS_COLLECTION = 'Settings';
 const EMAIL_SETTINGS_DOC = 'email';
@@ -88,7 +89,7 @@ export class EmailSettingService {
      */
     async testEmailConnection(payload: IConnectionTestPayload): Promise<IConnectionTestResult> {
         const callable = runInInjectionContext(this.injector, () =>
-            httpsCallable<IConnectionTestPayload, IConnectionTestResult>(
+            arcCallable<IConnectionTestPayload, IConnectionTestResult>(
                 this.functions,
                 'testSmtpConfigConnection',
             ),

@@ -3,8 +3,9 @@ import { isPlatformBrowser } from '@angular/common';
 import {
     Firestore, collection, collectionData, addDoc, doc, updateDoc, getDoc, serverTimestamp, query, orderBy, limit, Timestamp,
 } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { Observable, catchError, of } from 'rxjs';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 export interface BroadcastAudience {
     /** Legacy single-target shape, still present on pre-U4 docs. */
@@ -53,7 +54,7 @@ export class BroadcastService {
     private platformId = inject(PLATFORM_ID);
 
     previewAudience(audience: BroadcastAudience) {
-        return httpsCallable<{ audience: BroadcastAudience }, { eligible: number; scanned: number; capped: boolean }>(
+        return arcCallable<{ audience: BroadcastAudience }, { eligible: number; scanned: number; capped: boolean }>(
             this.functions, 'previewBroadcastAudience',
         )({ audience });
     }

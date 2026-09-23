@@ -26,9 +26,10 @@ import { BrandKitService } from '../(email-brand)/brand-kit.service';
 import { EmailBlockEditorComponent, BlockEditorSaveEvent } from '../../../../shared/components/email-block-editor/email-block-editor.component';
 import { TestSendDialogComponent } from '../../../../shared/components/test-send-dialog/test-send-dialog.component';
 import { IEmailBrandKit, DEFAULT_BRAND_KIT, EmailDesign } from '../../../../shared/email-compiler/email-design.model';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { HashtagAutocompleteDirective } from '../../../../shared/directives/hashtag-autocomplete/hashtag-autocomplete.directive';
 import { EMAIL_TAG } from '../../../../shared/constants/email-tags';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
     title: 'Broadcasts | Arc CMS',
@@ -180,7 +181,7 @@ export default class BroadcastsPageComponent implements OnInit {
         );
         if (!to) return;
         try {
-            await httpsCallable(this.functions, 'sendTestEmail')({ toEmail: to, subject, html: e.html });
+            await arcCallable(this.functions, 'sendTestEmail')({ toEmail: to, subject, html: e.html });
             this.toast.success('Test queued');
         } catch (err) {
             console.error(err);

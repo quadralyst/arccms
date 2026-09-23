@@ -12,6 +12,7 @@
  */
 
 import { langPrefix } from '../shared/content-translation.js';
+import { arcFunctionName } from '../function-names.js';
 
 /** The region the `search` callable deploys to (the project default). */
 export const SEARCH_FUNCTION_REGION = 'us-central1';
@@ -31,7 +32,7 @@ export type SearchWidgetStringKey = keyof typeof SEARCH_WIDGET_DEFAULT_STRINGS;
 
 /** The callable's HTTPS URL, which the callable protocol accepts over plain fetch. */
 export function searchEndpoint(projectId: string, region = SEARCH_FUNCTION_REGION): string {
-    return `https://${region}-${projectId}.cloudfunctions.net/search`;
+    return `https://${region}-${projectId}.cloudfunctions.net/${arcFunctionName('search')}`;
 }
 
 /** The results page for a language: /search at the root, /{lang}/search elsewhere. */

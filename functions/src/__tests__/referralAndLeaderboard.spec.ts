@@ -290,11 +290,11 @@ describe('Referral Decrement on User Delete', () => {
       expect(fileContent).toContain('if (deletedData.referredBy)');
     });
 
-    it('should be exported from index.ts', async () => {
+    it('should be exported from all.ts', async () => {
       const fs = await import('fs');
       const path = await import('path');
       const fileContent = fs.readFileSync(
-        path.resolve(__dirname, '../index.ts'),
+        path.resolve(__dirname, '../all.ts'),
         'utf-8'
       );
 

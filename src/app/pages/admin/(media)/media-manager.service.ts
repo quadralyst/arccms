@@ -1,11 +1,12 @@
 import { inject, Injectable, PLATFORM_ID, runInInjectionContext } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { DbService } from '../../../../shared/services/db.service';
 import { IMediaManager } from './media-manager.model';
 import { collection, doc, Firestore, getCountFromServer, getDoc, limit, onSnapshot, orderBy, query, startAfter } from '@angular/fire/firestore';
 import { DocumentSnapshot } from '@angular/fire/firestore';
 import { from, map, Observable, of, switchMap, take } from 'rxjs';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 @Injectable({
     providedIn: 'root',
@@ -15,7 +16,7 @@ export class MediaManagerService extends DbService<IMediaManager> {
     private functions = inject(Functions);
     private platform = inject(PLATFORM_ID);
 
-    private searchUnsplashFn = httpsCallable(this.functions, 'searchUnsplash');
+    private searchUnsplashFn = arcCallable(this.functions, 'searchUnsplash');
 
     constructor() {
         super('media');

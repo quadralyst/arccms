@@ -13,9 +13,10 @@ import { SignupMetadataService } from '../waitlist/signup-metadata.service';
 import { EmailConfigStatusService } from '../../../shared/services/email-config-status.service';
 import { GlobalService } from '../../../shared/services/global.service';
 import { Firestore, doc, getDoc, collection } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { DEFAULT_INTEGRATIONS_SETTINGS, IGeoConfig } from '../admin/(settings)/integrations-setting/integrations-setting.model';
 import { DEFAULT_WAITLIST_FORM_ID, LEGACY_DEFAULT_WAITLIST_FORM_IDS } from '../../../shared/constants/waitlist-form';
+import { arcCallable } from '../../core/config/arc-functions';
 
 type WaitlistStep = 'signup' | 'verify' | 'success' | 'existing-user' | 'error';
 
@@ -524,7 +525,7 @@ export class WaitlistFormService {
     private async ensureWaitlistExists(waitlistId: string): Promise<boolean> {
         try {
             const callable = runInInjectionContext(this.injector, () =>
-                httpsCallable<{ waitlistId: string }, { success: boolean; existed?: boolean; reason?: string }>(
+                arcCallable<{ waitlistId: string }, { success: boolean; existed?: boolean; reason?: string }>(
                     this.functions,
                     'ensureWaitlistExists',
                 ),

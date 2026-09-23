@@ -9,12 +9,13 @@
 import { inject, Injectable } from '@angular/core';
 import { DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/misc-settings.model';
 import { Firestore, doc, collection, setDoc, getDoc, getDocs, query, where, serverTimestamp } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
 import { Observable, defer, from, map, of, catchError, switchMap } from 'rxjs';
 import { DEFAULT_CONTENT_TYPES, DEFAULT_WAITLIST, DEFAULT_SITE_CSS_URLS } from './onboarding-defaults';
 import { DEFAULT_EMAIL_SETTINGS, IEmailSettings, hasValidProviderConfig } from '../admin/(settings)/email-setting/email-setting.model';
 import { AuthService } from '../(auth)/auth.service';
+import { arcCallable } from '../../core/config/arc-functions';
 
 /**
  * Where an install sits relative to the onboarding wizard.
@@ -60,7 +61,7 @@ export class OnboardingSetupService {
      * no-op for the admin it already created.
      */
     async claimFirstAdmin(): Promise<void> {
-        await httpsCallable(this.functions, 'claimFirstAdmin')();
+        await arcCallable(this.functions, 'claimFirstAdmin')();
     }
 
     /**

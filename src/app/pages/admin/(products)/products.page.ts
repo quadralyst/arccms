@@ -14,12 +14,13 @@ import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../guards/role.guard';
 import { ProductsStore } from './products.store';
 import { IProduct } from './product.model';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
     title: 'Products | Arc CMS',
@@ -401,7 +402,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         if (this.generatingTier() !== null) return;
         this.generatingTier.set(tierIndex);
         try {
-            const callable = httpsCallable(this.functions, 'createTestCheckoutLink');
+            const callable = arcCallable(this.functions, 'createTestCheckoutLink');
             const result = await callable({ productId: p.id, discountCode: discountCode || '' });
             const url = (result.data as { checkoutUrl?: string }).checkoutUrl;
             if (url) {

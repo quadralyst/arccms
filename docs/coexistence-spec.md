@@ -1,6 +1,6 @@
 # ArcCMS Coexistence: Build Spec
 
-**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92) and CO3.1 built on `feat/coexistence` (2026-09-23); functions deployed to the dev project `xlm-project-864ff` on its `arccms` database for testing. CO4 to CO8 not started.
+**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is not deployed yet. CO5 to CO8 not started.
 **Branch:** `feat/coexistence`, cut from `fix/role-escalation-rules` (CO1) because `dev` lacks the search, discoverability and multilingual work this builds on.
 **Scope:** let ArcCMS share a Firebase project with other applications (their own
 functions, triggers, rules, storage, Firestore data and hosting) without either side
@@ -270,6 +270,33 @@ database on the dev project; they are not coexistence-specific and apply to ever
 Open from the same test: every new contact defaults to `consent: subscribed`, including users
 who never opted in (the backfilled admin showed as subscribed). Changing the default is a
 product and legal decision, left to the owner.
+
+**CO4 as built (2026-09-23), not yet deployed.** `functions/src/index.ts` is now one line,
+`export * as arccms from './all.js'`; the old export list lives in `all.ts`, and all 104
+functions deploy as `arccms-<name>`. `firebase.json` uses codebase `arccms`.
+`functions/src/function-names.ts` and `src/app/core/config/arc-functions.ts` hold the group
+name; every frontend callable goes through `arcCallable(functions, name)` (24 files; a guard
+test fails on any direct `httpsCallable`). The static-page search widget calls
+`arccms-search`. The payments settings hint names `arccms-dodoWebhook`.
+`functions/scripts/check-callable-access.sh` probes the prefixed names.
+
+`functions-legacy/` (codebase `arccms-legacy`, config `firebase.legacy.json`, not in
+`firebase.json`, so fresh installs never deploy it) forwards `trackEmailOpen`,
+`handleUnsubscribe`, `handleEmailPreferences`, `handleEmailWebhook`, `dodoWebhook` and `search`
+to their `arccms-` successors: method, headers minus hop headers, raw body byte for byte,
+status and response headers back, CORS preflights included. Tested in
+`scripts/__tests__/legacy-proxy.spec.ts`.
+
+`npm run arc:upgrade -- --project=<alias> [--dry-run] [--no-legacy]` builds the functions,
+reads the ArcCMS function names from the build, and deletes only deployed functions with
+those names that are not already in the `arccms` or `arccms-legacy` codebase (another app's
+functions are never candidates), then deploys `arccms` and the legacy proxies. It does not
+deploy hosting: the previous frontend calls the old callable names, which stop existing, so
+hosting must be deployed straight after. Dry run against the dev project listed exactly the
+104 ArcCMS functions and none of the other app's 32.
+
+Not in CO4 as built: the namespaced `arccms_role` claim (CO-D7) was not part of CO1 as built
+either and is still open; the tracking pixel URL stays an opt-in setting.
 
 Order: CO1 → CO2 → CO3 → CO4 → CO5 → CO6 → CO7. CO1 to CO3 change nothing for an
 existing install. CO4 is the release that needs the runbook.

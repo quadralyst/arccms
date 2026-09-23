@@ -212,7 +212,7 @@ describe('WaitlistFormService', () => {
             form.addEventListener('submit', () => order.push('submit'));
             form.dispatchEvent(new Event('submit'));
 
-            expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'ensureWaitlistExists');
+            expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'arccms-ensureWaitlistExists');
             expect(callable).toHaveBeenCalledWith({ waitlistId: 'test-waitlist' });
             expect(order).toEqual(['ensure', 'submit']);
         });

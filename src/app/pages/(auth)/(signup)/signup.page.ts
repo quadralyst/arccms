@@ -23,7 +23,7 @@ import {
 } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { filter, firstValueFrom, take } from 'rxjs';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { AuthState } from '../auth.store';
@@ -32,6 +32,7 @@ import { ConstantVariables } from '../../../../shared/constants/common-constants
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
 import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
   title: 'Signup | Arc CMS',
@@ -318,7 +319,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.otpError.set('');
 
     try {
-      const callable = httpsCallable(this.functions, 'requestSignupOtp');
+      const callable = arcCallable(this.functions, 'requestSignupOtp');
       await callable({ email, name });
       this.toastService.success('Verification code sent to your email');
       this.startCountdown();
@@ -392,7 +393,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     try {
       // Server-authoritative verification (E3): the server checks the hashed
       // code, expiry and attempt cap. Only a successful call marks the email verified.
-      const callable = httpsCallable(this.functions, 'verifySignupOtp');
+      const callable = arcCallable(this.functions, 'verifySignupOtp');
       const result = await callable({ email, code: otp });
       if ((result.data as { verified?: boolean })?.verified) {
         this.otpVerified = true;

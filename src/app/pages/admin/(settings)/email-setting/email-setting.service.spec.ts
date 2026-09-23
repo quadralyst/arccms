@@ -90,7 +90,7 @@ describe('EmailSettingService', () => {
 
             await service.testEmailConnection(payload);
 
-            expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'testSmtpConfigConnection');
+            expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'arccms-testSmtpConfigConnection');
             expect(callable).toHaveBeenCalledWith(payload);
         });
 

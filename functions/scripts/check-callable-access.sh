@@ -11,7 +11,7 @@
 #   JSON  PERMISSION_DENIED       → the function ran and refused you; working fine
 #
 # Fix a blocked one with:
-#   gcloud run services add-iam-policy-binding <lowercased-name> \
+#   gcloud run services add-iam-policy-binding arccms-<lowercased-name> \
 #     --region=us-central1 --member=allUsers --role=roles/run.invoker --project=<id>
 # (or Cloud Console → Cloud Run → service → Security → allow unauthenticated)
 #
@@ -26,7 +26,8 @@ PROJECT="${FIREBASE_PROJECT:-xlm-project-864ff}"
 REGION="${FIREBASE_REGION:-us-central1}"
 BASE="https://${REGION}-${PROJECT}.cloudfunctions.net"
 
-# Every onCall function the browser invokes. Keep in sync with functions/src/index.ts.
+# Every onCall function the browser invokes, by plain name. Keep in sync with
+# functions/src/all.ts. They deploy as arccms-<name> (docs/coexistence-spec.md, CO-D5).
 CALLABLES=(
   requestFormOtp verifyFormOtp
   adminAddContact adminSetContactConsent adminUpdateContactLists adminSetContactDisabled
@@ -43,7 +44,7 @@ blocked=()
 if [ "$#" -gt 0 ]; then CALLABLES=("$@"); fi
 
 for fn in "${CALLABLES[@]}"; do
-  resp=$(curl -s -m 20 -w '\n%{http_code}' -X POST "$BASE/$fn" -H "Content-Type: application/json" -d '{"data":{}}' 2>/dev/null)
+  resp=$(curl -s -m 20 -w '\n%{http_code}' -X POST "$BASE/arccms-$fn" -H "Content-Type: application/json" -d '{"data":{}}' 2>/dev/null)
   code=$(printf '%s' "$resp" | tail -n1)
   body=$(printf '%s' "$resp" | sed '$d')
   if [ -z "$code" ]; then

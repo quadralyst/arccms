@@ -8,8 +8,9 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { GaTrackingService } from '../../../../shared/services/ga-tracking.service';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 @Component({
     selector: 'arc-unsubscribe-handling',
@@ -190,7 +191,7 @@ export class UnsubscribeHandlingComponent extends BaseComponent implements OnIni
             // client-writable and only half-applied it — no Suppression doc, no
             // Contacts.consent update, no drip exit. The callable runs the same
             // routine as the token-based one-click endpoint.
-            const call = httpsCallable<{ userId: string; waitlistId?: string }, { ok: boolean }>(
+            const call = arcCallable<{ userId: string; waitlistId?: string }, { ok: boolean }>(
                 this.functions, 'unsubscribeLegacyLink',
             );
             await call({ userId: this.userId, waitlistId: this.waitlistId || undefined });

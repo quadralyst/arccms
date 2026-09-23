@@ -11,7 +11,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Firestore, collection, collectionData, doc, getDoc, query, where } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { statusBadgeClass, statusBadgeLabel } from '../../../../shared/utils/status-badge';
 import { Subscription } from 'rxjs';
 
@@ -24,6 +24,7 @@ import { IEmailLog } from './email-log.model';
 import ViewEmailLogComponent from './(view-email-log)/view-email-log.component';
 import { EmailHealthCardComponent } from '../../../../shared/components/email-health-card/email-health-card.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 interface ActiveBroadcast {
     id: string;
@@ -257,7 +258,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
         dialogRef.afterClosed().subscribe((result: boolean) => {
             if (result) {
                 this.isPurging.set(true);
-                const callable = httpsCallable(this.functions, 'purgeEmailLogs');
+                const callable = arcCallable(this.functions, 'purgeEmailLogs');
                 callable({ daysOld: days })
                     .then((res: any) => {
                         this.toastService.success(`Purged ${res.data.deletedCount} email log(s) older than ${days} days.`);

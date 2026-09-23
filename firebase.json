@@ -11,7 +11,7 @@
     "functions": [
         {
             "source": "functions",
-            "codebase": "default",
+            "codebase": "arccms",
             "ignore": [
                 "node_modules",
                 ".git",

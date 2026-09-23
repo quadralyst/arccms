@@ -11,7 +11,7 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { addDoc, arrayUnion, collection, doc, Firestore, getCountFromServer, getDoc, getDocs, increment, limit, orderBy, query, setDoc, updateDoc, where } from '@angular/fire/firestore';
 import { getWaitlistUserTagsCollectionName } from '../admin/(waitlists)/joined-users/waitlist-user-tags.model';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { ActivatedRoute } from '@angular/router';
 import {
     IWaitlist,
@@ -24,6 +24,7 @@ import {
     REFERRAL_EXPIRATION_HOURS,
     DEFAULT_UI_CONFIG,
 } from './waitlist.model';
+import { arcCallable } from '../../core/config/arc-functions';
 
 @Injectable({
     providedIn: 'root',
@@ -149,7 +150,7 @@ export class WaitlistService {
 
         try {
             const callable = runInInjectionContext(this.injector, () =>
-                httpsCallable<Record<string, unknown>, {
+                arcCallable<Record<string, unknown>, {
                     memberId: string; referralCode: string; referralLink: string;
                     leaderboardLink: string; waitlistedUserId: string;
                 }>(this.functions, 'joinForm'));
@@ -316,7 +317,7 @@ export class WaitlistService {
         if (!referrerCode || !referredEmail) return;
         try {
             const callable = runInInjectionContext(this.injector, () =>
-                httpsCallable<Record<string, unknown>, { recorded: boolean }>(
+                arcCallable<Record<string, unknown>, { recorded: boolean }>(
                     this.functions, 'creditReferral'));
             await callable({
                 waitlistId, referrerCode, referredEmail, referredName, referredMemberId, status,
@@ -432,7 +433,7 @@ export class WaitlistService {
         // email addresses. The callable returns masked addresses and an explicit
         // allowlist of fields.
         const callable = runInInjectionContext(this.injector, () =>
-            httpsCallable<{ waitlistId: string }, { leaderboard: unknown[]; totalUsers: number; unverifiedUsers: number; waitlistId: string }>(
+            arcCallable<{ waitlistId: string }, { leaderboard: unknown[]; totalUsers: number; unverifiedUsers: number; waitlistId: string }>(
                 this.functions, 'getPublicLeaderboard'));
         const res = await callable({ waitlistId });
         return res.data;
@@ -443,7 +444,7 @@ export class WaitlistService {
      */
     fetchLeaderboard(userEmail: string, collectionName?: string): Promise<ILeaderboardResponse> {
         return new Promise((resolve, reject) => {
-            const fetch = httpsCallable(this.functions, 'getOptimizedLeaderboard');
+            const fetch = arcCallable(this.functions, 'getOptimizedLeaderboard');
 
             fetch({ userEmail, collectionName })
                 .then((result) => resolve(result.data as ILeaderboardResponse))
@@ -467,7 +468,7 @@ export class WaitlistService {
     ): Promise<{ member: Record<string, unknown>; referrals: unknown[]; stats: Record<string, number>; waitlist: unknown } | null> {
         if (!waitlistId || !memberRef) return null;
         const callable = runInInjectionContext(this.injector, () =>
-            httpsCallable<{ waitlistId: string; memberRef: string }, { member: Record<string, unknown>; referrals: unknown[]; stats: Record<string, number>; waitlist: unknown }>(
+            arcCallable<{ waitlistId: string; memberRef: string }, { member: Record<string, unknown>; referrals: unknown[]; stats: Record<string, number>; waitlist: unknown }>(
                 this.functions, 'getPublicMemberView'));
         try {
             const res = await callable({ waitlistId, memberRef });
@@ -595,7 +596,7 @@ export class WaitlistService {
         name?: string,
     ): Promise<{ ok: boolean; message?: string }> {
         try {
-            const call = httpsCallable<
+            const call = arcCallable<
                 { waitlistId: string; email: string; name?: string },
                 { sent: boolean; status: string }
             >(this.functions, 'requestFormOtp');
@@ -619,7 +620,7 @@ export class WaitlistService {
         userId: string,
         referredBy?: string,
     ): Promise<{ queuePosition: number; totalSignups: number; emailVerified: boolean }> {
-        const call = httpsCallable<
+        const call = arcCallable<
             { waitlistId: string; userId: string; referredBy?: string },
             { queuePosition: number; totalSignups: number; emailVerified: boolean; alreadyConfirmed: boolean }
         >(this.functions, 'finalizeFormSignup');
@@ -638,7 +639,7 @@ export class WaitlistService {
         code: string,
     ): Promise<{ ok: boolean; message?: string }> {
         try {
-            const call = httpsCallable<
+            const call = arcCallable<
                 { waitlistId: string; email: string; code: string },
                 { verified: boolean }
             >(this.functions, 'verifyFormOtp');

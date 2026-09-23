@@ -18,7 +18,7 @@ describe('buildSearchWidget', () => {
         const $ = cheerio.load(html);
         const root = $('.arc-search');
 
-        expect(root.attr('data-endpoint')).toBe('https://us-central1-demo.cloudfunctions.net/search');
+        expect(root.attr('data-endpoint')).toBe('https://us-central1-demo.cloudfunctions.net/arccms-search');
         expect(root.attr('data-lang')).toBe('hi');
         expect(root.attr('data-results-url')).toBe('/hi/search');
         expect(root.attr('data-empty')).toBe('No results');
@@ -45,7 +45,7 @@ describe('buildSearchWidget', () => {
         expect(buildSearchWidget({ projectId: '', lang: 'en', defaultLang: 'en' })).toBe('');
         const html = buildSearchWidget({ projectId: '', lang: 'en', defaultLang: 'en', endpoint: 'https://x.test/search' });
         expect(cheerio.load(html)('.arc-search').attr('data-endpoint')).toBe('https://x.test/search');
-        expect(searchEndpoint('p', 'europe-west1')).toBe('https://europe-west1-p.cloudfunctions.net/search');
+        expect(searchEndpoint('p', 'europe-west1')).toBe('https://europe-west1-p.cloudfunctions.net/arccms-search');
     });
 });
 

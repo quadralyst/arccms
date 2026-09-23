@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -18,6 +18,7 @@ import { ITransaction } from '../admin/(transactions)/transaction.model';
 import { CreditLedgerService } from '../payments-ui/credit-ledger.service';
 import { ICreditLedgerEntry } from '../payments-ui/credit-ledger.model';
 import { toJsDate } from '../payments-ui/date-utils';
+import { arcCallable } from '../../core/config/arc-functions';
 
 /**
  * Public account / membership page. Shows the signed-in user's entitlement
@@ -383,7 +384,7 @@ export default class AccountPageComponent implements OnInit {
         this.spending.set(true);
         this.creditError.set('');
         try {
-            const consume = httpsCallable(this.functions, 'consumeCredits');
+            const consume = arcCallable(this.functions, 'consumeCredits');
             await consume({ amount: 1, note: 'account page test' });
             this.refresh();
         } catch (e) {
