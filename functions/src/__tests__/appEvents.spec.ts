@@ -35,6 +35,7 @@ vi.mock('../init', () => ({
 }));
 
 vi.mock('../email-core/notifications', () => ({ createNotification: mockCreateNotif }));
+vi.mock('../app-audience/mergeFields', () => ({ readAppMergeFields: vi.fn(async (docId: string) => (docId ? { isPro: 'true' } : {})) }));
 vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
 vi.mock('../email-core/contacts', () => ({
   upsertContact: mockUpsert, addContactToLists: mockAddLists, removeContactFromLists: mockRemoveLists,
@@ -137,6 +138,12 @@ describe('onAppEventCreate', () => {
       mappings({ 'app_user.created': { enabled: true, sendEmail: { templateType: 't', category: 'marketing' } } });
       await handler(event({ type: 'app_user.created', contactEmail: 'a@x.com', appUserId: 'h1', data: {} }));
       expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({ isSubscribed: false, category: 'marketing' }));
+    });
+
+    it('sends an app user\'s host fields with the email, for ##APP.<path>## tags', async () => {
+      mappings({ 'app_user.created': { enabled: true, sendEmail: { templateType: 't', category: 'transactional' } } });
+      await handler(event({ type: 'app_user.created', contactEmail: 'a@x.com', appUserId: 'h1', data: { docId: 'u1' } }));
+      expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({ appUser: { id: 'h1', fields: { isPro: 'true' } } }));
     });
 
     it('never adds an app user to a list, since that would copy them into Contacts', async () => {

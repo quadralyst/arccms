@@ -57,6 +57,12 @@ export interface QueueEmailParams {
    * Transactional emails ignore this.
    */
   isSubscribed?: boolean;
+  /**
+   * The app user this email goes to (App audience, CO6.5a): their `AppAudience`
+   * id and their host fields for `##APP.<path>##`. The id rides on every log,
+   * including skipped ones, so an unsubscribe from this email reaches their record.
+   */
+  appUser?: { id: string; fields: Record<string, string> };
   /** Extra tag data merged onto the log (otp, currency, price, waitlistName…). */
   data?: Record<string, unknown>;
   /** Override default max delivery attempts. */
@@ -116,6 +122,7 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     attempts: 0,
     maxAttempts: params.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
     createdAt: Timestamp.now(),
+    ...(params.appUser ? { appUserId: params.appUser.id } : {}),
     ...(params.data || {}),
   };
 
@@ -184,6 +191,7 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     ...base,
     status: 'pending',
     ...(contact.fields ? { contactFields: contact.fields } : {}),
+    ...(params.appUser ? { appFields: params.appUser.fields } : {}),
   };
   if (!params.dedupeKey) {
     const id = await writeLog(pending);

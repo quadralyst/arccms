@@ -764,3 +764,32 @@ describe('processEmailTemplate — custom contact fields (U4.5)', () => {
     expect(result.template).toContain('CTO at Acme');
   });
 });
+
+describe('processEmailTemplate — app user fields (CO6.5a)', () => {
+  const base = { toName: 'Asha', toEmail: 'asha@example.com' };
+
+  it('resolves ##APP.<path>## from the host fields carried on the log, dot paths included', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+    const result = await processEmailTemplate({
+      ...base,
+      subject: 'You are on ##APP.plan.tier##',
+      template: '<p>Hi ##NAME##, Pro: ##APP.isPro##</p>',
+      appFields: { 'plan.tier': 'pro', isPro: 'true' },
+    } as any, {});
+    expect(result.subject).toBe('You are on pro');
+    expect(result.template).toContain('Hi Asha, Pro: true');
+  });
+
+  it('uses the fallback for a missing or empty value, and never leaves the raw tag', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+    const result = await processEmailTemplate({
+      ...base,
+      subject: 'Hello',
+      template: '<p>##APP.plan.tier|free## / ##APP.city|there## / [##APP.missing##]</p>',
+      appFields: { 'plan.tier': '' },
+    } as any, {});
+    expect(result.template).toContain('free / there / []');
+    expect(result.template).not.toContain('##APP');
+  });
+});
+

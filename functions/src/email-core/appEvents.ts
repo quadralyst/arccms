@@ -10,6 +10,7 @@ import { upsertContact, addContactToLists, removeContactFromLists } from './cont
 import { arcDocument } from '../arc-config.js';
 import { applicableRules, type EventMapping, type EventRule } from './eventRules.js';
 import { APP_AUDIENCE_STATE, stateFrom } from '../app-audience/state.js';
+import { readAppMergeFields } from '../app-audience/mergeFields.js';
 
 /**
  * Generic event bus (spec §3.11, D11). Product code calls {@link emitAppEvent};
@@ -185,7 +186,10 @@ async function runActions(rule: EventRule, { type, userId, appUserId, email, eve
           text: tpl.previewText || '',
           type: rule.sendEmail.templateType,
           templateIsActive: tpl.isActive !== false,
-          ...(appUserId ? { isSubscribed: await appUserSubscribed(appUserId) } : {}),
+          ...(appUserId ? {
+            isSubscribed: await appUserSubscribed(appUserId),
+            appUser: { id: appUserId, fields: await readAppMergeFields(String(eventData['docId'] ?? '')) },
+          } : {}),
           data: eventData,
         });
         results['email'] = r.status;

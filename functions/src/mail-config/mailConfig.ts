@@ -27,6 +27,13 @@ const DEFAULT_MAX_ATTEMPTS = 3;
 const FIELD_TAG_PATTERN = /##FIELD:([a-zA-Z0-9_]+)(?:\|([^#]*))?##/g;
 
 /**
+ * App user field merge tag (App audience, CO6.5a): `##APP.<path>##`, with an
+ * optional fallback, `##APP.subscription.tier|free##`. Resolved from the host
+ * fields copied onto the log when the email was queued (`appFields`).
+ */
+const APP_TAG_PATTERN = /##APP\.([A-Za-z0-9_.-]+)(?:\|([^#]*))?##/g;
+
+/**
  * Build a 1x1 tracking-pixel <img> tag.
  * Returns an empty string when TRACKING_PIXEL_URL is not configured.
  */
@@ -339,6 +346,15 @@ export async function processEmailTemplate(
     };
     template = template.replace(FIELD_TAG_PATTERN, (m, key, fb) => resolveField(m, key, fb));
     subject = subject.replace(FIELD_TAG_PATTERN, (m, key, fb) => resolveField(m, key, fb));
+
+    const appValues = (emailLogsData as unknown as { appFields?: Record<string, unknown> }).appFields || {};
+    const resolveApp = (_full: string, path: string, fallback?: string): string => {
+        const raw = appValues[path];
+        if (raw === undefined || raw === null || raw === '') return fallback ?? '';
+        return String(raw);
+    };
+    template = template.replace(APP_TAG_PATTERN, (m, path, fb) => resolveApp(m, path, fb));
+    subject = subject.replace(APP_TAG_PATTERN, (m, path, fb) => resolveApp(m, path, fb));
 
     const combinedText = `${template} ${subject}`;
 

@@ -512,7 +512,17 @@ is shared: a host user's password is valid on the ArcCMS sign-in page too.
   `functions/src/email-core/eventRules.ts`, run by `onAppEventCreate`; `emitAppEvent(type,
   payload, { id })` for stable ids; `appUserId` on app-user events. The App user drawer shows
   the person's last 10 events and what the bus did with each. The arc-config guard exempts
-  this one trigger by name and checks it binds through the host params.
+  this one trigger by name and checks it binds through the host params. Tested on xlm
+  2026-09-24: `isPro` false → true ran only the Upgraded rule, true → false only Downgraded.
+- **CO6.5a**: `##APP.<path>##` and `##APP.<path>|fallback##` resolve at send time from
+  `appFields` on the email log (`mail-config/mailConfig.ts`). `queueEmail({ appUser: { id,
+  fields } })` stamps `appUserId` on every log (skipped ones too) and `appFields` on pending
+  ones; `app-audience/mergeFields.ts` reads the host document and leaves credential-like
+  fields out entirely. Unsubscribe and the preference center go through
+  `email-core/recipientConsent.ts`: a change reaches each app user the address was mailed as
+  (found by `appUserId` on its logs) and the contact only if one exists or no app user is
+  involved, so unsubscribing never creates a contact; the preference center shows the
+  contact's consent, else the app user's.
 
 ### Phases
 
@@ -522,7 +532,7 @@ is shared: a host user's password is valid on the ArcCMS sign-in page too.
 | CO6.2 | `arc:configure` app-users flags and params; Settings, App audience (unique key, channels, name, watched fields, preview, test); callables that list databases, collections and sample fields. |
 | CO6.3 | Audience, App users: live table and search. |
 | CO6.4 | `onAppUserWritten` and the `AppAudience` state; the three events on the event bus. |
-| CO6.5 | Emails: `##APP.*##` merge tags; the App users (live) list type; broadcasts and drips resolving app users at send time; unsubscribe and suppression for them. |
+| CO6.5 | Emails, in four parts. **a**: `##APP.*##` merge tags; unsubscribe and consent for app users. **b**: the App users (live) list type with conditions on host fields, targeted by broadcasts. **c**: drips for app users. **d**: an editor for event-mapping rules. |
 | CO6.6 | Admin-only sign-in with the profile. |
 | CO6.7 | `docs/app-audience-integration.md`: step-by-step integration guide written for an AI agent (and people), from a host app's collection to its first email. |
 

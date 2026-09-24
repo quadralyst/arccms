@@ -398,4 +398,29 @@ describe('queueEmail', () => {
       expect(mockCreate).not.toHaveBeenCalled();
     });
   });
+
+  describe('app users (CO6.5a)', () => {
+    const appUser = { id: 'h1', fields: { isPro: 'true', 'plan.tier': 'pro' } };
+
+    it('puts the app user id and their merge fields on a pending log', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      await queueEmail({ ...baseParams, appUser });
+      expect(lastAddArg()).toMatchObject({ status: 'pending', appUserId: 'h1', appFields: appUser.fields });
+    });
+
+    it('keeps the id on a skipped log, so an unsubscribe still reaches the person, but not the fields', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings({ isEnabled: false }) });
+      await queueEmail({ ...baseParams, appUser });
+      expect(lastAddArg().appUserId).toBe('h1');
+      expect(lastAddArg().appFields).toBeUndefined();
+    });
+
+    it('adds nothing for anyone else', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      await queueEmail(baseParams);
+      expect(lastAddArg().appUserId).toBeUndefined();
+      expect(lastAddArg().appFields).toBeUndefined();
+    });
+  });
 });
+

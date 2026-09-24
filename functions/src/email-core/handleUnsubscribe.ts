@@ -4,7 +4,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import type { EmailSettings } from '../types.js';
 import { verifyUnsubscribeToken } from './unsubscribeToken.js';
-import { setContactConsent } from './contacts.js';
+import { setRecipientConsent } from './recipientConsent.js';
 import { exitAllEnrollments } from './dripEnrollment.js';
 import { getUnsubscribeSecret } from './unsubscribeSecret.js';
 
@@ -94,10 +94,11 @@ export async function unsubscribeByEmailHash(emailHash: string): Promise<void> {
     { merge: true },
   );
 
-  // Update the unified Contacts consent (Phase 3) so the preference center and
-  // marketing gate agree. Non-fatal if the contact doesn't exist yet.
+  // Update the unified Contacts consent (Phase 3), or the app user's own record
+  // when the address was mailed as an app user (CO6.5a), so the preference
+  // center and marketing gate agree. Non-fatal.
   try {
-    await setContactConsent(emailHash, 'unsubscribed', email || undefined);
+    await setRecipientConsent(emailHash, 'unsubscribed', email || undefined);
   } catch (err) {
     logger.warn('handleUnsubscribe: could not update Contact consent', err);
   }

@@ -4,7 +4,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import type { EmailSettings } from '../types.js';
 import { verifyUnsubscribeToken } from './unsubscribeToken.js';
-import { setContactConsent, getContactConsent } from './contacts.js';
+import { getRecipientConsent, setRecipientConsent } from './recipientConsent.js';
 import { getUnsubscribeSecret } from './unsubscribeSecret.js';
 
 /**
@@ -35,13 +35,13 @@ export const handleEmailPreferences = onRequest(async (req, res) => {
 
   try {
     if (action === 'unsubscribe') {
-      await setContactConsent(emailHash, 'unsubscribed', email);
+      await setRecipientConsent(emailHash, 'unsubscribed', email);
       await db.collection('Suppression').doc(emailHash).set(
         { email, emailHash, reason: 'unsubscribe', at: Timestamp.now() },
         { merge: true },
       );
     } else if (action === 'subscribe') {
-      await setContactConsent(emailHash, 'subscribed', email);
+      await setRecipientConsent(emailHash, 'subscribed', email);
       // Only lift a self-service unsubscribe — never a hard bounce/complaint.
       const supp = await db.collection('Suppression').doc(emailHash).get();
       if (supp.exists && supp.data()?.['reason'] === 'unsubscribe') {
@@ -54,7 +54,7 @@ export const handleEmailPreferences = onRequest(async (req, res) => {
     return;
   }
 
-  const consent = (await getContactConsent(emailHash)) || 'subscribed';
+  const consent = (await getRecipientConsent(emailHash)) || 'subscribed';
   res.status(200).send(renderPage({ state: 'ok', subscribed: consent === 'subscribed', emailHash, token }));
 });
 
