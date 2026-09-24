@@ -78,14 +78,27 @@ export function tagIdFromLabel(label: string): string {
         .slice(0, 60);
 }
 
+/** Mirrors APP_LIST_OPS in functions/src/app-audience/appLists.ts. */
+export type AppListOp = 'is' | 'is_not' | 'any_of' | 'contains' | 'gt' | 'lt' | 'empty' | 'not_empty';
+
+/** One condition of an App users (live) list, on a field of the host app's user documents. */
+export interface AppListCondition {
+    field: string;
+    op: AppListOp;
+    value?: string | string[];
+}
+
 export interface IList {
     id: string;
     name: string;
     description?: string;
-    type: 'manual' | 'system';
+    /** `app`: App users (live), resolved from the host app at every use (CO6.5b). */
+    type: 'manual' | 'system' | 'app';
     memberCount?: number;
     /** Set on lists fed by a signup form — the owning form's (waitlist's) id. */
     formId?: string;
+    /** App users (live) lists only: who matches. */
+    conditions?: AppListCondition[];
 }
 
 export interface ICsvPreview {

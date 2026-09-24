@@ -61,9 +61,12 @@ export default class ListsPageComponent implements OnInit {
             // Static markup only — never interpolate list-supplied values here.
             transformFn: (r) => r.formId
                 ? '<span class="status-badge is-info">Form</span>'
-                : `<span class="status-badge ${r.type === 'system' ? 'is-info' : 'is-neutral'}">${r.type}</span>`,
+                : r.type === 'app'
+                    ? '<span class="status-badge is-success">App users (live)</span>'
+                    : `<span class="status-badge ${r.type === 'system' ? 'is-info' : 'is-neutral'}">${r.type}</span>`,
         },
-        { key: 'memberCount', header: 'admin.audience.lists.members', type: 'text', transformFn: (r) => r.memberCount || 0 },
+        // A live list stores no members; its hub counts who matches now.
+        { key: 'memberCount', header: 'admin.audience.lists.members', type: 'text', transformFn: (r) => (r.type === 'app' ? 'live' : r.memberCount || 0) },
         {
             key: 'actions', header: 'common.table.actions', type: 'actions',
             actions: [

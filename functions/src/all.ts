@@ -77,6 +77,7 @@ export * from './users/onUserDelete.js';
 export * from './app-audience/adminCallables.js';
 export * from './app-audience/listAppUsers.js';
 export * from './app-audience/onAppUserWritten.js';
+export * from './app-audience/appLists.js';
 
 // For wait list user lifecycle
 export * from './waitlists/waitlist-details/onWaitlistUserCreate.js';

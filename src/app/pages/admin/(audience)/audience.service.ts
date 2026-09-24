@@ -17,7 +17,7 @@ import {
 } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
 import { Observable, catchError, map, of } from 'rxjs';
-import { IContact, IList, ITag, IContactField, ICsvPreview, MarketingConsent, tagIdFromLabel } from './audience.model';
+import { AppListCondition, IContact, IList, ITag, IContactField, ICsvPreview, MarketingConsent, tagIdFromLabel } from './audience.model';
 import { arcCallable } from '../../../core/config/arc-functions';
 
 /**
@@ -203,22 +203,24 @@ export class AudienceService {
         );
     }
 
-    /** Create a manual list (admins may write Lists directly). */
-    async createList(name: string, description = ''): Promise<void> {
+    /**
+     * Create a manual list, or an App users (live) list when `conditions` are
+     * given (admins may write Lists directly). A live list stores no members.
+     */
+    async createList(name: string, description = '', conditions?: AppListCondition[]): Promise<void> {
         const ref = doc(collection(this.firestore, 'Lists'));
         await setDoc(ref, {
             id: ref.id,
             name,
             description,
-            type: 'manual',
-            memberCount: 0,
+            ...(conditions ? { type: 'app', conditions } : { type: 'manual', memberCount: 0 }),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
     }
 
-    /** Rename / re-describe a manual list (admins may write Lists directly). */
-    async updateList(id: string, patch: { name?: string; description?: string }): Promise<void> {
+    /** Rename / re-describe a list, or change a live list's conditions (admins may write Lists directly). */
+    async updateList(id: string, patch: { name?: string; description?: string; conditions?: AppListCondition[] }): Promise<void> {
         await setDoc(
             doc(this.firestore, 'Lists', id),
             { ...patch, updatedAt: serverTimestamp() },

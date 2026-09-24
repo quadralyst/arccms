@@ -67,7 +67,7 @@
                             <mat-label>Send to lists</mat-label>
                             <mat-select multiple [(ngModel)]="includeListIds" (ngModelChange)="eligible.set(null)">
                                 @for (l of lists(); track l.id) {
-                                <mat-option [value]="l.id">{{ l.name }} ({{ l.memberCount || 0 }})</mat-option>
+                                <mat-option [value]="l.id">{{ l.name }} ({{ l.type === 'app' ? 'App users, live' : (l.memberCount || 0) }})</mat-option>
                                 }
                             </mat-select>
                             <mat-hint>Pick several to reach everyone across them — nobody is emailed twice.</mat-hint>
@@ -78,7 +78,7 @@
                             <mat-select multiple [(ngModel)]="excludeListIds" (ngModelChange)="eligible.set(null)">
                                 @for (l of lists(); track l.id) {
                                 <mat-option [value]="l.id" [disabled]="includeListIds.includes(l.id)">
-                                    {{ l.name }} ({{ l.memberCount || 0 }})
+                                    {{ l.name }} ({{ l.type === 'app' ? 'App users, live' : (l.memberCount || 0) }})
                                 </mat-option>
                                 }
                             </mat-select>

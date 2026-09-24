@@ -523,6 +523,20 @@ is shared: a host user's password is valid on the ArcCMS sign-in page too.
   (found by `appUserId` on its logs) and the contact only if one exists or no app user is
   involved, so unsubscribing never creates a contact; the preference center shows the
   contact's consent, else the app user's.
+- **CO6.5b**: App users (live) lists, `Lists/{id}` with `type: 'app'` and `conditions` (field, op,
+  value; all must match; ops `is`, `is_not`, `any_of`, `contains`, `gt`, `lt`, `empty`,
+  `not_empty`; text compares case-insensitively as the admin shows it, `gt`/`lt` compare
+  numbers or dates). `functions/src/app-audience/appLists.ts`: `matchesAppConditions`,
+  `resolveAppList` (host collection, sorted by document id, with consent and merge fields), and
+  the admin callable `arccms-previewAppList` (unsaved conditions or a saved list). Broadcasts
+  (`email-log/broadcastAudience.ts`): `loadAudienceLists` resolves live lists once per chunk; a
+  live list sends with `appUser` and the app user's consent, resumes by document id, and the
+  send-once and exclusion rules compare email addresses across list kinds (a contact with the
+  same address keeps its own consent and list memberships). Contact-only filters (source,
+  created after, premiumType) do not apply to live lists. Admin: the list drawer offers the
+  type when an app is connected, with the condition editor
+  (`(lists)/(app-list-conditions)`, fields from `sampleAppUsers`, a live count); the list hub
+  shows who matches now; the drips page leaves live lists out until CO6.5c.
 
 ### Phases
 

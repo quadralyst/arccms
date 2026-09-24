@@ -12,7 +12,10 @@ const { contactsRef, mockQueueEmail, mockUsersGet } = vi.hoisted(() => ({
 
 vi.mock('../init', () => ({
   db: {
+    // Lists docs, read to find App users (live) lists (CO6.5b): none here.
+    getAll: vi.fn(async (...refs: unknown[]) => refs.map(() => ({ exists: false, data: () => undefined }))),
     collection: vi.fn((name: string) => {
+      if (name === 'Lists') return { doc: vi.fn((id: string) => ({ id })) };
       if (name === 'Contacts') {
         const chain: any = {
           where: vi.fn(() => chain),
