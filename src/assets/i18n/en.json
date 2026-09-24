@@ -1030,7 +1030,7 @@
         "email": "Email",
         "phone": "Phone",
         "name": "Name",
-        "consent": "Email",
+        "consent": "Email status",
         "doc_id": "Document",
         "detail_title": "App user",
         "fields": "All fields in the app",
