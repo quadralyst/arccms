@@ -47,9 +47,9 @@ projects) are the default install with nothing to configure.
 | CO-D9 | Storage | Two settings: `storageBucket` (default: the project's default bucket) and `storagePrefix` (default: empty, today's paths). P3 uses **its own bucket**, because storage rules are one file per bucket and sharing the default bucket would mean merging rules with the host app. Existing files are never moved: media documents store full download URLs, which keep working. |
 | CO-D10 | Hosting | `hostingSite` setting, default the project id (today). Replaces the five places that assume `GCLOUD_PROJECT` is the site id and the three that build `https://{projectId}.web.app`. P3 uses a second hosting site in the same project. |
 | CO-D11 | The wildcard search trigger stays | `onDocumentWritten('{collection}/{docId}')` fires on every write in its database. Bound to the ArcCMS database it only sees ArcCMS writes, so it is safe in P3. ArcCMS on `(default)` next to a foreign app that also writes to `(default)` is **not a supported shape**; the configure script refuses it. |
-| CO-D12 | P3 identity model | **Same project, same Auth pool.** Host-app users are ArcCMS "app users": they have a `users` document in the ArcCMS database (so payments, entitlements, contacts, drips and notifications attach to their uid) but no ArcCMS role and no access to the ArcCMS UI. ArcCMS admins are ordinary Auth users of the same pool holding `arccms_role: 'admin'`. A shared pool is what lets the host app call ArcCMS callables (checkout, event ingestion) with its users' normal ID tokens. A separate project would need a token exchange. |
-| CO-D13 | P3 app-user provisioning | **An explicit `arccms-ensureAppUser` callable, plus an admin "Import app users" action.** Decided 2026-09-23. The host app calls the callable after sign-up or sign-in with the user's ID token. It takes `uid`, `email` and `emailVerified` from the verified token, never from input. It creates the `users` doc on first call with `role: 'user'` hard-coded, or refreshes name, photo, email, language and `lastSeenAt` on later calls, so it is safe on every sign-in. It accepts `marketingConsent`, `name`, `language` and whitelisted contact `attributes`. It returns the user's entitlement state. Creating the doc fires the existing triggers (welcome email, contact, `user.signed_up`, admin notification), so no email or contact logic is duplicated. The import action pages through existing Auth accounts with `listUsers` and creates missing `users` docs with no marketing consent, for accounts made before ArcCMS was installed or never registered by the host app. The admin chooses per import run whether imported users get the welcome email (a checkbox, off by default, showing how many emails it would send). The choice is stamped on each created doc as `importedAt` and `sendWelcome`; `onUserCreateWelcomeEmail` skips docs with `sendWelcome: false`, and emails that do go out use the normal queue so provider rate limits are respected. Imports never send the per-user "New signup" admin notification (one summary notification per run instead) and emit `user.imported` rather than `user.signed_up`, so event mappings decide separately whether imported users join lists or drips. A host app with its own backend may write the same doc through the Admin SDK instead. Rejected: an Auth `onCreate` trigger (catches admins, test and anonymous accounts; no consent or name at creation; first-generation only). **Never a blocking function**: a project gets one `beforeUserCreated`, and the host app may already own it. |
-| CO-D16 | Who owns an Auth account | **ArcCMS never creates Auth accounts for app users**, neither in the callable nor in the import; those accounts already exist and belong to the host app. Every `users` doc records `authOwner`: `'arccms'` when the person signed up through ArcCMS (today's behaviour, and the default when the field is absent), `'host'` when created by `ensureAppUser` or the import. `onUserDeleted` deletes the Auth account only when `authOwner` is `'arccms'`. For a `'host'` user, deleting the ArcCMS doc removes them from ArcCMS (contact, lists, drips) and leaves their host-app login alone. Today `onUserDeleted` always calls `deleteUser(uid)`, which in P3 would delete the host app's account. |
+| CO-D12 | P3 identity model | **Host users are an external audience, not ArcCMS users** (decided 2026-09-24, replacing the first design). They keep their data in the host app's own collection, which stays the only copy; ArcCMS reads it where it lives and never copies profiles. They get no ArcCMS `users` record and never sign in to the ArcCMS backend. ArcCMS stores only what is its own: consent, suppression, drip progress, the email log, and last values of fields marked "watch for changes". ArcCMS admins are ordinary accounts of the same sign-in pool. See section 5b. |
+| CO-D13 | P3 app-user provisioning | **Superseded 2026-09-24.** The first design (an `ensureAppUser` callable and an "Import app users" action that created `users` records for host users) duplicated the host's data and made host users into ArcCMS users. It was built as CO6a and is removed in CO6.1. Replaced by the App audience (section 5b). **Never a blocking function** still holds: a project gets one `beforeUserCreated`, and the host app may already own it. |
+| CO-D16 | Who owns an Auth account | **ArcCMS never creates or deletes a host app's login.** A `users` record carries `authOwner`: `arccms` (default when absent) or `host`/`shared`, and `onUserDeleted` deletes the Auth account only for `arccms`. With the App audience, host users have no `users` record at all; the guard stays for shared logins (someone who is an ArcCMS user and also uses the host app with the same account). |
 | CO-D14 | Deploy commands | `npm run deploy:*` scripts wrap the Firebase CLI and pass `--config firebase.arccms.json` when that file exists, plus `--only functions:arccms`. Installs that deploy by hand with plain `firebase deploy` keep working in P1 and P2. |
 | CO-D15 | Multiple instances | P4 is supported now as **one Firebase project per instance**, which needs zero work. One project with several instances (CO8) needs per-instance function names, claim keys and databases, and is deferred. |
 
@@ -188,7 +188,7 @@ any client apps to the new database id. Not automated.
 | **CO3** Named database | Trigger helper (`arcDocument('Waitlists/{id}')` returns `{ document, database }`), all triggers migrated, `arc:configure`, generated `firebase.arccms.json`, deploy scripts. | Every install | Test: default config generates a Firebase config equal to the committed `firebase.json`. |
 | **CO4** Function codebase and names | `codebase: arccms`, grouped `arccms-` export, one frontend `callArc(name)` helper for about 37 callable sites, `search` widget URL and tracking-pixel URL derived from config, `ARC_` secret names, `arc:upgrade` script. | Every install | The one breaking change; see section 4.1. |
 | **CO5** Storage and hosting isolation | Bucket target support, rules scoped to `storagePrefix` when set, second-site hosting verified end to end (publish a page in P3 and fetch it). | P3 | |
-| **CO6** Backend profile | `arccms-ensureAppUser` callable and admin "Import app users" action (CO-D13), `authOwner` field and the guarded `onUserDeleted` (CO-D16), event ingestion callable for the host app, entitlement contract updated for the named database, host-app snippet printed by `arc:configure`. Every admin module stays available in every profile. | P3 | |
+| **CO6** App audience | Host users as a live, read-only external audience (section 5b), phases CO6.1 to CO6.7. Every admin module stays available in every profile. | P3 | |
 | **CO7** Docs | `INSTALL.md` per profile, `docs/coexistence-guide.md`, `docs/coexistence-upgrade-runbook.md`. | Everyone | |
 | **CO8** (deferred) Many instances in one project | Per-instance function group name (generated entry file), per-instance claim key, per-instance database, bucket and site. | P4 in one project | Only if separate projects prove insufficient. |
 
@@ -361,7 +361,7 @@ configured through it: `projects.xlm-project-864ff.databaseId = arccms`.
   Storage rule lets each user write their own; prefixing them would need a rules change.
   File names are per user and timestamped, so the two installs cannot overwrite each other.
 
-**CO6a as built (2026-09-23): app users.** `functions/src/users/appUsers.ts`:
+**CO6a as built (2026-09-23), superseded 2026-09-24 and removed in CO6.1: app users.** `functions/src/users/appUsers.ts`:
 - `arccms-ensureAppUser` (callable, as the signed-in user): identity from the verified
   token only; creates the `users` doc in a transaction (no duplicates on concurrent first
   sign-in) with `role: 'user'`, `authOwner: 'host'`, `source: 'app'`; on later calls
@@ -386,23 +386,110 @@ existing install. CO4 is the release that needs the runbook.
 
 ---
 
+## 5b. CO6 design: the App audience (decided 2026-09-24, not built)
+
+**The idea.** In the backend profile (P3), the host app's users are an audience ArcCMS
+can email, segment and run drips for, while their data stays in the host's collection.
+ArcCMS reads that collection live and reacts to changes in it instantly.
+
+### Configuration
+
+Two layers, because a trigger's path is fixed when functions are deployed:
+
+| Set with | What | Why there |
+|----------|------|-----------|
+| `arc:configure --app-users-database=<db> --app-users-path=<collection>/{id}` (written to `functions/.env.<projectId>` as `ARC_APP_USERS_DATABASE`, `ARC_APP_USERS_PATH`) | Which database and collection hold the host's users | The trigger that watches them is bound at deploy time (like `ARC_DATABASE_ID`). Changing it means configure plus a functions deploy. Unset: the trigger points at a path nothing writes to, so installs without a host app pay nothing. |
+| Admin, **Settings, App audience** (stored in `Settings/app_audience`, admin only) | How to read a document: the unique key, contact channels, name, fields to watch | Read at run time, so it can change without a deploy. |
+
+The Settings page shows the database and collection (read only, from the deploy) and asks:
+
+1. **Unique key**, always asked, never assumed: the document id, or a field path
+   (a login uid, a phone number, an email, a customer id). ArcCMS keys everything it
+   stores about a person by this value (hashed).
+2. **Email field** (optional): needed to email someone. People without one are listed
+   but cannot be emailed.
+3. **Phone field** (optional): shown and available as a merge tag; no SMS in CO6.
+4. **Name field** (optional).
+5. **Fields to watch for changes** (optional): for example `subscription.tier`. Only
+   these fields' last values are stored, so a change can start an email or drip
+   ("upgraded to paid").
+6. **Field preview**: ArcCMS samples about 20 documents and lists every field path with
+   example values, so the admin picks from a list. A **Test** button reads one real
+   document and shows how it was understood.
+
+Every field of a host document is available to emails as `##APP.<path>##` (for example
+`##APP.subscription.tier##`) and to segment conditions, without mapping.
+
+### What ArcCMS stores (its own state only)
+
+`AppAudience/{keyHash}` in the ArcCMS database, created only once ArcCMS has something of
+its own to remember:
+- marketing consent (`subscribed` by default, per the 2026-09-23 decision; unsubscribes
+  recorded here and in `Suppression`),
+- drip enrollment and progress,
+- last values of the watched fields,
+- `lastSeenAt`, and a `deleted` marker kept for suppression after the host deletes them.
+
+Nothing else: no name, email, phone or other profile field. Email addresses are read from
+the host document at send time; suppression is by email hash, as today.
+
+### Reacting to changes
+
+`onAppUserWritten`: a Firestore trigger on `ARC_APP_USERS_PATH` in `ARC_APP_USERS_DATABASE`.
+- **Created** → event `app_user.created` on the existing event bus (`AppEvents`), so event
+  mappings can start a welcome drip or email.
+- **Updated** → only when a watched field changed: `app_user.changed` with the field, old
+  and new value (for example `subscription.tier: free → paid`). Other writes (usage
+  counters ticking) return at once.
+- **Deleted** → `app_user.deleted`; ArcCMS drops drip progress and watched values but keeps
+  consent and suppression, so a returning address is not mailed against a past
+  unsubscribe.
+
+### Where app users appear
+
+- **Audience, App users**: a read-only table served live from the host collection by a
+  callable (search by the unique key, email or name; a few hundred rows, so no special
+  indexes). Each row shows the host fields and ArcCMS's own state (consent, drips).
+- **Audience, Lists**: a new list type, **App users (live)**, defined by conditions on host
+  fields ("subscription.tier is paid", "projects > 10"). Resolved at send time by reading
+  the host collection, with ArcCMS consent and suppression applied. Broadcasts and drips
+  target it like any list.
+- **Users** stays ArcCMS logins only.
+
+### Admin-only sign-in
+
+Chosen with the profile (`arc:configure --profile=backend` asks for it). It sets
+`Settings/users.adminOnlySignIn`: the sign-in page hides sign-up, the rules refuse
+self-created `users` records (checked with `get()` on that setting), and signing in
+requires an existing ArcCMS user record added by an admin. Needed because the sign-in pool
+is shared: a host user's password is valid on the ArcCMS sign-in page too.
+
+### Phases
+
+| Phase | Deliverable |
+|-------|-------------|
+| CO6.1 | Remove CO6a's `ensureAppUser`, `importAppUsers`, the import dialog, `importedAt`, `sendWelcome` and `user.imported`. Keep the `authOwner` guard. |
+| CO6.2 | `arc:configure` app-users flags and params; Settings, App audience (unique key, channels, name, watched fields, preview, test); callables that list databases, collections and sample fields. |
+| CO6.3 | Audience, App users: live table and search. |
+| CO6.4 | `onAppUserWritten` and the `AppAudience` state; the three events on the event bus. |
+| CO6.5 | Emails: `##APP.*##` merge tags; the App users (live) list type; broadcasts and drips resolving app users at send time; unsubscribe and suppression for them. |
+| CO6.6 | Admin-only sign-in with the profile. |
+| CO6.7 | `docs/app-audience-integration.md`: step-by-step integration guide written for an AI agent (and people), from a host app's collection to its first email. |
+
 ## 6. P3 in practice: what the host app sees
 
 - **Its own stuff is untouched.** Its `(default)` database, rules, indexes, bucket,
-  hosting site and `default`-codebase functions are never read, written or deployed by
-  ArcCMS.
-- **Its users.** The same Auth accounts, still owned by the host app. ArcCMS keeps a
-  `users` document per app user in the `arccms` database (CO-D13), never shows them the
-  ArcCMS UI, and never creates or deletes their Auth account (CO-D16).
-- **Entitlements.** Read from the `arccms` database:
-  `getFirestore(app, 'arccms')` then `users` exactly as the entitlement contract
-  describes. Rules let a user read their own document only (CO1).
-- **Checkout, events, contacts.** Call `arccms-createCheckoutSession`,
-  `arccms-emitAppEvent` and friends with the signed-in user's normal ID token.
-- **Claims.** ArcCMS only ever adds `arccms_role`, merged, so the host app's own claims
-  survive. The host app should likewise merge rather than replace, and the guide says so.
-- **Admins.** Sign in to the ArcCMS hosting site with accounts from the same pool that
-  hold `arccms_role: 'admin'`.
+  hosting site and `default`-codebase functions are never deployed by ArcCMS. ArcCMS
+  *reads* one collection, the host's users, and never writes to it.
+- **Its users** stay in its own collection and its own sign-in. ArcCMS reads them live
+  (section 5b); nothing about them is copied, and they cannot sign in to the ArcCMS
+  backend.
+- **Payments** stay in the host app. Its payment fields are ordinary fields to ArcCMS,
+  usable in emails and segments.
+- **No integration code** is needed in the host app: ArcCMS picks up new, changed and
+  deleted users by itself.
+- **Admins** sign in to the ArcCMS admin with accounts an ArcCMS admin added; with
+  "admin-only sign-in" (section 5b) nobody else can.
 
 ---
 
