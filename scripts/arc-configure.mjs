@@ -21,6 +21,7 @@
  * Flags update that project's entry in arccms.config.json first:
  *   --profile=standalone|backend  --database=<id>  --site=<hosting site | none>
  *   --bucket=<bucket>  --prefix=<upload folder>  --region=<location>
+ *   --app-users-database=<db>  --app-users-path=<collection>/{id}   the host app's users (CO6)
  *   --dry-run   print what would change, write nothing
  *
  * With no arccms.config.json and no flags, every output is the default and a
@@ -59,7 +60,13 @@ const FLAG_KEYS = {
     bucket: 'storageBucket',
     prefix: 'storagePrefix',
     region: 'region',
+    'app-users-database': 'appUsersDatabase',
+    'app-users-path': 'appUsersPath',
 };
+
+/** When no host collection is configured: a path nothing writes to (App audience, CO6). */
+export const APP_USERS_UNCONFIGURED = '_arccms_app_users_not_configured/{id}';
+const APP_USERS_PATH_PATTERN = /^([A-Za-z0-9_-]+)\/\{([A-Za-z0-9_]+)\}$/;
 
 /** `--database=arccms` style flags → config keys. Unknown flags throw. */
 export function parseFlags(argv) {
@@ -69,7 +76,7 @@ export function parseFlags(argv) {
     for (const arg of argv) {
         if (arg === '--dry-run') { dryRun = true; continue; }
         if (arg.startsWith('--project=')) { project = arg.slice('--project='.length); continue; }
-        const match = /^--([a-z]+)=(.*)$/.exec(arg);
+        const match = /^--([a-z-]+)=(.*)$/.exec(arg);
         if (!match || !(match[1] in FLAG_KEYS)) throw new Error(`Unknown argument: ${arg}`);
         updates[FLAG_KEYS[match[1]]] = match[2];
     }
@@ -104,6 +111,17 @@ export function validateConfig(config) {
         if (!config.hostingSite) errors.push('A backend install needs its own hosting site: set hostingSite.');
         // CO-D9: storage rules are one file per bucket.
         if (!config.storageBucket) errors.push('A backend install needs its own storage bucket: set storageBucket.');
+    }
+    if (config.appUsersPath && config.appUsersPath !== APP_USERS_UNCONFIGURED) {
+        const match = APP_USERS_PATH_PATTERN.exec(config.appUsersPath);
+        if (!match) {
+            errors.push(`app-users-path "${config.appUsersPath}" must look like <collection>/{id}, for example users/{uid}.`);
+        } else if (match[1] === 'users'
+            && (config.appUsersDatabase || DEFAULT_DATABASE_ID) === (config.databaseId || DEFAULT_DATABASE_ID)) {
+            // ArcCMS's own users live there; reading them as a host app's audience
+            // would turn every ArcCMS login into an app user.
+            errors.push('app-users-path points at ArcCMS\'s own users collection in its own database. The host app\'s users must be in another collection or database.');
+        }
     }
     if (config.databaseId && !/^(\(default\)|[a-z][a-z0-9-]{2,62})$/.test(config.databaseId)) {
         errors.push(`databaseId "${config.databaseId}" is not a valid Firestore database id (lowercase letters, digits and hyphens, 3 to 63 characters, starting with a letter).`);
@@ -166,6 +184,9 @@ export function updateFunctionsEnv(existing, config) {
     const wanted = {
         ARC_DATABASE_ID: config.databaseId || DEFAULT_DATABASE_ID,
         ARC_HOSTING_SITE: config.hostingSite,
+        // App audience (CO6): params too, so always written for non-interactive deploys.
+        ARC_APP_USERS_DATABASE: config.appUsersDatabase || DEFAULT_DATABASE_ID,
+        ARC_APP_USERS_PATH: config.appUsersPath || APP_USERS_UNCONFIGURED,
     };
     const lines = (existing ?? '').split('\n').filter((line) => {
         const key = /^\s*([A-Z0-9_]+)\s*=/.exec(line)?.[1];

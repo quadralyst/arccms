@@ -140,6 +140,11 @@ export const routes: Routes = [
               import('./pages/admin/(settings)/search/search-settings.page').then((m) => m.SearchSettingsPage),
           },
           {
+            path: 'app-audience',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/app-audience/app-audience-settings.page').then((m) => m.AppAudienceSettingsPage),
+          },
+          {
             path: 'discoverability',
             loadComponent: () =>
               import('./pages/admin/(settings)/discoverability/discoverability-settings.page').then((m) => m.DiscoverabilitySettingsPage),

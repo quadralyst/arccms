@@ -336,6 +336,13 @@ export default class SettingsPageComponent extends BaseComponent {
             description: 'AI crawlers, llms.txt & IndexNow',
         },
         {
+            id: 'app-audience',
+            label: 'App audience',
+            icon: 'fa-solid fa-users-viewfinder',
+            route: '/admin/settings/app-audience',
+            description: "Your app's users, read live",
+        },
+        {
             id: 'misc',
             label: 'Miscellaneous',
             icon: 'fa-solid fa-cog',

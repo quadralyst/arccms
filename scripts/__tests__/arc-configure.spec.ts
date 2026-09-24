@@ -8,6 +8,8 @@ import * as configure from '../arc-configure.mjs';
 import { deployArgs, deploysFunctions, generatedConfigPath, projectArg } from '../arc-deploy.mjs';
 
 const ROOT = resolve(__dirname, '..', '..');
+/** The App audience params (CO6), always written with their defaults. */
+const APP_USERS_DEFAULTS = 'ARC_APP_USERS_DATABASE=(default)\nARC_APP_USERS_PATH=_arccms_app_users_not_configured/{id}\n';
 const committedFirebase = JSON.parse(readFileSync(join(ROOT, 'firebase.json'), 'utf8'));
 const backend = {
     profile: 'backend',
@@ -36,9 +38,9 @@ describe('arc-configure', () => {
         });
 
         it('writes ARC_DATABASE_ID=(default), which a non-interactive deploy needs, and keeps other lines', () => {
-            expect(configure.updateFunctionsEnv('', config)).toBe('ARC_DATABASE_ID=(default)\n');
+            expect(configure.updateFunctionsEnv('', config)).toBe(`ARC_DATABASE_ID=(default)\n${APP_USERS_DEFAULTS}`);
             expect(configure.updateFunctionsEnv('RESEND_KEY=x\nARC_DATABASE_ID=old\n', config))
-                .toBe('RESEND_KEY=x\nARC_DATABASE_ID=(default)\n');
+                .toBe(`RESEND_KEY=x\nARC_DATABASE_ID=(default)\n${APP_USERS_DEFAULTS}`);
         });
 
         it('matches the committed functions/.env, so a fresh clone deploys without running configure', () => {
@@ -48,6 +50,30 @@ describe('arc-configure', () => {
 
         it('prints no setup commands', () => {
             expect(configure.setupCommands(config)).toEqual([]);
+        });
+    });
+
+    describe('App audience flags (CO6)', () => {
+        it('writes the host collection into the env', () => {
+            const c = configure.normalizeConfig({ databaseId: 'arccms', appUsersDatabase: '(default)', appUsersPath: 'users/{uid}' });
+            expect(configure.validateConfig(c)).toEqual([]);
+            expect(configure.updateFunctionsEnv('', c)).toContain('ARC_APP_USERS_DATABASE=(default)\nARC_APP_USERS_PATH=users/{uid}\n');
+        });
+
+        it('accepts only <collection>/{id}', () => {
+            expect(configure.validateConfig(configure.normalizeConfig({ databaseId: 'arccms', appUsersPath: 'users' }))).toHaveLength(1);
+            expect(configure.validateConfig(configure.normalizeConfig({ databaseId: 'arccms', appUsersPath: 'a/{x}/b/{y}' }))).toHaveLength(1);
+        });
+
+        it("refuses ArcCMS's own users collection as the host's", () => {
+            const errors = configure.validateConfig(configure.normalizeConfig({ databaseId: 'arccms', appUsersDatabase: 'arccms', appUsersPath: 'users/{id}' }));
+            expect(errors.join(' ')).toMatch(/own users collection/);
+            // Same collection name in another database is the normal P3 case.
+            expect(configure.validateConfig(configure.normalizeConfig({ databaseId: 'arccms', appUsersDatabase: '(default)', appUsersPath: 'users/{id}' }))).toEqual([]);
+        });
+
+        it('takes hyphenated flags', () => {
+            expect(configure.parseFlags(['--app-users-path=users/{uid}']).updates).toEqual({ appUsersPath: 'users/{uid}' });
         });
     });
 
@@ -102,12 +128,12 @@ describe('arc-configure', () => {
 
         it('sets the ARC_* keys in functions/.env, replacing old values', () => {
             expect(configure.updateFunctionsEnv('RESEND_KEY=x\nARC_DATABASE_ID=old\n', config))
-                .toBe('RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n');
+                .toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}`);
         });
 
         it('--site=none turns hosting off: the env says so, the CLI config gets no site', () => {
             const off = configure.normalizeConfig({ databaseId: 'arccms', hostingSite: 'none' });
-            expect(configure.updateFunctionsEnv('', off)).toBe('ARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=none\n');
+            expect(configure.updateFunctionsEnv('', off)).toBe(`ARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=none\n${APP_USERS_DEFAULTS}`);
             expect(configure.renderFirebaseConfig(committedFirebase, off).hosting.site).toBeUndefined();
             expect(configure.renderFirebaseConfig(committedFirebase, configure.normalizeConfig({ hostingSite: 'none' }))).toBeNull();
         });
@@ -154,7 +180,7 @@ describe('arc-configure', () => {
             expect(JSON.parse(readFileSync(paths.config, 'utf8'))).toEqual({ projects: { 'acme-prod': backend } });
             expect(existsSync(generated('acme-prod'))).toBe(true);
             expect(existsSync(generated('acme-dev'))).toBe(false);
-            expect(readFileSync(envFor('acme-prod'), 'utf8')).toBe('RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n');
+            expect(readFileSync(envFor('acme-prod'), 'utf8')).toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}`);
             expect(readFileSync(join(dir, 'functions', '.env'), 'utf8')).toBe('ARC_DATABASE_ID=(default)\n');
             expect(readFileSync(paths.install, 'utf8')).toContain('"acme-prod": {');
 
@@ -165,14 +191,14 @@ describe('arc-configure', () => {
 
             // The default project stays default: its env says so and it gets no generated config.
             expect(run()).toBe(0);
-            expect(readFileSync(envFor('acme-dev'), 'utf8')).toBe('ARC_DATABASE_ID=(default)\n');
+            expect(readFileSync(envFor('acme-dev'), 'utf8')).toBe(`ARC_DATABASE_ID=(default)\n${APP_USERS_DEFAULTS}`);
             expect(existsSync(generated('acme-dev'))).toBe(false);
 
             // Back to standalone for prod: its generated config goes, other env lines stay.
             writeFileSync(paths.config, '{}');
             expect(run('--project=acme-prod')).toBe(0);
             expect(existsSync(generated('acme-prod'))).toBe(false);
-            expect(readFileSync(envFor('acme-prod'), 'utf8')).toBe('RESEND_KEY=x\nARC_DATABASE_ID=(default)\n');
+            expect(readFileSync(envFor('acme-prod'), 'utf8')).toBe(`RESEND_KEY=x\nARC_DATABASE_ID=(default)\n${APP_USERS_DEFAULTS}`);
             expect(readFileSync(paths.install, 'utf8')).toContain('= {};');
         });
 

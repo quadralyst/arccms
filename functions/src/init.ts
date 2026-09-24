@@ -13,5 +13,14 @@ initializeApp();
  */
 const databaseId = arcDatabaseId();
 export const db = databaseId === DEFAULT_DATABASE_ID ? getFirestore() : getFirestore(databaseId);
+/**
+ * Another Firestore database in this project, read by ArcCMS but not its own:
+ * the host app's users (the App audience, docs/coexistence-spec.md section 5b).
+ * Kept here so init.ts stays the only place that opens a database.
+ */
+export function firestoreFor(databaseId: string) {
+    return databaseId === DEFAULT_DATABASE_ID ? getFirestore() : getFirestore(databaseId);
+}
+
 export const owner = getAuth();
 export const storage = getStorage();

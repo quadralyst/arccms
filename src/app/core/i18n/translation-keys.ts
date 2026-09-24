@@ -691,6 +691,39 @@ export type TranslationKey =
     | 'admin.settings.analytics.subtitle'
     | 'admin.settings.analytics.title'
     | 'admin.settings.analytics.why_note'
+    | 'admin.settings.app_audience.channels_hint'
+    | 'admin.settings.app_audience.choose_field'
+    | 'admin.settings.app_audience.col_examples'
+    | 'admin.settings.app_audience.col_field'
+    | 'admin.settings.app_audience.col_seen'
+    | 'admin.settings.app_audience.collection'
+    | 'admin.settings.app_audience.database'
+    | 'admin.settings.app_audience.email_field'
+    | 'admin.settings.app_audience.fields_hint'
+    | 'admin.settings.app_audience.fields_title'
+    | 'admin.settings.app_audience.intro'
+    | 'admin.settings.app_audience.key'
+    | 'admin.settings.app_audience.key_doc_id'
+    | 'admin.settings.app_audience.key_field'
+    | 'admin.settings.app_audience.key_hint'
+    | 'admin.settings.app_audience.load_failed'
+    | 'admin.settings.app_audience.location_hint'
+    | 'admin.settings.app_audience.location_title'
+    | 'admin.settings.app_audience.name_field'
+    | 'admin.settings.app_audience.none'
+    | 'admin.settings.app_audience.not_configured'
+    | 'admin.settings.app_audience.phone_field'
+    | 'admin.settings.app_audience.reading_title'
+    | 'admin.settings.app_audience.save'
+    | 'admin.settings.app_audience.save_failed'
+    | 'admin.settings.app_audience.saved'
+    | 'admin.settings.app_audience.test'
+    | 'admin.settings.app_audience.test_doc_id'
+    | 'admin.settings.app_audience.test_none'
+    | 'admin.settings.app_audience.test_result'
+    | 'admin.settings.app_audience.title'
+    | 'admin.settings.app_audience.watched'
+    | 'admin.settings.app_audience.watched_hint'
     | 'admin.settings.background_style'
     | 'admin.settings.banner_enabled'
     | 'admin.settings.discoverability.allowed'
@@ -782,6 +815,8 @@ export type TranslationKey =
     | 'admin.settings.hub.about.label'
     | 'admin.settings.hub.analytics.description'
     | 'admin.settings.hub.analytics.label'
+    | 'admin.settings.hub.app-audience.description'
+    | 'admin.settings.hub.app-audience.label'
     | 'admin.settings.hub.discoverability.description'
     | 'admin.settings.hub.discoverability.label'
     | 'admin.settings.hub.email.description'
@@ -1858,6 +1893,39 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.analytics.subtitle',
     'admin.settings.analytics.title',
     'admin.settings.analytics.why_note',
+    'admin.settings.app_audience.channels_hint',
+    'admin.settings.app_audience.choose_field',
+    'admin.settings.app_audience.col_examples',
+    'admin.settings.app_audience.col_field',
+    'admin.settings.app_audience.col_seen',
+    'admin.settings.app_audience.collection',
+    'admin.settings.app_audience.database',
+    'admin.settings.app_audience.email_field',
+    'admin.settings.app_audience.fields_hint',
+    'admin.settings.app_audience.fields_title',
+    'admin.settings.app_audience.intro',
+    'admin.settings.app_audience.key',
+    'admin.settings.app_audience.key_doc_id',
+    'admin.settings.app_audience.key_field',
+    'admin.settings.app_audience.key_hint',
+    'admin.settings.app_audience.load_failed',
+    'admin.settings.app_audience.location_hint',
+    'admin.settings.app_audience.location_title',
+    'admin.settings.app_audience.name_field',
+    'admin.settings.app_audience.none',
+    'admin.settings.app_audience.not_configured',
+    'admin.settings.app_audience.phone_field',
+    'admin.settings.app_audience.reading_title',
+    'admin.settings.app_audience.save',
+    'admin.settings.app_audience.save_failed',
+    'admin.settings.app_audience.saved',
+    'admin.settings.app_audience.test',
+    'admin.settings.app_audience.test_doc_id',
+    'admin.settings.app_audience.test_none',
+    'admin.settings.app_audience.test_result',
+    'admin.settings.app_audience.title',
+    'admin.settings.app_audience.watched',
+    'admin.settings.app_audience.watched_hint',
     'admin.settings.background_style',
     'admin.settings.banner_enabled',
     'admin.settings.discoverability.allowed',
@@ -1949,6 +2017,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.about.label',
     'admin.settings.hub.analytics.description',
     'admin.settings.hub.analytics.label',
+    'admin.settings.hub.app-audience.description',
+    'admin.settings.hub.app-audience.label',
     'admin.settings.hub.discoverability.description',
     'admin.settings.hub.discoverability.label',
     'admin.settings.hub.email.description',

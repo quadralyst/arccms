@@ -464,6 +464,18 @@ self-created `users` records (checked with `get()` on that setting), and signing
 requires an existing ArcCMS user record added by an admin. Needed because the sign-in pool
 is shared: a host user's password is valid on the ArcCMS sign-in page too.
 
+### Built so far
+
+- **CO6.1** (360954d): CO6a removed; the `authOwner` guard kept in `functions/src/users/authOwner.ts`
+  (`arccms`, `host`, `shared`; only `arccms` logins are ever deleted; clients cannot set it).
+- **CO6.2**: params `ARC_APP_USERS_DATABASE`, `ARC_APP_USERS_PATH` (`functions/src/app-audience/config.ts`,
+  defaults in the committed `functions/.env`); `arc:configure --app-users-database --app-users-path`
+  (validated: `<collection>/{id}` only, and never ArcCMS's own `users` in its own database);
+  `firestoreFor(databaseId)` in `init.ts` for reading another database; admin callables
+  `arccms-appAudienceStatus`, `arccms-sampleAppUsers`, `arccms-testAppUser`
+  (`functions/src/app-audience/adminCallables.ts`); Settings, App audience page
+  (`/admin/settings/app-audience`) saving `Settings/app_audience`.
+
 ### Phases
 
 | Phase | Deliverable |

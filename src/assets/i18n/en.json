@@ -232,6 +232,10 @@
         "discoverability": {
           "label": "Discoverability",
           "description": "AI crawlers, llms.txt & IndexNow"
+        },
+        "app-audience": {
+          "label": "App audience",
+          "description": "Your app's users, read live"
         }
       },
       "about": {
@@ -619,6 +623,41 @@
         "applied": "Applied: {{ files }} file(s) updated on the site.",
         "save_failed": "Could not save the settings.",
         "apply_failed": "Saved, but applying to the site failed. The next publish will apply them."
+      },
+      "app_audience": {
+        "title": "App audience",
+        "intro": "Connect the collection where your app keeps its users. ArcCMS reads it where it lives, copies nothing, and can email and segment those people. They never sign in to ArcCMS.",
+        "location_title": "Host collection",
+        "database": "Database",
+        "collection": "Collection",
+        "not_configured": "No host collection is configured. Set it with npm run arc:configure -- --app-users-database=(default) --app-users-path=users/{id} and deploy the functions.",
+        "location_hint": "Set when the functions are deployed, because the trigger that watches it is fixed then.",
+        "reading_title": "How to read a user",
+        "key": "Unique key",
+        "key_hint": "What identifies one person. ArcCMS keys everything it remembers about them by this value.",
+        "key_doc_id": "The document id",
+        "key_field": "A field",
+        "choose_field": "Choose a field",
+        "email_field": "Email field",
+        "phone_field": "Phone field",
+        "name_field": "Name field",
+        "none": "None",
+        "channels_hint": "People without an email are listed but cannot be emailed.",
+        "watched": "Watch for changes",
+        "watched_hint": "A change in these fields is an event that can start an email or drip. Only their last values are stored.",
+        "fields_title": "Fields found",
+        "fields_hint": "From {{ count }} sample documents. Every field is available in emails as ##APP.<field>##.",
+        "col_field": "Field",
+        "col_examples": "Examples",
+        "col_seen": "In samples",
+        "test": "Test with a document",
+        "test_doc_id": "Document id (optional)",
+        "test_result": "How ArcCMS reads it",
+        "test_none": "No such document.",
+        "save": "Save",
+        "saved": "App audience settings saved.",
+        "save_failed": "Could not save the settings.",
+        "load_failed": "Could not read the host collection: {{ error }}"
       }
     },
     "contents": {
