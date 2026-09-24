@@ -43,6 +43,7 @@ CALLABLES=(
 )
 
 blocked=()
+missing=()
 # Any positional arguments narrow the check to just those functions.
 if [ "$#" -gt 0 ]; then CALLABLES=("$@"); fi
 
@@ -55,7 +56,8 @@ for fn in "${CALLABLES[@]}"; do
   elif [ "$code" = "404" ]; then
     # Not deployed. Checked explicitly because a 404 body is not "403 Forbidden",
     # so a naive check would report a missing function as healthy.
-    printf "%-34s ⚠️  NOT DEPLOYED (404)\n" "$fn"
+    printf "%-34s ❌ NOT DEPLOYED (404)\n" "$fn"
+    missing+=("$fn")
   elif echo "$body" | grep -qi "403 Forbidden"; then
     printf "%-34s ❌ BLOCKED by Cloud Run — needs invoker grant\n" "$fn"
     blocked+=("$fn")
@@ -65,7 +67,13 @@ for fn in "${CALLABLES[@]}"; do
 done
 
 echo
+if [ ${#missing[@]} -gt 0 ]; then
+  echo "Not deployed: ${missing[*]}"
+  echo "Every callable here is exported from functions/src/all.ts, so a missing one means the"
+  echo "deploy used an old build or skipped it. Rebuild (npm run build --prefix functions) and redeploy."
+fi
 if [ ${#blocked[@]} -eq 0 ]; then
+  if [ ${#missing[@]} -gt 0 ]; then exit 1; fi
   echo "All callables reachable."
 else
   echo "Run these to fix:"

@@ -8,6 +8,9 @@
  *   generated one for the target project, so a project set up with a named
  *   database, its own bucket or its own hosting site deploys those. Without that
  *   file this is plain `firebase deploy` against firebase.json;
+ * - builds the functions (`tsc`) before a deploy that includes them. The CLI
+ *   uploads functions/lib as it is, so without this a deploy ships the last
+ *   build and new functions are silently missing (found 2026-09-24);
  * - fails a functions deploy in which a function the CLI started creating,
  *   updating or deleting never reported success. The CLI can exit 0 after a
  *   rate limit (HTTP 429) quietly skipped an update, leaving the old code live
@@ -94,6 +97,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const args = process.argv.slice(2);
     const projectId = resolveProjectId(projectArg(args), readFirebaseAliases());
     const firebaseArgs = deployArgs(args, !!projectId && existsSync(generatedConfigPath(projectId)), projectId);
+    if (deploysFunctions(args)) {
+        console.log('> npm run build --prefix functions');
+        const build = spawnSync('npm', ['run', 'build', '--prefix', resolve(ROOT, 'functions')], {
+            stdio: 'inherit', shell: process.platform === 'win32',
+        });
+        if (build.status !== 0) {
+            console.error('\nThe functions build failed, so nothing was deployed.');
+            process.exit(build.status ?? 1);
+        }
+    }
     console.log(`> firebase ${firebaseArgs.join(' ')}`);
     const deploy = await run('firebase', firebaseArgs);
     let status = deploy.status;
