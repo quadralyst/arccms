@@ -723,7 +723,13 @@ export type TranslationKey =
     | 'admin.settings.app_audience.test_result'
     | 'admin.settings.app_audience.title'
     | 'admin.settings.app_audience.watched'
+    | 'admin.settings.app_audience.watched_available'
+    | 'admin.settings.app_audience.watched_empty'
+    | 'admin.settings.app_audience.watched_filter'
     | 'admin.settings.app_audience.watched_hint'
+    | 'admin.settings.app_audience.watched_no_match'
+    | 'admin.settings.app_audience.watched_remove'
+    | 'admin.settings.app_audience.watched_selected'
     | 'admin.settings.background_style'
     | 'admin.settings.banner_enabled'
     | 'admin.settings.discoverability.allowed'
@@ -1925,7 +1931,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.app_audience.test_result',
     'admin.settings.app_audience.title',
     'admin.settings.app_audience.watched',
+    'admin.settings.app_audience.watched_available',
+    'admin.settings.app_audience.watched_empty',
+    'admin.settings.app_audience.watched_filter',
     'admin.settings.app_audience.watched_hint',
+    'admin.settings.app_audience.watched_no_match',
+    'admin.settings.app_audience.watched_remove',
+    'admin.settings.app_audience.watched_selected',
     'admin.settings.background_style',
     'admin.settings.banner_enabled',
     'admin.settings.discoverability.allowed',

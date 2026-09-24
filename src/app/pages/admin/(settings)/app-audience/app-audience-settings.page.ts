@@ -109,14 +109,48 @@ interface TestResult {
           <div class="mb-4">
             <label class="form-label fw-semibold">{{ 'admin.settings.app_audience.watched' | transloco }}</label>
             <div class="text-muted small mb-2">{{ 'admin.settings.app_audience.watched_hint' | transloco }}</div>
-            <div class="d-flex flex-wrap gap-3">
-              @for (f of fields(); track f.path) {
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" [id]="'w-' + f.path"
-                         [checked]="watched().includes(f.path)" (change)="toggleWatched(f.path)">
-                  <label class="form-check-label" [for]="'w-' + f.path"><code>{{ f.path }}</code></label>
+            <div class="row g-3 watch-picker">
+              <div class="col-md-6">
+                <div class="picker-box">
+                  <div class="picker-head">
+                    <span class="fw-semibold small">{{ 'admin.settings.app_audience.watched_available' | transloco: { count: availableFields().length } }}</span>
+                    <input class="form-control form-control-sm mt-2" type="search"
+                           [placeholder]="'admin.settings.app_audience.watched_filter' | transloco"
+                           [ngModel]="watchFilter()" (ngModelChange)="watchFilter.set($event)">
+                  </div>
+                  <ul class="picker-list">
+                    @for (f of availableFields(); track f.path) {
+                      <li>
+                        <label class="picker-row">
+                          <input class="form-check-input mt-0" type="checkbox" [checked]="false" (change)="toggleWatched(f.path)">
+                          <code>{{ f.path }}</code>
+                        </label>
+                      </li>
+                    } @empty {
+                      <li class="text-muted small p-2">{{ 'admin.settings.app_audience.watched_no_match' | transloco }}</li>
+                    }
+                  </ul>
                 </div>
-              }
+              </div>
+              <div class="col-md-6">
+                <div class="picker-box">
+                  <div class="picker-head">
+                    <span class="fw-semibold small">{{ 'admin.settings.app_audience.watched_selected' | transloco: { count: watched().length } }}</span>
+                  </div>
+                  <ul class="picker-list">
+                    @for (path of watched(); track path) {
+                      <li class="picker-row justify-content-between">
+                        <code>{{ path }}</code>
+                        <button type="button" class="btn btn-sm btn-link text-muted p-0 remove-btn"
+                                [attr.aria-label]="'admin.settings.app_audience.watched_remove' | transloco: { field: path }"
+                                (click)="toggleWatched(path)">&times;</button>
+                      </li>
+                    } @empty {
+                      <li class="text-muted small p-2">{{ 'admin.settings.app_audience.watched_empty' | transloco }}</li>
+                    }
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -176,6 +210,16 @@ interface TestResult {
       }
     </div>
     `,
+    styles: [`
+        .picker-box { border: 1px solid #dee2e6; border-radius: 8px; background: #fff; }
+        .picker-head { padding: 0.6rem 0.75rem; border-bottom: 1px solid #dee2e6; }
+        .picker-list { list-style: none; margin: 0; padding: 0.25rem 0; max-height: 320px; overflow-y: auto; }
+        .picker-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.75rem; margin: 0; cursor: pointer; }
+        .picker-row:hover { background: #f8f9fa; }
+        .picker-row code { font-size: 0.85rem; word-break: break-all; }
+        .remove-btn { font-size: 1.25rem; line-height: 1; text-decoration: none; }
+        .remove-btn:hover { color: #dc3545 !important; }
+    `],
 })
 export class AppAudienceSettingsPage implements OnInit {
     private readonly functions = inject(Functions);
@@ -195,6 +239,14 @@ export class AppAudienceSettingsPage implements OnInit {
     readonly phoneField = signal('');
     readonly nameField = signal('');
     readonly watched = signal<string[]>([]);
+    readonly watchFilter = signal('');
+
+    /** Sampled fields not yet watched, narrowed by the filter box. */
+    readonly availableFields = computed(() => {
+        const chosen = new Set(this.watched());
+        const filter = this.watchFilter().trim().toLowerCase();
+        return this.fields().filter((f) => !chosen.has(f.path) && (!filter || f.path.toLowerCase().includes(filter)));
+    });
     readonly saving = signal(false);
 
     readonly testDocId = signal('');

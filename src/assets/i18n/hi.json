@@ -649,7 +649,13 @@
         "save": "सहेजें",
         "saved": "ऐप ऑडियंस सेटिंग्स सहेजी गईं।",
         "save_failed": "सेटिंग्स सहेजी नहीं जा सकीं।",
-        "load_failed": "होस्ट कलेक्शन पढ़ा नहीं जा सका: {{ error }}"
+        "load_failed": "होस्ट कलेक्शन पढ़ा नहीं जा सका: {{ error }}",
+        "watched_available": "फ़ील्ड ({{ count }})",
+        "watched_filter": "फ़ील्ड खोजें",
+        "watched_no_match": "नज़र रखने के लिए कोई फ़ील्ड नहीं बचा।",
+        "watched_selected": "नज़र में ({{ count }})",
+        "watched_empty": "अभी किसी फ़ील्ड पर नज़र नहीं। बाईं ओर से एक चुनें।",
+        "watched_remove": "{{ field }} पर नज़र रखना बंद करें"
       }
     },
     "contents": {

@@ -100,4 +100,25 @@ describe('AppAudienceSettingsPage', () => {
         page.keySource.set('field');
         expect(page.canSave()).toBe(false);
     });
+
+    it('moves a field between the available and watched lists, and filters the available one', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: configured, settings: { key: { source: 'docId' }, watchedFields: [] } };
+        m.responses['arccms-sampleAppUsers'] = {
+            sampleSize: 1,
+            fields: ['email', 'isPro', 'premiumStatus'].map((path) => ({ path, examples: [], seenIn: 1 })),
+        };
+        const page = (await open()).componentInstance;
+
+        page.toggleWatched('isPro');
+        expect(page.watched()).toEqual(['isPro']);
+        expect(page.availableFields().map((f) => f.path)).toEqual(['email', 'premiumStatus']);
+
+        page.watchFilter.set('PREM');
+        expect(page.availableFields().map((f) => f.path)).toEqual(['premiumStatus']);
+
+        page.toggleWatched('isPro'); // the x on the right
+        page.watchFilter.set('');
+        expect(page.watched()).toEqual([]);
+        expect(page.availableFields().map((f) => f.path)).toEqual(['email', 'isPro', 'premiumStatus']);
+    });
 });

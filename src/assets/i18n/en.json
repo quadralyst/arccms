@@ -657,7 +657,13 @@
         "save": "Save",
         "saved": "App audience settings saved.",
         "save_failed": "Could not save the settings.",
-        "load_failed": "Could not read the host collection: {{ error }}"
+        "load_failed": "Could not read the host collection: {{ error }}",
+        "watched_available": "Fields ({{ count }})",
+        "watched_filter": "Filter fields",
+        "watched_no_match": "No fields left to watch.",
+        "watched_selected": "Watched ({{ count }})",
+        "watched_empty": "No fields watched yet. Tick one on the left.",
+        "watched_remove": "Stop watching {{ field }}"
       }
     },
     "contents": {
