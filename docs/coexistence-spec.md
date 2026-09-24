@@ -475,6 +475,13 @@ is shared: a host user's password is valid on the ArcCMS sign-in page too.
   `arccms-appAudienceStatus`, `arccms-sampleAppUsers`, `arccms-testAppUser`
   (`functions/src/app-audience/adminCallables.ts`); Settings, App audience page
   (`/admin/settings/app-audience`) saving `Settings/app_audience`.
+- **CO6.3** (8fbe8f2): admin callables `arccms-listAppUsers` (the whole host collection, capped at
+  2000 documents and flagged `truncated`; people with an empty key are counted, not listed) and
+  `arccms-getAppUser` (one document's flattened fields) in `functions/src/app-audience/listAppUsers.ts`.
+  Channel values from credential-like fields are hidden by `maskResolvedAppUser` in `fields.ts`,
+  shared with `testAppUser`. ArcCMS's own state is `AppAudience/{sha256(key)}`
+  (`functions/src/app-audience/state.ts`); no record means `subscribed`. Page Audience, App users
+  (`/admin/app-users`, explicit route) filters in the browser and opens a detail drawer.
 
 ### Phases
 
