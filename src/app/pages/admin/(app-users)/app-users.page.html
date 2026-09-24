@@ -1,0 +1,92 @@
+<mat-drawer-container class="app-users-drawer-container" hasBackdrop="true">
+    <mat-drawer #drawer mode="over" position="end" class="drawer" style="width: 520px; max-width: 100vw;">
+        <div class="p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">{{ 'admin.audience.app_users.detail_title' | transloco }}</h5>
+                <button mat-icon-button type="button" (click)="closeDetail()" [attr.aria-label]="'admin.audience.app_users.close' | transloco">
+                    <mat-icon>close</mat-icon>
+                </button>
+            </div>
+
+            @if (detailLoading()) {
+                <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.state.loading' | transloco }}</p>
+            } @else if (detailError()) {
+                <div class="alert alert-danger">{{ detailError() }}</div>
+            } @else if (detail(); as d) {
+                <dl class="row small mb-3">
+                    <dt class="col-4">{{ 'admin.audience.app_users.name' | transloco }}</dt><dd class="col-8">{{ d.person.name || '-' }}</dd>
+                    <dt class="col-4">{{ 'admin.audience.app_users.email' | transloco }}</dt><dd class="col-8">{{ d.person.email || '-' }}</dd>
+                    <dt class="col-4">{{ 'admin.audience.app_users.phone' | transloco }}</dt><dd class="col-8">{{ d.person.phone || '-' }}</dd>
+                    <dt class="col-4">{{ 'admin.audience.app_users.key' | transloco }}</dt><dd class="col-8"><code>{{ d.person.key }}</code></dd>
+                    <dt class="col-4">{{ 'admin.audience.app_users.doc_id' | transloco }}</dt><dd class="col-8"><code>{{ d.person.docId }}</code></dd>
+                    <dt class="col-4">{{ 'admin.audience.app_users.consent' | transloco }}</dt>
+                    <dd class="col-8"><span [class]="badge(d.state.consent)">{{ 'admin.audience.app_users.' + d.state.consent | transloco }}</span></dd>
+                </dl>
+
+                <h6 class="mb-1">{{ 'admin.audience.app_users.fields' | transloco }}</h6>
+                <p class="text-muted small mb-2">{{ 'admin.audience.app_users.fields_hint' | transloco }}</p>
+                <table class="table table-sm small app-user-fields">
+                    <tbody>
+                        @for (f of detailFields(); track f[0]) {
+                            <tr><th scope="row"><code>{{ f[0] }}</code></th><td>{{ f[1] }}</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="page-container">
+            <arc-page-header [title]="'admin.audience.app_users.title' | transloco"
+                [subtitle]="'admin.audience.app_users.subtitle' | transloco">
+                @if (location()?.configured) {
+                    <button mat-stroked-button [disabled]="loading()" (click)="load()">
+                        <mat-icon>refresh</mat-icon> {{ 'admin.audience.app_users.refresh' | transloco }}
+                    </button>
+                }
+            </arc-page-header>
+
+            @if (error()) {
+                <div class="alert alert-danger">{{ 'admin.audience.app_users.load_failed' | transloco: { error: error() } }}</div>
+            } @else if (!loading() && location() && !location()!.configured) {
+                <div class="alert alert-info">
+                    <p class="mb-2">{{ 'admin.audience.app_users.not_configured' | transloco }}</p>
+                    <a routerLink="/admin/settings/app-audience">{{ 'admin.audience.app_users.open_settings' | transloco }}</a>
+                </div>
+            } @else {
+                @if (list(); as l) {
+                    <p class="text-muted small mb-2">
+                        {{ 'admin.audience.app_users.summary' | transloco: { count: l.rows.length, collection: location()?.path } }}
+                        @if (l.withoutKey) { {{ 'admin.audience.app_users.without_key' | transloco: { count: l.withoutKey } }} }
+                        @if (l.truncated) { {{ 'admin.audience.app_users.truncated' | transloco: { max: maxAppUsers } }} }
+                    </p>
+                }
+
+                <mat-form-field appearance="outline" class="app-users-search">
+                    <mat-label>{{ 'admin.audience.app_users.search' | transloco }}</mat-label>
+                    <input matInput [ngModel]="search()" (ngModelChange)="onSearch($event)"
+                        [placeholder]="'admin.audience.app_users.search_placeholder' | transloco" />
+                </mat-form-field>
+
+                <app-global-table [data]="paged()" [columns]="columns" [loading]="loading()"
+                    [pageIndex]="currentPage()" [pageSize]="pageSize()" [trackByFn]="trackRow"
+                    emptyIcon="fas fa-mobile-screen" [emptyTitle]="'admin.audience.app_users.empty_title' | transloco"
+                    [emptyDescription]="'admin.audience.app_users.empty_description' | transloco"
+                    [showEmptyAction]="false">
+                </app-global-table>
+
+                @if (total()) {
+                    <div class="pagination-footer d-flex justify-content-between align-items-center flex-wrap">
+                        <div class="record-count text-muted">
+                            {{ 'admin.audience.app_users.showing' | transloco: { start: startRecord(), end: endRecord(), total: total() } }}
+                        </div>
+                        <mat-paginator [length]="total()" [pageSize]="pageSize()" [pageIndex]="currentPage()"
+                            [pageSizeOptions]="[10, 25, 50, 100]" [showFirstLastButtons]="true" (page)="onPageChange($event)">
+                        </mat-paginator>
+                    </div>
+                }
+            }
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

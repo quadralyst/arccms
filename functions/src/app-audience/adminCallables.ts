@@ -10,7 +10,7 @@ import {
     appUsersLocation, normalizeAppAudienceSettings, DEFAULT_APP_AUDIENCE_SETTINGS,
     type AppAudienceSettings, type AppUsersLocation,
 } from './config.js';
-import { flattenFields, isSensitiveField, MASKED_VALUE, resolveAppUser, type ResolvedAppUser } from './fields.js';
+import { flattenFields, maskResolvedAppUser, resolveAppUser, type ResolvedAppUser } from './fields.js';
 
 const SAMPLE_SIZE = 20;
 
@@ -80,17 +80,9 @@ export const testAppUser = onCall(async (request): Promise<{ resolved: ResolvedA
     if (!doc?.exists) return { resolved: null, fields: {} };
 
     const data = doc.data() ?? {};
-    const resolved = resolveAppUser(doc.id, data, settings);
     // Credential-like fields never reach the browser, even when picked as a channel.
-    const mask = (path: string | undefined, value: string) => (path && isSensitiveField(path) ? MASKED_VALUE : value);
     return {
-        resolved: {
-            ...resolved,
-            key: mask(settings.key.source === 'field' ? settings.key.field : undefined, resolved.key),
-            email: mask(settings.emailField, resolved.email),
-            phone: mask(settings.phoneField, resolved.phone),
-            name: mask(settings.nameField, resolved.name),
-        },
+        resolved: maskResolvedAppUser(resolveAppUser(doc.id, data, settings), settings),
         fields: flattenFields(data),
     };
 });

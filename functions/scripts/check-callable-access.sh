@@ -39,6 +39,7 @@ CALLABLES=(
   getOptimizedLeaderboard ensureWaitlistExists
   joinForm finalizeFormSignup getPublicMemberView getPublicLeaderboard creditReferral
   getMyNotificationPrefs updateMyNotificationPrefs claimFirstAdmin search
+  appAudienceStatus sampleAppUsers testAppUser listAppUsers getAppUser
 )
 
 blocked=()

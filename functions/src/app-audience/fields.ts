@@ -82,3 +82,18 @@ export function resolveAppUser(docId: string, data: Record<string, unknown>, set
         name: text(settings.nameField),
     };
 }
+
+/**
+ * A resolved person as the browser may see it: a channel read from a
+ * credential-like field is hidden, even when the admin picked it.
+ */
+export function maskResolvedAppUser(person: ResolvedAppUser, settings: AppAudienceSettings): ResolvedAppUser {
+    const mask = (path: string | undefined, value: string) => (path && isSensitiveField(path) ? MASKED_VALUE : value);
+    return {
+        ...person,
+        key: mask(settings.key.source === 'field' ? settings.key.field : undefined, person.key),
+        email: mask(settings.emailField, person.email),
+        phone: mask(settings.phoneField, person.phone),
+        name: mask(settings.nameField, person.name),
+    };
+}

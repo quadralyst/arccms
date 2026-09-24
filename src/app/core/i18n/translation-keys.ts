@@ -11,6 +11,32 @@
  */
 
 export type TranslationKey =
+    | 'admin.audience.app_users.close'
+    | 'admin.audience.app_users.consent'
+    | 'admin.audience.app_users.detail_title'
+    | 'admin.audience.app_users.doc_id'
+    | 'admin.audience.app_users.email'
+    | 'admin.audience.app_users.empty_description'
+    | 'admin.audience.app_users.empty_title'
+    | 'admin.audience.app_users.fields'
+    | 'admin.audience.app_users.fields_hint'
+    | 'admin.audience.app_users.key'
+    | 'admin.audience.app_users.load_failed'
+    | 'admin.audience.app_users.name'
+    | 'admin.audience.app_users.not_configured'
+    | 'admin.audience.app_users.open_settings'
+    | 'admin.audience.app_users.phone'
+    | 'admin.audience.app_users.refresh'
+    | 'admin.audience.app_users.search'
+    | 'admin.audience.app_users.search_placeholder'
+    | 'admin.audience.app_users.showing'
+    | 'admin.audience.app_users.subscribed'
+    | 'admin.audience.app_users.subtitle'
+    | 'admin.audience.app_users.summary'
+    | 'admin.audience.app_users.title'
+    | 'admin.audience.app_users.truncated'
+    | 'admin.audience.app_users.unsubscribed'
+    | 'admin.audience.app_users.without_key'
     | 'admin.audience.contacts.add'
     | 'admin.audience.contacts.any'
     | 'admin.audience.contacts.backfill'
@@ -491,6 +517,7 @@ export type TranslationKey =
     | 'admin.media.uploaded'
     | 'admin.nav.about'
     | 'admin.nav.announcements'
+    | 'admin.nav.app_users'
     | 'admin.nav.audience'
     | 'admin.nav.audience_and_emails'
     | 'admin.nav.authors'
@@ -1219,6 +1246,32 @@ export type TranslationKey =
 
 /** The same list at runtime, for the parity spec and for validation. */
 export const TRANSLATION_KEYS: readonly TranslationKey[] = [
+    'admin.audience.app_users.close',
+    'admin.audience.app_users.consent',
+    'admin.audience.app_users.detail_title',
+    'admin.audience.app_users.doc_id',
+    'admin.audience.app_users.email',
+    'admin.audience.app_users.empty_description',
+    'admin.audience.app_users.empty_title',
+    'admin.audience.app_users.fields',
+    'admin.audience.app_users.fields_hint',
+    'admin.audience.app_users.key',
+    'admin.audience.app_users.load_failed',
+    'admin.audience.app_users.name',
+    'admin.audience.app_users.not_configured',
+    'admin.audience.app_users.open_settings',
+    'admin.audience.app_users.phone',
+    'admin.audience.app_users.refresh',
+    'admin.audience.app_users.search',
+    'admin.audience.app_users.search_placeholder',
+    'admin.audience.app_users.showing',
+    'admin.audience.app_users.subscribed',
+    'admin.audience.app_users.subtitle',
+    'admin.audience.app_users.summary',
+    'admin.audience.app_users.title',
+    'admin.audience.app_users.truncated',
+    'admin.audience.app_users.unsubscribed',
+    'admin.audience.app_users.without_key',
     'admin.audience.contacts.add',
     'admin.audience.contacts.any',
     'admin.audience.contacts.backfill',
@@ -1699,6 +1752,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.uploaded',
     'admin.nav.about',
     'admin.nav.announcements',
+    'admin.nav.app_users',
     'admin.nav.audience',
     'admin.nav.audience_and_emails',
     'admin.nav.authors',

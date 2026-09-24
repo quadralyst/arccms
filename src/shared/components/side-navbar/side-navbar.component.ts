@@ -153,6 +153,7 @@ export default class NavbarComponent extends BaseComponent {
                 { label: 'Lists', labelKey: 'admin.nav.lists', route: '/admin/lists', icon: 'fa-solid fa-rectangle-list' },
                 { label: 'Tags', labelKey: 'admin.nav.tags', route: '/admin/contact-tags', icon: 'fa-solid fa-tags' },
                 { label: 'Fields', labelKey: 'admin.nav.fields', route: '/admin/contact-fields', icon: 'fa-solid fa-table-columns' },
+                { label: 'App users', labelKey: 'admin.nav.app_users', route: '/admin/app-users', icon: 'fa-solid fa-mobile-screen' },
             ],
         },
         {

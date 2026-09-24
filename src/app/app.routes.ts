@@ -287,6 +287,21 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Audience Route (App users, CO6.3): the host app's users, read live.
+  {
+    path: 'admin/app-users',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(app-users)/app-users.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin Audience Route (Tags). Declared explicitly like every other admin
   // feature route rather than relying on file-based routing, which resolves
   // server-side but does not reliably reach the client route table here — the
