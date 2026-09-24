@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 // @ts-expect-error: plain ESM script without type declarations
 import * as configure from '../arc-configure.mjs';
 // @ts-expect-error: plain ESM script without type declarations
-import { deployArgs, deploysFunctions, generatedConfigPath, projectArg } from '../arc-deploy.mjs';
+import { deployArgs, deploysFunctions, generatedConfigPath, projectArg, unconfirmedFunctions } from '../arc-deploy.mjs';
 
 const ROOT = resolve(__dirname, '..', '..');
 /** The App audience params (CO6), always written with their defaults. */
@@ -251,5 +251,24 @@ describe('arc-deploy', () => {
         expect(deploysFunctions(['--only', 'functions:arccms:arccms.search'])).toBe(true);
         expect(deploysFunctions(['--only=hosting,functions'])).toBe(true);
         expect(deploysFunctions(['--only', 'firestore,hosting'])).toBe(false);
+    });
+
+    it('catches a function the CLI started but never confirmed (a rate-limited update)', () => {
+        const output = [
+            'i  functions: updating Node.js 22 (2nd Gen) function arccms:arccms-sampleAppUsers(us-central1)...',
+            'i  functions: updating Node.js 22 (2nd Gen) function arccms:arccms-testAppUser(us-central1)...',
+            'i  functions: creating Node.js 22 (2nd Gen) function onUserCreated(us-central1)...',
+            'i  functions: deleting Node.js 22 (2nd Gen) function arccms:arccms-ensureAppUser(us-central1)...',
+            '⚠  functions: Request to https://cloudfunctions.googleapis.com/... had HTTP Error: 429, Quota exceeded',
+            '✔  functions[arccms:arccms-testAppUser(us-central1)] Successful update operation.',
+            '✔  functions[onUserCreated(us-central1)] Successful create operation.',
+            '✔  functions[arccms:arccms-ensureAppUser(us-central1)] Successful delete operation.',
+        ].join('\n');
+        expect(unconfirmedFunctions(output)).toEqual(['arccms-sampleAppUsers(us-central1)']);
+    });
+
+    it('is satisfied when every started function succeeded', () => {
+        expect(unconfirmedFunctions('i  functions: updating Node.js 22 (2nd Gen) function arccms:arccms-search(us-central1)...\n✔  functions[arccms:arccms-search(us-central1)] Successful update operation.')).toEqual([]);
+        expect(unconfirmedFunctions('✔  Deploy complete!')).toEqual([]);
     });
 });

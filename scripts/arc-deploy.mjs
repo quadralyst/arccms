@@ -8,6 +8,10 @@
  *   generated one for the target project, so a project set up with a named
  *   database, its own bucket or its own hosting site deploys those. Without that
  *   file this is plain `firebase deploy` against firebase.json;
+ * - fails a functions deploy in which a function the CLI started creating,
+ *   updating or deleting never reported success. The CLI can exit 0 after a
+ *   rate limit (HTTP 429) quietly skipped an update, leaving the old code live
+ *   (found 2026-09-24);
  * - after a deploy that included functions, runs the callable access check. A
  *   callable whose creation timed out is left without public access, and every
  *   browser call to it then fails with 403 (found 2026-09-23). Pass --no-probe
@@ -15,7 +19,7 @@
  *
  *   node scripts/arc-deploy.mjs --only functions --project default
  */
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -56,9 +60,34 @@ export function deployArgs(args, generatedExists, projectId, cwd = process.cwd()
     return ['deploy', '--config', relative(cwd, config) || config, ...passthrough];
 }
 
+/**
+ * Functions the CLI started working on but never reported success for, from its
+ * output. Lines look like
+ *   `i  functions: updating Node.js 22 (2nd Gen) function arccms:arccms-search(us-central1)...`
+ *   `✔  functions[arccms:arccms-search(us-central1)] Successful update operation.`
+ */
+export function unconfirmedFunctions(output) {
+    const started = new Set();
+    const confirmed = new Set();
+    for (const line of output.split('\n')) {
+        const start = /\b(?:creating|updating|deleting) .*? function (?:[\w-]+:)?([\w-]+)\(([\w-]+)\)\.\.\./.exec(line);
+        if (start) started.add(`${start[1]}(${start[2]})`);
+        const done = /functions\[(?:[\w-]+:)?([\w-]+)\(([\w-]+)\)\] Successful (?:create|update|delete) operation/.exec(line);
+        if (done) confirmed.add(`${done[1]}(${done[2]})`);
+    }
+    return [...started].filter((fn) => !confirmed.has(fn)).sort();
+}
+
+/** Runs a command with its output streamed live and also collected. */
 function run(cmd, args) {
-    const result = spawnSync(cmd, args, { stdio: 'inherit', shell: process.platform === 'win32' });
-    return result.status ?? 1;
+    return new Promise((resolvePromise) => {
+        const child = spawn(cmd, args, { stdio: ['inherit', 'pipe', 'pipe'], shell: process.platform === 'win32' });
+        let output = '';
+        child.stdout.on('data', (chunk) => { process.stdout.write(chunk); output += chunk; });
+        child.stderr.on('data', (chunk) => { process.stderr.write(chunk); output += chunk; });
+        child.on('close', (code) => resolvePromise({ status: code ?? 1, output }));
+        child.on('error', (err) => resolvePromise({ status: 1, output: String(err) }));
+    });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -66,7 +95,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const projectId = resolveProjectId(projectArg(args), readFirebaseAliases());
     const firebaseArgs = deployArgs(args, !!projectId && existsSync(generatedConfigPath(projectId)), projectId);
     console.log(`> firebase ${firebaseArgs.join(' ')}`);
-    let status = run('firebase', firebaseArgs);
+    const deploy = await run('firebase', firebaseArgs);
+    let status = deploy.status;
+
+    const missing = unconfirmedFunctions(deploy.output);
+    if (missing.length) {
+        console.error(`\nThese functions were started but never reported success, so the old version may still be live:\n  ${missing.join('\n  ')}\nRedeploy them, for example: npm run deploy -- --only functions:<codebase>:<group>.<name>`);
+        status = status || 1;
+    }
 
     if (status === 0 && projectId && deploysFunctions(args) && !args.includes('--no-probe')) {
         console.log(`\n> Checking that every callable is publicly invocable on ${projectId}`);
