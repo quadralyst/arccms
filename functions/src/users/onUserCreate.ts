@@ -13,7 +13,6 @@ import { db } from '../init.js';
 import { emitAppEvent } from '../email-core/appEvents.js';
 import { notifyAdmins } from '../email-core/adminAlerts.js';
 import { arcDocument } from '../arc-config.js';
-import { isImportedUser } from './appUsers.js';
 
 const EMAIL_LOOKUP_COLLECTION = 'email_lookup';
 
@@ -48,16 +47,7 @@ export const onUserCreated = onDocumentCreated(
             console.error(`Failed to create email_lookup entry for email=${email}:`, err);
         }
 
-        // Notifications & event bus (Phase 5) — additive, non-fatal. An imported
-        // app user is not a new signup: no per-person admin notice (the import
-        // sends one for the run) and its own event, so mappings can treat
-        // existing users differently from new ones (CO-D13).
-        if (isImportedUser(createdData)) {
-            await Promise.allSettled([
-                emitAppEvent('user.imported', { userId: createdData.uid, contactEmail: email }),
-            ]);
-            return;
-        }
+        // Notifications & event bus (Phase 5) — additive, non-fatal.
         await Promise.allSettled([
             emitAppEvent('user.signed_up', { userId: createdData.uid, contactEmail: email }),
             notifyAdmins('admin_new_signup', {

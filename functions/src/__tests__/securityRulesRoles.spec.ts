@@ -59,12 +59,10 @@ describe('firestore.rules: users', () => {
         }
     });
 
-    it('keeps the app-user fields (CO6) for the Admin SDK only', () => {
-        expect(users).toMatch(/!request\.resource\.data\.keys\(\)\.hasAny\(\['authOwner', 'importedAt', 'sendWelcome'\]\)/);
+    it('keeps authOwner (CO-D16) for the Admin SDK only', () => {
+        expect(users).toMatch(/!\('authOwner' in request\.resource\.data\)/);
         const blocked = users.match(/affectedKeys\(\)\s*\.hasAny\(\[([^\]]+)\]\)/)?.[1] ?? '';
-        for (const key of ['authOwner', 'importedAt', 'sendWelcome']) {
-            expect(blocked).toContain(`'${key}'`);
-        }
+        expect(blocked).toContain(`'authOwner'`);
     });
 
     it('limits reads to admins and the owner', () => {

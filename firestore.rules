@@ -213,15 +213,14 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAdmin() || isOwnUserDoc();
-      // authOwner, importedAt and sendWelcome are set only by the Admin SDK
-      // (ensureAppUser, importAppUsers; docs/coexistence-spec.md, CO6). A user
-      // who marked their own doc `authOwner: 'host'` would keep their login when
+      // authOwner is set only by the Admin SDK (docs/coexistence-spec.md, CO-D16):
+      // a user who marked their own doc as host-owned would keep their login when
       // an admin deletes them.
       allow create: if isAdmin() ||
         (isAuthenticated()
          && request.resource.data.uid == request.auth.uid
          && isSelfAssignableRole(request.resource.data)
-         && !request.resource.data.keys().hasAny(['authOwner', 'importedAt', 'sendWelcome']));
+         && !('authOwner' in request.resource.data));
       // Admin can update any user doc (migration re-keying, role changes). A
       // user may update their own doc EXCEPT the fields above. The premium
       // entitlement fields are written only by Cloud Functions (Admin SDK
@@ -229,7 +228,7 @@ service cloud.firestore {
       allow update: if isAdmin() ||
         (isOwnUserDoc()
          && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['role', 'uid', 'isActive', 'status', 'authOwner', 'importedAt', 'sendWelcome',
+              .hasAny(['role', 'uid', 'isActive', 'status', 'authOwner',
                        'isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
                        'premiumExpiresAt', 'provider', 'providerSubscriptionId', 'providerCustomerId',
                        'premiumTrialReminderSent', 'premiumEventAt', 'updatesUntil',

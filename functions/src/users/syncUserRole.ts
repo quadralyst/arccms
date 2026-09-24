@@ -100,11 +100,6 @@ export const onUserRoleChange = onDocumentWrittenWithAuthContext(
             }
         }
 
-        // A host app's user with an ordinary role needs no claim, and writing one
-        // would replace the host app's own `role` claim on the shared account.
-        // Until the claim is namespaced (arccms_role, CO6b), leave it alone.
-        if (afterData.authOwner === 'host' && SELF_ASSIGNABLE_ROLES.includes(newRole)) return;
-
         // Only sync if role actually changed (or on create)
         if (!isCreate && newRole === oldRole) return;
 

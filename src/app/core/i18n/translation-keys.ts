@@ -1033,16 +1033,6 @@ export type TranslationKey =
     | 'admin.users.add'
     | 'admin.users.empty_description'
     | 'admin.users.empty_title'
-    | 'admin.users.import'
-    | 'admin.users.import_confirm'
-    | 'admin.users.import_counting'
-    | 'admin.users.import_counts'
-    | 'admin.users.import_done'
-    | 'admin.users.import_failed'
-    | 'admin.users.import_intro'
-    | 'admin.users.import_nothing'
-    | 'admin.users.import_running'
-    | 'admin.users.import_send_welcome'
     | 'admin.users.invalid_action'
     | 'admin.users.none_selected'
     | 'admin.users.page_subtitle'
@@ -2210,16 +2200,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.users.add',
     'admin.users.empty_description',
     'admin.users.empty_title',
-    'admin.users.import',
-    'admin.users.import_confirm',
-    'admin.users.import_counting',
-    'admin.users.import_counts',
-    'admin.users.import_done',
-    'admin.users.import_failed',
-    'admin.users.import_intro',
-    'admin.users.import_nothing',
-    'admin.users.import_running',
-    'admin.users.import_send_welcome',
     'admin.users.invalid_action',
     'admin.users.none_selected',
     'admin.users.page_subtitle',

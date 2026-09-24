@@ -92,14 +92,4 @@ describe('onUserCreateWelcomeEmail', () => {
     await handler(event({ email: 'new@user.com' }));
     expect(mockEnsureDefaults).not.toHaveBeenCalled();
   });
-
-  it('sends nothing to a user imported with welcome emails off', async () => {
-    await handler(event({ email: 'old@user.com', importedAt: new Date(), sendWelcome: false }));
-    expect(mockQueueEmail).not.toHaveBeenCalled();
-  });
-
-  it('welcomes a user imported with welcome emails on', async () => {
-    await handler(event({ email: 'old@user.com', importedAt: new Date(), sendWelcome: true }));
-    expect(mockQueueEmail).toHaveBeenCalled();
-  });
 });
