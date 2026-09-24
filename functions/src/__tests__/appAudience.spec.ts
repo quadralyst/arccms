@@ -97,6 +97,18 @@ describe('reading host documents', () => {
         });
     });
 
+    it('never exposes credential-like values, at any depth, but keeps the field listed', () => {
+        const flat = flattenFields({ email: 'a@x.com', password: 'hunter2', auth: { apiKey: 'k', otp: '1234', refreshToken: 't' }, passwordless: true });
+        expect(flat).toEqual({
+            email: 'a@x.com',
+            password: '(hidden)',
+            'auth.apiKey': '(hidden)',
+            'auth.otp': '(hidden)',
+            'auth.refreshToken': '(hidden)',
+            passwordless: 'true',
+        });
+    });
+
     it('resolves the key from the document id or any field, email lower-cased', () => {
         const base = { emailField: 'email', nameField: 'profile.name', phoneField: 'profile.phone', watchedFields: [] };
         expect(resolveAppUser('uid-1', doc, { ...base, key: { source: 'docId' } }))
@@ -136,6 +148,13 @@ describe('Settings callables', () => {
         const res = await test({ data: { settings: { key: { source: 'field', field: 'contact.mobile' }, emailField: 'email' } } });
         expect(res.resolved).toEqual({ docId: 'u1', key: '+1 555', email: 'a@x.com', phone: '', name: '' });
         expect(res.fields).toEqual({ 'contact.mobile': '+1 555', email: 'A@x.com' });
+    });
+
+    it('masks a credential field in the test result even when it is picked as a channel', async () => {
+        m.hostDocs.push({ id: 'u1', data: { password: 'hunter2', email: 'a@x.com' } });
+        const res = await test({ data: { settings: { key: { source: 'docId' }, nameField: 'password' } } });
+        expect(res.resolved.name).toBe('(hidden)');
+        expect(JSON.stringify(res)).not.toContain('hunter2');
     });
 
     it('say so when the document does not exist', async () => {

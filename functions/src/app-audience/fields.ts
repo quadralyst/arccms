@@ -38,12 +38,27 @@ function isPlainMap(value: unknown): value is Record<string, unknown> {
     return typeof v.toDate !== 'function' && typeof v.path !== 'string' && typeof v.latitude !== 'number';
 }
 
+/**
+ * Field names whose values must never reach the admin UI, even as examples.
+ * A host app's user documents can hold credentials (a `password` field was
+ * found in the dev project's), and the Settings page shows sampled values.
+ */
+const SENSITIVE_FIELD = /(pass(word|wd)?|secret|token|api[_-]?key|private[_-]?key|otp|pin|hash|salt|credential)s?$/i;
+
+export const MASKED_VALUE = '(hidden)';
+
+/** Whether a field path's last segment looks like a credential. */
+export function isSensitiveField(path: string): boolean {
+    const last = path.split('.').pop() ?? path;
+    return SENSITIVE_FIELD.test(last);
+}
+
 /** Every leaf field of a document as `path → display value`, maps followed three levels deep. */
 export function flattenFields(data: Record<string, unknown>, prefix = '', depth = 0, out: Record<string, string> = {}): Record<string, string> {
     for (const [key, value] of Object.entries(data)) {
         const path = prefix ? `${prefix}.${key}` : key;
         if (isPlainMap(value) && depth < 2) flattenFields(value, path, depth + 1, out);
-        else out[path] = displayValue(value);
+        else out[path] = isSensitiveField(path) ? MASKED_VALUE : displayValue(value);
     }
     return out;
 }
