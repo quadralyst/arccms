@@ -47,7 +47,7 @@ projects) are the default install with nothing to configure.
 | CO-D9 | Storage | Two settings: `storageBucket` (default: the project's default bucket) and `storagePrefix` (default: empty, today's paths). P3 uses **its own bucket**, because storage rules are one file per bucket and sharing the default bucket would mean merging rules with the host app. Existing files are never moved: media documents store full download URLs, which keep working. |
 | CO-D10 | Hosting | `hostingSite` setting, default the project id (today). Replaces the five places that assume `GCLOUD_PROJECT` is the site id and the three that build `https://{projectId}.web.app`. P3 uses a second hosting site in the same project. |
 | CO-D11 | The wildcard search trigger stays | `onDocumentWritten('{collection}/{docId}')` fires on every write in its database. Bound to the ArcCMS database it only sees ArcCMS writes, so it is safe in P3. ArcCMS on `(default)` next to a foreign app that also writes to `(default)` is **not a supported shape**; the configure script refuses it. |
-| CO-D12 | P3 identity model | **Host users are an external audience, not ArcCMS users** (decided 2026-09-24, replacing the first design). They keep their data in the host app's own collection, which stays the only copy; ArcCMS reads it where it lives and never copies profiles. They get no ArcCMS `users` record and never sign in to the ArcCMS backend. ArcCMS stores only what is its own: consent, suppression, drip progress, the email log, and last values of fields marked "watch for changes". ArcCMS admins are ordinary accounts of the same sign-in pool. See section 5b. |
+| CO-D12 | P3 identity model | **Host users are an external audience, not ArcCMS users** (decided 2026-09-24, replacing the first design). They keep their data in the host app's own collection, which stays the only copy; ArcCMS reads it where it lives and never copies profiles. They get no ArcCMS `users` record and never sign in to the ArcCMS backend. ArcCMS stores only what is its own: consent, suppression, drip progress and the email log. Changes to fields marked "watch for changes" arrive as events, with no stored copy of their values. ArcCMS admins are ordinary accounts of the same sign-in pool. See section 5b. |
 | CO-D13 | P3 app-user provisioning | **Superseded 2026-09-24.** The first design (an `ensureAppUser` callable and an "Import app users" action that created `users` records for host users) duplicated the host's data and made host users into ArcCMS users. It was built as CO6a and is removed in CO6.1. Replaced by the App audience (section 5b). **Never a blocking function** still holds: a project gets one `beforeUserCreated`, and the host app may already own it. |
 | CO-D16 | Who owns an Auth account | **ArcCMS never creates or deletes a host app's login.** A `users` record carries `authOwner`: `arccms` (default when absent) or `host`/`shared`, and `onUserDeleted` deletes the Auth account only for `arccms`. With the App audience, host users have no `users` record at all; the guard stays for shared logins (someone who is an ArcCMS user and also uses the host app with the same account). |
 | CO-D14 | Deploy commands | `npm run deploy:*` scripts wrap the Firebase CLI and pass `--config firebase.arccms.json` when that file exists, plus `--only functions:arccms`. Installs that deploy by hand with plain `firebase deploy` keep working in P1 and P2. |
@@ -427,8 +427,10 @@ its own to remember:
 - marketing consent (`subscribed` by default, per the 2026-09-23 decision; unsubscribes
   recorded here and in `Suppression`),
 - drip enrollment and progress,
-- last values of the watched fields,
-- `lastSeenAt`, and a `deleted` marker kept for suppression after the host deletes them.
+- a `deleted` marker kept for suppression after the host deletes them.
+
+(Decided 2026-09-24: no copy of the watched fields' values and no `lastSeenAt`. The trigger
+has the document before and after each write, so neither is needed.)
 
 Nothing else: no name, email, phone or other profile field. Email addresses are read from
 the host document at send time; suppression is by email hash, as today.
@@ -436,14 +438,37 @@ the host document at send time; suppression is by email hash, as today.
 ### Reacting to changes
 
 `onAppUserWritten`: a Firestore trigger on `ARC_APP_USERS_PATH` in `ARC_APP_USERS_DATABASE`.
-- **Created** → event `app_user.created` on the existing event bus (`AppEvents`), so event
-  mappings can start a welcome drip or email.
-- **Updated** → only when a watched field changed: `app_user.changed` with the field, old
-  and new value (for example `subscription.tier: free → paid`). Other writes (usage
-  counters ticking) return at once.
-- **Deleted** → `app_user.deleted`; ArcCMS drops drip progress and watched values but keeps
-  consent and suppression, so a returning address is not mailed against a past
-  unsubscribe.
+- **Created** → `app_user.created`, so event mappings can start a welcome email. Documents
+  that existed before the trigger was deployed produce nothing.
+- **Updated** → one event per watched field that changed, named for the field:
+  `app_user.changed.<field>` with `field`, `from` and `to` (for example
+  `app_user.changed.isPro`, `false → true`). The unique key field counts as watched; when
+  it changes, the person's `AppAudience` record moves to the new key (unless the new key
+  has one already). Other writes (usage counters ticking) return at once.
+- **Deleted** → `app_user.deleted`; the `AppAudience` record is marked `deleted` and keeps
+  its consent, so a returning address is not mailed against a past unsubscribe.
+
+Event ids come from the Firestore event (`<eventId>.<suffix>`), so a delivery Firestore
+repeats stores one event and sends one email.
+
+**Rules in event mappings** (decided 2026-09-24). A mapping in `Settings/event_mappings`
+can hold `rules`: several sets of actions for one event, each with an optional `when` on
+the old and new value (`equals`, `anyOf`, `noneOf`; values compare as text, and empty,
+null and missing are all `''`). Upgrade and downgrade emails on one field:
+
+```json
+"app_user.changed.isPro": { "enabled": true, "rules": [
+  { "name": "Upgraded",   "when": { "to": { "equals": true } },
+    "sendEmail": { "templateType": "app_user_upgraded", "category": "transactional" } },
+  { "name": "Downgraded", "when": { "to": { "equals": false } },
+    "sendEmail": { "templateType": "app_user_downgraded", "category": "transactional" } }
+] }
+```
+
+For app-user events the bus reads marketing consent from `AppAudience`, and skips list
+actions (`lists: not_applicable`): adding an app user to a list would copy them into
+Contacts. Templates can use `##NAME##`, `##EMAIL##`, `##FIELD##`, `##FROM##`, `##TO##`
+until CO6.5 adds `##APP.<path>##`.
 
 ### Where app users appear
 
@@ -482,6 +507,12 @@ is shared: a host user's password is valid on the ArcCMS sign-in page too.
   shared with `testAppUser`. ArcCMS's own state is `AppAudience/{sha256(key)}`
   (`functions/src/app-audience/state.ts`); no record means `subscribed`. Page Audience, App users
   (`/admin/app-users`, explicit route) filters in the browser and opens a detail drawer.
+- **CO6.4**: `arccms-onAppUserWritten` (`functions/src/app-audience/onAppUserWritten.ts`,
+  planning in the pure `planAppUserWrite`); rules and conditions in
+  `functions/src/email-core/eventRules.ts`, run by `onAppEventCreate`; `emitAppEvent(type,
+  payload, { id })` for stable ids; `appUserId` on app-user events. The App user drawer shows
+  the person's last 10 events and what the bus did with each. The arc-config guard exempts
+  this one trigger by name and checks it binds through the host params.
 
 ### Phases
 

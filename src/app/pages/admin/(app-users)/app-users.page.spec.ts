@@ -86,10 +86,15 @@ describe('AppUsersPage', () => {
             person: { docId: 'a', key: 'amy@x.com', email: 'amy@x.com', phone: '', name: 'Amy' },
             fields: { plan: 'paid', email: 'amy@x.com' },
             state: { consent: 'subscribed' },
+            activity: [{ id: 'e1', type: 'app_user.changed.isPro', at: '2026-09-24T10:00:00.000Z', field: 'isPro', from: 'false', to: 'true', status: 'no_mapping' }],
         };
         const fixture = await open();
         await fixture.componentInstance.openDetail(row('a', 'Amy', 'amy@x.com'));
         expect(m.calls.find((c) => c.name === 'arccms-getAppUser')?.data).toEqual({ docId: 'a' });
         expect(fixture.componentInstance.detailFields()).toEqual([['email', 'amy@x.com'], ['plan', 'paid']]);
+        fixture.detectChanges();
+        const text = (fixture.nativeElement as HTMLElement).textContent;
+        expect(text).toContain('false → true');
+        expect(text).toContain('No rule set up for this event');
     });
 });

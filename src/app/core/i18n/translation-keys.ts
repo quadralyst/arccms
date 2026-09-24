@@ -11,6 +11,15 @@
  */
 
 export type TranslationKey =
+    | 'admin.audience.app_users.activity'
+    | 'admin.audience.app_users.activity_none'
+    | 'admin.audience.app_users.activity_status.disabled'
+    | 'admin.audience.app_users.activity_status.error'
+    | 'admin.audience.app_users.activity_status.no_mapping'
+    | 'admin.audience.app_users.activity_status.no_matching_rule'
+    | 'admin.audience.app_users.activity_status.ok'
+    | 'admin.audience.app_users.activity_status.other'
+    | 'admin.audience.app_users.activity_status.pending'
     | 'admin.audience.app_users.close'
     | 'admin.audience.app_users.consent'
     | 'admin.audience.app_users.detail_title'
@@ -18,6 +27,7 @@ export type TranslationKey =
     | 'admin.audience.app_users.email'
     | 'admin.audience.app_users.empty_description'
     | 'admin.audience.app_users.empty_title'
+    | 'admin.audience.app_users.empty_value'
     | 'admin.audience.app_users.fields'
     | 'admin.audience.app_users.fields_hint'
     | 'admin.audience.app_users.key'
@@ -1246,6 +1256,15 @@ export type TranslationKey =
 
 /** The same list at runtime, for the parity spec and for validation. */
 export const TRANSLATION_KEYS: readonly TranslationKey[] = [
+    'admin.audience.app_users.activity',
+    'admin.audience.app_users.activity_none',
+    'admin.audience.app_users.activity_status.disabled',
+    'admin.audience.app_users.activity_status.error',
+    'admin.audience.app_users.activity_status.no_mapping',
+    'admin.audience.app_users.activity_status.no_matching_rule',
+    'admin.audience.app_users.activity_status.ok',
+    'admin.audience.app_users.activity_status.other',
+    'admin.audience.app_users.activity_status.pending',
     'admin.audience.app_users.close',
     'admin.audience.app_users.consent',
     'admin.audience.app_users.detail_title',
@@ -1253,6 +1272,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.audience.app_users.email',
     'admin.audience.app_users.empty_description',
     'admin.audience.app_users.empty_title',
+    'admin.audience.app_users.empty_value',
     'admin.audience.app_users.fields',
     'admin.audience.app_users.fields_hint',
     'admin.audience.app_users.key',

@@ -82,7 +82,49 @@ export const listAppUsers = onCall(async (request): Promise<AppUserList> => {
     return { rows, scanned: docs.length, withoutKey, truncated };
 });
 
-/** One app user: every host field (credential-like values hidden) and ArcCMS's state. */
+export interface AppUserActivity {
+    id: string;
+    type: string;
+    /** ISO time. */
+    at: string;
+    field?: string;
+    from?: string;
+    to?: string;
+    /** What the event bus did: ok, no_mapping, disabled, no_matching_rule, error, or '' while pending. */
+    status: string;
+}
+
+export const RECENT_ACTIVITY = 10;
+
+/**
+ * The person's latest events. Filtered on one field only, so no composite
+ * index is needed, and sorted here; a person has few events.
+ */
+async function recentActivity(appUserId: string): Promise<AppUserActivity[]> {
+    const snap = await db.collection('AppEvents').where('appUserId', '==', appUserId).limit(100).get();
+    return snap.docs
+        .map((d) => {
+            const e = d.data();
+            const data = (e['data'] ?? {}) as Record<string, unknown>;
+            const at = e['createdAt']?.toDate?.() as Date | undefined;
+            const item: AppUserActivity = {
+                id: d.id,
+                type: String(e['type'] ?? ''),
+                at: at ? at.toISOString() : '',
+                status: String((e['results'] as Record<string, unknown> | undefined)?.['status'] ?? ''),
+            };
+            if (typeof data['field'] === 'string') {
+                item.field = data['field'];
+                item.from = String(data['from'] ?? '');
+                item.to = String(data['to'] ?? '');
+            }
+            return item;
+        })
+        .sort((a, b) => b.at.localeCompare(a.at))
+        .slice(0, RECENT_ACTIVITY);
+}
+
+/** One app user: every host field (credential-like values hidden), ArcCMS's state and recent events. */
 export const getAppUser = onCall(async (request) => {
     await requireAdmin(request);
     const location = requireLocation();
@@ -96,5 +138,6 @@ export const getAppUser = onCall(async (request) => {
     const data = doc.data() ?? {};
     const person = resolveAppUser(doc.id, data, settings);
     const state = person.key ? (await readStates([person.key])).get(person.key) : undefined;
-    return { person: maskResolvedAppUser(person, settings), fields: flattenFields(data), state: state ?? stateFrom(undefined) };
+    const activity = person.key ? await recentActivity(appUserStateId(person.key)) : [];
+    return { person: maskResolvedAppUser(person, settings), fields: flattenFields(data), state: state ?? stateFrom(undefined), activity };
 });

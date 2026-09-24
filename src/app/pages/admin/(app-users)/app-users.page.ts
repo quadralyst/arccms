@@ -14,6 +14,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { DatePipe } from '@angular/common';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { TranslocoPipe } from '@jsverse/transloco';
@@ -39,11 +40,26 @@ interface AppUserList {
     truncated: boolean;
 }
 
+/** Mirrors AppUserActivity in functions/src/app-audience/listAppUsers.ts. */
+export interface AppUserActivity {
+    id: string;
+    type: string;
+    at: string;
+    field?: string;
+    from?: string;
+    to?: string;
+    status: string;
+}
+
 interface AppUserDetail {
     person: Omit<AppUserRow, 'consent'>;
     fields: Record<string, string>;
     state: { consent: AppUserRow['consent'] };
+    activity: AppUserActivity[];
 }
+
+/** Event bus outcomes with a label; anything else shows as it is. */
+const ACTIVITY_STATUSES = ['ok', 'no_mapping', 'disabled', 'no_matching_rule', 'error'];
 
 interface AppUsersLocation {
     configured: boolean;
@@ -56,7 +72,7 @@ export const MAX_APP_USERS = 2000;
 @Component({
     standalone: true,
     imports: [
-        FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule,
+        DatePipe, FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule,
         MatPaginatorModule, MatSidenavModule, GlobalTableComponent, PageHeaderComponent, TranslocoPipe,
     ],
     templateUrl: './app-users.page.html',
@@ -113,6 +129,12 @@ export default class AppUsersPageComponent implements OnInit {
     ];
 
     badge = statusBadgeClass;
+
+    /** The translation key for an event's outcome. */
+    activityStatusKey(status: string): string {
+        const known = status === '' ? 'pending' : ACTIVITY_STATUSES.includes(status) ? status : 'other';
+        return `admin.audience.app_users.activity_status.${known}`;
+    }
     trackRow = (_: number, row: AppUserRow) => row.docId;
 
     ngOnInit(): void {

@@ -19,8 +19,16 @@ const m = vi.hoisted(() => {
             }),
         })),
     };
+    const events: Array<{ id: string; data: Record<string, unknown> }> = [];
     const db = {
         collection: vi.fn((name: string) => ({
+            where: vi.fn((_f: string, _op: string, value: string) => ({
+                limit: vi.fn(() => ({
+                    get: vi.fn(async () => ({
+                        docs: events.filter((e) => e.data['appUserId'] === value).map((e) => ({ id: e.id, data: () => e.data })),
+                    })),
+                })),
+            })),
             doc: vi.fn((id: string) => ({
                 name, id,
                 get: vi.fn(async () => ({ exists: settings.value !== undefined, data: () => settings.value })),
@@ -30,7 +38,7 @@ const m = vi.hoisted(() => {
             refs.map((r) => ({ exists: states.has(r.id), data: () => states.get(r.id) }))),
     };
     return {
-        hostDocs, states, settings, hostCollection, db,
+        hostDocs, states, settings, hostCollection, db, events,
         firestoreFor: vi.fn(() => ({ collection: vi.fn(() => hostCollection) })),
         requireAdmin: vi.fn().mockResolvedValue(undefined),
     };
@@ -119,6 +127,7 @@ describe('App user detail', () => {
         vi.clearAllMocks();
         m.hostDocs.length = 0;
         m.states.clear();
+        m.events.length = 0;
         m.settings.value = { key: { source: 'docId' }, emailField: 'email' };
         process.env.ARC_APP_USERS_PATH = 'users/{id}';
     });
@@ -129,7 +138,23 @@ describe('App user detail', () => {
         expect(res.person).toEqual({ docId: 'u1', key: 'u1', email: 'a@x.com', phone: '', name: '' });
         expect(res.fields).toEqual({ email: 'a@x.com', password: '(hidden)', plan: 'paid' });
         expect(res.state).toEqual({ consent: 'subscribed' });
+        expect(res.activity).toEqual([]);
         expect(JSON.stringify(res)).not.toContain('hunter2');
+    });
+
+    it('lists the person\'s latest events, newest first', async () => {
+        m.hostDocs.push({ id: 'u1', data: { email: 'a@x.com' } });
+        const at = (iso: string) => ({ toDate: () => new Date(iso) });
+        m.events.push(
+            { id: 'e1', data: { appUserId: appUserStateId('u1'), type: 'app_user.created', createdAt: at('2026-09-01T00:00:00Z'), results: { status: 'no_mapping' } } },
+            { id: 'e2', data: { appUserId: appUserStateId('u1'), type: 'app_user.changed.isPro', createdAt: at('2026-09-02T00:00:00Z'), data: { field: 'isPro', from: 'false', to: 'true' } } },
+            { id: 'e3', data: { appUserId: appUserStateId('someone-else'), type: 'app_user.created', createdAt: at('2026-09-03T00:00:00Z') } },
+        );
+        const res = await get({ data: { docId: 'u1' } });
+        expect(res.activity).toEqual([
+            { id: 'e2', type: 'app_user.changed.isPro', at: '2026-09-02T00:00:00.000Z', field: 'isPro', from: 'false', to: 'true', status: '' },
+            { id: 'e1', type: 'app_user.created', at: '2026-09-01T00:00:00.000Z', status: 'no_mapping' },
+        ]);
     });
 
     it('rejects a missing id and a deleted person', async () => {

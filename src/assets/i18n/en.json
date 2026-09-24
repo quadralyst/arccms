@@ -1038,7 +1038,19 @@
         "subscribed": "Subscribed",
         "unsubscribed": "Unsubscribed",
         "showing": "Showing {{start}} to {{end}} of {{total}}",
-        "close": "Close"
+        "close": "Close",
+        "activity": "Recent activity",
+        "activity_none": "No events yet. Changes to watched fields in your app appear here.",
+        "empty_value": "(empty)",
+        "activity_status": {
+          "ok": "Actions ran",
+          "no_mapping": "No rule set up for this event",
+          "disabled": "Rule switched off",
+          "no_matching_rule": "No rule matched",
+          "error": "Failed",
+          "pending": "Waiting to be processed",
+          "other": "{{status}}"
+        }
       }
     },
     "dashboard": {

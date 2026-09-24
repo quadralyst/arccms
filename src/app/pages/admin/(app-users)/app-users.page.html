@@ -23,6 +23,27 @@
                     <dd class="col-8"><span [class]="badge(d.state.consent)">{{ 'admin.audience.app_users.' + d.state.consent | transloco }}</span></dd>
                 </dl>
 
+                <h6 class="mb-1">{{ 'admin.audience.app_users.activity' | transloco }}</h6>
+                @if (d.activity?.length) {
+                    <ul class="list-unstyled small mb-4 app-user-activity">
+                        @for (a of d.activity; track a.id) {
+                            <li class="d-flex justify-content-between gap-2 py-1 border-bottom">
+                                <span>
+                                    @if (a.field) {
+                                        <code>{{ a.field }}</code>: {{ a.from || ('admin.audience.app_users.empty_value' | transloco) }} → {{ a.to || ('admin.audience.app_users.empty_value' | transloco) }}
+                                    } @else {
+                                        <code>{{ a.type }}</code>
+                                    }
+                                    <span class="text-muted d-block">{{ activityStatusKey(a.status) | transloco: { status: a.status } }}</span>
+                                </span>
+                                <span class="text-muted text-nowrap">{{ a.at | date: 'short' }}</span>
+                            </li>
+                        }
+                    </ul>
+                } @else {
+                    <p class="text-muted small mb-4">{{ 'admin.audience.app_users.activity_none' | transloco }}</p>
+                }
+
                 <h6 class="mb-1">{{ 'admin.audience.app_users.fields' | transloco }}</h6>
                 <p class="text-muted small mb-2">{{ 'admin.audience.app_users.fields_hint' | transloco }}</p>
                 <table class="table table-sm small app-user-fields">

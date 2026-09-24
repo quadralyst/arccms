@@ -1030,7 +1030,19 @@
         "subscribed": "सदस्यता ली",
         "unsubscribed": "सदस्यता छोड़ी",
         "showing": "{{total}} में से {{start}} से {{end}}",
-        "close": "बंद करें"
+        "close": "बंद करें",
+        "activity": "हाल की गतिविधि",
+        "activity_none": "अभी कोई इवेंट नहीं। आपके ऐप में देखे जा रहे फ़ील्ड के बदलाव यहाँ दिखेंगे।",
+        "empty_value": "(खाली)",
+        "activity_status": {
+          "ok": "कार्रवाइयाँ चलीं",
+          "no_mapping": "इस इवेंट के लिए कोई नियम नहीं",
+          "disabled": "नियम बंद है",
+          "no_matching_rule": "कोई नियम मेल नहीं खाया",
+          "error": "विफल",
+          "pending": "प्रोसेस होने की प्रतीक्षा में",
+          "other": "{{status}}"
+        }
       }
     },
     "dashboard": {

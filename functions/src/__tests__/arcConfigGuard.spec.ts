@@ -38,12 +38,20 @@ describe('arc-config guard (functions)', () => {
         expect(offenders).toEqual([]);
     });
 
+    // The one trigger that watches another database on purpose: the host app's users (CO6.4).
+    const HOST_TRIGGER = 'app-audience/onAppUserWritten.ts';
+
     it('every Firestore trigger binds to the install database through arcDocument()', () => {
         const trigger = /onDocument(?:Created|Updated|Deleted|Written)(?:WithAuthContext)?\((?!\s*(?:arcDocument\(|\{\s*\.\.\.arcDocument\())/;
         const offenders = files
-            .filter((f) => f.path !== 'arc-config.ts')
+            .filter((f) => f.path !== 'arc-config.ts' && f.path !== HOST_TRIGGER)
             .filter((f) => trigger.test(f.code))
             .map((f) => f.path);
         expect(offenders).toEqual([]);
+    });
+
+    it('the App audience trigger binds to the host collection set at deploy time, never a fixed one', () => {
+        const code = files.find((f) => f.path === HOST_TRIGGER)?.code ?? '';
+        expect(code).toMatch(/onDocumentWritten\(\s*\{\s*document:\s*appUsersPathParam,\s*database:\s*appUsersDatabaseParam\s*\}/);
     });
 });
