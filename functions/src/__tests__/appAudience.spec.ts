@@ -47,12 +47,18 @@ const ts = (iso: string) => ({ toDate: () => new Date(iso) });
 
 describe('App audience location', () => {
     it('is unconfigured by default, with a path nothing writes to', () => {
-        expect(appUsersLocation({})).toEqual({ configured: false, database: '(default)', path: APP_USERS_UNCONFIGURED, collection: '' });
+        expect(appUsersLocation({})).toEqual({ configured: false, database: '(default)', path: APP_USERS_UNCONFIGURED, collection: '', own: false });
     });
 
     it('reads the deployed database and collection', () => {
-        expect(appUsersLocation({ ARC_APP_USERS_DATABASE: '(default)', ARC_APP_USERS_PATH: 'users/{uid}' }))
-            .toEqual({ configured: true, database: '(default)', path: 'users/{uid}', collection: 'users' });
+        expect(appUsersLocation({ ARC_DATABASE_ID: 'arccms', ARC_APP_USERS_DATABASE: '(default)', ARC_APP_USERS_PATH: 'users/{uid}' }))
+            .toEqual({ configured: true, database: '(default)', path: 'users/{uid}', collection: 'users', own: false });
+    });
+
+    it('knows when the audience is the install\'s own users (CO6.8)', () => {
+        expect(appUsersLocation({ ARC_DATABASE_ID: 'arccms', ARC_APP_USERS_DATABASE: 'arccms', ARC_APP_USERS_PATH: 'users/{id}' }).own).toBe(true);
+        expect(appUsersLocation({ ARC_APP_USERS_PATH: 'users/{id}' }).own).toBe(true);
+        expect(appUsersLocation({ ARC_APP_USERS_PATH: 'members/{id}' }).own).toBe(false);
     });
 
     it('treats a malformed path as unconfigured', () => {

@@ -664,7 +664,8 @@
         "watched_no_match": "No fields left to watch.",
         "watched_selected": "Watched ({{ count }})",
         "watched_empty": "No fields watched yet. Tick one on the left.",
-        "watched_remove": "Stop watching {{ field }}"
+        "watched_remove": "Stop watching {{ field }}",
+        "own_users": "This install's own users (people who signed up to this site) are the audience. Contacts still hold everyone else, such as newsletter and waitlist sign-ups. Someone who is both is emailed once, and their unsubscribe applies to both."
       },
       "automations": {
         "title": "Automations",
@@ -1106,7 +1107,8 @@
           "error": "Failed",
           "pending": "Waiting to be processed",
           "other": "{{status}}"
-        }
+        },
+        "subtitle_own": "This site's own users, read live. Use live lists and automations on their data, such as plan or role."
       }
     },
     "dashboard": {

@@ -64,6 +64,8 @@ const ACTIVITY_STATUSES = ['ok', 'no_mapping', 'disabled', 'no_matching_rule', '
 interface AppUsersLocation {
     configured: boolean;
     path: string;
+    /** This install's own users (CO6.8). */
+    own?: boolean;
 }
 
 /** Mirrors MAX_APP_USERS in functions/src/app-audience/listAppUsers.ts. */

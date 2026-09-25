@@ -75,6 +75,17 @@ describe('AppAudienceSettingsPage', () => {
         expect((fixture.nativeElement as HTMLElement).textContent).toContain('users/{uid}');
     });
 
+    it('explains an audience of the site\'s own users (CO6.8), and only then', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: { ...configured, own: true }, settings: { key: { source: 'docId' }, watchedFields: [] } };
+        m.responses['arccms-sampleAppUsers'] = { sampleSize: 0, fields: [] };
+        let text = ((await open()).nativeElement as HTMLElement).textContent;
+        expect(text).toContain("This install's own users");
+
+        m.responses['arccms-appAudienceStatus'] = { location: configured, settings: { key: { source: 'docId' }, watchedFields: [] } };
+        text = ((await open()).nativeElement as HTMLElement).textContent;
+        expect(text).not.toContain("This install's own users");
+    });
+
     it('saves exactly the edited settings, without empty optional fields', async () => {
         m.responses['arccms-appAudienceStatus'] = { location: configured, settings: { key: { source: 'docId' }, watchedFields: [] } };
         m.responses['arccms-sampleAppUsers'] = { sampleSize: 0, fields: [] };

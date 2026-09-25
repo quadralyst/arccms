@@ -257,6 +257,28 @@ applies to every send.
 
 ---
 
+## Standalone: your own users as the audience
+
+A standalone site or an app built on ArcCMS has no host app, but the same tools work over
+its own `users` collection: live lists on plan or role, automations when a user's field
+changes, and sequences that start when a user starts matching.
+
+```bash
+npm run arc:configure -- --project=default --app-users=own
+npm run deploy -- --only functions --project default --non-interactive --force
+```
+
+`--app-users=own` points the audience at `users/{id}` in the install's own database (and
+follows it if the database changes). Then do Steps 5 to 10, with these differences:
+
+- **Unique key**: the `uid` field (or the document id). Email field `email`, name field `name`.
+- **These people are also contacts** (every sign-up joins the "All users" list). A broadcast
+  to both an ordinary list and a live list emails each address once, and a contact's
+  unsubscribe wins.
+- **One sign-up fires two events**: `user.signed_up` (every install) and `app_user.created`.
+  Put a welcome email on one of them, not both.
+- Sign-ups stay as they are: admin-only sign-in is for sharing a project with another app.
+
 ## The host app's side of the contract
 
 Tell the developer of the host app:

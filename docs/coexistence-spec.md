@@ -582,6 +582,14 @@ change it later in Settings, Users.
   audience, confirming the live connection, automations, lists, broadcasts, sequences, merge
   tags, consent, the host app's side of the contract, later changes, troubleshooting and a
   reference table.
+- **CO6.8**: the App audience may be ArcCMS's own `users`. `arc:configure --app-users=own` sets
+  `appUsersDatabase` to the install's database and `appUsersPath` to `users/{id}`; the refusal
+  of that path is gone. `appUsersLocation().own` says so, and the Settings and App users pages
+  explain it. Overlap, pinned by tests: those users are also contacts on `all-users`, so a
+  broadcast to both kinds of list sends once per address and the contact's consent wins
+  (`broadcastAudienceMultiList.spec.ts`); an unsubscribe updates both the contact and the
+  `AppAudience` record (`recipientConsent.spec.ts`). One sign-up emits both `user.signed_up` and
+  `app_user.created` (documented in the integration guide).
 
 ### Phases
 

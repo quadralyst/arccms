@@ -29,6 +29,8 @@ interface AppUsersLocation {
     database: string;
     path: string;
     collection: string;
+    /** This install's own users (CO6.8), not another app's. */
+    own?: boolean;
 }
 
 interface SampledField {
@@ -61,6 +63,9 @@ interface TestResult {
             {{ 'admin.settings.app_audience.database' | transloco }}: <code>{{ location()!.database }}</code>,
             {{ 'admin.settings.app_audience.collection' | transloco }}: <code>{{ location()!.path }}</code>
           </p>
+          @if (location()!.own) {
+            <div class="alert alert-info small">{{ 'admin.settings.app_audience.own_users' | transloco }}</div>
+          }
           <p class="text-muted small mb-4">{{ 'admin.settings.app_audience.location_hint' | transloco }}</p>
         } @else {
           <div class="alert alert-info">{{ 'admin.settings.app_audience.not_configured' | transloco }}</div>

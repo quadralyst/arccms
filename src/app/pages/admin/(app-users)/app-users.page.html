@@ -60,7 +60,7 @@
     <mat-drawer-content>
         <div class="page-container">
             <arc-page-header [title]="'admin.audience.app_users.title' | transloco"
-                [subtitle]="'admin.audience.app_users.subtitle' | transloco">
+                [subtitle]="(location()?.own ? 'admin.audience.app_users.subtitle_own' : 'admin.audience.app_users.subtitle') | transloco">
                 @if (location()?.configured) {
                     <button mat-stroked-button [disabled]="loading()" (click)="load()">
                         <mat-icon>refresh</mat-icon> {{ 'admin.audience.app_users.refresh' | transloco }}

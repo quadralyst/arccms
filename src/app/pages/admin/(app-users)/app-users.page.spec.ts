@@ -72,6 +72,13 @@ describe('AppUsersPage', () => {
         expect(listCalls()).toBe(before);
     });
 
+    it('says when the audience is the site\'s own users (CO6.8)', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: { configured: true, path: 'users/{id}', own: true } };
+        m.responses['arccms-listAppUsers'] = { rows: [], scanned: 0, withoutKey: 0, truncated: false };
+        const fixture = await open();
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain("This site's own users, read live.");
+    });
+
     it('shows the error when the list cannot be read', async () => {
         m.responses['arccms-appAudienceStatus'] = { location: { configured: true, path: 'users/{id}' } };
         m.responses['arccms-listAppUsers'] = new Error('permission-denied');

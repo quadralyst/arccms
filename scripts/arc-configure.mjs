@@ -22,6 +22,8 @@
  *   --profile=standalone|backend  --database=<id>  --site=<hosting site | none>
  *   --bucket=<bucket>  --prefix=<upload folder>  --region=<location>
  *   --app-users-database=<db>  --app-users-path=<collection>/{id}   the host app's users (CO6)
+ *   --app-users=own   the audience is this install's own users collection (CO6.8), for a
+ *                     standalone site or an app built on ArcCMS; sets the two flags above
  *   --admin-only-sign-in=yes|no   onboarding turns sign-ups off (CO6.6; default yes for backend)
  *   --dry-run   print what would change, write nothing
  *
@@ -64,10 +66,14 @@ const FLAG_KEYS = {
     'app-users-database': 'appUsersDatabase',
     'app-users-path': 'appUsersPath',
     'admin-only-sign-in': 'adminOnlySignIn',
+    'app-users': 'appUsers',
 };
 
 /** When no host collection is configured: a path nothing writes to (App audience, CO6). */
 export const APP_USERS_UNCONFIGURED = '_arccms_app_users_not_configured/{id}';
+/** `--app-users=own`: this install's own users are the App audience (CO6.8). */
+export const APP_USERS_OWN = 'own';
+export const OWN_USERS_PATH = 'users/{id}';
 const APP_USERS_PATH_PATTERN = /^([A-Za-z0-9_-]+)\/\{([A-Za-z0-9_]+)\}$/;
 
 /** `--database=arccms` style flags → config keys. Unknown flags throw. */
@@ -98,6 +104,12 @@ export function normalizeConfig(raw) {
     // Admin-only sign-in (CO6.6): on by default for a backend install, whose
     // sign-in pool is shared with the host app's users.
     config.adminOnlySignIn = config.adminOnlySignIn ?? (config.profile === 'backend' ? 'yes' : 'no');
+    // `--app-users=own` (CO6.8): the App audience is ArcCMS's own users, in its
+    // own database, which follows databaseId if that changes later.
+    if (config.appUsers === APP_USERS_OWN) {
+        config.appUsersDatabase = config.databaseId || DEFAULT_DATABASE_ID;
+        config.appUsersPath = OWN_USERS_PATH;
+    }
     return config;
 }
 
@@ -124,12 +136,10 @@ export function validateConfig(config) {
         const match = APP_USERS_PATH_PATTERN.exec(config.appUsersPath);
         if (!match) {
             errors.push(`app-users-path "${config.appUsersPath}" must look like <collection>/{id}, for example users/{uid}.`);
-        } else if (match[1] === 'users'
-            && (config.appUsersDatabase || DEFAULT_DATABASE_ID) === (config.databaseId || DEFAULT_DATABASE_ID)) {
-            // ArcCMS's own users live there; reading them as a host app's audience
-            // would turn every ArcCMS login into an app user.
-            errors.push('app-users-path points at ArcCMS\'s own users collection in its own database. The host app\'s users must be in another collection or database.');
         }
+    }
+    if (config.appUsers && config.appUsers !== APP_USERS_OWN) {
+        errors.push(`app-users must be "own" (this install's own users), not "${config.appUsers}". For another app's users, use --app-users-database and --app-users-path.`);
     }
     if (config.databaseId && !/^(\(default\)|[a-z][a-z0-9-]{2,62})$/.test(config.databaseId)) {
         errors.push(`databaseId "${config.databaseId}" is not a valid Firestore database id (lowercase letters, digits and hyphens, 3 to 63 characters, starting with a letter).`);

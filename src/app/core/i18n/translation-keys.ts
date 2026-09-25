@@ -42,6 +42,7 @@ export type TranslationKey =
     | 'admin.audience.app_users.showing'
     | 'admin.audience.app_users.subscribed'
     | 'admin.audience.app_users.subtitle'
+    | 'admin.audience.app_users.subtitle_own'
     | 'admin.audience.app_users.summary'
     | 'admin.audience.app_users.title'
     | 'admin.audience.app_users.truncated'
@@ -749,6 +750,7 @@ export type TranslationKey =
     | 'admin.settings.app_audience.name_field'
     | 'admin.settings.app_audience.none'
     | 'admin.settings.app_audience.not_configured'
+    | 'admin.settings.app_audience.own_users'
     | 'admin.settings.app_audience.phone_field'
     | 'admin.settings.app_audience.reading_title'
     | 'admin.settings.app_audience.save'
@@ -1335,6 +1337,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.audience.app_users.showing',
     'admin.audience.app_users.subscribed',
     'admin.audience.app_users.subtitle',
+    'admin.audience.app_users.subtitle_own',
     'admin.audience.app_users.summary',
     'admin.audience.app_users.title',
     'admin.audience.app_users.truncated',
@@ -2042,6 +2045,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.app_audience.name_field',
     'admin.settings.app_audience.none',
     'admin.settings.app_audience.not_configured',
+    'admin.settings.app_audience.own_users',
     'admin.settings.app_audience.phone_field',
     'admin.settings.app_audience.reading_title',
     'admin.settings.app_audience.save',

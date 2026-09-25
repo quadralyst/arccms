@@ -74,11 +74,19 @@ describe('arc-configure', () => {
             expect(configure.validateConfig(configure.normalizeConfig({ databaseId: 'arccms', appUsersPath: 'a/{x}/b/{y}' }))).toHaveLength(1);
         });
 
-        it("refuses ArcCMS's own users collection as the host's", () => {
-            const errors = configure.validateConfig(configure.normalizeConfig({ databaseId: 'arccms', appUsersDatabase: 'arccms', appUsersPath: 'users/{id}' }));
-            expect(errors.join(' ')).toMatch(/own users collection/);
-            // Same collection name in another database is the normal P3 case.
+        it("accepts ArcCMS's own users as the audience (CO6.8), in either spelling", () => {
+            expect(configure.validateConfig(configure.normalizeConfig({ databaseId: 'arccms', appUsersDatabase: 'arccms', appUsersPath: 'users/{id}' }))).toEqual([]);
             expect(configure.validateConfig(configure.normalizeConfig({ databaseId: 'arccms', appUsersDatabase: '(default)', appUsersPath: 'users/{id}' }))).toEqual([]);
+        });
+
+        it('--app-users=own points at the install\'s own users, following its database', () => {
+            expect(configure.parseFlags(['--app-users=own']).updates).toEqual({ appUsers: 'own' });
+            const standalone = configure.normalizeConfig({ appUsers: 'own' });
+            expect(standalone).toMatchObject({ appUsersDatabase: '(default)', appUsersPath: 'users/{id}' });
+            const named = configure.normalizeConfig({ appUsers: 'own', databaseId: 'arccms', appUsersPath: 'members/{id}' });
+            expect(named).toMatchObject({ appUsersDatabase: 'arccms', appUsersPath: 'users/{id}' });
+            expect(configure.validateConfig(named)).toEqual([]);
+            expect(configure.validateConfig(configure.normalizeConfig({ appUsers: 'mine' })).join(' ')).toMatch(/app-users must be "own"/);
         });
 
         it('takes hyphenated flags', () => {

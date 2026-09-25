@@ -327,6 +327,17 @@ describe('multi-list audiences (U4)', () => {
       expect((await countEligible({ include: ['c1', 'app1'] })).count).toBe(2);
     });
 
+    it('own users (CO6.8): a site user is also an all-users contact, so is emailed once, and a contact unsubscribe wins', async () => {
+      // ann and eve signed up to the site: users (the live list) and contacts on all-users.
+      seed([['ann', ['all-users']], ['eve', ['all-users'], 'unsubscribed']]);
+      live('pros', [['ann'], ['eve']]);
+      await send({ include: ['all-users', 'pros'] });
+      expect(mockQueueEmail.mock.calls.filter((c) => c[0].toEmail === 'ann@x.com')).toHaveLength(1);
+      // eve is queued once and skipped by her contact consent, never sent via the live list.
+      expect(mockQueueEmail.mock.calls.filter((c) => c[0].toEmail === 'eve@x.com')).toHaveLength(1);
+      expect((await countEligible({ include: ['pros'] })).count).toBe(1);
+    });
+
     it('resumes a live list after its last document', async () => {
       seed([]);
       live('app1', [['ann'], ['bob'], ['cat']]);

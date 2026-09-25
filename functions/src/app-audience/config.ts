@@ -13,7 +13,7 @@
  *   any time.
  */
 import { defineString } from 'firebase-functions/params';
-import { DEFAULT_DATABASE_ID } from '../arc-config.js';
+import { DEFAULT_DATABASE_ID, arcDatabaseId } from '../arc-config.js';
 
 /** The path pattern used when no host collection is configured. Nothing writes here. */
 export const APP_USERS_UNCONFIGURED = '_arccms_app_users_not_configured/{id}';
@@ -39,6 +39,11 @@ export interface AppUsersLocation {
     path: string;
     /** The collection id, when the path is valid. */
     collection: string;
+    /**
+     * The audience is this install's own `users` collection (CO6.8): a standalone
+     * site or an app built on ArcCMS, not another app sharing the project.
+     */
+    own: boolean;
 }
 
 /** The host collection as deployed. Read at call time, from the same values the trigger uses. */
@@ -47,7 +52,8 @@ export function appUsersLocation(env: Env = process.env): AppUsersLocation {
     const path = env.ARC_APP_USERS_PATH?.trim() || APP_USERS_UNCONFIGURED;
     const match = APP_USERS_PATH_PATTERN.exec(path);
     const configured = path !== APP_USERS_UNCONFIGURED && !!match;
-    return { configured, database, path, collection: configured && match ? match[1] : '' };
+    const collection = configured && match ? match[1] : '';
+    return { configured, database, path, collection, own: collection === 'users' && database === arcDatabaseId(env) };
 }
 
 /** How the unique key of a host document is found. */
