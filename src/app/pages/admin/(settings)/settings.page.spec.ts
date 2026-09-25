@@ -33,7 +33,7 @@ describe('SettingsPageComponent', () => {
     });
 
     it('should have eleven setting categories', () => {
-        expect(component.settingCategories().length).toBe(13);
+        expect(component.settingCategories().length).toBe(14);
     });
 
     it('should have about as first category', () => {
@@ -80,7 +80,8 @@ describe('SettingsPageComponent', () => {
         expect(categories[9].route).toBe('/admin/settings/search');
         expect(categories[10].route).toBe('/admin/settings/discoverability');
         expect(categories[11].route).toBe('/admin/settings/app-audience');
-        expect(categories[12].route).toBe('/admin/settings/misc');
+        expect(categories[12].route).toBe('/admin/settings/automations');
+        expect(categories[13].route).toBe('/admin/settings/misc');
     });
 
     it('should have discoverability as eleventh category (D3)', () => {

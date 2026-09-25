@@ -553,6 +553,16 @@ is shared: a host user's password is valid on the ArcCMS sign-in page too.
   host write.
   Admin: the drips page offers live lists; the list hub's Sequence tab explains joining and
   leaving for them.
+- **CO6.5d**: Settings, Automations (`/admin/settings/automations`), an editor for
+  `Settings/event_mappings`. It lists the built-in events, the app-user events when an app is
+  connected (created, deleted, and one change event per watched field) and any event already
+  mapped. Per event: an on/off switch and rules (name, active, for field changes a from/to
+  condition of exactly / any of / none of, and actions: send an email with a template picked by
+  type and a category; for non-app events also a notification and add/remove lists). The model
+  (`(settings)/automations/automation-model.ts`) reads an older mapping's own actions as a first
+  rule and saves everything as `rules`, keeping keys it does not edit (`enrollInDrip`). Saving
+  re-reads the document and replaces only the edited event, so the Announcements page's on/off
+  switches are never overwritten.
 
 ### Phases
 

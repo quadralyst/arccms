@@ -665,6 +665,62 @@
         "watched_selected": "Watched ({{ count }})",
         "watched_empty": "No fields watched yet. Tick one on the left.",
         "watched_remove": "Stop watching {{ field }}"
+      },
+      "automations": {
+        "title": "Automations",
+        "intro": "Send an email, create a notification or change list membership when something happens. Each event can have several rules; for a field change in your app, a rule can check the old and the new value.",
+        "load_failed": "Could not load automations: {{error}}",
+        "on": "On",
+        "off": "Off",
+        "rule_count": "{{count}} rules",
+        "event_on": "Run this event's rules",
+        "app_user_hint": "People from your app are not contacts, so these rules send emails only. Use an App users (live) list to group them.",
+        "rule_name": "Rule name",
+        "rule_on": "Active",
+        "remove_rule": "Remove",
+        "when_from": "When {{field}} was",
+        "when_to": "and becomes",
+        "condition": {
+          "any": "anything",
+          "equals": "exactly",
+          "any_of": "any of",
+          "none_of": "none of"
+        },
+        "value_placeholder": "Value, or values separated by commas",
+        "send_email": "Send an email",
+        "template": "Email template",
+        "choose_template": "Choose a template",
+        "category": "Email type",
+        "transactional": "Transactional (reaches everyone)",
+        "marketing": "Marketing (respects unsubscribes)",
+        "create_notification": "Create a notification",
+        "notification_type": "Notification type",
+        "notification_title": "Title",
+        "notification_body": "Message",
+        "notification_link": "Link (optional)",
+        "add_to_lists": "Add to lists",
+        "remove_from_lists": "Remove from lists",
+        "no_rules": "No rules yet. Add one to act on this event.",
+        "add_rule": "Add rule",
+        "save": "Save",
+        "new_rule_name": "Rule {{n}}",
+        "saved": "Automation saved",
+        "save_failed": "Could not save: {{error}}",
+        "problem": {
+          "rule_needs_name": "Every rule needs a name.",
+          "email_needs_template": "Choose a template for each email.",
+          "notification_incomplete": "A notification needs a type and a title.",
+          "rule_needs_action": "Every rule needs at least one action."
+        },
+        "events": {
+          "user_signed_up": "A user signs up",
+          "payment_succeeded": "A payment succeeds",
+          "payment_failed": "A payment fails",
+          "waitlist_joined": "Someone joins a waitlist",
+          "app_user_created": "A new user appears in your app",
+          "app_user_deleted": "A user is deleted in your app",
+          "app_user_changed": "{{field}} changes in your app"
+        }
       }
     },
     "contents": {

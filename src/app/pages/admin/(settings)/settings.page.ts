@@ -343,6 +343,13 @@ export default class SettingsPageComponent extends BaseComponent {
             description: "Your app's users, read live",
         },
         {
+            id: 'automations',
+            label: 'Automations',
+            icon: 'fa-solid fa-bolt',
+            route: '/admin/settings/automations',
+            description: 'Emails and actions when things happen',
+        },
+        {
             id: 'misc',
             label: 'Miscellaneous',
             icon: 'fa-solid fa-cog',

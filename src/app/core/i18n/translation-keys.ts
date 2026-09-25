@@ -767,6 +767,54 @@ export type TranslationKey =
     | 'admin.settings.app_audience.watched_no_match'
     | 'admin.settings.app_audience.watched_remove'
     | 'admin.settings.app_audience.watched_selected'
+    | 'admin.settings.automations.add_rule'
+    | 'admin.settings.automations.add_to_lists'
+    | 'admin.settings.automations.app_user_hint'
+    | 'admin.settings.automations.category'
+    | 'admin.settings.automations.choose_template'
+    | 'admin.settings.automations.condition.any'
+    | 'admin.settings.automations.condition.any_of'
+    | 'admin.settings.automations.condition.equals'
+    | 'admin.settings.automations.condition.none_of'
+    | 'admin.settings.automations.create_notification'
+    | 'admin.settings.automations.event_on'
+    | 'admin.settings.automations.events.app_user_changed'
+    | 'admin.settings.automations.events.app_user_created'
+    | 'admin.settings.automations.events.app_user_deleted'
+    | 'admin.settings.automations.events.payment_failed'
+    | 'admin.settings.automations.events.payment_succeeded'
+    | 'admin.settings.automations.events.user_signed_up'
+    | 'admin.settings.automations.events.waitlist_joined'
+    | 'admin.settings.automations.intro'
+    | 'admin.settings.automations.load_failed'
+    | 'admin.settings.automations.marketing'
+    | 'admin.settings.automations.new_rule_name'
+    | 'admin.settings.automations.no_rules'
+    | 'admin.settings.automations.notification_body'
+    | 'admin.settings.automations.notification_link'
+    | 'admin.settings.automations.notification_title'
+    | 'admin.settings.automations.notification_type'
+    | 'admin.settings.automations.off'
+    | 'admin.settings.automations.on'
+    | 'admin.settings.automations.problem.email_needs_template'
+    | 'admin.settings.automations.problem.notification_incomplete'
+    | 'admin.settings.automations.problem.rule_needs_action'
+    | 'admin.settings.automations.problem.rule_needs_name'
+    | 'admin.settings.automations.remove_from_lists'
+    | 'admin.settings.automations.remove_rule'
+    | 'admin.settings.automations.rule_count'
+    | 'admin.settings.automations.rule_name'
+    | 'admin.settings.automations.rule_on'
+    | 'admin.settings.automations.save'
+    | 'admin.settings.automations.save_failed'
+    | 'admin.settings.automations.saved'
+    | 'admin.settings.automations.send_email'
+    | 'admin.settings.automations.template'
+    | 'admin.settings.automations.title'
+    | 'admin.settings.automations.transactional'
+    | 'admin.settings.automations.value_placeholder'
+    | 'admin.settings.automations.when_from'
+    | 'admin.settings.automations.when_to'
     | 'admin.settings.background_style'
     | 'admin.settings.banner_enabled'
     | 'admin.settings.discoverability.allowed'
@@ -2012,6 +2060,54 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.app_audience.watched_no_match',
     'admin.settings.app_audience.watched_remove',
     'admin.settings.app_audience.watched_selected',
+    'admin.settings.automations.add_rule',
+    'admin.settings.automations.add_to_lists',
+    'admin.settings.automations.app_user_hint',
+    'admin.settings.automations.category',
+    'admin.settings.automations.choose_template',
+    'admin.settings.automations.condition.any',
+    'admin.settings.automations.condition.any_of',
+    'admin.settings.automations.condition.equals',
+    'admin.settings.automations.condition.none_of',
+    'admin.settings.automations.create_notification',
+    'admin.settings.automations.event_on',
+    'admin.settings.automations.events.app_user_changed',
+    'admin.settings.automations.events.app_user_created',
+    'admin.settings.automations.events.app_user_deleted',
+    'admin.settings.automations.events.payment_failed',
+    'admin.settings.automations.events.payment_succeeded',
+    'admin.settings.automations.events.user_signed_up',
+    'admin.settings.automations.events.waitlist_joined',
+    'admin.settings.automations.intro',
+    'admin.settings.automations.load_failed',
+    'admin.settings.automations.marketing',
+    'admin.settings.automations.new_rule_name',
+    'admin.settings.automations.no_rules',
+    'admin.settings.automations.notification_body',
+    'admin.settings.automations.notification_link',
+    'admin.settings.automations.notification_title',
+    'admin.settings.automations.notification_type',
+    'admin.settings.automations.off',
+    'admin.settings.automations.on',
+    'admin.settings.automations.problem.email_needs_template',
+    'admin.settings.automations.problem.notification_incomplete',
+    'admin.settings.automations.problem.rule_needs_action',
+    'admin.settings.automations.problem.rule_needs_name',
+    'admin.settings.automations.remove_from_lists',
+    'admin.settings.automations.remove_rule',
+    'admin.settings.automations.rule_count',
+    'admin.settings.automations.rule_name',
+    'admin.settings.automations.rule_on',
+    'admin.settings.automations.save',
+    'admin.settings.automations.save_failed',
+    'admin.settings.automations.saved',
+    'admin.settings.automations.send_email',
+    'admin.settings.automations.template',
+    'admin.settings.automations.title',
+    'admin.settings.automations.transactional',
+    'admin.settings.automations.value_placeholder',
+    'admin.settings.automations.when_from',
+    'admin.settings.automations.when_to',
     'admin.settings.background_style',
     'admin.settings.banner_enabled',
     'admin.settings.discoverability.allowed',

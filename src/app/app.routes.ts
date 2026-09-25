@@ -145,6 +145,11 @@ export const routes: Routes = [
               import('./pages/admin/(settings)/app-audience/app-audience-settings.page').then((m) => m.AppAudienceSettingsPage),
           },
           {
+            path: 'automations',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/automations/automations-settings.page').then((m) => m.AutomationsSettingsPage),
+          },
+          {
             path: 'discoverability',
             loadComponent: () =>
               import('./pages/admin/(settings)/discoverability/discoverability-settings.page').then((m) => m.DiscoverabilitySettingsPage),
