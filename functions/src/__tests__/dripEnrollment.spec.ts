@@ -103,4 +103,10 @@ describe('dripEnrollment', () => {
     expect(enrollmentStore.get('camp1_c1')?.status).toBe('active');
     expect(enrollmentStore.get('camp1_c2')?.status).toBe('active');
   });
+
+  it('stores an app user\'s ids on their enrollment, keyed by the app contact id (CO6.5c)', async () => {
+    expect(await enrollInCampaign(campaign(), 'app_h1', { appUserId: 'h1', appDocId: 'u1' })).toBe(true);
+    expect(enrollmentStore.get('camp1_app_h1')).toMatchObject({ contactId: 'app_h1', appUserId: 'h1', appDocId: 'u1', status: 'active' });
+  });
 });
+

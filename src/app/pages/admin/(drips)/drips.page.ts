@@ -96,8 +96,7 @@ export default class DripsPageComponent implements OnInit, AfterViewInit {
             this.campaigns.set(c);
             this.loading.set(false);
         });
-        // App users (live) lists cannot carry a sequence yet (CO6.5c).
-        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l.filter((x) => x.type !== 'app')));
+        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
         this.service.watchTemplates().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((t) => this.templates.set(t));
 
         this.presetListId = this.route.snapshot.queryParamMap.get('listId') || '';

@@ -12,6 +12,7 @@ import { db } from '../init.js';
 import type { MarketingConsent } from './contacts.js';
 import { setContactConsent } from './contacts.js';
 import { APP_AUDIENCE_STATE, stateFrom } from '../app-audience/state.js';
+import { appContactId, exitAllEnrollments } from './dripEnrollment.js';
 
 /** App users an address has been mailed as, from its email log. */
 export async function appUserIdsForEmailHash(emailHash: string): Promise<string[]> {
@@ -34,6 +35,10 @@ export async function setRecipientConsent(emailHash: string, consent: MarketingC
   const now = Timestamp.now();
   await Promise.all(appUserIds.map((id) =>
     db.collection(APP_AUDIENCE_STATE).doc(id).set({ consent, consentChangedAt: now }, { merge: true })));
+  // An unsubscribe also ends the person's sequences on live lists (CO6.5c).
+  if (consent === 'unsubscribed') {
+    await Promise.all(appUserIds.map((id) => exitAllEnrollments(appContactId(id), 'unsubscribed')));
+  }
 }
 
 /** The consent to show for this email hash: the contact's, else an app user's, else null. */

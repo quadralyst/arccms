@@ -27,7 +27,24 @@ export interface DripCampaignDoc {
   counts?: { enrolled: number; completed: number; exited: number };
 }
 
-export type ExitReason = 'left_list' | 'unsubscribed' | 'archived' | 'erased';
+export type ExitReason = 'left_list' | 'unsubscribed' | 'archived' | 'erased' | 'app_user_deleted';
+
+/**
+ * An app user in a sequence on an App users (live) list (CO6.5c). The id rides
+ * in `contactId` with a prefix no email hash can have, so enrollment ids,
+ * de-duplication and the flush queries work unchanged.
+ */
+export interface AppEnrollee {
+  appUserId: string;
+  /** The host document, read again at every step. */
+  appDocId: string;
+}
+
+export const APP_CONTACT_PREFIX = 'app_';
+
+export function appContactId(appUserId: string): string {
+  return `${APP_CONTACT_PREFIX}${appUserId}`;
+}
 
 function enrollmentId(campaignId: string, contactId: string): string {
   return `${campaignId}_${contactId}`;
@@ -38,8 +55,8 @@ function delayMs(delayHours: number): number {
   return Math.max(0, delayHours) * 60 * 60 * 1000;
 }
 
-/** Enroll a contact into a specific campaign at step 0 (idempotent). */
-export async function enrollInCampaign(campaign: DripCampaignDoc, contactId: string): Promise<boolean> {
+/** Enroll a contact, or an app user (`app`), into a specific campaign at step 0 (idempotent). */
+export async function enrollInCampaign(campaign: DripCampaignDoc, contactId: string, app?: AppEnrollee): Promise<boolean> {
   if (campaign.status !== 'active' || !campaign.steps?.length) return false;
   const id = enrollmentId(campaign.id, contactId);
   const ref = db.collection('DripEnrollments').doc(id);
@@ -55,6 +72,7 @@ export async function enrollInCampaign(campaign: DripCampaignDoc, contactId: str
     currentStep: 0,
     nextSendAt: Timestamp.fromMillis(now.toMillis() + delayMs(campaign.steps[0].delayHours)),
     enrolledAt: now,
+    ...(app ? { appUserId: app.appUserId, appDocId: app.appDocId } : {}),
   });
   await bumpCampaignCount(campaign.id, 'enrolled', 1);
   return true;

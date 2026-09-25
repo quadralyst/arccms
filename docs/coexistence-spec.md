@@ -536,7 +536,23 @@ is shared: a host user's password is valid on the ArcCMS sign-in page too.
   created after, premiumType) do not apply to live lists. Admin: the list drawer offers the
   type when an app is connected, with the condition editor
   (`(lists)/(app-list-conditions)`, fields from `sampleAppUsers`, a live count); the list hub
-  shows who matches now; the drips page leaves live lists out until CO6.5c.
+  shows who matches now.
+- **CO6.5c**: sequences on App users (live) lists. An app user's enrollment is
+  `DripEnrollments/{campaignId}_app_{appUserId}` with `appUserId` and `appDocId` (the host
+  document), so dedup and the flush queries are unchanged; like a contact, a person is never
+  enrolled in the same sequence twice. Joining is starting to match: `onAppUserWritten` calls
+  `syncAppDrips` (`functions/src/app-audience/appDrips.ts`) on every host write, which compares
+  the document before and after against each active live sequence (read fresh, not cached, so
+  an activation on another instance is never missed); starting to match enrolls and sends day 0
+  at once, stopping to match or deletion exits (`left_list`, `app_user_deleted`). Activation with
+  "enroll existing" enrolls whoever matches now. Each step (`dripSend.sendDueAppEnrollment`)
+  re-reads the host document: gone, no longer matching, or unsubscribed exits; no email address
+  holds; the email goes to the current address with current `##APP.*##` values. Unsubscribing
+  exits the person's live sequences at once (`recipientConsent`). Editing a live list's
+  conditions takes effect for enrolled people at their next step and for others at their next
+  host write.
+  Admin: the drips page offers live lists; the list hub's Sequence tab explains joining and
+  leaving for them.
 
 ### Phases
 

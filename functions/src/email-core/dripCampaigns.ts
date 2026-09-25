@@ -3,6 +3,8 @@ import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { backfillEnrollments, exitCampaignEnrollments, type DripCampaignDoc } from './dripEnrollment.js';
+import { appListConditionsOf } from '../app-audience/appLists.js';
+import { backfillAppCampaign } from '../app-audience/appDrips.js';
 
 function requireAdmin(request: { auth?: { token?: Record<string, unknown> } }): void {
   if (request.auth?.token?.['role'] !== 'admin') {
@@ -30,7 +32,12 @@ export const activateDripCampaign = onCall(async (request) => {
 
   let enrolled = 0;
   if (campaign.enrollExistingOnActivate) {
-    enrolled = await backfillEnrollments({ ...campaign, status: 'active' });
+    // An App users (live) list has no stored members: enroll whoever matches now (CO6.5c).
+    const list = await db.collection('Lists').doc(campaign.listId).get();
+    const conditions = appListConditionsOf(list.exists ? list.data() : undefined);
+    enrolled = conditions
+      ? await backfillAppCampaign({ ...campaign, status: 'active' }, conditions)
+      : await backfillEnrollments({ ...campaign, status: 'active' });
   }
   logger.info(`activateDripCampaign: ${id} active, backfilled ${enrolled}.`);
   return { enrolled };

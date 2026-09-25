@@ -6,6 +6,7 @@ const m = vi.hoisted(() => {
     const contacts = new Map<string, Record<string, unknown>>();
     const states = new Map<string, Record<string, unknown>>();
     const setContactConsent = vi.fn(async () => undefined);
+    const exitAllEnrollments = vi.fn(async () => undefined);
     const db = {
         collection: vi.fn((name: string) => {
             if (name === 'EmailLogs') {
@@ -20,11 +21,12 @@ const m = vi.hoisted(() => {
             })) };
         }),
     };
-    return { logs, contacts, states, setContactConsent, db };
+    return { logs, contacts, states, setContactConsent, exitAllEnrollments, db };
 });
 
 vi.mock('../init', () => ({ db: m.db }));
 vi.mock('../email-core/contacts', () => ({ setContactConsent: m.setContactConsent }));
+vi.mock('../email-core/dripEnrollment', () => ({ appContactId: (id: string) => `app_${id}`, exitAllEnrollments: m.exitAllEnrollments }));
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: { now: vi.fn(() => 'now') } }));
 
 import { getRecipientConsent, setRecipientConsent } from '../email-core/recipientConsent.js';
@@ -42,6 +44,7 @@ describe('recipient consent', () => {
         await setRecipientConsent('e1', 'unsubscribed', 'a@x.com');
         expect(m.states.get('h1')).toEqual({ consent: 'unsubscribed', consentChangedAt: 'now' });
         expect(m.setContactConsent).not.toHaveBeenCalled();
+        expect(m.exitAllEnrollments).toHaveBeenCalledWith('app_h1', 'unsubscribed');
         expect(await getRecipientConsent('e1')).toBe('unsubscribed');
     });
 
@@ -58,6 +61,7 @@ describe('recipient consent', () => {
         await setRecipientConsent('e1', 'subscribed');
         expect(m.setContactConsent).toHaveBeenCalledWith('e1', 'subscribed', undefined);
         expect(m.states.size).toBe(0);
+        expect(m.exitAllEnrollments).not.toHaveBeenCalled();
     });
 
     it('shows the contact\'s consent first, then an app user\'s, else nothing', async () => {

@@ -10,7 +10,10 @@
  *   mappings can react to one field and one transition ("isPro became true");
  * - a deleted document: `app_user.deleted`.
  *
- * Any other write (a counter ticking, a timestamp) produces nothing. Documents
+ * The same write also enrolls the person in, or exits them from, sequences on
+ * App users (live) lists they start or stop matching (CO6.5c, `appDrips.ts`).
+ *
+ * Any other write (a counter ticking, a timestamp) produces no event. Documents
  * that existed before the trigger was deployed produce no `created` event.
  * Each event's id comes from the Firestore event, so a delivery Firestore
  * repeats does not act twice. Unconfigured installs point at a collection
@@ -24,6 +27,7 @@ import { appUsersDatabaseParam, appUsersLocation, appUsersPathParam, type AppAud
 import { readAppAudienceSettings } from './adminCallables.js';
 import { displayValue, isSensitiveField, MASKED_VALUE, maskResolvedAppUser, resolveAppUser, valueAt } from './fields.js';
 import { APP_AUDIENCE_STATE, appUserStateId } from './state.js';
+import { syncAppDrips } from './appDrips.js';
 
 export const APP_USER_CREATED = 'app_user.created';
 export const APP_USER_DELETED = 'app_user.deleted';
@@ -142,13 +146,13 @@ export const onAppUserWritten = onDocumentWritten(
 
         const settings = await readAppAudienceSettings();
         const plan = planAppUserWrite(docId, beforeData, afterData, settings);
-        if (!plan.events.length && !plan.moveState) return;
-
-        await applyState(plan);
+        if (plan.events.length || plan.moveState) await applyState(plan);
         for (const e of plan.events) {
             await emitAppEvent(e.type, { appUserId: e.appUserId, contactEmail: e.email || undefined, data: e.data }, {
                 id: `${event.id}.${e.suffix}`.replace(/\//g, '_'),
             });
         }
+        // Sequences on App users (live) lists: joining is starting to match (CO6.5c).
+        await syncAppDrips(docId, beforeData, afterData, settings);
     },
 );

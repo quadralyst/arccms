@@ -14,12 +14,14 @@ const m = vi.hoisted(() => {
         states, ops,
         db: { collection: vi.fn(() => ({ doc: vi.fn((id: string) => stateRef(id)) })) },
         emitAppEvent: vi.fn().mockResolvedValue('id'),
+        syncAppDrips: vi.fn().mockResolvedValue(0),
         settings: { value: { key: { source: 'docId' }, emailField: 'email', nameField: 'name', watchedFields: ['isPro'] } as any },
     };
 });
 
 vi.mock('../init', () => ({ db: m.db }));
 vi.mock('../email-core/appEvents', () => ({ emitAppEvent: m.emitAppEvent }));
+vi.mock('../app-audience/appDrips', () => ({ syncAppDrips: m.syncAppDrips }));
 vi.mock('../app-audience/adminCallables', () => ({ readAppAudienceSettings: vi.fn(async () => m.settings.value) }));
 vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentWritten: vi.fn((_opts: unknown, h: unknown) => h) }));
 vi.mock('firebase-admin/firestore', () => ({
@@ -118,10 +120,13 @@ describe('onAppUserWritten', () => {
         );
     });
 
-    it('returns without writing anything for an unwatched change', async () => {
-        await handler(write(asha, { ...asha, credits: 1 }));
+    it('emits nothing and writes no state for an unwatched change, but still checks live sequences', async () => {
+        const after = { ...asha, credits: 1 };
+        await handler(write(asha, after));
         expect(m.emitAppEvent).not.toHaveBeenCalled();
         expect(m.ops).toEqual([]);
+        // A live list's conditions can use any field, watched or not (CO6.5c).
+        expect(m.syncAppDrips).toHaveBeenCalledWith('u1', asha, after, m.settings.value);
     });
 
     it('keeps consent when a person is deleted, marking the record', async () => {

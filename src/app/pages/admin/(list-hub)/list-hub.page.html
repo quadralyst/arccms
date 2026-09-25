@@ -117,15 +117,15 @@
             <!-- ── Sequence ────────────────────────────────────────── -->
             <mat-tab label="Sequence">
                 <div class="tab-body">
-                    @if (isLive()) {
                     <p class="hub-note">
                         <i class="fas fa-circle-info"></i>
-                        Sequences for App users (live) lists are not available yet. Broadcasts to this list work.
-                    </p>
-                    } @else {
-                    <p class="hub-note">
-                        <i class="fas fa-circle-info"></i>
+                        @if (isLive()) {
+                        A sequence sends automatically when someone starts matching this list, for example when a
+                        change in your app makes them match. Day 0 fires on join. They leave the sequence when they
+                        stop matching, unsubscribe or are deleted in your app.
+                        } @else {
                         A sequence sends automatically when someone joins this list. Day 0 fires on join.
+                        }
                     </p>
                     <div class="tab-actions">
                         <button mat-flat-button color="primary" (click)="newSequence()">
@@ -138,7 +138,6 @@
                         emptyActionLabel="New sequence" emptyActionIcon="fas fa-plus"
                         (emptyActionClick)="newSequence()">
                     </app-global-table>
-                    }
                 </div>
             </mat-tab>
         </mat-tab-group>
