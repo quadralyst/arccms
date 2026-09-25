@@ -386,7 +386,7 @@ existing install. CO4 is the release that needs the runbook.
 
 ---
 
-## 5b. CO6 design: the App audience (decided 2026-09-24, not built)
+## 5b. CO6 design: the App audience (decided 2026-09-24; CO6.1 to CO6.5 built)
 
 **The idea.** In the backend profile (P3), the host app's users are an audience ArcCMS
 can email, segment and run drips for, while their data stays in the host's collection.
@@ -575,6 +575,8 @@ is shared: a host user's password is valid on the ArcCMS sign-in page too.
 | CO6.5 | Emails, in four parts. **a**: `##APP.*##` merge tags; unsubscribe and consent for app users. **b**: the App users (live) list type with conditions on host fields, targeted by broadcasts. **c**: drips for app users. **d**: an editor for event-mapping rules. |
 | CO6.6 | Admin-only sign-in with the profile. |
 | CO6.7 | `docs/app-audience-integration.md`: step-by-step integration guide written for an AI agent (and people), from a host app's collection to its first email. |
+| CO6.8 | Standalone, part 1 (decided 2026-09-25): the App audience may point at ArcCMS's own `users` collection, so P1 and P2 installs get live lists, change events and live-list sequences over their own users' data. Lift the `arc:configure` refusal and verify the overlap (those users are also contacts on `all-users`: broadcasts already send once per address and a contact's own consent wins). |
+| CO6.9 | Standalone, part 2 (decided 2026-09-25): live lists and change events for Contacts. Conditions on tags, custom fields, consent, source and sign-up date; events when a tag or field changes; sequences that start when a contact starts matching. Reuses the condition matching, rules and live-list sequence logic, with member resolution built for thousands of contacts (queries, not a full read per use). |
 
 ## 6. P3 in practice: what the host app sees
 
