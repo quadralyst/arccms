@@ -577,6 +577,11 @@ change it later in Settings, Users.
   record signs straight out with "This account doesn't have access to this site"
   (`auth.store.ts`). Emulator cases are in `tests/rules/firestore.rules.spec.ts` (`npm run
   test:rules`, needs Java 21).
+- **CO6.7**: `docs/app-audience-integration.md`, the step-by-step integration guide for an AI
+  agent: fit check, facts to collect, `arc:configure`, deploy, first admin, Settings, App
+  audience, confirming the live connection, automations, lists, broadcasts, sequences, merge
+  tags, consent, the host app's side of the contract, later changes, troubleshooting and a
+  reference table.
 
 ### Phases
 

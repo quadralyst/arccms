@@ -22,6 +22,7 @@
  *   --profile=standalone|backend  --database=<id>  --site=<hosting site | none>
  *   --bucket=<bucket>  --prefix=<upload folder>  --region=<location>
  *   --app-users-database=<db>  --app-users-path=<collection>/{id}   the host app's users (CO6)
+ *   --admin-only-sign-in=yes|no   onboarding turns sign-ups off (CO6.6; default yes for backend)
  *   --dry-run   print what would change, write nothing
  *
  * With no arccms.config.json and no flags, every output is the default and a
