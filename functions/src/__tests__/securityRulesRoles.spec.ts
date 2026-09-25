@@ -51,6 +51,13 @@ describe('firestore.rules: users', () => {
         expect(rules).toMatch(/function isSelfAssignableRole\(data\)\s*\{\s*return !\('role' in data\) \|\| data\.role == 'user';/);
     });
 
+    it('enforces sign-ups off for self-created records, and never accepts a password (CO6.6)', () => {
+        expect(users).toMatch(/allow create: if hasNoPassword\(request\.resource\.data\) && \(isAdmin\(\) \|\|/);
+        expect(users).toMatch(/&& selfSignupOpen\(\)\)\);/);
+        expect(users).toMatch(/allow update: if hasNoPassword\(request\.resource\.data\) && \(isAdmin\(\) \|\|/);
+        expect(rules).toMatch(/function selfSignupOpen\(\) \{\s*let settings = \/databases\/\$\(database\)\/documents\/Settings\/users;\s*return !exists\(settings\) \|\| get\(settings\)\.data\.get\('isSignupEnabled', true\) != false;/);
+    });
+
     it('blocks role, uid and the admin switches on self-update', () => {
         // The self-update guard: the hasAny() list following affectedKeys().
         const blocked = users.match(/affectedKeys\(\)\s*\.hasAny\(\[([^\]]+)\]\)/)?.[1] ?? '';

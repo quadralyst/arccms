@@ -9,13 +9,17 @@ import { inject, Injector, runInInjectionContext } from '@angular/core';
 import { Auth, onAuthStateChanged, User } from '@angular/fire/auth';
 import { Router } from '@angular/router';
 import { patchState, signalStore, withHooks, withMethods, withState } from '@ngrx/signals';
-import { catchError, finalize, map, Observable, of, tap, throwError } from 'rxjs';
+import { catchError, finalize, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import { ConstantVariables } from '../../../shared/constants';
 import { OmitCommonFields } from '../../../shared/models/base-model';
 import { QueryParams, WhereCondition } from '../../../shared/models';
 import { ToastService } from '../../../shared/services/toast.service';
 import { IAuth } from './auth.model';
 import { AuthService } from './auth.service';
+
+/** Signed in with a valid password but no ArcCMS record: no access (CO6.6). */
+export const NO_ACCESS_CODE = 'arccms/no-access';
+export const NO_ACCESS_MESSAGE = "This account doesn't have access to this site. Ask an administrator to add you.";
 
 type AuthState = {
     currentUser: IAuth | null;
@@ -124,6 +128,22 @@ export const AuthState = signalStore(
                 authService
                     .login(form.email, form.password)
                     .pipe(
+                        // A valid password is not access: the sign-in pool can be shared
+                        // with another app (CO6.6), whose users have no ArcCMS record.
+                        // Sign them straight out with a reason instead of leaving them
+                        // signed in to Firebase and treated as nobody.
+                        switchMap((res) => {
+                            if (!res?.uid) return of(res);
+                            return authService.getCurrentUserByUid(res.uid).pipe(
+                                switchMap((user) => {
+                                    if (user) return of(res);
+                                    return authService.logout().pipe(
+                                        tap(() => patchState(store, { error: NO_ACCESS_MESSAGE, errorCode: NO_ACCESS_CODE, isSuccess: false })),
+                                        map(() => null),
+                                    );
+                                }),
+                            );
+                        }),
                         tap((res) => {
                             if (res && res.uid) {
                                 const message = 'Logged in successfully.';

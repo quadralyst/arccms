@@ -62,6 +62,7 @@ const FLAG_KEYS = {
     region: 'region',
     'app-users-database': 'appUsersDatabase',
     'app-users-path': 'appUsersPath',
+    'admin-only-sign-in': 'adminOnlySignIn',
 };
 
 /** When no host collection is configured: a path nothing writes to (App audience, CO6). */
@@ -93,6 +94,9 @@ export function normalizeConfig(raw) {
     }
     if (config.storageBucket) config.storageBucket = config.storageBucket.replace(/^gs:\/\//, '').replace(/\/+$/, '');
     config.profile = config.profile ?? 'standalone';
+    // Admin-only sign-in (CO6.6): on by default for a backend install, whose
+    // sign-in pool is shared with the host app's users.
+    config.adminOnlySignIn = config.adminOnlySignIn ?? (config.profile === 'backend' ? 'yes' : 'no');
     return config;
 }
 
@@ -101,6 +105,9 @@ export function validateConfig(config) {
     const errors = [];
     if (!PROFILES.includes(config.profile)) {
         errors.push(`profile must be one of ${PROFILES.join(', ')}, not "${config.profile}".`);
+    }
+    if (config.adminOnlySignIn && !['yes', 'no'].includes(config.adminOnlySignIn)) {
+        errors.push(`admin-only-sign-in must be yes or no, not "${config.adminOnlySignIn}".`);
     }
     if (config.profile === 'backend') {
         // CO-D11: sharing (default) with another app means sharing its rules,
@@ -140,6 +147,7 @@ export function appValues(config) {
     if (isNamedDatabase(config)) values.databaseId = config.databaseId;
     if (config.storageBucket) values.storageBucket = config.storageBucket;
     if (config.storagePrefix) values.storagePrefix = config.storagePrefix;
+    if (config.adminOnlySignIn === 'yes') values.adminOnlySignIn = true;
     return Object.keys(values).length ? values : null;
 }
 

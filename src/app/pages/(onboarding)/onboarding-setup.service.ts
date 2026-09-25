@@ -16,6 +16,7 @@ import { DEFAULT_CONTENT_TYPES, DEFAULT_WAITLIST, DEFAULT_SITE_CSS_URLS } from '
 import { DEFAULT_EMAIL_SETTINGS, IEmailSettings, hasValidProviderConfig } from '../admin/(settings)/email-setting/email-setting.model';
 import { AuthService } from '../(auth)/auth.service';
 import { arcCallable } from '../../core/config/arc-functions';
+import { arcConfig } from '../../core/config/arc-config';
 
 /**
  * Where an install sits relative to the onboarding wizard.
@@ -45,6 +46,8 @@ interface OnboardingStatus {
 @Injectable({ providedIn: 'root' })
 export class OnboardingSetupService {
     private firestore = inject(Firestore);
+    /** This install's admin-only sign-in choice (`arc:configure`, CO6.6). */
+    adminOnlySignIn = arcConfig.adminOnlySignIn;
     private functions = inject(Functions);
     private authService = inject(AuthService);
     private auth = inject(Auth, { optional: true });
@@ -272,6 +275,14 @@ export class OnboardingSetupService {
      * Called at the end of step 5 (or when user skips to dashboard).
      */
     async markOnboardingComplete(): Promise<void> {
+        // Admin-only sign-in (CO6.6): sign-ups go off now that the first admin
+        // exists, not earlier, or the wizard could not have created that account.
+        if (this.adminOnlySignIn) {
+            await setDoc(doc(this.firestore, 'Settings', 'users'), {
+                isSignupEnabled: false,
+                updatedAt: serverTimestamp(),
+            }, { merge: true });
+        }
         await setDoc(doc(this.firestore, 'Settings', 'onboarding_status'), {
             completed: true,
             completedAt: serverTimestamp(),

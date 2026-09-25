@@ -483,11 +483,14 @@ until CO6.5 adds `##APP.<path>##`.
 
 ### Admin-only sign-in
 
-Chosen with the profile (`arc:configure --profile=backend` asks for it). It sets
-`Settings/users.adminOnlySignIn`: the sign-in page hides sign-up, the rules refuse
-self-created `users` records (checked with `get()` on that setting), and signing in
-requires an existing ArcCMS user record added by an admin. Needed because the sign-in pool
-is shared: a host user's password is valid on the ArcCMS sign-in page too.
+Built in CO6.6 (decided 2026-09-25, replacing the separate `adminOnlySignIn` flag): admin-only
+sign-in is **Settings/users.isSignupEnabled = false, enforced by the rules**. A self-created
+`users` record needs sign-ups on, or no `Settings/users` yet (a fresh install's first
+account, created by the wizard). Needed because the sign-in pool is shared: a host user's
+password is valid on the ArcCMS sign-in page too. `arc:configure --admin-only-sign-in=yes|no`
+(default `yes` for `--profile=backend`) records the choice in `arc-install.ts`, and onboarding
+turns sign-ups off in `markOnboardingComplete()`, once the first admin exists. Admins can
+change it later in Settings, Users.
 
 ### Built so far
 
@@ -563,6 +566,17 @@ is shared: a host user's password is valid on the ArcCMS sign-in page too.
   rule and saves everything as `rules`, keeping keys it does not edit (`enrollInDrip`). Saving
   re-reads the document and replaces only the edited event, so the Announcements page's on/off
   switches are never overwritten.
+- **CO6.6**: admin-only sign-in. Rules (`firestore.rules`, `match /users`): `selfSignupOpen()`
+  gates self-created records on `Settings/users.isSignupEnabled`; `hasNoPassword()` refuses any
+  `password` field on create or update, from anyone. The admin callable `arccms-adminCreateUser`
+  (`functions/src/users/adminCreateUser.ts`) creates the sign-in account and the record together
+  with the role and never stores a password; an address that already has a sign-in account (a
+  host user) is reused untouched and marked `authOwner: 'shared'`. The Add user form calls it
+  with a temporary password (it used to write the password into the record and create no
+  account, so nobody it added could sign in). Signing in with a valid password but no ArcCMS
+  record signs straight out with "This account doesn't have access to this site"
+  (`auth.store.ts`). Emulator cases are in `tests/rules/firestore.rules.spec.ts` (`npm run
+  test:rules`, needs Java 21).
 
 ### Phases
 

@@ -23,8 +23,17 @@ describe('arc-configure', () => {
         const config = configure.normalizeConfig({});
 
         it('is valid with no config at all', () => {
-            expect(config).toEqual({ profile: 'standalone' });
+            expect(config).toEqual({ profile: 'standalone', adminOnlySignIn: 'no' });
             expect(configure.validateConfig(config)).toEqual([]);
+        });
+
+        it('admin-only sign-in (CO6.6): off for standalone, on for backend, and only written when on', () => {
+            expect(configure.normalizeConfig({ profile: 'backend' }).adminOnlySignIn).toBe('yes');
+            expect(configure.normalizeConfig({ profile: 'backend', adminOnlySignIn: 'no' }).adminOnlySignIn).toBe('no');
+            expect(configure.appValues(config)).toBeNull();
+            expect(configure.appValues(configure.normalizeConfig({ adminOnlySignIn: 'yes' }))).toEqual({ adminOnlySignIn: true });
+            expect(configure.validateConfig(configure.normalizeConfig({ adminOnlySignIn: 'maybe' })))
+                .toContain('admin-only-sign-in must be yes or no, not "maybe".');
         });
 
         it('generates no Firebase config, so the committed firebase.json is used', () => {

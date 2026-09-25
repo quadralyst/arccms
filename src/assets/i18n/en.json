@@ -295,7 +295,7 @@
         "subtitle": "Configure user signup and role settings",
         "enable": "Enable User Settings",
         "enable_signups": "Enable User Signups",
-        "enable_signups_hint": "Allow new users to create accounts from the /signup page",
+        "enable_signups_hint": "Allow new users to create their own accounts. When off, only admins can add users (Users, Add user), and the database refuses self-created accounts. Turn it off when ArcCMS shares sign-ins with another app.",
         "default_role": "Default Role for New Users",
         "default_role_hint": "Role assigned to users who sign up",
         "assigned_note": "New users signing up will be assigned the",

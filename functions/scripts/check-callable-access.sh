@@ -38,7 +38,7 @@ CALLABLES=(
   previewBroadcastAudience sendTestEmail sendAnnouncement unsubscribeLegacyLink
   getOptimizedLeaderboard ensureWaitlistExists
   joinForm finalizeFormSignup getPublicMemberView getPublicLeaderboard creditReferral
-  getMyNotificationPrefs updateMyNotificationPrefs claimFirstAdmin search
+  getMyNotificationPrefs updateMyNotificationPrefs claimFirstAdmin search adminCreateUser
   appAudienceStatus sampleAppUsers testAppUser listAppUsers getAppUser previewAppList
 )
 

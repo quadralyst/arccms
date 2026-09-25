@@ -1,15 +1,20 @@
 /**
  * Add User Component
- * 
- * Form component for creating new users.
+ *
+ * Creates a user through the `adminCreateUser` callable (CO6.6): the sign-in
+ * account and the `users` record together, with a temporary password that is
+ * never stored in the record. When the address already has a sign-in account
+ * (a user of another app sharing this project), that account is reused and
+ * keeps its own password.
  */
 
 import { RouteMeta } from '@analogjs/router';
-import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, input, Output, signal } from '@angular/core';
+import { Functions } from '@angular/fire/functions';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
-import { UserFormData } from '../user.model';
 import { UserStore } from '../user.store';
+import { arcCallable } from '../../../../core/config/arc-functions';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
@@ -32,6 +37,8 @@ export default class AddUserComponent extends BaseComponent {
     action = input('add');
 
     userStore = inject(UserStore);
+    private functions = inject(Functions);
+    saving = signal(false);
     errorMessages: string[] = [];
     alreadyExist: any;
 
@@ -79,25 +86,28 @@ export default class AddUserComponent extends BaseComponent {
             return;
         }
 
-        const newUser: UserFormData = {
-            ...this.addForm.value,
-            role: this.role || 'user',
-            emailVerified: false,
-            status: 'Active',
-            isActive: true,
-            by: 'admin',
-        };
+        void this.create();
+    }
 
-        this.userStore.add(newUser).subscribe({
-            next: () => {
-                this.toastService.success('User created successfully.');
-                this.addForm.reset();
-                this.close.emit();
-            },
-            error: (error) => {
-                console.error('Error creating user:', error);
-                this.toastService.error('Failed to create user.');
-            },
-        });
+    private async create(): Promise<void> {
+        const { name, email, password } = this.addForm.value;
+        this.saving.set(true);
+        try {
+            const res = await arcCallable<
+                { name: string; email: string; password: string; role: string },
+                { id: string; uid: string; reusedAccount: boolean }
+            >(this.functions, 'adminCreateUser')({ name, email, password, role: this.role || 'user' });
+            this.toastService.success(res.data.reusedAccount
+                ? 'User added. This address already had a sign-in account, so they keep their existing password.'
+                : 'User created. Share the temporary password with them.');
+            this.addForm.reset();
+            this.close.emit();
+        } catch (error: any) {
+            console.error('Error creating user:', error);
+            if (error?.code === 'functions/already-exists') this.alreadyExist = true;
+            this.toastService.error(error?.message || 'Failed to create user.');
+        } finally {
+            this.saving.set(false);
+        }
     }
 }

@@ -78,6 +78,39 @@ describe('users: create', () => {
     });
 });
 
+describe('users: sign-ups off and passwords (CO6.6)', () => {
+    const setSignups = (isSignupEnabled: boolean) => env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'Settings', 'users'), { isSignupEnabled, defaultRole: 'user' });
+    });
+    const carol = () => env.authenticatedContext('carol-uid').firestore();
+
+    it('lets the first account of a fresh install (no Settings/users yet) create its record', async () => {
+        await assertSucceeds(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', email: 'c@x.com', role: 'user' }));
+    });
+
+    it('lets anyone create their own record while sign-ups are on', async () => {
+        await setSignups(true);
+        await assertSucceeds(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', email: 'c@x.com', role: 'user' }));
+    });
+
+    it('refuses a self-created record while sign-ups are off, even skipping the sign-up page', async () => {
+        await setSignups(false);
+        await assertFails(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', email: 'c@x.com', role: 'user' }));
+    });
+
+    it('still lets an admin create records while sign-ups are off', async () => {
+        await setSignups(false);
+        await assertSucceeds(addDoc(collection(admin(), 'users'), { uid: 'carol-uid', email: 'c@x.com', role: 'user' }));
+    });
+
+    it('never accepts a password in a user record, from anyone', async () => {
+        await assertFails(addDoc(collection(admin(), 'users'), { uid: 'new', role: 'user', password: 'hunter2' }));
+        await assertFails(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', role: 'user', password: 'hunter2' }));
+        await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { password: 'hunter2' }));
+        await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { password: 'hunter2' }));
+    });
+});
+
 describe('users: update', () => {
     it('lets a user edit their own name and photo', async () => {
         await assertSucceeds(updateDoc(doc(alice(), 'users', 'alice-doc'), { name: 'Alice', photo: 'https://x/y.webp' }));

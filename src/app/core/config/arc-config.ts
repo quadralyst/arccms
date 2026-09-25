@@ -25,6 +25,11 @@ export interface ArcInstallConfig {
     storageBucket?: string;
     /** Folder prepended to every new upload, such as `arccms/`. Default: none. */
     storagePrefix?: string;
+    /**
+     * Admin-only sign-in (CO6.6): onboarding turns sign-ups off once the first
+     * admin exists. Set by `arc:configure` (on by default for the backend profile).
+     */
+    adminOnlySignIn?: boolean;
 }
 
 export interface ResolvedArcConfig {
@@ -33,6 +38,7 @@ export interface ResolvedArcConfig {
     storageBucket: string | null;
     /** Empty, or a folder ending in `/`. */
     storagePrefix: string;
+    adminOnlySignIn: boolean;
 }
 
 /** Fills in the defaults and normalises what was given. */
@@ -43,6 +49,7 @@ export function resolveArcConfig(raw: ArcInstallConfig | undefined): ResolvedArc
         databaseId: raw?.databaseId?.trim() || DEFAULT_DATABASE_ID,
         storageBucket: bucket || null,
         storagePrefix: prefix && !prefix.endsWith('/') ? `${prefix}/` : prefix,
+        adminOnlySignIn: raw?.adminOnlySignIn === true,
     };
 }
 

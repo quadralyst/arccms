@@ -211,21 +211,39 @@ service cloud.firestore {
       return !('role' in data) || data.role == 'user';
     }
 
+    // Sign-ups (docs/coexistence-spec.md, CO6.6): a self-created record needs
+    // Settings/users.isSignupEnabled to not be false, so "sign-ups off" holds
+    // against a client that skips the sign-up page. Turned off it is the backend
+    // profile's admin-only sign-in: a user of an app sharing this project can
+    // sign in with their password, but cannot give themselves an ArcCMS record.
+    // A fresh install has no Settings/users yet, so onboarding can still create
+    // the first account. Admins add users with the adminCreateUser callable.
+    function selfSignupOpen() {
+      let settings = /databases/$(database)/documents/Settings/users;
+      return !exists(settings) || get(settings).data.get('isSignupEnabled', true) != false;
+    }
+
+    // Passwords live in Firebase Auth only, never in a user record.
+    function hasNoPassword(data) {
+      return !('password' in data);
+    }
+
     match /users/{userId} {
       allow read: if isAdmin() || isOwnUserDoc();
       // authOwner is set only by the Admin SDK (docs/coexistence-spec.md, CO-D16):
       // a user who marked their own doc as host-owned would keep their login when
       // an admin deletes them.
-      allow create: if isAdmin() ||
+      allow create: if hasNoPassword(request.resource.data) && (isAdmin() ||
         (isAuthenticated()
          && request.resource.data.uid == request.auth.uid
          && isSelfAssignableRole(request.resource.data)
-         && !('authOwner' in request.resource.data));
+         && !('authOwner' in request.resource.data)
+         && selfSignupOpen()));
       // Admin can update any user doc (migration re-keying, role changes). A
       // user may update their own doc EXCEPT the fields above. The premium
       // entitlement fields are written only by Cloud Functions (Admin SDK
       // bypasses rules) so users cannot self-grant access.
-      allow update: if isAdmin() ||
+      allow update: if hasNoPassword(request.resource.data) && (isAdmin() ||
         (isOwnUserDoc()
          && !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['role', 'uid', 'isActive', 'status', 'authOwner',
@@ -234,7 +252,7 @@ service cloud.firestore {
                        'premiumTrialReminderSent', 'premiumEventAt', 'updatesUntil',
                        'premiumTierLabel', 'premiumDiscountCode', 'creditBalance'])
          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['emailVerified'])
-             || request.resource.data.emailVerified == false));
+             || request.resource.data.emailVerified == false)));
       allow delete: if isAdmin();
     }
 

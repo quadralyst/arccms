@@ -10,6 +10,7 @@ describe('arc-config (frontend)', () => {
                 databaseId: '(default)',
                 storageBucket: null,
                 storagePrefix: '',
+                adminOnlySignIn: false,
             });
             expect(resolveArcConfig({})).toEqual(resolveArcConfig(undefined));
             expect(DEFAULT_DATABASE_ID).toBe('(default)');
@@ -34,7 +35,9 @@ describe('arc-config (frontend)', () => {
                 databaseId: 'arccms',
                 storageBucket: 'acme-arccms',
                 storagePrefix: 'arccms/',
+                adminOnlySignIn: false,
             });
+            expect(resolveArcConfig({ adminOnlySignIn: true }).adminOnlySignIn).toBe(true);
         });
 
         it('treats blank values as unset', () => {

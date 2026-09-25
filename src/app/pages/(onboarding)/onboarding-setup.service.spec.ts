@@ -463,6 +463,16 @@ describe('OnboardingSetupService', () => {
             mockSetDoc.mockRejectedValueOnce(new Error('fail'));
             await expect(service.markOnboardingComplete()).rejects.toThrow('fail');
         });
+
+        it('turns sign-ups off first on an admin-only install (CO6.6), once the admin exists', async () => {
+            service.adminOnlySignIn = true;
+            await service.markOnboardingComplete();
+
+            expect(mockSetDoc).toHaveBeenCalledTimes(2);
+            expect(mockSetDoc.mock.calls[0][1]).toEqual({ isSignupEnabled: false, updatedAt: 'server-timestamp' });
+            expect(mockSetDoc.mock.calls[0][2]).toEqual({ merge: true });
+            expect(mockSetDoc.mock.calls[1][1]).toEqual({ completed: true, completedAt: 'server-timestamp' });
+        });
     });
 
     describe('getOnboardingState', () => {
