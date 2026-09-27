@@ -40,6 +40,9 @@ CALLABLES=(
   joinForm finalizeFormSignup getPublicMemberView getPublicLeaderboard creditReferral
   getMyNotificationPrefs updateMyNotificationPrefs claimFirstAdmin search adminCreateUser
   appAudienceStatus sampleAppUsers testAppUser listAppUsers getAppUser previewAppList
+  checkEmailAccount checkPhoneAccount requestPhoneOtp verifyPhoneOtp completePhoneSignup
+  signInWithPin resetPin setPin ensureGoogleAccount checkIdentifierForLink
+  requestEmailLinkOtp linkEmail linkPhone sendTestSms verifySignupOtp requestSignupOtp
 )
 
 blocked=()
