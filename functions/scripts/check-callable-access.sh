@@ -43,7 +43,7 @@ CALLABLES=(
   checkEmailAccount checkPhoneAccount requestPhoneOtp verifyPhoneOtp completePhoneSignup
   signInWithPin resetPin setPin ensureGoogleAccount checkIdentifierForLink
   requestEmailLinkOtp linkEmail linkPhone sendTestSms verifySignupOtp requestSignupOtp
-  createAccountRecord refreshMyClaims deleteMyAccount
+  createAccountRecord refreshMyClaims deleteMyAccount trackPwaEvent
 )
 
 # The app's callables (functions/src/custom/public-callables.txt, docs/custom-code.md),

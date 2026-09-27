@@ -6,10 +6,11 @@ import { SiteUsageBannerComponent } from './pages/page.parts/site-usage-banner.c
 import { GaTrackingService } from '../shared/services/ga-tracking.service';
 import { PoweredByFooterComponent } from './pages/page.parts/powered-by-footer.component';
 import { NavProgressComponent } from './pages/page.parts/nav-progress.component';
+import { PwaUpdateBarComponent } from '../shared/components/install-prompt/update-bar.component';
 
 @Component({
   selector: 'arc-root',
-  imports: [RouterOutlet, GlobalMessageBannerComponent, SiteUsageBannerComponent, PoweredByFooterComponent, NavProgressComponent],
+  imports: [RouterOutlet, GlobalMessageBannerComponent, SiteUsageBannerComponent, PoweredByFooterComponent, NavProgressComponent, PwaUpdateBarComponent],
   template: `
     <arc-global-message-banner />
     @if (navigating()) {
@@ -20,6 +21,7 @@ import { NavProgressComponent } from './pages/page.parts/nav-progress.component'
     </main>
     <arc-powered-by-footer />
     <arc-site-usage-banner />
+    <arc-pwa-update-bar />
   `,
   styles: [
     `

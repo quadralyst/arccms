@@ -37,6 +37,8 @@ export default defineConfig({
     resolve: {
         alias: {
             'src': resolve(__dirname, './src'),
+            // Provided by the PWA build plugin (vite.config.ts), which tests do not load.
+            'virtual:pwa-register': resolve(__dirname, './src/test/pwa-register.stub.ts'),
         },
     },
 });
