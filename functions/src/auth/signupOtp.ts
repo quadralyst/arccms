@@ -64,7 +64,7 @@ async function loadSignupOtpTemplate(): Promise<(EmailTemplateData & { isActive?
 export const requestSignupOtp = onCall(async (request) => {
   const email = normalizeEmail(request.data?.email);
   if (!email || !email.includes('@')) {
-    throw new HttpsError('invalid-argument', 'A valid email is required.');
+    throw new HttpsError('invalid-argument', 'Enter a valid email address.');
   }
   const name = typeof request.data?.name === 'string' && request.data.name ? request.data.name : undefined;
   return issueEmailOtp(email, 'signup', { name });
@@ -88,13 +88,13 @@ export async function issueEmailOtp(
     const lastSent = (existing.data()?.['lastSentAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
     if (now - lastSent < RESEND_THROTTLE_MS) {
       const wait = Math.ceil((RESEND_THROTTLE_MS - (now - lastSent)) / 1000);
-      throw new HttpsError('resource-exhausted', `Please wait ${wait}s before requesting another code.`);
+      throw new HttpsError('resource-exhausted', `Please wait ${wait}s before asking for another code.`);
     }
   }
 
   const template = await loadSignupOtpTemplate();
   if (!template) {
-    throw new HttpsError('failed-precondition', 'Signup OTP email template is not configured.');
+    throw new HttpsError('failed-precondition', "We couldn't send the email. Please try again later.");
   }
 
   const code = generateCode();
@@ -144,7 +144,7 @@ export const verifySignupOtp = onCall(async (request) => {
   const email = normalizeEmail(request.data?.email);
   const code = String(request.data?.code || '');
   if (!email || !code) {
-    throw new HttpsError('invalid-argument', 'Email and code are required.');
+    throw new HttpsError('invalid-argument', "That code didn't work.");
   }
   const purpose: EmailOtpPurpose = request.data?.purpose === 'link' ? 'link' : 'signup';
 
@@ -152,23 +152,23 @@ export const verifySignupOtp = onCall(async (request) => {
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
   const snap = await ref.get();
   if (!snap.exists || !matchesPurpose(snap.data()!, purpose, request.auth?.uid)) {
-    throw new HttpsError('not-found', 'No verification code found. Please request a new one.');
+    throw new HttpsError('not-found', 'That code has expired. Please ask for a new one.');
   }
 
   const data = snap.data()!;
   const expiresAt = (data['expiresAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
   if (expiresAt < Date.now()) {
-    throw new HttpsError('deadline-exceeded', 'Your code has expired. Please request a new one.');
+    throw new HttpsError('deadline-exceeded', 'That code has expired. Please ask for a new one.');
   }
 
   const attempts = (data['attempts'] as number) || 0;
   if (attempts >= MAX_ATTEMPTS) {
-    throw new HttpsError('resource-exhausted', 'Too many attempts. Please request a new code.');
+    throw new HttpsError('resource-exhausted', 'Too many tries. Please ask for a new code.');
   }
 
   if (data['codeHash'] !== hashCode(code, emailHash)) {
     await ref.update({ attempts: attempts + 1 });
-    throw new HttpsError('invalid-argument', 'Invalid verification code.');
+    throw new HttpsError('invalid-argument', "That code didn't work.");
   }
 
   await ref.update({ verified: true, verifiedAt: Timestamp.now() });

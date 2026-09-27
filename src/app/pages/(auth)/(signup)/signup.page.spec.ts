@@ -366,7 +366,7 @@ describe('SignupComponent', () => {
             mockCallableFn.mockResolvedValue({ data: { verified: false } });
             const c = ctx();
             await verifyOtp.call(c, '123456');
-            expect(c.otpError.set).toHaveBeenCalledWith("That code didn't work");
+            expect(c.otpError.set).toHaveBeenCalledWith("That code didn't work. Check it and try again.");
             expect(c.otpVerified).toBe(false);
             expect(c.goToStep).not.toHaveBeenCalled();
         });
@@ -481,13 +481,13 @@ describe('SignupComponent', () => {
     describe('checkEmail — E4 verification gating', () => {
         const checkEmail = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => Promise<void>>)['checkEmail'];
 
-        function ctx(mustVerify: boolean, emailExists = false) {
+        function ctx(mustVerify: boolean, emailExists = false, status?: string) {
             return {
                 email: 'new@user.com',
                 isLoading: { set: vi.fn() },
                 errorMessage: { set: vi.fn() },
                 otpVerified: true, // should be reset to false by checkEmail
-                authStore: { checkItemNumberExist: vi.fn().mockResolvedValue({ toPromise: () => Promise.resolve(emailExists ? [{}] : []) }) },
+                emailStatus: vi.fn().mockResolvedValue(status ?? (emailExists ? 'registered' : 'new')),
                 signupSettings: { isSignupEnabled: true },
                 shouldVerifySignup: vi.fn().mockResolvedValue(mustVerify),
                 sendOtp: vi.fn().mockResolvedValue(undefined),
@@ -508,6 +508,23 @@ describe('SignupComponent', () => {
             await checkEmail.call(c);
             expect(c.sendOtp).toHaveBeenCalled();
             expect(c.goToStep).toHaveBeenCalledWith('verify');
+        });
+
+        it('tells a login from another app (no record here) straight away', async () => {
+            const c = ctx(false, false, 'no-access');
+            await checkEmail.call(c);
+            expect(c.errorMessage.set).toHaveBeenCalledWith(expect.stringContaining("doesn't have access"));
+            expect(c.goToStep).not.toHaveBeenCalled();
+            expect(c.sendOtp).not.toHaveBeenCalled();
+        });
+
+        it('falls back to the lookup table when the server check fails', async () => {
+            const emailStatus = (SignupComponent.prototype as any).emailStatus;
+            const c = {
+                signIn: { checkEmail: vi.fn().mockRejectedValue(new Error('offline')) },
+                authStore: { checkItemNumberExist: vi.fn().mockResolvedValue({ toPromise: () => Promise.resolve([{}]) }) },
+            };
+            await expect(emailStatus.call(c, 'a@b.co')).resolves.toBe('registered');
         });
 
         it('routes an existing email to the login step', async () => {
@@ -580,10 +597,10 @@ describe('SignupComponent', () => {
         });
 
         it('sends an already-registered email to sign-in instead of failing silently', () => {
-            const c = ctx('signup');
-            SignupComponent.prototype.handleAuthError.call(c, 'User already exists!', 'auth/email-already-in-use');
+            const c = { ...ctx('signup'), successMessage: { set: vi.fn() } };
+            SignupComponent.prototype.handleAuthError.call(c, 'You already have an account', 'auth/email-already-in-use');
             expect(c.goToStep).toHaveBeenCalledWith('login');
-            expect(c.errorMessage.set).toHaveBeenCalledWith(expect.stringContaining('already exists'));
+            expect(c.successMessage.set).toHaveBeenCalledWith(expect.stringContaining('already have an account'));
             expect(c.authActionPending).toBe(false);
         });
 

@@ -89,7 +89,7 @@ export const requestPhoneOtp = onCall(async (request) => {
     } else {
         const account = await findUserByPhone(phone);
         if (purpose === 'signup' && account) throw new HttpsError('already-exists', 'This number already has an account.');
-        if (purpose === 'signup' && !signIn.signupOpen) throw new HttpsError('failed-precondition', 'New sign-ups are closed.');
+        if (purpose === 'signup' && !signIn.signupOpen) throw new HttpsError('failed-precondition', "New accounts can't be created on this site right now.");
         if (purpose === 'reset' && !account) throw new HttpsError('not-found', 'No account uses this number.');
     }
 
@@ -115,10 +115,10 @@ export const completePhoneSignup = onCall(async (request) => {
     const { signIn, phone } = await phoneContext(request);
     const name = readName(request.data?.name);
     const pin = readPin(request.data?.pin);
-    if (!signIn.signupOpen) throw new HttpsError('failed-precondition', 'New sign-ups are closed.');
+    if (!signIn.signupOpen) throw new HttpsError('failed-precondition', "New accounts can't be created on this site right now.");
     if (await findUserByPhone(phone)) throw new HttpsError('already-exists', 'This number already has an account.');
     if (!(await consumeVerifiedPhoneOtp(phone, 'signup'))) {
-        throw new HttpsError('failed-precondition', 'Please verify your number again.');
+        throw new HttpsError('failed-precondition', 'Your code has expired. Please ask for a new one.');
     }
 
     const account = await owner.createUser({ displayName: name });
@@ -164,7 +164,7 @@ export const signInWithPin = onCall(async (request) => {
     const pin = readPin(request.data?.pin);
     const account = await findUserByPhone(phone);
     if (!account) throw new HttpsError('not-found', 'No account uses this number.');
-    if (!canSignIn(account.data)) throw new HttpsError('permission-denied', 'This account is blocked. Please contact us.');
+    if (!canSignIn(account.data)) throw new HttpsError('permission-denied', 'This account is blocked. Please contact the site administrator.');
 
     const uid = String(account.data['uid']);
     const result = await checkPin(uid, pin);
@@ -184,9 +184,9 @@ export const resetPin = onCall(async (request) => {
     const pin = readPin(request.data?.pin);
     const account = await findUserByPhone(phone);
     if (!account) throw new HttpsError('not-found', 'No account uses this number.');
-    if (!canSignIn(account.data)) throw new HttpsError('permission-denied', 'This account is blocked. Please contact us.');
+    if (!canSignIn(account.data)) throw new HttpsError('permission-denied', 'This account is blocked. Please contact the site administrator.');
     if (!(await consumeVerifiedPhoneOtp(phone, 'reset'))) {
-        throw new HttpsError('failed-precondition', 'Please verify your number again.');
+        throw new HttpsError('failed-precondition', 'Your code has expired. Please ask for a new one.');
     }
     const uid = String(account.data['uid']);
     await storePin(uid, pin);

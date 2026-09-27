@@ -62,6 +62,13 @@ export class SignInService {
         return result.data as T;
     }
 
+    // --- Email ---------------------------------------------------------------
+
+    /** Registered (password), new (sign up), or a login with no access to this site. */
+    checkEmail(email: string): Promise<{ status: 'registered' | 'new' | 'no-access'; signupOpen: boolean }> {
+        return this.call('checkEmailAccount', { email });
+    }
+
     // --- Phone ---------------------------------------------------------------
 
     checkPhone(phone: string): Promise<PhoneAccount> {

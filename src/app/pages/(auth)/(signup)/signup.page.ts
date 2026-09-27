@@ -151,7 +151,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.authActionPending = false; // a failed attempt must not redirect later
     if (code === 'auth/email-already-in-use' && this.currentStep() === 'signup') {
       this.goToStep('login');
-      this.errorMessage.set('An account with this email already exists. Enter your password to sign in.');
+      this.successMessage.set('You already have an account with this email. Enter your password to sign in.');
       return;
     }
     this.errorMessage.set(error);
@@ -237,7 +237,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       verify: phone ? (this.phonePurpose() === 'reset' ? 'Set Your PIN' : 'Verify Number') : 'Verify Email',
       signup: 'Create Account',
       newPin: 'Choose a New PIN',
-      disabled: 'Signups are disabled',
+      disabled: 'Sign-ups are closed',
     };
     return titles[this.currentStep()];
   }
@@ -250,7 +250,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       verify: `Enter the 6-digit code sent to your ${this.channel() === 'phone' ? 'phone' : 'email'}`,
       signup: 'Complete your registration',
       newPin: 'You will use it to sign in',
-      disabled: 'Signups are disabled',
+      disabled: "New accounts can't be created right now",
     };
     return titles[this.currentStep()];
   }
@@ -350,11 +350,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     const email = this.email;
 
     try {
-      const res = await (await this.authStore.checkItemNumberExist(email)).toPromise();
+      const status = await this.emailStatus(email);
 
-      if (res && res.length) {
-        // User exists, go to login
+      if (status === 'registered') {
         this.goToStep('login');
+      } else if (status === 'no-access') {
+        this.errorMessage.set(NO_ACCESS_MESSAGE);
       } else {
         if (!this.signupSettings.isSignupEnabled) {
           this.goToStep('disabled');
@@ -374,9 +375,24 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         }
       }
     } catch (error) {
-      this.errorMessage.set('Error checking email. Please try again.');
+      this.errorMessage.set("We couldn't check that email. Please try again.");
     } finally {
       this.isLoading.set(false);
+    }
+  }
+
+  /**
+   * Ask the server, which reads the user records themselves (see
+   * functions/src/auth/emailAccount.ts). Should that call fail, fall back to the
+   * `email_lookup` check, which can say "new" for a record whose lookup entry
+   * was never written; the sign-up then lands on the password step instead.
+   */
+  private async emailStatus(email: string): Promise<'registered' | 'new' | 'no-access'> {
+    try {
+      return (await this.signIn.checkEmail(email)).status;
+    } catch {
+      const res = await (await this.authStore.checkItemNumberExist(email)).toPromise();
+      return res && res.length ? 'registered' : 'new';
     }
   }
 
@@ -490,7 +506,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.toastService.success('Email verified successfully');
         this.goToStep('signup');
       } else {
-        this.otpError.set("That code didn't work");
+        this.otpError.set("That code didn't work. Check it and try again.");
         this.codeBoxes()?.reset();
       }
     } catch (error: any) {
@@ -617,9 +633,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     if (email) {
       this.authStore.forgotPassword(email).then((res: any) => {
         if (res?.status === 200) {
-          this.successMessage.set('Password reset email sent!');
+          this.successMessage.set(`We've emailed a link to reset your password to ${email}.`);
         } else {
-          this.errorMessage.set('Failed to send reset email');
+          this.errorMessage.set("We couldn't send the reset email. Please try again.");
         }
       });
     }

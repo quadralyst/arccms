@@ -38,7 +38,7 @@ export const ensureGoogleAccount = onCall(async (request) => {
     const settings = await readSignInSettings();
     if (!settings.googleSignIn) throw new HttpsError('failed-precondition', 'Google sign-in is not turned on for this site.');
     if (!settings.signupOpen) {
-        throw new HttpsError('failed-precondition', 'New sign-ups are closed.', { reason: 'signup-closed' });
+        throw new HttpsError('failed-precondition', "New accounts can't be created on this site right now.", { reason: 'signup-closed' });
     }
     if (await findUserByEmail(email)) {
         throw new HttpsError('already-exists', 'An account with this email already exists. Sign in with your password.');

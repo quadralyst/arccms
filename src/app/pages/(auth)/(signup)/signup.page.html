@@ -121,7 +121,7 @@
 
                                     @if(isFieldInvalid('loginPassword')){
                                     <div class="invalid-feedback d-block">
-                                        Password is required
+                                        Please enter your password
                                     </div>
                                     }
                                 </div>
@@ -286,7 +286,13 @@
                         <div class="card signup-card border-0">
                             <div class="card-body customPadding">
                                 <h5 class="card-title signup-title text-primary">Complete Your Profile</h5>
-                                <p class="signup-subtitle">Set up your account to get started</p>
+                                <p class="signup-subtitle m-0">
+                                    Signing up as <strong>{{ sentTo() }}</strong>
+                                </p>
+                                <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none small"
+                                    style="cursor: pointer;">
+                                    {{ channel() === 'phone' ? 'Change number' : 'Change email' }}
+                                </a>
 
                                 <div class="mb-3 mt-4">
                                     <div class="input-group">
@@ -297,7 +303,7 @@
                                     </div>
                                     @if(isFieldInvalid('name')){
                                     <div class="text-danger mt-2">
-                                        Name is required
+                                        Please enter your name
                                     </div>
                                     }
                                 </div>
@@ -435,11 +441,11 @@
                                 <div class="disabled-icon mb-4">
                                     <i class="fa-solid fa-user-lock fa-3x text-muted"></i>
                                 </div>
-                                <h2 class="auth-title">Signups Disabled</h2>
-                                <p class="auth-subtitle">New user signups are currently disabled.</p>
-                                <p class="text-muted">To create a new account, please contact an administrator.</p>
-                                <p class="text-muted" role="button">If you already have an account, please <a
-                                        (click)="resetAll()" class="text-primary">log in</a>.</p>
+                                <h2 class="auth-title">{{ getStepTitle() }}</h2>
+                                <p class="auth-subtitle">New accounts can't be created on this site right now.</p>
+                                <p class="text-muted">Please contact the site administrator to get an account.</p>
+                                <p class="text-muted">Already have one? <a (click)="changeIdentifier()" class="text-primary"
+                                        role="button">Sign in with another email or number</a>.</p>
                             </div>
                         </div>
                     </div>

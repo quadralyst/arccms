@@ -20,6 +20,10 @@ import { AuthService } from './auth.service';
 /** Signed in with a valid password but no ArcCMS record: no access (CO6.6). */
 export const NO_ACCESS_CODE = 'arccms/no-access';
 export const NO_ACCESS_MESSAGE = "This account doesn't have access to this site. Ask an administrator to add you.";
+/** Signed in with a valid password, but an admin blocked the account. */
+export const BLOCKED_CODE = 'arccms/blocked';
+export const BLOCKED_MESSAGE = 'This account is blocked. Please contact the site administrator.';
+const FALLBACK_MESSAGE = 'Something went wrong. Please try again.';
 
 type AuthState = {
     currentUser: IAuth | null;
@@ -135,10 +139,11 @@ export const AuthState = signalStore(
                         switchMap((res) => {
                             if (!res?.uid) return of(res);
                             return authService.getCurrentUserByUid(res.uid).pipe(
-                                switchMap((user) => {
-                                    if (user) return of(res);
+                                switchMap((user: any) => {
+                                    if (user && user.isActive !== false) return of(res);
+                                    const [error, errorCode] = user ? [BLOCKED_MESSAGE, BLOCKED_CODE] : [NO_ACCESS_MESSAGE, NO_ACCESS_CODE];
                                     return authService.logout().pipe(
-                                        tap(() => patchState(store, { error: NO_ACCESS_MESSAGE, errorCode: NO_ACCESS_CODE, isSuccess: false })),
+                                        tap(() => patchState(store, { error, errorCode, isSuccess: false })),
                                         map(() => null),
                                     );
                                 }),
@@ -153,7 +158,7 @@ export const AuthState = signalStore(
                         catchError((err) => {
                             console.error('Login error:', err.code);
                             const findMessage = constant.firebaseAuthErrors.filter((item) => item.code === err.code);
-                            patchState(store, { isLoading: false, isSuccess: false, error: findMessage[0]?.message });
+                            patchState(store, { isLoading: false, isSuccess: false, error: findMessage[0]?.message || FALLBACK_MESSAGE, errorCode: err.code || '' });
                             return of(null);
                         }),
                         finalize(() => {
@@ -185,20 +190,13 @@ export const AuthState = signalStore(
                                 },
                                 error: (err) => {
                                     console.error('Failed to create user document:', err);
-                                    patchState(store, { isLoading: false, error: 'Failed to create user profile', isSuccess: false });
+                                    patchState(store, { isLoading: false, error: FALLBACK_MESSAGE, isSuccess: false });
                                 },
                             });
                         }),
                         catchError((err) => {
                             console.error('Signup error:', err.code);
-                            let errorMessage = 'Something went wrong!';
-                            if (err.code === 'auth/email-already-in-use') {
-                                errorMessage = 'User already exists!';
-                            } else if (err.code === 'auth/invalid-email') {
-                                errorMessage = 'Invalid email address!';
-                            } else if (err.code === 'auth/operation-not-allowed') {
-                                errorMessage = 'This sign-in method is not enabled. Please check your Firebase Authentication settings.';
-                            }
+                            const errorMessage = constant.firebaseAuthErrors.find((item) => item.code === err.code)?.message || FALLBACK_MESSAGE;
                             patchState(store, { isLoading: false, error: errorMessage, errorCode: err.code || '', isSuccess: false });
                             return of(null);
                         }),
