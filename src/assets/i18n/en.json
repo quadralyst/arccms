@@ -738,7 +738,7 @@
       },
       "sms": {
         "title": "SMS",
-        "intro": "Phone sign-in sends a 6-digit code by SMS. Until a provider is set up, messages are only recorded below, so you can test with any number.",
+        "intro": "Phone sign-in sends a 6-digit code by SMS. Until a provider is set up, nothing is sent: each code shows on the sign-in page and in SMS Logs.",
         "provider": "Provider",
         "provider_log": "Test (log only): nothing is sent",
         "provider_msg91": "MSG91",
