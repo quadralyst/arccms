@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, signal } from '@angular/core';
 import { PublicPageRendererComponent } from './public-page-renderer.component';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, EMPTY } from 'rxjs';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
+import { LocalizationService } from '../../core/services/localization.service';
 
 describe('PublicPageRendererComponent', () => {
     let component: PublicPageRendererComponent;
@@ -19,18 +20,32 @@ describe('PublicPageRendererComponent', () => {
     let mockGaTrackingService: any;
 
     // Spy objects
-    const routerSpy = { navigate: vi.fn() };
+    // The header's language switcher reads `url` and subscribes to `events`.
+    const routerSpy = { navigate: vi.fn(), url: '/', events: EMPTY };
     const titleSpy = { setTitle: vi.fn() };
     const metaSpy = { updateTag: vi.fn() };
 
-    const paramsSubject = new BehaviorSubject<any>({ fileName: 'test-page' });
-    const mockActivatedRoute = {
-        params: paramsSubject.asObservable()
+    // Fresh per test: a shared subject would keep feeding components from
+    // earlier tests whose injectors are already destroyed.
+    let paramsSubject: BehaviorSubject<any>;
+
+    // The header (language switcher, public search) loads localization
+    // settings; a single-language stub keeps these tests off Firestore.
+    const mockLocalization = {
+        load: vi.fn().mockResolvedValue(undefined),
+        enabledLanguages: signal([]),
+        defaultLanguage: signal('en'),
+        languageVariants: signal(null),
     };
 
     beforeEach(async () => {
         // Clear mocks before each test
         vi.clearAllMocks();
+
+        paramsSubject = new BehaviorSubject<any>({ fileName: 'test-page' });
+        const mockActivatedRoute = {
+            params: paramsSubject.asObservable()
+        };
 
         mockGaTrackingService = {
             trackPublicPageView: vi.fn()
@@ -43,7 +58,8 @@ describe('PublicPageRendererComponent', () => {
                 { provide: Router, useValue: routerSpy },
                 { provide: Title, useValue: titleSpy },
                 { provide: Meta, useValue: metaSpy },
-                { provide: GaTrackingService, useValue: mockGaTrackingService }
+                { provide: GaTrackingService, useValue: mockGaTrackingService },
+                { provide: LocalizationService, useValue: mockLocalization }
             ]
         }).compileComponents();
 
