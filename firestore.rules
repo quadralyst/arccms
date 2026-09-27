@@ -228,6 +228,14 @@ service cloud.firestore {
       return !('password' in data);
     }
 
+    // A phone number is a sign-in method (phone and PIN), so only the server
+    // sets it, after the number is verified by SMS. The same holds for changing
+    // `email` once the record exists: both go through a verification code
+    // (functions/src/auth/linkIdentifiers.ts).
+    function hasNoVerifiedPhone(data) {
+      return !('phone' in data) && !('phoneVerified' in data);
+    }
+
     match /users/{userId} {
       allow read: if isAdmin() || isOwnUserDoc();
       // authOwner is set only by the Admin SDK (docs/coexistence-spec.md, CO-D16):
@@ -238,6 +246,7 @@ service cloud.firestore {
          && request.resource.data.uid == request.auth.uid
          && isSelfAssignableRole(request.resource.data)
          && !('authOwner' in request.resource.data)
+         && hasNoVerifiedPhone(request.resource.data)
          && selfSignupOpen()));
       // Admin can update any user doc (migration re-keying, role changes). A
       // user may update their own doc EXCEPT the fields above. The premium
@@ -247,6 +256,7 @@ service cloud.firestore {
         (isOwnUserDoc()
          && !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['role', 'uid', 'isActive', 'status', 'authOwner',
+                       'email', 'phone', 'phoneVerified', 'detachedAt', 'detachedReason',
                        'isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
                        'premiumExpiresAt', 'provider', 'providerSubscriptionId', 'providerCustomerId',
                        'premiumTrialReminderSent', 'premiumEventAt', 'updatesUntil',
@@ -365,6 +375,35 @@ service cloud.firestore {
 
     match /signup_otps/{emailHash} {
       allow read, write: if false; // Cloud Functions only (never client-readable)
+    }
+
+    // Phone sign-in (functions/src/auth). Codes, PIN hashes, the number to
+    // account index and rate-limit counters are Cloud Functions only: the
+    // browser asks the callables, never these documents.
+    match /phone_otps/{phoneHash} {
+      allow read, write: if false;
+    }
+    match /phone_index/{phoneHash} {
+      allow read, write: if false;
+    }
+    match /auth_pins/{uid} {
+      allow read, write: if false;
+    }
+    match /_rate_limits/{key} {
+      allow read, write: if false;
+    }
+
+    // A phone number or email moved from one account to another. Admin read;
+    // written only by the functions that move them.
+    match /account_transfers/{transferId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Every SMS sent (or, with the log provider, only recorded). Admin read.
+    match /SmsLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // Erasure receipts (adminDeleteContact). Hash-keyed and address-free by

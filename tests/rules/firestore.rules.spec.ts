@@ -222,3 +222,47 @@ describe('content writes are staff only', () => {
         await assertSucceeds(getDoc(doc(anon(), 'ContentTypes', 'articles')));
     });
 });
+
+describe('phone and email sign-in fields (item 1: Google and phone sign-in)', () => {
+    it('refuses a self-created record that claims a phone number', async () => {
+        await assertFails(addDoc(collection(alice(), 'users'), { uid: ALICE, email: 'a2@x.com', phone: '+919876543210' }));
+        await assertFails(addDoc(collection(alice(), 'users'), { uid: ALICE, email: 'a2@x.com', phoneVerified: true }));
+    });
+
+    it('refuses changing your own email or phone directly (they go through a code)', async () => {
+        await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { email: 'new@x.com' }));
+        await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { phone: '+919876543210' }));
+        await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { phoneVerified: true }));
+    });
+
+    it('still lets you change your name', async () => {
+        await assertSucceeds(updateDoc(doc(alice(), 'users', 'alice-doc'), { name: 'Alice B' }));
+    });
+
+    it('lets an admin set them', async () => {
+        await assertSucceeds(updateDoc(doc(admin(), 'users', 'alice-doc'), { email: 'new@x.com', phone: '+919876543210' }));
+    });
+
+    it('keeps codes, PINs, the number index and rate limits closed to everyone', async () => {
+        for (const name of ['phone_otps', 'phone_index', 'auth_pins', '_rate_limits']) {
+            await assertFails(getDoc(doc(anon(), name, 'x')));
+            await assertFails(getDoc(doc(alice(), name, 'x')));
+            await assertFails(getDoc(doc(admin(), name, 'x')));
+            await assertFails(setDoc(doc(admin(), name, 'x'), { a: 1 }));
+        }
+    });
+
+    it('lets admins read SMS logs and account transfers, and nobody write them', async () => {
+        for (const name of ['SmsLogs', 'account_transfers']) {
+            await assertSucceeds(getDoc(doc(admin(), name, 'x')));
+            await assertFails(getDoc(doc(alice(), name, 'x')));
+            await assertFails(setDoc(doc(admin(), name, 'x'), { a: 1 }));
+        }
+    });
+
+    it('keeps Settings/sms (the MSG91 key) admin only', async () => {
+        await assertFails(getDoc(doc(alice(), 'Settings', 'sms')));
+        await assertFails(getDoc(doc(anon(), 'Settings', 'sms')));
+        await assertSucceeds(setDoc(doc(admin(), 'Settings', 'sms'), { provider: 'log' }));
+    });
+});

@@ -14,6 +14,10 @@ import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { owner, db } from '../init.js';
 import { arcDocument } from '../arc-config.js';
 import { arccmsOwnsAuthAccount } from './authOwner.js';
+import { phoneHash } from '../auth/phoneNumber.js';
+
+const PHONE_INDEX = 'phone_index';
+const AUTH_PINS = 'auth_pins';
 
 const EMAIL_LOOKUP_COLLECTION = 'email_lookup';
 
@@ -75,6 +79,25 @@ export const onUserDeleted = onDocumentDeleted(
                     .catch((err: any) => {
                         console.error(`Failed to remove email_lookup entry for email=${email}:`, err);
                     })
+            );
+        }
+
+        // 3. Phone sign-in: the number's index entry (when it still points here) and the PIN.
+        const phone: string | undefined = deletedData.phone;
+        if (phone) {
+            const indexRef = db.collection(PHONE_INDEX).doc(phoneHash(phone));
+            tasks.push(
+                indexRef.get()
+                    .then((snap) => (snap.data()?.['userDocId'] === event.params.docId ? indexRef.delete() : undefined))
+                    .then(() => undefined)
+                    .catch((err: any) => console.error('Failed to remove phone_index entry:', err))
+            );
+        }
+        if (uid) {
+            tasks.push(
+                db.collection(AUTH_PINS).doc(uid).delete()
+                    .then(() => undefined)
+                    .catch((err: any) => console.error(`Failed to remove the PIN for uid=${uid}:`, err))
             );
         }
 

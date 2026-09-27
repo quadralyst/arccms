@@ -18,6 +18,13 @@ export * from './email-core/retryPendingEmails.js';
 export * from './email-core/seedEmailTemplates.js';
 export * from './email-core/dedupeEmailTemplates.js';
 export * from './auth/signupOtp.js';
+
+// Sign-in with a phone number (SMS code, then a PIN), Google, and moving an
+// email or number between accounts. SMS settings and test send.
+export * from './auth/phoneAuth.js';
+export * from './auth/linkIdentifiers.js';
+export * from './auth/googleAccount.js';
+export * from './sms/sendTestSms.js';
 export * from './users/onUserWelcomeEmail.js';
 
 // Email-core (Phase 3): Contacts/Lists sync triggers, backfill, preference

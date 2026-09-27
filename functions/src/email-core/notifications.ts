@@ -83,6 +83,16 @@ export const DEFAULT_NOTIFICATION_TYPES: Record<string, NotificationTypeConfig> 
     category: 'transactional', defaultChannels: { inApp: true, email: true },
     userConfigurable: false, enabled: true,
   },
+  account_security: {
+    label: 'Account security', description: 'Your email or phone number was moved to another account.',
+    category: 'transactional', defaultChannels: { inApp: true, email: true },
+    userConfigurable: false, enabled: true,
+  },
+  admin_account_detached: {
+    label: 'Account detached (admin)', description: "An account lost its only sign-in to another account.",
+    category: 'transactional', defaultChannels: { inApp: true, email: true },
+    userConfigurable: false, enabled: true,
+  },
   admin_webhook_failure: {
     label: 'Webhook failure (admin)', description: 'A provider webhook failed to process.',
     category: 'transactional', defaultChannels: { inApp: true, email: true },

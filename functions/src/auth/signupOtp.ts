@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
-import { createHash } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import { db } from '../init.js';
 import { queueEmail } from '../email-core/queueEmail.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
@@ -22,8 +22,18 @@ function normalizeEmail(email: unknown): string {
 }
 
 function generateCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return String(randomInt(100000, 1000000));
 }
+
+/**
+ * What a code is for: `signup` (the sign-up page) or `link` (adding or changing
+ * the email of the signed-in account, which records whose request it was).
+ * Records written before this existed have no purpose and are sign-up codes.
+ */
+export type EmailOtpPurpose = 'signup' | 'link';
+
+/** How long a verified code stays usable for the step that follows it. */
+export const EMAIL_VERIFIED_WINDOW_MS = 30 * 60 * 1000;
 
 /** Codes are stored hashed (salted by emailHash) — never in plaintext. */
 function hashCode(code: string, emailHash: string): string {
@@ -56,7 +66,19 @@ export const requestSignupOtp = onCall(async (request) => {
   if (!email || !email.includes('@')) {
     throw new HttpsError('invalid-argument', 'A valid email is required.');
   }
+  const name = typeof request.data?.name === 'string' && request.data.name ? request.data.name : undefined;
+  return issueEmailOtp(email, 'signup', { name });
+});
 
+/**
+ * Create a code for this address and email it. Shared by the sign-up page and
+ * by adding an email to an account (`requestEmailLinkOtp`).
+ */
+export async function issueEmailOtp(
+  email: string,
+  purpose: EmailOtpPurpose,
+  options: { name?: string; uid?: string } = {},
+): Promise<{ sent: boolean; status: string }> {
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
   const now = Date.now();
@@ -80,6 +102,8 @@ export const requestSignupOtp = onCall(async (request) => {
     {
       email,
       emailHash,
+      purpose,
+      uid: options.uid ?? null,
       codeHash: hashCode(code, emailHash),
       expiresAt: Timestamp.fromMillis(now + OTP_TTL_MS),
       attempts: 0,
@@ -90,9 +114,7 @@ export const requestSignupOtp = onCall(async (request) => {
     { merge: true },
   );
 
-  const toName = typeof request.data?.name === 'string' && request.data.name
-    ? request.data.name
-    : email.split('@')[0];
+  const toName = options.name || email.split('@')[0];
 
   const result = await queueEmail({
     source: 'auth',
@@ -109,9 +131,9 @@ export const requestSignupOtp = onCall(async (request) => {
     data: { otp: code },
   });
 
-  logger.info(`requestSignupOtp: queued OTP for ${email} (status=${result.status}).`);
+  logger.info(`issueEmailOtp: queued ${purpose} OTP for ${email} (status=${result.status}).`);
   return { sent: result.status === 'pending', status: result.status };
-});
+}
 
 /**
  * Callable: verify a signup code (E3). Server-authoritative — checks expiry,
@@ -124,11 +146,12 @@ export const verifySignupOtp = onCall(async (request) => {
   if (!email || !code) {
     throw new HttpsError('invalid-argument', 'Email and code are required.');
   }
+  const purpose: EmailOtpPurpose = request.data?.purpose === 'link' ? 'link' : 'signup';
 
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
   const snap = await ref.get();
-  if (!snap.exists) {
+  if (!snap.exists || !matchesPurpose(snap.data()!, purpose, request.auth?.uid)) {
     throw new HttpsError('not-found', 'No verification code found. Please request a new one.');
   }
 
@@ -152,3 +175,33 @@ export const verifySignupOtp = onCall(async (request) => {
   logger.info(`verifySignupOtp: verified ${email}.`);
   return { verified: true };
 });
+
+function matchesPurpose(data: Record<string, unknown>, purpose: EmailOtpPurpose, uid: string | undefined): boolean {
+  const stored = (data['purpose'] as EmailOtpPurpose | undefined) ?? 'signup';
+  if (stored !== purpose) return false;
+  return purpose !== 'link' || (!!uid && data['uid'] === uid);
+}
+
+/** Whether this address was verified with a sign-up code (the proof `onUserCreated` needs). */
+export async function wasVerifiedBySignupCode(email: string): Promise<boolean> {
+  const snap = await db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(normalizeEmail(email))).get();
+  const data = snap.data();
+  if (!data || data['verified'] !== true || ((data['purpose'] as string | undefined) ?? 'signup') !== 'signup') return false;
+  // Only a recent verification: an old one says nothing about who signed up now.
+  const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
+  return Date.now() - verifiedAt <= EMAIL_VERIFIED_WINDOW_MS;
+}
+
+/** Use up a verified link code. Returns false when there is none for this caller. */
+export async function consumeVerifiedEmailLinkOtp(email: string, uid: string): Promise<boolean> {
+  const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(normalizeEmail(email)));
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    if (!snap.exists || !data || data['verified'] !== true || !matchesPurpose(data, 'link', uid)) return false;
+    const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
+    if (Date.now() - verifiedAt > EMAIL_VERIFIED_WINDOW_MS) return false;
+    tx.delete(ref);
+    return true;
+  });
+}
