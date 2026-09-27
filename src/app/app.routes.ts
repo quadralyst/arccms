@@ -135,6 +135,16 @@ export const routes: Routes = [
               import('./pages/admin/(settings)/localization/localization-settings.page').then((m) => m.LocalizationSettingsPage),
           },
           {
+            path: 'search',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/search/search-settings.page').then((m) => m.SearchSettingsPage),
+          },
+          {
+            path: 'discoverability',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/discoverability/discoverability-settings.page').then((m) => m.DiscoverabilitySettingsPage),
+          },
+          {
             path: 'misc',
             loadComponent: () =>
               import('./pages/admin/(settings)/misc/misc-settings.page').then((m) => m.MiscSettingsPage),
@@ -241,6 +251,22 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Authors route (docs/discoverability-spec.md, D2). Explicit like
+  // every other admin feature route.
+  {
+    path: 'admin/authors',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(authors)/authors.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin Audience Route (custom Fields, U4.5).
   {
     path: 'admin/contact-fields',
@@ -272,6 +298,22 @@ export const routes: Routes = [
         path: '',
         loadComponent: () =>
           import('./pages/admin/(contact-tags)/contact-tags.page').then((m) => m.default),
+      },
+    ],
+  },
+  // Admin search results (docs/search-spec.md, S4). Explicit like every
+  // other admin route.
+  {
+    path: 'admin/search',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(search)/search.page').then((m) => m.default),
       },
     ],
   },
@@ -470,6 +512,16 @@ export const routes: Routes = [
   // `canMatch` is what makes a wildcard first segment safe: a URL like
   // /admin/settings/localization has the right shape but 'admin' is not a
   // language, so the route is skipped rather than matched-and-broken.
+  // Search results (docs/search-spec.md, S-D18). The default language's
+  // /search is the file-based src/app/pages/search.page.ts; this is its
+  // /{lang}/search twin, listed before the two-segment content route so a
+  // language prefix plus 'search' is never read as a content type.
+  {
+    path: ':lang/search',
+    canMatch: [languageRouteGuard],
+    loadComponent: () =>
+      import('./pages/search.page').then((m) => m.default),
+  },
   {
     path: ':lang/:contentTypeSlug/:urlSlug',
     canMatch: [languageRouteGuard],

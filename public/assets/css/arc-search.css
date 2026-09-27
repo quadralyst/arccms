@@ -1,0 +1,49 @@
+/* Arc CMS public search widget. Inlined into published pages by the publish
+   pipeline and loaded by the SPA header component. */
+.arc-search { position: relative; min-width: 0; }
+.arc-search__form { margin: 0; }
+.arc-search__field {
+    display: flex; align-items: center; gap: .5rem;
+    height: 2.25rem; padding: 0 .75rem;
+    border: 1px solid var(--c-line, #e0e0e0); border-radius: 999px; background: #fff;
+    transition: border-color .15s, box-shadow .15s;
+}
+.arc-search__field:focus-within { border-color: #0066cc; box-shadow: 0 0 0 3px rgba(0, 102, 204, .12); }
+.arc-search__icon { width: 14px; height: 14px; flex-shrink: 0; color: #8a8f98; }
+.arc-search__input {
+    flex: 1; min-width: 0; width: 160px; border: 0; outline: 0; background: transparent;
+    font: inherit; font-size: .9rem; color: inherit;
+}
+.arc-search__input::-webkit-search-cancel-button { display: none; }
+.arc-search.is-loading .arc-search__icon { animation: arc-search-pulse 1s infinite; }
+@keyframes arc-search-pulse { 50% { opacity: .3; } }
+.arc-search__panel {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 1000;
+    width: 360px; max-width: calc(100vw - 2rem); max-height: 420px; overflow-y: auto;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .12); text-align: left;
+}
+.arc-search__list { list-style: none; margin: 0; padding: 6px; }
+.arc-search__item { border-radius: 8px; }
+.arc-search__item.is-active { background: #f1f5ff; }
+.arc-search__link { display: block; padding: 8px 10px; color: inherit; text-decoration: none; }
+.arc-search__title { display: block; font-size: .95rem; font-weight: 600; color: #1d1d1f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arc-search__badge {
+    display: inline-block; margin-top: 2px; font-size: .7rem; font-weight: 600; color: #495057;
+    background: #f1f3f5; border-radius: 999px; padding: 1px 8px;
+}
+.arc-search__snippet { display: block; margin-top: 2px; font-size: .8rem; color: #6e6e73; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arc-search mark { background: transparent; color: #0066cc; font-weight: 700; padding: 0; }
+.arc-search__note, .arc-search__empty { margin: 0; padding: 10px 14px; font-size: .85rem; color: #6e6e73; }
+.arc-search__note { border-bottom: 1px solid #f1f3f5; }
+.arc-search__all {
+    display: block; padding: 10px; border-top: 1px solid #f1f3f5;
+    font-size: .85rem; color: #0066cc; text-align: center; text-decoration: none;
+}
+.arc-search__all:hover { background: #f8f9fb; }
+/* Added by arc-search.js when the panel would run off the right edge. */
+.arc-search__panel--right { left: auto; right: 0; }
+@media (max-width: 720px) {
+    .arc-search__input { width: 110px; }
+    .arc-search__panel { position: fixed; left: 1rem; right: 1rem; top: auto; width: auto; margin-top: 6px; }
+}

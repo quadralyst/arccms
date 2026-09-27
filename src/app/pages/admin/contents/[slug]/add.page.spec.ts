@@ -13,6 +13,7 @@ import { ToastService } from '../../../../../shared/services/toast.service';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Firestore } from '@angular/fire/firestore';
 import { DraftContentsService } from '../draft-content-store/draft-contents.service';
+import { AuthorsService } from '../../(authors)/authors.service';
 import { CollectionRefSyncService } from '../content-store/collection-ref-sync.service';
 import { MatDialog } from '@angular/material/dialog';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
@@ -106,6 +107,7 @@ describe('AddContentPage', () => {
                 { provide: TagsStore, useValue: mockTagsStore },
                 { provide: Firestore, useValue: mockFirestore },
                 { provide: DraftContentsService, useValue: { dbCollection: {}, checkExistingSlugUrl: vi.fn(), getContentsByType: vi.fn(), getTranslatedLanguages: vi.fn().mockResolvedValue([]), getTranslation: vi.fn().mockResolvedValue(null) } },
+                { provide: AuthorsService, useValue: { list: vi.fn().mockReturnValue(of([])), loadSettings: vi.fn().mockResolvedValue({ defaultAuthorId: '' }), ensureAdminAuthor: vi.fn().mockResolvedValue(null) } },
                 { provide: CollectionRefSyncService, useValue: { syncReferencedData: vi.fn() } },
                 { provide: Router, useValue: mockRouter },
                 {

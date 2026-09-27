@@ -54,11 +54,10 @@ describe('FileUploadService', () => {
         const { DEFAULT_UPLOAD_SETTINGS } = await import('./file-upload.service');
         const { DEFAULT_MISC_SETTINGS } = await import('../../app/pages/admin/(settings)/misc/misc-settings.model');
         expect(DEFAULT_UPLOAD_SETTINGS.convertToWebp).toBe(true);
-        expect(DEFAULT_UPLOAD_SETTINGS.maxWidth).toBe(1200);
+        expect(DEFAULT_UPLOAD_SETTINGS.maxSize).toBe(1200);
         expect(DEFAULT_UPLOAD_SETTINGS).toEqual({
             maxFileSize: DEFAULT_MISC_SETTINGS.mediaMaxFileSize,
-            maxWidth: DEFAULT_MISC_SETTINGS.mediaMaxWidth,
-            maxHeight: DEFAULT_MISC_SETTINGS.mediaMaxHeight,
+            maxSize: DEFAULT_MISC_SETTINGS.mediaMaxSize,
             convertToWebp: DEFAULT_MISC_SETTINGS.mediaConvertToWebp,
         });
     });

@@ -14,6 +14,7 @@ const {
     mockGetMiscSettings,
     mockGetLocalizationSettings,
     mockGetUiStrings,
+    mockGetAboutConfig,
     mockTranslationsGet,
     mockDocGet,
     mockContentTypeWhere,
@@ -31,6 +32,7 @@ const {
     mockGetMiscSettings: vi.fn(),
     mockGetLocalizationSettings: vi.fn(),
     mockGetUiStrings: vi.fn(),
+    mockGetAboutConfig: vi.fn(),
     mockTranslationsGet: vi.fn(),
     mockDocGet: vi.fn(),
     mockContentTypeWhere: vi.fn(),
@@ -67,6 +69,7 @@ vi.mock('../shared/site-settings', () => ({
     getMiscSettings: mockGetMiscSettings,
     getLocalizationSettings: mockGetLocalizationSettings,
     getUiStrings: mockGetUiStrings,
+    getAboutConfig: mockGetAboutConfig,
 }));
 
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
@@ -107,6 +110,17 @@ const MOCK_CONTENTS = [
     },
 ];
 
+const MOCK_ABOUT = {
+    name: 'Test Site',
+    finalUrl: 'https://example.com',
+    address: '',
+    logoUrl: 'https://example.com/logo.png',
+    description: 'A site for testing.',
+    sameAs: ['https://twitter.com/testsite'],
+    contactEmail: '',
+    organizationType: 'Organization' as const,
+};
+
 const MOCK_PARTIALS = {
     headerHtml: '<header>Site Header</header>',
     footerHtml: '<footer>Site Footer</footer>',
@@ -138,6 +152,7 @@ function restoreMockImplementations() {
     mockGetPartials.mockResolvedValue(MOCK_PARTIALS);
     mockGetSiteConfig.mockResolvedValue(MOCK_SITE_CONFIG);
     mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
+    mockGetAboutConfig.mockResolvedValue(MOCK_ABOUT);
     // Single-language site by default, so the pre-M3 expectations hold.
     mockGetLocalizationSettings.mockResolvedValue({
         defaultLanguage: 'en',
@@ -519,6 +534,55 @@ describe('deployContentListPage', () => {
             await generateAndDeployContentListPage('articles');
 
             expect(deployedPaths()).toEqual(['/articles/index.html']);
+        });
+    });
+
+    // ─── Structured data (docs/discoverability-spec.md, D1) ───────────────
+
+    describe('structured data', () => {
+        function jsonLdNodes(): Array<Record<string, any>> {
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            return [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map(m => JSON.parse(m[1]));
+        }
+
+        it('emits Organization, WebSite, BreadcrumbList and CollectionPage', async () => {
+            await generateAndDeployContentListPage('articles');
+            expect(jsonLdNodes().map(n => n['@type'])).toEqual(['Organization', 'WebSite', 'BreadcrumbList', 'CollectionPage']);
+        });
+
+        it('lists the page items in order with absolute URLs', async () => {
+            await generateAndDeployContentListPage('articles');
+            const page = jsonLdNodes().find(n => n['@type'] === 'CollectionPage')!;
+            expect(page['@id']).toBe('https://example.com/articles');
+            expect(page.publisher).toEqual({ '@id': 'https://example.com/#organization' });
+            const list = page.mainEntity;
+            expect(list['@type']).toBe('ItemList');
+            expect(list.numberOfItems).toBeGreaterThan(0);
+            expect(list.itemListElement[0].position).toBe(1);
+            expect(list.itemListElement[0].url).toMatch(/^https:\/\/example\.com\/articles\//);
+        });
+
+        it('exposes authorName to list cards, hidden when absent (D2)', async () => {
+            mockContentsGet.mockResolvedValue({
+                docs: [
+                    { id: 'doc1', data: () => ({ ...MOCK_CONTENTS[0], authorId: 'a1', authorName: 'Jane Doe' }) },
+                    { id: 'doc2', data: () => ({ ...MOCK_CONTENTS[1] }) },
+                ],
+            });
+            mockDocGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ html: '<ul data-arc-loop="items"><li><span class="by" data-arc-if="authorName">By {{ authorName }}</span>{{ title }}</li></ul>' }),
+            });
+            await generateAndDeployContentListPage('articles');
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            expect(html).toContain('By Jane Doe');
+            expect(html.match(/class="by"/g)).toHaveLength(1);
+        });
+
+        it('builds a two-level breadcrumb trail', async () => {
+            await generateAndDeployContentListPage('articles');
+            const crumbs = jsonLdNodes().find(n => n['@type'] === 'BreadcrumbList')!.itemListElement;
+            expect(crumbs.map((c: any) => c.item)).toEqual(['https://example.com/', 'https://example.com/articles']);
         });
     });
 });

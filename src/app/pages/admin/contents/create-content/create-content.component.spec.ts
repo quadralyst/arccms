@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CreateContentComponent } from './create-content.component';
+import { CreateContentComponent, toDateInputValue, fromDateInputValue } from './create-content.component';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { signal, NgZone } from '@angular/core';
@@ -19,6 +19,8 @@ import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { ContentsService } from '../content-store/published-contents.service';
 import { LocalizationService } from '../../../../core/services/localization.service';
 import { AuthState } from '../../../(auth)/auth.store';
+import { AuthorsService } from '../../(authors)/authors.service';
+import { SearchService } from '../../../../core/services/search.service';
 
 describe('CreateContentComponent', () => {
     let component: CreateContentComponent;
@@ -30,6 +32,8 @@ describe('CreateContentComponent', () => {
     let mockGlobalService: any;
     let mockToastService: any;
     let mockFirestore: any;
+    let mockAuthorsService: any;
+    let mockSearchService: any;
     let mockDraftContentsService: any;
     let mockCollectionRefSyncService: any;
     let mockDialog: any;
@@ -139,6 +143,22 @@ describe('CreateContentComponent', () => {
 
         mockFirestore = {};
 
+        mockSearchService = {
+            lookup: vi.fn().mockResolvedValue({ results: [
+                { source: 'content', docId: 'd1', lang: 'en', title: 'Other page', snippet: '', badge: 'Articles', link: '/articles/other', meta: { contentType: 'articles', urlSlug: 'other' }, score: 1, highlights: { title: [], snippet: [] } },
+                { source: 'content', docId: 'd2', lang: 'en', title: 'Linked page', snippet: '', badge: 'Articles', link: '/articles/linked', meta: { contentType: 'articles', urlSlug: 'linked' }, score: 1, highlights: { title: [], snippet: [] } },
+                { source: 'content', docId: 'd3', lang: 'en', title: 'Self', snippet: '', badge: 'Articles', link: '/articles/self', meta: { contentType: 'articles', urlSlug: 'self' }, score: 1, highlights: { title: [], snippet: [] } },
+            ], tookMs: 1 }),
+        };
+        mockAuthorsService = {
+            list: vi.fn().mockReturnValue(of([
+                { id: 'a1', name: 'Jane Doe' },
+                { id: 'a2', name: 'John Roe' },
+            ])),
+            loadSettings: vi.fn().mockResolvedValue({ defaultAuthorId: 'a1' }),
+            ensureAdminAuthor: vi.fn().mockResolvedValue(null),
+        };
+
         mockDialog = {
             open: vi.fn().mockReturnValue({
                 afterClosed: vi.fn().mockReturnValue(of(null)),
@@ -168,6 +188,8 @@ describe('CreateContentComponent', () => {
                 { provide: ContentsService, useValue: { pollDeployStatus: vi.fn().mockReturnValue(of({})), getPublishedHistory: vi.fn().mockReturnValue(of([])) } },
                 { provide: LocalizationService, useValue: mockLocalizationService },
                 { provide: AuthState, useValue: mockAuthState },
+                { provide: AuthorsService, useValue: mockAuthorsService },
+                { provide: SearchService, useValue: mockSearchService },
             ]
         }).compileComponents();
 
@@ -1996,5 +2018,200 @@ describe('CreateContentComponent', () => {
                 expect(component.isFieldLocked(numberField)).toBe(true);
             });
         });
+    });
+
+    // ─── Last updated date (docs/discoverability-spec.md, D-D3) ────────────
+
+    describe('updatedOn', () => {
+        it('starts empty and is saved as null', () => {
+            expect(component.seoForm.get('updatedOn')?.value).toBe('');
+            component.pageTitle = 'T';
+            component.contentId = 'existing-id';
+            component.saveAsDraft();
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.updatedOn).toBeNull();
+        });
+
+        it('markUpdatedToday stamps today and saves it as a Date', () => {
+            component.markUpdatedToday();
+            const value = component.seoForm.get('updatedOn')?.value as string;
+            expect(value).toBe(toDateInputValue(new Date()));
+
+            component.pageTitle = 'T';
+            component.contentId = 'existing-id';
+            component.saveAsDraft();
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.updatedOn).toBeInstanceOf(Date);
+            expect(toDateInputValue(payload.updatedOn)).toBe(value);
+        });
+
+        it('clearUpdatedOn empties the field', () => {
+            component.markUpdatedToday();
+            component.clearUpdatedOn();
+            expect(component.seoForm.get('updatedOn')?.value).toBe('');
+        });
+
+        it('loads a stored Timestamp into the date input', () => {
+            (component as any).patchForms({
+                title: 'Loaded',
+                updatedOn: { seconds: Date.UTC(2025, 0, 15, 12) / 1000 },
+            });
+            expect(component.seoForm.get('updatedOn')?.value).toBe(toDateInputValue(new Date(Date.UTC(2025, 0, 15, 12))));
+        });
+    });
+
+    // ─── Author (docs/discoverability-spec.md, D2) ─────────────────────────
+
+    describe('author', () => {
+        it('loads the author list and pre-fills the default on new content', async () => {
+            await (component as any).initAuthors();
+            expect(component.authors().map(a => a.id)).toEqual(['a1', 'a2']);
+            expect(component.publishForm.get('authorId')?.value).toBe('a1');
+        });
+
+        it('does not override an existing item\'s author', async () => {
+            component.contentId = 'existing-id';
+            (component as any).patchForms({ title: 'Loaded', authorId: 'a2' });
+            await (component as any).initAuthors();
+            expect(component.publishForm.get('authorId')?.value).toBe('a2');
+        });
+
+        it('leaves an existing item without an author alone', async () => {
+            component.contentId = 'existing-id';
+            (component as any).patchForms({ title: 'Loaded' });
+            await (component as any).initAuthors();
+            expect(component.publishForm.get('authorId')?.value).toBe('');
+        });
+
+        it('saves authorId with the denormalised authorName', async () => {
+            await (component as any).initAuthors();
+            component.publishForm.get('authorId')?.setValue('a2');
+            component.pageTitle = 'T';
+            component.contentId = 'existing-id';
+            component.saveAsDraft();
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.authorId).toBe('a2');
+            expect(payload.authorName).toBe('John Roe');
+        });
+
+        it('saves null and an empty name when no author is chosen', () => {
+            component.publishForm.get('authorId')?.setValue('');
+            component.pageTitle = 'T';
+            component.contentId = 'existing-id';
+            component.saveAsDraft();
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.authorId).toBeNull();
+            expect(payload.authorName).toBe('');
+        });
+    });
+
+    // ─── Sources (docs/discoverability-spec.md, D-D11) ─────────────────────
+
+    describe('references', () => {
+        it('starts empty, adds and edits rows, and saves only clean entries', () => {
+            expect(component.references()).toEqual([]);
+            component.addReference();
+            component.addReference();
+            component.updateReference(0, 'title', 'Spec');
+            component.updateReference(0, 'url', 'https://spec.example/one');
+            component.updateReference(1, 'url', 'not a url');
+            expect(component.references().length).toBe(2);
+
+            component.pageTitle = 'T';
+            component.contentId = 'existing-id';
+            component.saveAsDraft();
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.references).toEqual([{ title: 'Spec', url: 'https://spec.example/one' }]);
+        });
+
+        it('removes a row and loads stored references', () => {
+            (component as any).patchForms({ title: 'Loaded', references: [{ title: 'A', url: 'https://a.com' }, { url: 'junk' }] });
+            expect(component.references()).toEqual([{ title: 'A', url: 'https://a.com' }]);
+            component.removeReference(0);
+            expect(component.references()).toEqual([]);
+        });
+    });
+
+    // ─── Checks tab (docs/discoverability-spec.md, D-D13, D-D16) ───────────
+
+    describe('checks tab', () => {
+        it('scores the draft and lists failing rules with fixes', () => {
+            component.pageTitle = 'How much does it cost?';
+            component.publishForm.get('content')?.setValue('<p>' + 'word '.repeat(20) + '</p>');
+            component.runChecklist();
+            const report = component.checklist()!;
+            expect(report.total).toBeGreaterThan(10);
+            expect(report.results.find(r => r.id === 'answer_first')?.ok).toBe(true);
+            expect(report.results.find(r => r.id === 'sources')?.ok).toBe(false);
+            component.publishForm.get('authorId')?.setValue('');
+            component.runChecklist();
+            expect(component.checklist()!.results.find(r => r.id === 'author')?.ok).toBe(false);
+            expect(report.score).toBeGreaterThan(0);
+            expect(report.score).toBeLessThan(100);
+        });
+
+        it('suggests related pages that are not the draft itself and not already linked', async () => {
+            component.contentTypeSlug = 'articles';
+            component.pageTitle = 'Self page';
+            component.publishForm.get('urlSlug')?.setValue('self');
+            component.publishForm.get('content')?.setValue('<p>See <a href="/articles/linked">this</a></p>');
+            await component.loadLinkSuggestions();
+            expect(mockSearchService.lookup).toHaveBeenCalledWith(expect.objectContaining({ scope: 'admin', lang: 'all', sources: ['content'] }));
+            expect(component.linkSuggestions().map(r => r.title)).toEqual(['Other page']);
+        });
+
+        it('inserts a suggested link into the body editor and drops the suggestion', async () => {
+            component.contentTypeSlug = 'articles';
+            component.pageTitle = 'Self page';
+            await component.loadLinkSuggestions();
+            const insert = vi.fn();
+            (component as any).bodyEditor = { insertTextAtCursor: insert };
+            const item = component.linkSuggestions()[0];
+            component.insertSuggestedLink(item);
+            expect(insert).toHaveBeenCalledWith('<a href="/articles/other">Other page</a>');
+            expect(component.linkSuggestions()).not.toContain(item);
+        });
+    });
+
+    // ─── Canonical URL auto-fill ───────────────────────────────────────────
+
+    describe('canonical URL auto-fill', () => {
+        it('includes the content type segment', () => {
+            component.domain = 'https://x.com/';
+            component.contentTypeSlug = 'articles';
+            (component as any).setSlugValue('hello');
+            expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://x.com/articles/hello');
+            expect(component.publishForm.get('urlSlug')?.value).toBe('hello');
+        });
+
+        it('falls back to the form type when no route slug is set', () => {
+            component.domain = 'https://x.com/';
+            component.contentTypeSlug = '';
+            component.publishForm.get('type')?.setValue('manuals');
+            (component as any).setSlugValue('hello');
+            expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://x.com/manuals/hello');
+        });
+    });
+});
+
+describe('date input helpers', () => {
+    it('round-trips a Date through the input format', () => {
+        const date = new Date(2025, 2, 9);
+        expect(toDateInputValue(date)).toBe('2025-03-09');
+        expect(fromDateInputValue('2025-03-09')).toEqual(date);
+    });
+
+    it('reads Timestamp-like and toDate() values', () => {
+        const ts = { seconds: new Date(2024, 5, 1).getTime() / 1000 };
+        expect(toDateInputValue(ts)).toBe('2024-06-01');
+        expect(toDateInputValue({ toDate: () => new Date(2024, 6, 4) })).toBe('2024-07-04');
+    });
+
+    it('treats blanks and junk as empty / null', () => {
+        expect(toDateInputValue(null)).toBe('');
+        expect(toDateInputValue('garbage')).toBe('');
+        expect(fromDateInputValue('')).toBeNull();
+        expect(fromDateInputValue('2025-13-45')).toBeNull();
+        expect(fromDateInputValue(42)).toBeNull();
     });
 });

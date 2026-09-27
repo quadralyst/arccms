@@ -63,6 +63,9 @@ vi.mock('../pages/deployStaticPage', () => ({
 vi.mock('../pages/generateRobotsTxt', () => ({
     generateAndDeployRobotsTxt: mockGenerateRobotsTxt,
 }));
+vi.mock('../pages/generateLlmsTxt', () => ({
+    generateAndDeployLlmsTxt: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock('../pages/generateSitemap', () => ({
     generateAndDeploySitemap: mockGenerateSitemap,
@@ -187,7 +190,8 @@ describe('seedStaticPages', () => {
             const result = await handler({});
 
             // 3 detail pages + 2 list pages + 2 static pages + 3 SEO files = 10
-            expect(result.deployed).toBe(10);
+            // SEO files: robots.txt, llms.txt (D3), sitemap.xml, RSS.
+            expect(result.deployed).toBe(11);
             expect(result.errors).toBe(0);
             expect(result.success).toBe(true);
         });
@@ -209,7 +213,7 @@ describe('seedStaticPages', () => {
             const result = await handler({});
 
             // 0 content pages + 2 static pages + 3 SEO files = 5
-            expect(result.deployed).toBe(5);
+            expect(result.deployed).toBe(6);
             expect(result.errors).toBe(0);
             expect(result.success).toBe(true);
             expect(mockGenerateStaticPage).toHaveBeenCalledTimes(2);
@@ -231,7 +235,7 @@ describe('seedStaticPages', () => {
             // 0 detail pages + 1 list page + 2 static pages + 3 SEO files = 6
             expect(mockGenerateDetailPage).not.toHaveBeenCalled();
             expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
-            expect(result.deployed).toBe(6);
+            expect(result.deployed).toBe(7);
         });
 
         it('should skip content types without a slug but still deploy static pages', async () => {
@@ -245,7 +249,7 @@ describe('seedStaticPages', () => {
             expect(mockGenerateDetailPage).not.toHaveBeenCalled();
             expect(mockGenerateListPage).not.toHaveBeenCalled();
             expect(mockGenerateStaticPage).toHaveBeenCalledTimes(2);
-            expect(result.deployed).toBe(5); // 2 static pages + 3 SEO files
+            expect(result.deployed).toBe(6); // 2 static pages + 4 SEO files
             expect(result.details).toEqual(expect.arrayContaining([
                 expect.stringContaining('no slug'),
             ]));
@@ -276,7 +280,7 @@ describe('seedStaticPages', () => {
             // Should still call for second article + list page + 2 static pages + 3 SEO files
             expect(mockGenerateDetailPage).toHaveBeenCalledTimes(2);
             expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
-            expect(result.deployed).toBe(7); // second article + list + 2 static + 3 SEO
+            expect(result.deployed).toBe(8); // second article + list + 2 static + 4 SEO
             expect(result.errors).toBe(1);
             expect(result.success).toBe(false);
             expect(result.errorDetails).toEqual(expect.arrayContaining([
@@ -314,7 +318,7 @@ describe('seedStaticPages', () => {
             const result = await handler({});
 
             // All detail pages + second list page + 2 static pages + 3 SEO files
-            expect(result.deployed).toBe(9); // 3 detail + 1 list + 2 static + 3 SEO
+            expect(result.deployed).toBe(10); // 3 detail + 1 list + 2 static + 4 SEO
             expect(result.errors).toBe(1);
             expect(result.success).toBe(false);
         });
@@ -329,7 +333,7 @@ describe('seedStaticPages', () => {
 
             const result = await handler({});
 
-            expect(result.deployed).toBe(4); // cookie-policy + 3 SEO files
+            expect(result.deployed).toBe(5); // cookie-policy + 4 SEO files
             expect(result.errors).toBe(1);
             expect(result.success).toBe(false);
             expect(result.errorDetails).toEqual(expect.arrayContaining([
@@ -382,7 +386,7 @@ describe('seedStaticPages', () => {
             expect(mockGenerateDetailPage).toHaveBeenCalledWith('manuals', 'm1');
             expect(mockGenerateListPage).toHaveBeenCalledWith('manuals');
             // 1 manual detail + 1 manual list + 2 static + 3 SEO = 7
-            expect(result.deployed).toBe(7);
+            expect(result.deployed).toBe(8);
             expect(result.details).toEqual(expect.arrayContaining([
                 expect.stringContaining('no public URL'),
             ]));
@@ -403,7 +407,7 @@ describe('seedStaticPages', () => {
             expect(mockGenerateDetailPage).toHaveBeenCalledTimes(2);
             expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
             // 2 detail + 1 list + 2 static + 3 SEO = 8
-            expect(result.deployed).toBe(8);
+            expect(result.deployed).toBe(9);
         });
 
         it('should still deploy static pages when all ContentTypes have hasPublicUrl=false', async () => {
@@ -420,7 +424,7 @@ describe('seedStaticPages', () => {
             expect(mockGenerateListPage).not.toHaveBeenCalled();
             expect(mockGenerateStaticPage).toHaveBeenCalledTimes(2);
             // 2 static pages + 3 SEO files = 5
-            expect(result.deployed).toBe(5);
+            expect(result.deployed).toBe(6);
         });
     });
 
@@ -464,7 +468,7 @@ describe('seedStaticPages', () => {
 
             // Passes validation, deploys static pages + SEO files
             expect(result.success).toBe(true);
-            expect(result.deployed).toBe(5); // 2 static + 3 SEO
+            expect(result.deployed).toBe(6); // 2 static + 4 SEO
             expect(mockGenerateStaticPage).toHaveBeenCalledTimes(2);
         });
 

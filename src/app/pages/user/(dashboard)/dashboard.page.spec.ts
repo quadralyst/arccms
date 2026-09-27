@@ -16,6 +16,8 @@ describe('UsersDashboardComponent', () => {
 
     const mockAuth = {
         currentUser: vi.fn().mockReturnValue({ uid: 'u1', name: 'Ada Lovelace', email: 'ada@example.com' }),
+        // The page header's admin search box asks; a user dashboard has no admin.
+        isAdmin: vi.fn().mockReturnValue(false),
         logout: vi.fn().mockReturnValue(of(undefined)),
     };
     const mockMembership = { getById: vi.fn().mockReturnValue(of({ uid: 'u1', isPro: false })) };

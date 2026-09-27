@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { renderJsonLdScripts } from './structured-data.js';
 
 /** Canonical branding text used in the powered-by footer (static pages & Angular component). */
 export const POWERED_BY_LABEL = '\u26A1\uFE0F Powered by Arc CMS: an open source CMS for landing pages';
@@ -51,6 +52,18 @@ export interface PageMeta {
      * `hreflang="x-default"`, the variant to serve when no language matches.
      */
     defaultLang?: string;
+    /**
+     * schema.org nodes for this page (docs/discoverability-spec.md, D-D1).
+     * Each becomes its own <script type="application/ld+json">. Built by
+     * functions/src/shared/structured-data.ts; nulls are skipped.
+     */
+    jsonLd?: (Record<string, unknown> | null)[];
+    /**
+     * Absolute URL of this page's Markdown twin (D3). Emitted as
+     * <link rel="alternate" type="text/markdown"> so agents can fetch the
+     * compact form instead of the HTML.
+     */
+    markdownUrl?: string;
 }
 
 /**
@@ -88,6 +101,11 @@ export function buildHtmlDocument(
 
     const rssLink = meta.rssUrl
         ? `    <link rel="alternate" type="application/rss+xml" title="${escapeAttr(meta.rssTitle || meta.title)}" href="${escapeAttr(meta.rssUrl)}">`
+        : '';
+
+    const jsonLdBlock = renderJsonLdScripts(meta.jsonLd || []);
+    const markdownLink = meta.markdownUrl
+        ? `    <link rel="alternate" type="text/markdown" href="${escapeAttr(meta.markdownUrl)}">`
         : '';
 
     const stylesBlock = inlineStyles ? `\n    ${inlineStyles}` : '';
@@ -133,7 +151,7 @@ ${ogImageTags ? ogImageTags + '\n' : ''}    <link rel="canonical" href="${escape
     <meta name="twitter:title" content="${escapeAttr(meta.title)}">
     <meta name="twitter:description" content="${escapeAttr(meta.metaDescription)}">
     <meta name="robots" content="index, follow">
-${hreflangLinks ? hreflangLinks + '\n' : ''}${rssLink ? rssLink + '\n' : ''}    <meta name="arc-served-by" content="firebase-hosting">
+${hreflangLinks ? hreflangLinks + '\n' : ''}${rssLink ? rssLink + '\n' : ''}${markdownLink ? markdownLink + '\n' : ''}${jsonLdBlock ? jsonLdBlock + '\n' : ''}    <meta name="arc-served-by" content="firebase-hosting">
     <meta name="arc-deployed-at" content="${deployedAt}">
 ${cssLinks}${stylesBlock}
 </head>
@@ -171,6 +189,7 @@ export function replaceArcComponents(
     headerHtml: string,
     footerHtml: string,
     languageSwitcherHtml = '',
+    searchWidgetHtml = '',
 ): string {
     const $ = cheerio.load(html, { xmlMode: false });
 
@@ -188,6 +207,15 @@ export function replaceArcComponents(
         switchers.replaceWith(languageSwitcherHtml);
     } else {
         switchers.remove();
+    }
+
+    // The search box is the same story: per-language strings and the
+    // callable URL are only known here. See functions/src/search/widget.ts.
+    const searches = $('arc-search');
+    if (searchWidgetHtml) {
+        searches.replaceWith(searchWidgetHtml);
+    } else {
+        searches.remove();
     }
 
     return $.html();

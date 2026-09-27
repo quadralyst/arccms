@@ -1,4 +1,5 @@
 import { google, analyticsdata_v1beta } from 'googleapis';
+import { bucketAiReferrers } from '../shared/ai-referrers.js';
 import { FieldValue, Firestore } from 'firebase-admin/firestore';
 import { OAuth2Client } from 'google-auth-library';
 import { MetricCard, ListCard, ListItem } from '../types.js';
@@ -157,8 +158,41 @@ const ACQUISITION_PANELS = [
 ];
 
 /**
- * Fetch acquisition insight panels (Top Pages, Traffic Sources, Devices, Countries).
- * Each panel runs a separate dimension-based runReport call, all in parallel.
+ * "AI assistants": sessions whose source is an assistant's domain
+ * (docs/discoverability-spec.md, D-D14). GA4 files these under "Referral";
+ * this pulls the raw sources and buckets them by assistant. Empty items are
+ * a real answer ("none yet"), not an error, so the panel is always present.
+ */
+async function fetchAiReferrerPanel(
+  analyticsDataClient: analyticsdata_v1beta.Analyticsdata,
+  propertyId: string,
+): Promise<ListCard> {
+  const panel: ListCard = { title: 'AI assistants', icon: 'bi bi-robot', items: [] };
+  try {
+    const response = await analyticsDataClient.properties.runReport({
+      property: `properties/${propertyId}`,
+      requestBody: {
+        dateRanges: [{ startDate: '28daysAgo', endDate: 'today' }],
+        dimensions: [{ name: 'sessionSource' }],
+        metrics: [{ name: 'sessions' }],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: '200',
+      },
+    });
+    const rows = (response.data?.rows || []).map((row: analyticsdata_v1beta.Schema$Row) => ({
+      name: row.dimensionValues?.[0]?.value || '',
+      value: parseInt(row.metricValues?.[0]?.value || '0', 10),
+    }));
+    panel.items = bucketAiReferrers(rows);
+  } catch (error) {
+    console.error('AI referrer panel failed:', error);
+  }
+  return panel;
+}
+
+/**
+ * Fetch acquisition insight panels (Top Pages, Traffic Sources, Devices, Countries,
+ * AI assistants). Each panel runs a separate dimension-based runReport call.
  */
 async function fetchAcquisitionPanels(
   analyticsDataClient: analyticsdata_v1beta.Analyticsdata,
@@ -197,7 +231,9 @@ async function fetchAcquisitionPanels(
       } as ListCard;
     });
 
-    return await Promise.all(panelPromises);
+    const panels = await Promise.all(panelPromises);
+    panels.push(await fetchAiReferrerPanel(analyticsDataClient, propertyId));
+    return panels;
   } catch (error) {
     console.error('Error fetching acquisition panels:', error);
     // Return empty panels on error rather than failing the entire refresh

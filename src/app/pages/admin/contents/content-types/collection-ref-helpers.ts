@@ -102,27 +102,82 @@ export function mapFieldWithCollectionRef(
 }
 
 /**
- * FormArray validator that checks for duplicate field keys (case-insensitive).
- * Empty keys are ignored.
+ * The separators a stored field key may use between the content-type slug
+ * and the field's own name. Keys are written as `<slug>-<name>` now; older
+ * types carry `<slug>_<name>` and are never rewritten (content refers to
+ * them), so every reader accepts both.
  */
-export function duplicateFieldKeyValidator(): ValidatorFn {
+export const FIELD_KEY_SEPARATORS = ['-', '_'] as const;
+
+/**
+ * The key part a custom field gets from its name: lowercase, words joined by
+ * hyphens, anything else dropped — "Field Color" → `field-color`. Admins
+ * type only the name; the key is derived here and fixed once saved, so
+ * content written under it is never orphaned by a rename.
+ */
+export function fieldKeyFromLabel(label: string | null | undefined): string {
+    return (label || '')
+        .toLowerCase()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+}
+
+/** The stored form of a new field's key: `<slug>-<name>`. */
+export function fullFieldKey(slug: string | null | undefined, bareKey: string): string {
+    return slug && bareKey ? `${slug}-${bareKey}` : bareKey;
+}
+
+/** True when `key` already carries the content-type prefix, with either separator. */
+export function hasSlugPrefix(key: string | null | undefined, slug: string | null | undefined): boolean {
+    if (!key || !slug) return false;
+    const value = key.toLowerCase();
+    const base = slug.toLowerCase();
+    return FIELD_KEY_SEPARATORS.some((sep) => value.startsWith(`${base}${sep}`) && value.length > base.length + 1);
+}
+
+/**
+ * A field key without its content-type prefix. Stored keys carry the slug
+ * (`awards-recognition-prize`, or `awards-recognition_prize` on older types);
+ * a field still being typed does not yet. Both have to compare as the same
+ * field.
+ */
+export function bareFieldKey(key: string | null | undefined, slug: string | null | undefined): string {
+    const value = (key || '').trim().toLowerCase();
+    if (!hasSlugPrefix(value, slug)) return value;
+    return value.slice((slug as string).length + 1);
+}
+
+/**
+ * FormArray validator that rejects two fields with the same key or the same
+ * name (case-insensitive) within one content type. Keys are compared without
+ * the slug prefix (see bareFieldKey) so a new "Prize" collides with a stored
+ * `awards-recognition_prize`. Empty values are ignored.
+ */
+export function duplicateFieldKeyValidator(slug: () => string = () => ''): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
         const formArray = control as FormArray;
-        const keys = formArray.controls
-            .map(c => (c as FormGroup).get('key')?.value?.trim()?.toLowerCase())
-            .filter((k: string) => k);
+        const groups = formArray.controls as FormGroup[];
+        const prefix = slug();
 
-        const seen = new Set<string>();
-        const duplicates: string[] = [];
-        for (const key of keys) {
-            if (seen.has(key)) {
-                if (!duplicates.includes(key)) {
-                    duplicates.push(key);
-                }
-            }
-            seen.add(key);
-        }
+        const duplicateKeys = findDuplicates(groups.map(g => bareFieldKey(g.get('key')?.value, prefix)));
+        const duplicateNames = findDuplicates(groups.map(g => (g.get('label')?.value || '').trim().toLowerCase()));
 
-        return duplicates.length > 0 ? { duplicateKeys: duplicates } : null;
+        const errors: ValidationErrors = {};
+        if (duplicateKeys.length > 0) errors['duplicateKeys'] = duplicateKeys;
+        if (duplicateNames.length > 0) errors['duplicateNames'] = duplicateNames;
+        return Object.keys(errors).length > 0 ? errors : null;
     };
+}
+
+function findDuplicates(values: string[]): string[] {
+    const seen = new Set<string>();
+    const duplicates: string[] = [];
+    for (const value of values) {
+        if (!value) continue;
+        if (seen.has(value) && !duplicates.includes(value)) duplicates.push(value);
+        seen.add(value);
+    }
+    return duplicates;
 }

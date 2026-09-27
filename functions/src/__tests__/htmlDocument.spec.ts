@@ -21,6 +21,29 @@ const baseMeta: PageMeta = {
 };
 
 describe('buildHtmlDocument', () => {
+    it('emits one ld+json script per node and skips nulls', () => {
+        const result = buildHtmlDocument('<p>Body</p>', {
+            ...baseMeta,
+            jsonLd: [{ '@type': 'WebSite', name: 'X' }, null, { '@type': 'Article', headline: '</script>' }],
+        }, '', '');
+        expect(result.match(/<script type="application\/ld\+json">/g)).toHaveLength(2);
+        expect(result).toContain('{"@type":"WebSite","name":"X"}');
+        // A headline cannot break out of the script element.
+        expect(result).toContain('\\u003c/script>');
+        expect(result.indexOf('application/ld+json')).toBeLessThan(result.indexOf('<meta name="arc-served-by"'));
+    });
+
+    it('emits no ld+json when jsonLd is absent or empty', () => {
+        expect(buildHtmlDocument('<p>B</p>', baseMeta, '', '')).not.toContain('ld+json');
+        expect(buildHtmlDocument('<p>B</p>', { ...baseMeta, jsonLd: [] }, '', '')).not.toContain('ld+json');
+    });
+
+    it('advertises a Markdown twin when given one', () => {
+        const result = buildHtmlDocument('<p>B</p>', { ...baseMeta, markdownUrl: 'https://example.com/test.md' }, '', '');
+        expect(result).toContain('<link rel="alternate" type="text/markdown" href="https://example.com/test.md">');
+        expect(buildHtmlDocument('<p>B</p>', baseMeta, '', '')).not.toContain('text/markdown');
+    });
+
     it('should produce valid <!DOCTYPE html> output', () => {
         const result = buildHtmlDocument('<p>Body</p>', baseMeta, '', '');
         expect(result).toMatch(/^<!DOCTYPE html>/);

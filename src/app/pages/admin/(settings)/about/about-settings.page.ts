@@ -12,7 +12,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { injectT } from '../../../../core/i18n/inject-t';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IAboutSettings, DEFAULT_ABOUT_SETTINGS } from './about-settings.model';
+import { IAboutSettings, DEFAULT_ABOUT_SETTINGS, OrganizationType, parseSameAs, formatSameAs } from './about-settings.model';
 import { AboutSettingsService } from './about-settings.service';
 
 @Component({
@@ -69,6 +69,75 @@ import { AboutSettingsService } from './about-settings.service';
                 </small>
             </div>
 
+            <!-- Publisher identity for structured data (docs/discoverability-spec.md, D-D4) -->
+            <hr class="my-4">
+            <h4 class="identity-heading">{{ 'admin.settings.about.identity_heading' | transloco }}</h4>
+            <p class="text-muted mb-4">{{ 'admin.settings.about.identity_intro' | transloco }}</p>
+
+            <div class="form-group mb-3">
+                <label class="form-label" for="organizationType">{{ 'admin.settings.about.organization_type' | transloco }}</label>
+                <select
+                    class="form-select"
+                    id="organizationType"
+                    [value]="settings().organizationType"
+                    (change)="updateField('organizationType', asOrganizationType($any($event.target).value))"
+                >
+                    <option value="Organization">{{ 'admin.settings.about.organization_type_org' | transloco }}</option>
+                    <option value="Person">{{ 'admin.settings.about.organization_type_person' | transloco }}</option>
+                </select>
+            </div>
+
+            <div class="form-group mb-3">
+                <label class="form-label" for="logoUrl">{{ 'admin.settings.about.logo_url' | transloco }}</label>
+                <input
+                    type="url"
+                    class="form-control"
+                    id="logoUrl"
+                    [placeholder]="'admin.settings.about.logo_url_placeholder' | transloco"
+                    [value]="settings().logoUrl"
+                    (input)="updateField('logoUrl', $any($event.target).value)"
+                />
+                <small class="text-muted">{{ 'admin.settings.about.logo_url_hint' | transloco }}</small>
+            </div>
+
+            <div class="form-group mb-3">
+                <label class="form-label" for="description">{{ 'admin.settings.about.description' | transloco }}</label>
+                <textarea
+                    class="form-control"
+                    id="description"
+                    rows="2"
+                    [placeholder]="'admin.settings.about.description_placeholder' | transloco"
+                    [value]="settings().description"
+                    (input)="updateField('description', $any($event.target).value)"
+                ></textarea>
+                <small class="text-muted">{{ 'admin.settings.about.description_hint' | transloco }}</small>
+            </div>
+
+            <div class="form-group mb-3">
+                <label class="form-label" for="sameAs">{{ 'admin.settings.about.same_as' | transloco }}</label>
+                <textarea
+                    class="form-control"
+                    id="sameAs"
+                    rows="3"
+                    [placeholder]="'admin.settings.about.same_as_placeholder' | transloco"
+                    [value]="sameAsText()"
+                    (input)="updateSameAs($any($event.target).value)"
+                ></textarea>
+                <small class="text-muted">{{ 'admin.settings.about.same_as_hint' | transloco }}</small>
+            </div>
+
+            <div class="form-group mb-3">
+                <label class="form-label" for="contactEmail">{{ 'admin.settings.about.contact_email' | transloco }}</label>
+                <input
+                    type="email"
+                    class="form-control"
+                    id="contactEmail"
+                    [value]="settings().contactEmail"
+                    (input)="updateField('contactEmail', $any($event.target).value)"
+                />
+                <small class="text-muted">{{ 'admin.settings.about.contact_email_hint' | transloco }}</small>
+            </div>
+
             <div class="mt-4">
                 <button
                     class="btn btn-primary"
@@ -100,6 +169,11 @@ import { AboutSettingsService } from './about-settings.service';
             font-weight: 600;
             color: #212529;
         }
+        .identity-heading {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #212529;
+        }
     `],
     imports: [CommonModule, FormsModule, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -109,6 +183,8 @@ export default class AboutSettingsPage implements OnInit {
     private aboutService = inject(AboutSettingsService);
 
     settings = signal<IAboutSettings>(DEFAULT_ABOUT_SETTINGS);
+    /** The sameAs textarea's raw text; parsed into the URL list on every edit. */
+    sameAsText = signal('');
     isSaving = signal(false);
     saveMessage = signal('');
     saveError = signal(false);
@@ -121,6 +197,7 @@ export default class AboutSettingsPage implements OnInit {
         try {
             const data = await this.aboutService.load();
             this.settings.set(data);
+            this.sameAsText.set(formatSameAs(data.sameAs));
         } catch (error) {
             console.error('Error loading about settings:', error);
         }
@@ -130,6 +207,16 @@ export default class AboutSettingsPage implements OnInit {
         this.settings.update(s => ({ ...s, [field]: value }));
         this.saveMessage.set('');
         this.saveError.set(false);
+    }
+
+    updateSameAs(text: string): void {
+        this.sameAsText.set(text);
+        this.updateField('sameAs', parseSameAs(text));
+    }
+
+    /** Narrow the select's string to the union the model expects. */
+    protected asOrganizationType(value: string): OrganizationType {
+        return value === 'Person' ? 'Person' : 'Organization';
     }
 
     async saveSettings(): Promise<void> {

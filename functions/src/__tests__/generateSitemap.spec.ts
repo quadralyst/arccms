@@ -198,4 +198,52 @@ describe('generateAndDeploySitemap', () => {
             consoleSpy.mockRestore();
         });
     });
+
+    // ─── lastmod (docs/discoverability-spec.md, D-D3) ─────────────────────
+
+    describe('lastmod', () => {
+        function wireDates(data: Record<string, unknown>): void {
+            mockCollection.mockImplementation((name: string) => {
+                if (name === 'ContentTypes') {
+                    return {
+                        get: vi.fn().mockResolvedValue({
+                            empty: false,
+                            docs: [{ id: 'ct1', data: () => ({ slug: 'articles', name: 'Articles', hasPublicUrl: true }) }],
+                        }),
+                    };
+                }
+                return {
+                    orderBy: vi.fn().mockReturnValue({
+                        get: vi.fn().mockResolvedValue({
+                            docs: [{
+                                id: 'doc1',
+                                data: () => ({ urlSlug: 'first-article', ...data }),
+                                ref: { collection: vi.fn().mockReturnValue({ get: vi.fn().mockResolvedValue({ docs: [] }) }) },
+                            }],
+                        }),
+                    }),
+                };
+            });
+        }
+
+        it('uses the publish date when nothing was marked as updated', async () => {
+            wireDates({ publishedOn: { seconds: 1705334400 } });
+            await generateAndDeploySitemap();
+            expect(generatedXml()).toContain('<loc>https://example.com/articles/first-article</loc>');
+            expect(generatedXml()).toContain('<lastmod>2024-01-15</lastmod>');
+        });
+
+        it('uses updatedOn when it is later than the publish date', async () => {
+            wireDates({ publishedOn: { seconds: 1705334400 }, updatedOn: { seconds: 1735689600 } });
+            await generateAndDeploySitemap();
+            expect(generatedXml()).toContain('<lastmod>2025-01-01</lastmod>');
+            expect(generatedXml()).not.toContain('<lastmod>2024-01-15</lastmod>');
+        });
+
+        it('ignores an updatedOn earlier than the publish date', async () => {
+            wireDates({ publishedOn: { seconds: 1705334400 }, updatedOn: { seconds: 1600000000 } });
+            await generateAndDeploySitemap();
+            expect(generatedXml()).toContain('<lastmod>2024-01-15</lastmod>');
+        });
+    });
 });

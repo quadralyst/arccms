@@ -215,18 +215,20 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-md-6 form-group">
-                        <label class="form-label">{{ 'admin.contents.types.form.field_key' | transloco }} <span class="required">*</span></label>
-                        <input type="text" [placeholder]="'admin.contents.types.form.field_key_placeholder' | transloco" formControlName="key" class="form-control" />
-                    </div>
-                    <div class="col-md-6 form-group">
-                        <label class="form-label">{{ 'admin.contents.types.form.field_label' | transloco }} <span class="required">*</span></label>
-                        <input type="text" [placeholder]="'admin.contents.types.form.field_label_placeholder' | transloco" formControlName="label" class="form-control" />
-                    </div>
-                </div>
-
-                <div class="row">
                     <div class="col-md-8 form-group">
+                        <label class="form-label">{{ 'admin.contents.types.form.field_name' | transloco }} <span class="required">*</span></label>
+                        <input
+                            type="text"
+                            [placeholder]="'admin.contents.types.form.field_name_placeholder' | transloco"
+                            formControlName="label"
+                            class="form-control"
+                            [class.is-invalid]="isDuplicateField(fieldIndex)"
+                        />
+                        @if (isDuplicateField(fieldIndex)) {
+                        <div class="invalid-feedback d-block">{{ 'admin.contents.types.form.field_name_duplicate' | transloco }}</div>
+                        }
+                    </div>
+                    <div class="col-md-4 form-group">
                         <label class="form-label">{{ 'admin.contents.types.form.field_type' | transloco }} <span class="required">*</span></label>
                         <select formControlName="type" class="form-select">
                             @for(type of fieldTypes; track type) {
@@ -234,11 +236,17 @@
                             }
                         </select>
                     </div>
-                    <div class="col-md-4 form-group">
-                        <label class="form-label">{{ 'admin.contents.types.form.field_required' | transloco }}</label>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" formControlName="required" />
-                        </div>
+                </div>
+
+                <!-- Key hint and the Required switch share one line -->
+                <div class="field-meta-row">
+                    <small class="text-muted field-key-hint" [title]="(getFieldGroup(fieldIndex).get('key')?.disabled ? 'admin.contents.types.form.field_key_locked_hint' : 'admin.contents.types.form.field_key_auto_hint') | transloco">
+                        {{ 'admin.contents.types.form.field_key' | transloco }}:
+                        <code>{{ fieldKeyPreview(fieldIndex) || ('admin.contents.types.form.field_key_placeholder' | transloco) }}</code>
+                    </small>
+                    <div class="form-check form-switch field-required-switch">
+                        <input class="form-check-input" type="checkbox" formControlName="required" [id]="'field-required-' + fieldIndex" />
+                        <label class="form-check-label" [for]="'field-required-' + fieldIndex">{{ 'admin.contents.types.form.field_required' | transloco }}</label>
                     </div>
                 </div>
 
@@ -333,17 +341,79 @@
             }
         </div>
 
-        @if (fields.errors?.['duplicateKeys']) {
+        @if (fields.errors?.['duplicateKeys'] || fields.errors?.['duplicateNames']) {
         <div class="text-danger small mb-2">
             <i class="fas fa-exclamation-triangle me-1"></i>
-            Duplicate field keys found: {{ fields.errors?.['duplicateKeys']?.join(', ') }}.
-            Each field key must be unique.
+            {{ 'admin.contents.types.form.duplicate_fields' | transloco }}
         </div>
         }
 
         <button type="button" class="btn btn-outline-primary btn-sm mb-3" (click)="addField()">
             <i class="fas fa-plus me-1"></i> {{ 'admin.contents.types.form.add_field' | transloco }}
         </button>
+
+        <hr />
+
+        <div class="form-section-title">{{ 'admin.contents.types.form.search_fields' | transloco }}</div>
+        <div class="form-group mb-3">
+            <small class="text-muted d-block mb-2">{{ 'admin.contents.types.form.search_fields_hint' | transloco }}</small>
+            @if (searchableFields().length === 0) {
+                <small class="text-muted fst-italic">{{ 'admin.contents.types.form.search_fields_none' | transloco }}</small>
+            }
+            @for (field of searchableFields(); track field.key) {
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" [id]="'search-field-' + field.key"
+                        [checked]="isSearchField(field.key)"
+                        (change)="toggleSearchField(field.key, $any($event.target).checked)">
+                    <label class="form-check-label" [for]="'search-field-' + field.key">
+                        {{ field.label }} <code class="ms-1">{{ field.key }}</code>
+                    </label>
+                </div>
+            }
+        </div>
+
+        <hr />
+
+        <!-- Structured data (docs/discoverability-spec.md, D-D12) -->
+        <div class="form-section-title">{{ 'admin.contents.types.form.schema_heading' | transloco }}</div>
+        <div class="form-group mb-3">
+            <small class="text-muted d-block mb-2">{{ 'admin.contents.types.form.schema_hint' | transloco }}</small>
+            <select class="form-select form-select-sm schema-type-select" [value]="schemaType()"
+                (change)="setSchemaType($any($event.target).value)" data-testid="schema-type">
+                @for (type of schemaTypes; track type.id) {
+                    <option [value]="type.id">{{ type.label }}</option>
+                }
+            </select>
+            <small class="text-muted d-block mt-1">{{ schemaTypeDescription() }}</small>
+
+            @if (schemaProperties().length) {
+                <div class="schema-properties mt-3">
+                    @for (prop of schemaProperties(); track prop.key) {
+                        <div class="schema-property row g-2 align-items-center mb-2" [attr.data-testid]="'schema-prop-' + prop.key">
+                            <div class="col-md-4">
+                                <span class="fw-medium">{{ prop.label }}</span>
+                                @if (prop.recommended) {
+                                    <span class="badge bg-light text-secondary ms-1">{{ 'admin.contents.types.form.schema_recommended' | transloco }}</span>
+                                }
+                                <small class="text-muted d-block">{{ prop.hint }}</small>
+                            </div>
+                            <div class="col-md-8">
+                                <select class="form-select form-select-sm" [value]="mappedField(prop.key)"
+                                    (change)="setMappedField(prop.key, $any($event.target).value)">
+                                    <option value="">{{ 'admin.contents.types.form.schema_not_mapped' | transloco }}</option>
+                                    @for (field of fieldsForProperty(prop); track field.key) {
+                                        <option [value]="field.key">{{ field.label }} ({{ field.key }})</option>
+                                    }
+                                </select>
+                                @if (!fieldsForProperty(prop).length) {
+                                    <small class="text-muted">{{ 'admin.contents.types.form.schema_no_fields' | transloco: { types: prop.fieldTypes.join(', ') } }}</small>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
 
         <hr />
 

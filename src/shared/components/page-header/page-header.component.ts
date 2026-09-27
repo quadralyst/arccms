@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 import { AdminLanguagePickerComponent } from '../admin-language-picker/admin-language-picker.component';
+import { AdminSearchComponent } from '../admin-search/admin-search.component';
 
 /**
  * Unified page header used across the admin AND signed-in user areas.
@@ -19,7 +20,7 @@ import { AdminLanguagePickerComponent } from '../admin-language-picker/admin-lan
 @Component({
     selector: 'arc-page-header',
     standalone: true,
-    imports: [NotificationBellComponent, AdminLanguagePickerComponent],
+    imports: [NotificationBellComponent, AdminLanguagePickerComponent, AdminSearchComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <header class="arc-page-header">
@@ -36,6 +37,9 @@ import { AdminLanguagePickerComponent } from '../admin-language-picker/admin-lan
             </div>
             <div class="actions">
                 <ng-content></ng-content>
+                @if (showSearch) {
+                <arc-admin-search class="search-slot"></arc-admin-search>
+                }
                 @if (showLanguagePicker) {
                 <arc-admin-language-picker></arc-admin-language-picker>
                 }
@@ -87,6 +91,8 @@ import { AdminLanguagePickerComponent } from '../admin-language-picker/admin-lan
             flex-wrap: wrap;
             justify-content: flex-end;
         }
+        .search-slot { width: 260px; max-width: 100%; }
+        .search-slot:empty { display: none; }
         /* Separate the persistent bell from page-specific actions. */
         .bell-slot {
             display: inline-flex;
@@ -108,6 +114,7 @@ import { AdminLanguagePickerComponent } from '../admin-language-picker/admin-lan
                 gap: 0.75rem;
             }
             .actions { justify-content: flex-start; }
+            .search-slot { width: 100%; order: -1; }
         }
     `],
 })
@@ -122,6 +129,12 @@ export class PageHeaderComponent {
      * Turn it off alongside the bell in contexts with no signed-in admin.
      */
     @Input() showLanguagePicker = true;
+    /**
+     * The admin search box (docs/search-spec.md, S-D17). Shown to admins by
+     * default from every page header; off where the header has no room or
+     * no admin, such as onboarding.
+     */
+    @Input() showSearch = true;
     /** Show an inline back button before the title (for detail/sub pages). */
     @Input() showBack = false;
     @Output() back = new EventEmitter<void>();

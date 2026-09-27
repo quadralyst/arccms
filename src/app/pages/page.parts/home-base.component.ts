@@ -25,6 +25,8 @@ import { OnboardingSetupService } from '../(onboarding)/onboarding-setup.service
 import { WaitlistFormService } from './waitlist-form.service';
 import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { buildOrganization, buildWebSite, organizationId, setJsonLd } from '../../../shared/utils/structured-data';
 
 // A @Component rather than a @Directive: BaseComponent is itself a
 // component, and Angular refuses to let a directive inherit one (NG0903).
@@ -49,6 +51,7 @@ export abstract class HomeBaseComponent extends BaseComponent implements OnInit,
   protected document = inject(DOCUMENT);
   protected titleService = inject(Title);
   protected metaService = inject(Meta);
+  protected siteIdentity = inject(SiteIdentityService);
 
   /**
    * Language this home page is written in. The default-language page leaves
@@ -82,6 +85,49 @@ export abstract class HomeBaseComponent extends BaseComponent implements OnInit,
     // the page file.
     this.uiStrings.use(this.pageLang);
     this.applyHeadMetadata();
+    this.applyStructuredData();
+  }
+
+  /**
+   * WebSite + Organization JSON-LD for the home page
+   * (docs/discoverability-spec.md, D1). The home page is prerendered from the
+   * shell, so unlike content pages nothing bakes this in server-side: the
+   * nodes are written in the browser from `Settings/about`. Crawlers that
+   * render JavaScript (Googlebot) see them; the content pages carry the same
+   * Organization statically for everyone else.
+   */
+  private applyStructuredData(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    this.siteIdentity.load().then(identity => {
+      const origin = window.location.origin;
+      const baseUrl = (identity.finalUrl || origin).replace(/\/+$/, '');
+      const siteName = identity.name || this.document.title || '';
+      const lang = this.pageLang || this.localization.defaultLanguage();
+      const prefix = this.pageLang ? `/${this.pageLang}` : '';
+
+      const organization = buildOrganization({
+        name: identity.name || siteName,
+        url: baseUrl,
+        logoUrl: identity.logoUrl,
+        description: identity.description,
+        sameAs: identity.sameAs,
+        contactEmail: identity.contactEmail,
+        address: identity.address,
+        organizationType: identity.organizationType,
+      });
+      const webSite = buildWebSite(
+        {
+          name: siteName,
+          url: baseUrl,
+          description: identity.description,
+          inLanguage: lang,
+          searchUrlTemplate: `${baseUrl}${prefix}/search?q={search_term_string}`,
+        },
+        organization ? organizationId(baseUrl) : undefined,
+      );
+      setJsonLd(this.document, 'arc-ld-organization', organization);
+      setJsonLd(this.document, 'arc-ld-website', webSite);
+    }).catch(() => undefined);
   }
 
   /**
@@ -137,6 +183,8 @@ export abstract class HomeBaseComponent extends BaseComponent implements OnInit,
     this.waitlistFormService.cleanup();
     // The next page may have no variants at all.
     this.localization.languageVariants.set(null);
+    setJsonLd(this.document, 'arc-ld-organization', null);
+    setJsonLd(this.document, 'arc-ld-website', null);
     // `<html lang>` belongs to the shell, not to us: leaving it set would
     // mislabel whatever the visitor navigates to next within the SPA.
     if (this.shellLang !== null) {

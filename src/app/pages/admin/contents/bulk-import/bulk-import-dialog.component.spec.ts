@@ -11,6 +11,7 @@ import { signal } from '@angular/core';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
+import { AuthorsService } from '../../(authors)/authors.service';
 
 // Mocks
 const mockBulkImportService = {
@@ -45,6 +46,11 @@ const mockDialogRef = {
     close: vi.fn()
 };
 
+const mockAuthorsService = {
+    list: vi.fn().mockReturnValue(of([{ id: 'a1', name: 'Jane Doe' }])),
+    findOrCreateByName: vi.fn().mockImplementation(async (name: string) => ({ id: 'a-' + name.toLowerCase(), name })),
+};
+
 const mockSnackBar = {
     open: vi.fn()
 };
@@ -63,7 +69,8 @@ describe('BulkImportDialogComponent', () => {
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: DraftContentsStore, useValue: mockDraftContentsStore },
                 { provide: MatSnackBar, useValue: mockSnackBar },
-                { provide: PublishQueueService, useValue: { enqueue: vi.fn().mockResolvedValue(undefined) } }
+                { provide: PublishQueueService, useValue: { enqueue: vi.fn().mockResolvedValue(undefined) } },
+                { provide: AuthorsService, useValue: mockAuthorsService },
             ]
         }).compileComponents();
 
@@ -119,11 +126,12 @@ describe('BulkImportDialogComponent', () => {
         const callArgs = mockContentTypesStore.update.mock.calls[0];
         expect(callArgs[0]).toBe('1'); // ID from mock store
         expect(callArgs[1].fields.length).toBe(1);
-        expect(callArgs[1].fields[0].key).toBe('unknown');
+        // New fields follow the `<slug>-<name>` key convention.
+        expect(callArgs[1].fields[0].key).toBe('articles-unknown');
         
         // Should update mapping
         const mapping = component.columnMappings()[0];
-        expect(mapping.targetField).toBe('unknown');
+        expect(mapping.targetField).toBe('articles-unknown');
         expect(mapping.isCustomField).toBe(true);
     });
 
@@ -142,7 +150,7 @@ describe('BulkImportDialogComponent', () => {
         expect(component.currentStep()).toBe(3);
     });
 
-    it('should import draft content', () => {
+    it('should import draft content', async () => {
         // Setup valid state
         component.currentStep.set(3);
         const mockParsed: ParsedFile = { headers: ['Title'], rows: [{'Title': 'A'}], totalRows: 1 };
@@ -152,9 +160,10 @@ describe('BulkImportDialogComponent', () => {
         
         mockBulkImportService.buildContentItem.mockReturnValue({ title: 'A', status: 'draft' });
         
-        component.importContent('draft');
-        
+        const pending = component.importContent('draft');
         expect(component.isImporting()).toBe(true);
+        await pending;
+        
         expect(mockDraftContentsStore.addBatch).toHaveBeenCalled();
         
         expect(mockSnackBar.open).toHaveBeenCalledWith(expect.stringContaining('Successfully imported'), expect.any(String), expect.any(Object));
@@ -178,6 +187,26 @@ describe('BulkImportDialogComponent', () => {
         
         // Should verify that buildContentItem was called with 'publish'
         expect(mockBulkImportService.buildContentItem).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(), 'publish');
+    });
+
+    it('resolves author names to Authors references before saving (D2)', async () => {
+        component.currentStep.set(3);
+        component.parsedFile.set({ headers: ['Title', 'Author'], rows: [{ Title: 'A', Author: 'Jane Doe' }, { Title: 'B' }], totalRows: 2 });
+        component.columnMappings.set([
+            { fileHeader: 'Title', targetField: 'title', isCustomField: false },
+            { fileHeader: 'Author', targetField: 'authorName', isCustomField: false },
+        ]);
+        component.validationSummary.set({ validCount: 2, errorCount: 0, rowResults: [{ valid: true, errors: {} }, { valid: true, errors: {} }] });
+        mockBulkImportService.buildContentItem
+            .mockReturnValueOnce({ title: 'A', status: 'draft', authorName: 'jane doe' })
+            .mockReturnValueOnce({ title: 'B', status: 'draft' });
+
+        await component.importContent('draft');
+
+        expect(mockAuthorsService.findOrCreateByName).toHaveBeenCalledWith('jane doe', expect.any(Array));
+        const items = mockDraftContentsStore.addBatch.mock.calls.at(-1)[0];
+        expect(items[0]).toEqual(expect.objectContaining({ authorId: 'a-jane doe', authorName: 'jane doe' }));
+        expect(items[1]).not.toHaveProperty('authorId');
     });
 
     it('should download template', () => {

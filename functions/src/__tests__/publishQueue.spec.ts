@@ -23,6 +23,11 @@ const {
     mockContentTypeGet,
     mockSubCollectionGet,
     mockBatchDelete,
+    mockGenerateRobotsTxt,
+    mockGenerateLlmsTxt,
+    mockEnsureIndexNowKey,
+    mockSubmitBatchToIndexNow,
+    mockGetDiscoverabilitySettings,
 } = vi.hoisted(() => ({
     mockCollection: vi.fn(),
     mockDoc: vi.fn(),
@@ -36,6 +41,11 @@ const {
     mockBatchCommit: vi.fn().mockResolvedValue(undefined),
     mockGenerateDetailPage: vi.fn(),
     mockGenerateListPage: vi.fn(),
+    mockGenerateRobotsTxt: vi.fn().mockResolvedValue(undefined),
+    mockGenerateLlmsTxt: vi.fn().mockResolvedValue(undefined),
+    mockEnsureIndexNowKey: vi.fn().mockResolvedValue('key'),
+    mockSubmitBatchToIndexNow: vi.fn().mockResolvedValue({ submitted: 0 }),
+    mockGetDiscoverabilitySettings: vi.fn().mockResolvedValue({ indexNow: { enabled: true, key: 'key' }, llmsTxt: true, crawlers: {}, defaultAuthorId: '' }),
     mockRemoveContentPage: vi.fn(),
     mockDeployBatchToHosting: vi.fn(),
     mockContentTypeGet: vi.fn(),
@@ -81,6 +91,19 @@ vi.mock('../pages/generateSitemap', () => ({
 
 vi.mock('../pages/generateRssFeed', () => ({
     generateAndDeployRssFeeds: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../pages/generateRobotsTxt', () => ({
+    generateAndDeployRobotsTxt: mockGenerateRobotsTxt,
+}));
+vi.mock('../pages/generateLlmsTxt', () => ({
+    generateAndDeployLlmsTxt: mockGenerateLlmsTxt,
+}));
+vi.mock('../pages/indexNow', () => ({
+    ensureIndexNowKey: mockEnsureIndexNowKey,
+    submitBatchToIndexNow: mockSubmitBatchToIndexNow,
+}));
+vi.mock('../shared/discoverability-settings', () => ({
+    getDiscoverabilitySettings: mockGetDiscoverabilitySettings,
 }));
 
 vi.mock('firebase-admin/firestore', () => ({

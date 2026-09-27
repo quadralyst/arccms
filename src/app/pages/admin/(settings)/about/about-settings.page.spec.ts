@@ -5,7 +5,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import AboutSettingsPage from './about-settings.page';
 import { AboutSettingsService } from './about-settings.service';
-import { IAboutSettings } from './about-settings.model';
+import { IAboutSettings, parseSameAs, formatSameAs, DEFAULT_ABOUT_SETTINGS } from './about-settings.model';
 
 describe('AboutSettingsPage', () => {
     let component: AboutSettingsPage;
@@ -13,6 +13,7 @@ describe('AboutSettingsPage', () => {
     let mockService: any;
 
     const mockSettings: IAboutSettings = {
+        ...DEFAULT_ABOUT_SETTINGS,
         name: 'Test Site',
         finalUrl: 'https://test.com',
         address: '123 Test St',
@@ -123,5 +124,61 @@ describe('AboutSettingsPage', () => {
             expect(component.saveError()).toBe(false);
             expect(component.saveMessage()).toBe('');
         });
+    });
+
+    // ─── Identity fields (docs/discoverability-spec.md, D-D4) ──────────────
+
+    describe('identity fields', () => {
+        it('renders the identity inputs', () => {
+            const el: HTMLElement = fixture.nativeElement;
+            expect(el.querySelector('#organizationType')).toBeTruthy();
+            expect(el.querySelector('#logoUrl')).toBeTruthy();
+            expect(el.querySelector('#description')).toBeTruthy();
+            expect(el.querySelector('#sameAs')).toBeTruthy();
+            expect(el.querySelector('#contactEmail')).toBeTruthy();
+        });
+
+        it('parses the sameAs textarea into a URL list, dropping junk lines', () => {
+            component.updateSameAs('https://x.com/acme\n  https://www.linkedin.com/company/acme \nnot a url\n\n');
+            expect(component.settings().sameAs).toEqual([
+                'https://x.com/acme',
+                'https://www.linkedin.com/company/acme',
+            ]);
+            expect(component.sameAsText()).toContain('not a url');
+        });
+
+        it('narrows the publisher type to the two allowed values', () => {
+            component.updateField('organizationType', (component as any).asOrganizationType('Person'));
+            expect(component.settings().organizationType).toBe('Person');
+            component.updateField('organizationType', (component as any).asOrganizationType('Anything'));
+            expect(component.settings().organizationType).toBe('Organization');
+        });
+
+        it('saves the identity fields with the rest', async () => {
+            component.updateField('logoUrl', 'https://test.com/logo.png');
+            component.updateField('description', 'A test site.');
+            component.updateField('contactEmail', 'hi@test.com');
+            component.updateSameAs('https://x.com/test');
+            await component.saveSettings();
+            expect(mockService.save).toHaveBeenCalledWith(expect.objectContaining({
+                logoUrl: 'https://test.com/logo.png',
+                description: 'A test site.',
+                contactEmail: 'hi@test.com',
+                sameAs: ['https://x.com/test'],
+                organizationType: 'Organization',
+            }));
+        });
+    });
+});
+
+describe('about-settings.model helpers', () => {
+    it('parseSameAs splits on newlines and commas and keeps only http(s) URLs', () => {
+        expect(parseSameAs('https://a.com, http://b.com\r\nftp://c.com\nplain')).toEqual(['https://a.com', 'http://b.com']);
+        expect(parseSameAs('')).toEqual([]);
+    });
+
+    it('formatSameAs joins one per line', () => {
+        expect(formatSameAs(['https://a.com', 'https://b.com'])).toBe('https://a.com\nhttps://b.com');
+        expect(formatSameAs(undefined)).toBe('');
     });
 });

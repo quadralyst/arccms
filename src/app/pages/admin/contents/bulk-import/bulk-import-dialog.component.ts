@@ -1,4 +1,5 @@
 
+import { fieldKeyFromLabel, fullFieldKey } from '../content-types/collection-ref-helpers';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -15,6 +16,9 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { BulkImportService, ColumnMapping, ImportValidationSummary, ParsedFile } from './bulk-import.service';
+import { AuthorsService } from '../../(authors)/authors.service';
+import { IAuthor } from '../../../../../shared/models/author.model';
+import { firstValueFrom } from 'rxjs';
 import { ContentTypesStore } from '../content-types/content-types.store';
 import { ContentTypeField } from '../content-types/content-types.model';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
@@ -49,6 +53,7 @@ export class BulkImportDialogComponent {
     private draftContentsStore = inject(DraftContentsStore);
     private publishQueueService = inject(PublishQueueService);
     private snackBar = inject(MatSnackBar);
+    private authorsService = inject(AuthorsService);
 
     // Steps: 1=File, 2=Mapping, 3=Preview, 4=Importing
     currentStep = signal<number>(1);
@@ -197,7 +202,7 @@ export class BulkImportDialogComponent {
         const suggestedType = this.bulkImportService.suggestFieldType(sampleValues);
         
         const newField: ContentTypeField = {
-            key: headerName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+            key: fullFieldKey(ct.slug, fieldKeyFromLabel(headerName)),
             label: headerName,
             type: suggestedType,
             required: false,
@@ -280,6 +285,10 @@ export class BulkImportDialogComponent {
                 importAs
             )
         );
+
+        // Turn author names into Authors references, creating the missing
+        // ones once (D2). A failure here leaves the names as plain text.
+        await this.resolveAuthors(itemsToImport);
         
         this.draftContentsStore.addBatch(itemsToImport, ct.slug).subscribe({
             next: (ids) => {
@@ -333,5 +342,23 @@ export class BulkImportDialogComponent {
     
     hasErrors(rowIndex: number): boolean {
         return !this.validationSummary()?.rowResults?.[rowIndex]?.valid;
+    }
+
+    /** Match each item's authorName to an author (creating new ones) and set authorId. */
+    private async resolveAuthors(items: Array<{ authorName?: string; authorId?: string | null }>): Promise<void> {
+        const named = items.filter(item => item.authorName);
+        if (!named.length) return;
+        try {
+            const existing: IAuthor[] = await firstValueFrom(this.authorsService.list());
+            for (const item of named) {
+                const author = await this.authorsService.findOrCreateByName(item.authorName!, existing);
+                if (author) {
+                    item.authorId = author.id;
+                    item.authorName = author.name;
+                }
+            }
+        } catch (error) {
+            console.error('Could not resolve authors for import:', error);
+        }
     }
 }

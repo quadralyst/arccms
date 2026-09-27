@@ -52,6 +52,22 @@ Attributes are annotated separately, comma-separated for several:
 Strings are cached for five minutes per Cloud Function instance, so a freshly
 deployed `strings.json` can take that long to appear on newly published pages.
 
+### Search widget keys
+
+The header's `<arc-search>` box and the `/search` results page read these keys
+from the same file. Each falls back to English when absent:
+
+| Key | English default |
+|---|---|
+| `search_placeholder` | Search |
+| `search_empty` | No results |
+| `search_showing_for` | Showing results for "{{term}}" |
+| `search_all_results` | See all results |
+| `search_results_title` | Search |
+| `search_results_for` | Results for "{{query}}" |
+| `search_no_query` | Type something to search for. |
+| `search_loading` | Searching... |
+
 ## index.html
 
 An optional full translation of `public/index.html`. The home page is prose with

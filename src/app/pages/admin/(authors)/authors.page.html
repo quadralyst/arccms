@@ -1,0 +1,77 @@
+<mat-drawer-container class="authors-drawer-container" hasBackdrop="true">
+    <mat-drawer [opened]="drawerOpen()" mode="over" position="end" class="drawer" style="width: 460px;"
+        (closedStart)="closeDrawer()">
+        <div class="side-panel">
+            <div class="panel-header">
+                <h5>{{ (editing() ? 'admin.contents.authors.edit' : 'admin.contents.authors.new') | transloco }}</h5>
+                <button class="close-btn" (click)="closeDrawer()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="flex-grow-1">
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>{{ 'admin.contents.authors.name' | transloco }}</mat-label>
+                    <input matInput [(ngModel)]="form.name" [placeholder]="'admin.contents.authors.name_placeholder' | transloco"
+                        data-testid="author-name" required />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>{{ 'admin.contents.authors.job_title' | transloco }}</mat-label>
+                    <input matInput [(ngModel)]="form.jobTitle" [placeholder]="'admin.contents.authors.job_title_placeholder' | transloco" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>{{ 'admin.contents.authors.bio' | transloco }}</mat-label>
+                    <textarea matInput rows="3" [(ngModel)]="form.bio"
+                        [placeholder]="'admin.contents.authors.bio_placeholder' | transloco"></textarea>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>{{ 'admin.contents.authors.photo_url' | transloco }}</mat-label>
+                    <input matInput type="url" [(ngModel)]="form.photoUrl" [placeholder]="'admin.contents.authors.photo_url_placeholder' | transloco" />
+                </mat-form-field>
+                @if (form.photoUrl) {
+                <img class="author-photo-preview" [src]="form.photoUrl" [alt]="form.name" />
+                }
+
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>{{ 'admin.contents.authors.url' | transloco }}</mat-label>
+                    <input matInput type="url" [(ngModel)]="form.url" [placeholder]="'admin.contents.authors.url_placeholder' | transloco" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>{{ 'admin.contents.authors.same_as' | transloco }}</mat-label>
+                    <textarea matInput rows="3" [(ngModel)]="sameAsText"
+                        [placeholder]="'admin.contents.authors.same_as_placeholder' | transloco"></textarea>
+                    <mat-hint>{{ 'admin.contents.authors.same_as_hint' | transloco }}</mat-hint>
+                </mat-form-field>
+            </div>
+
+            <div class="panel-actions">
+                <button mat-stroked-button (click)="closeDrawer()">{{ 'common.actions.cancel' | transloco }}</button>
+                <button mat-flat-button color="primary" [disabled]="busy() || !form.name.trim()" (click)="save()"
+                    data-testid="author-save">
+                    <mat-icon>{{ editing() ? 'save' : 'add' }}</mat-icon>
+                    {{ (editing() ? 'admin.contents.authors.save' : 'admin.contents.authors.create') | transloco }}
+                </button>
+            </div>
+        </div>
+    </mat-drawer>
+
+    <mat-drawer-content>
+        <div class="page-container">
+            <arc-page-header [title]="'admin.contents.authors.page_title' | transloco"
+                [subtitle]="'admin.contents.authors.page_subtitle' | transloco">
+                <button mat-flat-button color="primary" (click)="openAdd()" data-testid="author-add">
+                    <mat-icon>add</mat-icon> {{ 'admin.contents.authors.new' | transloco }}
+                </button>
+            </arc-page-header>
+
+            <app-global-table [data]="rows()" [columns]="columns" [loading]="loading()"
+                emptyIcon="fas fa-user-pen" [emptyTitle]="'admin.contents.authors.empty_title' | transloco"
+                [emptyDescription]="'admin.contents.authors.empty_description' | transloco"
+                [emptyActionLabel]="'admin.contents.authors.new' | transloco" emptyActionIcon="fas fa-plus"
+                (emptyActionClick)="openAdd()">
+            </app-global-table>
+        </div>
+    </mat-drawer-content>
+</mat-drawer-container>

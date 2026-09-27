@@ -129,4 +129,21 @@ describe('App Component', () => {
             expect(hostElement).toBeTruthy();
         });
     });
+
+    describe('Navigation progress', () => {
+        it('shows a fixed top bar while navigating and never an in-flow spinner', () => {
+            component.navigating.set(true);
+            fixture.detectChanges();
+            const host: HTMLElement = fixture.nativeElement;
+            expect(host.querySelector('arc-nav-progress')).toBeTruthy();
+            // The old block-level spinner shifted the page down; it must not come back.
+            expect(host.querySelector('arc-page-spinner')).toBeNull();
+            const main = host.querySelector('main.arc-route-host')!;
+            expect(main.querySelector('arc-nav-progress')).toBeNull();
+
+            component.navigating.set(false);
+            fixture.detectChanges();
+            expect(host.querySelector('arc-nav-progress')).toBeNull();
+        });
+    });
 });

@@ -147,28 +147,20 @@
             </div>
 
             <div class="row">
-                <div class="col-md-6 form-group">
-                    <label class="form-label">{{ 'admin.contents.types.form.field_key' | transloco }} <span class="required">*</span></label>
+                <div class="col-md-8 form-group">
+                    <label class="form-label">{{ 'admin.contents.types.form.field_name' | transloco }} <span class="required">*</span></label>
                     <input
                         type="text"
-                        [placeholder]="'admin.contents.types.form.field_key_placeholder' | transloco"
-                        formControlName="key"
-                        class="form-control"
-                    />
-                </div>
-                <div class="col-md-6 form-group">
-                    <label class="form-label">{{ 'admin.contents.types.form.field_label' | transloco }} <span class="required">*</span></label>
-                    <input
-                        type="text"
-                        [placeholder]="'admin.contents.types.form.field_label_placeholder' | transloco"
+                        [placeholder]="'admin.contents.types.form.field_name_placeholder' | transloco"
                         formControlName="label"
                         class="form-control"
+                        [class.is-invalid]="isDuplicateField(fieldIndex)"
                     />
+                    @if (isDuplicateField(fieldIndex)) {
+                    <div class="invalid-feedback d-block">{{ 'admin.contents.types.form.field_name_duplicate' | transloco }}</div>
+                    }
                 </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-8 form-group">
+                <div class="col-md-4 form-group">
                     <label class="form-label">{{ 'admin.contents.types.form.field_type' | transloco }} <span class="required">*</span></label>
                     <select formControlName="type" class="form-select">
                         @for(type of fieldTypes; track type) {
@@ -176,15 +168,17 @@
                         }
                     </select>
                 </div>
-                <div class="col-md-4 form-group">
-                    <label class="form-label">{{ 'admin.contents.types.form.field_required' | transloco }}</label>
-                    <div class="form-check form-switch">
-                        <input
-                            class="form-check-input"
-                            type="checkbox"
-                            formControlName="required"
-                        />
-                    </div>
+            </div>
+
+            <!-- Key hint and the Required switch share one line -->
+            <div class="field-meta-row">
+                <small class="text-muted field-key-hint" [title]="'admin.contents.types.form.field_key_auto_hint' | transloco">
+                    {{ 'admin.contents.types.form.field_key' | transloco }}:
+                    <code>{{ fieldKeyPreview(fieldIndex) || ('admin.contents.types.form.field_key_placeholder' | transloco) }}</code>
+                </small>
+                <div class="form-check form-switch field-required-switch">
+                    <input class="form-check-input" type="checkbox" formControlName="required" [id]="'field-required-' + fieldIndex" />
+                    <label class="form-check-label" [for]="'field-required-' + fieldIndex">{{ 'admin.contents.types.form.field_required' | transloco }}</label>
                 </div>
             </div>
 
@@ -290,6 +284,13 @@
       </div>
       }
     </div>
+
+    @if (fields.errors?.['duplicateKeys'] || fields.errors?.['duplicateNames']) {
+    <div class="text-danger small mb-2">
+      <i class="fas fa-exclamation-triangle me-1"></i>
+      {{ 'admin.contents.types.form.duplicate_fields' | transloco }}
+    </div>
+    }
 
     <button
       type="button"

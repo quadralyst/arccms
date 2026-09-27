@@ -379,7 +379,13 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
 
     ngOnInit() {
         // Subscribe to stores to load data
-        this.subscribeToData(this.contentTypesStore);
+        // Every content type, not the store's default first page of ten
+        // ordered by createdAt, which silently dropped the oldest types on
+        // sites with more than ten. Unlike the list and detail pages this
+        // component cannot query its own slug alone: the home page embeds one
+        // partial per type against the same root store, and per-slug queries
+        // would overwrite each other. limitCount 0 means no limit in DbService.
+        this.subscribeToData(this.contentTypesStore, { limitCount: 0 });
         // Load published contents from the per-type collection
         this.contentsStore.getAll(undefined, this.contentType() || undefined);
     }

@@ -206,14 +206,19 @@ Any custom fields you define on a content type are automatically available using
 <span data-arc-bind="price">0</span>
 ```
 
-> **Field keys are prefixed with the content type slug.** Enter `subtitle` as
-> the key on a content type slugged `awards-recognition` and it is stored — and
-> bound — as `awards-recognition_subtitle`. Check the key shown in
+> **Field keys are derived from the field's name and prefixed with the
+> content type slug.** Name a field "Subtitle" on a content type slugged
+> `awards-recognition` and it is stored, and bound, as
+> `awards-recognition-subtitle`: the name in lowercase with words joined by
+> hyphens, after the slug and a hyphen. The key is fixed once the type is
+> saved; renaming the field later does not change it. Types created before
+> this convention carry `awards-recognition_subtitle` (an underscore) and keep
+> it. Check the key shown under the field name in
 > **Admin > Contents > Content Types** if a binding renders blank; the examples
 > below use short keys for readability.
 >
 > **Every custom field also answers to its bare key.** `data-arc-loop` and
-> `data-arc-bind` both accept `awards-recognition_gallery` or just `gallery`.
+> `data-arc-bind` both accept `awards-recognition-gallery` or just `gallery`.
 > The short form is what lets one shared template serve every content type.
 > The one rule: an alias never replaces a built-in, so a field keyed
 > `articles_title` cannot shadow the page's real `title`.
@@ -598,10 +603,11 @@ card, a dark footer and a themed accent without anyone re-exporting anything.
 ### Adding an Icon field
 
 1. Go to **Admin > Contents > Content Types** and edit your content type.
-2. Add a field, set its **Type** to `icon`, and give it a key (e.g. `card_icon`).
-   Field keys must be lowercase letters, digits and underscores — `^[a-z0-9_]+$`
-   — and are then stored prefixed with the content type slug, so the binding
-   for `card_icon` on `articles` is `articles_card_icon`.
+2. Add a field, set its **Type** to `icon`, and name it (e.g. "Card Icon").
+   The key follows from the name and the content type slug, so the binding
+   for "Card Icon" on `articles` is `articles-card-icon`, or `card-icon` for
+   short. The examples below use `card_icon` as a stand-in for whatever your
+   stored key is.
 3. When editing content, that field opens an icon picker. Search by name, by
    label, or by what the icon *means* — "search", "trophy", "chart" all work.
    The picker offers icons only; the image tabs are hidden, because a photo
@@ -708,19 +714,25 @@ offers class names the older stylesheet cannot draw. A test enforces both.
 
 ## Image sizes
 
-Every image uploaded through the Media Manager is stored in four sizes:
+Every image uploaded through the Media Manager is stored in four sizes. Each
+is a bound on the image's **longest side**, so a size means the same box
+whether the photo is landscape or portrait:
 
-| Size | Width | |
-|------|-------|-|
+| Size | Longest side | |
+|------|--------------|-|
 | `s` | ¼ of the maximum | thumbnails, avatars, list cards |
 | `m` | ½ of the maximum | **the default** an editor gets when inserting |
 | `l` | ¾ of the maximum | article bodies |
-| `xl` | the maximum | heroes, full-width covers |
+| `xl` | the maximum | heroes, covers, the social-share image |
 
-The maximum is **Admin > Settings > Misc > Max width** — 1200px on a new
-install, so the sizes are 300 / 600 / 900 / 1200. Uploads are stored as WebP
-unless that is switched off there. A picture smaller than a size is not
-enlarged; that size simply reuses the next one down.
+The maximum is **Admin > Settings > Misc > Max image size**, 1200px on a
+new install, so the sizes are 300 / 600 / 900 / 1200: a 3:2 landscape photo
+is stored at 1200 × 800, 900 × 600, 600 × 400 and 300 × 200; the same photo
+in portrait at 800 × 1200 and so on. Uploads are stored as WebP unless that
+is switched off there. A picture smaller than a size is not enlarged; that
+size simply reuses the next one down.
+
+The cover image is recommended at XL, and its picker opens there.
 
 When an editor inserts an image — the cover, an image field, a gallery or
 info-card row — they pick a size (M unless they change it) and that URL is
@@ -748,6 +760,9 @@ then one `srcset`:
      alt="{{ title }}">
 ```
 
+The `w` descriptors above are the longest-side limits, exact for a landscape
+image; a portrait one is narrower at each size, which the browser handles.
+
 Images from before sizes existed have one file; every size binding returns
 it, so the template above still renders. Unsplash photos are resized by
 Unsplash's CDN at the same widths. An image pasted in from elsewhere gets no
@@ -764,9 +779,9 @@ background, a brand colour on a partner page.
 ### Adding a Color field
 
 1. **Admin > Contents > Content Types**, edit your type, add a field.
-2. Set **Type** to `color` and give it a key, e.g. `accent`. As with every
-   custom field the stored key gains the slug prefix (`programs_accent`), and
-   the bare key also works in templates.
+2. Set **Type** to `color` and name it, e.g. "Accent". As with every custom
+   field the stored key is derived from the name with the slug prefix
+   (`programs-accent`), and the bare key (`accent`) also works in templates.
 3. When editing content, the field shows a swatch that opens the picker and a
    hex box beside it — type `#1a73e8` (or the `#fff` shorthand) or pick.
 

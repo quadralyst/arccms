@@ -1,4 +1,5 @@
 import { parseHexColor } from '../../../../../shared/utils/color';
+import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -6,7 +7,7 @@ import { SafeHtml } from '@angular/platform-browser';
 import { CommonModule, formatDate } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { IDraftContents, INextContentReference } from '../draft-content-store/draft-contents.model';
-import { ActivatedRoute, ParamMap, Router } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
 import { ContentTypesStore } from '../content-types/content-types.store';
@@ -35,10 +36,16 @@ import { getDocs, query, orderBy, limit } from '@angular/fire/firestore';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { ContentsService, DeployStatusUpdate } from '../content-store/published-contents.service';
 import { FullscreenEditorDialogComponent } from './fullscreen-editor-dialog/fullscreen-editor-dialog.component';
-import { Subject, Subscription } from 'rxjs';
+import { Subject, Subscription, firstValueFrom } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 import { VersionHistoryComponent, VersionHistoryItem } from './version-history/version-history.component';
 import { LocalizationService } from '../../../../core/services/localization.service';
+import { AuthorsService } from '../../(authors)/authors.service';
+import { IAuthor } from '../../../../../shared/models/author.model';
+import { IReference, cleanReferences } from '../../../../../shared/models/references.model';
+import { ChecklistReport, evaluateDiscoverability } from '../../../../../shared/utils/discoverability-checklist';
+import { SearchService } from '../../../../core/services/search.service';
+import { SearchResult } from '../../../../../shared/models/search.model';
 import { AuthState } from '../../../(auth)/auth.store';
 import { ILanguage } from '../../../../../shared/models/localization.model';
 import {
@@ -64,6 +71,39 @@ interface TranslatableValues {
   customFields: { [key: string]: any };
 }
 
+/**
+ * Firestore date-ish value → 'YYYY-MM-DD' for an <input type="date">, or ''.
+ * Local calendar date, matching what the author picked.
+ */
+export function toDateInputValue(value: unknown): string {
+  if (!value) return '';
+  const date = (value as { seconds?: number })?.seconds !== undefined
+    ? new Date((value as { seconds: number }).seconds * 1000)
+    : typeof (value as { toDate?: unknown })?.toDate === 'function'
+      ? (value as { toDate: () => Date }).toDate()
+      : new Date(value as string | number | Date);
+  if (isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** 'YYYY-MM-DD' → Date at local midnight, or null for blank/invalid. */
+export function fromDateInputValue(value: unknown): Date | null {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [y, m, d] = value.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  // JS rolls "2025-13-45" forward instead of failing; insist on a round trip.
+  const valid = date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+  return valid ? date : null;
+}
+
+function escapeHtml(text: string): string {
+  return (text || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+}
+
+/** The cover doubles as the social-share image, so its picker opens at full size. */
+const COVER_IMAGE_SIZE: ImageSize = 'xl';
+
 @Component({
   selector: 'arc-create-content',
   standalone: true,
@@ -76,6 +116,7 @@ interface TranslatableValues {
     TranslocoPipe,
     FieldRepeaterComponent,
     ResizableDirective,
+    RouterLink,
   ],
   templateUrl: './create-content.component.html',
   styleUrl: './create-content.component.scss',
@@ -141,6 +182,13 @@ export class CreateContentComponent extends BaseComponent {
   // For selecting tags
   isOpenTopMenu = false;
   selectedTags = signal<{ label: string; color: string }[]>([]);
+
+  /** Authors for the picker (D2); the default is pre-filled on new content. */
+  authors = signal<IAuthor[]>([]);
+
+  /** Cited sources, edited as rows in the SEO tab (D-D11). Shared across languages. */
+  references = signal<IReference[]>([]);
+  private defaultAuthorId = '';
   tagSearchTerm = signal<string>('');
   showTagDropdown = signal<boolean>(false);
   tagsStore = inject(TagsStore);
@@ -157,7 +205,15 @@ export class CreateContentComponent extends BaseComponent {
   lastDraftSavedDate: Date | null = null;
   lastPublishedDate: Date | null = null;
   paramContentType: string | null = null;
-  activeTab: 'basic' | 'seo' | 'history' = 'basic';
+  activeTab: 'basic' | 'seo' | 'checks' | 'history' = 'basic';
+
+  // ── Discoverability checks (docs/discoverability-spec.md, D-D13, D-D16) ──
+  private searchService = inject(SearchService);
+  @ViewChild(TiptapEditorComponent) private bodyEditor?: TiptapEditorComponent;
+  checklist = signal<ChecklistReport | null>(null);
+  linkSuggestions = signal<SearchResult[]>([]);
+  linkSuggestionsLoading = signal(false);
+  linkSuggestionsKey = '';
 
   // Version preview — when set, replaces the editor area with a read-only preview
   previewingVersion = signal<VersionHistoryItem | null>(null);
@@ -171,6 +227,7 @@ export class CreateContentComponent extends BaseComponent {
   // document and its editing path is unchanged; any other language is held in
   // the same forms but saved to arc_{slug}_drafts/{id}/translations/{lang}.
   private localization = inject(LocalizationService);
+  private authorsService = inject(AuthorsService);
   private authState = inject(AuthState);
 
   /** Language currently being edited. Empty until the language list loads. */
@@ -901,6 +958,41 @@ export class CreateContentComponent extends BaseComponent {
     }
     this.fetchCurrentUrl();
     this.initLanguages();
+    this.initAuthors();
+  }
+
+  /**
+   * Loads the author list once and, for new content, pre-fills the default
+   * author. Existing content keeps whatever it was saved with, including no
+   * author at all.
+   */
+  private async initAuthors(): Promise<void> {
+    if (typeof window === 'undefined') return;
+    try {
+      // Smart default: on a site with no authors the admin becomes the first
+      // one here, so even the very first article gets a byline.
+      await this.authorsService.ensureAdminAuthor();
+      const [authors, settings] = await Promise.all([
+        firstValueFrom(this.authorsService.list()),
+        this.authorsService.loadSettings(),
+      ]);
+      this.authors.set(authors);
+      this.defaultAuthorId = settings.defaultAuthorId;
+      const control = this.publishForm.get('authorId');
+      if (!this.contentId && control && !control.value && this.defaultAuthorId) {
+        control.setValue(this.defaultAuthorId, { emitEvent: false });
+      }
+      this.cdr.detectChanges();
+    } catch (error) {
+      // No authors (or rules not deployed) must not break the editor.
+      console.error('Error loading authors:', error);
+    }
+  }
+
+  /** The denormalised name saved beside authorId. */
+  private authorNameFor(authorId: string | null | undefined): string {
+    if (!authorId) return '';
+    return this.authors().find(a => a.id === authorId)?.name || '';
   }
 
   // ── Translation editing (M2) ─────────────────────────────────────────────
@@ -1367,13 +1459,18 @@ export class CreateContentComponent extends BaseComponent {
       tags: contentData?.tags || [],
       coverImage:
         contentData?.coverImage !== '' ? contentData?.coverImage : null,
+      authorId: contentData?.authorId || '',
     });
 
     this.seoForm.patchValue({
       seoTitle: contentData?.seoTitle || '',
       metaDescription: contentData?.metaDescription || '',
       canonicalUrl: contentData?.canonicalUrl || '',
+      updatedOn: toDateInputValue(contentData?.updatedOn),
     });
+    // patchForms runs from a computed (contentDetailedData), where a signal
+    // write is an error; untracked lifts this write out of that context.
+    untracked(() => this.references.set(cleanReferences(contentData?.references)));
 
     // Pre-populate custom field values
     if (contentData?.customFields) {
@@ -1431,6 +1528,7 @@ export class CreateContentComponent extends BaseComponent {
       urlSlug: [''],
       tags: [[]],
       coverImage: [null],
+      authorId: [''],
     });
 
     // Sync summary changes to metaDescription
@@ -1445,6 +1543,9 @@ export class CreateContentComponent extends BaseComponent {
       seoTitle: [''],
       metaDescription: [''],
       canonicalUrl: [''],
+      // Held as 'YYYY-MM-DD' for the date input; converted to a Date (or
+      // null) on the way out, see buildDraftFormValues.
+      updatedOn: [''],
     });
   }
 
@@ -1470,6 +1571,96 @@ export class CreateContentComponent extends BaseComponent {
 
   get canonicalUrl() {
     return this.seoForm?.get('canonicalUrl');
+  }
+
+  /** Stamps today as the last substantive revision (docs/discoverability-spec.md, D-D3). */
+  markUpdatedToday(): void {
+    this.seoForm.get('updatedOn')?.setValue(toDateInputValue(new Date()));
+    this.seoForm.get('updatedOn')?.markAsDirty();
+    this.triggerAutoSave();
+  }
+
+  /** Runs the checklist and refreshes link suggestions; called when the Checks tab opens or on demand. */
+  openChecks(): void {
+    this.activeTab = 'checks';
+    this.runChecklist();
+    this.loadLinkSuggestions();
+  }
+
+  runChecklist(): void {
+    const base = this.baseLanguageValues();
+    this.checklist.set(evaluateDiscoverability({
+      title: base.title || this.pageTitle || '',
+      bodyHtml: base.content || '',
+      summary: base.summary || '',
+      metaDescription: base.metaDescription || '',
+      coverImage: this.coverImage,
+      authorId: this.publishForm.get('authorId')?.value || null,
+      references: this.references(),
+      tags: this.selectedTags().map(t => t.label),
+      publishedOn: this.lastPublishedDate,
+      updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
+      siteOrigin: this.domain,
+    }));
+  }
+
+  /**
+   * Content on this site related to the draft that the body does not link
+   * to yet (D-D16): the admin search over published items and drafts, with
+   * the item itself and anything already linked removed.
+   */
+  async loadLinkSuggestions(): Promise<void> {
+    const base = this.baseLanguageValues();
+    const q = [base.title || this.pageTitle || '', ...this.selectedTags().map(t => t.label)].join(' ').trim().slice(0, 120);
+    const key = `${q}|${this.contentId}`;
+    if (!q || key === this.linkSuggestionsKey) return;
+    this.linkSuggestionsKey = key;
+    this.linkSuggestionsLoading.set(true);
+    try {
+      const res = await this.searchService.lookup({ q, lang: 'all', scope: 'admin', sources: ['content'], limit: 12 });
+      const body = (base.content || '').toLowerCase();
+      const own = { type: this.contentTypeSlug || this.publishForm.get('type')?.value, slug: this.publishForm.get('urlSlug')?.value };
+      this.linkSuggestions.set(res.results.filter(r => {
+        if (r.meta?.['contentType'] === own.type && r.meta?.['urlSlug'] === own.slug) return false;
+        return !body.includes(`href="${r.link.toLowerCase()}"`) && !body.includes(`${r.link.toLowerCase()}"`);
+      }).slice(0, 6));
+    } catch (error) {
+      console.error('Link suggestions failed:', error);
+      this.linkSuggestions.set([]);
+    } finally {
+      this.linkSuggestionsLoading.set(false);
+    }
+  }
+
+  /** Inserts the page as a link at the cursor in the body editor. */
+  insertSuggestedLink(item: SearchResult): void {
+    const html = `<a href="${item.link}">${escapeHtml(item.title)}</a>`;
+    if (this.bodyEditor) {
+      this.bodyEditor.insertTextAtCursor(html);
+      this.notify.success('admin.contents.checklist.link_inserted');
+      this.linkSuggestions.update(list => list.filter(r => r !== item));
+      this.triggerAutoSave();
+    }
+  }
+
+  addReference(): void {
+    this.references.update(list => [...list, { title: '', url: '' }]);
+  }
+
+  updateReference(index: number, field: 'title' | 'url', value: string): void {
+    this.references.update(list => list.map((ref, i) => (i === index ? { ...ref, [field]: value } : ref)));
+    this.triggerAutoSave();
+  }
+
+  removeReference(index: number): void {
+    this.references.update(list => list.filter((_, i) => i !== index));
+    this.triggerAutoSave();
+  }
+
+  clearUpdatedOn(): void {
+    this.seoForm.get('updatedOn')?.setValue('');
+    this.seoForm.get('updatedOn')?.markAsDirty();
+    this.triggerAutoSave();
   }
 
   private setCurrentDateTime(): void {
@@ -1572,7 +1763,17 @@ export class CreateContentComponent extends BaseComponent {
 
   private setSlugValue(slug: string): void {
     this.publishForm.get('urlSlug')?.setValue(slug);
-    this.seoForm.get('canonicalUrl')?.setValue(this.domain + slug);
+    this.seoForm.get('canonicalUrl')?.setValue(this.publicUrlFor(slug));
+  }
+
+  /**
+   * The page's real public URL: `{origin}/{type}/{slug}`. The canonical used
+   * to be written without the type segment, so it pointed at a URL that does
+   * not exist and, since D1, that wrong URL became the Article `@id` too.
+   */
+  private publicUrlFor(slug: string): string {
+    const type = this.contentTypeSlug || this.publishForm.get('type')?.value || '';
+    return type ? `${this.domain}${type}/${slug}` : this.domain + slug;
   }
 
   toggleSlugEdit(): void {
@@ -2135,6 +2336,10 @@ export class CreateContentComponent extends BaseComponent {
     return {
       ...this.publishForm.value,
       ...this.seoForm.value,
+      updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
+      authorId: this.publishForm.get('authorId')?.value || null,
+      authorName: this.authorNameFor(this.publishForm.get('authorId')?.value),
+      references: cleanReferences(this.references()),
       type: contentType,
       status: this.constantVariables.DRAFT,
       updatedAt: new Date(),
@@ -2402,8 +2607,11 @@ export class CreateContentComponent extends BaseComponent {
       maxHeight: '90vh',
       panelClass: 'common-dialog-box',
       disableClose: true,
+      // The cover doubles as the social-share image, which wants the whole
+      // 1200px; the picker opens on XL so that is what an admin gets by default.
       data: {
         isDialogOpen: true,
+        size: COVER_IMAGE_SIZE,
       },
     });
 
@@ -2434,7 +2642,7 @@ export class CreateContentComponent extends BaseComponent {
    */
   async copyUrlToClipboard(): Promise<void> {
     const urlSlug = this.publishForm.get('urlSlug')?.value || '';
-    const fullUrl = `${this.domain}${this.contentTypeSlug}/${urlSlug}`;
+    const fullUrl = this.publicUrlFor(urlSlug);
 
     const success = await this.globalService.copyToClipboard(fullUrl);
     if (success) {

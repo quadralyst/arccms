@@ -71,8 +71,7 @@ export class OnboardingSetupService {
         await setDoc(doc(this.firestore, 'Settings', 'misc'), {
             showPoweredBy: true,
             mediaMaxFileSize: DEFAULT_MISC_SETTINGS.mediaMaxFileSize,
-            mediaMaxWidth: DEFAULT_MISC_SETTINGS.mediaMaxWidth,
-            mediaMaxHeight: DEFAULT_MISC_SETTINGS.mediaMaxHeight,
+            mediaMaxSize: DEFAULT_MISC_SETTINGS.mediaMaxSize,
             mediaConvertToWebp: DEFAULT_MISC_SETTINGS.mediaConvertToWebp,
         }, { merge: true });
 

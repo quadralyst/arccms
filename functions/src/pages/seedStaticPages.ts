@@ -6,6 +6,7 @@ import { generateAndDeployContentListPage } from './deployContentListPage.js';
 import { generateAndDeployStaticPage } from './deployStaticPage.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { generateAndDeployRobotsTxt } from './generateRobotsTxt.js';
+import { generateAndDeployLlmsTxt } from './generateLlmsTxt.js';
 import { generateAndDeploySitemap } from './generateSitemap.js';
 import { generateAndDeployRssFeeds } from './generateRssFeed.js';
 
@@ -164,6 +165,22 @@ export async function runSeed(): Promise<SeedResult> {
         result.errors++;
         result.success = false;
         const errorMsg = `Failed to deploy /robots.txt (${duration}s): ${err.message}`;
+        result.details.push(`ERROR: ${errorMsg}`);
+        result.errorDetails.push(errorMsg);
+    }
+
+    // llms.txt + llms-full.txt (D-D7); skipped when switched off in settings
+    const llmsStart = Date.now();
+    try {
+        await generateAndDeployLlmsTxt();
+        const duration = ((Date.now() - llmsStart) / 1000).toFixed(1);
+        result.details.push(`Deployed /llms.txt and /llms-full.txt (${duration}s)`);
+        result.deployed++;
+    } catch (err: any) {
+        const duration = ((Date.now() - llmsStart) / 1000).toFixed(1);
+        result.errors++;
+        result.success = false;
+        const errorMsg = `Failed to deploy /llms.txt (${duration}s): ${err.message}`;
         result.details.push(`ERROR: ${errorMsg}`);
         result.errorDetails.push(errorMsg);
     }

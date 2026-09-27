@@ -176,10 +176,15 @@ describe('site-settings', () => {
                 name: 'My Site',
                 finalUrl: 'https://mysite.com',
                 address: '123 Main St, City',
+                logoUrl: '',
+                description: '',
+                sameAs: [],
+                contactEmail: '',
+                organizationType: 'Organization',
             });
         });
 
-        it('should return empty strings when document does not exist', async () => {
+        it('should return empty identity when document does not exist', async () => {
             mockAboutGet.mockResolvedValueOnce({
                 data: () => undefined,
             });
@@ -190,7 +195,42 @@ describe('site-settings', () => {
                 name: '',
                 finalUrl: '',
                 address: '',
+                logoUrl: '',
+                description: '',
+                sameAs: [],
+                contactEmail: '',
+                organizationType: 'Organization',
             });
+        });
+
+        it('should read the identity fields and drop non-string sameAs entries', async () => {
+            mockAboutGet.mockResolvedValueOnce({
+                data: () => ({
+                    name: 'Jane',
+                    finalUrl: 'https://jane.dev',
+                    logoUrl: 'https://jane.dev/me.png',
+                    description: 'Writes about CMSes.',
+                    sameAs: ['https://x.com/jane', 42, null],
+                    contactEmail: 'jane@jane.dev',
+                    organizationType: 'Person',
+                }),
+            });
+
+            const result = await getAboutConfig();
+
+            expect(result.logoUrl).toBe('https://jane.dev/me.png');
+            expect(result.description).toBe('Writes about CMSes.');
+            expect(result.sameAs).toEqual(['https://x.com/jane']);
+            expect(result.contactEmail).toBe('jane@jane.dev');
+            expect(result.organizationType).toBe('Person');
+        });
+
+        it('should coerce an unknown organizationType to Organization', async () => {
+            mockAboutGet.mockResolvedValueOnce({
+                data: () => ({ name: 'X', organizationType: 'Corporation' }),
+            });
+            const result = await getAboutConfig();
+            expect(result.organizationType).toBe('Organization');
         });
 
         it('should cache results and not re-query within TTL', async () => {

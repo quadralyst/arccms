@@ -1,4 +1,5 @@
 import { Extension } from '@tiptap/core';
+import { ARC_BLOCKS } from './arc-block-extension';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import tippy, { Instance } from 'tippy.js';
@@ -92,7 +93,18 @@ export const SlashCommands = Extension.create({
       },
     });
 
+    /** The query the visible menu was built for; a same-query update keeps the DOM. */
+    let shownQuery: string | null = null;
+
     const showSuggestions = (view: EditorView, query: string = '') => {
+      // Rebuilding on every transaction (selection moves, focus changes)
+      // replaced the menu's buttons mid-interaction. Only the query changes
+      // what the menu shows, so only a query change rebuilds it.
+      if (tippyInstance?.state.isVisible && shownQuery === query) {
+        return;
+      }
+      shownQuery = query;
+
       const { state } = view;
       const { selection } = state;
       const { $from } = selection;
@@ -207,7 +219,29 @@ export const SlashCommands = Extension.create({
           shortcut: 'ctrl + shift + B',
           command: () => this.editor.chain().focus().toggleBlockquote().run(),
         },
-        // Table command removed - table extensions disabled
+        {
+          title: 'Table',
+          type: '',
+          icon: 'bi bi-table',
+          shortcut: '',
+          command: () => this.editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+        },
+        {},
+        // Structured blocks (docs/discoverability-spec.md, D-D10)
+        ...ARC_BLOCKS.map(block => ({
+          title: block.title,
+          type: '',
+          icon: block.icon,
+          shortcut: '',
+          command: () => this.editor.chain().focus().insertArcBlock(block.kind).run(),
+        })),
+        {
+          title: 'Remove block',
+          type: '',
+          icon: 'bi bi-x-square',
+          shortcut: '',
+          command: () => this.editor.chain().focus().removeArcBlock().run(),
+        },
         {},
         {
           title: 'Undo',
@@ -352,16 +386,28 @@ export const SlashCommands = Extension.create({
             }
           });
 
-          // Store the command and range info for the click handler
-          const pluginState = plugin.getState(view.state);
-          button.addEventListener('click', () => {
+          // Act on mousedown, not click. A mousedown on the popup (which
+          // lives in <body>) blurred the editor; the resulting update rebuilt
+          // this menu and replaced the very button under the pointer before
+          // mouseup, so the click never fired and a second press was needed.
+          // preventDefault keeps the editor focused, so nothing rebuilds.
+          const run = () => {
+            const pluginState = plugin.getState(view.state);
             // Delete the slash and any query text
             if (pluginState?.range) {
               view.dispatch(view.state.tr.deleteRange(pluginState.range.from, pluginState.range.to));
             }
             cmd.command();
             hideSuggestions();
+          };
+          button.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            run();
           });
+          // Enter in the editor activates the highlighted item through the
+          // same path (see handleMenuNavigation); a synthetic click() would
+          // no longer reach the mousedown listener.
+          (button as HTMLElement & { arcRun?: () => void }).arcRun = run;
           element.appendChild(button);
         }
       });
@@ -409,6 +455,7 @@ export const SlashCommands = Extension.create({
     };
 
     function hideSuggestions() {
+      shownQuery = null;
       if (tippyInstance) {
         tippyInstance.hide();
       }
@@ -425,7 +472,8 @@ export const SlashCommands = Extension.create({
         // If there's a selected item, click it. Otherwise, click the first item.
         const itemToClick = selectedItem || items[0];
         if (itemToClick) {
-          (itemToClick as HTMLElement).click();
+          const run = (itemToClick as HTMLElement & { arcRun?: () => void }).arcRun;
+          if (run) run(); else (itemToClick as HTMLElement).click();
         }
       } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
         // Calculate next index, handling case where nothing is selected

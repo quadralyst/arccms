@@ -2,10 +2,13 @@
  * Image size variants.
  *
  * Every upload through the Media Manager is stored four times, as
- * `<name>-s`, `-m`, `-l` and `-xl` — a quarter, half, three-quarters and the
- * whole of the configured maximum width (1200px by default). The editor picks
- * one size when inserting an image; templates can reach the others through
- * `{{ key_s }}` … `{{ key_xl }}`, derived here from whichever URL is stored.
+ * `<name>-s`, `-m`, `-l` and `-xl`. Each size is a bound on the image's
+ * *longest side* — a quarter, half, three-quarters and the whole of the one
+ * maximum set in Settings → Misc (1200px by default, so 300 / 600 / 900 /
+ * 1200) — so "M" is always "fits in a 600px box" whether the photo is
+ * landscape or portrait. The editor picks one size when inserting an image;
+ * templates can reach the others through `{{ key_s }}` … `{{ key_xl }}`,
+ * derived here from whichever URL is stored.
  *
  * Deriving rather than storing keeps content documents unchanged: a cover
  * image is still one URL. The derivation works because media storage is
@@ -20,13 +23,16 @@
 export const IMAGE_SIZES = ['s', 'm', 'l', 'xl'] as const;
 export type ImageSize = (typeof IMAGE_SIZES)[number];
 
-/** Each size as a fraction of the configured maximum width. */
+/** Each size as a fraction of the configured maximum (longest side). */
 export const IMAGE_SIZE_FRACTIONS: Record<ImageSize, number> = {
     s: 0.25,
     m: 0.5,
     l: 0.75,
     xl: 1,
 };
+
+/** The maximum longest side on a new install. */
+export const DEFAULT_MAX_IMAGE_SIZE = 1200;
 
 /** The size an editor gets when they do not choose one. */
 export const DEFAULT_IMAGE_SIZE: ImageSize = 'm';
@@ -39,15 +45,28 @@ export const IMAGE_SIZE_LABELS: Record<ImageSize, string> = {
 };
 
 /**
- * Target width of each size for a given maximum width, largest first.
- * `1200` gives 300 / 600 / 900 / 1200.
+ * The longest-side limit of each size for a given maximum, largest last.
+ * `1200` gives 300 / 600 / 900 / 1200. A missing or unusable maximum means
+ * the default.
  */
-export function imageSizeWidths(maxWidth: number): Record<ImageSize, number> {
-    const widths = {} as Record<ImageSize, number>;
+export function imageSizeLimits(maxSize: unknown = DEFAULT_MAX_IMAGE_SIZE): Record<ImageSize, number> {
+    const max = Number(maxSize);
+    const bound = Number.isFinite(max) && max >= 1 ? max : DEFAULT_MAX_IMAGE_SIZE;
+    const limits = {} as Record<ImageSize, number>;
     for (const size of IMAGE_SIZES) {
-        widths[size] = Math.max(1, Math.round(maxWidth * IMAGE_SIZE_FRACTIONS[size]));
+        limits[size] = Math.max(1, Math.round(bound * IMAGE_SIZE_FRACTIONS[size]));
     }
-    return widths;
+    return limits;
+}
+
+/**
+ * `width × height` scaled down to fit inside a `limit × limit` box, keeping
+ * the aspect ratio and never enlarging.
+ */
+export function fitLongestSide(width: number, height: number, limit: number): { width: number; height: number } {
+    const scale = Math.min(1, limit / Math.max(width, height));
+    if (scale === 1) return { width, height };
+    return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
 }
 
 /**
@@ -72,7 +91,7 @@ const UNSPLASH = /^https:\/\/images\.unsplash\.com\//i;
  * - Anything else — a pasted external URL — is not an image this CMS can
  *   resize, and yields null so no bindings are added.
  */
-export function imageSizeUrls(url: unknown, maxWidth = 1200): Record<ImageSize, string> | null {
+export function imageSizeUrls(url: unknown, maxSize: number = DEFAULT_MAX_IMAGE_SIZE): Record<ImageSize, string> | null {
     if (typeof url !== 'string' || !url) return null;
 
     const sized = STORAGE_VARIANT.exec(url);
@@ -86,17 +105,22 @@ export function imageSizeUrls(url: unknown, maxWidth = 1200): Record<ImageSize, 
     }
 
     if (UNSPLASH.test(url)) {
-        const widths = imageSizeWidths(maxWidth);
-        return mapSizes((size) => unsplashAtWidth(url, widths[size]));
+        const limits = imageSizeLimits(maxSize);
+        return mapSizes((size) => unsplashAtSize(url, limits[size]));
     }
 
     return null;
 }
 
-/** An Unsplash URL resized to `width` — `w`, `fit=max` and `fm=webp` set, the rest kept. */
-export function unsplashAtWidth(url: string, width: number): string {
+/**
+ * An Unsplash URL fitted inside a `limit × limit` box — `w`, `h` and
+ * `fit=max` bound the longest side without cropping; `fm=webp` set, the rest
+ * kept.
+ */
+export function unsplashAtSize(url: string, limit: number): string {
     const parsed = new URL(url);
-    parsed.searchParams.set('w', String(width));
+    parsed.searchParams.set('w', String(limit));
+    parsed.searchParams.set('h', String(limit));
     parsed.searchParams.set('fit', 'max');
     parsed.searchParams.set('fm', 'webp');
     parsed.searchParams.set('q', parsed.searchParams.get('q') || '80');

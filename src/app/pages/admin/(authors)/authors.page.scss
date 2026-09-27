@@ -1,0 +1,18 @@
+.author-photo-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: -8px 0 16px;
+    border: 1px solid #e2e8f0;
+}
+
+:host ::ng-deep .status-badge.badge-default {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* An empty badge for non-default authors: no pill at all. */
+:host ::ng-deep .status-badge.badge-none {
+    display: none;
+}

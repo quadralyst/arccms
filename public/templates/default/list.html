@@ -30,6 +30,7 @@
                             </div>
                         <div class="content-card-body">
                             <div class="content-card-meta">
+                                <span class="content-card-author" data-arc-if="authorName">{{ authorName }}<span class="meta-separator">&#8226;</span></span>
                                 <time>{{ publishedOn }}</time>
                                 <span class="meta-separator">&#8226;</span>
                                 <span data-arc-t="min_read">{{ readTime }} min read</span>
@@ -151,10 +152,19 @@
 .content-card-meta {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.5rem;
     font-size: 0.85rem;
     color: #6e6e73;
     margin-bottom: 0.75rem;
+}
+
+.content-card-author {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #1d1d1f;
+    font-weight: 500;
 }
 
 .meta-separator {

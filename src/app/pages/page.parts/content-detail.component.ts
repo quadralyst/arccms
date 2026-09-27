@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
+import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
@@ -24,6 +25,23 @@ import { UiStringsService } from '../../core/services/ui-strings.service';
 import { ArcTranslateDirective } from '../../core/directives/arc-translate.directive';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { AuthorProfileService } from '../../core/services/author-profile.service';
+import { IAuthor } from '../../../shared/models/author.model';
+import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../../../shared/utils/content-blocks';
+import { cleanReferences } from '../../../shared/models/references.model';
+import { buildMappedNode } from '../../../shared/utils/schema-mapping';
+import { SearchService } from '../../core/services/search.service';
+import { RELATED_LIMIT, RelatedItem, pickRelated, relatedQuery } from '../../../shared/utils/related-content';
+import {
+    buildBreadcrumbList,
+    buildOrganization,
+    buildWebSite,
+    countWords,
+    organizationId,
+    resolveContentDates,
+    setJsonLd,
+} from '../../../shared/utils/structured-data';
 import {
     IContentTranslation,
     localizedPageTitle,
@@ -34,6 +52,9 @@ import {
  * Dynamic Content Detail Component
  * Shows individual content item for a given content type and URL slug
  */
+/** Upper bound on block-derived JSON-LD scripts a page keeps (FAQ + how-tos + definitions). */
+const MAX_BLOCK_NODES = 12;
+
 @Component({
     selector: 'arc-content-detail',
     standalone: true,
@@ -82,6 +103,12 @@ import {
                     </a>
                     <h1 class="article-title">{{ currentContent()?.title }}</h1>
                     <div class="article-meta">
+                        @if (currentContent()?.authorName) {
+                        <span class="article-author">
+                            <i class="far fa-user"></i> {{ currentContent()?.authorName }}
+                            <span class="meta-divider">•</span>
+                        </span>
+                        }
                         <span class="article-date">
                             <i class="far fa-calendar"></i> {{ formatContentDate(currentContent()?.publishedOn) }}
                         </span>
@@ -89,6 +116,12 @@ import {
                         <span class="article-read-time">
                             <i class="far fa-clock"></i> <span data-arc-t="min_read" [data-arc-t-params]="{ readTime: getReadTime() }">{{ getReadTime() }} min read</span>
                         </span>
+                        @if (updatedOnDisplay()) {
+                        <span class="article-updated">
+                            <span class="meta-divider">•</span>
+                            <i class="fas fa-pen"></i> <span data-arc-t="updated_on" [data-arc-t-params]="{ updatedOnDisplay: updatedOnDisplay() }">Updated {{ updatedOnDisplay() }}</span>
+                        </span>
+                        }
                     </div>
                 </div>
             </header>
@@ -105,6 +138,18 @@ import {
                 <div class="container">
                     <div class="article-content" [innerHTML]="(currentContent()?.content || '') | safeHtml"></div>
 
+                    <!-- Sources (D-D11); mirrors public/templates/default/detail.html -->
+                    @if (references().length) {
+                    <section class="article-sources">
+                        <h2 class="article-sources-title" data-arc-t="sources">Sources</h2>
+                        <ol class="article-sources-list">
+                            @for (ref of references(); track ref.url) {
+                            <li><a [href]="ref.url" target="_blank" rel="noopener">{{ ref.title || ref.url }}</a></li>
+                            }
+                        </ol>
+                    </section>
+                    }
+
                     <!-- Tags -->
                     @if(currentContent()?.tags && currentContent()!.tags.length > 0) {
                         <div class="article-tags">
@@ -115,6 +160,42 @@ import {
                     }
 
                     <!-- Share Buttons -->
+                    <!-- Related items (D-D15); mirrors public/templates/default/detail.html -->
+                    @if (related().length) {
+                    <section class="article-related">
+                        <h2 class="article-related-title" data-arc-t="related_title">Related</h2>
+                        <div class="article-related-grid">
+                            @for (item of related(); track item.url) {
+                            <a class="article-related-card" [href]="item.url">
+                                <span class="article-related-badge">{{ item.badge }}</span>
+                                <span class="article-related-name">{{ item.title }}</span>
+                                <span class="article-related-snippet">{{ item.snippet }}</span>
+                            </a>
+                            }
+                        </div>
+                    </section>
+                    }
+
+                    <!-- Author box (D2); mirrors public/templates/default/detail.html -->
+                    @if (author(); as a) {
+                    <aside class="article-author-box">
+                        @if (a.photoUrl) {
+                        <img class="article-author-photo" [src]="a.photoUrl" [attr.alt]="a.name">
+                        }
+                        <div class="article-author-body">
+                            <span class="article-author-label" data-arc-t="written_by">Written by</span>
+                            <h3 class="article-author-name">{{ a.name }}</h3>
+                            @if (a.jobTitle) { <p class="article-author-title">{{ a.jobTitle }}</p> }
+                            @if (a.bio) { <p class="article-author-bio">{{ a.bio }}</p> }
+                            @if (a.url) {
+                            <a class="article-author-link" [href]="a.url" target="_blank" rel="noopener author">
+                                <span data-arc-t="author_more" [data-arc-t-params]="{ author: a }">More from {{ a.name }}</span> <i class="fas fa-arrow-right"></i>
+                            </a>
+                            }
+                        </div>
+                    </aside>
+                    }
+
                     <div class="article-share">
                         <span class="share-label" data-arc-t="share_this_article">Share this article</span>
                         <div class="share-buttons">
@@ -347,6 +428,45 @@ import {
         }
 
         /* Share Buttons */
+        .article-content .arc-block { margin: 2rem 0; padding: 1.25rem 1.5rem; border-radius: 12px; background: #f5f5f7; }
+        .article-content .arc-block > h2, .article-content .arc-block > h3, .article-content .arc-block > h4 { margin-top: 1rem; font-size: 1.125rem; }
+        .article-content .arc-block > h2:first-child, .article-content .arc-block > h3:first-child, .article-content .arc-block > h4:first-child { margin-top: 0; }
+        .article-content .arc-block[data-arc-block="takeaways"] { border-left: 4px solid #0066cc; }
+        .article-content .arc-block[data-arc-block="definition"] > p:first-of-type { font-size: 1.0625rem; font-weight: 500; }
+        .article-content .arc-block > :last-child { margin-bottom: 0; }
+        .article-sources { max-width: 720px; margin: 2.5rem auto 0; padding-top: 1.5rem; border-top: 1px solid #e8e8ed; }
+        .article-sources-title { font-size: 1rem; font-weight: 600; margin: 0 0 .75rem; color: #1d1d1f; }
+        .article-sources-list { margin: 0; padding-left: 1.25rem; font-size: .9375rem; line-height: 1.7; }
+        .article-sources-list a { color: #0066cc; text-decoration: none; word-break: break-word; }
+        .article-sources-list a:hover { text-decoration: underline; }
+
+        .article-related { max-width: 720px; margin: 2.5rem auto 0; padding-top: 1.5rem; border-top: 1px solid #e8e8ed; }
+        .article-related-title { font-size: 1rem; font-weight: 600; margin: 0 0 1rem; color: #1d1d1f; }
+        .article-related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+        .article-related-card { display: flex; flex-direction: column; gap: .25rem; padding: 1rem; border-radius: 12px; background: #f5f5f7; text-decoration: none; color: inherit; }
+        .article-related-card:hover { background: #ebebf0; }
+        .article-related-badge { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: #6e6e73; }
+        .article-related-name { font-weight: 600; color: #1d1d1f; line-height: 1.35; }
+        .article-related-snippet { font-size: .875rem; color: #6e6e73; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        .article-author-box {
+            display: flex;
+            gap: 1.25rem;
+            align-items: flex-start;
+            margin: 2rem auto 0;
+            padding: 1.5rem;
+            max-width: 720px;
+            background: #f5f5f7;
+            border-radius: 12px;
+        }
+        .article-author-photo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .article-author-label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6e6e73; margin-bottom: 0.25rem; }
+        .article-author-name { font-size: 1.125rem; font-weight: 600; margin: 0; color: #1d1d1f; }
+        .article-author-title { margin: 0.125rem 0 0; font-size: 0.875rem; color: #6e6e73; }
+        .article-author-bio { margin: 0.75rem 0 0; font-size: 0.9375rem; line-height: 1.6; color: #424245; }
+        .article-author-link { display: inline-block; margin-top: 0.75rem; font-size: 0.875rem; font-weight: 500; color: #0066cc; text-decoration: none; }
+        .article-author-link:hover { text-decoration: underline; }
+
         .article-share {
             display: flex;
             align-items: center;
@@ -458,6 +578,19 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private http = inject(HttpClient);
     private titleService = inject(Title);
     private metaService = inject(Meta);
+    private siteIdentity = inject(SiteIdentityService);
+    private authorProfiles = inject(AuthorProfileService);
+
+    /** The credited author, once loaded (D2). Null when the item has none. */
+    author = signal<IAuthor | null>(null);
+
+    /** Cited sources (D-D11), cleaned. */
+    references = computed(() => cleanReferences(this.currentContent()?.references));
+
+    /** Related items from the search index (D-D15); the static page has them baked in. */
+    related = signal<RelatedItem[]>([]);
+    private searchService = inject(SearchService);
+    private relatedKey = '';
     private document = inject(DOCUMENT);
     private platformId = inject(PLATFORM_ID);
     private transferState = inject(TransferState);
@@ -636,11 +769,55 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             });
         });
 
+        // Related items: one lookup per item and language, never blocking render.
+        effect(() => {
+            const content = this.currentContent();
+            const typeSlug = this.contentTypeSlug();
+            const lang = this.pageLang() || this.localization.defaultLanguage();
+            untracked(() => {
+                if (!content?.urlSlug || !isPlatformBrowser(this.platformId)) return;
+                const key = `${typeSlug}/${content.urlSlug}/${lang}`;
+                if (key === this.relatedKey) return;
+                this.relatedKey = key;
+                this.related.set([]);
+                const q = relatedQuery(content.title || '', content.tags || []);
+                if (!q) return;
+                this.searchService
+                    .lookup({ q, lang, scope: 'public', sources: ['content'], limit: RELATED_LIMIT + 1 })
+                    .then(res => { if (this.relatedKey === key) this.related.set(pickRelated(res.results, { contentType: typeSlug, urlSlug: content.urlSlug })); })
+                    .catch(() => undefined);
+            });
+        });
+
+        // The author document is separate from the content; fetch it once
+        // per authorId and let the page (byline box, JSON-LD) react.
+        effect(() => {
+            const authorId = this.currentContent()?.authorId || '';
+            untracked(() => {
+                if (!authorId || !isPlatformBrowser(this.platformId)) {
+                    this.author.set(null);
+                    return;
+                }
+                this.authorProfiles.load(authorId).then(author => {
+                    this.author.set(author);
+                    // A custom template hydrated before the author document
+                    // arrived has no byline yet; hydrate it again, without
+                    // re-running its scripts.
+                    if (author && this.lastTemplate && this.useCustomTemplate()) {
+                        const { html, contentType, content } = this.lastTemplate;
+                        this.hydrateAndSetTemplate(html, contentType, content, false);
+                    }
+                });
+            });
+        });
+
         effect(() => {
             const contentType = this.currentContentType();
             const content = this.currentContent();
             const isLoading = this.contentTypesStore.isLoading() || this.contentsStore.isLoading();
             const isCheckingDraft = this.isCheckingDraft();
+            // Read so the structured data is rewritten once the author lands.
+            this.author();
 
             // Update SEO meta tags when content is available
             if (content && !isLoading && !isCheckingDraft) {
@@ -729,7 +906,15 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         }
 
         // Subscribe to stores to load data
-        this.subscribeToData(this.contentTypesStore);
+        // Only the type this page is for. One equality query on `slug`
+        // (ordered by the same field, so no composite index is needed) instead
+        // of the store's default first page of ten ordered by createdAt, which
+        // silently dropped the oldest types on sites with more than ten.
+        this.subscribeToData(this.contentTypesStore, {
+            whereConditions: [{ field: 'slug', operator: '==', value: typeSlug }],
+            orderByField: { field: 'slug', direction: 'asc' },
+            limitCount: 1,
+        });
         // Load published contents from the per-type collection
         this.contentsStore.getAll(undefined, typeSlug || undefined);
     }
@@ -750,10 +935,43 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     ngOnDestroy(): void {
         // The next page may have no variants at all.
         this.localization.languageVariants.set(null);
+        // Nor the same structured data: the home page writes its own site nodes.
+        for (const id of ['arc-ld-organization', 'arc-ld-website', 'arc-ld-breadcrumbs', 'arc-ld-article']) {
+            setJsonLd(this.document, id, null);
+        }
+        for (let i = 0; i < MAX_BLOCK_NODES; i++) setJsonLd(this.document, `arc-ld-block-${i}`, null);
         if (this.notFoundTimer !== null) {
             clearTimeout(this.notFoundTimer);
             this.notFoundTimer = null;
         }
+    }
+
+    /**
+     * "Updated {date}" text, or '' unless `updatedOn` is later than the publish
+     * date. Same rule as the static renderer (docs/discoverability-spec.md, D-D3).
+     */
+    updatedOnDisplay = computed(() => {
+        const content = this.currentContent();
+        if (!content) return '';
+        const dates = resolveContentDates(content);
+        return dates.isUpdated ? this.formatContentDate(content.updatedOn) : '';
+    });
+
+    /** `author.*` bindings and `authorName` for custom templates; empty without an author. */
+    private authorTemplateData(): { author: Record<string, string>; authorName: string } {
+        const author = this.author();
+        const name = author?.name || this.currentContent()?.authorName || '';
+        if (!name) return { author: {}, authorName: '' };
+        return {
+            author: {
+                name,
+                bio: author?.bio || '',
+                photoUrl: author?.photoUrl || '',
+                jobTitle: author?.jobTitle || '',
+                url: author?.url || '',
+            },
+            authorName: name,
+        };
     }
 
     formatContentDate(date: any): string {
@@ -856,6 +1074,118 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         if (content.coverImage) {
             this.metaService.updateTag({ name: 'twitter:image', content: content.coverImage });
         }
+
+        this.updateStructuredData(content, pageTitle || '', pageUrl);
+    }
+
+    /**
+     * The same JSON-LD the static page carries (docs/discoverability-spec.md,
+     * D1), mirrored from functions/src/pages/deployContentPage.ts. The SPA
+     * fallback only serves pages that have no static file yet, so this exists
+     * for parity, not as the primary path. Identity arrives asynchronously;
+     * the nodes are written once without it and rewritten when it lands.
+     */
+    private updateStructuredData(content: IContents, pageTitle: string, pageUrl: string): void {
+        const write = () => {
+            const identity = this.siteIdentity.identity();
+            const author = this.author();
+            const origin = this.pageOrigin();
+            const baseUrl = (identity.finalUrl || origin).replace(/\/+$/, '');
+            const lang = this.pageLang() || this.localization.defaultLanguage();
+            const prefix = this.pageLang() ? `/${this.pageLang()}` : '';
+            const siteName = identity.name || this.document.title || '';
+            const typeName = this.typeName();
+
+            const organization = buildOrganization({
+                name: identity.name || siteName,
+                url: baseUrl,
+                logoUrl: identity.logoUrl,
+                description: identity.description,
+                sameAs: identity.sameAs,
+                contactEmail: identity.contactEmail,
+                address: identity.address,
+                organizationType: identity.organizationType,
+            });
+            const publisherId = organization ? organizationId(baseUrl) : undefined;
+            const webSite = buildWebSite(
+                {
+                    name: siteName,
+                    url: baseUrl,
+                    description: identity.description,
+                    inLanguage: lang,
+                    searchUrlTemplate: `${baseUrl}${prefix}/search?q={search_term_string}`,
+                },
+                publisherId,
+            );
+            const breadcrumbs = buildBreadcrumbList([
+                { name: siteName || baseUrl, url: `${baseUrl}${prefix}/` },
+                { name: typeName, url: `${baseUrl}${prefix}/${this.contentTypeSlug()}` },
+                { name: content.title || pageTitle, url: pageUrl },
+            ]);
+            const dates = resolveContentDates(content);
+            const blocks = extractBlocks(content.content || '');
+            const references = cleanReferences(content.references);
+            // The page's main node: the content type's mapped schema.org type,
+            // or Article (D-D12). Mirrors deployContentPage.ts.
+            const contentType = this.currentContentType();
+            const article = buildMappedNode({
+                schema: contentType?.schema,
+                customFields: ((content as any).customFields as Record<string, unknown>) || {},
+                ownerName: identity.name || siteName,
+                publisherId,
+                howTo: blocks.howTos[0] ?? null,
+                article: {
+                url: pageUrl,
+                headline: content.title || pageTitle,
+                description: content.metaDescription || content.summary || '',
+                imageUrl: content.coverImage || '',
+                datePublished: dates.published,
+                dateModified: dates.modified,
+                inLanguage: lang,
+                keywords: content.tags || [],
+                articleSection: (content.categoryNameArr || [])[0] || typeName,
+                wordCount: countWords(content.content || ''),
+                abstract: abstractFromTakeaways(blocks.takeaways),
+                citations: references,
+                author: author
+                    ? {
+                        name: author.name,
+                        url: author.url || undefined,
+                        imageUrl: author.photoUrl || undefined,
+                        description: author.bio || undefined,
+                        jobTitle: author.jobTitle || undefined,
+                        sameAs: author.sameAs,
+                    }
+                    : content.authorName
+                        ? { name: content.authorName }
+                        : undefined,
+                publisherId,
+                },
+            });
+
+            setJsonLd(this.document, 'arc-ld-organization', organization);
+            setJsonLd(this.document, 'arc-ld-website', webSite);
+            setJsonLd(this.document, 'arc-ld-breadcrumbs', breadcrumbs);
+            setJsonLd(this.document, 'arc-ld-article', article);
+            // Block-derived nodes (D-D10): one script per node, cleared first
+            // so a page with fewer blocks than the last one leaves none behind.
+            const blockNodes = blockJsonLd(blocks, pageUrl).filter(
+                node => !(article?.['@type'] === 'HowTo' && node['@type'] === 'HowTo'),
+            );
+            for (let i = 0; i < MAX_BLOCK_NODES; i++) {
+                setJsonLd(this.document, `arc-ld-block-${i}`, blockNodes[i] ?? null);
+            }
+        };
+
+        write();
+        // Firestore is not reachable during prerendering; only rewrite in the browser.
+        if (isPlatformBrowser(this.platformId)) {
+            this.siteIdentity.load().then(write).catch(() => undefined);
+        }
+    }
+
+    private pageOrigin(): string {
+        return isPlatformBrowser(this.platformId) ? window.location.origin : '';
     }
 
     /**
@@ -876,6 +1206,17 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
      */
     private loadCustomTemplate(contentType: ContentType, content: IContents): void {
         const templateFolder = contentType.templateFolder;
+
+        // Decided once per folder: the effect that calls this re-runs while
+        // useCustomTemplate stays false, and a rejected folder would be
+        // fetched again on every run.
+        if (templateFolder && templateFolder === this.rejectedTemplateFolder) {
+            this.useCustomTemplate.set(false);
+            return;
+        }
+        // One request per folder at a time; the effect can re-run several
+        // times before the first response lands.
+        if (templateFolder && templateFolder === this.pendingTemplateFolder) return;
 
         // Skip if using default template
         if (!templateFolder || templateFolder === 'default') {
@@ -901,15 +1242,31 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         if (this.transferState.hasKey(stateKey)) {
             const cachedHtml = this.transferState.get(stateKey, '');
             this.transferState.remove(stateKey);
+            if (!isTemplateFragment(cachedHtml)) {
+                this.useCustomTemplate.set(false);
+                return;
+            }
             this.hydrateAndSetTemplate(cachedHtml, contentType, content);
             return;
         }
 
+        this.pendingTemplateFolder = templateFolder;
         this.http.get(templateUrl, { responseType: 'text' }).subscribe({
             next: (templateHtml) => {
+                this.pendingTemplateFolder = null;
+                // A missing template folder answers with the SPA shell (HTTP
+                // 200, the 404 page); that is not a template. Fall back to
+                // the built-in layout instead of rendering a 404 inside the page.
+                if (!isTemplateFragment(templateHtml)) {
+                    console.warn(`[ContentDetailComponent] /templates/${templateFolder}/detail.html is not a template fragment; using the default layout.`);
+                    this.rejectedTemplateFolder = templateFolder;
+                    this.useCustomTemplate.set(false);
+                    return;
+                }
                 this.hydrateAndSetTemplate(templateHtml, contentType, content);
             },
             error: (error) => {
+                this.pendingTemplateFolder = null;
                 console.warn('[ContentDetailComponent] Failed to load custom template:', error.message);
                 this.useCustomTemplate.set(false);
             }
@@ -919,7 +1276,16 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     /**
      * Hydrate template HTML with content data and set it for rendering
      */
-    private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, content: IContents): void {
+    /** A template folder whose file turned out not to be a template; never fetched twice. */
+    private rejectedTemplateFolder: string | null = null;
+    /** The folder whose template request is in flight. */
+    private pendingTemplateFolder: string | null = null;
+
+    /** The last custom template as loaded, so it can be re-hydrated when the author arrives. */
+    private lastTemplate: { html: string; contentType: ContentType; content: IContents } | null = null;
+
+    private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, content: IContents, runScripts = true): void {
+        this.lastTemplate = { html: templateHtml, contentType, content };
         // Prepare next/previous content objects
         const nextContent = content.nextContent ? {
             ...content.nextContent,
@@ -958,9 +1324,18 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             ...content, // Spread content fields (title, content, tags, etc.)
             publishedOn: this.formatContentDate(content.publishedOn),
             date: this.formatContentDate(content.publishedOn),    // alias: {{ date }}
+            // Mirrors deployContentPage.ts: shown only for a real revision (D-D3).
+            updatedOn: this.updatedOnDisplay(),
+            updatedOnDisplay: this.updatedOnDisplay(),
             readTime: this.getReadTime(),
             readingTime: `${this.getReadTime()} min read`,        // alias: {{ readingTime }}
             ...((content as any).customFields || {}),
+            // After custom fields, mirroring deployContentPage.ts (D2, D-D11).
+            ...this.authorTemplateData(),
+            references: this.references(),
+            hasReferences: this.references().length > 0,
+            related: this.related(),
+            hasRelated: this.related().length > 0,
         };
 
         // Add share object (nested for hydration)
@@ -995,6 +1370,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                 ['tags', 'items'],
                 this.contentTypeSlug(),
             ),
+            references: this.references(),
+            related: this.related(),
             tags: tagsData
         });
 
@@ -1004,8 +1381,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         this.templateHtml.set(hydratedHtml);
         this.useCustomTemplate.set(true);
         
-        // Execute scripts after view update (browser only)
-        if (isPlatformBrowser(this.platformId)) {
+        // Execute scripts after view update (browser only). Skipped on a
+        // re-hydration: the scripts already ran against this page.
+        if (runScripts && isPlatformBrowser(this.platformId)) {
             setTimeout(() => this.runTemplateScripts(), 0);
         }
     }

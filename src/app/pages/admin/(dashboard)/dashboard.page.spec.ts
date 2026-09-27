@@ -135,6 +135,12 @@ describe('DashboardComponent', () => {
         fixture.detectChanges();
     });
 
+    it('loads every content type through the store default, not the ten-row page helper', () => {
+        // getAll() with no arguments uses the store's own limit (0 = no limit);
+        // any limitCount here would reintroduce the "oldest types missing" bug.
+        expect(mockContentTypesStore.getAll).toHaveBeenCalledWith();
+    });
+
     it('should create', () => {
         expect(component).toBeTruthy();
     });
