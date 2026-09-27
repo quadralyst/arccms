@@ -46,6 +46,16 @@ CALLABLES=(
   createAccountRecord refreshMyClaims deleteMyAccount
 )
 
+# The app's callables (functions/src/custom/public-callables.txt, docs/custom-code.md),
+# deployed as arccms-custom-<name>.
+CUSTOM_LIST="$(dirname "$0")/../src/custom/public-callables.txt"
+if [ -f "$CUSTOM_LIST" ]; then
+  while IFS= read -r line; do
+    name="$(printf '%s' "$line" | sed 's/#.*//' | tr -d '[:space:]')"
+    [ -n "$name" ] && CALLABLES+=("custom-$name")
+  done < "$CUSTOM_LIST"
+fi
+
 blocked=()
 missing=()
 # Any positional arguments narrow the check to just those functions.

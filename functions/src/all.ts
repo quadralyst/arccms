@@ -177,3 +177,7 @@ export { regenerateSeoFiles } from './pages/regenerateSeoFiles.js';
 export * from './search/onAnyDocumentWritten.js';
 export * from './search/reindexSearch.js';
 export * from './search/search.js';
+
+// The app's own functions (functions/src/custom, docs/custom-code.md), deployed
+// as arccms-custom-<name>, so they can never collide with a core function.
+export * as custom from './custom/index.js';

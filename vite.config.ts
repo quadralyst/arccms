@@ -39,6 +39,8 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       analog({
+        // The app's own file-based pages (docs/custom-code.md), next to src/app/pages.
+        additionalPagesDirs: ['/src/custom/pages'],
         // ssr: true enables build-time prerendering (SSG) — no runtime server is deployed.
         // The server bundle is built but never referenced in firebase.json.
         ssr: true,

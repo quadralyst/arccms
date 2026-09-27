@@ -10,6 +10,7 @@
     "start": "npm run dev",
     "export-indexes": "mkdir -p .arc-build && firebase firestore:indexes --database=\"$(node scripts/arc-install-config.mjs --database-id)\" > .arc-build/live.indexes.json && node scripts/arc-rules-build.mjs --split-indexes .arc-build/live.indexes.json",
     "rules:build": "node scripts/arc-rules-build.mjs",
+    "check:core": "node scripts/check-core.mjs",
     "build": "vite build && cp dist/client/index.html dist/analog/public/__shell.html",
     "test": "vitest",
     "test:rules": "node scripts/arc-rules-build.mjs && firebase emulators:exec --only firestore,storage --project demo-arccms-rules 'vitest run --config vitest.rules.config.ts'",

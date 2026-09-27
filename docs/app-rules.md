@@ -77,5 +77,5 @@ listed in the app file, so app indexes never move into Arc CMS's file.
 `npm run test:rules` builds the combined files and runs every spec in `tests/rules/`
 against the Firestore and Storage emulators (it needs Java 21). The core specs load
 `.arc-build/firestore.rules` and `.arc-build/storage.rules`, so app specs placed in
-`tests/rules/` (for example `tests/rules/app.firestore.spec.ts`) test the app rules
-together with the core ones, in the same way.
+`tests/rules/custom/` (for example `tests/rules/custom/children.spec.ts`) test the app
+rules together with the core ones, in the same way.

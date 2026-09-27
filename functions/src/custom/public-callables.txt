@@ -1,0 +1,3 @@
+# The app's callables, one plain name per line (without the custom- prefix).
+# The post-deploy check (functions/scripts/check-callable-access.sh) makes sure
+# each is publicly invocable, as it does for the core callables.

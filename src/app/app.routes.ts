@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { roleGuard } from './guards/role.guard';
 import { languageRouteGuard } from './guards/language.guard';
 import { userGuard, entitledGuard } from './pages/user/user.guards';
+import { CUSTOM_ROUTES } from '../custom/routes';
 
 export const routes: Routes = [
   // AnalogJS file-based routes handle /admin/* automatically via .page.ts files
@@ -580,4 +581,8 @@ export const routes: Routes = [
       import('./pages/page.parts/content-list.component').then((m) => m.ContentListComponent),
   },
 
+  // The app's own routes (src/custom/routes.ts, docs/custom-code.md). After every
+  // core route, so an app page never replaces a core one by accident; still
+  // ahead of the file-based pages, which Analog adds after these.
+  ...CUSTOM_ROUTES,
 ];
