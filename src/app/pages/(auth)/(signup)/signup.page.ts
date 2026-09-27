@@ -93,6 +93,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   newPin = signal('');
   /** The PIN locked after too many wrong tries. */
   pinLocked = signal(false);
+  /** Test SMS provider only: the code that was not sent, shown under the boxes. */
+  testCode = signal('');
 
   private codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
   private pinBoxes = viewChild<CodeInputComponent>('pinBoxes');
@@ -442,8 +444,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
     try {
       if (this.channel() === 'phone') {
-        await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose());
-        this.toastService.success('Code sent by SMS');
+        this.testCode.set('');
+        const reply = await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose());
+        this.testCode.set(reply.testCode ?? '');
+        if (!reply.testCode) this.toastService.success('Code sent by SMS');
       } else {
         const name = this.registrationForm.get('name')?.value || undefined;
         const callable = arcCallable(this.functions, 'requestSignupOtp');
@@ -476,6 +480,11 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.otpError.set('');
     this.codeBoxes()?.reset();
     void this.sendOtp();
+  }
+
+  /** Test mode: put the shown code in the boxes, which verifies it. */
+  useTestCode(): void {
+    this.codeBoxes()?.fill(this.testCode());
   }
 
   /** The code boxes: verify on the last digit, or on the Verify button. */
@@ -685,6 +694,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   /** Back to the first step, keeping what was typed. */
   changeIdentifier(): void {
+    this.testCode.set('');
     clearInterval(this.countdownInterval);
     this.resendCountdown.set(0);
     this.goToStep('request');

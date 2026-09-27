@@ -97,6 +97,11 @@ export class CodeInputComponent {
         setTimeout(() => this.focus(0));
     }
 
+    /** Put a whole code in the boxes, as if pasted (fires `completed`). */
+    fill(code: string): void {
+        this.fillFrom(0, code.replace(/\D/g, ''));
+    }
+
     focus(index = 0): void {
         this.boxes()[index]?.nativeElement.focus();
     }

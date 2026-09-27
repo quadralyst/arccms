@@ -75,7 +75,8 @@ export class SignInService {
         return this.call('checkPhoneAccount', { phone });
     }
 
-    requestPhoneCode(phone: string, purpose: PhoneOtpPurpose): Promise<{ sent: boolean }> {
+    /** `testCode` comes back only with the Test SMS provider, where nothing is sent. */
+    requestPhoneCode(phone: string, purpose: PhoneOtpPurpose): Promise<{ sent: boolean; testCode?: string }> {
         return this.call('requestPhoneOtp', { phone, purpose });
     }
 

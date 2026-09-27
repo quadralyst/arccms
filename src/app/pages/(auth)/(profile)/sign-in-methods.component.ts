@@ -132,6 +132,11 @@ interface Flow {
                         <div class="small text-muted mb-2">Enter the 6-digit code sent to <strong>{{ shownValue() }}</strong></div>
                         <arc-code-input #codeBoxes label="Verification code" [disabled]="busy()" [invalid]="!!error()"
                             (completed)="verifyCode($event)" />
+                        @if (testCode()) {
+                            <button type="button" class="btn btn-sm test-code mt-2" (click)="codeBoxes()?.fill(testCode())" [disabled]="busy()">
+                                Test mode, no SMS sent. Your code: <strong>{{ testCode() }}</strong> (tap to use)
+                            </button>
+                        }
                     }
                     @case ('secret') {
                         @if (f.kind === 'phone') {
@@ -183,6 +188,7 @@ interface Flow {
         .verified-badge { color: #10b981; font-size: 0.85rem; font-weight: 500; }
         .edit-form { margin-top: 0.5rem; }
         .edit-actions { display: flex; gap: 0.5rem; margin-top: 1rem; align-items: center; }
+        .test-code { border: 1px dashed #f59e0b; background: #fffbeb; color: #92400e; }
         .move-note { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.5rem 0.75rem; }
         @media (max-width: 576px) { .form-control { font-size: 16px; } }
     `],
@@ -208,8 +214,10 @@ export class SignInMethodsComponent implements OnInit {
     readonly message = signal('');
     /** The PIN or password being chosen. */
     readonly secret = signal('');
+    /** Test SMS provider only: the code that was not sent. */
+    readonly testCode = signal('');
 
-    private readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
+    readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
 
     readonly shownValue = computed(() => {
         const f = this.flow();
@@ -245,6 +253,7 @@ export class SignInMethodsComponent implements OnInit {
         this.error.set('');
         this.message.set('');
         this.secret.set('');
+        this.testCode.set('');
         this.busy.set(false);
     }
 
@@ -299,10 +308,14 @@ export class SignInMethodsComponent implements OnInit {
         });
     }
 
-    private requestCode(check: LinkCheck): Promise<unknown> {
-        return check.kind === 'email'
-            ? this.signIn.requestEmailLinkCode(check.value)
-            : this.signIn.requestPhoneCode(check.value, 'link');
+    private async requestCode(check: LinkCheck): Promise<void> {
+        this.testCode.set('');
+        if (check.kind === 'email') {
+            await this.signIn.requestEmailLinkCode(check.value);
+            return;
+        }
+        const reply = await this.signIn.requestPhoneCode(check.value, 'link');
+        this.testCode.set(reply.testCode ?? '');
     }
 
     /** The code boxes: verify on the last digit, or on the Verify button. */

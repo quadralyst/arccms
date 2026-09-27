@@ -440,6 +440,38 @@ describe('SignupComponent', () => {
         });
     });
 
+    describe('sendOtp in test mode', () => {
+        const sendOtp = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => Promise<void>>)['sendOtp'];
+
+        function ctx(testCode?: string) {
+            let shown = '';
+            return {
+                channel: () => 'phone',
+                phone: () => '+919876543210',
+                phonePurpose: () => 'signup',
+                otpError: { set: vi.fn() },
+                testCode: Object.assign(() => shown, { set: (v: string) => (shown = v) }),
+                toastService: { success: vi.fn() },
+                startCountdown: vi.fn(),
+                signIn: { requestPhoneCode: vi.fn().mockResolvedValue({ sent: true, ...(testCode ? { testCode } : {}) }) },
+            };
+        }
+
+        it('shows the code the Test provider did not send', async () => {
+            const c = ctx('482913');
+            await sendOtp.call(c);
+            expect(c.testCode()).toBe('482913');
+            expect(c.toastService.success).not.toHaveBeenCalled();
+        });
+
+        it('shows nothing with a real provider, just "sent"', async () => {
+            const c = ctx();
+            await sendOtp.call(c);
+            expect(c.testCode()).toBe('');
+            expect(c.toastService.success).toHaveBeenCalledWith('Code sent by SMS');
+        });
+    });
+
     describe('signInWithPin', () => {
         const signInWithPin = (SignupComponent.prototype as unknown as Record<string, (this: unknown, pin?: string) => Promise<void>>)['signInWithPin'];
 

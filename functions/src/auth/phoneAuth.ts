@@ -3,7 +3,8 @@
  * after that. Every step is public (before sign-in) and rate limited.
  *
  *   checkPhoneAccount    is this number registered, and does it have a PIN?
- *   requestPhoneOtp      send a code (signup, reset or link)
+ *   requestPhoneOtp      send a code (signup, reset or link); with the Test
+ *                        provider the reply carries the code, as no SMS is sent
  *   verifyPhoneOtp       check the code
  *   completePhoneSignup  new number: name and PIN, creates the account
  *   signInWithPin        registered number: the PIN
@@ -95,9 +96,10 @@ export const requestPhoneOtp = onCall(async (request) => {
 
     await consumeRateLimit(`otp-ip-${callerKey(request)}`, 20, HOUR, TOO_MANY);
     await consumeRateLimit(`otp-phone-${phoneHash(phone)}`, 5, HOUR, 'Too many codes for this number. Please try again in an hour.');
-    await issuePhoneOtp(phone, purpose, sms, uid);
+    const { testCode } = await issuePhoneOtp(phone, purpose, sms, uid);
     logger.info(`requestPhoneOtp: ${purpose} code sent to ${maskPhone(phone)}.`);
-    return { sent: true, phone };
+    // Test provider: no SMS goes out, so the page shows the code (Settings, SMS warns admins).
+    return { sent: true, phone, ...(testCode ? { testCode } : {}) };
 });
 
 export const verifyPhoneOtp = onCall(async (request) => {

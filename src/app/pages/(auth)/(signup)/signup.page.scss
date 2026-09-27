@@ -602,3 +602,29 @@ input:focus {
     margin: 6px auto 0;
     text-decoration: none;
 }
+
+/* Test SMS provider: the code shown instead of sent */
+.test-code {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: 14px;
+    padding: 8px 12px;
+    border: 1px dashed #f59e0b;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 0.875rem;
+
+    strong {
+        font-size: 1.1rem;
+        letter-spacing: 0.15em;
+    }
+
+    .test-code-hint {
+        text-decoration: underline;
+    }
+}

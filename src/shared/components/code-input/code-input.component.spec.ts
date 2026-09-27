@@ -73,6 +73,13 @@ describe('CodeInputComponent', () => {
         expect(component.value()).toBe('4');
     });
 
+    it('fill puts a whole code in and completes (the test-mode code)', () => {
+        const { boxes, completed, component } = setup();
+        component.fill('482913');
+        expect(boxes().map((b) => b.value).join('')).toBe('482913');
+        expect(completed).toHaveBeenCalledWith('482913');
+    });
+
     it('reset empties the boxes', () => {
         const { boxes, component, fixture } = setup();
         paste(boxes()[0], '482913');

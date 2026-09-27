@@ -39,13 +39,17 @@ export function otpSmsText(code: string): string {
     return `${code} is your verification code. It expires in 10 minutes. Do not share it with anyone.`;
 }
 
-/** Create a code for this number and send it. Throws when throttled or when the SMS fails. */
+/**
+ * Create a code for this number and send it. Throws when throttled or when the
+ * SMS fails. Returns the code only with the Test (log) provider, where nothing
+ * is sent and the sign-in page shows it instead.
+ */
 export async function issuePhoneOtp(
     e164: string,
     purpose: PhoneOtpPurpose,
     settings: SmsSettings,
     uid?: string,
-): Promise<void> {
+): Promise<{ testCode?: string }> {
     const key = phoneHash(e164);
     const ref = db.collection(PHONE_OTPS).doc(key);
     const now = Date.now();
@@ -74,6 +78,7 @@ export async function issuePhoneOtp(
         await ref.delete();
         throw new HttpsError('unavailable', "We couldn't send the SMS. Please try again in a moment.");
     }
+    return result.status === 'logged' ? { testCode: code } : {};
 }
 
 /** Check a code and mark it verified. */

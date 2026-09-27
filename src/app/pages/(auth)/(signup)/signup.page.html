@@ -237,6 +237,14 @@
                                 <arc-code-input #codeBoxes label="Verification code" [disabled]="isLoading()"
                                     [invalid]="!!otpError()" (completed)="verifyOtp($event)"></arc-code-input>
 
+                                @if (testCode()) {
+                                <button type="button" class="test-code" (click)="useTestCode()" [disabled]="isLoading()">
+                                    <span class="test-code-label">Test mode, no SMS sent. Your code:</span>
+                                    <strong>{{ testCode() }}</strong>
+                                    <span class="test-code-hint">Tap to use</span>
+                                </button>
+                                }
+
                                 @if (otpError()) {
                                 <div class="text-danger mt-2 text-center">
                                     {{ otpError() }}

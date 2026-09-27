@@ -87,6 +87,27 @@ describe('checkPhoneAccount', () => {
     });
 });
 
+describe('test mode', () => {
+    it('returns the code with the Test provider, since no SMS is sent', async () => {
+        const reply = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        expect(reply.testCode).toMatch(/^\d{6}$/);
+        expect(reply.testCode).toBe(lastCode());
+    });
+
+    it('never returns the code with a real provider', async () => {
+        mem.seed('Settings', 'sms', { provider: 'msg91', msg91AuthKey: 'k', msg91OtpTemplateId: 't' });
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ type: 'success', request_id: 'r1' }) });
+        vi.stubGlobal('fetch', fetchMock);
+        try {
+            const reply = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+            expect(reply).toEqual({ sent: true, phone: E164 });
+            expect(fetchMock).toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+});
+
 describe('sign-up with a new number', () => {
     it('creates the login, the record, the index and a hashed PIN, and signs in', async () => {
         const token = await signUp('246810');
