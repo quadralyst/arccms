@@ -133,7 +133,7 @@ interface Flow {
                         <arc-code-input #codeBoxes label="Verification code" [disabled]="busy()" [invalid]="!!error()"
                             (completed)="verifyCode($event)" />
                         @if (testCode()) {
-                            <button type="button" class="btn btn-sm test-code mt-2" (click)="codeBoxes()?.fill(testCode())" [disabled]="busy()">
+                            <button type="button" class="btn btn-sm test-code mt-2" (click)="useTestCode()" [disabled]="busy()">
                                 Test mode, no SMS sent. Your code: <strong>{{ testCode() }}</strong> (tap to use)
                             </button>
                         }
@@ -217,7 +217,7 @@ export class SignInMethodsComponent implements OnInit {
     /** Test SMS provider only: the code that was not sent. */
     readonly testCode = signal('');
 
-    readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
+    private readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
 
     readonly shownValue = computed(() => {
         const f = this.flow();
@@ -316,6 +316,11 @@ export class SignInMethodsComponent implements OnInit {
         }
         const reply = await this.signIn.requestPhoneCode(check.value, 'link');
         this.testCode.set(reply.testCode ?? '');
+    }
+
+    /** Test mode: put the shown code in the boxes, which verifies it. */
+    useTestCode(): void {
+        this.codeBoxes()?.fill(this.testCode());
     }
 
     /** The code boxes: verify on the last digit, or on the Verify button. */

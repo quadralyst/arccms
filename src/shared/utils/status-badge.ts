@@ -27,6 +27,8 @@ const TONE_BY_STATUS: Record<string, BadgeTone> = {
 
     // queued / transient
     queued: 'is-info',
+    // Test SMS provider: recorded, deliberately not sent.
+    logged: 'is-info',
     sending: 'is-info',
     draft: 'is-info',
 

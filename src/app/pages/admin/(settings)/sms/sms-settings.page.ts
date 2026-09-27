@@ -1,24 +1,31 @@
 /**
- * Settings, SMS: the provider for text messages (phone sign-in codes), a test
- * send, and the recent messages. With the default Test provider nothing is
- * sent and every code can be read in Recent messages.
+ * Settings, SMS: the provider for text messages (phone sign-in codes) and a
+ * test send. With the default Test provider nothing is sent: the sign-in page
+ * shows each code, and every message is in Email + SMS, SMS Logs.
  */
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { injectT } from '../../../../core/i18n/inject-t';
-import { DEFAULT_SMS_FORM, SmsLogRow, SmsSettingsForm, SmsSettingsService } from './sms-settings.service';
+import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-settings.service';
 
 @Component({
     selector: 'arc-sms-settings',
     standalone: true,
-    imports: [FormsModule, TranslocoPipe, DatePipe],
+    imports: [FormsModule, TranslocoPipe, RouterLink],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="settings-section">
             <h3 class="mb-2">{{ 'admin.settings.sms.title' | transloco }}</h3>
             <p class="text-muted mb-4">{{ 'admin.settings.sms.intro' | transloco }}</p>
+
+            @if (form().provider === 'log') {
+                <div class="alert alert-warning d-flex gap-2 align-items-start">
+                    <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+                    <span>{{ 'admin.settings.sms.test_mode_warning' | transloco }}</span>
+                </div>
+            }
 
             <div class="mb-3">
                 <label class="form-label" for="smsProvider">{{ 'admin.settings.sms.provider' | transloco }}</label>
@@ -86,42 +93,10 @@ import { DEFAULT_SMS_FORM, SmsLogRow, SmsSettingsForm, SmsSettingsService } from
                 <small class="d-block mt-2" [class.text-danger]="testFailed()" [class.text-success]="!testFailed()">{{ testMessage() }}</small>
             }
 
-            <hr class="my-4" />
 
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <h4 class="mb-0">{{ 'admin.settings.sms.logs_title' | transloco }}</h4>
-                <button class="btn btn-sm btn-light" (click)="loadLogs()" [disabled]="loadingLogs()">
-                    <i class="fas fa-rotate me-1"></i> {{ 'admin.settings.sms.logs_refresh' | transloco }}
-                </button>
-            </div>
-            @if (logs().length === 0) {
-                <p class="text-muted">{{ 'admin.settings.sms.logs_empty' | transloco }}</p>
-            } @else {
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle logs">
-                        <thead>
-                            <tr>
-                                <th>{{ 'admin.settings.sms.col_time' | transloco }}</th>
-                                <th>{{ 'admin.settings.sms.col_to' | transloco }}</th>
-                                <th>{{ 'admin.settings.sms.col_message' | transloco }}</th>
-                                <th>{{ 'admin.settings.sms.col_status' | transloco }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @for (log of logs(); track log.id) {
-                                <tr>
-                                    <td class="text-nowrap small">{{ log.createdAt | date: 'd MMM, HH:mm' }}</td>
-                                    <td class="text-nowrap small">{{ log.to }}</td>
-                                    <td class="small">{{ log.text }}
-                                        @if (log.error) { <div class="text-danger">{{ log.error }}</div> }
-                                    </td>
-                                    <td><span [class]="'badge status-' + log.status">{{ ('admin.settings.sms.status_' + log.status) | transloco }}</span></td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
+            <p class="mt-4 mb-0">
+                <a routerLink="/admin/sms-logs"><i class="fa-solid fa-comment-sms me-1"></i>{{ 'admin.settings.sms.logs_link' | transloco }}</a>
+            </p>
         </div>
     `,
     styles: [`
@@ -129,10 +104,6 @@ import { DEFAULT_SMS_FORM, SmsLogRow, SmsSettingsForm, SmsSettingsService } from
         h3 { font-size: 1.25rem; font-weight: 600; color: #212529; }
         h4 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
         .test-row { max-width: 420px; }
-        .logs td { vertical-align: top; }
-        .status-logged { background: #e7f1ff; color: #0b5ed7; }
-        .status-sent { background: #d1fae5; color: #065f46; }
-        .status-failed { background: #fee2e2; color: #991b1b; }
     `],
 })
 export class SmsSettingsPage implements OnInit {
@@ -149,15 +120,11 @@ export class SmsSettingsPage implements OnInit {
     readonly testMessage = signal('');
     readonly testFailed = signal(false);
 
-    readonly logs = signal<SmsLogRow[]>([]);
-    readonly loadingLogs = signal(false);
-
     ngOnInit(): void {
         this.service.load().then(({ form, hasAuthKey }) => {
             this.form.set(form);
             this.hasAuthKey.set(hasAuthKey);
         }).catch((err) => console.error('SMS settings: load failed', err));
-        void this.loadLogs();
     }
 
     update<K extends keyof SmsSettingsForm>(key: K, value: SmsSettingsForm[K]): void {
@@ -196,18 +163,6 @@ export class SmsSettingsPage implements OnInit {
             this.testMessage.set(this.t('admin.settings.sms.test_failed', { error: err?.message ?? '' }));
         } finally {
             this.testing.set(false);
-            void this.loadLogs();
-        }
-    }
-
-    async loadLogs(): Promise<void> {
-        this.loadingLogs.set(true);
-        try {
-            this.logs.set(await this.service.recentLogs());
-        } catch (err) {
-            console.error('SMS settings: logs failed', err);
-        } finally {
-            this.loadingLogs.set(false);
         }
     }
 }

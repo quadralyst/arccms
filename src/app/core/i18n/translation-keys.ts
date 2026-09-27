@@ -558,6 +558,7 @@ export type TranslationKey =
     | 'admin.nav.profile'
     | 'admin.nav.settings'
     | 'admin.nav.signup_forms'
+    | 'admin.nav.sms_logs'
     | 'admin.nav.tags'
     | 'admin.nav.transactions'
     | 'admin.nav.users'
@@ -1136,9 +1137,7 @@ export type TranslationKey =
     | 'admin.settings.sms.default_country'
     | 'admin.settings.sms.default_country_hint'
     | 'admin.settings.sms.intro'
-    | 'admin.settings.sms.logs_empty'
-    | 'admin.settings.sms.logs_refresh'
-    | 'admin.settings.sms.logs_title'
+    | 'admin.settings.sms.logs_link'
     | 'admin.settings.sms.msg91_auth_key'
     | 'admin.settings.sms.msg91_auth_key_hint'
     | 'admin.settings.sms.msg91_template'
@@ -1153,6 +1152,7 @@ export type TranslationKey =
     | 'admin.settings.sms.status_sent'
     | 'admin.settings.sms.test_failed'
     | 'admin.settings.sms.test_logged'
+    | 'admin.settings.sms.test_mode_warning'
     | 'admin.settings.sms.test_phone'
     | 'admin.settings.sms.test_send'
     | 'admin.settings.sms.test_sent'
@@ -1184,6 +1184,19 @@ export type TranslationKey =
     | 'admin.settings.user.sms_settings_link'
     | 'admin.settings.user.subtitle'
     | 'admin.settings.user.title'
+    | 'admin.sms_logs.col_provider'
+    | 'admin.sms_logs.col_purpose'
+    | 'admin.sms_logs.empty_description'
+    | 'admin.sms_logs.empty_title'
+    | 'admin.sms_logs.provider_test'
+    | 'admin.sms_logs.purpose_otp'
+    | 'admin.sms_logs.purpose_test'
+    | 'admin.sms_logs.refresh'
+    | 'admin.sms_logs.settings'
+    | 'admin.sms_logs.status'
+    | 'admin.sms_logs.status_all'
+    | 'admin.sms_logs.subtitle'
+    | 'admin.sms_logs.title'
     | 'admin.transactions.col_amount'
     | 'admin.transactions.col_customer'
     | 'admin.transactions.col_date'
@@ -1897,6 +1910,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.profile',
     'admin.nav.settings',
     'admin.nav.signup_forms',
+    'admin.nav.sms_logs',
     'admin.nav.tags',
     'admin.nav.transactions',
     'admin.nav.users',
@@ -2475,9 +2489,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.sms.default_country',
     'admin.settings.sms.default_country_hint',
     'admin.settings.sms.intro',
-    'admin.settings.sms.logs_empty',
-    'admin.settings.sms.logs_refresh',
-    'admin.settings.sms.logs_title',
+    'admin.settings.sms.logs_link',
     'admin.settings.sms.msg91_auth_key',
     'admin.settings.sms.msg91_auth_key_hint',
     'admin.settings.sms.msg91_template',
@@ -2492,6 +2504,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.sms.status_sent',
     'admin.settings.sms.test_failed',
     'admin.settings.sms.test_logged',
+    'admin.settings.sms.test_mode_warning',
     'admin.settings.sms.test_phone',
     'admin.settings.sms.test_send',
     'admin.settings.sms.test_sent',
@@ -2523,6 +2536,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.user.sms_settings_link',
     'admin.settings.user.subtitle',
     'admin.settings.user.title',
+    'admin.sms_logs.col_provider',
+    'admin.sms_logs.col_purpose',
+    'admin.sms_logs.empty_description',
+    'admin.sms_logs.empty_title',
+    'admin.sms_logs.provider_test',
+    'admin.sms_logs.purpose_otp',
+    'admin.sms_logs.purpose_test',
+    'admin.sms_logs.refresh',
+    'admin.sms_logs.settings',
+    'admin.sms_logs.status',
+    'admin.sms_logs.status_all',
+    'admin.sms_logs.subtitle',
+    'admin.sms_logs.title',
     'admin.transactions.col_amount',
     'admin.transactions.col_customer',
     'admin.transactions.col_date',

@@ -362,6 +362,21 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin SMS Logs Route (Email + SMS menu): every text message, like Email Logs.
+  {
+    path: 'admin/sms-logs',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(sms-logs)/sms-logs.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin Email Routes (Brand Kit, Composer, Broadcasts, Drip Campaigns, Announcements)
   // Nested under a shared /admin/email/* prefix so the sidebar's Email submenu
   // maps to real, matching routes instead of scattered top-level paths.

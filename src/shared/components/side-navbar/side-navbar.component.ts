@@ -158,7 +158,7 @@ export default class NavbarComponent extends BaseComponent {
         },
         {
             icon: 'fa-solid fa-palette',
-            label: 'Email',
+            label: 'Email + SMS',
             labelKey: 'admin.nav.email',
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
@@ -168,6 +168,7 @@ export default class NavbarComponent extends BaseComponent {
                 { label: 'Drip Campaigns', labelKey: 'admin.nav.drip_campaigns', route: '/admin/email/drip-campaigns', icon: 'fa-solid fa-droplet' },
                 { label: 'Announcements', labelKey: 'admin.nav.announcements', route: '/admin/email/announcements', icon: 'fa-solid fa-bullhorn' },
                 { label: 'Email Logs', labelKey: 'admin.nav.email_logs', route: '/admin/email-logs', icon: 'fa-solid fa-envelope-open-text' },
+                { label: 'SMS Logs', labelKey: 'admin.nav.sms_logs', route: '/admin/sms-logs', icon: 'fa-solid fa-comment-sms' },
             ],
         },
         {

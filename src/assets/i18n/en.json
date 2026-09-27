@@ -124,7 +124,7 @@
       "tags": "Tags",
       "fields": "Fields",
       "app_users": "App users",
-      "email": "Email",
+      "email": "Email + SMS",
       "brand_kit": "Brand Kit",
       "composer": "Composer",
       "broadcasts": "Broadcasts",
@@ -148,7 +148,8 @@
       "email_templates": "Email Templates",
       "logout_confirm": "Are you sure you want to logout ?",
       "logout_success": "Logout successful.",
-      "authors": "Authors"
+      "authors": "Authors",
+      "sms_logs": "SMS Logs"
     },
     "settings": {
       "localization": {
@@ -754,19 +755,18 @@
         "test_title": "Send a test SMS",
         "test_phone": "Phone number",
         "test_send": "Send test",
-        "test_logged": "Recorded below. The test provider sends nothing.",
+        "test_logged": "Recorded in SMS Logs. The test provider sends nothing.",
         "test_sent": "Sent. Check the phone.",
         "test_failed": "Not sent: {{ error }}",
-        "logs_title": "Recent messages",
-        "logs_empty": "No messages yet.",
-        "logs_refresh": "Refresh",
         "col_time": "Time",
         "col_to": "To",
         "col_message": "Message",
         "col_status": "Status",
         "status_logged": "Logged",
         "status_sent": "Sent",
-        "status_failed": "Failed"
+        "status_failed": "Failed",
+        "logs_link": "See every message in SMS Logs",
+        "test_mode_warning": "Test mode: no SMS is sent and the sign-in page shows each code, so anyone can sign in with any number. Switch to MSG91 before real people use phone sign-in."
       }
     },
     "contents": {
@@ -1438,6 +1438,21 @@
       "no_query": "Type in the search box above to find content.",
       "empty": "Nothing matched \"{{query}}\".",
       "open": "Open"
+    },
+    "sms_logs": {
+      "title": "SMS Logs",
+      "subtitle": "Every text message, newest first",
+      "settings": "SMS settings",
+      "refresh": "Refresh",
+      "status": "Status",
+      "status_all": "All",
+      "col_purpose": "Type",
+      "col_provider": "Provider",
+      "purpose_otp": "Sign-in code",
+      "purpose_test": "Test",
+      "provider_test": "Test (log only)",
+      "empty_title": "No SMS yet",
+      "empty_description": "Sign-in codes and test messages appear here."
     }
   },
   "user": {

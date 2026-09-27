@@ -116,7 +116,7 @@
       "tags": "टैग",
       "fields": "फ़ील्ड",
       "app_users": "ऐप उपयोगकर्ता",
-      "email": "ईमेल",
+      "email": "ईमेल + SMS",
       "brand_kit": "ब्रांड किट",
       "composer": "कंपोज़र",
       "broadcasts": "प्रसारण",
@@ -140,7 +140,8 @@
       "email_templates": "ईमेल टेम्पलेट",
       "logout_confirm": "क्या आप वाकई लॉग आउट करना चाहते हैं ?",
       "logout_success": "लॉग आउट हो गया।",
-      "authors": "लेखक"
+      "authors": "लेखक",
+      "sms_logs": "SMS लॉग"
     },
     "settings": {
       "localization": {
@@ -746,19 +747,18 @@
         "test_title": "टेस्ट SMS भेजें",
         "test_phone": "फ़ोन नंबर",
         "test_send": "टेस्ट भेजें",
-        "test_logged": "नीचे दर्ज किया गया। टेस्ट प्रोवाइडर कुछ नहीं भेजता।",
+        "test_logged": "SMS लॉग में दर्ज किया गया। टेस्ट प्रोवाइडर कुछ नहीं भेजता।",
         "test_sent": "भेजा गया। फ़ोन देखें।",
         "test_failed": "नहीं भेजा गया: {{ error }}",
-        "logs_title": "हाल के संदेश",
-        "logs_empty": "अभी कोई संदेश नहीं।",
-        "logs_refresh": "रीफ़्रेश",
         "col_time": "समय",
         "col_to": "किसे",
         "col_message": "संदेश",
         "col_status": "स्थिति",
         "status_logged": "दर्ज",
         "status_sent": "भेजा गया",
-        "status_failed": "विफल"
+        "status_failed": "विफल",
+        "logs_link": "सभी संदेश SMS लॉग में देखें",
+        "test_mode_warning": "टेस्ट मोड: कोई SMS नहीं भेजा जाता और साइन-इन पेज हर कोड दिखाता है, इसलिए कोई भी किसी भी नंबर से साइन इन कर सकता है। असली लोगों के उपयोग से पहले MSG91 पर बदलें।"
       }
     },
     "contents": {
@@ -1430,6 +1430,21 @@
       "no_query": "सामग्री खोजने के लिए ऊपर खोज बॉक्स में टाइप करें।",
       "empty": "\"{{query}}\" से कुछ नहीं मिला।",
       "open": "खोलें"
+    },
+    "sms_logs": {
+      "title": "SMS लॉग",
+      "subtitle": "हर SMS, नया सबसे ऊपर",
+      "settings": "SMS सेटिंग्स",
+      "refresh": "रीफ़्रेश",
+      "status": "स्थिति",
+      "status_all": "सभी",
+      "col_purpose": "प्रकार",
+      "col_provider": "प्रोवाइडर",
+      "purpose_otp": "साइन-इन कोड",
+      "purpose_test": "टेस्ट",
+      "provider_test": "टेस्ट (केवल लॉग)",
+      "empty_title": "अभी कोई SMS नहीं",
+      "empty_description": "साइन-इन कोड और टेस्ट संदेश यहाँ दिखते हैं।"
     }
   },
   "user": {
