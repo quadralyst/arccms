@@ -19,42 +19,62 @@
             <div class="col-md-6">
                 <form [formGroup]="registrationForm" (ngSubmit)="handleSubmit()">
 
-                    <!-- Email Request Slide -->
+                    <!-- Request Slide: phone number or email -->
                     @if (currentStep() === 'request') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             <img ngSrc="/assets/images/logo.png" width="190" height="60" alt="Arc CMS Logo"
                                 class="d-inline-block">
-                            <!-- <h2 class="auth-logo-text">Arc CMS</h2> -->
                         </div>
                     </div>
                     <div class="request-container">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h2 class="auth-title">Welcome</h2>
-                                <p class="auth-subtitle">Enter your email to get started</p>
+                                <h2 class="auth-title">{{ getStepTitle() }}</h2>
+                                <p class="auth-subtitle">{{ getStepDescription() }}</p>
 
-                                <div class="mb-4 mt-4">
-                                    <label for="email" class="form-label">Email</label>
-                                    <input type="email" formControlName="email" class="form-control" id="email"
-                                        placeholder="name@company.com" [readonly]="isLoading()"
-                                        [class.is-invalid]="isFieldInvalid('email')" />
+                                <div class="mb-4 mt-4 text-start">
+                                    <label for="identifier" class="form-label">
+                                        {{ phoneEnabled() ? 'Phone number or email' : 'Email' }}
+                                    </label>
+                                    <input type="text" formControlName="identifier" class="form-control" id="identifier"
+                                        autocomplete="username" autocapitalize="off" spellcheck="false"
+                                        [placeholder]="phoneEnabled() ? '98765 43210 or name@example.com' : 'name@company.com'"
+                                        [readonly]="isLoading()" (paste)="cleanIdentifier()" (blur)="cleanIdentifier()"
+                                        [class.is-invalid]="isFieldInvalid('identifier')" />
 
-                                    @if(isFieldInvalid('email')){
+                                    @if(isFieldInvalid('identifier')){
                                     <div class="invalid-feedback">
-                                        Please enter a valid email address
+                                        {{ phoneEnabled() ? 'Enter a valid mobile number or email' : 'Please enter a valid email address' }}
                                     </div>
                                     }
                                 </div>
 
+                                @if (errorMessage()) {
+                                <div class="alert alert-danger">{{ errorMessage() }}</div>
+                                }
+
                                 <div class="mb-3">
-                                    <button type="button" (click)="checkEmail()" class="btn btn-primary w-100"
-                                        [disabled]="isLoading()">
+                                    <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
                                         Continue
                                         <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
                                             role="status"></span>
                                     </button>
                                 </div>
+
+                                @if (googleEnabled()) {
+                                <div class="or-divider"><span>or</span></div>
+                                <button type="button" class="btn google-button w-100" (click)="continueWithGoogle()"
+                                    [disabled]="isLoading()">
+                                    <svg class="google-logo" viewBox="0 0 48 48" aria-hidden="true">
+                                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                                    </svg>
+                                    Continue with Google
+                                </button>
+                                }
                             </div>
                         </div>
                     </div>
@@ -64,7 +84,7 @@
                     </div>
                     }
 
-                    <!-- Login Slide -->
+                    <!-- Login Slide: password -->
                     @if (currentStep() === 'login') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
@@ -76,9 +96,13 @@
                             <div class="card-body customPadding">
                                 <h5 class="card-title login-title text-primary mb-3">Welcome Back!</h5>
                                 <p class="login-subtitle m-0">
-                                    You are logging in as <strong>{{ registrationForm.get('email')?.value }}</strong>
+                                    You are logging in as <strong>{{ email }}</strong>
                                 </p>
                                 <p class="login-subtitle">Enter your password to continue</p>
+
+                                @if (successMessage()) {
+                                <div class="alert alert-info">{{ successMessage() }}</div>
+                                }
 
                                 <div class="mb-3 mt-4">
                                     <label for="password" class="form-label visually-hidden">Enter your password</label>
@@ -86,7 +110,7 @@
                                         <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                         <input [type]="showLoginPassword() ? 'text' : 'password'"
                                             formControlName="loginPassword" class="form-control p-2" id="password"
-                                            placeholder="********"
+                                            placeholder="********" autocomplete="current-password"
                                             [class.is-invalid]="isFieldInvalid('loginPassword')" />
                                         <button type="button" class="btn btn-outline-secondary"
                                             (click)="showLoginPassword.set(!showLoginPassword())">
@@ -109,14 +133,14 @@
                                 }
 
                                 <div class="d-flex justify-content-between mt-4">
-                                    <a (click)="goToStep('request')"
+                                    <a (click)="changeIdentifier()"
                                         class="change-email cursor text-decoration-none text-dark"
                                         style="cursor: pointer;">
                                         <i class="bi bi-arrow-left"></i>&nbsp;Change Email
                                     </a>
                                 </div>
 
-                                <button type="button" (click)="login()" class="btn btn-primary login-button w-100 mt-3"
+                                <button type="submit" class="btn btn-primary login-button w-100 mt-3"
                                     [disabled]="isLoading()">
                                     Login
                                     <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
@@ -135,7 +159,66 @@
                     </div>
                     }
 
-                    <!-- Verify Slide -->
+                    <!-- PIN Slide: a registered phone number -->
+                    @if (currentStep() === 'pin') {
+                    <div class="auth-form-container">
+                        <div class="auth-logo">
+                            <h2 class="auth-logo-text">Arc CMS</h2>
+                        </div>
+                    </div>
+                    <div class="request-container request-height">
+                        <div class="card request-card border-0">
+                            <div class="card-body customPadding">
+                                <h5 class="card-title login-title text-primary mb-3">Welcome Back!</h5>
+                                <p class="login-subtitle m-0">
+                                    You are signing in as <strong>{{ phoneDisplay() }}</strong>
+                                </p>
+                                <p class="login-subtitle">Enter your 6-digit PIN</p>
+
+                                <div class="mt-4">
+                                    <arc-code-input #pinBoxes label="PIN" [masked]="!showPin()" [oneTimeCode]="false"
+                                        [disabled]="isLoading() || pinLocked()" [invalid]="!!errorMessage()"
+                                        (completed)="signInWithPin($event)"></arc-code-input>
+                                    <button type="button" class="btn btn-link btn-sm pin-toggle"
+                                        (click)="showPin.set(!showPin())">
+                                        {{ showPin() ? 'Hide PIN' : 'Show PIN' }}
+                                    </button>
+                                </div>
+
+                                @if (errorMessage()) {
+                                <div class="alert alert-danger mt-2">{{ errorMessage() }}</div>
+                                }
+
+                                <div class="d-flex justify-content-between mt-3">
+                                    <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none text-dark"
+                                        style="cursor: pointer;">
+                                        <i class="bi bi-arrow-left"></i>&nbsp;Change number
+                                    </a>
+                                    <a (click)="forgotPin()" class="forgot-password cursor" style="cursor: pointer;">Forgot PIN?</a>
+                                </div>
+
+                                @if (pinLocked()) {
+                                <button type="button" class="btn btn-primary w-100 mt-4" (click)="forgotPin()"
+                                    [disabled]="isLoading()">
+                                    Reset PIN with a code
+                                </button>
+                                } @else {
+                                <button type="button" class="btn btn-primary w-100 mt-4" (click)="signInWithPin()"
+                                    [disabled]="isLoading()">
+                                    Verify
+                                    <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                        role="status"></span>
+                                </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="copyright">
+                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                    </div>
+                    }
+
+                    <!-- Verify Slide: a code by email or SMS -->
                     @if (currentStep() === 'verify') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
@@ -145,21 +228,14 @@
                     <div class="verification-container request-height">
                         <div class="card verification-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title verification-title text-center text-primary">Verify Email</h5>
+                                <h5 class="card-title verification-title text-center text-primary">{{ getStepTitle() }}</h5>
                                 <p class="verification-message">
-                                    We've sent a verification code to <br />
-                                    <span class="email-highlight">{{ registrationForm.get('email')?.value }}</span>
+                                    We've sent a 6-digit code to <br />
+                                    <span class="email-highlight">{{ sentTo() }}</span>
                                 </p>
 
-                                <div class="code-input-group mt-4">
-                                    @for (i of [0, 1, 2, 3, 4, 5]; track i) {
-                                    <input [readonly]="isLoading()" #otpInput type="text"
-                                        class="form-control code-input text-center" maxlength="1" inputmode="numeric"
-                                        [attr.data-index]="i" (input)="onOtpInput($event, i)"
-                                        (keydown)="onOtpKeyDown($event, i)"
-                                        [class.is-invalid]="isFieldInvalid('otp')" />
-                                    }
-                                </div>
+                                <arc-code-input #codeBoxes label="Verification code" [disabled]="isLoading()"
+                                    [invalid]="!!otpError()" (completed)="verifyOtp($event)"></arc-code-input>
 
                                 @if (otpError()) {
                                 <div class="text-danger mt-2 text-center">
@@ -168,10 +244,10 @@
                                 }
 
                                 <div class="d-flex justify-content-between mt-4">
-                                    <a (click)="goToStep('request')"
+                                    <a (click)="changeIdentifier()"
                                         class="change-email cursor text-decoration-none text-dark"
                                         style="cursor: pointer;">
-                                        <i class="bi bi-arrow-left"></i>&nbsp;Change Email
+                                        <i class="bi bi-arrow-left"></i>&nbsp;{{ channel() === 'phone' ? 'Change number' : 'Change Email' }}
                                     </a>
 
                                     <span id="timer" class="">
@@ -187,7 +263,7 @@
 
                                 <button type="button" (click)="verifyOtp()"
                                     class="btn btn-primary verify-button w-100 mt-4" [disabled]="isLoading()">
-                                    Verify Code
+                                    Verify
                                     <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
@@ -199,7 +275,7 @@
                     </div>
                     }
 
-                    <!-- Signup Slide -->
+                    <!-- Signup Slide: name, and a password (email) or a PIN (phone) -->
                     @if (currentStep() === 'signup') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
@@ -216,8 +292,8 @@
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fas fa-user"></i></span>
                                         <input type="text" formControlName="name" class="form-control p-2"
-                                            placeholder="Your full name" [class.is-invalid]="isFieldInvalid('name')"
-                                            [readOnly]="isLoading()">
+                                            placeholder="Your full name" autocomplete="name"
+                                            [class.is-invalid]="isFieldInvalid('name')" [readOnly]="isLoading()">
                                     </div>
                                     @if(isFieldInvalid('name')){
                                     <div class="text-danger mt-2">
@@ -226,12 +302,26 @@
                                     }
                                 </div>
 
+                                @if (channel() === 'phone') {
+                                <div class="mb-2 text-start">
+                                    <label class="form-label">Choose a 6-digit PIN</label>
+                                    <arc-code-input label="New PIN" [masked]="!showPin()" [oneTimeCode]="false"
+                                        [autofocus]="false" [disabled]="isLoading()"
+                                        (changed)="newPin.set($event)"></arc-code-input>
+                                    <button type="button" class="btn btn-link btn-sm pin-toggle"
+                                        (click)="showPin.set(!showPin())">
+                                        {{ showPin() ? 'Hide PIN' : 'Show PIN' }}
+                                    </button>
+                                    <div class="form-text text-center">You will use it to sign in next time.</div>
+                                </div>
+                                } @else {
                                 <div class="mb-3">
                                     <label for="password" class="form-label visually-hidden">Enter your password</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                         <input [type]="showPassword() ? 'text' : 'password'" formControlName="password"
                                             class="form-control p-2" id="password" placeholder="********"
+                                            autocomplete="new-password"
                                             [class.is-invalid]="isFieldInvalid('password')" [readOnly]="isLoading()" />
                                         <span class="input-group-text password-toggle eye_btn"
                                             (click)="showPassword.set(!showPassword())" style="cursor: pointer;">
@@ -251,7 +341,7 @@
                                         <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                         <input [type]="showConfirmPassword() ? 'text' : 'password'"
                                             formControlName="confirmPassword" class="form-control p-2"
-                                            placeholder="********"
+                                            placeholder="********" autocomplete="new-password"
                                             [class.is-invalid]="isFieldInvalid('confirmPassword') || hasPasswordMismatch()"
                                             [readOnly]="isLoading()" />
 
@@ -269,6 +359,7 @@
                                     </div>
                                     }
                                 </div>
+                                }
 
                                 @if (errorMessage()) {
                                 <div class="alert alert-danger mt-3">
@@ -276,13 +367,52 @@
                                 </div>
                                 }
 
-                                <button type="button" (click)="register()"
-                                    class="btn btn-primary signup-button w-100 mt-4" [disabled]="isLoading()">
+                                <button type="submit" class="btn btn-primary signup-button w-100 mt-4"
+                                    [disabled]="isLoading()">
                                     Create Account
                                     <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
                                 <arc-legal-notice></arc-legal-notice>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="copyright">
+                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                    </div>
+                    }
+
+                    <!-- New PIN Slide: after a reset code -->
+                    @if (currentStep() === 'newPin') {
+                    <div class="auth-form-container">
+                        <div class="auth-logo">
+                            <h2 class="auth-logo-text">Arc CMS</h2>
+                        </div>
+                    </div>
+                    <div class="request-container request-height">
+                        <div class="card request-card border-0">
+                            <div class="card-body customPadding">
+                                <h5 class="card-title login-title text-primary mb-3">{{ getStepTitle() }}</h5>
+                                <p class="login-subtitle">{{ getStepDescription() }}</p>
+
+                                <div class="mt-4">
+                                    <arc-code-input label="New PIN" [masked]="!showPin()" [oneTimeCode]="false"
+                                        [disabled]="isLoading()" (changed)="newPin.set($event)"></arc-code-input>
+                                    <button type="button" class="btn btn-link btn-sm pin-toggle"
+                                        (click)="showPin.set(!showPin())">
+                                        {{ showPin() ? 'Hide PIN' : 'Show PIN' }}
+                                    </button>
+                                </div>
+
+                                @if (errorMessage()) {
+                                <div class="alert alert-danger mt-2">{{ errorMessage() }}</div>
+                                }
+
+                                <button type="submit" class="btn btn-primary w-100 mt-4" [disabled]="isLoading()">
+                                    Save PIN and sign in
+                                    <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                        role="status"></span>
+                                </button>
                             </div>
                         </div>
                     </div>

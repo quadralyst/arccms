@@ -9,7 +9,7 @@ import { inject, Injector, runInInjectionContext } from '@angular/core';
 import { Auth, onAuthStateChanged, User } from '@angular/fire/auth';
 import { Router } from '@angular/router';
 import { patchState, signalStore, withHooks, withMethods, withState } from '@ngrx/signals';
-import { catchError, finalize, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { catchError, finalize, firstValueFrom, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import { ConstantVariables } from '../../../shared/constants';
 import { OmitCommonFields } from '../../../shared/models/base-model';
 import { QueryParams, WhereCondition } from '../../../shared/models';
@@ -347,6 +347,33 @@ export const AuthState = signalStore(
 
             clearList() {
                 patchState(store, initialState);
+            },
+
+            /**
+             * Read the signed-in person's record again. Google sign-in needs it:
+             * Firebase reports the sign-in before `ensureGoogleAccount` has
+             * created a first-timer's record, so the listener found none.
+             */
+            async refreshCurrentUser(): Promise<IAuth | null> {
+                const user = auth.currentUser;
+                if (!user) return null;
+                const userData: any = await firstValueFrom(authService.getCurrentUserByUid(user.uid));
+                if (!userData) {
+                    patchState(store, { currentUser: null, isAuthenticated: false });
+                    return null;
+                }
+                const isAdmin = userData.role === constant.fixedRoles[0].userType;
+                const currentUser = { ...userData, isAdmin } as IAuth;
+                patchState(store, {
+                    currentUser,
+                    isLoading: false,
+                    error: '',
+                    isSuccess: userData.role !== constant.USER,
+                    isAuthenticated: userData.role !== constant.USER,
+                    isAdmin,
+                    isOnBoardingComplete: userData?.isOnBoardingComplete || false,
+                });
+                return currentUser;
             },
 
             initAuthStateListener(): Observable<User | null> {

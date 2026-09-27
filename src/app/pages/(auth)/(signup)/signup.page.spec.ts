@@ -116,14 +116,14 @@ describe('SignupComponent', () => {
             expect(typeof SignupComponent.prototype.startCountdown).toBe('function');
         });
 
-        it('should have onOtpInput method', () => {
-            expect(SignupComponent.prototype.onOtpInput).toBeDefined();
-            expect(typeof SignupComponent.prototype.onOtpInput).toBe('function');
+        it('should not have the old per-box OTP handlers (arc-code-input does it)', () => {
+            expect((SignupComponent.prototype as unknown as Record<string, unknown>)['onOtpInput']).toBeUndefined();
         });
 
-        it('should have onOtpKeyDown method', () => {
-            expect(SignupComponent.prototype.onOtpKeyDown).toBeDefined();
-            expect(typeof SignupComponent.prototype.onOtpKeyDown).toBe('function');
+        it('should have checkPhone, signInWithPin, forgotPin and saveNewPin methods', () => {
+            for (const name of ['checkPhone', 'signInWithPin', 'forgotPin', 'saveNewPin', 'continueWithGoogle', 'cleanIdentifier']) {
+                expect(typeof (SignupComponent.prototype as unknown as Record<string, unknown>)[name]).toBe('function');
+            }
         });
     });
 
@@ -280,13 +280,17 @@ describe('SignupComponent', () => {
                 'goToStep',
                 'updateValidators',
                 'handleSubmit',
+                'checkIdentifier',
                 'checkEmail',
+                'checkPhone',
                 'sendOtp',
                 'startCountdown',
                 'resendOtp',
-                'onOtpInput',
-                'onOtpKeyDown',
                 'verifyOtp',
+                'signInWithPin',
+                'forgotPin',
+                'saveNewPin',
+                'continueWithGoogle',
                 'register',
                 'login',
                 'forgotPassword',
@@ -305,36 +309,17 @@ describe('SignupComponent', () => {
     });
 
     describe('verifyOtp Validation Logic', () => {
-        it('verifyOtp should set error for empty OTP', () => {
-            const method = SignupComponent.prototype.verifyOtp;
+        const loading = () => Object.assign(() => false, { set: vi.fn() });
+
+        it.each(['', '123'])('verifyOtp asks for all 6 digits when given %j', async (entered) => {
             const mockOtpError = { set: vi.fn() };
-            const mockRegistrationForm = {
-                get: () => ({ value: '' })
-            };
             const mockContext = {
-                registrationForm: mockRegistrationForm,
+                codeBoxes: () => ({ value: () => entered }),
                 otpError: mockOtpError,
-                isLoading: { set: vi.fn() }
+                isLoading: loading(),
             };
 
-            method.call(mockContext);
-
-            expect(mockOtpError.set).toHaveBeenCalledWith('Please enter the 6-digit code');
-        });
-
-        it('verifyOtp should set error for short OTP', () => {
-            const method = SignupComponent.prototype.verifyOtp;
-            const mockOtpError = { set: vi.fn() };
-            const mockRegistrationForm = {
-                get: () => ({ value: '123' })
-            };
-            const mockContext = {
-                registrationForm: mockRegistrationForm,
-                otpError: mockOtpError,
-                isLoading: { set: vi.fn() }
-            };
-
-            method.call(mockContext);
+            await SignupComponent.prototype.verifyOtp.call(mockContext);
 
             expect(mockOtpError.set).toHaveBeenCalledWith('Please enter the 6-digit code');
         });
@@ -348,17 +333,22 @@ describe('SignupComponent', () => {
     });
 
     describe('verifyOtp acceptance (server-authoritative)', () => {
-        const verifyOtp = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => Promise<void>>)['verifyOtp'];
+        const verifyOtp = (SignupComponent.prototype as unknown as Record<string, (this: unknown, code?: string) => Promise<void>>)['verifyOtp'];
 
-        function ctx(entered: string) {
+        function ctx(channel: 'email' | 'phone' = 'email', purpose: 'signup' | 'reset' = 'signup') {
             return {
-                registrationForm: { get: () => ({ value: entered }) },
+                email: 'new@user.com',
+                channel: () => channel,
+                phone: () => '+919876543210',
+                phonePurpose: () => purpose,
                 functions: {},
                 otpVerified: false,
                 otpError: { set: vi.fn() },
-                isLoading: { set: vi.fn() },
+                isLoading: Object.assign(() => false, { set: vi.fn() }),
                 toastService: { success: vi.fn() },
                 goToStep: vi.fn(),
+                codeBoxes: () => ({ reset: vi.fn(), value: () => '' }),
+                signIn: { verifyPhoneCode: vi.fn().mockResolvedValue({ verified: true }) },
             };
         }
 
@@ -366,21 +356,126 @@ describe('SignupComponent', () => {
 
         it('marks otpVerified and advances to signup when the server verifies', async () => {
             mockCallableFn.mockResolvedValue({ data: { verified: true } });
-            const c = ctx('654321');
-            await verifyOtp.call(c);
+            const c = ctx();
+            await verifyOtp.call(c, '654321');
             expect(c.otpVerified).toBe(true);
             expect(c.goToStep).toHaveBeenCalledWith('signup');
         });
 
         it('rejects when the server does not verify the code', async () => {
             mockCallableFn.mockResolvedValue({ data: { verified: false } });
-            const c = ctx('123456');
-            await verifyOtp.call(c);
-            expect(c.otpError.set).toHaveBeenCalledWith('Invalid verification code');
+            const c = ctx();
+            await verifyOtp.call(c, '123456');
+            expect(c.otpError.set).toHaveBeenCalledWith("That code didn't work");
             expect(c.otpVerified).toBe(false);
             expect(c.goToStep).not.toHaveBeenCalled();
         });
 
+        it('a verified SMS code for a new number goes to name and PIN', async () => {
+            const c = ctx('phone', 'signup');
+            await verifyOtp.call(c, '654321');
+            expect(c.signIn.verifyPhoneCode).toHaveBeenCalledWith('+919876543210', '654321', 'signup');
+            expect(c.goToStep).toHaveBeenCalledWith('signup');
+        });
+
+        it('a verified reset code goes to a new PIN', async () => {
+            const c = ctx('phone', 'reset');
+            await verifyOtp.call(c, '654321');
+            expect(c.goToStep).toHaveBeenCalledWith('newPin');
+        });
+    });
+
+    describe('checkPhone: PIN, code, or closed', () => {
+        const checkPhone = (SignupComponent.prototype as unknown as Record<string, (this: unknown, typed: string) => Promise<void>>)['checkPhone'];
+
+        function ctx(account: Record<string, unknown>) {
+            return {
+                isLoading: { set: vi.fn() },
+                errorMessage: { set: vi.fn() },
+                channel: { set: vi.fn() },
+                phone: { set: vi.fn() },
+                phonePurpose: { set: vi.fn() },
+                pinLocked: { set: vi.fn() },
+                signIn: { checkPhone: vi.fn().mockResolvedValue({ phone: '+919876543210', signupOpen: true, ...account }) },
+                sendOtp: vi.fn().mockResolvedValue(undefined),
+                goToStep: vi.fn(),
+            };
+        }
+
+        it('asks a registered number for its PIN', async () => {
+            const c = ctx({ exists: true, hasPin: true });
+            await checkPhone.call(c, '98765 43210');
+            expect(c.phone.set).toHaveBeenCalledWith('+919876543210');
+            expect(c.goToStep).toHaveBeenCalledWith('pin');
+            expect(c.sendOtp).not.toHaveBeenCalled();
+        });
+
+        it('sends a new number a sign-up code', async () => {
+            const c = ctx({ exists: false, hasPin: false });
+            await checkPhone.call(c, '98765 43210');
+            expect(c.phonePurpose.set).toHaveBeenCalledWith('signup');
+            expect(c.goToStep).toHaveBeenCalledWith('verify');
+            expect(c.sendOtp).toHaveBeenCalled();
+        });
+
+        it('sends a registered number without a PIN a code to set one', async () => {
+            const c = ctx({ exists: true, hasPin: false });
+            await checkPhone.call(c, '98765 43210');
+            expect(c.phonePurpose.set).toHaveBeenCalledWith('reset');
+            expect(c.goToStep).toHaveBeenCalledWith('verify');
+        });
+
+        it('shows sign-ups closed for a new number when they are off', async () => {
+            const c = ctx({ exists: false, hasPin: false, signupOpen: false });
+            await checkPhone.call(c, '98765 43210');
+            expect(c.goToStep).toHaveBeenCalledWith('disabled');
+            expect(c.sendOtp).not.toHaveBeenCalled();
+        });
+
+        it("shows the server's message when the number is refused", async () => {
+            const c = ctx({});
+            c.signIn.checkPhone.mockRejectedValue({ code: 'functions/invalid-argument', message: 'Only numbers starting +91 can be used here.' });
+            await checkPhone.call(c, '+44 7700 900123');
+            expect(c.errorMessage.set).toHaveBeenCalledWith('Only numbers starting +91 can be used here.');
+        });
+    });
+
+    describe('signInWithPin', () => {
+        const signInWithPin = (SignupComponent.prototype as unknown as Record<string, (this: unknown, pin?: string) => Promise<void>>)['signInWithPin'];
+
+        function ctx(error?: Record<string, unknown>) {
+            const c: Record<string, any> = {
+                phone: () => '+919876543210',
+                isLoading: Object.assign(() => false, { set: vi.fn() }),
+                errorMessage: { set: vi.fn() },
+                pinLocked: { set: vi.fn() },
+                pinBoxes: () => ({ reset: vi.fn(), value: () => '' }),
+                forgotPin: vi.fn(),
+                signIn: { signInWithPin: error ? vi.fn().mockRejectedValue(error) : vi.fn().mockResolvedValue(undefined) },
+            };
+            c['finishPhoneSignIn'] = (SignupComponent.prototype as any).finishPhoneSignIn.bind(c);
+            return c;
+        }
+
+        it('signs in and leaves the redirect to the auth effect', async () => {
+            const c = ctx();
+            await signInWithPin.call(c, '246810');
+            expect(c['signIn'].signInWithPin).toHaveBeenCalledWith('+919876543210', '246810');
+            expect(c['authActionPending']).toBe(true);
+        });
+
+        it('shows a wrong PIN and clears the boxes', async () => {
+            const c = ctx({ code: 'functions/permission-denied', message: 'Wrong PIN. 4 tries left.', details: { reason: 'wrong' } });
+            await signInWithPin.call(c, '000000');
+            expect(c['errorMessage'].set).toHaveBeenCalledWith('Wrong PIN. 4 tries left.');
+            expect(c['pinLocked'].set).not.toHaveBeenCalled();
+        });
+
+        it('locks the boxes after too many tries', async () => {
+            const c = ctx({ code: 'functions/resource-exhausted', message: 'Too many tries. Reset your PIN with a code.', details: { reason: 'locked' } });
+            await signInWithPin.call(c, '000000');
+            expect(c['pinLocked'].set).toHaveBeenCalledWith(true);
+        });
     });
 
     describe('checkEmail — E4 verification gating', () => {
@@ -388,7 +483,7 @@ describe('SignupComponent', () => {
 
         function ctx(mustVerify: boolean, emailExists = false) {
             return {
-                registrationForm: { get: () => ({ invalid: false, value: 'new@user.com', markAsTouched: vi.fn() }) },
+                email: 'new@user.com',
                 isLoading: { set: vi.fn() },
                 errorMessage: { set: vi.fn() },
                 otpVerified: true, // should be reset to false by checkEmail
@@ -462,7 +557,7 @@ describe('SignupComponent', () => {
 
     describe('Disabled Step', () => {
         it('should include disabled step in SignupStep type', () => {
-            const validSteps = ['request', 'login', 'verify', 'signup', 'disabled'];
+            const validSteps = ['request', 'login', 'pin', 'verify', 'signup', 'newPin', 'disabled'];
             validSteps.forEach(step => {
                 expect(typeof step).toBe('string');
             });

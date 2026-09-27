@@ -561,3 +561,44 @@ input:focus {
         padding: 40px !important;
     }
 }
+/* ===================Phone and Google sign-in============================ */
+
+.or-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0 16px;
+    color: #6c757d;
+    font-size: 0.875rem;
+
+    &::before,
+    &::after {
+        content: '';
+        flex: 1;
+        border-top: 1px solid #dee2e6;
+    }
+}
+
+.google-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 1px solid #dadce0;
+    color: #3c4043;
+    font-weight: 500;
+
+    &:hover {
+        background: #f8f9fa;
+    }
+
+    .google-logo {
+        margin-right: 10px;
+    }
+}
+
+.pin-toggle {
+    display: block;
+    margin: 6px auto 0;
+    text-decoration: none;
+}
