@@ -66,7 +66,8 @@ themselves). Either way the `users` record is deleted, and then, on the server:
 
 1. **Firestore:** every subcollection under `users/{userDocId}`, at any depth.
 2. **Storage:** the folder `users/{userDocId}/` (under the upload folder) and the
-   profile photos in `avatars/{uid}/`.
+   profile photos in `avatars/{uid}/`. Also the person's feedback in `Feedback`,
+   whose files are in that folder ([feedback.md](feedback.md)).
 3. **Sign-in:** the Firebase Auth account, unless another app owns or shares it
    (`authOwner` is `host` or `shared`), plus the email lookup, the phone number
    index and the PIN.

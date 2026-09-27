@@ -492,6 +492,24 @@ export type TranslationKey =
     | 'admin.data.preset_everything'
     | 'admin.data.subtitle'
     | 'admin.data.title'
+    | 'admin.feedback.button_off'
+    | 'admin.feedback.button_on'
+    | 'admin.feedback.delete_confirm'
+    | 'admin.feedback.empty'
+    | 'admin.feedback.empty_new'
+    | 'admin.feedback.filter'
+    | 'admin.feedback.filter_all'
+    | 'admin.feedback.filter_done'
+    | 'admin.feedback.filter_new'
+    | 'admin.feedback.installed_app'
+    | 'admin.feedback.load_more'
+    | 'admin.feedback.mark_done'
+    | 'admin.feedback.mark_new'
+    | 'admin.feedback.off_hint'
+    | 'admin.feedback.open_screenshot'
+    | 'admin.feedback.someone'
+    | 'admin.feedback.subtitle'
+    | 'admin.feedback.title'
     | 'admin.media.api_hint'
     | 'admin.media.api_not_configured'
     | 'admin.media.configure_api'
@@ -554,6 +572,7 @@ export type TranslationKey =
     | 'admin.nav.email_templates'
     | 'admin.nav.export_data'
     | 'admin.nav.export_files'
+    | 'admin.nav.feedback'
     | 'admin.nav.fields'
     | 'admin.nav.import_data'
     | 'admin.nav.import_files'
@@ -1257,6 +1276,20 @@ export type TranslationKey =
     | 'common.dialog.delete'
     | 'common.dialog.logout'
     | 'common.dialog.unpublish'
+    | 'common.feedback.button'
+    | 'common.feedback.delete_voice'
+    | 'common.feedback.mic_blocked'
+    | 'common.feedback.placeholder'
+    | 'common.feedback.record'
+    | 'common.feedback.remove_screenshot'
+    | 'common.feedback.screenshot'
+    | 'common.feedback.send'
+    | 'common.feedback.send_failed'
+    | 'common.feedback.sending'
+    | 'common.feedback.stop'
+    | 'common.feedback.taking_screenshot'
+    | 'common.feedback.thanks'
+    | 'common.feedback.title'
     | 'common.filters.all'
     | 'common.filters.clear'
     | 'common.filters.filtered'
@@ -1863,6 +1896,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.data.preset_everything',
     'admin.data.subtitle',
     'admin.data.title',
+    'admin.feedback.button_off',
+    'admin.feedback.button_on',
+    'admin.feedback.delete_confirm',
+    'admin.feedback.empty',
+    'admin.feedback.empty_new',
+    'admin.feedback.filter',
+    'admin.feedback.filter_all',
+    'admin.feedback.filter_done',
+    'admin.feedback.filter_new',
+    'admin.feedback.installed_app',
+    'admin.feedback.load_more',
+    'admin.feedback.mark_done',
+    'admin.feedback.mark_new',
+    'admin.feedback.off_hint',
+    'admin.feedback.open_screenshot',
+    'admin.feedback.someone',
+    'admin.feedback.subtitle',
+    'admin.feedback.title',
     'admin.media.api_hint',
     'admin.media.api_not_configured',
     'admin.media.configure_api',
@@ -1925,6 +1976,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.email_templates',
     'admin.nav.export_data',
     'admin.nav.export_files',
+    'admin.nav.feedback',
     'admin.nav.fields',
     'admin.nav.import_data',
     'admin.nav.import_files',
@@ -2628,6 +2680,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.dialog.delete',
     'common.dialog.logout',
     'common.dialog.unpublish',
+    'common.feedback.button',
+    'common.feedback.delete_voice',
+    'common.feedback.mic_blocked',
+    'common.feedback.placeholder',
+    'common.feedback.record',
+    'common.feedback.remove_screenshot',
+    'common.feedback.screenshot',
+    'common.feedback.send',
+    'common.feedback.send_failed',
+    'common.feedback.sending',
+    'common.feedback.stop',
+    'common.feedback.taking_screenshot',
+    'common.feedback.thanks',
+    'common.feedback.title',
     'common.filters.all',
     'common.filters.clear',
     'common.filters.filtered',
