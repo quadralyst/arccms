@@ -21,6 +21,7 @@ import { isAllowedCountry, maskPhone, normalizePhone, phoneHash } from './phoneN
 import { readSmsSettings, type SmsSettings } from '../sms/smsSettings.js';
 import {
     PHONE_INDEX,
+    applyNewAccountClaims,
     callerKey,
     canSignIn,
     checkPin,
@@ -140,7 +141,7 @@ export const completePhoneSignup = onCall(async (request) => {
                 emailVerified: false,
                 phone,
                 phoneVerified: true,
-                role: 'user',
+                role: signIn.defaultRole,
                 status: 'Active',
                 isActive: true,
                 by: 'phone',
@@ -156,6 +157,7 @@ export const completePhoneSignup = onCall(async (request) => {
         throw err;
     }
     await storePin(uid, pin);
+    await applyNewAccountClaims(uid, ref.id, signIn.defaultRole);
     logger.info(`completePhoneSignup: account created for ${maskPhone(phone)}.`);
     return { token: await issueSignInToken(uid) };
 });

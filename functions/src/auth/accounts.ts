@@ -17,6 +17,8 @@ import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { db, owner } from '../init.js';
 import { phoneHash } from './phoneNumber.js';
+import { KNOWN_ROLES } from '../users/syncUserRole.js';
+import { mergeUserClaims, USER_RECORD_CLAIM } from '../users/claims.js';
 
 const scryptAsync = promisify(scrypt) as (pin: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -39,13 +41,17 @@ export interface SignInSettings {
     signupOpen: boolean;
     phoneSignIn: boolean;
     googleSignIn: boolean;
+    /** `Settings/users.defaultRole` for self sign-ups; `user` when unset or unknown. */
+    defaultRole: string;
 }
 
 export function resolveSignInSettings(data: Record<string, unknown> | undefined): SignInSettings {
+    const role = data?.['defaultRole'];
     return {
         signupOpen: data?.['isSignupEnabled'] !== false,
         phoneSignIn: data?.['phoneSignIn'] === true,
         googleSignIn: data?.['googleSignIn'] === true,
+        defaultRole: typeof role === 'string' && KNOWN_ROLES.includes(role) ? role : 'user',
     };
 }
 
@@ -111,6 +117,15 @@ export async function requireOwnRecord(request: CallableRequest): Promise<UserRe
     const record = await findUserByUid(uid);
     if (!record) throw new HttpsError('failed-precondition', "This account doesn't have access to this site.");
     return record;
+}
+
+/**
+ * Claims for an account whose record the server just created, set before the
+ * browser gets its first ID token so `arccms_uid` (and the role) are in it from
+ * the start. The role trigger sets the same values again; merging makes that harmless.
+ */
+export function applyNewAccountClaims(uid: string, userDocId: string, role: string): Promise<void> {
+    return mergeUserClaims(uid, { role: role || null, [USER_RECORD_CLAIM]: userDocId });
 }
 
 /** A custom token the browser exchanges for a session (`signInWithCustomToken`). */

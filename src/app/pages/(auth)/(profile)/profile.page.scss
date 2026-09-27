@@ -326,3 +326,12 @@
     font-size: 16px; // prevents iOS zoom
   }
 }
+
+// Delete account
+.danger-card {
+  border-color: #fecaca;
+
+  .section-title {
+    color: #b91c1c;
+  }
+}

@@ -19,15 +19,32 @@ const __dirname = dirname(__filename);
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
-const mockDeleteUser = vi.fn();
-const mockDocDelete = vi.fn();
-const mockDoc = vi.fn().mockReturnValue({ delete: mockDocDelete });
-const mockCollection = vi.fn().mockReturnValue({ doc: mockDoc });
+/** The email_lookup doc id among every doc() call (the other calls are record and PIN ids). */
+const hashArg = (calls: unknown[][]) => calls.map((c) => String(c[0])).find((id) => /^[0-9a-f]{64}$/.test(id));
+
+const { mockDeleteUser, mockDocDelete, mockDoc, mockCollection, mockRecursiveDelete, mockDeleteFiles, mockBucket, mockEmitAppEvent } = vi.hoisted(() => {
+    const mockDocDelete = vi.fn();
+    const mockDoc = vi.fn((id?: string) => ({ id, delete: mockDocDelete, get: vi.fn().mockResolvedValue({ data: () => undefined }) }));
+    const mockDeleteFiles = vi.fn().mockResolvedValue(undefined);
+    return {
+        mockDeleteUser: vi.fn(),
+        mockDocDelete,
+        mockDoc,
+        mockCollection: vi.fn(() => ({ doc: mockDoc })),
+        mockRecursiveDelete: vi.fn().mockResolvedValue(undefined),
+        mockDeleteFiles,
+        mockBucket: vi.fn(() => ({ deleteFiles: mockDeleteFiles })),
+        mockEmitAppEvent: vi.fn().mockResolvedValue('event-1'),
+    };
+});
 
 vi.mock('../init', () => ({
     owner: { deleteUser: mockDeleteUser },
-    db: { collection: mockCollection },
+    db: { collection: mockCollection, recursiveDelete: mockRecursiveDelete },
+    storage: { bucket: mockBucket },
 }));
+
+vi.mock('../email-core/appEvents', () => ({ emitAppEvent: mockEmitAppEvent }));
 
 vi.mock('firebase-functions/v2/firestore', () => ({
     onDocumentDeleted: vi.fn((path: string, handler: Function) => ({ path, handler })),
@@ -35,8 +52,9 @@ vi.mock('firebase-functions/v2/firestore', () => ({
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
-function makeEvent(data: Record<string, any> | null) {
+function makeEvent(data: Record<string, any> | null, docId = 'doc-1') {
     return {
+        params: { docId },
         data: data === null ? null : { data: () => data },
     };
 }
@@ -48,6 +66,8 @@ describe('onUserDelete Cloud Function', () => {
         vi.clearAllMocks();
         mockDeleteUser.mockResolvedValue(undefined);
         mockDocDelete.mockResolvedValue(undefined);
+        mockRecursiveDelete.mockResolvedValue(undefined);
+        mockDeleteFiles.mockResolvedValue(undefined);
     });
 
     describe('Source file structure', () => {
@@ -145,6 +165,7 @@ describe('onUserDelete Cloud Function', () => {
             await handler(makeEvent(null));
             expect(mockDeleteUser).not.toHaveBeenCalled();
             expect(mockCollection).not.toHaveBeenCalled();
+            expect(mockRecursiveDelete).not.toHaveBeenCalled();
         });
 
         it('should call owner.deleteUser when uid is present', async () => {
@@ -161,7 +182,7 @@ describe('onUserDelete Cloud Function', () => {
             // The collection should have been called with 'email_lookup'
             expect(mockCollection).toHaveBeenCalledWith('email_lookup');
             // doc() should have been called with a hex string (SHA-256 hash)
-            const docArg = mockDoc.mock.calls[0][0] as string;
+            const docArg = hashArg(mockDoc.mock.calls) as string;
             expect(docArg).toMatch(/^[0-9a-f]{64}$/);
             expect(mockDocDelete).toHaveBeenCalled();
         });
@@ -175,12 +196,12 @@ describe('onUserDelete Cloud Function', () => {
             mockDocDelete.mockResolvedValue(undefined);
 
             await handler(makeEvent({ email: '  Alice@EXAMPLE.COM  ' }));
-            const hash1 = mockDoc.mock.calls[0]?.[0] as string;
+            const hash1 = hashArg(mockDoc.mock.calls) as string;
 
             vi.clearAllMocks();
             mockDocDelete.mockResolvedValue(undefined);
             await handler(makeEvent({ email: 'alice@example.com' }));
-            const hash2 = mockDoc.mock.calls[0]?.[0] as string;
+            const hash2 = hashArg(mockDoc.mock.calls) as string;
 
             expect(hash1).toBe(hash2);
         });
@@ -196,7 +217,32 @@ describe('onUserDelete Cloud Function', () => {
             const handler = await getHandler();
             if (!handler) return;
             await handler(makeEvent({ uid: 'uid-xyz' }));
-            expect(mockCollection).not.toHaveBeenCalled();
+            expect(mockCollection).not.toHaveBeenCalledWith('email_lookup');
+        });
+
+        it('deletes everything under the record: subcollections and the Storage folders', async () => {
+            const handler = await getHandler();
+            if (!handler) return;
+            await handler(makeEvent({ uid: 'u-9', email: 'a@b.co' }, 'rec-9'));
+            expect(mockCollection).toHaveBeenCalledWith('users');
+            expect(mockRecursiveDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'rec-9' }));
+            expect(mockDeleteFiles).toHaveBeenCalledWith({ prefix: 'users/rec-9/', force: true });
+            expect(mockDeleteFiles).toHaveBeenCalledWith({ prefix: 'avatars/u-9/', force: true });
+        });
+
+        it('announces user.deleted for data an app keeps elsewhere', async () => {
+            const handler = await getHandler();
+            if (!handler) return;
+            await handler(makeEvent({ uid: 'u-9' }, 'rec-9'));
+            expect(mockEmitAppEvent).toHaveBeenCalledWith('user.deleted', { userId: 'u-9', data: { userDocId: 'rec-9' } });
+        });
+
+        it('keeps going when the Storage cleanup fails', async () => {
+            const handler = await getHandler();
+            if (!handler) return;
+            mockDeleteFiles.mockRejectedValue(new Error('storage down'));
+            await expect(handler(makeEvent({ uid: 'u-9' }, 'rec-9'))).resolves.toBeUndefined();
+            expect(mockRecursiveDelete).toHaveBeenCalled();
         });
 
         it('should not throw when owner.deleteUser rejects with auth/user-not-found', async () => {

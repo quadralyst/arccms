@@ -10,7 +10,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db, owner } from '../init.js';
 import { AUTH_OWNER } from '../users/authOwner.js';
-import { findUserByEmail, findUserByUid, readSignInSettings } from './accounts.js';
+import { applyNewAccountClaims, findUserByEmail, findUserByUid, readSignInSettings } from './accounts.js';
 
 /**
  * A sign-in account older than this was not made by the Google sign-in that
@@ -54,7 +54,7 @@ export const ensureGoogleAccount = onCall(async (request) => {
         email,
         emailVerified: true,
         ...(token.picture ? { photo: token.picture } : {}),
-        role: 'user',
+        role: settings.defaultRole,
         status: 'Active',
         isActive: true,
         authOwner: authOwnerFor(account.metadata.creationTime),
@@ -64,5 +64,6 @@ export const ensureGoogleAccount = onCall(async (request) => {
         createdAt: now,
         modifiedAt: now,
     });
+    await applyNewAccountClaims(uid, ref.id, settings.defaultRole);
     return { created: true };
 });

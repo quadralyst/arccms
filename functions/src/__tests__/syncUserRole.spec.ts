@@ -223,6 +223,31 @@ describe('onUserRoleChange', () => {
 
 // ─── claimFirstAdmin ──────────────────────────────────────────────────────────
 
+describe('arccms_uid claim (the users record id)', () => {
+    function eventFor(before: Record<string, unknown> | null, after: Record<string, unknown>, docId = 'rec-1') {
+        const made = makeEvent(before, after, 'service_account');
+        (made.event as any).params = { docId };
+        return made.event;
+    }
+
+    it('is set with the role when a record is created', async () => {
+        claimsByUid['u1'] = { hostApp: 'pro' };
+        await trigger(eventFor(null, { uid: 'u1', role: 'user' }));
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { hostApp: 'pro', role: 'user', arccms_uid: 'rec-1' });
+    });
+
+    it('follows the record to a new sign-in account', async () => {
+        await trigger(eventFor({ uid: 'old', role: 'user' }, { uid: 'u2', role: 'user' }, 'rec-2'));
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u2', { role: 'user', arccms_uid: 'rec-2' });
+    });
+
+    it('writes nothing when the claims already hold these values', async () => {
+        claimsByUid['u1'] = { role: 'user', arccms_uid: 'rec-1' };
+        await trigger(eventFor(null, { uid: 'u1', role: 'user' }));
+        expect(mockSetCustomUserClaims).not.toHaveBeenCalled();
+    });
+});
+
 describe('claimFirstAdmin', () => {
     it('rejects unauthenticated callers', async () => {
         await expect(claim({})).rejects.toMatchObject({ code: 'unauthenticated' });

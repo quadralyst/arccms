@@ -195,6 +195,32 @@
       </div>
     </div>
     }
+
+    <!-- CARD 5: Delete account (not for admins, who are removed under Users) -->
+    @if (canDeleteAccount()) {
+    <div class="profile-card danger-card">
+      <div class="card-title-row">
+        <h2 class="section-title">
+          <i class="fas fa-trash-alt me-2"></i> Delete account
+        </h2>
+      </div>
+      <div class="info-row">
+        <p class="text-muted mb-3">Deletes your account and everything saved in it. This cannot be undone.</p>
+        <div class="edit-actions mt-0">
+          @if (deleteNeedsSignIn()) {
+            <button class="btn btn-sm btn-primary" (click)="signInAgain()">Sign in again</button>
+          } @else {
+            <button class="btn btn-sm btn-outline-danger" (click)="deleteAccount()" [disabled]="isDeleting()">
+              Delete my account
+              @if (isDeleting()) {
+                <span class="spinner-border spinner-border-sm ms-1"></span>
+              }
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+    }
   } @else {
     <div class="loading-state">
       <div class="spinner-border text-primary" role="status"></div>

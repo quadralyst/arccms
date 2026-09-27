@@ -7,8 +7,13 @@ const m = vi.hoisted(() => ({
 }));
 vi.mock('../init', () => ({
     owner: { deleteUser: m.deleteUser },
-    db: { collection: vi.fn(() => ({ doc: vi.fn(() => ({ delete: m.docDelete })) })) },
+    db: {
+        collection: vi.fn(() => ({ doc: vi.fn(() => ({ delete: m.docDelete, get: vi.fn(async () => ({ data: () => undefined })) })) })),
+        recursiveDelete: vi.fn(async () => undefined),
+    },
+    storage: { bucket: vi.fn(() => ({ deleteFiles: vi.fn(async () => undefined) })) },
 }));
+vi.mock('../email-core/appEvents', () => ({ emitAppEvent: vi.fn(async () => 'e1') }));
 vi.mock('firebase-functions/v2/firestore', () => ({
     onDocumentDeleted: (_opts: unknown, handler: unknown) => handler,
 }));
@@ -17,7 +22,7 @@ import { onUserDeleted } from '../users/onUserDelete.js';
 import { arccmsOwnsAuthAccount } from '../users/authOwner.js';
 
 const deleted = onUserDeleted as unknown as (e: any) => Promise<void>;
-const event = (data: Record<string, unknown>) => ({ data: { data: () => data } });
+const event = (data: Record<string, unknown>) => ({ params: { docId: 'rec-1' }, data: { data: () => data } });
 
 describe('authOwner guard', () => {
     beforeEach(() => vi.clearAllMocks());

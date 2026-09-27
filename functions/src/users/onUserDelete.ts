@@ -1,9 +1,16 @@
 /**
- * Cloud Function trigger: fires when a user document is deleted from the `users` collection.
+ * Cloud Function trigger: fires when a user document is deleted from the `users` collection,
+ * by an admin (Users, Delete) or by the person (Profile, Delete account: deleteMyAccount).
  *
- * Responsibilities:
+ * Responsibilities (docs/account-contract.md, "Deleting an account"):
  * 1. Delete the corresponding Firebase Auth account (so the user can't sign in again)
  * 2. Remove the hashed email from the `email_lookup` collection (first-run / signup check)
+ * 3. Phone sign-in: the number's index entry and the PIN
+ * 4. Everything stored under the record: every subcollection of users/{docId}, at any
+ *    depth (Firestore keeps subcollections when a document is deleted), and the
+ *    per-user Storage folder `{prefix}users/{docId}/` plus the profile photos in
+ *    `avatars/{uid}/`
+ * 5. A `user.deleted` event on the event bus, for app code that keeps data elsewhere
  *
  * Note: The client-side delete in users/index.page.ts already attempts to remove
  * the email_lookup entry. This Cloud Function is the authoritative cleanup that
@@ -11,8 +18,9 @@
  */
 
 import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
-import { owner, db } from '../init.js';
-import { arcDocument } from '../arc-config.js';
+import { owner, db, storage } from '../init.js';
+import { arcDocument, arcStorageBucket, userStorageFolder } from '../arc-config.js';
+import { emitAppEvent } from '../email-core/appEvents.js';
 import { arccmsOwnsAuthAccount } from './authOwner.js';
 import { phoneHash } from '../auth/phoneNumber.js';
 
@@ -100,6 +108,30 @@ export const onUserDeleted = onDocumentDeleted(
                     .catch((err: any) => console.error(`Failed to remove the PIN for uid=${uid}:`, err))
             );
         }
+
+        // 4. Everything stored under the record: subcollections, and the Storage folders.
+        const docId = event.params.docId;
+        tasks.push(
+            db.recursiveDelete(db.collection('users').doc(docId))
+                .then(() => console.log(`Deleted everything under users/${docId}.`))
+                .catch((err: any) => console.error(`Failed to delete data under users/${docId}:`, err))
+        );
+        const bucket = arcStorageBucket() ? storage.bucket(arcStorageBucket()) : storage.bucket();
+        const folders = [userStorageFolder(docId), ...(uid ? [`avatars/${uid}/`] : [])];
+        for (const prefix of folders) {
+            tasks.push(
+                bucket.deleteFiles({ prefix, force: true })
+                    .then(() => console.log(`Deleted Storage files under ${prefix}.`))
+                    .catch((err: any) => console.error(`Failed to delete Storage files under ${prefix}:`, err))
+            );
+        }
+
+        // 5. Tell anything that keeps this person's data elsewhere.
+        tasks.push(
+            emitAppEvent('user.deleted', { ...(uid ? { userId: uid } : {}), data: { userDocId: docId } })
+                .then(() => undefined)
+                .catch((err: any) => console.error('Failed to emit user.deleted:', err))
+        );
 
         await Promise.all(tasks);
     }

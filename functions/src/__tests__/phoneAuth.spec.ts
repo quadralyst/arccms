@@ -9,6 +9,8 @@ const owner = vi.hoisted(() => ({
     createUser: vi.fn(),
     deleteUser: vi.fn(),
     createCustomToken: vi.fn(async (uid: string) => `token-${uid}`),
+    getUser: vi.fn(async (uid: string) => ({ uid, customClaims: {} })),
+    setCustomUserClaims: vi.fn(),
 }));
 
 vi.mock('../init', async () => {
@@ -119,6 +121,14 @@ describe('sign-up with a new number', () => {
         const pin = mem.read('auth_pins', 'uid-asha')!;
         expect(pin['hash']).toMatch(/^[a-f0-9]{64}$/);
         expect(JSON.stringify(pin)).not.toContain('246810');
+        // Claims set before the token is issued, so the first ID token has them.
+        expect(owner.setCustomUserClaims).toHaveBeenCalledWith('uid-asha', { role: 'user', arccms_uid: user.id });
+    });
+
+    it("applies the site's default role", async () => {
+        mem.seed('Settings', 'users', { isSignupEnabled: true, phoneSignIn: true, defaultRole: 'propertyOwner' });
+        await signUp();
+        expect(mem.all('users')[0].data['role']).toBe('propertyOwner');
     });
 
     it('needs a verified code first', async () => {

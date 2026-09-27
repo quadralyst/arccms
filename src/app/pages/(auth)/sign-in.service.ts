@@ -69,6 +69,38 @@ export class SignInService {
         return this.call('checkEmailAccount', { email });
     }
 
+    /**
+     * Email sign-up, after the browser created the password sign-in: the server
+     * writes the record and its claims (functions/src/auth/emailAccount.ts), and
+     * the token is refreshed so it carries them.
+     */
+    async createAccountRecord(name: string): Promise<{ id: string; created: boolean }> {
+        const result = await this.call<{ id: string; created: boolean }>('createAccountRecord', { name });
+        await this.auth.currentUser?.getIdToken(true);
+        return result;
+    }
+
+    // --- The account's claims and deletion (docs/account-contract.md) ------
+
+    /**
+     * Make sure the ID token carries `arccms_uid` for this record: asks the
+     * server to set the claims when the token lacks it (an account made before
+     * the claim existed), then refreshes the token. Returns whether it had to.
+     */
+    async ensureRecordClaim(userDocId: string): Promise<boolean> {
+        const user = this.auth.currentUser;
+        if (!user || !userDocId) return false;
+        const token = await user.getIdTokenResult();
+        if (token.claims['arccms_uid'] === userDocId) return false;
+        await this.call('refreshMyClaims', {});
+        await user.getIdToken(true);
+        return true;
+    }
+
+    deleteMyAccount(): Promise<{ deleted: boolean }> {
+        return this.call('deleteMyAccount', {});
+    }
+
     // --- Phone ---------------------------------------------------------------
 
     checkPhone(phone: string): Promise<PhoneAccount> {
@@ -109,10 +141,11 @@ export class SignInService {
 
     // --- Google --------------------------------------------------------------
 
-    /** Google popup, then make sure the person has a record. */
+    /** Google popup, then make sure the person has a record, and a token carrying its claims. */
     async signInWithGoogle(): Promise<void> {
         await runInInjectionContext(this.injector, () => signInWithPopup(this.auth, new GoogleAuthProvider()));
         await this.call('ensureGoogleAccount', {});
+        await this.auth.currentUser?.getIdToken(true);
     }
 
     /** The Google credential from a failed popup, to link after the password sign-in. */

@@ -7,6 +7,9 @@
 > **records** whether a user is premium and which tier they hold. It does **not**
 > enforce access. The **client app enforces** access by reading the fields below.
 > This document is the contract between the two.
+>
+> Accounts themselves (the `arccms_uid` claim, where an app keeps a person's data,
+> what deleting an account removes): [account-contract.md](account-contract.md).
 
 ---
 

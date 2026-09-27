@@ -77,6 +77,8 @@ export * from './content-types/onContentTypeDelete.js';
 // User role sync to Firebase Auth custom claims
 export * from './users/syncUserRole.js';
 export * from './users/adminCreateUser.js';
+// The account's own: claim refresh and deleting it (docs/account-contract.md).
+export * from './users/accountCallables.js';
 
 // Add email_lookup entry when a user document is created
 export * from './users/onUserCreate.js';

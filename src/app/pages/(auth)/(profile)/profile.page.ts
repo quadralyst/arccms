@@ -14,7 +14,9 @@ import { BaseComponent } from '../../../../shared/components/base/base.component
 import { AuthState } from '../auth.store';
 import MediaManagerComponent from '../../admin/(media)/media.page';
 import { FileUploadService } from '../../../../shared/services/file-upload.service';
-import { SignInService } from '../sign-in.service';
+import { readSignInError, SignInService } from '../sign-in.service';
+import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
+import { firstValueFrom } from 'rxjs';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 
 export const routeMeta: RouteMeta = {
@@ -253,6 +255,54 @@ export default class ProfileComponent extends BaseComponent {
     } finally {
       this.isSavingPassword.set(false);
     }
+  }
+
+  // --- Delete account ---
+
+  isDeleting = signal(false);
+  /** The server wants a fresh sign-in before deleting. */
+  deleteNeedsSignIn = signal(false);
+
+  /** Admins are removed by another admin, under Users. */
+  canDeleteAccount(): boolean {
+    return this.currentUser()?.role !== 'admin';
+  }
+
+  /** Deletes the account and everything stored under it (docs/account-contract.md). */
+  async deleteAccount(): Promise<void> {
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmationPopupComponent, {
+      width: '400px',
+      data: {
+        dialogType: 'Delete account',
+        dialogMessage: this.sanitizer.bypassSecurityTrustHtml(
+          'This deletes your account and everything saved in it. <strong>It cannot be undone.</strong>',
+        ),
+        btnText: 'Delete my account',
+        panelType: 'warn',
+      },
+    }).afterClosed());
+    if (!confirmed) return;
+
+    this.clearMessages();
+    this.isDeleting.set(true);
+    try {
+      await this.signIn.deleteMyAccount();
+      await firstValueFrom(this.authStore.logout());
+      this.toastService.success('Your account was deleted.');
+      await this.router.navigate(['/'], { replaceUrl: true });
+    } catch (err) {
+      const error = readSignInError(err);
+      this.deleteNeedsSignIn.set(error.reason === 'recent-sign-in');
+      this.errorMsg.set(error.message);
+    } finally {
+      this.isDeleting.set(false);
+    }
+  }
+
+  /** Sign out, to sign in again before deleting. */
+  async signInAgain(): Promise<void> {
+    await firstValueFrom(this.authStore.logout());
+    await this.router.navigate(['/signup']);
   }
 
   // --- Utilities ---

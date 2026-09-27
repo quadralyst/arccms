@@ -53,6 +53,32 @@ export function arcHostingOrigin(env: Env = process.env): string {
 }
 
 /**
+ * The Storage bucket ArcCMS files live in. `ARC_STORAGE_BUCKET`, '' for the
+ * project's default bucket (`storage.bucket()` with no name).
+ */
+export function arcStorageBucket(env: Env = process.env): string {
+    return env.ARC_STORAGE_BUCKET?.trim().replace(/^gs:\/\//, '') || '';
+}
+
+/**
+ * The folder ArcCMS uploads go under. `ARC_STORAGE_PREFIX`, '' for the bucket
+ * root; otherwise it ends in `/` (`arccms/`), as the browser's `storagePrefix` does.
+ */
+export function arcStoragePrefix(env: Env = process.env): string {
+    const prefix = env.ARC_STORAGE_PREFIX?.trim().replace(/^\/+/, '') || '';
+    return prefix && !prefix.endsWith('/') ? `${prefix}/` : prefix;
+}
+
+/**
+ * The per-user Storage folder, `{prefix}users/{userDocId}/`: apps keep a
+ * person's files here, and deleting the account deletes the folder
+ * (docs/account-contract.md).
+ */
+export function userStorageFolder(userDocId: string, env: Env = process.env): string {
+    return `${arcStoragePrefix(env)}users/${userDocId}/`;
+}
+
+/**
  * The database id as a deploy-time param. Trigger bindings are decided when the
  * Firebase CLI loads this code to deploy it, and at that moment `functions/.env`
  * is NOT in `process.env`; only params are resolved from it. A plain
@@ -78,3 +104,4 @@ export const arcDatabaseParam = defineString('ARC_DATABASE_ID', {
 export function arcDocument<Path extends string>(document: Path): { document: Path; database: StringParam } {
     return { document, database: arcDatabaseParam };
 }
+

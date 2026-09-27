@@ -8,11 +8,23 @@
  * entry on the way, and recognises a login with no ArcCMS record (another app's
  * user in a shared sign-in pool), which gets "no access" at once.
  */
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { Timestamp } from 'firebase-admin/firestore';
 import { db, owner } from '../init.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
-import { callerKey, consumeRateLimit, findUserByEmail, readSignInSettings } from './accounts.js';
+import {
+    applyNewAccountClaims,
+    callerKey,
+    consumeRateLimit,
+    findUserByEmail,
+    findUserByUid,
+    readSignInSettings,
+    requireSignedIn,
+} from './accounts.js';
 import { normalizeEmailAddress } from './linkIdentifiers.js';
+import { readName } from './phoneAuth.js';
+import { authOwnerFor } from './googleAccount.js';
+import { wasVerifiedBySignupCode } from './signupOtp.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -31,4 +43,56 @@ export const checkEmailAccount = onCall(async (request) => {
         status = 'no-access';
     }
     return { status, signupOpen };
+});
+
+/**
+ * Email sign-up, second half: the browser has just created the password sign-in
+ * account; this creates the person's record, with the site's default role and
+ * the `arccms_uid` claim, so the claim is in the token when sign-in completes.
+ * The record used to be written from the browser, which left the claim to a
+ * trigger that finished some time after sign-in.
+ *
+ * `emailVerified` comes from the server's own sign-up code record, never from
+ * the browser. Calling it again for someone who has a record changes nothing.
+ */
+export const createAccountRecord = onCall(async (request) => {
+    const uid = requireSignedIn(request);
+    const existing = await findUserByUid(uid);
+    if (existing) return { id: existing.ref.id, created: false };
+
+    const token = request.auth!.token as { email?: string; firebase?: { sign_in_provider?: string } };
+    const email = String(token.email ?? '').trim().toLowerCase();
+    if (token.firebase?.sign_in_provider !== 'password' || !email) {
+        throw new HttpsError('failed-precondition', 'Please sign in again.');
+    }
+    const settings = await readSignInSettings();
+    if (!settings.signupOpen) {
+        throw new HttpsError('failed-precondition', "New accounts can't be created on this site right now.", { reason: 'signup-closed' });
+    }
+    if (await findUserByEmail(email)) {
+        throw new HttpsError('already-exists', 'You already have an account with this email. Enter your password to sign in.');
+    }
+
+    const name = readName(request.data?.name);
+    const account = await owner.getUser(uid);
+    const ref = db.collection('users').doc();
+    const now = Timestamp.now();
+    await ref.set({
+        id: ref.id,
+        uid,
+        name,
+        email,
+        emailVerified: await wasVerifiedBySignupCode(email),
+        role: settings.defaultRole,
+        status: 'Active',
+        isActive: true,
+        authOwner: authOwnerFor(account.metadata.creationTime),
+        by: 'email',
+        createdBy: uid,
+        modifiedBy: uid,
+        createdAt: now,
+        modifiedAt: now,
+    });
+    await applyNewAccountClaims(uid, ref.id, settings.defaultRole);
+    return { id: ref.id, created: true };
 });

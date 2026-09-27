@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { arcDatabaseId, arcDatabaseParam, arcDocument, arcHostingEnabled, arcHostingOrigin, arcHostingSite, DEFAULT_DATABASE_ID } from '../arc-config.js';
+import { arcDatabaseId, arcDatabaseParam, arcDocument, arcHostingEnabled, arcHostingOrigin, arcHostingSite, arcStorageBucket, arcStoragePrefix, DEFAULT_DATABASE_ID, userStorageFolder } from '../arc-config.js';
 
 describe('arc-config (functions)', () => {
     describe('defaults: an install with no ARC_* variables behaves as before CO2', () => {
@@ -59,6 +59,21 @@ describe('arc-config (functions)', () => {
             const code = readFileSync(join(__dirname, '..', 'arc-config.ts'), 'utf8');
             const body = code.slice(code.indexOf('export function arcDocument'));
             expect(body).not.toMatch(/process\.env|arcDatabaseId\(/);
+        });
+    });
+
+    describe('storage (account deletion)', () => {
+        it('defaults to the default bucket and the bucket root', () => {
+            expect(arcStorageBucket({})).toBe('');
+            expect(arcStoragePrefix({})).toBe('');
+            expect(userStorageFolder('rec-1', {})).toBe('users/rec-1/');
+        });
+
+        it('reads the bucket and the upload folder, always ending the folder in /', () => {
+            const env = { ARC_STORAGE_BUCKET: 'gs://acme-arccms', ARC_STORAGE_PREFIX: 'arccms' };
+            expect(arcStorageBucket(env)).toBe('acme-arccms');
+            expect(arcStoragePrefix(env)).toBe('arccms/');
+            expect(userStorageFolder('rec-1', env)).toBe('arccms/users/rec-1/');
         });
     });
 
