@@ -8,7 +8,7 @@
  *   src/environments/arc-install.ts   every project's database, bucket and upload
  *                                     folder, keyed by project id; the app picks
  *                                     its own by firebaseConfig.projectId
- *   functions/.env.<projectId>        ARC_DATABASE_ID, ARC_HOSTING_SITE for that
+ *   functions/.env.<projectId>        ARC_DATABASE_ID, ARC_HOSTING_SITE, ARC_STORAGE_* for that
  *                                     project (other lines kept); the committed
  *                                     functions/.env stays the default
  *   firebase.<projectId>.json         Firebase CLI config for a named database, own
@@ -197,7 +197,8 @@ export const arcInstall: Record<string, ArcInstallConfig> = ${body};
  * ARC_DATABASE_ID is always written, `(default)` included: it backs a deploy-time
  * param, and the Firebase CLI refuses a non-interactive deploy when a param has
  * no value in a dotenv file, default or not. ARC_HOSTING_SITE is written only
- * when set (its default comes from the project id at run time).
+ * when set (its default comes from the project id at run time), and so are
+ * ARC_STORAGE_BUCKET and ARC_STORAGE_PREFIX.
  */
 export function updateFunctionsEnv(existing, config) {
     const wanted = {
@@ -206,6 +207,10 @@ export function updateFunctionsEnv(existing, config) {
         // App audience (CO6): params too, so always written for non-interactive deploys.
         ARC_APP_USERS_DATABASE: config.appUsersDatabase || DEFAULT_DATABASE_ID,
         ARC_APP_USERS_PATH: config.appUsersPath || APP_USERS_UNCONFIGURED,
+        // Deleting an account deletes its Storage folder, so the functions need the
+        // install's bucket and upload folder too. Written only when set.
+        ARC_STORAGE_BUCKET: config.storageBucket,
+        ARC_STORAGE_PREFIX: config.storagePrefix,
     };
     const lines = (existing ?? '').split('\n').filter((line) => {
         const key = /^\s*([A-Z0-9_]+)\s*=/.exec(line)?.[1];
@@ -231,7 +236,7 @@ export function renderFirebaseConfig(base, config) {
     }
     if (config.storageBucket) {
         const storage = Array.isArray(base.storage) ? base.storage[0] : base.storage;
-        out.storage = [{ bucket: config.storageBucket, rules: storage.rules }];
+        out.storage = [{ bucket: config.storageBucket, ...stripBucket(storage) }];
     }
     if (ownHostingSite(config)) {
         out.hosting = { site: config.hostingSite, ...stripSite(base.hosting) };
@@ -240,6 +245,7 @@ export function renderFirebaseConfig(base, config) {
 }
 
 function stripDatabase({ database: _ignored, ...rest }) { return rest; }
+function stripBucket({ bucket: _ignored, ...rest }) { return rest; }
 function stripSite({ site: _ignored, target: _alsoIgnored, ...rest }) { return rest; }
 
 /**

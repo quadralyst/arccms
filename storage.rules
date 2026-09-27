@@ -7,12 +7,30 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // ------------------------------------------------------------
+    // Helpers for app rules (storage.app.rules, docs/app-rules.md).
+    // The same names and meaning as in firestore.rules.
+    // ------------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
     // Same claim the Firestore rules use (firestore.rules, isEditor()). It is
     // set by the onUserRoleChange Cloud Function, and only admins or the Admin
     // SDK can change a user's role.
     function isEditor() {
       return isAuthenticated() &&
         (request.auth.token.role == 'admin' || request.auth.token.role == 'editor');
+    }
+
+    // The signed-in person owns this users record (the `arccms_uid` claim).
+    function ownsUserRecord(userDocId) {
+      return isSignedIn() && request.auth.token.get('arccms_uid', '') == userDocId;
     }
 
     function isSmallImage() {
@@ -24,10 +42,28 @@ service firebase.storage {
     // the data import/export files, and any other path. Staff only: this was
     // "any signed-in user", and sign-up is open, so anyone could upload to the
     // bucket or overwrite and delete the site's images.
-    match /{allPaths=**} {
-      // Public read — images are served on public pages and SSR
+    //
+    // Public read, because images are served on public pages and SSR, except
+    // the per-user folders: `users/{userDocId}/...` at the bucket root or under
+    // one upload folder (`arccms/users/...`, the install's storagePrefix). A
+    // folder named `users` in the first two levels is therefore never public.
+    match /{fileName} {
       allow read: if true;
       allow write: if isEditor();
+    }
+    match /{first}/{second}/{rest=**} {
+      allow read: if first != 'users' && second != 'users';
+      allow write: if isEditor();
+    }
+
+    // Per-user folders (docs/account-contract.md): the owner and admins may
+    // read. Apps grant writes in storage.app.rules, with their own size and
+    // type limits. Deleting the account deletes the folder.
+    match /users/{userDocId}/{rest=**} {
+      allow read: if ownsUserRecord(userDocId) || isAdmin();
+    }
+    match /{prefix}/users/{userDocId}/{rest=**} {
+      allow read: if ownsUserRecord(userDocId) || isAdmin();
     }
 
     // Member profile photos. A signed-in user may write images only in their
@@ -36,5 +72,9 @@ service firebase.storage {
       allow write: if isAuthenticated() && request.auth.uid == uid
         && (request.resource == null || isSmallImage());
     }
+
+    // App rules. `npm run rules:build` (run by every deploy) puts the
+    // install's storage.app.rules here. Keep the marker on a line of its own.
+    // @arc-app-rules
   }
 }

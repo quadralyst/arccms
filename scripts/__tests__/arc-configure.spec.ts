@@ -120,12 +120,18 @@ describe('arc-configure', () => {
 
         it('points the Firebase CLI at the named database, own bucket and own site', () => {
             const out = configure.renderFirebaseConfig(committedFirebase, config);
+            // The combined core + app rules (scripts/arc-rules-build.mjs), built by the predeploy.
             expect(out.firestore).toEqual([{
                 database: 'arccms',
+                predeploy: committedFirebase.firestore.predeploy,
                 rules: committedFirebase.firestore.rules,
                 indexes: committedFirebase.firestore.indexes,
             }]);
-            expect(out.storage).toEqual([{ bucket: 'acme-arccms', rules: committedFirebase.storage.rules }]);
+            expect(out.storage).toEqual([{
+                bucket: 'acme-arccms',
+                predeploy: committedFirebase.storage.predeploy,
+                rules: committedFirebase.storage.rules,
+            }]);
             expect(out.hosting.site).toBe('acme-admin');
             expect(out.hosting.rewrites).toEqual(committedFirebase.hosting.rewrites);
             expect(out.functions).toEqual(committedFirebase.functions);
@@ -145,7 +151,7 @@ describe('arc-configure', () => {
 
         it('sets the ARC_* keys in functions/.env, replacing old values', () => {
             expect(configure.updateFunctionsEnv('RESEND_KEY=x\nARC_DATABASE_ID=old\n', config))
-                .toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}`);
+                .toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}ARC_STORAGE_BUCKET=acme-arccms\n`);
         });
 
         it('--site=none turns hosting off: the env says so, the CLI config gets no site', () => {
@@ -197,7 +203,7 @@ describe('arc-configure', () => {
             expect(JSON.parse(readFileSync(paths.config, 'utf8'))).toEqual({ projects: { 'acme-prod': backend } });
             expect(existsSync(generated('acme-prod'))).toBe(true);
             expect(existsSync(generated('acme-dev'))).toBe(false);
-            expect(readFileSync(envFor('acme-prod'), 'utf8')).toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}`);
+            expect(readFileSync(envFor('acme-prod'), 'utf8')).toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}ARC_STORAGE_BUCKET=acme-arccms\n`);
             expect(readFileSync(join(dir, 'functions', '.env'), 'utf8')).toBe('ARC_DATABASE_ID=(default)\n');
             expect(readFileSync(paths.install, 'utf8')).toContain('"acme-prod": {');
 

@@ -25,7 +25,7 @@ const anon = () => env.unauthenticatedContext().storage();
 beforeAll(async () => {
     env = await initializeTestEnvironment({
         projectId: 'demo-arccms-rules',
-        storage: { rules: readFileSync(resolve(__dirname, '../../storage.rules'), 'utf8') },
+        storage: { rules: readFileSync(resolve(__dirname, '../../.arc-build/storage.rules'), 'utf8') },
     });
 });
 
@@ -67,5 +67,42 @@ describe('storage', () => {
 
     it('refuses unauthenticated writes', async () => {
         await assertFails(uploadBytes(ref(anon(), 'avatars/alice-uid/me.png'), png, asImage));
+    });
+});
+
+describe('per-user folders (docs/account-contract.md)', () => {
+    const owner = () => env.authenticatedContext('alice-uid', { arccms_uid: 'rec-alice' }).storage();
+    const other = () => env.authenticatedContext('bob-uid', { arccms_uid: 'rec-bob' }).storage();
+    const noClaim = () => env.authenticatedContext('alice-uid').storage();
+
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await uploadBytes(ref(ctx.storage(), 'users/rec-alice/private.png'), png, asImage);
+            await uploadBytes(ref(ctx.storage(), 'arccms/users/rec-alice/private.png'), png, asImage);
+            await uploadBytes(ref(ctx.storage(), 'arccms/mediaImages/site.png'), png, asImage);
+            await uploadBytes(ref(ctx.storage(), 'root.png'), png, asImage);
+        });
+    });
+
+    it('are never public, at the bucket root or under the upload folder', async () => {
+        await assertFails(getBytes(ref(anon(), 'users/rec-alice/private.png')));
+        await assertFails(getBytes(ref(anon(), 'arccms/users/rec-alice/private.png')));
+    });
+
+    it('can be read by their owner (the arccms_uid claim) and admins only', async () => {
+        await assertSucceeds(getBytes(ref(owner(), 'users/rec-alice/private.png')));
+        await assertSucceeds(getBytes(ref(owner(), 'arccms/users/rec-alice/private.png')));
+        await assertSucceeds(getBytes(ref(admin(), 'users/rec-alice/private.png')));
+        await assertFails(getBytes(ref(other(), 'users/rec-alice/private.png')));
+        await assertFails(getBytes(ref(noClaim(), 'users/rec-alice/private.png')));
+    });
+
+    it('cannot be written by their owner without an app rule', async () => {
+        await assertFails(uploadBytes(ref(owner(), 'users/rec-alice/new.png'), png, asImage));
+    });
+
+    it('leave everything else public, under the upload folder and at the root', async () => {
+        await assertSucceeds(getBytes(ref(anon(), 'arccms/mediaImages/site.png')));
+        await assertSucceeds(getBytes(ref(anon(), 'root.png')));
     });
 });

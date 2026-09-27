@@ -26,7 +26,7 @@ const anon = () => env.unauthenticatedContext().firestore();
 beforeAll(async () => {
     env = await initializeTestEnvironment({
         projectId: 'demo-arccms-rules',
-        firestore: { rules: readFileSync(resolve(__dirname, '../../firestore.rules'), 'utf8') },
+        firestore: { rules: readFileSync(resolve(__dirname, '../../.arc-build/firestore.rules'), 'utf8') },
     });
 });
 
@@ -264,5 +264,18 @@ describe('phone and email sign-in fields (item 1: Google and phone sign-in)', ()
         await assertFails(getDoc(doc(alice(), 'Settings', 'sms')));
         await assertFails(getDoc(doc(anon(), 'Settings', 'sms')));
         await assertSucceeds(setDoc(doc(admin(), 'Settings', 'sms'), { provider: 'log' }));
+    });
+});
+
+describe('data under a users record (docs/account-contract.md)', () => {
+    it('is closed until an app rule opens it, even to the owner', async () => {
+        const owner = env.authenticatedContext(ALICE, { arccms_uid: 'alice-doc' }).firestore();
+        await assertFails(setDoc(doc(owner, 'users', 'alice-doc', 'children', 'c1'), { name: 'Kid' }));
+        await assertFails(getDoc(doc(owner, 'users', 'alice-doc', 'children', 'c1')));
+    });
+
+    it('lets the owner read their record by id, as the claim points to it', async () => {
+        const owner = env.authenticatedContext(ALICE, { arccms_uid: 'alice-doc' }).firestore();
+        await assertSucceeds(getDoc(doc(owner, 'users', 'alice-doc')));
     });
 });

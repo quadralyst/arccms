@@ -65,3 +65,6 @@ public_new/*
 arccms.config.json
 # Generated per project by arc:configure (firebase.json itself is not matched).
 firebase.*.json
+
+# Combined core + app rules and indexes, built before every deploy (scripts/arc-rules-build.mjs).
+.arc-build/

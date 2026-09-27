@@ -5,8 +5,9 @@
         }
     },
     "firestore": {
-        "rules": "firestore.rules",
-        "indexes": "firestore.indexes.json"
+        "predeploy": "node \"$PROJECT_DIR/scripts/arc-rules-build.mjs\"",
+        "rules": ".arc-build/firestore.rules",
+        "indexes": ".arc-build/firestore.indexes.json"
     },
     "functions": [
         {
@@ -102,6 +103,7 @@
         ]
     },
     "storage": {
-        "rules": "storage.rules"
+        "predeploy": "node \"$PROJECT_DIR/scripts/arc-rules-build.mjs\"",
+        "rules": ".arc-build/storage.rules"
     }
 }

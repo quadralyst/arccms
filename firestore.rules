@@ -11,6 +11,25 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // ------------------------------------------------------------
+    // Helpers for app rules (firestore.app.rules, docs/app-rules.md).
+    // Apps call these, plus isAdmin() and isEditor() below; keep their
+    // names and meaning stable.
+    // ------------------------------------------------------------
+
+    // Any signed-in person.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // The signed-in person owns this users record. Reads the `arccms_uid`
+    // claim (functions/src/users/claims.ts), so it costs no document read. A
+    // token without the claim owns nothing: the browser refreshes the claim
+    // at sign-in, so a missing one means deny.
+    function ownsUserRecord(userDocId) {
+      return isSignedIn() && request.auth.token.get('arccms_uid', '') == userDocId;
+    }
+
     function isAdmin() {
       return isAuthenticated() &&
         request.auth.token.role == 'admin';
@@ -576,6 +595,13 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
     }
+
+    // ============================================================
+    // App rules. `npm run rules:build` (run by every deploy) puts the
+    // install's firestore.app.rules here, inside this same scope, so they
+    // can call the helpers above. Keep the marker on a line of its own.
+    // ============================================================
+    // @arc-app-rules
 
     // ============================================================
     // No catch-all needed - Firestore denies unmatched paths by default
