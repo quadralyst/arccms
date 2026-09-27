@@ -22,6 +22,7 @@ import { BroadcastEmailStore } from '../../../../../shared/components/broadcast-
 import { EmailConfigStatusService } from '../../../../../shared/services/email-config-status.service';
 import { EmailSettingService } from '../../(settings)/email-setting/email-setting.service';
 import { ToastService } from '../../../../../shared/services/toast.service';
+import { headerTestProviders } from '../../../../../test/header-test-providers';
 
 describe('TemplatesComponent', () => {
     let component: TemplatesComponent;
@@ -91,6 +92,9 @@ describe('TemplatesComponent', () => {
                 NoopAnimationsModule,
             ],
             providers: [
+                // <arc-page-header> (notification bell) renders once a test runs
+                // change detection, e.g. the declined path of onTemplateActiveChange.
+                ...headerTestProviders(),
                 { provide: Firestore, useValue: mockFirestore },
                 // U5.5: the page fetches the default templates from the server
                 // (`getWaitlistTemplateDefaults`) instead of keeping its own copy.
@@ -374,7 +378,8 @@ describe('TemplatesComponent', () => {
         });
 
         it('should handle onBroadcastSent correctly', () => {
-            const historySpy = vi.spyOn(component, 'loadBroadcastHistory');
+            // Stubbed: the real method queries Firestore, which is a fake here.
+            const historySpy = vi.spyOn(component, 'loadBroadcastHistory').mockResolvedValue(undefined);
             component.isComposingBroadcast.set(true);
 
             component.onBroadcastSent();
