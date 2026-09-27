@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const owner = vi.hoisted(() => ({ getUser: vi.fn() }));
 
 vi.mock('../init', async () => {
-    const { MemoryFirestore } = await import('./helpers/memoryFirestore');
+    const { MemoryFirestore } = await import('./helpers/memoryFirestore.js');
     return { db: new MemoryFirestore(), owner };
 });
 vi.mock('firebase-admin/firestore', async () => {
-    const { FakeTimestamp } = await import('./helpers/memoryFirestore');
+    const { FakeTimestamp } = await import('./helpers/memoryFirestore.js');
     return { Timestamp: FakeTimestamp, FieldValue: { delete: () => ({ _delete: true }) } };
 });
 vi.mock('firebase-functions/v2/https', () => ({

@@ -9,11 +9,11 @@ const owner = vi.hoisted(() => ({ getUser: vi.fn(), updateUser: vi.fn() }));
 const mocks = vi.hoisted(() => ({ notifyAdmins: vi.fn(), emitAppEvent: vi.fn() }));
 
 vi.mock('../init', async () => {
-    const { MemoryFirestore } = await import('./helpers/memoryFirestore');
+    const { MemoryFirestore } = await import('./helpers/memoryFirestore.js');
     return { db: new MemoryFirestore(), owner };
 });
 vi.mock('firebase-admin/firestore', async () => {
-    const { FakeTimestamp } = await import('./helpers/memoryFirestore');
+    const { FakeTimestamp } = await import('./helpers/memoryFirestore.js');
     return { Timestamp: FakeTimestamp, FieldValue: { delete: () => ({ _delete: true }) } };
 });
 vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentCreated: vi.fn((_opts: unknown, handler: unknown) => handler) }));
