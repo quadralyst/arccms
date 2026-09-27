@@ -643,4 +643,16 @@ describe('SignupComponent', () => {
             expect(c.errorMessage.set).toHaveBeenCalledWith('Something went wrong!');
         });
     });
+
+    describe('instance label', () => {
+        it('names the project and database in development builds, on every step', () => {
+            const fs = require('fs');
+            const path = require('path');
+            const html: string = fs.readFileSync(path.resolve(__dirname, 'signup.page.html'), 'utf-8');
+            const src: string = fs.readFileSync(path.resolve(__dirname, 'signup.page.ts'), 'utf-8');
+            expect(src).toContain('environment.production');
+            expect(src).toContain('arcConfig.databaseId');
+            expect(html.match(/instance-label/g)?.length).toBe(html.match(/class="copyright"/g)?.length);
+        });
+    });
 });

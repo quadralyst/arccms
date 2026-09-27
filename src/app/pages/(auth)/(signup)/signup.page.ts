@@ -39,6 +39,8 @@ import { LegalNoticeComponent } from '../../../../shared/components/legal-notice
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 import { classifyIdentifier, formatPhone } from '../../../../shared/utils/identifier.util';
 import { readSignInError, SignInService } from '../sign-in.service';
+import { environment } from '../../../../environments/environment';
+import { arcConfig } from '../../../core/config/arc-config';
 
 export const routeMeta: RouteMeta = {
   title: 'Signup | Arc CMS',
@@ -95,6 +97,13 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   pinLocked = signal(false);
   /** Test SMS provider only: the code that was not sent, shown under the boxes. */
   testCode = signal('');
+  /**
+   * Development builds only: which Firebase project and database this page signs
+   * in to, so nobody signs in to the wrong install by mistake. Empty in production.
+   */
+  readonly instanceLabel = environment.production
+    ? ''
+    : `${environment.firebaseConfig.projectId} · ${arcConfig.databaseId} database`;
 
   private codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
   private pinBoxes = viewChild<CodeInputComponent>('pinBoxes');

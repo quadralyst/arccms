@@ -628,3 +628,11 @@ input:focus {
         text-decoration: underline;
     }
 }
+
+/* Development builds: which project and database this page signs in to */
+.instance-label {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    font-family: monospace;
+    color: #6c757d;
+}
