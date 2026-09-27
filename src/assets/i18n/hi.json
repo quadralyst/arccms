@@ -56,7 +56,8 @@
       "index": "#",
       "description": "विवरण",
       "type": "प्रकार",
-      "id": "ID"
+      "id": "ID",
+      "phone": "फ़ोन"
     },
     "yes": "हाँ",
     "no": "नहीं",
@@ -229,6 +230,10 @@
         "app-audience": {
           "label": "ऐप ऑडियंस",
           "description": "आपके ऐप के उपयोगकर्ता, सीधे पढ़े गए"
+        },
+        "sms": {
+          "label": "SMS",
+          "description": "फ़ोन से साइन-इन के लिए SMS"
         }
       },
       "about": {
@@ -292,7 +297,14 @@
         "default_role_hint": "साइनअप करने वाले उपयोगकर्ताओं को दी जाने वाली भूमिका",
         "assigned_note": "साइनअप करने वाले नए उपयोगकर्ताओं को दी जाएगी",
         "assigned_note_end": "भूमिका।",
-        "signups_disabled": "उपयोगकर्ता साइनअप फ़िलहाल बंद हैं। केवल मौजूदा उपयोगकर्ता लॉग इन कर सकते हैं।"
+        "signups_disabled": "उपयोगकर्ता साइनअप फ़िलहाल बंद हैं। केवल मौजूदा उपयोगकर्ता लॉग इन कर सकते हैं।",
+        "sign_in_methods": "साइन-इन के तरीके",
+        "phone_sign_in": "फ़ोन नंबर",
+        "phone_sign_in_hint": "लोग अपने मोबाइल नंबर से साइन इन करते हैं: पहली बार SMS कोड, फिर 6 अंकों का PIN।",
+        "sms_settings_link": "SMS सेटिंग्स",
+        "google_sign_in": "Google",
+        "google_sign_in_hint": "Google खाते से एक टैप में। पहले Firebase console में Google चालू करें (Authentication, Sign-in method)।",
+        "sign_in_saved": "साइन-इन के तरीके सहेजे गए"
       },
       "message": {
         "title": "वैश्विक संदेश बैनर",
@@ -714,6 +726,39 @@
           "app_user_deleted": "आपके ऐप में उपयोगकर्ता हटाया जाता है",
           "app_user_changed": "आपके ऐप में {{field}} बदलता है"
         }
+      },
+      "sms": {
+        "title": "SMS",
+        "intro": "फ़ोन साइन-इन SMS से 6 अंकों का कोड भेजता है। जब तक कोई प्रोवाइडर सेट नहीं होता, संदेश केवल नीचे दर्ज होते हैं, ताकि आप किसी भी नंबर से जाँच कर सकें।",
+        "provider": "प्रोवाइडर",
+        "provider_log": "टेस्ट (केवल लॉग): कुछ नहीं भेजा जाता",
+        "provider_msg91": "MSG91",
+        "msg91_auth_key": "MSG91 auth key",
+        "msg91_auth_key_hint": "एक key सहेजी हुई है। उसे रखने के लिए यह खाली छोड़ें।",
+        "msg91_template": "OTP टेम्पलेट ID",
+        "msg91_template_hint": "आपका DLT-स्वीकृत MSG91 OTP टेम्पलेट। इसमें ##OTP## होना चाहिए।",
+        "default_country": "डिफ़ॉल्ट देश कोड",
+        "default_country_hint": "बिना कोड के लिखे नंबरों में जोड़ा जाता है। भारत के लिए 91।",
+        "allowed_countries": "अनुमत देश कोड",
+        "allowed_countries_hint": "केवल ये नंबर फ़ोन से साइन इन कर सकते हैं। अल्पविराम से अलग करें।",
+        "save": "SMS सेटिंग्स सहेजें",
+        "saved": "SMS सेटिंग्स सहेजी गईं",
+        "test_title": "टेस्ट SMS भेजें",
+        "test_phone": "फ़ोन नंबर",
+        "test_send": "टेस्ट भेजें",
+        "test_logged": "नीचे दर्ज किया गया। टेस्ट प्रोवाइडर कुछ नहीं भेजता।",
+        "test_sent": "भेजा गया। फ़ोन देखें।",
+        "test_failed": "नहीं भेजा गया: {{ error }}",
+        "logs_title": "हाल के संदेश",
+        "logs_empty": "अभी कोई संदेश नहीं।",
+        "logs_refresh": "रीफ़्रेश",
+        "col_time": "समय",
+        "col_to": "किसे",
+        "col_message": "संदेश",
+        "col_status": "स्थिति",
+        "status_logged": "दर्ज",
+        "status_sent": "भेजा गया",
+        "status_failed": "विफल"
       }
     },
     "contents": {
@@ -1007,7 +1052,10 @@
       "empty_description": "आपके मानदंडों से मेल खाता कोई उपयोगकर्ता नहीं मिला।",
       "invalid_action": "अमान्य क्रिया",
       "none_selected": "कोई उपयोगकर्ता नहीं चुना गया",
-      "verify": "सत्यापित करें"
+      "verify": "सत्यापित करें",
+      "show_detached": "अलग किए गए खाते",
+      "show_all": "सभी उपयोगकर्ता",
+      "detached_hint": "ऐसे खाते जिनका एकमात्र ईमेल या फ़ोन नंबर किसी दूसरे खाते में चला गया। ये रखे गए हैं पर साइन इन नहीं कर सकते।"
     },
     "audience": {
       "contacts": {

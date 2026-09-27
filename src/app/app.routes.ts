@@ -110,6 +110,11 @@ export const routes: Routes = [
               import('./pages/admin/(settings)/user-setting/user-setting.page').then((m) => m.default),
           },
           {
+            path: 'sms',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/sms/sms-settings.page').then((m) => m.SmsSettingsPage),
+          },
+          {
             path: 'message',
             loadComponent: () =>
               import('./pages/admin/(settings)/message/message.page').then((m) => m.default),

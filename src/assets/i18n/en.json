@@ -64,7 +64,8 @@
       "index": "#",
       "description": "Description",
       "type": "Type",
-      "id": "ID"
+      "id": "ID",
+      "phone": "Phone"
     },
     "yes": "Yes",
     "no": "No",
@@ -237,6 +238,10 @@
         "app-audience": {
           "label": "App audience",
           "description": "Your app's users, read live"
+        },
+        "sms": {
+          "label": "SMS",
+          "description": "Text messages for phone sign-in"
         }
       },
       "about": {
@@ -300,7 +305,14 @@
         "default_role_hint": "Role assigned to users who sign up",
         "assigned_note": "New users signing up will be assigned the",
         "assigned_note_end": "role.",
-        "signups_disabled": "User signups are currently disabled. Only existing users can log in."
+        "signups_disabled": "User signups are currently disabled. Only existing users can log in.",
+        "sign_in_methods": "Sign-in methods",
+        "phone_sign_in": "Phone number",
+        "phone_sign_in_hint": "People sign in with their mobile number: an SMS code the first time, then a 6-digit PIN.",
+        "sms_settings_link": "SMS settings",
+        "google_sign_in": "Google",
+        "google_sign_in_hint": "One tap with a Google account. Turn Google on in the Firebase console first (Authentication, Sign-in method).",
+        "sign_in_saved": "Sign-in methods saved"
       },
       "message": {
         "title": "Global Message Banner",
@@ -722,6 +734,39 @@
           "app_user_deleted": "A user is deleted in your app",
           "app_user_changed": "{{field}} changes in your app"
         }
+      },
+      "sms": {
+        "title": "SMS",
+        "intro": "Phone sign-in sends a 6-digit code by SMS. Until a provider is set up, messages are only recorded below, so you can test with any number.",
+        "provider": "Provider",
+        "provider_log": "Test (log only): nothing is sent",
+        "provider_msg91": "MSG91",
+        "msg91_auth_key": "MSG91 auth key",
+        "msg91_auth_key_hint": "A key is saved. Leave this empty to keep it.",
+        "msg91_template": "OTP template ID",
+        "msg91_template_hint": "Your DLT-approved MSG91 OTP template. It must contain ##OTP##.",
+        "default_country": "Default country code",
+        "default_country_hint": "Added to numbers typed without one. 91 is India.",
+        "allowed_countries": "Allowed country codes",
+        "allowed_countries_hint": "Only these numbers can sign in by phone. Separate them with commas.",
+        "save": "Save SMS settings",
+        "saved": "SMS settings saved",
+        "test_title": "Send a test SMS",
+        "test_phone": "Phone number",
+        "test_send": "Send test",
+        "test_logged": "Recorded below. The test provider sends nothing.",
+        "test_sent": "Sent. Check the phone.",
+        "test_failed": "Not sent: {{ error }}",
+        "logs_title": "Recent messages",
+        "logs_empty": "No messages yet.",
+        "logs_refresh": "Refresh",
+        "col_time": "Time",
+        "col_to": "To",
+        "col_message": "Message",
+        "col_status": "Status",
+        "status_logged": "Logged",
+        "status_sent": "Sent",
+        "status_failed": "Failed"
       }
     },
     "contents": {
@@ -1015,7 +1060,10 @@
       "empty_description": "No users found matching your criteria.",
       "invalid_action": "Invalid action",
       "none_selected": "No user selected",
-      "verify": "Verify"
+      "verify": "Verify",
+      "show_detached": "Detached accounts",
+      "show_all": "All users",
+      "detached_hint": "Accounts whose only email or phone number was moved to another account. They are kept and cannot sign in."
     },
     "audience": {
       "contacts": {

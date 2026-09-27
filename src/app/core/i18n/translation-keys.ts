@@ -928,6 +928,8 @@ export type TranslationKey =
     | 'admin.settings.hub.search.label'
     | 'admin.settings.hub.site-usage.description'
     | 'admin.settings.hub.site-usage.label'
+    | 'admin.settings.hub.sms.description'
+    | 'admin.settings.hub.sms.label'
     | 'admin.settings.hub.subtitle'
     | 'admin.settings.hub.title'
     | 'admin.settings.hub.user.description'
@@ -1125,6 +1127,37 @@ export type TranslationKey =
     | 'admin.settings.site_usage.reject_text_required'
     | 'admin.settings.site_usage.subtitle'
     | 'admin.settings.site_usage.title'
+    | 'admin.settings.sms.allowed_countries'
+    | 'admin.settings.sms.allowed_countries_hint'
+    | 'admin.settings.sms.col_message'
+    | 'admin.settings.sms.col_status'
+    | 'admin.settings.sms.col_time'
+    | 'admin.settings.sms.col_to'
+    | 'admin.settings.sms.default_country'
+    | 'admin.settings.sms.default_country_hint'
+    | 'admin.settings.sms.intro'
+    | 'admin.settings.sms.logs_empty'
+    | 'admin.settings.sms.logs_refresh'
+    | 'admin.settings.sms.logs_title'
+    | 'admin.settings.sms.msg91_auth_key'
+    | 'admin.settings.sms.msg91_auth_key_hint'
+    | 'admin.settings.sms.msg91_template'
+    | 'admin.settings.sms.msg91_template_hint'
+    | 'admin.settings.sms.provider'
+    | 'admin.settings.sms.provider_log'
+    | 'admin.settings.sms.provider_msg91'
+    | 'admin.settings.sms.save'
+    | 'admin.settings.sms.saved'
+    | 'admin.settings.sms.status_failed'
+    | 'admin.settings.sms.status_logged'
+    | 'admin.settings.sms.status_sent'
+    | 'admin.settings.sms.test_failed'
+    | 'admin.settings.sms.test_logged'
+    | 'admin.settings.sms.test_phone'
+    | 'admin.settings.sms.test_send'
+    | 'admin.settings.sms.test_sent'
+    | 'admin.settings.sms.test_title'
+    | 'admin.settings.sms.title'
     | 'admin.settings.test_connection.check_folders'
     | 'admin.settings.test_connection.email_invalid'
     | 'admin.settings.test_connection.email_required'
@@ -1141,7 +1174,14 @@ export type TranslationKey =
     | 'admin.settings.user.enable'
     | 'admin.settings.user.enable_signups'
     | 'admin.settings.user.enable_signups_hint'
+    | 'admin.settings.user.google_sign_in'
+    | 'admin.settings.user.google_sign_in_hint'
+    | 'admin.settings.user.phone_sign_in'
+    | 'admin.settings.user.phone_sign_in_hint'
+    | 'admin.settings.user.sign_in_methods'
+    | 'admin.settings.user.sign_in_saved'
     | 'admin.settings.user.signups_disabled'
+    | 'admin.settings.user.sms_settings_link'
     | 'admin.settings.user.subtitle'
     | 'admin.settings.user.title'
     | 'admin.transactions.col_amount'
@@ -1159,12 +1199,15 @@ export type TranslationKey =
     | 'admin.transactions.test_badge_hint'
     | 'admin.transactions.title'
     | 'admin.users.add'
+    | 'admin.users.detached_hint'
     | 'admin.users.empty_description'
     | 'admin.users.empty_title'
     | 'admin.users.invalid_action'
     | 'admin.users.none_selected'
     | 'admin.users.page_subtitle'
     | 'admin.users.page_title'
+    | 'admin.users.show_all'
+    | 'admin.users.show_detached'
     | 'admin.users.verify'
     | 'common.actions.add'
     | 'common.actions.back'
@@ -1232,6 +1275,7 @@ export type TranslationKey =
     | 'common.table.last_updated'
     | 'common.table.name'
     | 'common.table.no_records'
+    | 'common.table.phone'
     | 'common.table.role'
     | 'common.table.showing_range'
     | 'common.table.showing_range_filtered'
@@ -2223,6 +2267,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.search.label',
     'admin.settings.hub.site-usage.description',
     'admin.settings.hub.site-usage.label',
+    'admin.settings.hub.sms.description',
+    'admin.settings.hub.sms.label',
     'admin.settings.hub.subtitle',
     'admin.settings.hub.title',
     'admin.settings.hub.user.description',
@@ -2420,6 +2466,37 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.site_usage.reject_text_required',
     'admin.settings.site_usage.subtitle',
     'admin.settings.site_usage.title',
+    'admin.settings.sms.allowed_countries',
+    'admin.settings.sms.allowed_countries_hint',
+    'admin.settings.sms.col_message',
+    'admin.settings.sms.col_status',
+    'admin.settings.sms.col_time',
+    'admin.settings.sms.col_to',
+    'admin.settings.sms.default_country',
+    'admin.settings.sms.default_country_hint',
+    'admin.settings.sms.intro',
+    'admin.settings.sms.logs_empty',
+    'admin.settings.sms.logs_refresh',
+    'admin.settings.sms.logs_title',
+    'admin.settings.sms.msg91_auth_key',
+    'admin.settings.sms.msg91_auth_key_hint',
+    'admin.settings.sms.msg91_template',
+    'admin.settings.sms.msg91_template_hint',
+    'admin.settings.sms.provider',
+    'admin.settings.sms.provider_log',
+    'admin.settings.sms.provider_msg91',
+    'admin.settings.sms.save',
+    'admin.settings.sms.saved',
+    'admin.settings.sms.status_failed',
+    'admin.settings.sms.status_logged',
+    'admin.settings.sms.status_sent',
+    'admin.settings.sms.test_failed',
+    'admin.settings.sms.test_logged',
+    'admin.settings.sms.test_phone',
+    'admin.settings.sms.test_send',
+    'admin.settings.sms.test_sent',
+    'admin.settings.sms.test_title',
+    'admin.settings.sms.title',
     'admin.settings.test_connection.check_folders',
     'admin.settings.test_connection.email_invalid',
     'admin.settings.test_connection.email_required',
@@ -2436,7 +2513,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.user.enable',
     'admin.settings.user.enable_signups',
     'admin.settings.user.enable_signups_hint',
+    'admin.settings.user.google_sign_in',
+    'admin.settings.user.google_sign_in_hint',
+    'admin.settings.user.phone_sign_in',
+    'admin.settings.user.phone_sign_in_hint',
+    'admin.settings.user.sign_in_methods',
+    'admin.settings.user.sign_in_saved',
     'admin.settings.user.signups_disabled',
+    'admin.settings.user.sms_settings_link',
     'admin.settings.user.subtitle',
     'admin.settings.user.title',
     'admin.transactions.col_amount',
@@ -2454,12 +2538,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.transactions.test_badge_hint',
     'admin.transactions.title',
     'admin.users.add',
+    'admin.users.detached_hint',
     'admin.users.empty_description',
     'admin.users.empty_title',
     'admin.users.invalid_action',
     'admin.users.none_selected',
     'admin.users.page_subtitle',
     'admin.users.page_title',
+    'admin.users.show_all',
+    'admin.users.show_detached',
     'admin.users.verify',
     'common.actions.add',
     'common.actions.back',
@@ -2527,6 +2614,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.table.last_updated',
     'common.table.name',
     'common.table.no_records',
+    'common.table.phone',
     'common.table.role',
     'common.table.showing_range',
     'common.table.showing_range_filtered',
