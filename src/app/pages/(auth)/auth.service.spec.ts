@@ -118,82 +118,9 @@ describe('AuthService', () => {
         });
     });
 
-    describe('updateUserEmail Method', () => {
-        it('should be defined on the prototype', () => {
-            expect(AuthService.prototype.updateUserEmail).toBeDefined();
-            expect(typeof AuthService.prototype.updateUserEmail).toBe('function');
-        });
-
-        it('should accept four parameters (docId, oldEmail, newEmail, currentPassword)', () => {
-            expect(AuthService.prototype.updateUserEmail.length).toBe(4);
-        });
-
-        it('should return a Promise', () => {
-            // The method signature is async, returning Promise<string>
-            const descriptor = Object.getOwnPropertyDescriptor(
-                AuthService.prototype,
-                'updateUserEmail',
-            );
-            expect(descriptor).toBeDefined();
-            // Async functions have constructor name AsyncFunction
-            expect(AuthService.prototype.updateUserEmail.constructor.name).toBe('AsyncFunction');
-        });
-    });
-
-    describe('updateUserEmail — source code verification', () => {
-        const fs = require('fs');
-        const path = require('path');
-        const sourcePath = path.resolve(__dirname, 'auth.service.ts');
-        let source: string;
-
-        try {
-            source = fs.readFileSync(sourcePath, 'utf-8');
-        } catch {
-            source = '';
-        }
-
-        it('should re-authenticate user before updating email', () => {
-            expect(source).toContain('this.reAuthenticate(user, currentPassword)');
-        });
-
-        it('should call Firebase Auth updateEmail', () => {
-            expect(source).toContain('updateEmail(user, newEmail)');
-        });
-
-        it('should update Firestore user doc with new email', () => {
-            expect(source).toContain('email: newEmail');
-        });
-
-        it('should set emailVerified to false in Firestore', () => {
-            expect(source).toContain('emailVerified: false');
-        });
-
-        it('should add new email hash to email_lookup before removing old', () => {
-            const addIndex = source.indexOf('this.addEmailLookup(newEmail)');
-            const removeIndex = source.indexOf('this.removeEmailLookup(oldEmail)');
-            expect(addIndex).toBeGreaterThan(-1);
-            expect(removeIndex).toBeGreaterThan(-1);
-            expect(addIndex).toBeLessThan(removeIndex);
-        });
-
-        it('should return "Email updated" on success', () => {
-            expect(source).toContain("return 'Email updated'");
-        });
-
-        it('should return error code on failure', () => {
-            expect(source).toContain("return error.code || 'unknown-error'");
-        });
-
-        it('should return auth/no-current-user when no user is logged in', () => {
-            expect(source).toContain("return 'auth/no-current-user'");
-        });
-
-        it('should import updateEmail from @angular/fire/auth', () => {
-            expect(source).toContain("import { updateEmail } from '@angular/fire/auth'");
-        });
-
-        it('should await firstValueFrom on super.update() for Firestore write', () => {
-            expect(source).toContain('await firstValueFrom(super.update(docId');
+    describe('changing the email', () => {
+        it('no longer happens in the browser: it needs a code and runs on the server (linkEmail)', () => {
+            expect((AuthService.prototype as unknown as Record<string, unknown>)['updateUserEmail']).toBeUndefined();
         });
     });
 });

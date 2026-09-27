@@ -126,7 +126,16 @@ export class SignInService {
 
     /** Whether the signed-in account has Google connected. */
     hasGoogle(): boolean {
-        return !!this.auth.currentUser?.providerData.some((p) => p.providerId === 'google.com');
+        return this.hasProvider('google.com');
+    }
+
+    /** Whether the signed-in account has a password (email sign-in). */
+    hasPassword(): boolean {
+        return this.hasProvider('password');
+    }
+
+    private hasProvider(providerId: string): boolean {
+        return !!this.auth.currentUser?.providerData.some((p) => p.providerId === providerId);
     }
 
     // --- Adding or moving an email or number ---------------------------------

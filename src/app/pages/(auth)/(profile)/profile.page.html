@@ -103,64 +103,15 @@
           </div>
         }
       </div>
-
-      <!-- Email Row -->
-      <div class="info-row">
-        <label>Email</label>
-        @if (!isEditingEmail()) {
-          <div class="info-value">
-            <span>{{ currentUser()?.email }}</span>
-            @if (currentUser()?.emailVerified) {
-              <span class="verified-badge"><i class="fas fa-check-circle me-1"></i>Verified</span>
-            }
-            <button class="btn btn-sm btn-outline-secondary" (click)="startEditEmail()">
-              <i class="fas fa-pen me-1"></i> Edit
-            </button>
-          </div>
-        } @else {
-          <div class="edit-form" [formGroup]="emailForm">
-            <div class="mb-3">
-              <label class="form-label">New Email</label>
-              <input type="email" class="form-control" formControlName="email"
-                     placeholder="Enter new email address" />
-              @if (emailForm.get('email')?.invalid && emailForm.get('email')?.touched) {
-                <div class="text-danger mt-1 small">Please enter a valid email address.</div>
-              }
-            </div>
-            <div class="mb-3">
-              <label class="form-label">
-                Current Password
-                <span class="text-muted small ms-1">(required to change email)</span>
-              </label>
-              <div class="input-group">
-                <input [type]="showEmailPassword() ? 'text' : 'password'"
-                       class="form-control" formControlName="password"
-                       placeholder="Enter your current password" />
-                <button type="button" class="btn btn-outline-secondary"
-                        (click)="showEmailPassword.set(!showEmailPassword())">
-                  <i class="fas" [class.fa-eye]="showEmailPassword()"
-                     [class.fa-eye-slash]="!showEmailPassword()"></i>
-                </button>
-              </div>
-              @if (emailForm.get('password')?.invalid && emailForm.get('password')?.touched) {
-                <div class="text-danger mt-1 small">Password is required to change email.</div>
-              }
-            </div>
-            <div class="edit-actions">
-              <button class="btn btn-sm btn-primary" (click)="saveEmail()" [disabled]="isSavingEmail()">
-                Update Email
-                @if (isSavingEmail()) {
-                  <span class="spinner-border spinner-border-sm ms-1"></span>
-                }
-              </button>
-              <button class="btn btn-sm btn-light" (click)="cancelEditEmail()">Cancel</button>
-            </div>
-          </div>
-        }
-      </div>
     </div>
 
-    <!-- CARD 3: Security -->
+    <!-- CARD 3: Sign-in methods (email, phone, Google), each changed with a code -->
+    <div class="profile-card">
+      <arc-sign-in-methods></arc-sign-in-methods>
+    </div>
+
+    <!-- CARD 4: Security (email sign-in only) -->
+    @if (hasPassword()) {
     <div class="profile-card">
       <div class="card-title-row">
         <h2 class="section-title">
@@ -243,6 +194,7 @@
         }
       </div>
     </div>
+    }
   } @else {
     <div class="loading-state">
       <div class="spinner-border text-primary" role="status"></div>

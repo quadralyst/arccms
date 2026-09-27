@@ -2,7 +2,8 @@
  * Profile Page Component
  *
  * Displays and manages user profile information.
- * Allows users to update their photo, name, email, and password.
+ * Allows users to update their photo, name and password. Email, phone and
+ * Google are managed in the Sign-in methods card (sign-in-methods.component.ts).
  */
 
 import { RouteMeta } from '@analogjs/router';
@@ -13,6 +14,8 @@ import { BaseComponent } from '../../../../shared/components/base/base.component
 import { AuthState } from '../auth.store';
 import MediaManagerComponent from '../../admin/(media)/media.page';
 import { FileUploadService } from '../../../../shared/services/file-upload.service';
+import { SignInService } from '../sign-in.service';
+import { SignInMethodsComponent } from './sign-in-methods.component';
 
 export const routeMeta: RouteMeta = {
   title: 'Profile | Arc CMS',
@@ -21,7 +24,7 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'arc-profile',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, SignInMethodsComponent],
   templateUrl: './profile.page.html',
   styleUrls: ['./profile.page.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,10 +33,10 @@ export default class ProfileComponent extends BaseComponent {
   authStore = inject(AuthState);
   private dialog = inject(MatDialog);
   private fileUpload = inject(FileUploadService);
+  private signIn = inject(SignInService);
 
   // Section editing states
   isEditingName = signal(false);
-  isEditingEmail = signal(false);
   isChangingPassword = signal(false);
 
   // Feedback
@@ -42,22 +45,15 @@ export default class ProfileComponent extends BaseComponent {
 
   // Per-section loading
   isSavingName = signal(false);
-  isSavingEmail = signal(false);
   isSavingPassword = signal(false);
 
   // Password visibility toggles
-  showEmailPassword = signal(false);
   showCurrentPassword = signal(false);
   showNewPassword = signal(false);
   showConfirmPassword = signal(false);
 
   // Form controls
   nameControl = new FormControl('', [Validators.required, Validators.maxLength(50)]);
-
-  emailForm = new FormGroup({
-    email: new FormControl('', [Validators.required, Validators.email]),
-    password: new FormControl('', [Validators.required]),
-  });
 
   passwordForm = new FormGroup({
     currentPassword: new FormControl('', [Validators.required]),
@@ -66,6 +62,11 @@ export default class ProfileComponent extends BaseComponent {
   });
 
   currentUser = computed(() => this.authStore.currentUser());
+
+  /** Only accounts that sign in with email and password can change a password. */
+  hasPassword(): boolean {
+    return this.signIn.hasPassword();
+  }
 
   get hasPasswordMismatch(): boolean {
     const newPw = this.passwordForm.get('newPassword')?.value;
@@ -203,61 +204,6 @@ export default class ProfileComponent extends BaseComponent {
       this.errorMsg.set('An error occurred while updating name.');
     } finally {
       this.isSavingName.set(false);
-    }
-  }
-
-  // --- Email ---
-
-  startEditEmail(): void {
-    this.isEditingEmail.set(true);
-    this.emailForm.patchValue({
-      email: '',
-      password: '',
-    });
-    this.clearMessages();
-  }
-
-  cancelEditEmail(): void {
-    this.isEditingEmail.set(false);
-    this.emailForm.reset();
-    this.showEmailPassword.set(false);
-    this.clearMessages();
-  }
-
-  async saveEmail(): Promise<void> {
-    if (this.emailForm.invalid) {
-      this.emailForm.markAllAsTouched();
-      return;
-    }
-
-    const user = this.currentUser();
-    if (!user) return;
-
-    const newEmail = this.emailForm.get('email')!.value!;
-    const password = this.emailForm.get('password')!.value!;
-
-    if (newEmail === user.email) {
-      this.errorMsg.set('New email is the same as your current email.');
-      return;
-    }
-
-    this.isSavingEmail.set(true);
-    this.clearMessages();
-
-    try {
-      await this.authStore.changeEmail(user.id, user.email, newEmail, password);
-
-      if (this.authStore.isSuccess()) {
-        this.successMsg.set('Email updated successfully!');
-        this.isEditingEmail.set(false);
-        this.emailForm.reset();
-      } else {
-        this.errorMsg.set(this.authStore.error() || 'Failed to update email');
-      }
-    } catch (error) {
-      this.errorMsg.set('An error occurred while updating email.');
-    } finally {
-      this.isSavingEmail.set(false);
     }
   }
 

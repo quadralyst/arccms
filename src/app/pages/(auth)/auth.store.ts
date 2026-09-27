@@ -285,35 +285,6 @@ export const AuthState = signalStore(
                 }
             },
 
-            async changeEmail(docId: string, oldEmail: string, newEmail: string, currentPassword: string) {
-                patchState(store, { isLoading: true, isSuccess: false, error: '' });
-                const oldCurrentUser = store.currentUser();
-                try {
-                    const result = await authService.updateUserEmail(docId, oldEmail, newEmail, currentPassword);
-                    if (result === 'Email updated') {
-                        patchState(store, {
-                            isLoading: false,
-                            isSuccess: true,
-                            error: '',
-                            currentUser: oldCurrentUser
-                                ? { ...oldCurrentUser, email: newEmail, emailVerified: false } as IAuth
-                                : null,
-                        });
-                    } else {
-                        const findMessage = constant.firebaseAuthErrors.filter(
-                            (item) => item.code === result,
-                        );
-                        const errorMsg =
-                            findMessage.length > 0
-                                ? findMessage[0].message
-                                : result || 'Failed to update email';
-                        patchState(store, { isLoading: false, isSuccess: false, error: errorMsg });
-                    }
-                } catch (error: any) {
-                    patchState(store, { isLoading: false, isSuccess: false, error: error.message });
-                }
-            },
-
             async forgotPassword(email: string) {
                 patchState(store, { isLoading: true, isSuccess: false, error: '' });
 

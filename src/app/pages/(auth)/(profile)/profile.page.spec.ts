@@ -90,20 +90,11 @@ describe('ProfileComponent', () => {
         });
     });
 
-    describe('Component Methods — Email', () => {
-        it('should have startEditEmail method', () => {
-            expect(ProfileComponent.prototype.startEditEmail).toBeDefined();
-            expect(typeof ProfileComponent.prototype.startEditEmail).toBe('function');
-        });
-
-        it('should have cancelEditEmail method', () => {
-            expect(ProfileComponent.prototype.cancelEditEmail).toBeDefined();
-            expect(typeof ProfileComponent.prototype.cancelEditEmail).toBe('function');
-        });
-
-        it('should have saveEmail method', () => {
-            expect(ProfileComponent.prototype.saveEmail).toBeDefined();
-            expect(typeof ProfileComponent.prototype.saveEmail).toBe('function');
+    describe('Email, phone and Google', () => {
+        it('live in the Sign-in methods card, not in the profile form', () => {
+            const proto = ProfileComponent.prototype as unknown as Record<string, unknown>;
+            expect(proto['saveEmail']).toBeUndefined();
+            expect(proto['startEditEmail']).toBeUndefined();
         });
     });
 
@@ -227,40 +218,6 @@ describe('ProfileComponent', () => {
         });
     });
 
-    describe('Form validation rules — emailForm', () => {
-        let emailForm: FormGroup;
-
-        function createEmailForm() {
-            return new FormGroup({
-                email: new FormControl('', [Validators.required, Validators.email]),
-                password: new FormControl('', [Validators.required]),
-            });
-        }
-
-        it('should be invalid when empty', () => {
-            emailForm = createEmailForm();
-            expect(emailForm.valid).toBe(false);
-        });
-
-        it('should be invalid with invalid email format', () => {
-            emailForm = createEmailForm();
-            emailForm.patchValue({ email: 'not-an-email', password: 'secret' });
-            expect(emailForm.get('email')!.valid).toBe(false);
-        });
-
-        it('should be invalid without password', () => {
-            emailForm = createEmailForm();
-            emailForm.patchValue({ email: 'test@example.com', password: '' });
-            expect(emailForm.get('password')!.valid).toBe(false);
-        });
-
-        it('should be valid with valid email and password', () => {
-            emailForm = createEmailForm();
-            emailForm.patchValue({ email: 'test@example.com', password: 'secret' });
-            expect(emailForm.valid).toBe(true);
-        });
-    });
-
     describe('Form validation rules — passwordForm', () => {
         let passwordForm: FormGroup;
 
@@ -379,12 +336,13 @@ describe('ProfileComponent', () => {
             expect(template).toContain('cancelEditName()');
         });
 
-        it('should have email editing form with password requirement', () => {
-            expect(template).toContain('startEditEmail()');
-            expect(template).toContain('saveEmail()');
-            expect(template).toContain('cancelEditEmail()');
-            expect(template).toContain('emailForm');
-            expect(template).toContain('required to change email');
+        it('should have the Sign-in methods card instead of an email form', () => {
+            expect(template).toContain('<arc-sign-in-methods>');
+            expect(template).not.toContain('emailForm');
+        });
+
+        it('should show the password card only to accounts with a password', () => {
+            expect(template).toContain('@if (hasPassword())');
         });
 
         it('should have password change form with current/new/confirm fields', () => {
@@ -398,7 +356,6 @@ describe('ProfileComponent', () => {
         });
 
         it('should have password visibility toggles', () => {
-            expect(template).toContain('showEmailPassword');
             expect(template).toContain('showCurrentPassword');
             expect(template).toContain('showNewPassword');
             expect(template).toContain('showConfirmPassword');
@@ -408,7 +365,6 @@ describe('ProfileComponent', () => {
 
         it('should show loading spinners on save buttons', () => {
             expect(template).toContain('isSavingName()');
-            expect(template).toContain('isSavingEmail()');
             expect(template).toContain('isSavingPassword()');
             expect(template).toContain('spinner-border');
         });
@@ -418,11 +374,6 @@ describe('ProfileComponent', () => {
             expect(template).toContain('errorMsg()');
             expect(template).toContain('alert-success');
             expect(template).toContain('alert-danger');
-        });
-
-        it('should show verified badge for email', () => {
-            expect(template).toContain('emailVerified');
-            expect(template).toContain('verified-badge');
         });
 
         it('should have Change Photo and Remove Photo buttons', () => {
@@ -510,9 +461,7 @@ describe('ProfileComponent', () => {
             source = '';
         }
 
-        it('should use separate showEmailPassword signal for email form (not shared with password form)', () => {
-            // Regression: showCurrentPassword was shared between email and password forms
-            expect(source).toContain('showEmailPassword = signal(false)');
+        it('should keep its own showCurrentPassword signal for the password form', () => {
             expect(source).toContain('showCurrentPassword = signal(false)');
         });
 
@@ -526,34 +475,6 @@ describe('ProfileComponent', () => {
             // Regression: getInitials("  John  ") would crash with undefined[0]
             expect(source).toContain('.trim()');
             expect(source).toContain('filter(Boolean)');
-        });
-
-        it('template should use showEmailPassword for email form password toggle (not showCurrentPassword)', () => {
-            const fs2 = require('fs');
-            const templatePath2 = path.resolve(__dirname, 'profile.page.html');
-            let template2: string;
-            try {
-                template2 = fs2.readFileSync(templatePath2, 'utf-8');
-            } catch {
-                template2 = '';
-            }
-
-            // The email form section should reference showEmailPassword
-            const emailFormSection = template2.slice(
-                template2.indexOf('emailForm'),
-                template2.indexOf('Security'),
-            );
-            expect(emailFormSection).toContain('showEmailPassword');
-            expect(emailFormSection).not.toContain('showCurrentPassword');
-        });
-
-        it('should start email form with empty email field (not pre-filled with current email)', () => {
-            // Regression: was pre-filling with current email, forcing user to clear it
-            const startEditMethod = source.slice(
-                source.indexOf('startEditEmail'),
-                source.indexOf('cancelEditEmail'),
-            );
-            expect(startEditMethod).toContain("email: ''");
         });
     });
 });

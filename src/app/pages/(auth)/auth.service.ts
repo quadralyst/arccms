@@ -7,9 +7,8 @@
  */
 
 import { Injectable, runInInjectionContext } from '@angular/core';
-import { updateEmail } from '@angular/fire/auth';
 import { collection, doc, getDocs, getDoc, setDoc, deleteDoc } from '@angular/fire/firestore';
-import { catchError, firstValueFrom, from, switchMap, map, Observable } from 'rxjs';
+import { catchError, from, switchMap, map, Observable } from 'rxjs';
 import { GlobalAuthService } from '../../../shared/services/global-auth.service';
 import { IAuth } from './auth.model';
 import { hashEmail } from '../../../shared/utils/email-hash.util';
@@ -92,44 +91,5 @@ export class AuthService extends GlobalAuthService<IAuth> {
             const docRef = doc(this.firestore, EMAIL_LOOKUP_COLLECTION, hash);
             return deleteDoc(docRef);
         });
-    }
-
-    /**
-     * Update user email — handles the full flow:
-     * 1. Re-authenticate with current password
-     * 2. Update email in Firebase Auth
-     * 3. Update email in Firestore users doc
-     * 4. Swap hashed email in email_lookup collection
-     * 5. Set emailVerified to false
-     */
-    public async updateUserEmail(
-        docId: string,
-        oldEmail: string,
-        newEmail: string,
-        currentPassword: string,
-    ): Promise<string> {
-        const user = this.firebaseAuth.currentUser;
-        if (!user) {
-            return 'auth/no-current-user';
-        }
-
-        try {
-            // Re-authenticate (Firebase requires this for email change)
-            await this.reAuthenticate(user, currentPassword);
-
-            // Update email in Firebase Auth
-            await updateEmail(user, newEmail);
-
-            // Update Firestore user doc
-            await firstValueFrom(super.update(docId, { email: newEmail, emailVerified: false }));
-
-            // Swap email_lookup hashes (add new first to avoid losing the entry if remove succeeds but add fails)
-            await this.addEmailLookup(newEmail);
-            await this.removeEmailLookup(oldEmail);
-
-            return 'Email updated';
-        } catch (error: any) {
-            return error.code || 'unknown-error';
-        }
     }
 }
