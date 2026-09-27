@@ -9,7 +9,7 @@ import { inject, Injector, runInInjectionContext } from '@angular/core';
 import { Auth, onAuthStateChanged, User } from '@angular/fire/auth';
 import { Router } from '@angular/router';
 import { patchState, signalStore, withHooks, withMethods, withState } from '@ngrx/signals';
-import { catchError, finalize, firstValueFrom, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { catchError, finalize, firstValueFrom, from, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import { ConstantVariables } from '../../../shared/constants';
 import { OmitCommonFields } from '../../../shared/models/base-model';
 import { QueryParams, WhereCondition } from '../../../shared/models';
@@ -145,7 +145,11 @@ export const AuthState = signalStore(
                                 if (!res?.uid) return of(res);
                                 return authService.getCurrentUserByUid(res.uid).pipe(
                                     switchMap((user: any) => {
-                                        if (user && user.isActive !== false) return of(res);
+                                        // Load the record into the store here rather than waiting for
+                                        // the auth listener: signing in again as the person already
+                                        // signed in (right after a sign-up, say) fires no auth change,
+                                        // so the page would wait for ever.
+                                        if (user && user.isActive !== false) return from(this.refreshCurrentUser()).pipe(map(() => res));
                                         const [error, errorCode] = user ? [BLOCKED_MESSAGE, BLOCKED_CODE] : [NO_ACCESS_MESSAGE, NO_ACCESS_CODE];
                                         return authService.logout().pipe(
                                             tap(() => patchState(store, { error, errorCode, isSuccess: false })),
@@ -176,6 +180,9 @@ export const AuthState = signalStore(
                 signup(form: any): void {
                     patchState(store, { isLoading: true, isSuccess: false, error: '' });
 
+                    // Busy until the record exists, not just the sign-in: creating the record
+                    // can take seconds (a cold function), and an idle-looking button invited a
+                    // second press, which failed with "email already in use".
                     authService
                         .register(form)
                         .pipe(
@@ -184,11 +191,8 @@ export const AuthState = signalStore(
                                 // the `arccms_uid` claim (docs/account-contract.md), so the token
                                 // carries the claim when sign-up completes. Then read the record.
                                 signIn().createAccountRecord(form.name)
-                                    .then(() => {
-                                        authService.getCurrentUserByUid(res.uid).subscribe((user) => {
-                                            patchState(store, { currentUser: user, isLoading: false, error: '', isSuccess: true });
-                                        });
-                                    })
+                                    .then(() => this.refreshCurrentUser())
+                                    .then(() => patchState(store, { isLoading: false, error: '', isSuccess: true }))
                                     .catch(async (err) => {
                                         console.error('Failed to create the account record:', err);
                                         // Leave no sign-in behind without a record: the person can simply try again.
@@ -202,9 +206,6 @@ export const AuthState = signalStore(
                                 const errorMessage = constant.firebaseAuthErrors.find((item) => item.code === err.code)?.message || FALLBACK_MESSAGE;
                                 patchState(store, { isLoading: false, error: errorMessage, errorCode: err.code || '', isSuccess: false });
                                 return of(null);
-                            }),
-                            finalize(() => {
-                                patchState(store, { isLoading: false });
                             }),
                         )
                         .subscribe();
@@ -336,6 +337,13 @@ export const AuthState = signalStore(
                     }
                     const isAdmin = userData.role === constant.fixedRoles[0].userType;
                     const currentUser = { ...userData, isAdmin } as IAuth;
+                    // As the auth listener does: the token must carry the claims first.
+                    try {
+                        await signIn().ensureRecordClaim(userData.id);
+                        if (isAdmin) await user.getIdToken(true);
+                    } catch (err) {
+                        console.warn('Could not refresh account claims (non-fatal):', err);
+                    }
                     patchState(store, {
                         currentUser,
                         isLoading: false,
