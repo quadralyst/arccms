@@ -58,6 +58,11 @@ data still needs a connection.
 load, and every hour) and shows **A new version is ready** with an **Update**
 button. It never reloads by itself, so nobody is cut off mid-way.
 
+There is no version number to set. The service worker lists the app's files with a
+fingerprint of each, so it changes only when a file changes: a deploy that changes
+the app asks once, and a rebuild that changes nothing asks nobody. Content published
+in the CMS needs no build and never asks: pages always come from the network.
+
 ## Install numbers
 
 The admin dashboard shows **App installs** when the PWA is on:

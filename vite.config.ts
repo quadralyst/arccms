@@ -12,8 +12,6 @@ import { CUSTOM_PWA } from './src/custom/pwa';
 // The install's PWA settings (src/custom/pwa.ts over the core defaults, docs/pwa.md).
 const pwa = resolvePwaConfig(CUSTOM_PWA);
 const pwaIcon = PWA_ICON_CANDIDATES.find((path) => existsSync(resolve(path))) ?? DEFAULT_PWA_ICON;
-/** Changes every build, so the service worker refetches the shell page after a deploy. */
-const BUILD_ID = String(Date.now());
 
 /**
  * Limit plugins to the browser (client) build. Analog builds the browser and the
@@ -127,7 +125,10 @@ export default defineConfig(({ mode }) => {
           globIgnores: ['**/*.map'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           // The SPA shell (copied to __shell.html after the build): what opens offline.
-          additionalManifestEntries: [{ url: '/__shell.html', revision: BUILD_ID }],
+          // Versioned by index.html (the same file), which names every hashed
+          // code file: a build that changes nothing leaves the service worker
+          // as it is, so people are asked to update only when something changed.
+          templatedURLs: { '/__shell.html': ['index.html'] },
           navigateFallback: null,
           cleanupOutdatedCaches: true,
           runtimeCaching: [
