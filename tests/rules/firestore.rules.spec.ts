@@ -252,8 +252,8 @@ describe('phone and email sign-in fields (item 1: Google and phone sign-in)', ()
         }
     });
 
-    it('lets admins read SMS logs and account transfers, and nobody write them', async () => {
-        for (const name of ['SmsLogs', 'account_transfers']) {
+    it('lets admins read SMS logs, account transfers and install counters, and nobody write them', async () => {
+        for (const name of ['SmsLogs', 'account_transfers', 'PwaStats']) {
             await assertSucceeds(getDoc(doc(admin(), name, 'x')));
             await assertFails(getDoc(doc(alice(), name, 'x')));
             await assertFails(setDoc(doc(admin(), name, 'x'), { a: 1 }));

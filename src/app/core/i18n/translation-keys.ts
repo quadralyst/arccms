@@ -357,6 +357,7 @@ export type TranslationKey =
     | 'admin.contents.types.update_failed'
     | 'admin.contents.types.updated'
     | 'admin.dashboard.active'
+    | 'admin.dashboard.app_installs'
     | 'admin.dashboard.col_date'
     | 'admin.dashboard.col_details'
     | 'admin.dashboard.col_referrals'
@@ -378,6 +379,9 @@ export type TranslationKey =
     | 'admin.dashboard.ga_setup_hint'
     | 'admin.dashboard.growth_leads'
     | 'admin.dashboard.inactive'
+    | 'admin.dashboard.install_rate'
+    | 'admin.dashboard.install_rate_note'
+    | 'admin.dashboard.installs_30d'
     | 'admin.dashboard.last_sync'
     | 'admin.dashboard.media'
     | 'admin.dashboard.media_files'
@@ -385,6 +389,10 @@ export type TranslationKey =
     | 'admin.dashboard.no_data'
     | 'admin.dashboard.no_recent_activity'
     | 'admin.dashboard.no_recent_signups'
+    | 'admin.dashboard.opened_30d'
+    | 'admin.dashboard.platform_android'
+    | 'admin.dashboard.platform_desktop'
+    | 'admin.dashboard.platform_ios'
     | 'admin.dashboard.property_account'
     | 'admin.dashboard.property_intro'
     | 'admin.dashboard.property_title'
@@ -1267,6 +1275,17 @@ export type TranslationKey =
     | 'common.paginator.previous_page'
     | 'common.paginator.range'
     | 'common.paginator.range_empty'
+    | 'common.pwa.copy_link'
+    | 'common.pwa.install'
+    | 'common.pwa.install_note'
+    | 'common.pwa.install_title'
+    | 'common.pwa.ios_other'
+    | 'common.pwa.ios_step_add'
+    | 'common.pwa.ios_step_share'
+    | 'common.pwa.link_copied'
+    | 'common.pwa.not_now'
+    | 'common.pwa.update'
+    | 'common.pwa.update_ready'
     | 'common.search.all_results'
     | 'common.search.empty'
     | 'common.search.placeholder'
@@ -1709,6 +1728,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.update_failed',
     'admin.contents.types.updated',
     'admin.dashboard.active',
+    'admin.dashboard.app_installs',
     'admin.dashboard.col_date',
     'admin.dashboard.col_details',
     'admin.dashboard.col_referrals',
@@ -1730,6 +1750,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.ga_setup_hint',
     'admin.dashboard.growth_leads',
     'admin.dashboard.inactive',
+    'admin.dashboard.install_rate',
+    'admin.dashboard.install_rate_note',
+    'admin.dashboard.installs_30d',
     'admin.dashboard.last_sync',
     'admin.dashboard.media',
     'admin.dashboard.media_files',
@@ -1737,6 +1760,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.no_data',
     'admin.dashboard.no_recent_activity',
     'admin.dashboard.no_recent_signups',
+    'admin.dashboard.opened_30d',
+    'admin.dashboard.platform_android',
+    'admin.dashboard.platform_desktop',
+    'admin.dashboard.platform_ios',
     'admin.dashboard.property_account',
     'admin.dashboard.property_intro',
     'admin.dashboard.property_title',
@@ -2619,6 +2646,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.paginator.previous_page',
     'common.paginator.range',
     'common.paginator.range_empty',
+    'common.pwa.copy_link',
+    'common.pwa.install',
+    'common.pwa.install_note',
+    'common.pwa.install_title',
+    'common.pwa.ios_other',
+    'common.pwa.ios_step_add',
+    'common.pwa.ios_step_share',
+    'common.pwa.link_copied',
+    'common.pwa.not_now',
+    'common.pwa.update',
+    'common.pwa.update_ready',
     'common.search.all_results',
     'common.search.empty',
     'common.search.placeholder',

@@ -110,6 +110,19 @@
       "empty": "No results",
       "showing_for": "Showing results for \"{{term}}\"",
       "all_results": "See all results"
+    },
+    "pwa": {
+      "update_ready": "A new version is ready.",
+      "update": "Update",
+      "install_title": "Install the app",
+      "install_note": "Open it from your home screen, like any other app.",
+      "install": "Install",
+      "not_now": "Not now",
+      "ios_step_share": "Tap the Share button in Safari.",
+      "ios_step_add": "Choose “Add to Home Screen”.",
+      "ios_other": "To install, open this page in Safari.",
+      "copy_link": "Copy link",
+      "link_copied": "Link copied. Paste it into Safari."
     }
   },
   "admin": {
@@ -1202,7 +1215,15 @@
       "count_this_week": "+{{ count }} this week",
       "count_published": "{{ count }} Published",
       "count_draft": "{{ count }} Draft",
-      "last_sync": "Last sync: {{ date }}"
+      "last_sync": "Last sync: {{ date }}",
+      "app_installs": "App installs",
+      "installs_30d": "Installs, last 30 days",
+      "install_rate": "Install rate",
+      "install_rate_note": "{{ installed }} of {{ total }} people",
+      "opened_30d": "Opened from the home screen, last 30 days",
+      "platform_android": "Android",
+      "platform_ios": "iPhone and iPad",
+      "platform_desktop": "Computer"
     },
     "media": {
       "searching": "Searching...",

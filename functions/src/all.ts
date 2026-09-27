@@ -79,6 +79,8 @@ export * from './users/syncUserRole.js';
 export * from './users/adminCreateUser.js';
 // The account's own: claim refresh and deleting it (docs/account-contract.md).
 export * from './users/accountCallables.js';
+// App install tracking (docs/pwa.md).
+export * from './pwa/trackPwaEvent.js';
 
 // Add email_lookup entry when a user document is created
 export * from './users/onUserCreate.js';

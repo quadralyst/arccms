@@ -7,6 +7,8 @@ import {
   ApplicationConfig,
   EnvironmentProviders,
   Provider,
+  inject,
+  provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideClientHydration, withEventReplay, withIncrementalHydration } from '@angular/platform-browser';
@@ -32,6 +34,7 @@ import { ADMIN_LANGUAGE_CODES, DEFAULT_ADMIN_LANGUAGE } from './core/i18n/admin-
 import { AdminTranslationLoader } from './core/i18n/translation.loader';
 import { provideAdminLocale } from './core/i18n/admin-locale.provider';
 import { TranslatedPaginatorIntl } from './core/i18n/paginator-intl';
+import { PwaService } from './core/pwa/pwa.service';
 
 // Analytics requires `window` and must only run in the browser.
 // During SSR, `typeof window` is 'undefined', so we skip these providers.
@@ -83,6 +86,10 @@ export const appConfig: ApplicationConfig = {
     provideAdminLocale(),
     // Material's paginator ships its own English; see paginator-intl.ts.
     { provide: MatPaginatorIntl, useClass: TranslatedPaginatorIntl },
+
+    // The installable app: service worker, update bar, install counts (docs/pwa.md).
+    // Does nothing unless src/custom/pwa.ts turns it on.
+    provideAppInitializer(() => inject(PwaService).start()),
 
     // Google Analytics 4 - Automatic screen/user tracking (browser-only)
     ...analyticsProviders,

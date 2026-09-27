@@ -425,6 +425,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // App install counters by day (trackPwaEvent, docs/pwa.md). Admin read.
+    match /PwaStats/{day} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // Erasure receipts (adminDeleteContact). Hash-keyed and address-free by
     // construction, so admin read is safe — it is the operator's proof a deletion
     // request was actioned. Write is functions-only for the same reason a contact

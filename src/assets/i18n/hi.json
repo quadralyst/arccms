@@ -102,6 +102,19 @@
       "empty": "कोई परिणाम नहीं",
       "showing_for": "\"{{term}}\" के परिणाम दिखाए जा रहे हैं",
       "all_results": "सभी परिणाम देखें"
+    },
+    "pwa": {
+      "update_ready": "नया संस्करण तैयार है।",
+      "update": "अपडेट करें",
+      "install_title": "ऐप इंस्टॉल करें",
+      "install_note": "इसे किसी भी दूसरे ऐप की तरह अपनी होम स्क्रीन से खोलें।",
+      "install": "इंस्टॉल करें",
+      "not_now": "अभी नहीं",
+      "ios_step_share": "Safari में शेयर बटन दबाएँ।",
+      "ios_step_add": "“Add to Home Screen” चुनें।",
+      "ios_other": "इंस्टॉल करने के लिए यह पेज Safari में खोलें।",
+      "copy_link": "लिंक कॉपी करें",
+      "link_copied": "लिंक कॉपी हो गया। इसे Safari में पेस्ट करें।"
     }
   },
   "admin": {
@@ -1194,7 +1207,15 @@
       "count_this_week": "+{{ count }} इस सप्ताह",
       "count_published": "{{ count }} प्रकाशित",
       "count_draft": "{{ count }} ड्राफ़्ट",
-      "last_sync": "अंतिम सिंक: {{ date }}"
+      "last_sync": "अंतिम सिंक: {{ date }}",
+      "app_installs": "ऐप इंस्टॉल",
+      "installs_30d": "इंस्टॉल, पिछले 30 दिन",
+      "install_rate": "इंस्टॉल दर",
+      "install_rate_note": "{{ total }} में से {{ installed }} लोग",
+      "opened_30d": "होम स्क्रीन से खोला गया, पिछले 30 दिन",
+      "platform_android": "Android",
+      "platform_ios": "iPhone और iPad",
+      "platform_desktop": "कंप्यूटर"
     },
     "media": {
       "searching": "खोजा जा रहा है...",

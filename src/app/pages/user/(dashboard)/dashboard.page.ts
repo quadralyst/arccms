@@ -20,6 +20,7 @@ import { ICreditLedgerEntry } from '../../payments-ui/credit-ledger.model';
 import { toJsDate } from '../../payments-ui/date-utils';
 import { formatMoney } from '../../payments-ui/pricing-utils';
 import { arcCallable } from '../../../core/config/arc-functions';
+import { InstallPromptComponent } from '../../../../shared/components/install-prompt/install-prompt.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Dashboard | Arc CMS',
@@ -52,11 +53,14 @@ interface ActivityItem {
         MatProgressSpinnerModule,
         UserShellComponent,
         IfEntitledDirective,
-        PageHeaderComponent, TranslocoPipe],
+        PageHeaderComponent, TranslocoPipe, InstallPromptComponent],
     template: `
         <app-user-shell>
             <div class="dash">
                 <arc-page-header [title]="'user.dashboard.welcome' | transloco: { name: firstName() }" [subtitle]="'user.dashboard.subtitle' | transloco"></arc-page-header>
+
+                <!-- Shows only where the app can be installed and is not yet (docs/pwa.md) -->
+                <arc-install-prompt class="d-block mb-3" />
 
                 <!-- Onboarding empty state -->
                 @if (isNewUser()) {

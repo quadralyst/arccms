@@ -22,6 +22,7 @@ plug point), then pull it. `npm run check:core` catches accidental edits.
 | `src/custom/nav.ts` | the app's items in the admin menu (`CUSTOM_NAV`), shown before Profile |
 | `src/custom/i18n/{lang}.json` | the app's translations, laid over the core ones |
 | `src/custom/styles.css` | the app's global styles, loaded after every core stylesheet |
+| `src/custom/pwa.ts`, `src/custom/pwa-icon.svg` (or `.png`) | the installable app: on or off, name, colours, start page, icon ([pwa.md](pwa.md)) |
 | `functions/src/custom/index.ts` | the app's Cloud Functions and triggers |
 | `functions/src/custom/public-callables.txt` | the app's callables, checked after every deploy |
 | `firestore.app.rules`, `storage.app.rules`, `firestore.app.indexes.json` | the app's security rules and indexes ([app-rules.md](app-rules.md)) |
@@ -39,6 +40,7 @@ install too; `check:core` accepts them.
 | Admin menu | `side-navbar.component.ts` | `CUSTOM_NAV` inserted before Profile |
 | Translations | `translation.loader.ts` | `src/custom/i18n/{lang}.json` merged over the core file, key by key: new keys, and rewording of core ones |
 | Styles | `index.html` | `src/custom/styles.css` is the last stylesheet |
+| PWA | `vite.config.ts`, `pwa.service.ts` | `CUSTOM_PWA` laid over the core defaults at build time; the icon file is found by name |
 | Functions | `functions/src/all.ts` | `export * as custom from './custom/index.js'` |
 
 ### Examples
@@ -92,7 +94,7 @@ The same checks hold custom code to core's standards: every Firestore trigger us
 
 | The app needs | Use |
 |---|---|
-| Its own pages, menu items, words, styles | the custom files above |
+| Its own pages, menu items, words, styles, app icon | the custom files above |
 | Its own functions and triggers | `functions/src/custom/` |
 | Its own data per person | under `users/{userDocId}/...` ([account-contract.md](account-contract.md)) |
 | Rules and indexes for its data | `*.app.rules`, `firestore.app.indexes.json` ([app-rules.md](app-rules.md)) |

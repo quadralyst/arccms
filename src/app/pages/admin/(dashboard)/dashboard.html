@@ -278,6 +278,51 @@
         }
     </div>
 
+    <!-- App installs (docs/pwa.md): only when the install's PWA is on -->
+    @if (pwaEnabled && pwaStats.summary(); as pwa) {
+    <div class="section-header">
+        <h2>{{ 'admin.dashboard.app_installs' | transloco }}</h2>
+    </div>
+
+    <div class="scrollable-row mb-4">
+        <div class="scrollable-card">
+            <div class="metric-card">
+                <div class="metric-card-header">
+                    <div class="metric-icon blue"><i class="bi bi-phone"></i></div>
+                    <div class="metric-title">{{ 'admin.dashboard.installs_30d' | transloco }}</div>
+                </div>
+                <div class="metric-value">{{ pwa.installs | number }}</div>
+                <div class="metric-subtitle">
+                    {{ 'admin.dashboard.platform_android' | transloco }} {{ pwa.byPlatform.android | number }}
+                    &middot; {{ 'admin.dashboard.platform_ios' | transloco }} {{ pwa.byPlatform.ios | number }}
+                    &middot; {{ 'admin.dashboard.platform_desktop' | transloco }} {{ pwa.byPlatform.desktop | number }}
+                </div>
+            </div>
+        </div>
+        <div class="scrollable-card">
+            <div class="metric-card">
+                <div class="metric-card-header">
+                    <div class="metric-icon green"><i class="bi bi-graph-up-arrow"></i></div>
+                    <div class="metric-title">{{ 'admin.dashboard.install_rate' | transloco }}</div>
+                </div>
+                <div class="metric-value">{{ pwa.rate }}%</div>
+                <div class="metric-subtitle">
+                    {{ 'admin.dashboard.install_rate_note' | transloco: { installed: (pwa.installedUsers | number), total: (pwa.totalUsers | number) } }}
+                </div>
+            </div>
+        </div>
+        <div class="scrollable-card">
+            <div class="metric-card">
+                <div class="metric-card-header">
+                    <div class="metric-icon teal"><i class="bi bi-house-door"></i></div>
+                    <div class="metric-title">{{ 'admin.dashboard.opened_30d' | transloco }}</div>
+                </div>
+                <div class="metric-value">{{ pwa.opened | number }}</div>
+            </div>
+        </div>
+    </div>
+    }
+
     <!-- Waitlist Signups & {{ 'admin.dashboard.recent_activity' | transloco }} Section -->
     <div class="row g-3 mb-4">
         <div class="col-md-8 d-flex flex-column">
