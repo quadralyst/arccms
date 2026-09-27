@@ -227,7 +227,7 @@ describe('roleGuard', () => {
     });
 
     describe('SSR platform check', () => {
-        it('should skip guard and allow access during SSR (server platform)', () => {
+        it('renders nothing on the server: no reads start there, the browser renders the page', () => {
             const route = {
                 data: { allowedRoles: ['admin'] },
                 path: 'admin/dashboard',
@@ -246,8 +246,8 @@ describe('roleGuard', () => {
 
             TestBed.runInInjectionContext(() => {
                 const result = roleGuard(route as any, {} as any);
-                // During SSR, guard returns true synchronously without calling auth
-                expect(result).toBe(true);
+                // On the server the guard refuses synchronously, without calling auth
+                expect(result).toBe(false);
             });
 
             // Should NOT call initAuthStateListener during SSR
