@@ -48,7 +48,7 @@ export const routeMeta: RouteMeta = {
         EmailTemplateEditorComponent, TranslocoPipe],
     template: `
         <div class="payments-settings">
-            <h3 class="settings-title">{{ 'admin.settings.hub.payments' | transloco }}</h3>
+            <h3 class="settings-title">{{ 'admin.settings.hub.payments.label' | transloco }}</h3>
             <p class="text-muted mb-4">{{ 'admin.settings.payments.subtitle' | transloco }}</p>
 
             @if (isLoading()) {
