@@ -253,6 +253,9 @@
                                     <span class="test-code-hint">Tap to use</span>
                                 </button>
                                 }
+                                @if (testCodeInLogs()) {
+                                <p class="small text-muted text-center mt-2">Test mode, no SMS sent. An admin can read the code in SMS Logs.</p>
+                                }
 
                                 @if (otpError()) {
                                 <div class="text-danger mt-2 text-center">

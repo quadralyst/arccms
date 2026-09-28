@@ -97,6 +97,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   pinLocked = signal(false);
   /** Test SMS provider only: the code that was not sent, shown under the boxes. */
   testCode = signal('');
+  /** Test SMS provider, reset code: no SMS went out and the code is only in SMS Logs. */
+  testCodeInLogs = signal(false);
   /**
    * Development builds only: which Firebase project and database this page signs
    * in to, so nobody signs in to the wrong install by mistake. Empty in production.
@@ -456,7 +458,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.testCode.set('');
         const reply = await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose());
         this.testCode.set(reply.testCode ?? '');
-        if (!reply.testCode) this.toastService.success('Code sent by SMS');
+        this.testCodeInLogs.set(!!reply.testMode && !reply.testCode);
+        if (!reply.testMode) this.toastService.success('Code sent by SMS');
       } else {
         const name = this.registrationForm.get('name')?.value || undefined;
         const callable = arcCallable(this.functions, 'requestSignupOtp');
@@ -517,9 +520,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       }
       // Server-authoritative verification (E3): the server checks the hashed
       // code, expiry and attempt cap. Only a successful call marks the email verified.
-      const callable = arcCallable(this.functions, 'verifySignupOtp');
-      const result = await callable({ email: this.email, code: otp });
-      if ((result.data as { verified?: boolean })?.verified) {
+      const result = await this.signIn.verifySignupCode(this.email, otp);
+      if (result.verified) {
         this.otpVerified = true;
         this.toastService.success('Email verified successfully');
         this.goToStep('signup');
@@ -704,6 +706,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   /** Back to the first step, keeping what was typed. */
   changeIdentifier(): void {
     this.testCode.set('');
+    this.testCodeInLogs.set(false);
     clearInterval(this.countdownInterval);
     this.resendCountdown.set(0);
     this.goToStep('request');

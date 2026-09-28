@@ -141,6 +141,25 @@ export function isValidPin(pin: unknown): pin is string {
     return typeof pin === 'string' && PIN_PATTERN.test(pin);
 }
 
+/** PINs people pick most, which an attacker tries first on every number. */
+const COMMON_PINS = new Set([
+    '123123', '121212', '112233', '123321', '111222', '696969', '159753', '147258',
+    '102030', '789456', '520520', '131313', '232323', '101010', '202020', '999000',
+]);
+
+/**
+ * Too easy to guess for a new PIN (review F): one digit repeated, a straight
+ * run up or down (123456, 987654, 345678), or a common pattern. With 5 tries
+ * per account, these would be the first ones tried on every number. PINs set
+ * before this still sign in; only new ones are refused.
+ */
+export function isWeakPin(pin: string): boolean {
+    if (/^(\d)\1+$/.test(pin)) return true;
+    const steps = [...pin].slice(1).map((d, i) => (Number(d) - Number(pin[i]) + 10) % 10);
+    if (steps.every((step) => step === 1) || steps.every((step) => step === 9)) return true;
+    return COMMON_PINS.has(pin);
+}
+
 export async function hashPin(pin: string, salt: Buffer): Promise<string> {
     return (await scryptAsync(pin, salt, 32)).toString('hex');
 }
@@ -165,24 +184,30 @@ export type PinCheck =
     | { ok: false; reason: 'none' | 'locked' }
     | { ok: false; reason: 'wrong'; remaining: number };
 
-/** Check a PIN, counting wrong ones; the fifth wrong one in a row locks it. */
+/**
+ * Check a PIN, counting wrong ones; the fifth wrong one in a row locks it. The
+ * check and the count are one transaction, so guesses sent in parallel cannot
+ * all read the same count (review F).
+ */
 export async function checkPin(uid: string, pin: string): Promise<PinCheck> {
     const ref = db.collection(AUTH_PINS).doc(uid);
-    const snap = await ref.get();
-    if (!snap.exists) return { ok: false, reason: 'none' };
-    const data = snap.data() ?? {};
-    const failed = Number(data['failedAttempts'] ?? 0);
-    if (failed >= MAX_PIN_ATTEMPTS) return { ok: false, reason: 'locked' };
+    return db.runTransaction(async (tx): Promise<PinCheck> => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return { ok: false, reason: 'none' };
+        const data = snap.data() ?? {};
+        const failed = Number(data['failedAttempts'] ?? 0);
+        if (failed >= MAX_PIN_ATTEMPTS) return { ok: false, reason: 'locked' };
 
-    const expected = Buffer.from(String(data['hash'] ?? ''), 'hex');
-    const actual = Buffer.from(await hashPin(pin, Buffer.from(String(data['salt'] ?? ''), 'hex')), 'hex');
-    if (expected.length === actual.length && timingSafeEqual(expected, actual)) {
-        if (failed) await ref.update({ failedAttempts: 0 });
-        return { ok: true };
-    }
-    await ref.update({ failedAttempts: failed + 1, lastFailedAt: Timestamp.now() });
-    const remaining = MAX_PIN_ATTEMPTS - failed - 1;
-    return remaining > 0 ? { ok: false, reason: 'wrong', remaining } : { ok: false, reason: 'locked' };
+        const expected = Buffer.from(String(data['hash'] ?? ''), 'hex');
+        const actual = Buffer.from(await hashPin(pin, Buffer.from(String(data['salt'] ?? ''), 'hex')), 'hex');
+        if (expected.length === actual.length && timingSafeEqual(expected, actual)) {
+            if (failed) tx.update(ref, { failedAttempts: 0 });
+            return { ok: true };
+        }
+        tx.update(ref, { failedAttempts: failed + 1, lastFailedAt: Timestamp.now() });
+        const remaining = MAX_PIN_ATTEMPTS - failed - 1;
+        return remaining > 0 ? { ok: false, reason: 'wrong', remaining } : { ok: false, reason: 'locked' };
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -212,10 +237,17 @@ export async function consumeRateLimit(key: string, max: number, windowMs: numbe
     if (!allowed) throw new HttpsError('resource-exhausted', message);
 }
 
-/** The caller's IP, hashed, for per-IP limits. */
+/**
+ * The caller's IP, hashed, for per-IP limits. Google's front end adds the
+ * address it saw to the END of X-Forwarded-For; anything before it is whatever
+ * the client sent, so the first entry could be forged to get a fresh limit on
+ * every request (review F). Called through a proxy (Firebase Hosting), the last
+ * entry is the proxy's, which only makes the limit stricter.
+ */
 export function callerKey(request: CallableRequest): string {
     const raw = request.rawRequest;
-    const forwarded = String(raw?.headers?.['x-forwarded-for'] ?? '').split(',')[0].trim();
-    const ip = forwarded || raw?.ip || 'unknown';
+    const header = raw?.headers?.['x-forwarded-for'];
+    const entries = String(Array.isArray(header) ? header.join(',') : header ?? '').split(',').map((e) => e.trim()).filter(Boolean);
+    const ip = entries[entries.length - 1] || raw?.ip || 'unknown';
     return createHash('sha256').update(ip).digest('hex').slice(0, 32);
 }

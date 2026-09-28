@@ -41,11 +41,21 @@ Detached accounts view.
   server returns a custom token and the browser calls `signInWithCustomToken`.
 - **Codes:** `phone_otps/{phoneHash}` (hashed, 10 minutes, 60 s resend gap, 5 tries,
   purpose `signup` / `reset` / `link`). Email codes stay in `signup_otps`, now with
-  a purpose (`signup` / `link`).
+  a purpose (`signup` / `link`). Tries are counted in a transaction, so guesses sent
+  at once cannot share one count.
+- **Tickets:** verifying a code returns a random ticket to that browser (only its
+  hash is stored). Creating the account, setting a new PIN after a reset, and
+  marking a new email verified need the ticket back, so nobody else who knows the
+  number or address can use the code. `link` codes belong to the signed-in account
+  that asked instead.
 - **PINs:** `auth_pins/{uid}`, scrypt with a random salt; the 5th wrong PIN in a row
-  locks it until a reset by SMS code.
-- **Limits:** per IP (checks, codes, PIN tries) and per number (5 codes an hour) in
-  `_rate_limits`; only `Settings/sms.allowedCountryCodes` (default `91`) pass.
+  locks it until a reset by SMS code. A new PIN may not be one digit repeated, a
+  run such as 123456 or 987654, or a common pattern such as 121212. A reset signs
+  out every other session.
+- **Limits:** per IP (checks, codes, PIN tries) and per number (5 codes an hour),
+  and for email codes per address (5 an hour), in `_rate_limits`; only
+  `Settings/sms.allowedCountryCodes` (default `91`) pass. The IP is the last
+  `X-Forwarded-For` entry, the one Google's front end added.
 - **Google:** Firebase's provider, one account per email. `ensureGoogleAccount`
   creates the record for a first-timer. `onUserCreated` marks the Auth email
   verified when the server's own sign-up code proved it, so a later Google
@@ -84,9 +94,11 @@ Clients cannot write `phone` or `phoneVerified`, and cannot change their own
    fails when issuing the token.
 3. Deploy functions, Firestore rules and indexes.
 4. Settings, Users: sign-ups on, Phone number on, Google on as wanted.
-5. Settings, SMS: keep **Test** while testing (codes appear under Recent
-   messages); switch to **MSG91** with the auth key and the DLT-approved OTP
-   template id (containing `##OTP##`) for real SMS.
+5. Settings, SMS: keep **Test** while testing; switch to **MSG91** with the auth key
+   and the DLT-approved OTP template id (containing `##OTP##`) for real SMS. With
+   Test, no SMS is sent: the sign-up page shows a sign-up code, and reset and
+   link codes are only under Recent messages (SMS Logs), since showing them would
+   let anyone take over or move any number.
 
 ## Not built
 

@@ -1,7 +1,8 @@
 /**
  * Settings, SMS: the provider for text messages (phone sign-in codes) and a
- * test send. With the default Test provider nothing is sent: the sign-in page
- * shows each code, and every message is in Email + SMS, SMS Logs.
+ * test send. With the default Test provider nothing is sent: every message is
+ * in Email + SMS, SMS Logs, and the sign-in page shows sign-up codes (never
+ * reset or link codes, which would let anyone take over a number).
  */
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';

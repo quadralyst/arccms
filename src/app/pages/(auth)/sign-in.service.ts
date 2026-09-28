@@ -57,6 +57,17 @@ export class SignInService {
     private readonly functions = inject(Functions);
     private readonly injector = inject(Injector);
 
+    /**
+     * Tickets from verified codes, by purpose and number or address. The step
+     * after a code (create the account, set a new PIN) sends its ticket back, so
+     * only this browser can use the code it verified (review F).
+     */
+    private readonly tickets = new Map<string, string>();
+
+    private rememberTicket(key: string, reply: { ticket?: string }): void {
+        if (reply?.ticket) this.tickets.set(key, reply.ticket);
+    }
+
     private async call<T>(name: string, data: Record<string, unknown>): Promise<T> {
         const result = await runInInjectionContext(this.injector, () => arcCallable(this.functions, name)(data));
         return result.data as T;
@@ -75,9 +86,19 @@ export class SignInService {
      * the token is refreshed so it carries them.
      */
     async createAccountRecord(name: string): Promise<{ id: string; created: boolean }> {
-        const result = await this.call<{ id: string; created: boolean }>('createAccountRecord', { name });
+        const email = (this.auth.currentUser?.email ?? '').trim().toLowerCase();
+        const ticket = this.tickets.get(`email:signup:${email}`);
+        const result = await this.call<{ id: string; created: boolean }>('createAccountRecord', { name, ...(ticket ? { ticket } : {}) });
+        this.tickets.delete(`email:signup:${email}`);
         await this.auth.currentUser?.getIdToken(true);
         return result;
+    }
+
+    /** Check the sign-up code sent to this address. */
+    async verifySignupCode(email: string, code: string): Promise<{ verified: boolean }> {
+        const reply = await this.call<{ verified: boolean; ticket?: string }>('verifySignupOtp', { email, code });
+        this.rememberTicket(`email:signup:${email.trim().toLowerCase()}`, reply);
+        return { verified: reply.verified };
     }
 
     // --- The account's claims and deletion (docs/account-contract.md) ------
@@ -108,17 +129,24 @@ export class SignInService {
         return this.call('checkPhoneAccount', { phone });
     }
 
-    /** `testCode` comes back only with the Test SMS provider, where nothing is sent. */
-    requestPhoneCode(phone: string, purpose: PhoneOtpPurpose): Promise<{ sent: boolean; testCode?: string }> {
+    /**
+     * `testMode`: the Test SMS provider, where nothing is sent. A sign-up code
+     * then comes back as `testCode`; reset and link codes are in SMS Logs only.
+     */
+    requestPhoneCode(phone: string, purpose: PhoneOtpPurpose): Promise<{ sent: boolean; testMode?: boolean; testCode?: string }> {
         return this.call('requestPhoneOtp', { phone, purpose });
     }
 
-    verifyPhoneCode(phone: string, code: string, purpose: PhoneOtpPurpose): Promise<{ verified: boolean }> {
-        return this.call('verifyPhoneOtp', { phone, code, purpose });
+    async verifyPhoneCode(phone: string, code: string, purpose: PhoneOtpPurpose): Promise<{ verified: boolean }> {
+        const reply = await this.call<{ verified: boolean; ticket?: string }>('verifyPhoneOtp', { phone, code, purpose });
+        this.rememberTicket(`phone:${purpose}:${phone}`, reply);
+        return { verified: reply.verified };
     }
 
     async completePhoneSignup(phone: string, name: string, pin: string): Promise<void> {
-        const { token } = await this.call<{ token: string }>('completePhoneSignup', { phone, name, pin });
+        const ticket = this.tickets.get(`phone:signup:${phone}`);
+        const { token } = await this.call<{ token: string }>('completePhoneSignup', { phone, name, pin, ticket });
+        this.tickets.delete(`phone:signup:${phone}`);
         await this.signInWithToken(token);
     }
 
@@ -128,7 +156,9 @@ export class SignInService {
     }
 
     async resetPin(phone: string, pin: string): Promise<void> {
-        const { token } = await this.call<{ token: string }>('resetPin', { phone, pin });
+        const ticket = this.tickets.get(`phone:reset:${phone}`);
+        const { token } = await this.call<{ token: string }>('resetPin', { phone, pin, ticket });
+        this.tickets.delete(`phone:reset:${phone}`);
         await this.signInWithToken(token);
     }
 

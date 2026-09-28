@@ -348,23 +348,25 @@ describe('SignupComponent', () => {
                 toastService: { success: vi.fn() },
                 goToStep: vi.fn(),
                 codeBoxes: () => ({ reset: vi.fn(), value: () => '' }),
-                signIn: { verifyPhoneCode: vi.fn().mockResolvedValue({ verified: true }) },
+                signIn: {
+                    verifyPhoneCode: vi.fn().mockResolvedValue({ verified: true }),
+                    verifySignupCode: vi.fn().mockResolvedValue({ verified: true }),
+                },
             };
         }
 
-        beforeEach(() => mockCallableFn.mockReset());
-
         it('marks otpVerified and advances to signup when the server verifies', async () => {
-            mockCallableFn.mockResolvedValue({ data: { verified: true } });
             const c = ctx();
             await verifyOtp.call(c, '654321');
+            // Through the sign-in service, which keeps the ticket for creating the account.
+            expect(c.signIn.verifySignupCode).toHaveBeenCalledWith('new@user.com', '654321');
             expect(c.otpVerified).toBe(true);
             expect(c.goToStep).toHaveBeenCalledWith('signup');
         });
 
         it('rejects when the server does not verify the code', async () => {
-            mockCallableFn.mockResolvedValue({ data: { verified: false } });
             const c = ctx();
+            c.signIn.verifySignupCode.mockResolvedValue({ verified: false });
             await verifyOtp.call(c, '123456');
             expect(c.otpError.set).toHaveBeenCalledWith("That code didn't work. Check it and try again.");
             expect(c.otpVerified).toBe(false);
@@ -443,19 +445,29 @@ describe('SignupComponent', () => {
     describe('sendOtp in test mode', () => {
         const sendOtp = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => Promise<void>>)['sendOtp'];
 
-        function ctx(testCode?: string) {
+        function ctx(testCode?: string, reply: Record<string, unknown> = testCode ? { testMode: true } : {}, purpose = 'signup') {
             let shown = '';
+            let inLogs = false;
             return {
                 channel: () => 'phone',
                 phone: () => '+919876543210',
-                phonePurpose: () => 'signup',
+                phonePurpose: () => purpose,
                 otpError: { set: vi.fn() },
                 testCode: Object.assign(() => shown, { set: (v: string) => (shown = v) }),
+                testCodeInLogs: Object.assign(() => inLogs, { set: (v: boolean) => (inLogs = v) }),
                 toastService: { success: vi.fn() },
                 startCountdown: vi.fn(),
-                signIn: { requestPhoneCode: vi.fn().mockResolvedValue({ sent: true, ...(testCode ? { testCode } : {}) }) },
+                signIn: { requestPhoneCode: vi.fn().mockResolvedValue({ sent: true, ...reply, ...(testCode ? { testCode } : {}) }) },
             };
         }
+
+        it('says a reset code is in SMS Logs, and shows no code (review F)', async () => {
+            const c = ctx(undefined, { testMode: true }, 'reset');
+            await sendOtp.call(c);
+            expect(c.testCode()).toBe('');
+            expect(c.testCodeInLogs()).toBe(true);
+            expect(c.toastService.success).not.toHaveBeenCalled();
+        });
 
         it('shows the code the Test provider did not send', async () => {
             const c = ctx('482913');

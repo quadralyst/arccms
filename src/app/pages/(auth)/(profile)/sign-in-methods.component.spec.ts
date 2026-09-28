@@ -12,7 +12,7 @@ function ctx(check: Record<string, unknown> = { status: 'available' }) {
         error: signal(''),
         message: signal(''),
         secret: signal(''),
-        testCode: signal(''),
+        testCodeInLogs: signal(false),
         changingPin: signal(false),
         codeBoxes: () => ({ reset: vi.fn(), value: () => '' }),
         toast: { success: vi.fn() },

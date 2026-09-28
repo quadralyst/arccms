@@ -132,10 +132,8 @@ interface Flow {
                         <div class="small text-muted mb-2">Enter the 6-digit code sent to <strong>{{ shownValue() }}</strong></div>
                         <arc-code-input #codeBoxes label="Verification code" [disabled]="busy()" [invalid]="!!error()"
                             (completed)="verifyCode($event)" />
-                        @if (testCode()) {
-                            <button type="button" class="btn btn-sm test-code mt-2" (click)="useTestCode()" [disabled]="busy()">
-                                Test mode, no SMS sent. Your code: <strong>{{ testCode() }}</strong> (tap to use)
-                            </button>
+                        @if (testCodeInLogs()) {
+                            <div class="small text-muted mt-2">Test mode, no SMS sent. An admin can read the code in SMS Logs.</div>
                         }
                     }
                     @case ('secret') {
@@ -188,7 +186,6 @@ interface Flow {
         .verified-badge { color: #10b981; font-size: 0.85rem; font-weight: 500; }
         .edit-form { margin-top: 0.5rem; }
         .edit-actions { display: flex; gap: 0.5rem; margin-top: 1rem; align-items: center; }
-        .test-code { border: 1px dashed #f59e0b; background: #fffbeb; color: #92400e; }
         .move-note { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.5rem 0.75rem; }
         @media (max-width: 576px) { .form-control { font-size: 16px; } }
     `],
@@ -215,7 +212,8 @@ export class SignInMethodsComponent implements OnInit {
     /** The PIN or password being chosen. */
     readonly secret = signal('');
     /** Test SMS provider only: the code that was not sent. */
-    readonly testCode = signal('');
+    /** Test SMS provider: no SMS went out, and the code is only in SMS Logs (review F). */
+    readonly testCodeInLogs = signal(false);
 
     private readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
 
@@ -253,7 +251,7 @@ export class SignInMethodsComponent implements OnInit {
         this.error.set('');
         this.message.set('');
         this.secret.set('');
-        this.testCode.set('');
+        this.testCodeInLogs.set(false);
         this.busy.set(false);
     }
 
@@ -309,18 +307,13 @@ export class SignInMethodsComponent implements OnInit {
     }
 
     private async requestCode(check: LinkCheck): Promise<void> {
-        this.testCode.set('');
+        this.testCodeInLogs.set(false);
         if (check.kind === 'email') {
             await this.signIn.requestEmailLinkCode(check.value);
             return;
         }
         const reply = await this.signIn.requestPhoneCode(check.value, 'link');
-        this.testCode.set(reply.testCode ?? '');
-    }
-
-    /** Test mode: put the shown code in the boxes, which verifies it. */
-    useTestCode(): void {
-        this.codeBoxes()?.fill(this.testCode());
+        this.testCodeInLogs.set(!!reply.testMode);
     }
 
     /** The code boxes: verify on the last digit, or on the Verify button. */

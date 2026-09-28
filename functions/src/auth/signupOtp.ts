@@ -7,6 +7,10 @@ import { queueEmail } from '../email-core/queueEmail.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { ensureDefaultTemplates } from '../email-core/defaultTemplates.js';
 import type { EmailTemplateData } from '../types.js';
+import { callerKey, consumeRateLimit } from './accounts.js';
+import { newOtpTicket, ticketMatches } from './otpTicket.js';
+
+const HOUR = 60 * 60 * 1000;
 
 /** OTP lifetime. */
 const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -56,9 +60,9 @@ async function loadSignupOtpTemplate(): Promise<(EmailTemplateData & { isActive?
 /**
  * Callable: request a signup verification code (E3).
  *
- * Public (pre-auth) but rate-limited: one code per address per 60s, stored
- * hashed with a 10-minute expiry and a 5-attempt cap in
- * `signup_otps/{emailHash}`. Delivery goes through queueEmail (source `auth`,
+ * Public (pre-auth) but rate-limited: one code per address per 60s and 5 an
+ * hour, 20 an hour per caller, stored hashed with a 10-minute expiry and a
+ * 5-attempt cap in `signup_otps/{emailHash}`. Delivery goes through queueEmail (source `auth`,
  * transactional) so the kill-switch / authEmails toggle / suppression all apply.
  */
 export const requestSignupOtp = onCall(async (request) => {
@@ -67,6 +71,8 @@ export const requestSignupOtp = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Enter a valid email address.');
   }
   const name = typeof request.data?.name === 'string' && request.data.name ? request.data.name : undefined;
+  await consumeRateLimit(`email-otp-ip-${callerKey(request)}`, 20, HOUR, 'Too many attempts. Please try again later.');
+  await consumeRateLimit(`email-otp-${computeEmailHash(email)}`, 5, HOUR, 'Too many codes for this address. Please try again in an hour.');
   return issueEmailOtp(email, 'signup', { name });
 });
 
@@ -136,9 +142,12 @@ export async function issueEmailOtp(
 }
 
 /**
- * Callable: verify a signup code (E3). Server-authoritative — checks expiry,
- * the attempt cap, and the hashed code. On success marks the record verified so
- * the account can be created with `emailVerified:true`.
+ * Callable: verify a signup code (E3). Server-authoritative: checks expiry,
+ * the attempt cap and the hashed code, counting tries in a transaction so
+ * guesses sent in parallel cannot all read the same count. On success marks
+ * the record verified and returns a ticket: creating the account with
+ * `emailVerified:true` needs it back, so only the browser that entered the code
+ * can (review F).
  */
 export const verifySignupOtp = onCall(async (request) => {
   const email = normalizeEmail(request.data?.email);
@@ -150,30 +159,29 @@ export const verifySignupOtp = onCall(async (request) => {
 
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
-  const snap = await ref.get();
-  if (!snap.exists || !matchesPurpose(snap.data()!, purpose, request.auth?.uid)) {
-    throw new HttpsError('not-found', 'That code has expired. Please ask for a new one.');
-  }
+  const { ticket, ticketHash } = newOtpTicket();
+  const outcome = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    if (!snap.exists || !data || !matchesPurpose(data, purpose, request.auth?.uid)) return 'missing';
+    const expiresAt = (data['expiresAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
+    if (expiresAt < Date.now()) return 'expired';
+    const attempts = (data['attempts'] as number) || 0;
+    if (attempts >= MAX_ATTEMPTS) return 'locked';
+    if (data['codeHash'] !== hashCode(code, emailHash)) {
+      tx.update(ref, { attempts: attempts + 1 });
+      return 'wrong';
+    }
+    tx.update(ref, { attempts: attempts + 1, verified: true, verifiedAt: Timestamp.now(), ticketHash });
+    return 'ok';
+  });
 
-  const data = snap.data()!;
-  const expiresAt = (data['expiresAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
-  if (expiresAt < Date.now()) {
-    throw new HttpsError('deadline-exceeded', 'That code has expired. Please ask for a new one.');
-  }
-
-  const attempts = (data['attempts'] as number) || 0;
-  if (attempts >= MAX_ATTEMPTS) {
-    throw new HttpsError('resource-exhausted', 'Too many tries. Please ask for a new code.');
-  }
-
-  if (data['codeHash'] !== hashCode(code, emailHash)) {
-    await ref.update({ attempts: attempts + 1 });
-    throw new HttpsError('invalid-argument', "That code didn't work.");
-  }
-
-  await ref.update({ verified: true, verifiedAt: Timestamp.now() });
+  if (outcome === 'missing') throw new HttpsError('not-found', 'That code has expired. Please ask for a new one.');
+  if (outcome === 'expired') throw new HttpsError('deadline-exceeded', 'That code has expired. Please ask for a new one.');
+  if (outcome === 'locked') throw new HttpsError('resource-exhausted', 'Too many tries. Please ask for a new code.');
+  if (outcome === 'wrong') throw new HttpsError('invalid-argument', "That code didn't work.");
   logger.info(`verifySignupOtp: verified ${email}.`);
-  return { verified: true };
+  return { verified: true, ticket };
 });
 
 function matchesPurpose(data: Record<string, unknown>, purpose: EmailOtpPurpose, uid: string | undefined): boolean {
@@ -182,14 +190,23 @@ function matchesPurpose(data: Record<string, unknown>, purpose: EmailOtpPurpose,
   return purpose !== 'link' || (!!uid && data['uid'] === uid);
 }
 
-/** Whether this address was verified with a sign-up code (the proof `onUserCreated` needs). */
-export async function wasVerifiedBySignupCode(email: string): Promise<boolean> {
-  const snap = await db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(normalizeEmail(email))).get();
-  const data = snap.data();
-  if (!data || data['verified'] !== true || ((data['purpose'] as string | undefined) ?? 'signup') !== 'signup') return false;
-  // Only a recent verification: an old one says nothing about who signed up now.
-  const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
-  return Date.now() - verifiedAt <= EMAIL_VERIFIED_WINDOW_MS;
+/**
+ * Use up a verified sign-up code for this address, when `ticket` is the one
+ * its verification handed out: the proof the new account's email is verified.
+ * A recent verification by someone else, or an old one, proves nothing.
+ */
+export async function consumeVerifiedSignupCode(email: string, ticket: unknown): Promise<boolean> {
+  const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(normalizeEmail(email)));
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    if (!snap.exists || !data || data['verified'] !== true || !matchesPurpose(data, 'signup', undefined)) return false;
+    if (!ticketMatches(ticket, data['ticketHash'])) return false;
+    const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
+    if (Date.now() - verifiedAt > EMAIL_VERIFIED_WINDOW_MS) return false;
+    tx.delete(ref);
+    return true;
+  });
 }
 
 /** Use up a verified link code. Returns false when there is none for this caller. */

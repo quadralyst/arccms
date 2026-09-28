@@ -4,8 +4,9 @@
  *
  *   checkPhoneAccount    is this number registered, and does it have a PIN?
  *   requestPhoneOtp      send a code (signup, reset or link); with the Test
- *                        provider the reply carries the code, as no SMS is sent
- *   verifyPhoneOtp       check the code
+ *                        provider no SMS is sent, and the reply carries a
+ *                        sign-up code (reset and link codes: SMS Logs only)
+ *   verifyPhoneOtp       check the code; the reply's ticket goes to the next step
  *   completePhoneSignup  new number: name and PIN, creates the account
  *   signInWithPin        registered number: the PIN
  *   resetPin             forgot PIN (or never set one): a new PIN after a code
@@ -30,6 +31,7 @@ import {
     hasPin,
     issueSignInToken,
     isValidPin,
+    isWeakPin,
     requireOwnRecord,
     requirePhoneSignIn,
     setPin as storePin,
@@ -59,6 +61,15 @@ export function readName(raw: unknown): string {
 function readPin(raw: unknown): string {
     if (!isValidPin(raw)) throw new HttpsError('invalid-argument', 'Your PIN is 6 digits.');
     return raw;
+}
+
+/** A PIN being chosen: 6 digits, and not one of the first ones an attacker tries. */
+export function readNewPin(raw: unknown): string {
+    const pin = readPin(raw);
+    if (isWeakPin(pin)) {
+        throw new HttpsError('invalid-argument', 'That PIN is too easy to guess. Avoid repeated digits and runs like 123456.', { reason: 'weak-pin' });
+    }
+    return pin;
 }
 
 async function phoneContext(request: CallableRequest) {
@@ -99,8 +110,12 @@ export const requestPhoneOtp = onCall(async (request) => {
     await consumeRateLimit(`otp-phone-${phoneHash(phone)}`, 5, HOUR, 'Too many codes for this number. Please try again in an hour.');
     const { testCode } = await issuePhoneOtp(phone, purpose, sms, uid);
     logger.info(`requestPhoneOtp: ${purpose} code sent to ${maskPhone(phone)}.`);
-    // Test provider: no SMS goes out, so the page shows the code (Settings, SMS warns admins).
-    return { sent: true, phone, ...(testCode ? { testCode } : {}) };
+    // Test provider: no SMS goes out (Settings, SMS warns admins). The page may
+    // show a sign-up code, which only makes a new account. A reset or link code
+    // would let anyone take over or move any number, so it is only in SMS Logs,
+    // for admins (review F).
+    if (!testCode) return { sent: true, phone };
+    return { sent: true, phone, testMode: true, ...(purpose === 'signup' ? { testCode } : {}) };
 });
 
 export const verifyPhoneOtp = onCall(async (request) => {
@@ -110,17 +125,17 @@ export const verifyPhoneOtp = onCall(async (request) => {
     const code = String(request.data?.code ?? '');
     if (!/^\d{6}$/.test(code)) throw new HttpsError('invalid-argument', "That code didn't work.");
     const uid = purpose === 'link' ? request.auth?.uid : undefined;
-    await checkPhoneOtp(phone, code, purpose, uid);
-    return { verified: true };
+    const ticket = await checkPhoneOtp(phone, code, purpose, uid);
+    return { verified: true, ticket };
 });
 
 export const completePhoneSignup = onCall(async (request) => {
     const { signIn, phone } = await phoneContext(request);
     const name = readName(request.data?.name);
-    const pin = readPin(request.data?.pin);
+    const pin = readNewPin(request.data?.pin);
     if (!signIn.signupOpen) throw new HttpsError('failed-precondition', "New accounts can't be created on this site right now.");
     if (await findUserByPhone(phone)) throw new HttpsError('already-exists', 'This number already has an account.');
-    if (!(await consumeVerifiedPhoneOtp(phone, 'signup'))) {
+    if (!(await consumeVerifiedPhoneOtp(phone, 'signup', { ticket: request.data?.ticket }))) {
         throw new HttpsError('failed-precondition', 'Your code has expired. Please ask for a new one.');
     }
 
@@ -185,21 +200,24 @@ export const signInWithPin = onCall(async (request) => {
 
 export const resetPin = onCall(async (request) => {
     const { phone } = await phoneContext(request);
-    const pin = readPin(request.data?.pin);
+    const pin = readNewPin(request.data?.pin);
     const account = await findUserByPhone(phone);
     if (!account) throw new HttpsError('not-found', 'No account uses this number.');
     if (!canSignIn(account.data)) throw new HttpsError('permission-denied', 'This account is blocked. Please contact the site administrator.');
-    if (!(await consumeVerifiedPhoneOtp(phone, 'reset'))) {
+    if (!(await consumeVerifiedPhoneOtp(phone, 'reset', { ticket: request.data?.ticket }))) {
         throw new HttpsError('failed-precondition', 'Your code has expired. Please ask for a new one.');
     }
     const uid = String(account.data['uid']);
     await storePin(uid, pin);
+    // A reset is how someone who lost control of their PIN gets it back, so end
+    // every other session: whoever used the old PIN is signed out within the hour.
+    await owner.revokeRefreshTokens(uid);
     return { token: await issueSignInToken(uid) };
 });
 
 export const setPin = onCall(async (request) => {
     const record = await requireOwnRecord(request);
     if (!record.data['phone']) throw new HttpsError('failed-precondition', 'Add a phone number first.');
-    await storePin(String(record.data['uid']), readPin(request.data?.pin));
+    await storePin(String(record.data['uid']), readNewPin(request.data?.pin));
     return { saved: true };
 });

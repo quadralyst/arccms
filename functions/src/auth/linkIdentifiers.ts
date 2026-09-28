@@ -37,6 +37,7 @@ import {
     findUserByPhone,
     hasPin,
     isValidPin,
+    isWeakPin,
     requireOwnRecord,
     requirePhoneSignIn,
     setPin,
@@ -167,7 +168,10 @@ export const linkPhone = onCall(async (request) => {
     if (needsPin && !isValidPin(pin)) {
         throw new HttpsError('failed-precondition', 'Choose a 6-digit PIN.', { reason: 'pin-required' });
     }
-    if (!(await consumeVerifiedPhoneOtp(phone, 'link', uid))) {
+    if (isValidPin(pin) && isWeakPin(pin)) {
+        throw new HttpsError('invalid-argument', 'That PIN is too easy to guess. Avoid repeated digits and runs like 123456.', { reason: 'weak-pin' });
+    }
+    if (!(await consumeVerifiedPhoneOtp(phone, 'link', { uid }))) {
         throw new HttpsError('failed-precondition', 'Please verify the number again.');
     }
 

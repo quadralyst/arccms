@@ -5,9 +5,13 @@
  * a 10-minute expiry, a 60-second resend gap and 5 tries. A code is for one
  * purpose: `signup` (a new number), `reset` (a new PIN for a number that has an
  * account) or `link` (adding the number to the signed-in account, which also
- * records whose request it was). Verifying marks it verified; the step that
- * acts on it (create the account, set the PIN, link the number) consumes it
- * within 30 minutes.
+ * records whose request it was). Verifying marks it verified and hands the
+ * browser a ticket (otpTicket.ts); the step that acts on it (create the
+ * account, set the PIN, link the number) consumes it within 30 minutes, with
+ * that ticket, or for `link` by the same signed-in account.
+ *
+ * Tries are counted in a transaction, so guesses sent in parallel cannot all
+ * read the same count (review F).
  */
 import { HttpsError } from 'firebase-functions/v2/https';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -15,6 +19,7 @@ import { createHash, randomInt } from 'node:crypto';
 import { db } from '../init.js';
 import { phoneHash } from './phoneNumber.js';
 import { sendSms } from '../sms/sendSms.js';
+import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import type { SmsSettings } from '../sms/smsSettings.js';
 
 export const PHONE_OTPS = 'phone_otps';
@@ -81,38 +86,49 @@ export async function issuePhoneOtp(
     return result.status === 'logged' ? { testCode: code } : {};
 }
 
-/** Check a code and mark it verified. */
-export async function verifyPhoneOtp(e164: string, code: string, purpose: PhoneOtpPurpose, uid?: string): Promise<void> {
+/** Check a code and mark it verified. Returns the ticket the next step needs. */
+export async function verifyPhoneOtp(e164: string, code: string, purpose: PhoneOtpPurpose, uid?: string): Promise<string> {
     const key = phoneHash(e164);
     const ref = db.collection(PHONE_OTPS).doc(key);
-    const snap = await ref.get();
-    const data = snap.data();
-    if (!snap.exists || !data || data['purpose'] !== purpose || (purpose === 'link' && data['uid'] !== uid)) {
-        throw new HttpsError('not-found', 'That code has expired. Please ask for a new one.');
-    }
-    const expiresAt = (data['expiresAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
-    if (expiresAt < Date.now()) {
-        throw new HttpsError('deadline-exceeded', 'That code has expired. Please ask for a new one.');
-    }
-    const attempts = Number(data['attempts'] ?? 0);
-    if (attempts >= MAX_OTP_ATTEMPTS) {
-        throw new HttpsError('resource-exhausted', 'Too many tries. Please ask for a new code.');
-    }
-    if (data['codeHash'] !== hashCode(String(code), key)) {
-        await ref.update({ attempts: attempts + 1 });
-        throw new HttpsError('invalid-argument', "That code didn't work.");
-    }
-    await ref.update({ verified: true, verifiedAt: Timestamp.now() });
+    const { ticket, ticketHash } = newOtpTicket();
+    const outcome = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const data = snap.data();
+        if (!snap.exists || !data || data['purpose'] !== purpose || (purpose === 'link' && data['uid'] !== uid)) return 'missing';
+        const expiresAt = (data['expiresAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
+        if (expiresAt < Date.now()) return 'expired';
+        const attempts = Number(data['attempts'] ?? 0);
+        if (attempts >= MAX_OTP_ATTEMPTS) return 'locked';
+        if (data['codeHash'] !== hashCode(String(code), key)) {
+            tx.update(ref, { attempts: attempts + 1 });
+            return 'wrong';
+        }
+        tx.update(ref, { attempts: attempts + 1, verified: true, verifiedAt: Timestamp.now(), ticketHash });
+        return 'ok';
+    });
+    if (outcome === 'ok') return ticket;
+    if (outcome === 'missing') throw new HttpsError('not-found', 'That code has expired. Please ask for a new one.');
+    if (outcome === 'expired') throw new HttpsError('deadline-exceeded', 'That code has expired. Please ask for a new one.');
+    if (outcome === 'locked') throw new HttpsError('resource-exhausted', 'Too many tries. Please ask for a new code.');
+    throw new HttpsError('invalid-argument', "That code didn't work.");
 }
 
-/** Use up a verified code. Returns false when there is none for this purpose (and caller). */
-export async function consumeVerifiedPhoneOtp(e164: string, purpose: PhoneOtpPurpose, uid?: string): Promise<boolean> {
+/**
+ * Use up a verified code. Returns false when there is none for this purpose,
+ * or the caller is not the one who verified it: `link` codes belong to the
+ * signed-in account that asked, the others to the browser holding the ticket.
+ */
+export async function consumeVerifiedPhoneOtp(
+    e164: string,
+    purpose: PhoneOtpPurpose,
+    proof: { uid?: string; ticket?: unknown },
+): Promise<boolean> {
     const ref = db.collection(PHONE_OTPS).doc(phoneHash(e164));
     return db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
         const data = snap.data();
         if (!snap.exists || !data || data['verified'] !== true || data['purpose'] !== purpose) return false;
-        if (purpose === 'link' && data['uid'] !== uid) return false;
+        if (purpose === 'link' ? !proof.uid || data['uid'] !== proof.uid : !ticketMatches(proof.ticket, data['ticketHash'])) return false;
         const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
         if (Date.now() - verifiedAt > VERIFIED_WINDOW_MS) return false;
         tx.delete(ref);

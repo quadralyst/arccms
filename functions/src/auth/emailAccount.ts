@@ -24,7 +24,7 @@ import {
 import { normalizeEmailAddress } from './linkIdentifiers.js';
 import { readName } from './phoneAuth.js';
 import { authOwnerFor } from './googleAccount.js';
-import { wasVerifiedBySignupCode } from './signupOtp.js';
+import { consumeVerifiedSignupCode } from './signupOtp.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -82,7 +82,8 @@ export const createAccountRecord = onCall(async (request) => {
         uid,
         name,
         email,
-        emailVerified: await wasVerifiedBySignupCode(email),
+        // Verified only with the ticket from this browser's own code check.
+        emailVerified: await consumeVerifiedSignupCode(email, request.data?.ticket),
         role: settings.defaultRole,
         status: 'Active',
         isActive: true,

@@ -42,28 +42,22 @@ describe('onUserCreated', () => {
         expect(mocks.notifyAdmins).toHaveBeenCalledWith('admin_new_signup', expect.objectContaining({ body: '+91 ••••• 43210 just signed up.' }));
     });
 
-    it('marks the Auth email verified when a recent sign-up code proved it', async () => {
-        mem.seed('signup_otps', computeEmailHash('a@example.com'), { purpose: 'signup', verified: true, verifiedAt: FakeTimestamp.now() });
+    // The record's emailVerified is the proof: only the server writes records
+    // (createAccountRecord sets it with the code's ticket), and people may only
+    // clear the flag (review F).
+    it('marks the Auth email verified when the server verified the record', async () => {
         await run({ uid: 'u1', email: 'a@example.com', emailVerified: true });
         expect(owner.updateUser).toHaveBeenCalledWith('u1', { emailVerified: true });
     });
 
-    it('ignores the client-written emailVerified flag without that proof', async () => {
-        await run({ uid: 'u1', email: 'a@example.com', emailVerified: true });
-        expect(owner.updateUser).not.toHaveBeenCalled();
-    });
-
-    it('ignores an old verification', async () => {
-        mem.seed('signup_otps', computeEmailHash('a@example.com'), {
-            purpose: 'signup', verified: true, verifiedAt: FakeTimestamp.fromMillis(Date.now() - 2 * 60 * 60 * 1000),
-        });
-        await run({ uid: 'u1', email: 'a@example.com' });
+    it('leaves an unverified record alone, whatever sign-up codes exist', async () => {
+        mem.seed('signup_otps', computeEmailHash('a@example.com'), { purpose: 'signup', verified: true, verifiedAt: FakeTimestamp.now() });
+        await run({ uid: 'u1', email: 'a@example.com', emailVerified: false });
         expect(owner.updateUser).not.toHaveBeenCalled();
     });
 
     it("never changes a sign-in another app owns", async () => {
-        mem.seed('signup_otps', computeEmailHash('a@example.com'), { purpose: 'signup', verified: true, verifiedAt: FakeTimestamp.now() });
-        await run({ uid: 'u1', email: 'a@example.com', authOwner: 'shared' });
+        await run({ uid: 'u1', email: 'a@example.com', emailVerified: true, authOwner: 'shared' });
         expect(owner.updateUser).not.toHaveBeenCalled();
     });
 });

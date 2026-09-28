@@ -30,6 +30,7 @@ import { createAccountRecord } from '../auth/emailAccount.js';
 import { deleteMyAccount, refreshMyClaims, signedInRecently } from '../users/accountCallables.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { FakeTimestamp, type MemoryFirestore } from './helpers/memoryFirestore.js';
+import { newOtpTicket } from '../auth/otpTicket.js';
 
 const mem = db as unknown as MemoryFirestore;
 type Handler = (request: unknown) => Promise<any>;
@@ -60,10 +61,19 @@ describe('createAccountRecord (email sign-up)', () => {
         const { id } = await call(createAccountRecord, { name: 'Asha', emailVerified: true }, 'u1', password);
         expect(mem.read('users', id)!['emailVerified']).toBe(false);
 
+        // A verified code proves the email only to the browser holding its ticket (review F).
+        const { ticket, ticketHash } = newOtpTicket();
+        const verified = { purpose: 'signup', verified: true, verifiedAt: FakeTimestamp.now(), ticketHash };
         mem.store.get('users')!.clear();
-        mem.seed('signup_otps', computeEmailHash('asha@example.com'), { purpose: 'signup', verified: true, verifiedAt: FakeTimestamp.now() });
-        const second = await call(createAccountRecord, { name: 'Asha' }, 'u1', password);
+        mem.seed('signup_otps', computeEmailHash('asha@example.com'), verified);
+        const noTicket = await call(createAccountRecord, { name: 'Asha' }, 'u1', password);
+        expect(mem.read('users', noTicket.id)!['emailVerified']).toBe(false);
+
+        mem.store.get('users')!.clear();
+        const second = await call(createAccountRecord, { name: 'Asha', ticket }, 'u1', password);
         expect(mem.read('users', second.id)!['emailVerified']).toBe(true);
+        // Used up: the code cannot verify another account.
+        expect(mem.read('signup_otps', computeEmailHash('asha@example.com'))).toBeUndefined();
     });
 
     it('changes nothing for someone who already has a record', async () => {

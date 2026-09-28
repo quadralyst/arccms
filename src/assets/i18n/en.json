@@ -776,7 +776,7 @@
       },
       "sms": {
         "title": "SMS",
-        "intro": "Phone sign-in sends a 6-digit code by SMS. Until a provider is set up, nothing is sent: each code shows on the sign-in page and in SMS Logs.",
+        "intro": "Phone sign-in sends a 6-digit code by SMS. Until a provider is set up, nothing is sent: codes are in SMS Logs, and the sign-in page shows new sign-up codes.",
         "provider": "Provider",
         "provider_log": "Test (log only): nothing is sent",
         "provider_msg91": "MSG91",
@@ -804,7 +804,7 @@
         "status_sent": "Sent",
         "status_failed": "Failed",
         "logs_link": "See every message in SMS Logs",
-        "test_mode_warning": "Test mode: no SMS is sent and the sign-in page shows each code, so anyone can sign in with any number. Switch to MSG91 before real people use phone sign-in."
+        "test_mode_warning": "Test mode: no SMS is sent, and the sign-in page shows sign-up codes, so anyone can sign up with any number. Switch to MSG91 before real people use phone sign-in."
       }
     },
     "contents": {

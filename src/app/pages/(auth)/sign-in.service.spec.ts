@@ -54,3 +54,47 @@ describe('readSignInError', () => {
         expect(readSignInError({ code: 'functions/internal', message: 'stack trace' }, 'Oops').message).toBe('Oops');
     });
 });
+
+describe('SignInService code tickets (review F)', () => {
+    const proto = SignInService.prototype as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+
+    function service(email = 'asha@example.com') {
+        const replies: Record<string, unknown> = {
+            verifyPhoneOtp: { verified: true, ticket: 'phone-ticket' },
+            verifySignupOtp: { verified: true, ticket: 'email-ticket' },
+            completePhoneSignup: { token: 't' },
+            resetPin: { token: 't' },
+            createAccountRecord: { id: 'rec', created: true },
+        };
+        const c: Record<string, any> = {
+            tickets: new Map<string, string>(),
+            auth: { currentUser: { email, getIdToken: vi.fn() } },
+            call: vi.fn(async (name: string) => replies[name]),
+            signInWithToken: vi.fn(),
+        };
+        c['rememberTicket'] = (proto as any)['rememberTicket'].bind(c);
+        return c;
+    }
+
+    it('sends the ticket from verifying a phone code with the step that uses it, once', async () => {
+        const c = service();
+        await proto['verifyPhoneCode'].call(c, '+919876543210', '123456', 'reset');
+        await proto['resetPin'].call(c, '+919876543210', '246810');
+        expect(c['call']).toHaveBeenLastCalledWith('resetPin', { phone: '+919876543210', pin: '246810', ticket: 'phone-ticket' });
+        expect(c['tickets'].size).toBe(0);
+    });
+
+    it('keeps sign-up and reset tickets apart', async () => {
+        const c = service();
+        await proto['verifyPhoneCode'].call(c, '+919876543210', '123456', 'reset');
+        await proto['completePhoneSignup'].call(c, '+919876543210', 'Asha', '246810');
+        expect(c['call']).toHaveBeenLastCalledWith('completePhoneSignup', { phone: '+919876543210', name: 'Asha', pin: '246810', ticket: undefined });
+    });
+
+    it('sends the email ticket when creating the account for that address', async () => {
+        const c = service('Asha@Example.com');
+        await proto['verifySignupCode'].call(c, 'asha@example.com ', '123456');
+        await proto['createAccountRecord'].call(c, 'Asha');
+        expect(c['call']).toHaveBeenLastCalledWith('createAccountRecord', { name: 'Asha', ticket: 'email-ticket' });
+    });
+});
