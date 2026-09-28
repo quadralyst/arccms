@@ -11,10 +11,14 @@
  * - builds the functions (`tsc`) before a deploy that includes them. The CLI
  *   uploads functions/lib as it is, so without this a deploy ships the last
  *   build and new functions are silently missing (found 2026-09-24);
- * - fails a functions deploy in which a function the CLI started creating,
- *   updating or deleting never reported success. The CLI can exit 0 after a
- *   rate limit (HTTP 429) quietly skipped an update, leaving the old code live
- *   (found 2026-09-24);
+ * - retries the functions the CLI started creating or updating but never
+ *   reported success for. A deploy of many functions hits Google's per-minute
+ *   limit on changes (HTTP 429), and the CLI gives up on a few after its own
+ *   retries (found 2026-09-28). The wrapper waits for the limit to reset and
+ *   deploys just those, up to RETRY_ROUNDS times;
+ * - fails a functions deploy in which a function still never reported success
+ *   after that. The CLI can exit 0 after a rate limit quietly skipped an
+ *   update, leaving the old code live (found 2026-09-24);
  * - after a deploy that included functions, runs the callable access check. A
  *   callable whose creation timed out is left without public access, and every
  *   browser call to it then fails with 403 (found 2026-09-23). Pass --no-probe
@@ -27,6 +31,10 @@ import { existsSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, readFirebaseAliases, resolveProjectId } from './arc-install-config.mjs';
+
+/** Retry rounds for functions that never reported success, and the wait before each. */
+export const RETRY_ROUNDS = 2;
+export const RETRY_WAIT_MS = 65_000;
 
 /** The generated Firebase CLI config for a project. */
 export function generatedConfigPath(projectId) {
@@ -52,6 +60,19 @@ export function deploysFunctions(args) {
 }
 
 /**
+ * Whether a deploy deploys functions and nothing else. Only then can a clean
+ * retry clear the first run's failure: in a mixed deploy the failure may have
+ * come from rules or hosting, which the retry does not touch.
+ */
+export function deploysOnlyFunctions(args) {
+    const i = args.findIndex((a) => a === '--only' || a.startsWith('--only='));
+    if (i === -1) return false;
+    const only = args[i].startsWith('--only=') ? args[i].slice('--only='.length) : args[i + 1] || '';
+    const targets = only.split(',').map((t) => t.trim()).filter(Boolean);
+    return targets.length > 0 && targets.every((t) => t.startsWith('functions'));
+}
+
+/**
  * The `firebase` arguments for a deploy. An explicit --config/-c wins; otherwise
  * the target project's generated config is added when it exists.
  */
@@ -70,15 +91,54 @@ export function deployArgs(args, generatedExists, projectId, cwd = process.cwd()
  *   `✔  functions[arccms:arccms-search(us-central1)] Successful update operation.`
  */
 export function unconfirmedFunctions(output) {
-    const started = new Set();
+    return unconfirmed(output).map((fn) => `${fn.name}(${fn.region})`);
+}
+
+/**
+ * The same, with each function's codebase and whether it was a delete. Colour
+ * codes are stripped first, so the patterns hold when the CLI writes colour.
+ */
+export function unconfirmed(output) {
+    const started = new Map();
     const confirmed = new Set();
-    for (const line of output.split('\n')) {
-        const start = /\b(?:creating|updating|deleting) .*? function (?:[\w-]+:)?([\w-]+)\(([\w-]+)\)\.\.\./.exec(line);
-        if (start) started.add(`${start[1]}(${start[2]})`);
+    for (const line of output.replace(/\x1b\[[0-9;]*m/g, '').split('\n')) {
+        const start = /\b(creating|updating|deleting) .*? function (?:([\w-]+):)?([\w-]+)\(([\w-]+)\)\.\.\./.exec(line);
+        if (start) {
+            started.set(`${start[3]}(${start[4]})`, {
+                codebase: start[2] || '', name: start[3], region: start[4], deleting: start[1] === 'deleting',
+            });
+        }
         const done = /functions\[(?:[\w-]+:)?([\w-]+)\(([\w-]+)\)\] Successful (?:create|update|delete) operation/.exec(line);
         if (done) confirmed.add(`${done[1]}(${done[2]})`);
     }
-    return [...started].filter((fn) => !confirmed.has(fn)).sort();
+    return [...started.entries()]
+        .filter(([key]) => !confirmed.has(key))
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([, fn]) => fn);
+}
+
+/**
+ * The `--only` targets that redeploy these functions. A grouped function's id
+ * joins its groups with `-` (`arccms-search`); the CLI selects it as
+ * `functions:<codebase>:arccms.search`. Deletes are left out: a redeploy
+ * cannot finish a delete, so those are reported instead.
+ */
+export function retryTargets(functions) {
+    return functions
+        .filter((fn) => !fn.deleting)
+        .map((fn) => `functions:${fn.codebase ? `${fn.codebase}:` : ''}${fn.name.split('-').join('.')}`);
+}
+
+/** The deploy arguments with `--only` replaced by these targets. */
+export function retryArgs(firebaseArgs, targets) {
+    const out = [];
+    for (let i = 0; i < firebaseArgs.length; i++) {
+        const arg = firebaseArgs[i];
+        if (arg === '--only') { i++; continue; }
+        if (arg.startsWith('--only=')) continue;
+        out.push(arg);
+    }
+    return [...out, '--only', targets.join(',')];
 }
 
 /** Runs a command with its output streamed live and also collected. */
@@ -111,9 +171,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const deploy = await run('firebase', firebaseArgs);
     let status = deploy.status;
 
-    const missing = unconfirmedFunctions(deploy.output);
+    let missing = unconfirmed(deploy.output);
+    for (let round = 1; round <= RETRY_ROUNDS && retryTargets(missing).length; round++) {
+        const targets = retryTargets(missing);
+        const deletes = missing.filter((fn) => fn.deleting);
+        console.log(`\n${targets.length} function(s) never reported success, likely Google's per-minute limit on changes. `
+            + `Waiting ${Math.round(RETRY_WAIT_MS / 1000)} seconds, then deploying just those (retry ${round} of ${RETRY_ROUNDS}).`);
+        await new Promise((done) => setTimeout(done, RETRY_WAIT_MS));
+        const again = retryArgs(firebaseArgs, targets);
+        console.log(`> firebase ${again.join(' ')}`);
+        const retry = await run('firebase', again);
+        missing = [...deletes, ...unconfirmed(retry.output)];
+        if (retry.status === 0 && !missing.length && (status === 0 || deploysOnlyFunctions(args))) status = 0;
+    }
     if (missing.length) {
-        console.error(`\nThese functions were started but never reported success, so the old version may still be live:\n  ${missing.join('\n  ')}\nRedeploy them, for example: npm run deploy -- --only functions:<codebase>:<group>.<name>`);
+        const names = missing.map((fn) => `${fn.name}(${fn.region})${fn.deleting ? ', a delete' : ''}`);
+        console.error(`\nThese functions were started but never reported success, so the old version may still be live:\n  ${names.join('\n  ')}\nRedeploy them: npm run deploy -- --only ${retryTargets(missing).join(',') || 'functions:<codebase>:<group>.<name>'}`);
         status = status || 1;
     }
 

@@ -5,7 +5,9 @@ import { join, resolve } from 'node:path';
 // @ts-expect-error: plain ESM script without type declarations
 import * as configure from '../arc-configure.mjs';
 // @ts-expect-error: plain ESM script without type declarations
-import { deployArgs, deploysFunctions, generatedConfigPath, projectArg, unconfirmedFunctions } from '../arc-deploy.mjs';
+import {
+    deployArgs, deploysFunctions, deploysOnlyFunctions, generatedConfigPath, projectArg, retryArgs, retryTargets, unconfirmed, unconfirmedFunctions,
+} from '../arc-deploy.mjs';
 
 const ROOT = resolve(__dirname, '..', '..');
 /** The App audience params (CO6), always written with their defaults. */
@@ -293,5 +295,49 @@ describe('arc-deploy', () => {
     it('is satisfied when every started function succeeded', () => {
         expect(unconfirmedFunctions('i  functions: updating Node.js 22 (2nd Gen) function arccms:arccms-search(us-central1)...\n✔  functions[arccms:arccms-search(us-central1)] Successful update operation.')).toEqual([]);
         expect(unconfirmedFunctions('✔  Deploy complete!')).toEqual([]);
+    });
+
+    describe('retrying functions that never reported success', () => {
+        const output = [
+            'i  functions: updating Node.js 22 (2nd Gen) function arccms:arccms-reindexSearch(us-central1)...',
+            '\x1b[33mi  functions: updating Node.js 22 (2nd Gen) function arccms:arccms-custom-hello(us-central1)...\x1b[39m',
+            'i  functions: creating Node.js 22 (2nd Gen) function onUserCreated(us-central1)...',
+            'i  functions: deleting Node.js 22 (2nd Gen) function arccms:arccms-oldThing(us-central1)...',
+            '⚠  functions:  failed to update function projects/p/locations/us-central1/functions/arccms-reindexSearch',
+        ].join('\n');
+
+        it('keeps the codebase, knows deletes, and reads coloured output', () => {
+            expect(unconfirmed(output)).toEqual([
+                { codebase: 'arccms', name: 'arccms-custom-hello', region: 'us-central1', deleting: false },
+                { codebase: 'arccms', name: 'arccms-oldThing', region: 'us-central1', deleting: true },
+                { codebase: 'arccms', name: 'arccms-reindexSearch', region: 'us-central1', deleting: false },
+                { codebase: '', name: 'onUserCreated', region: 'us-central1', deleting: false },
+            ]);
+        });
+
+        it('redeploys creates and updates by their group path, never a delete', () => {
+            expect(retryTargets(unconfirmed(output))).toEqual([
+                'functions:arccms:arccms.custom.hello',
+                'functions:arccms:arccms.reindexSearch',
+                'functions:onUserCreated',
+            ]);
+        });
+
+        it('replaces --only and keeps every other argument', () => {
+            const targets = ['functions:arccms:arccms.reindexSearch'];
+            expect(retryArgs(['deploy', '--config', 'firebase.p.json', '--only', 'functions:arccms', '--project', 'default'], targets))
+                .toEqual(['deploy', '--config', 'firebase.p.json', '--project', 'default', '--only', 'functions:arccms:arccms.reindexSearch']);
+            expect(retryArgs(['deploy', '--only=functions,firestore:rules'], targets))
+                .toEqual(['deploy', '--only', 'functions:arccms:arccms.reindexSearch']);
+            expect(retryArgs(['deploy', '--project', 'default'], targets))
+                .toEqual(['deploy', '--project', 'default', '--only', 'functions:arccms:arccms.reindexSearch']);
+        });
+
+        it('lets a clean retry clear the failure only for a functions-only deploy', () => {
+            expect(deploysOnlyFunctions(['--only', 'functions:arccms'])).toBe(true);
+            expect(deploysOnlyFunctions(['--only=functions:arccms:arccms.a,functions:arccms:arccms.b'])).toBe(true);
+            expect(deploysOnlyFunctions(['--only', 'functions,firestore:rules'])).toBe(false);
+            expect(deploysOnlyFunctions([])).toBe(false);
+        });
     });
 });
