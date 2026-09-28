@@ -422,6 +422,17 @@ describe('queueEmail', () => {
       expect(lastAddArg().appFields).toBeUndefined();
     });
 
+    it('a contact still pending does not block an app user, but a contact who unsubscribed does (review C4)', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      mockGetContactConsent.mockResolvedValue('pending');
+      expect((await queueEmail({ ...baseParams, category: 'marketing', isSubscribed: true, appUser })).status).toBe('pending');
+      expect((await queueEmail({ ...baseParams, category: 'marketing', isSubscribed: false, appUser })).skipReason).toBe('unsubscribed');
+      // A contact's own email is unchanged: pending is not yet mailable.
+      expect((await queueEmail({ ...baseParams, category: 'marketing', isSubscribed: true })).skipReason).toBe('unsubscribed');
+      mockGetContactConsent.mockResolvedValue('unsubscribed');
+      expect((await queueEmail({ ...baseParams, category: 'marketing', isSubscribed: true, appUser })).skipReason).toBe('unsubscribed');
+    });
+
     it('adds nothing for anyone else', async () => {
       mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
       await queueEmail(baseParams);

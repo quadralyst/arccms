@@ -9,6 +9,7 @@ import type {
 import { computeEmailHash } from './unsubscribeToken.js';
 import { getContactGateState } from './contacts.js';
 import { usedAppFields } from '../app-audience/mergeFields.js';
+import { appUserSubscribed } from './appUserConsent.js';
 
 /** Default max delivery attempts before an email is marked `failed`. */
 export const DEFAULT_MAX_ATTEMPTS = 3;
@@ -163,11 +164,14 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
 
   // 5. Category / consent check (marketing only).
   //    Prefer the unified Contacts consent (Phase 3); fall back to the caller's
-  //    legacy `isSubscribed` signal when no contact exists yet.
+  //    legacy `isSubscribed` signal when no contact exists yet. An app user
+  //    follows appUserSubscribed(): only a contact that unsubscribed blocks them.
   if (params.category === 'marketing') {
-    const subscribed = contact.consent !== null
-      ? contact.consent === 'subscribed'
-      : params.isSubscribed !== false;
+    const subscribed = params.appUser
+      ? appUserSubscribed(contact.consent, params.isSubscribed !== false)
+      : contact.consent !== null
+        ? contact.consent === 'subscribed'
+        : params.isSubscribed !== false;
     if (!subscribed) {
       return blocked('skipped', 'unsubscribed');
     }

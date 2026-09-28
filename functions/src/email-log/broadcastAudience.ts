@@ -2,6 +2,7 @@ import { Timestamp, FieldPath } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import type { BroadcastAudience, BroadcastEmailDoc, ProviderRateLimits } from '../types.js';
 import { queueEmail } from '../email-core/queueEmail.js';
+import { appUserSubscribed } from '../email-core/appUserConsent.js';
 import { getDelayFromLimits, sleep } from './broadcastHelper.js';
 import { waitlistListId } from '../email-core/contacts.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
@@ -270,8 +271,8 @@ export async function countEligible(
   for (let listIndex = 0; listIndex < listIds.length; listIndex++) {
     const listId = listIds[listIndex];
 
-    // App users (live): consent is the contact's when one exists, else the app user's
-    // own, which is what queueEmail applies. Contact-only filters do not apply.
+    // App users (live): appUserSubscribed(), the rule queueEmail applies: a contact's
+    // opt-out wins, anything else defers to the app user. Contact-only filters do not apply.
     const members = lists.appMembers.get(listId);
     if (members) {
       const contacts = await contactsByEmail(members.map((m) => m.email));
@@ -279,8 +280,7 @@ export async function countEligible(
         scanned++;
         const contact = contacts.get(m.email);
         if (appMemberSkipped(m, contact, lists, listIndex)) continue;
-        const consent = contact?.consent?.marketing ?? m.consent;
-        if (consent !== 'subscribed') continue;
+        if (!appUserSubscribed(contact?.consent?.marketing, m.consent === 'subscribed')) continue;
         count++;
       }
       if (scanned >= maxScan) return { count, scanned, capped: true, appUsersCapped };

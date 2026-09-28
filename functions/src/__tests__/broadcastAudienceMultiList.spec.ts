@@ -279,6 +279,18 @@ describe('multi-list audiences (U4)', () => {
     });
   });
 
+  describe('app users and pending contacts (review C4)', () => {
+    it('counts an app user whose address is a contact still pending, but not one who unsubscribed', async () => {
+      // Contacts are named <id>@x.com in this mock; the live list uses the same addresses.
+      seed([['p', ['other'], 'pending'], ['u', ['other'], 'unsubscribed']]);
+      store.liveLists.set('live', [
+        { docId: 'd1', email: 'p@x.com', consent: 'subscribed' },
+        { docId: 'd2', email: 'u@x.com', consent: 'subscribed' },
+      ]);
+      expect((await countEligible({ include: ['live'] } as any)).count).toBe(1);
+    });
+  });
+
   describe('the App users limit (review C2)', () => {
     it('the preview says when a live list read only the first app users', async () => {
       seed([['a', ['l1']]]);

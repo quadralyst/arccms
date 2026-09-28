@@ -195,7 +195,8 @@ async function sendDueAppEnrollment(
   });
 
   if (result.status === 'pending') return advanceEnrollment(ref, campaign, stepIndex);
-  // Suppressed, or unsubscribed as a contact with the same address: stop.
+  // Suppressed, or unsubscribed as a contact with the same address: stop. (A
+  // contact still pending does not block an app user, so it never lands here.)
   if (result.skipReason === 'suppressed' || result.skipReason === 'unsubscribed') {
     await exitEnrollment(ref, campaign.id, 'unsubscribed');
     return 'exited';

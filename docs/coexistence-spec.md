@@ -587,8 +587,10 @@ change it later in Settings, Users.
   `appUsersDatabase` to the install's database and `appUsersPath` to `users/{id}`; the refusal
   of that path is gone. `appUsersLocation().own` says so, and the Settings and App users pages
   explain it. Overlap, pinned by tests: those users are also contacts on `all-users`, so a
-  broadcast to both kinds of list sends once per address and the contact's consent wins
-  (`broadcastAudienceMultiList.spec.ts`); an unsubscribe updates both the contact and the
+  broadcast to both kinds of list sends once per address and the contact's consent wins,
+  except that a contact still `pending` (form sign-up not confirmed) does not block a
+  subscribed app user (`appUserSubscribed()`, review C4, 2026-09-28;
+  `broadcastAudienceMultiList.spec.ts`); an unsubscribe updates both the contact and the
   `AppAudience` record (`recipientConsent.spec.ts`). One sign-up emits both `user.signed_up` and
   `app_user.created` (documented in the integration guide).
 
