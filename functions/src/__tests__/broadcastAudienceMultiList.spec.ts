@@ -279,6 +279,29 @@ describe('multi-list audiences (U4)', () => {
     });
   });
 
+  describe('two host accounts with one address (review C5)', () => {
+    it('emails the address once and counts it once', async () => {
+      seed([]);
+      store.liveLists.set('live', [
+        { docId: 'd1', email: 'same@app.com', consent: 'subscribed' },
+        { docId: 'd2', email: 'same@app.com', consent: 'subscribed' },
+        { docId: 'd3', email: 'other@app.com', consent: 'subscribed' },
+      ]);
+      expect((await countEligible({ include: ['live'] } as any)).count).toBe(2);
+      await send({ include: ['live'] });
+      expect(recipients()).toEqual(['other@app.com', 'same@app.com']);
+    });
+
+    it('respects an opt-out from either account', async () => {
+      seed([]);
+      store.liveLists.set('live', [
+        { docId: 'd1', email: 'same@app.com', consent: 'subscribed' },
+        { docId: 'd2', email: 'same@app.com', consent: 'unsubscribed' },
+      ]);
+      expect((await countEligible({ include: ['live'] } as any)).count).toBe(0);
+    });
+  });
+
   describe('app users and pending contacts (review C4)', () => {
     it('counts an app user whose address is a contact still pending, but not one who unsubscribed', async () => {
       // Contacts are named <id>@x.com in this mock; the live list uses the same addresses.

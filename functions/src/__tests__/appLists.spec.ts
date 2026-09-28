@@ -133,6 +133,12 @@ describe('resolving a live list', () => {
         expect(res.rows.map((r: any) => r.docId)).toEqual(['a', 'b', 'd']);
     });
 
+    it('counts one email per address when two people share one (review C5)', async () => {
+        m.hostDocs.push({ id: 'e', data: { email: 'ANN@x.com', name: 'Ann again', isPro: true } });
+        const res = await preview({ data: { conditions: [{ field: 'isPro', op: 'is', value: 'true' }] } });
+        expect(res).toMatchObject({ matched: 4, withEmail: 3, sharedEmail: 1, subscribed: 2 });
+    });
+
     it('previews a saved list, and refuses a list that is not live', async () => {
         m.lists.set('pros', { type: 'app', conditions: [{ field: 'isPro', op: 'is', value: 'false' }] });
         m.lists.set('manual', { type: 'manual' });
@@ -143,5 +149,23 @@ describe('resolving a live list', () => {
     it('refuses to run until a host collection is configured', async () => {
         process.env.ARC_APP_USERS_PATH = '_arccms_app_users_not_configured/{id}';
         await expect(preview({ data: { conditions: [] } })).rejects.toMatchObject({ code: 'failed-precondition' });
+    });
+});
+
+describe('oneMemberPerAddress (review C5)', () => {
+    const member = (docId: string, email: string, consent: 'subscribed' | 'unsubscribed' = 'subscribed') =>
+        ({ docId, key: docId, email, name: docId, appUserId: `h-${docId}`, consent, fields: {} });
+
+    it('keeps the first person per address, in order, and drops those without one', async () => {
+        const { oneMemberPerAddress } = await import('../app-audience/appLists.js');
+        const kept = oneMemberPerAddress([member('a', 'x@y.com'), member('b', ''), member('c', 'X@Y.com'), member('d', 'z@y.com')]);
+        expect(kept.map((m) => m.docId)).toEqual(['a', 'd']);
+    });
+
+    it('treats the address as unsubscribed if any of its people opted out', async () => {
+        const { oneMemberPerAddress } = await import('../app-audience/appLists.js');
+        const input = [member('a', 'x@y.com'), member('b', 'x@y.com', 'unsubscribed')];
+        expect(oneMemberPerAddress(input)).toEqual([expect.objectContaining({ docId: 'a', consent: 'unsubscribed' })]);
+        expect(input[0].consent).toBe('subscribed');
     });
 });

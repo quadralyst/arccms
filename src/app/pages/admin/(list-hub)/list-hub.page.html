@@ -29,9 +29,12 @@
             @if (livePreview(); as p) {
                 <span class="count-chip"><strong>{{ p.matched }}</strong> match now</span>
                 <span class="count-chip"><strong>{{ p.subscribed }}</strong> can be emailed</span>
-                <span class="count-chip"><strong>{{ p.withEmail - p.subscribed }}</strong> unsubscribed</span>
+                <span class="count-chip"><strong>{{ unsubscribedOf(p) }}</strong> unsubscribed</span>
                 @if (p.matched > p.withEmail) {
                     <span class="count-chip"><strong>{{ p.matched - p.withEmail }}</strong> no email</span>
+                }
+                @if (p.sharedEmail) {
+                    <span class="count-chip" title="Each address gets one email"><strong>{{ p.sharedEmail }}</strong> share an address</span>
                 }
             }
             <button mat-stroked-button (click)="loadLive()"><mat-icon>refresh</mat-icon> Refresh</button>

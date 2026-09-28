@@ -84,6 +84,11 @@ export default class ListHubPageComponent implements OnInit {
     liveMembers = signal<LiveMember[]>([]);
     livePreview = signal<AppListPreview | null>(null);
     readonly limitNote = APP_USERS_LIMIT_NOTE;
+
+    /** Addresses that unsubscribed: one per address, as a send counts them. */
+    unsubscribedOf(p: AppListPreview): number {
+        return Math.max(0, p.withEmail - (p.sharedEmail ?? 0) - p.subscribed);
+    }
     liveError = signal('');
 
     /** The conditions in words: "isPro is true and plan.tier is any of pro, business". */

@@ -13,6 +13,9 @@ import { APP_USERS_LIMIT_NOTE } from '../../(app-users)/app-users-limit';
 export interface AppListPreview {
     matched: number;
     withEmail: number;
+    /** People whose address another matching person also has; each address is emailed once. */
+    sharedEmail?: number;
+    /** Addresses a send would email, one per address. */
     subscribed: number;
     scanned: number;
     truncated: boolean;
@@ -87,8 +90,9 @@ const PREVIEW_DELAY_MS = 600;
             <span class="text-danger">Could not count matches: {{ previewError() }}</span>
         } @else if (preview(); as p) {
             <strong>Matches {{ p.matched }}</strong> of {{ p.scanned }} people in your app;
-            {{ p.subscribed }} can be emailed now{{ p.withEmail > p.subscribed ? ' (' + (p.withEmail - p.subscribed) + ' unsubscribed)' : '' }}.
+            {{ p.subscribed }} can be emailed now{{ unsubscribedOf(p) ? ' (' + unsubscribedOf(p) + ' unsubscribed)' : '' }}.
             @if (p.matched > p.withEmail) { {{ p.matched - p.withEmail }} have no email address. }
+            @if (p.sharedEmail) { {{ p.sharedEmail }} share an address with someone else here, and each address gets one email. }
             @if (p.truncated) { <div class="text-warning mt-1"><i class="fas fa-triangle-exclamation me-1"></i>{{ limitNote }}</div> }
         } @else {
             <span class="text-muted">Counting matches...</span>
@@ -103,6 +107,11 @@ const PREVIEW_DELAY_MS = 600;
 })
 export class AppListConditionsComponent implements OnInit, OnDestroy {
     readonly limitNote = APP_USERS_LIMIT_NOTE;
+
+    /** Addresses that unsubscribed: one per address, as a send counts them. */
+    unsubscribedOf(p: AppListPreview): number {
+        return Math.max(0, p.withEmail - (p.sharedEmail ?? 0) - p.subscribed);
+    }
     @Input() set conditions(value: AppListCondition[] | undefined) {
         this.rows.set((value ?? []).map((c) => ({
             field: c.field,

@@ -6,7 +6,7 @@ import { appUserSubscribed } from '../email-core/appUserConsent.js';
 import { getDelayFromLimits, sleep } from './broadcastHelper.js';
 import { waitlistListId } from '../email-core/contacts.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
-import { appListConditionsOf, resolveAppList, type AppListMember } from '../app-audience/appLists.js';
+import { appListConditionsOf, oneMemberPerAddress, resolveAppList, type AppListMember } from '../app-audience/appLists.js';
 import { readAppAudienceSettings } from '../app-audience/adminCallables.js';
 import { MAX_APP_USERS } from '../app-audience/listAppUsers.js';
 
@@ -160,7 +160,8 @@ export async function loadAudienceLists(audience: BroadcastAudience): Promise<Au
     for (const l of live) {
       const { members, truncated } = await resolveAppList(l.conditions, settings);
       if (truncated) appUsersCapped = true;
-      const withEmail = members.filter((m) => m.email);
+      // One member per address, so two host accounts with one address get one email (review C5).
+      const withEmail = oneMemberPerAddress(members);
       appMembers.set(l.id, withEmail);
       appEmails.set(l.id, new Set(withEmail.map((m) => m.email)));
     }

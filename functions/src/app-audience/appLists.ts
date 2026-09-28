@@ -96,6 +96,26 @@ export interface AppListMember {
     fields: Record<string, string>;
 }
 
+/**
+ * One member per email address, for sending (review C5). A host app can hold
+ * two documents with the same address (a duplicate account, say); a broadcast
+ * sent to both would email that address twice. The first by document id is
+ * kept, so paging and resuming see the same member every time. If any of them
+ * unsubscribed, the address counts as unsubscribed: an opt-out is never
+ * outvoted by a second account. Members with no address are dropped.
+ */
+export function oneMemberPerAddress(members: AppListMember[]): AppListMember[] {
+    const byEmail = new Map<string, AppListMember>();
+    for (const m of members) {
+        if (!m.email) continue;
+        const email = m.email.toLowerCase();
+        const kept = byEmail.get(email);
+        if (!kept) byEmail.set(email, { ...m });
+        else if (m.consent === 'unsubscribed') kept.consent = 'unsubscribed';
+    }
+    return [...byEmail.values()];
+}
+
 export interface AppListResolution {
     /** Everyone matching, with a unique key, sorted by document id. */
     members: AppListMember[];
@@ -168,14 +188,19 @@ export const previewAppList = onCall(async (request) => {
 
     const settings = await readAppAudienceSettings();
     const { members, scanned, truncated } = await resolveAppList(conditions, settings);
+    const addresses = oneMemberPerAddress(members);
+    const withEmail = members.filter((m) => m.email).length;
     const rows = members.slice(0, 200).map((m) => {
         const shown = maskResolvedAppUser({ docId: m.docId, key: m.key, email: m.email, phone: '', name: m.name }, settings);
         return { docId: m.docId, key: shown.key, email: shown.email, name: shown.name, consent: m.consent };
     });
     return {
         matched: members.length,
-        withEmail: members.filter((m) => m.email).length,
-        subscribed: members.filter((m) => m.email && m.consent === 'subscribed').length,
+        withEmail,
+        /** People whose address another matching person also has: emailed once per address. */
+        sharedEmail: withEmail - addresses.length,
+        /** Addresses a send would email, one per address. */
+        subscribed: addresses.filter((m) => m.consent === 'subscribed').length,
         scanned,
         truncated,
         rows,
