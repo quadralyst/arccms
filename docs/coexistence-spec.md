@@ -334,9 +334,10 @@ switching meant editing files by hand. Now:
 
 `arc:configure -- --project=<alias or id>` resolves `.firebaserc` aliases (no flag means the
 `default` alias, as with the CLI) and changes only that project. `npm run deploy` finds the
-project in `--project`/`-P`, adds that project's generated config, and after any deploy that
-includes functions runs `functions/scripts/check-callable-access.sh` against it, failing the
-deploy if a callable is blocked (`--no-probe` skips it). `export-indexes` and the purge script
+project in `--project`/`-P` and adds that project's generated config. With `--probe`, after a
+deploy that includes functions it runs `functions/scripts/check-callable-access.sh` against it,
+failing the deploy if a callable is blocked. The check is off by default since 2026-09-28 (it
+made every deploy slow); run it after a deploy that adds a callable, and before a release. `export-indexes` and the purge script
 read the database per project. This checkout's own dev project, `xlm-project-864ff`, is
 configured through it: `projects.xlm-project-864ff.databaseId = arccms`.
 

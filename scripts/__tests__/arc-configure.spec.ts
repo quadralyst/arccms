@@ -260,8 +260,9 @@ describe('arc-deploy', () => {
         expect(generatedConfigPath('acme-prod')).toBe(join(ROOT, 'firebase.acme-prod.json'));
     });
 
-    it('leaves an explicit --config alone and never passes --no-probe to firebase', () => {
+    it('leaves an explicit --config alone and never passes --probe or --no-probe to firebase', () => {
         expect(deployArgs(['--config', 'other.json', '--no-probe'], true, 'acme-prod')).toEqual(['deploy', '--config', 'other.json']);
+        expect(deployArgs(['--probe', '--only', 'functions'], false, 'acme-prod')).toEqual(['deploy', '--only', 'functions']);
     });
 
     it('finds the project in every form the CLI accepts', () => {

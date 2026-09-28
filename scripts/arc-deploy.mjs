@@ -19,10 +19,12 @@
  * - fails a functions deploy in which a function still never reported success
  *   after that. The CLI can exit 0 after a rate limit quietly skipped an
  *   update, leaving the old code live (found 2026-09-24);
- * - after a deploy that included functions, runs the callable access check. A
- *   callable whose creation timed out is left without public access, and every
- *   browser call to it then fails with 403 (found 2026-09-23). Pass --no-probe
- *   to skip it.
+ * - with --probe, after a deploy that included functions, runs the callable
+ *   access check. A callable whose creation timed out is left without public
+ *   access, and every browser call to it then fails with 403 (found 2026-09-23).
+ *   Off by default since 2026-09-28: it calls every callable one by one, which
+ *   made even a one-function deploy slow. Only a newly created callable can
+ *   lose its access; run it after a deploy that adds one, and before a release.
  *
  *   node scripts/arc-deploy.mjs --only functions --project default
  */
@@ -77,7 +79,7 @@ export function deploysOnlyFunctions(args) {
  * the target project's generated config is added when it exists.
  */
 export function deployArgs(args, generatedExists, projectId, cwd = process.cwd()) {
-    const passthrough = args.filter((a) => a !== '--no-probe');
+    const passthrough = args.filter((a) => a !== '--no-probe' && a !== '--probe');
     const hasConfig = passthrough.some((a) => a === '--config' || a === '-c' || a.startsWith('--config='));
     if (hasConfig || !generatedExists || !projectId) return ['deploy', ...passthrough];
     const config = generatedConfigPath(projectId);
@@ -190,7 +192,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         status = status || 1;
     }
 
-    if (status === 0 && projectId && deploysFunctions(args) && !args.includes('--no-probe')) {
+    if (status === 0 && projectId && deploysFunctions(args) && args.includes('--probe')) {
         console.log(`\n> Checking that every callable is publicly invocable on ${projectId}`);
         const probe = spawnSync('bash', [resolve(ROOT, 'functions/scripts/check-callable-access.sh')], {
             stdio: 'inherit',
