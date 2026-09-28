@@ -10,9 +10,9 @@
  *
  * Because the claim IS the admin gate, this file is security critical:
  *
- * - The rules are the first line: a signed-in user may create only their own document with
- *   `role` absent or `'user'`, and may never change `role` afterwards. Only admins (by the
- *   claim) and the Admin SDK can set a role.
+ * - The rules are the first line: only admins create user documents (every sign-up creates
+ *   its record on the server), and a person may never change their own `role`. Only admins
+ *   (by the claim) and the Admin SDK can set a role.
  * - `onUserRoleChange` is the second line. It still refuses to grant an elevated role unless
  *   the write came from the Admin SDK or from someone who already holds the admin claim, and
  *   reverts the document if it did not. If the rules ever regress, the claim does not follow.
@@ -26,7 +26,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import { owner, db } from '../init.js';
 import { arcDocument } from '../arc-config.js';
-import { isArcAdmin, mergeUserClaims, ROLE_CLAIM, setRecordClaims, USER_RECORD_CLAIM } from './claims.js';
+import { clearArcClaims, isArcAdmin, mergeUserClaims, ROLE_CLAIM, setRecordClaims, USER_RECORD_CLAIM } from './claims.js';
 
 /** Roles anyone may hold without an admin granting them. Keep in step with firestore.rules. */
 export const SELF_ASSIGNABLE_ROLES: readonly string[] = ['', 'user'];
@@ -63,8 +63,18 @@ export async function isTrustedRoleWriter(authType: string | undefined, authId: 
     }
 }
 
+/** Blocked (Users, Block) or detached (its last sign-in moved away): no ArcCMS access. */
+export function isBlockedRecord(data: Record<string, unknown> | undefined): boolean {
+    return !!data && (data['isActive'] === false || data['status'] === 'Detached');
+}
+
 /**
  * When a user document is created or updated, sync the role to Firebase Auth custom claims.
+ *
+ * A blocked or detached record has no claims, and its sessions are ended, so a
+ * blocked admin stops being an admin within the hour instead of for as long as
+ * they stay signed in; unblocking puts the claims back. When a record moves to
+ * another sign-in account, the old one loses its claims (review F).
  */
 export const onUserRoleChange = onDocumentWrittenWithAuthContext(
     arcDocument('users/{docId}'),
@@ -99,8 +109,29 @@ export const onUserRoleChange = onDocumentWrittenWithAuthContext(
         const userDocId: string = afterSnap.id || event.params?.docId || '';
         const uidChanged = !isCreate && beforeData?.uid !== uid;
 
-        // Only sync if role actually changed (or on create, or a new uid)
-        if (!isCreate && newRole === oldRole && !uidChanged) return;
+        const blocked = isBlockedRecord(afterData);
+        const blockChanged = !isCreate && blocked !== isBlockedRecord(beforeData);
+
+        // Only sync if role actually changed (or on create, a new uid, or blocked or unblocked)
+        if (!isCreate && newRole === oldRole && !uidChanged && !blockChanged) return;
+
+        if (uidChanged && beforeData?.uid) {
+            await clearArcClaims(String(beforeData.uid)).catch((error) => {
+                if ((error as { code?: string })?.code !== 'auth/user-not-found') {
+                    console.error(`Failed to clear the claims of the previous sign-in ${beforeData.uid}:`, error);
+                }
+            });
+        }
+        if (blocked) {
+            try {
+                await clearArcClaims(uid);
+                await owner.revokeRefreshTokens(uid);
+                console.log(`Record ${userDocId} is blocked: claims removed and sessions ended for ${uid}.`);
+            } catch (error) {
+                console.error(`Failed to remove the claims of blocked user ${uid}:`, error);
+            }
+            return;
+        }
 
         const escalation = !SELF_ASSIGNABLE_ROLES.includes(newRole);
         if (escalation && !(await isTrustedRoleWriter(event.authType, event.authId))) {

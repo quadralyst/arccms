@@ -25,6 +25,39 @@ export const NO_ACCESS_MESSAGE = "This account doesn't have access to this site.
 export const BLOCKED_CODE = 'arccms/blocked';
 export const BLOCKED_MESSAGE = 'This account is blocked. Please contact the site administrator.';
 const FALLBACK_MESSAGE = 'Something went wrong. Please try again.';
+export const UNFINISHED_SIGNUP_MESSAGE = "We couldn't finish creating your account. Check your connection, then sign in with your email and password.";
+
+/** Answers from createAccountRecord that mean it wrote nothing: safe to remove the new sign-in. */
+const RECORD_REFUSALS = ['already-exists', 'failed-precondition', 'invalid-argument', 'permission-denied', 'unauthenticated'];
+
+/**
+ * Create the account record after a sign-up, retrying what may be a slow start
+ * or a lost reply (review F). createAccountRecord returns the record when it
+ * already exists, so a retry never makes a second one.
+ *
+ *   ok       the record exists
+ *   refused  the server wrote nothing (sign-ups closed, email taken): the new
+ *            sign-in can go
+ *   unknown  still failing: the record may exist, so the sign-in stays. Deleting
+ *            it could leave a record whose email nobody can sign up with again.
+ */
+export async function createRecordWithRetry(
+    create: () => Promise<unknown>,
+    wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+): Promise<{ outcome: 'ok' } | { outcome: 'refused' | 'unknown'; error: unknown }> {
+    let last: unknown;
+    for (const delay of [0, 1500, 4000]) {
+        if (delay) await wait(delay);
+        try {
+            await create();
+            return { outcome: 'ok' };
+        } catch (err) {
+            last = err;
+            if (RECORD_REFUSALS.includes(readSignInError(err).code)) return { outcome: 'refused', error: err };
+        }
+    }
+    return { outcome: 'unknown', error: last };
+}
 
 type AuthState = {
     currentUser: IAuth | null;
@@ -150,7 +183,22 @@ export const AuthState = signalStore(
                                         // signed in (right after a sign-up, say) fires no auth change,
                                         // so the page would wait for ever.
                                         if (user && user.isActive !== false) return from(this.refreshCurrentUser()).pipe(map(() => res));
-                                        const [error, errorCode] = user ? [BLOCKED_MESSAGE, BLOCKED_CODE] : [NO_ACCESS_MESSAGE, NO_ACCESS_CODE];
+                                        if (!user) {
+                                            // A sign-up whose record creation never answered (see signup):
+                                            // finish it now. The server refuses when sign-ups are closed or
+                                            // the login is older than a day (another app's user, most
+                                            // likely), and then this is no access.
+                                            const name = String((res as { displayName?: string }).displayName || form.email.split('@')[0]).trim();
+                                            return from(createRecordWithRetry(() => signIn().createAccountRecord(name.length >= 2 ? name : 'Member', { finish: true }))).pipe(
+                                                switchMap((result) => (result.outcome === 'ok'
+                                                    ? from(this.refreshCurrentUser()).pipe(map(() => res))
+                                                    : authService.logout().pipe(
+                                                        tap(() => patchState(store, { error: NO_ACCESS_MESSAGE, errorCode: NO_ACCESS_CODE, isSuccess: false })),
+                                                        map(() => null),
+                                                    ))),
+                                            );
+                                        }
+                                        const [error, errorCode] = [BLOCKED_MESSAGE, BLOCKED_CODE];
                                         return authService.logout().pipe(
                                             tap(() => patchState(store, { error, errorCode, isSuccess: false })),
                                             map(() => null),
@@ -190,15 +238,26 @@ export const AuthState = signalStore(
                                 // The server writes the record, with the site's default role and
                                 // the `arccms_uid` claim (docs/account-contract.md), so the token
                                 // carries the claim when sign-up completes. Then read the record.
-                                signIn().createAccountRecord(form.name)
-                                    .then(() => this.refreshCurrentUser())
-                                    .then(() => patchState(store, { isLoading: false, error: '', isSuccess: true }))
-                                    .catch(async (err) => {
-                                        console.error('Failed to create the account record:', err);
-                                        // Leave no sign-in behind without a record: the person can simply try again.
-                                        await res.delete().catch(() => undefined);
-                                        const error = readSignInError(err, FALLBACK_MESSAGE);
-                                        patchState(store, { isLoading: false, error: error.message, errorCode: error.code, isSuccess: false });
+                                createRecordWithRetry(() => signIn().createAccountRecord(form.name))
+                                    .then(async (result) => {
+                                        if (result.outcome === 'ok') {
+                                            await this.refreshCurrentUser();
+                                            patchState(store, { isLoading: false, error: '', isSuccess: true });
+                                            return;
+                                        }
+                                        console.error('Failed to create the account record:', result.error);
+                                        const error = readSignInError(result.error, FALLBACK_MESSAGE);
+                                        if (result.outcome === 'refused') {
+                                            // Nothing was written: leave no sign-in behind, so the person can simply try again.
+                                            await res.delete().catch(() => undefined);
+                                            patchState(store, { isLoading: false, error: error.message, errorCode: error.code, isSuccess: false });
+                                        } else {
+                                            patchState(store, { isLoading: false, error: UNFINISHED_SIGNUP_MESSAGE, errorCode: error.code, isSuccess: false });
+                                        }
+                                    })
+                                    .catch((err) => {
+                                        console.error('Failed to load the new account:', err);
+                                        patchState(store, { isLoading: false, error: UNFINISHED_SIGNUP_MESSAGE, isSuccess: false });
                                     });
                             }),
                             catchError((err) => {

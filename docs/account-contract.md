@@ -35,7 +35,10 @@ which compares the claim with no document read.
 - On sign-in, the browser checks the token. An account made before the claim
   existed gets it then (the `refreshMyClaims` callable), and the token is refreshed
   before the app is told the person is signed in.
-- If a record is moved to another sign-in account, the claim follows it.
+- If a record is moved to another sign-in account, the claim follows it, and the
+  old sign-in account loses its Arc CMS claims.
+- A blocked record (`isActive: false`) or a detached one has no Arc CMS claims,
+  and blocking ends its sessions within the hour. Unblocking puts the claims back.
 - An admin can re-apply every account's claims with the `syncAllUserRoles` callable
   (run it once after deploying this change).
 
@@ -71,7 +74,10 @@ An account is deleted by an admin (Users, Delete) or by the person (Profile, Del
 account, which needs a sign-in within the last 10 minutes; admins cannot delete
 themselves). Either way the `users` record is deleted, and then, on the server:
 
-1. **Firestore:** every subcollection under `users/{userDocId}`, at any depth.
+0. **Access first:** the Arc CMS claims are removed and every session is ended,
+   before anything else, so a failure below never leaves a removed admin an admin.
+1. **Firestore:** every subcollection under `users/{userDocId}`, at any depth, and
+   the person's in-app notifications.
 2. **Storage:** the folder `users/{userDocId}/` (under the upload folder) and the
    profile photos in `avatars/{uid}/`. Also the person's feedback in `Feedback`,
    whose files are in that folder ([feedback.md](feedback.md)).
@@ -79,7 +85,15 @@ themselves). Either way the `users` record is deleted, and then, on the server:
    (`authOwner` is `host` or `shared`), plus the email lookup, the phone number
    index and the PIN.
 4. **Event:** `user.deleted` on the event bus (`AppEvents`), with `userId` (the Auth
-   uid) and `data.userDocId`.
+   uid) and `data.userDocId`, once every step above has worked.
+
+A step that fails makes the whole cleanup run again (every step is safe to
+repeat), for up to an hour after the delete.
+
+**Deleting your own account** also erases the contact for your email address:
+its lists, consent and form sign-ups (the admin's "Erase" on a contact). An admin
+deleting a user only unlinks the contact, since the address may have been on a
+list before the account existed.
 
 **Data an app keeps elsewhere** (another collection, another service) is the app's
 to delete. Either add a Firestore trigger on `users/{docId}` deletes in the app's own

@@ -365,7 +365,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     try {
       const status = await this.emailStatus(email);
 
-      if (status === 'registered') {
+      // `unfinished`: a recent sign-up whose last step never answered; the
+      // password step finishes it (auth.store login).
+      if (status === 'registered' || status === 'unfinished') {
         this.goToStep('login');
       } else if (status === 'no-access') {
         this.errorMessage.set(NO_ACCESS_MESSAGE);
@@ -400,7 +402,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    * `email_lookup` check, which can say "new" for a record whose lookup entry
    * was never written; the sign-up then lands on the password step instead.
    */
-  private async emailStatus(email: string): Promise<'registered' | 'new' | 'no-access'> {
+  private async emailStatus(email: string): Promise<'registered' | 'new' | 'no-access' | 'unfinished'> {
     try {
       return (await this.signIn.checkEmail(email)).status;
     } catch {

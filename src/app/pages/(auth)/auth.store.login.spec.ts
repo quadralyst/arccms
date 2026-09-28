@@ -11,7 +11,7 @@ import { Auth } from '@angular/fire/auth';
 
 vi.mock('@angular/fire/auth', () => ({ Auth: class {}, onAuthStateChanged: vi.fn(() => () => undefined) }));
 
-import { AuthState, NO_ACCESS_CODE, NO_ACCESS_MESSAGE } from './auth.store';
+import { AuthState, NO_ACCESS_CODE, NO_ACCESS_MESSAGE, UNFINISHED_SIGNUP_MESSAGE } from './auth.store';
 import { AuthService } from './auth.service';
 import { SignInService } from './sign-in.service';
 import { ToastService } from '../../../shared/services/toast.service';
@@ -63,12 +63,15 @@ describe('AuthState.login', () => {
         expect(store.isLoading()).toBe(false);
     });
 
-    it('signs out a valid account with no ArcCMS record, with a reason', () => {
+    it('signs out a valid account with no ArcCMS record, with a reason', async () => {
         authService.login.mockReturnValue(of({ uid: 'host-user' }));
         authService.getCurrentUserByUid.mockReturnValue(of(null));
+        // The server refuses to finish a sign-up for another app's (older) login.
+        signIn.createAccountRecord.mockRejectedValue({ code: 'functions/permission-denied', message: 'no access' });
         const store = TestBed.inject(AuthState);
         store.login({ email: 'h@x.com', password: 'pw' });
-        expect(authService.logout).toHaveBeenCalled();
+        await vi.waitFor(() => expect(authService.logout).toHaveBeenCalled());
+        expect(signIn.createAccountRecord).toHaveBeenCalledWith('Member', { finish: true });
         expect(toast.success).not.toHaveBeenCalled();
         expect(store.error()).toBe(NO_ACCESS_MESSAGE);
         expect(store.errorCode()).toBe(NO_ACCESS_CODE);
@@ -87,5 +90,41 @@ describe('AuthState.login', () => {
         finish();
         await vi.waitFor(() => expect(store.currentUser()).toMatchObject({ id: 'rec-1' }));
         expect(store.isLoading()).toBe(false);
+    });
+
+    it('finishes a sign-up whose record was never made, at the next sign-in (review F)', async () => {
+        authService.login.mockReturnValue(of({ uid: 'u1', displayName: 'Asha Rao' }));
+        authService.getCurrentUserByUid.mockReturnValue(of(null));
+        signIn.createAccountRecord.mockImplementation(async () => {
+            authService.getCurrentUserByUid.mockReturnValue(of({ id: 'rec-1', uid: 'u1', role: 'user' }));
+            return { id: 'rec-1', created: true };
+        });
+        const store = TestBed.inject(AuthState);
+        store.login({ email: 'a@x.com', password: 'pw' });
+        await vi.waitFor(() => expect(store.currentUser()).toMatchObject({ id: 'rec-1' }));
+        expect(signIn.createAccountRecord).toHaveBeenCalledWith('Asha Rao', { finish: true });
+        expect(authService.logout).not.toHaveBeenCalled();
+    });
+
+    it('keeps the new sign-in when creating the record keeps failing, and says to sign in (review F)', async () => {
+        const del = vi.fn();
+        signIn.createAccountRecord.mockRejectedValue({ code: 'functions/unavailable', message: 'down' });
+        authService.register.mockReturnValue(of({ uid: 'u1', delete: del }));
+        const store = TestBed.inject(AuthState);
+        store.signup({ name: 'Asha', email: 'a@x.com', password: 'longenough' });
+        await vi.waitFor(() => expect(store.error()).toBe(UNFINISHED_SIGNUP_MESSAGE), { timeout: 8000 });
+        expect(signIn.createAccountRecord).toHaveBeenCalledTimes(3);
+        expect(del).not.toHaveBeenCalled();
+    }, 10000);
+
+    it('removes the new sign-in when the server refused and wrote nothing', async () => {
+        const del = vi.fn().mockResolvedValue(undefined);
+        signIn.createAccountRecord.mockRejectedValue({ code: 'functions/failed-precondition', message: "New accounts can't be created on this site right now." });
+        authService.register.mockReturnValue(of({ uid: 'u1', delete: del }));
+        const store = TestBed.inject(AuthState);
+        store.signup({ name: 'Asha', email: 'a@x.com', password: 'longenough' });
+        await vi.waitFor(() => expect(del).toHaveBeenCalled());
+        expect(signIn.createAccountRecord).toHaveBeenCalledTimes(1);
+        expect(store.error()).toBe("New accounts can't be created on this site right now.");
     });
 });

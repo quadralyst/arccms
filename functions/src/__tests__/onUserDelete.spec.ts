@@ -7,7 +7,8 @@
  * - Calls owner.deleteUser(uid) when uid is present
  * - Calls db.collection('email_lookup').doc(hash).delete() when email is present
  * - Gracefully handles auth/user-not-found errors (does not rethrow)
- * - Gracefully handles email_lookup deletion errors (does not rethrow)
+ * - Ends access first (claims, sessions), and throws for a retry when a step
+ *   fails while the delete is recent (review F)
  * - Does nothing when both uid and email are absent
  */
 
@@ -22,12 +23,13 @@ const __dirname = dirname(__filename);
 /** The email_lookup doc id among every doc() call (the other calls are record and PIN ids). */
 const hashArg = (calls: unknown[][]) => calls.map((c) => String(c[0])).find((id) => /^[0-9a-f]{64}$/.test(id));
 
-const { mockDeleteUser, mockGetUser, mockSetClaims, mockDocDelete, mockDoc, mockCollection, mockWhere, mockRecursiveDelete, mockDeleteFiles, mockBucket, mockEmitAppEvent } = vi.hoisted(() => {
+const { mockRevoke, mockDeleteUser, mockGetUser, mockSetClaims, mockDocDelete, mockDoc, mockCollection, mockWhere, mockRecursiveDelete, mockDeleteFiles, mockBucket, mockEmitAppEvent } = vi.hoisted(() => {
     const mockDocDelete = vi.fn();
     const mockDoc = vi.fn((id?: string) => ({ id, delete: mockDocDelete, get: vi.fn().mockResolvedValue({ data: () => undefined }) }));
     const mockDeleteFiles = vi.fn().mockResolvedValue(undefined);
     const mockWhere = vi.fn(() => ({ get: vi.fn().mockResolvedValue({ size: 0, docs: [] }) }));
     return {
+        mockRevoke: vi.fn(),
         mockDeleteUser: vi.fn(),
         mockGetUser: vi.fn(),
         mockSetClaims: vi.fn(),
@@ -43,7 +45,7 @@ const { mockDeleteUser, mockGetUser, mockSetClaims, mockDocDelete, mockDoc, mock
 });
 
 vi.mock('../init', () => ({
-    owner: { deleteUser: mockDeleteUser, getUser: mockGetUser, setCustomUserClaims: mockSetClaims },
+    owner: { deleteUser: mockDeleteUser, getUser: mockGetUser, setCustomUserClaims: mockSetClaims, revokeRefreshTokens: mockRevoke },
     db: { collection: mockCollection, recursiveDelete: mockRecursiveDelete },
     storage: { bucket: mockBucket },
 }));
@@ -56,12 +58,22 @@ vi.mock('firebase-functions/v2/firestore', () => ({
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
-function makeEvent(data: Record<string, any> | null, docId = 'doc-1') {
+/** A delete event; `ageMs` is how long ago the delete happened. */
+function makeEvent(data: Record<string, any> | null, docId = 'doc-1', ageMs = 0) {
     return {
         params: { docId },
+        time: new Date(Date.now() - ageMs).toISOString(),
         data: data === null ? null : { data: () => data },
     };
 }
+const OLD = 2 * 60 * 60 * 1000;
+
+// The handler, taken once: beforeEach clears the mocks' call lists, so reading
+// it from onDocumentDeleted's calls inside a test found nothing, and every test
+// that guarded on it returned early without checking anything.
+const { onDocumentDeleted: registered } = await import('firebase-functions/v2/firestore');
+await import('../users/onUserDelete.js');
+const HANDLER = vi.mocked(registered).mock.calls.at(-1)?.[1] as unknown as (event: any) => Promise<void>;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +84,9 @@ describe('onUserDelete Cloud Function', () => {
         mockDocDelete.mockResolvedValue(undefined);
         mockRecursiveDelete.mockResolvedValue(undefined);
         mockDeleteFiles.mockResolvedValue(undefined);
+        mockGetUser.mockResolvedValue({ customClaims: {} });
+        mockRevoke.mockResolvedValue(undefined);
+        mockEmitAppEvent.mockResolvedValue('event-1');
     });
 
     describe('Source file structure', () => {
@@ -152,20 +167,52 @@ describe('onUserDelete Cloud Function', () => {
 
     describe('Handler logic via direct invocation', () => {
         async function getHandler() {
-            // Import the module; vi.mock ensures onDocumentDeleted returns { path, handler }
-            const { onDocumentDeleted } = await import('firebase-functions/v2/firestore');
-            // Import the module to trigger the onDocumentDeleted call
-            await import('../users/onUserDelete.js');
-            // Retrieve the handler that was passed to onDocumentDeleted
-            const calls = vi.mocked(onDocumentDeleted).mock.calls;
-            if (calls.length === 0) return null;
-            const lastCall = calls[calls.length - 1];
-            return lastCall[1] as (event: any) => Promise<void>;
+            expect(HANDLER).toBeTypeOf('function');
+            return HANDLER;
         }
+
+        it('ends access first: claims off and every session revoked, then the sign-in deleted (review F)', async () => {
+            const handler = await getHandler();
+            mockGetUser.mockResolvedValue({ customClaims: { arccms_role: 'admin', arccms_uid: 'rec-9', plan: 'pro' } });
+            const order: string[] = [];
+            mockSetClaims.mockImplementation(async () => void order.push('claims'));
+            mockRevoke.mockImplementation(async () => void order.push('revoke'));
+            mockDeleteUser.mockImplementation(async () => void order.push('delete'));
+            await handler(makeEvent({ uid: 'u-9' }, 'rec-9'));
+            expect(mockSetClaims).toHaveBeenCalledWith('u-9', { plan: 'pro' });
+            expect(order).toEqual(['claims', 'revoke', 'delete']);
+        });
+
+        it('throws for a retry when a step fails soon after the delete, and announces nothing yet (review F)', async () => {
+            const handler = await getHandler();
+            mockDeleteUser.mockRejectedValue(new Error('quota'));
+            await expect(handler(makeEvent({ uid: 'u-9' }, 'rec-9'))).rejects.toThrow(/deleting the sign-in failed; will retry/);
+            expect(mockEmitAppEvent).not.toHaveBeenCalled();
+            // The claims were already gone before the failing step.
+            expect(mockRevoke).toHaveBeenCalledWith('u-9');
+        });
+
+        it('gives up after an hour, with the failure logged', async () => {
+            const handler = await getHandler();
+            mockDeleteFiles.mockRejectedValue(new Error('storage down'));
+            await expect(handler(makeEvent({ uid: 'u-9' }, 'rec-9', OLD))).resolves.toBeUndefined();
+            expect(mockEmitAppEvent).not.toHaveBeenCalled();
+        });
+
+        it("deletes the person's in-app notifications", async () => {
+            const handler = await getHandler();
+            const del = vi.fn().mockResolvedValue(undefined);
+            mockWhere.mockImplementation(((field: string) => ({
+                get: vi.fn().mockResolvedValue(field === 'userId' ? { size: 1, docs: [{ ref: { delete: del } }] } : { size: 0, docs: [] }),
+            })) as never);
+            await handler(makeEvent({ uid: 'u-9' }, 'rec-9'));
+            expect(mockCollection).toHaveBeenCalledWith('Notifications');
+            expect(mockWhere).toHaveBeenCalledWith('userId', '==', 'u-9');
+            expect(del).toHaveBeenCalled();
+        });
 
         it('should return early when event.data is null', async () => {
             const handler = await getHandler();
-            if (!handler) return; // guard for import timing issues
             await handler(makeEvent(null));
             expect(mockDeleteUser).not.toHaveBeenCalled();
             expect(mockCollection).not.toHaveBeenCalled();
@@ -174,14 +221,12 @@ describe('onUserDelete Cloud Function', () => {
 
         it('should call owner.deleteUser when uid is present', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             await handler(makeEvent({ uid: 'user-abc', email: undefined }));
             expect(mockDeleteUser).toHaveBeenCalledWith('user-abc');
         });
 
         it('should delete email_lookup entry when email is present', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             await handler(makeEvent({ uid: undefined, email: 'Test@Example.com' }));
             // The collection should have been called with 'email_lookup'
             expect(mockCollection).toHaveBeenCalledWith('email_lookup');
@@ -193,7 +238,6 @@ describe('onUserDelete Cloud Function', () => {
 
         it('should normalize email before hashing (trim + lowercase)', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             // Two calls with the same email in different casings should produce the same hash
             vi.clearAllMocks();
             mockDeleteUser.mockResolvedValue(undefined);
@@ -212,7 +256,6 @@ describe('onUserDelete Cloud Function', () => {
 
         it('keeps a shared or host-owned account but removes its ArcCMS claims (review S2)', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             for (const authOwner of ['shared', 'host']) {
                 vi.clearAllMocks();
                 mockGetUser.mockResolvedValue({ customClaims: { role: 'admin', plan: 'pro', arccms_role: 'admin', arccms_uid: 'doc-1' } });
@@ -226,28 +269,24 @@ describe('onUserDelete Cloud Function', () => {
 
         it('keeps going when the kept account has gone', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             mockGetUser.mockRejectedValue({ code: 'auth/user-not-found' });
             await expect(handler(makeEvent({ uid: 'gone-uid', authOwner: 'shared' }))).resolves.toBeUndefined();
         });
 
         it('should not call deleteUser when uid is missing', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             await handler(makeEvent({ email: 'someone@example.com' }));
             expect(mockDeleteUser).not.toHaveBeenCalled();
         });
 
         it('should not call email_lookup delete when email is missing', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             await handler(makeEvent({ uid: 'uid-xyz' }));
             expect(mockCollection).not.toHaveBeenCalledWith('email_lookup');
         });
 
         it('deletes everything under the record: subcollections and the Storage folders', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             await handler(makeEvent({ uid: 'u-9', email: 'a@b.co' }, 'rec-9'));
             expect(mockCollection).toHaveBeenCalledWith('users');
             expect(mockRecursiveDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'rec-9' }));
@@ -257,7 +296,6 @@ describe('onUserDelete Cloud Function', () => {
 
         it('deletes the person\'s feedback', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             const feedbackDelete = vi.fn().mockResolvedValue(undefined);
             mockWhere.mockReturnValueOnce({
                 get: vi.fn().mockResolvedValue({ size: 2, docs: [{ ref: { delete: feedbackDelete } }, { ref: { delete: feedbackDelete } }] }),
@@ -270,22 +308,20 @@ describe('onUserDelete Cloud Function', () => {
 
         it('announces user.deleted for data an app keeps elsewhere', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             await handler(makeEvent({ uid: 'u-9' }, 'rec-9'));
             expect(mockEmitAppEvent).toHaveBeenCalledWith('user.deleted', { userId: 'u-9', data: { userDocId: 'rec-9' } });
         });
 
         it('keeps going when the Storage cleanup fails', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             mockDeleteFiles.mockRejectedValue(new Error('storage down'));
-            await expect(handler(makeEvent({ uid: 'u-9' }, 'rec-9'))).resolves.toBeUndefined();
+            // Every other step still runs before the retry.
+            await expect(handler(makeEvent({ uid: 'u-9' }, 'rec-9'))).rejects.toThrow(/Storage files/);
             expect(mockRecursiveDelete).toHaveBeenCalled();
         });
 
         it('should not throw when owner.deleteUser rejects with auth/user-not-found', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             mockDeleteUser.mockRejectedValue({ code: 'auth/user-not-found' });
             // Should resolve without throwing
             await expect(handler(makeEvent({ uid: 'gone-uid' }))).resolves.toBeUndefined();
@@ -293,23 +329,20 @@ describe('onUserDelete Cloud Function', () => {
 
         it('should not throw when owner.deleteUser rejects with unknown error', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             mockDeleteUser.mockRejectedValue(new Error('network error'));
-            await expect(handler(makeEvent({ uid: 'some-uid' }))).resolves.toBeUndefined();
+            await expect(handler(makeEvent({ uid: 'some-uid' }, 'doc-1', OLD))).resolves.toBeUndefined();
         });
 
         it('should not throw when email_lookup deletion fails', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             mockDocDelete.mockRejectedValue(new Error('firestore error'));
             await expect(
-                handler(makeEvent({ email: 'fail@example.com' }))
+                handler(makeEvent({ email: 'fail@example.com' }, 'doc-1', OLD))
             ).resolves.toBeUndefined();
         });
 
         it('should handle both uid and email in parallel', async () => {
             const handler = await getHandler();
-            if (!handler) return;
             await handler(makeEvent({ uid: 'u-123', email: 'both@example.com' }));
             expect(mockDeleteUser).toHaveBeenCalledWith('u-123');
             expect(mockCollection).toHaveBeenCalledWith('email_lookup');

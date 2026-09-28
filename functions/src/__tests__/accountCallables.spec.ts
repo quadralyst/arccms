@@ -16,6 +16,8 @@ vi.mock('firebase-admin/firestore', async () => {
     return { Timestamp: FakeTimestamp, FieldValue: { delete: () => ({ _delete: true }) } };
 });
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+const { mockErase } = vi.hoisted(() => ({ mockErase: vi.fn().mockResolvedValue({}) }));
+vi.mock('../email-core/eraseContact', () => ({ eraseContact: mockErase }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: vi.fn((handler: unknown) => handler),
     HttpsError: class extends Error {
@@ -82,6 +84,15 @@ describe('createAccountRecord (email sign-up)', () => {
         expect(mem.all('users')).toHaveLength(1);
     });
 
+    it('finishes an unfinished sign-up only for a login made within a day (review F)', async () => {
+        await expect(call(createAccountRecord, { name: 'Asha', finish: true }, 'u1', password)).resolves.toMatchObject({ created: true });
+        mem.store.get('users')!.clear();
+        owner.getUser.mockImplementation(async (uid: string) => ({ uid, customClaims: {}, metadata: { creationTime: new Date(Date.now() - 48 * 3_600_000).toUTCString() } }));
+        await expect(call(createAccountRecord, { name: 'Host User', finish: true }, 'u1', password))
+            .rejects.toMatchObject({ code: 'permission-denied', details: { reason: 'no-access' } });
+        expect(mem.all('users')).toHaveLength(0);
+    });
+
     it('refuses when sign-ups are closed, and for non-password sign-ins', async () => {
         await expect(call(createAccountRecord, { name: 'Asha' }, 'u1', { ...password, firebase: { sign_in_provider: 'custom' } }))
             .rejects.toMatchObject({ code: 'failed-precondition' });
@@ -102,6 +113,15 @@ describe('refreshMyClaims', () => {
     it('refuses a sign-in with no record here', async () => {
         await expect(call(refreshMyClaims, {}, 'nobody')).rejects.toMatchObject({ code: 'failed-precondition' });
     });
+
+    it('gives a blocked or detached record no claims, and takes any back (review F)', async () => {
+        for (const blocked of [{ isActive: false }, { status: 'Detached' }]) {
+            mem.seed('users', 'rec-7', { uid: 'u7', role: 'admin', ...blocked });
+            claims['u7'] = { hostApp: 'x', arccms_role: 'admin', arccms_uid: 'rec-7' };
+            await expect(call(refreshMyClaims, {}, 'u7')).rejects.toMatchObject({ code: 'permission-denied' });
+            expect(claims['u7']).toEqual({ hostApp: 'x' });
+        }
+    });
 });
 
 describe('deleteMyAccount', () => {
@@ -110,6 +130,21 @@ describe('deleteMyAccount', () => {
     it('deletes the record (the trigger removes the rest) after a recent sign-in', async () => {
         await expect(call(deleteMyAccount, {}, 'u1', { auth_time: nowSeconds() - 60 })).resolves.toEqual({ deleted: true });
         expect(mem.read('users', 'rec-1')).toBeUndefined();
+        expect(mockErase).not.toHaveBeenCalled();
+    });
+
+    it('erases the contact of the address too: its lists and consent (review F)', async () => {
+        mem.seed('users', 'rec-1', { uid: 'u1', role: 'user', email: ' Asha@Example.com' });
+        await call(deleteMyAccount, {}, 'u1', { auth_time: nowSeconds() - 60 });
+        expect(mockErase).toHaveBeenCalledWith(computeEmailHash('asha@example.com'), 'u1');
+        expect(mem.read('users', 'rec-1')).toBeUndefined();
+    });
+
+    it('keeps the account when the contact cannot be erased, so the person can try again', async () => {
+        mem.seed('users', 'rec-1', { uid: 'u1', role: 'user', email: 'asha@example.com' });
+        mockErase.mockRejectedValueOnce(new Error('down'));
+        await expect(call(deleteMyAccount, {}, 'u1', { auth_time: nowSeconds() - 60 })).rejects.toThrow('down');
+        expect(mem.read('users', 'rec-1')).toBeDefined();
     });
 
     it('asks for a fresh sign-in first', async () => {

@@ -75,8 +75,12 @@ export class SignInService {
 
     // --- Email ---------------------------------------------------------------
 
-    /** Registered (password), new (sign up), or a login with no access to this site. */
-    checkEmail(email: string): Promise<{ status: 'registered' | 'new' | 'no-access'; signupOpen: boolean }> {
+    /**
+     * Registered (password), new (sign up), a login with no access to this site,
+     * or `unfinished`: a recent sign-up whose record was never made, which the
+     * next password sign-in finishes.
+     */
+    checkEmail(email: string): Promise<{ status: 'registered' | 'new' | 'no-access' | 'unfinished'; signupOpen: boolean }> {
         return this.call('checkEmailAccount', { email });
     }
 
@@ -85,10 +89,12 @@ export class SignInService {
      * writes the record and its claims (functions/src/auth/emailAccount.ts), and
      * the token is refreshed so it carries them.
      */
-    async createAccountRecord(name: string): Promise<{ id: string; created: boolean }> {
+    async createAccountRecord(name: string, options: { finish?: boolean } = {}): Promise<{ id: string; created: boolean }> {
         const email = (this.auth.currentUser?.email ?? '').trim().toLowerCase();
         const ticket = this.tickets.get(`email:signup:${email}`);
-        const result = await this.call<{ id: string; created: boolean }>('createAccountRecord', { name, ...(ticket ? { ticket } : {}) });
+        const result = await this.call<{ id: string; created: boolean }>('createAccountRecord', {
+            name, ...(ticket ? { ticket } : {}), ...(options.finish ? { finish: true } : {}),
+        });
         this.tickets.delete(`email:signup:${email}`);
         await this.auth.currentUser?.getIdToken(true);
         return result;

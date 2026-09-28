@@ -50,6 +50,21 @@ describe('checkEmailAccount', () => {
         await expect(call('host@example.com')).resolves.toMatchObject({ status: 'no-access' });
     });
 
+    it('says unfinished for a password login made today with no record, while sign-ups are open (review F)', async () => {
+        const login = (hoursAgo: number, providerId = 'password') => ({
+            uid: 'u1', providerData: [{ providerId }], metadata: { creationTime: new Date(Date.now() - hoursAgo * 3_600_000).toUTCString() },
+        });
+        owner.getUserByEmail.mockResolvedValue(login(1));
+        await expect(call('asha@example.com')).resolves.toMatchObject({ status: 'unfinished' });
+        owner.getUserByEmail.mockResolvedValue(login(48));
+        await expect(call('asha@example.com')).resolves.toMatchObject({ status: 'no-access' });
+        owner.getUserByEmail.mockResolvedValue(login(1, 'google.com'));
+        await expect(call('asha@example.com')).resolves.toMatchObject({ status: 'no-access' });
+        mem.seed('Settings', 'users', { isSignupEnabled: false });
+        owner.getUserByEmail.mockResolvedValue(login(1));
+        await expect(call('asha@example.com')).resolves.toMatchObject({ status: 'no-access' });
+    });
+
     it('says new for an unknown address, with the sign-up switch', async () => {
         mem.seed('Settings', 'users', { isSignupEnabled: false });
         await expect(call('new@example.com')).resolves.toEqual({ status: 'new', signupOpen: false });

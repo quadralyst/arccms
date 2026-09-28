@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockGetUser = vi.fn();
 const mockSetCustomUserClaims = vi.fn();
+const mockRevoke = vi.fn();
 
 // Firestore: a tiny in-memory model of just what these functions touch.
 let settingsUsers: Record<string, unknown> | null = null;
@@ -58,7 +59,7 @@ const mockDb = {
 };
 
 vi.mock('../init', () => ({
-    owner: { getUser: mockGetUser, setCustomUserClaims: mockSetCustomUserClaims },
+    owner: { getUser: mockGetUser, setCustomUserClaims: mockSetCustomUserClaims, revokeRefreshTokens: mockRevoke },
     db: mockDb,
 }));
 
@@ -236,9 +237,34 @@ describe('arccms_uid claim (the users record id)', () => {
         expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { hostApp: 'pro', arccms_role: 'user', arccms_uid: 'rec-1' });
     });
 
-    it('follows the record to a new sign-in account', async () => {
-        await trigger(eventFor({ uid: 'old', role: 'user' }, { uid: 'u2', role: 'user' }, 'rec-2'));
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u2', { arccms_role: 'user', arccms_uid: 'rec-2' });
+    it('follows the record to a new sign-in account, and leaves the old one without claims (review F)', async () => {
+        claimsByUid['old'] = { hostApp: 'x', arccms_role: 'admin', arccms_uid: 'rec-2' };
+        await trigger(eventFor({ uid: 'old', role: 'admin' }, { uid: 'u2', role: 'admin' }, 'rec-2'));
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u2', { arccms_role: 'admin', arccms_uid: 'rec-2' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('old', { hostApp: 'x' });
+    });
+
+    it('takes the claims off a blocked or detached record and ends its sessions (review F)', async () => {
+        for (const blocked of [{ isActive: false }, { status: 'Detached', isActive: false }]) {
+            vi.clearAllMocks();
+            claimsByUid['u1'] = { hostApp: 'x', arccms_role: 'admin', arccms_uid: 'rec-1' };
+            await trigger(eventFor({ uid: 'u1', role: 'admin', isActive: true }, { uid: 'u1', role: 'admin', ...blocked }));
+            expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { hostApp: 'x' });
+            expect(mockRevoke).toHaveBeenCalledWith('u1');
+        }
+    });
+
+    it('puts the claims back when the record is unblocked', async () => {
+        claimsByUid['u1'] = { hostApp: 'x' };
+        await trigger(eventFor({ uid: 'u1', role: 'user', isActive: false }, { uid: 'u1', role: 'user', isActive: true }));
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { hostApp: 'x', arccms_role: 'user', arccms_uid: 'rec-1' });
+        expect(mockRevoke).not.toHaveBeenCalled();
+    });
+
+    it('gives a record created blocked no claims', async () => {
+        await trigger(eventFor(null, { uid: 'u3', role: 'user', isActive: false }));
+        expect(mockSetCustomUserClaims).not.toHaveBeenCalled();
+        expect(mockRevoke).toHaveBeenCalledWith('u3');
     });
 
     it('writes nothing when the claims already hold these values', async () => {

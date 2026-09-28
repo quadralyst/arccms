@@ -28,7 +28,19 @@ import { consumeVerifiedSignupCode } from './signupOtp.js';
 
 const HOUR = 60 * 60 * 1000;
 
-export type EmailAccountStatus = 'registered' | 'new' | 'no-access';
+export type EmailAccountStatus = 'registered' | 'new' | 'no-access' | 'unfinished';
+
+/**
+ * A password sign-in this recent with no record is a sign-up whose last step
+ * (createAccountRecord) never answered, not another app's user (review F): the
+ * next sign-in finishes it. Older ones stay no access.
+ */
+export const UNFINISHED_SIGNUP_MS = 24 * HOUR;
+
+export function isUnfinishedSignup(creationTime: string | undefined, now = Date.now()): boolean {
+    const created = creationTime ? Date.parse(creationTime) : NaN;
+    return Number.isFinite(created) && now - created <= UNFINISHED_SIGNUP_MS;
+}
 
 export const checkEmailAccount = onCall(async (request) => {
     await consumeRateLimit(`check-ip-${callerKey(request)}`, 100, HOUR, 'Too many attempts. Please try again later.');
@@ -39,8 +51,12 @@ export const checkEmailAccount = onCall(async (request) => {
     if (await findUserByEmail(email)) {
         status = 'registered';
         await db.collection('email_lookup').doc(computeEmailHash(email)).set({ exists: true });
-    } else if (await owner.getUserByEmail(email).catch(() => null)) {
-        status = 'no-access';
+    } else {
+        const account = await owner.getUserByEmail(email).catch(() => null);
+        if (account) {
+            const password = account.providerData?.some((p) => p.providerId === 'password');
+            status = signupOpen && password && isUnfinishedSignup(account.metadata?.creationTime) ? 'unfinished' : 'no-access';
+        }
     }
     return { status, signupOpen };
 });
@@ -54,6 +70,9 @@ export const checkEmailAccount = onCall(async (request) => {
  *
  * `emailVerified` comes from the server's own sign-up code record, never from
  * the browser. Calling it again for someone who has a record changes nothing.
+ * `finish` (a sign-in finishing an unfinished sign-up, auth.store login): only
+ * for a sign-in created within UNFINISHED_SIGNUP_MS, so another app's user
+ * signing in here never gets a record that way.
  */
 export const createAccountRecord = onCall(async (request) => {
     const uid = requireSignedIn(request);
@@ -75,6 +94,9 @@ export const createAccountRecord = onCall(async (request) => {
 
     const name = readName(request.data?.name);
     const account = await owner.getUser(uid);
+    if (request.data?.finish === true && !isUnfinishedSignup(account.metadata?.creationTime)) {
+        throw new HttpsError('permission-denied', "This account doesn't have access to this site.", { reason: 'no-access' });
+    }
     const ref = db.collection('users').doc();
     const now = Timestamp.now();
     await ref.set({
