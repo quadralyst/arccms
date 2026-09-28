@@ -189,7 +189,7 @@ async function sendDueAppEnrollment(
     templateIsActive: template.isActive !== false,
     emailSettings,
     isSubscribed: true,
-    appUser: { id: appUserId, fields: appMergeFields(data) },
+    appUser: { id: appUserId, docId: hostSnap.id, fields: appMergeFields(data) },
     data: { title: campaign.name },
     dedupeKey: stepDedupeKey(ref, enr, stepIndex),
   });

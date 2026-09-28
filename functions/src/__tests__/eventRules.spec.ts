@@ -23,6 +23,13 @@ describe('matchesCondition', () => {
         expect(matchesCondition({ noneOf: ['', 'free'] }, '')).toBe(false);
     });
 
+    it('ignores case, as live list conditions do (review C7)', () => {
+        expect(matchesCondition({ equals: 'pro' }, 'Pro')).toBe(true);
+        expect(matchesCondition({ anyOf: ['Business', 'PRO'] }, 'pro')).toBe(true);
+        expect(matchesCondition({ noneOf: ['FREE'] }, 'free')).toBe(false);
+        expect(matchesCondition({ equals: 'TRUE' }, true)).toBe(true);
+    });
+
     it('matches anything without a condition', () => {
         expect(matchesCondition(undefined, 'x')).toBe(true);
         expect(matchesCondition({}, 'x')).toBe(true);

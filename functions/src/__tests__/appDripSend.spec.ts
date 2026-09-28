@@ -60,7 +60,7 @@ describe('a sequence step to an app user', () => {
         expect(await sendDueEnrollment(ref as any, enrollment())).toBe('sent');
         expect(m.queueEmail).toHaveBeenCalledWith(expect.objectContaining({
             source: 'drip', category: 'marketing', toEmail: 'asha@x.com', toName: 'Asha', isSubscribed: true,
-            appUser: { id: appUserStateId('u1'), fields: { email: 'Asha@x.com', name: 'Asha', isPro: 'true', plan: 'pro' } },
+            appUser: { id: appUserStateId('u1'), docId: 'u1', fields: { email: 'Asha@x.com', name: 'Asha', isPro: 'true', plan: 'pro' } },
         }));
         expect(ref.update).toHaveBeenCalledWith(expect.objectContaining({ currentStep: 1 }));
     });

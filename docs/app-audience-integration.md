@@ -206,7 +206,8 @@ condition ("was" and "becomes": exactly, any of, none of), and an email: a templ
 type (transactional reaches everyone; marketing respects unsubscribes). App-user events send
 email only; they never create contacts or change lists.
 
-Values compare as text, and empty, missing and null are all the same empty value. So
+Values compare as text, ignoring case (as in live lists), and empty, missing and null are all
+the same empty value. So
 `isPro` becoming `true` is "becomes exactly `true`"; a free plan written as either `""` or
 `"free"` is "any of `, free`".
 

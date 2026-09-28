@@ -64,7 +64,15 @@ export interface QueueEmailParams {
    * id and their host fields for `##APP.<path>##`. The id rides on every log,
    * including skipped ones, so an unsubscribe from this email reaches their record.
    */
-  appUser?: { id: string; fields: Record<string, string> };
+  appUser?: {
+    id: string;
+    /**
+     * Their host document, so a later unsubscribe from this address can check
+     * the person still has it (recipientConsent.ts, review C7).
+     */
+    docId?: string;
+    fields: Record<string, string>;
+  };
   /** Extra tag data merged onto the log (otp, currency, price, waitlistName…). */
   data?: Record<string, unknown>;
   /** Override default max delivery attempts. */
@@ -125,6 +133,7 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     maxAttempts: params.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
     createdAt: Timestamp.now(),
     ...(params.appUser ? { appUserId: params.appUser.id } : {}),
+    ...(params.appUser?.docId ? { appDocId: params.appUser.docId } : {}),
     ...(params.data || {}),
   };
 

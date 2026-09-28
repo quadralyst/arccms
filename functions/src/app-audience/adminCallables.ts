@@ -4,20 +4,16 @@
  * to it, and nothing read is stored.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { db, firestoreFor } from '../init.js';
+import { firestoreFor } from '../init.js';
 import { requireAdmin } from '../search/auth.js';
-import {
-    appUsersLocation, normalizeAppAudienceSettings, DEFAULT_APP_AUDIENCE_SETTINGS,
-    type AppAudienceSettings, type AppUsersLocation,
-} from './config.js';
+import { appUsersLocation, normalizeAppAudienceSettings, type AppUsersLocation } from './config.js';
+import { readAppAudienceSettings } from './settings.js';
 import { flattenFields, maskResolvedAppUser, resolveAppUser, type ResolvedAppUser } from './fields.js';
 
 const SAMPLE_SIZE = 20;
 
-export async function readAppAudienceSettings(): Promise<AppAudienceSettings> {
-    const snap = await db.collection('Settings').doc('app_audience').get();
-    return snap.exists ? normalizeAppAudienceSettings(snap.data()) : DEFAULT_APP_AUDIENCE_SETTINGS;
-}
+// Re-exported so existing imports keep working; the reader lives in settings.ts.
+export { readAppAudienceSettings };
 
 function requireConfigured(): AppUsersLocation & { configured: true } {
     const location = appUsersLocation();

@@ -454,8 +454,8 @@ repeats stores one event and sends one email.
 
 **Rules in event mappings** (decided 2026-09-24). A mapping in `Settings/event_mappings`
 can hold `rules`: several sets of actions for one event, each with an optional `when` on
-the old and new value (`equals`, `anyOf`, `noneOf`; values compare as text, and empty,
-null and missing are all `''`). Upgrade and downgrade emails on one field:
+the old and new value (`equals`, `anyOf`, `noneOf`; values compare as text, ignoring case since
+review C7, and empty, null and missing are all `''`). Upgrade and downgrade emails on one field:
 
 ```json
 "app_user.changed.isPro": { "enabled": true, "rules": [
@@ -530,7 +530,7 @@ change it later in Settings, Users.
 - **CO6.5b**: App users (live) lists, `Lists/{id}` with `type: 'app'` and `conditions` (field, op,
   value; all must match; ops `is`, `is_not`, `any_of`, `contains`, `gt`, `lt`, `empty`,
   `not_empty`; text compares case-insensitively as the admin shows it, `gt`/`lt` compare
-  numbers or dates). `functions/src/app-audience/appLists.ts`: `matchesAppConditions`,
+  numbers with numbers and dates written as dates with dates, never text read as a date). `functions/src/app-audience/appLists.ts`: `matchesAppConditions`,
   `resolveAppList` (host collection, sorted by document id, with consent and merge fields), and
   the admin callable `arccms-previewAppList` (unsaved conditions or a saved list). Broadcasts
   (`email-log/broadcastAudience.ts`): `loadAudienceLists` resolves live lists once per chunk; a

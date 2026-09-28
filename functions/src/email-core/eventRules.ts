@@ -26,9 +26,11 @@ export interface EventActions {
 }
 
 /**
- * A check on one value. Values compare as text, and empty, null and missing
- * are all ''. So `{ equals: true }` matches a stored `true`, and
- * `{ anyOf: ['', 'free'] }` matches a free plan written either way.
+ * A check on one value. Values compare as text, ignoring case, and empty, null
+ * and missing are all ''. So `{ equals: true }` matches a stored `true`,
+ * `{ equals: 'pro' }` matches 'Pro', and `{ anyOf: ['', 'free'] }` matches a
+ * free plan written either way. Case is ignored as in App users (live) list
+ * conditions, so the same value matches both (review C7).
  */
 export interface ValueCondition {
   equals?: unknown;
@@ -58,12 +60,17 @@ export function conditionText(value: unknown): string {
   return String(value).trim();
 }
 
+/** A value as a condition compares it: its text, lower-cased. */
+function conditionKey(value: unknown): string {
+  return conditionText(value).toLowerCase();
+}
+
 export function matchesCondition(condition: ValueCondition | undefined, value: unknown): boolean {
   if (!condition) return true;
-  const text = conditionText(value);
-  if ('equals' in condition && conditionText(condition.equals) !== text) return false;
-  if (Array.isArray(condition.anyOf) && !condition.anyOf.map(conditionText).includes(text)) return false;
-  if (Array.isArray(condition.noneOf) && condition.noneOf.map(conditionText).includes(text)) return false;
+  const text = conditionKey(value);
+  if ('equals' in condition && conditionKey(condition.equals) !== text) return false;
+  if (Array.isArray(condition.anyOf) && !condition.anyOf.map(conditionKey).includes(text)) return false;
+  if (Array.isArray(condition.noneOf) && condition.noneOf.map(conditionKey).includes(text)) return false;
   return true;
 }
 

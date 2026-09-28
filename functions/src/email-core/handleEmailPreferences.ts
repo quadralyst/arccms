@@ -54,7 +54,7 @@ export const handleEmailPreferences = onRequest(async (req, res) => {
     return;
   }
 
-  const consent = (await getRecipientConsent(emailHash)) || 'subscribed';
+  const consent = (await getRecipientConsent(emailHash, email)) || 'subscribed';
   res.status(200).send(renderPage({ state: 'ok', subscribed: consent === 'subscribed', emailHash, token }));
 });
 

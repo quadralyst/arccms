@@ -406,7 +406,7 @@ export async function processAudienceChunk(params: {
             text: broadcastData.previewText || '',
             type: 'broadcast',
             isSubscribed: member.consent === 'subscribed',
-            appUser: { id: member.appUserId, fields: member.fields },
+            appUser: { id: member.appUserId, docId: member.docId, fields: member.fields },
             data: { broadcastId, waitlistId: broadcastData.waitlistId },
           });
           if (res.status === 'pending') sentCount++;

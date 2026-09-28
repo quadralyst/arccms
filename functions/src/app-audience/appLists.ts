@@ -48,13 +48,22 @@ export function normalizeAppListConditions(raw: unknown): AppListCondition[] {
     return out;
 }
 
-/** A number, or a date as milliseconds, for greater than / less than. */
-function comparable(text: string): number | null {
+/** A date written as a date: `2026-10-01`, or with a time (`2026-10-01T09:30:00Z`). */
+const DATE_TEXT = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/**
+ * A number, or a date as milliseconds, for greater than / less than, with its
+ * kind: only a number compares with a number and a date with a date. A date
+ * has to look like one: Date.parse alone reads text such as "Plan 2" as a date
+ * (review C7), so `plan gt 1` used to match it.
+ */
+export function comparable(text: string): { kind: 'number' | 'date'; value: number } | null {
     if (text === '') return null;
     const n = Number(text);
-    if (Number.isFinite(n)) return n;
+    if (Number.isFinite(n)) return { kind: 'number', value: n };
+    if (!DATE_TEXT.test(text)) return null;
     const t = Date.parse(text);
-    return Number.isNaN(t) ? null : t;
+    return Number.isNaN(t) ? null : { kind: 'date', value: t };
 }
 
 /**
@@ -77,9 +86,9 @@ export function matchesAppConditions(data: Record<string, unknown>, conditions: 
             case 'gt':
             case 'lt': {
                 const a = comparable(text);
-                const b = comparable(typeof c.value === 'string' ? c.value : '');
-                if (a === null || b === null) return false;
-                return c.op === 'gt' ? a > b : a < b;
+                const b = comparable(typeof c.value === 'string' ? c.value.trim() : '');
+                if (a === null || b === null || a.kind !== b.kind) return false;
+                return c.op === 'gt' ? a.value > b.value : a.value < b.value;
             }
         }
     });

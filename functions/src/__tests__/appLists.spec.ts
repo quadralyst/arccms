@@ -77,6 +77,19 @@ describe('matchesAppConditions', () => {
         expect(one('missing', 'lt', '5')).toBe(false);
     });
 
+    it('never reads text as a date, and compares only like with like (review C7)', () => {
+        const plan = (name: string, op: any, value: string) => matchesAppConditions({ plan: name }, [{ field: 'plan', op, value }]);
+        // Date.parse reads "Plan 2" as 2001-02-01, so this used to match.
+        expect(plan('Plan 2', 'gt', '1')).toBe(false);
+        expect(plan('Plan 2', 'lt', '2030-01-01')).toBe(false);
+        // A number never compares with a date.
+        expect(one('credits', 'gt', '2026-01-01')).toBe(false);
+        expect(one('joinedAt', 'gt', '5')).toBe(false);
+        // Dates written as dates still work, with or without a time.
+        expect(one('joinedAt', 'lt', '2026-03-01T12:00')).toBe(true);
+        expect(one('joinedAt', 'gt', ' 2026-02-28 ')).toBe(true);
+    });
+
     it('needs every condition (AND), and no conditions match everyone', () => {
         expect(matchesAppConditions(doc, [{ field: 'isPro', op: 'is', value: 'true' }, { field: 'credits', op: 'gt', value: '100' }])).toBe(false);
         expect(matchesAppConditions(doc, [])).toBe(true);

@@ -188,7 +188,11 @@ async function runActions(rule: EventRule, { type, userId, appUserId, email, eve
           templateIsActive: tpl.isActive !== false,
           ...(appUserId ? {
             isSubscribed: await appUserSubscribed(appUserId),
-            appUser: { id: appUserId, fields: await readAppMergeFields(String(eventData['docId'] ?? '')) },
+            appUser: {
+              id: appUserId,
+              docId: eventData['docId'] ? String(eventData['docId']) : undefined,
+              fields: await readAppMergeFields(String(eventData['docId'] ?? '')),
+            },
           } : {}),
           data: eventData,
         });

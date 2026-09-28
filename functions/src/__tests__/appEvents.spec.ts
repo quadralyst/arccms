@@ -143,7 +143,7 @@ describe('onAppEventCreate', () => {
     it('sends an app user\'s host fields with the email, for ##APP.<path>## tags', async () => {
       mappings({ 'app_user.created': { enabled: true, sendEmail: { templateType: 't', category: 'transactional' } } });
       await handler(event({ type: 'app_user.created', contactEmail: 'a@x.com', appUserId: 'h1', data: { docId: 'u1' } }));
-      expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({ appUser: { id: 'h1', fields: { isPro: 'true' } } }));
+      expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({ appUser: { id: 'h1', docId: 'u1', fields: { isPro: 'true' } } }));
     });
 
     it('never adds an app user to a list, since that would copy them into Contacts', async () => {

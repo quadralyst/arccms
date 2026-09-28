@@ -419,7 +419,7 @@ describe('multi-list audiences (U4)', () => {
       const res = await send({ include: ['app1'] });
       expect(recipients()).toEqual(['ann@x.com', 'bob@x.com']);
       expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({
-        toEmail: 'ann@x.com', isSubscribed: true, appUser: { id: 'h-ann', fields: { plan: 'pro' } },
+        toEmail: 'ann@x.com', isSubscribed: true, appUser: { id: 'h-ann', docId: 'ann', fields: { plan: 'pro' } },
       }));
       expect(res).toMatchObject({ sentCount: 1, skippedCount: 1, done: true });
     });
