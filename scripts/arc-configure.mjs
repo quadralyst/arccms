@@ -152,6 +152,15 @@ const isNamedDatabase = (config) => !!config.databaseId && config.databaseId !==
 export const HOSTING_OFF = 'none';
 const ownHostingSite = (config) => !!config.hostingSite && config.hostingSite !== HOSTING_OFF;
 
+/**
+ * Arc CMS shares its project with another app (its own database) but keeps its
+ * files in the project's default bucket. Firebase takes one storage rules file
+ * per bucket, so deploying Arc CMS's would replace the other app's (review F):
+ * such an install deploys no storage rules. Give it a bucket of its own
+ * (`--bucket`) to deploy them.
+ */
+export const sharesDefaultBucket = (config) => isNamedDatabase(config) && !config.storageBucket;
+
 /** The values the app needs for one project, or null when it uses only defaults. */
 export function appValues(config) {
     const values = {};
@@ -227,7 +236,8 @@ export function updateFunctionsEnv(existing, config) {
  * The Firebase CLI config for this install, derived from the committed
  * firebase.json, or `null` when the install uses only defaults.
  *
- * Hosting off (`--site=none`) removes the `hosting` block entirely (review O2).
+ * Hosting off (`--site=none`) removes the `hosting` block entirely (review O2),
+ * and so does storage for an install in another app's bucket (sharesDefaultBucket).
  * Keeping it without a site made a full deploy publish ArcCMS to the project's
  * default site, which in a shared project is another app's (on the dev project,
  * the old install's live site). So hosting off always gets a generated config,
@@ -249,6 +259,7 @@ export function renderFirebaseConfig(base, config) {
         out.hosting = { site: config.hostingSite, ...stripSite(base.hosting) };
     }
     if (hostingOff) delete out.hosting;
+    if (sharesDefaultBucket(config)) delete out.storage;
     return out;
 }
 
@@ -337,6 +348,10 @@ export function main(argv = process.argv.slice(2), paths = PATHS, log = console.
         + `${config.storageBucket ? `, bucket ${config.storageBucket}` : ''}`
         + `${config.storagePrefix ? `, upload folder ${config.storagePrefix}` : ''}.`);
     log(changes.length ? `${dryRun ? 'Would ' : ''}${changes.join('\n')}` : 'Nothing to change.');
+    if (sharesDefaultBucket(config)) {
+        log(`\nStorage rules are not deployed for ${projectId}: Arc CMS keeps its files in the default bucket, which the other app uses,`
+            + ' and a bucket has one rules file. Give Arc CMS its own bucket (--bucket=<name>) to deploy them (docs/deploy.md).');
+    }
 
     const commands = setupCommands(config);
     if (commands.length) {

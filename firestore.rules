@@ -223,9 +223,11 @@ service cloud.firestore {
     // `role` is the source of the Auth custom claim that isAdmin() checks
     // (functions/src/users/syncUserRole.ts copies it). So a user must never be
     // able to set it:
-    //   - create: only a doc for yourself, with no role or role 'user'. The
-    //     site's `Settings/users.defaultRole` is applied afterwards by
-    //     onUserRoleChange, with the Admin SDK.
+    //   - create: admins only. Every sign-up creates its record on the server
+    //     (createAccountRecord, ensureGoogleAccount, the phone callables,
+    //     adminCreateUser), which checks the email, the role and whether
+    //     sign-ups are open. A client-created record could carry another
+    //     person's email, a plan or credits (review F).
     //   - update: never `role`, `uid`, the admin switches (`isActive`,
     //     `status`), or the premium fields; `emailVerified` may only go to false.
     //   - the first admin of a fresh install comes from the `claimFirstAdmin`
@@ -236,49 +238,19 @@ service cloud.firestore {
       return isAuthenticated() && resource.data.uid == request.auth.uid;
     }
 
-    function isSelfAssignableRole(data) {
-      return !('role' in data) || data.role == 'user';
-    }
-
-    // Sign-ups (docs/coexistence-spec.md, CO6.6): a self-created record needs
-    // Settings/users.isSignupEnabled to not be false, so "sign-ups off" holds
-    // against a client that skips the sign-up page. Turned off it is the backend
-    // profile's admin-only sign-in: a user of an app sharing this project can
-    // sign in with their password, but cannot give themselves an ArcCMS record.
-    // A fresh install has no Settings/users yet, so onboarding can still create
-    // the first account. Admins add users with the adminCreateUser callable.
-    function selfSignupOpen() {
-      let settings = /databases/$(database)/documents/Settings/users;
-      return !exists(settings) || get(settings).data.get('isSignupEnabled', true) != false;
-    }
-
     // Passwords live in Firebase Auth only, never in a user record.
     function hasNoPassword(data) {
       return !('password' in data);
     }
 
-    // A phone number is a sign-in method (phone and PIN), so only the server
-    // sets it, after the number is verified by SMS. The same holds for changing
-    // `email` once the record exists: both go through a verification code
-    // (functions/src/auth/linkIdentifiers.ts).
-    function hasNoVerifiedPhone(data) {
-      return !('phone' in data) && !('phoneVerified' in data);
-    }
-
     match /users/{userId} {
       allow read: if isAdmin() || isOwnUserDoc();
-      // authOwner is set only by the Admin SDK (docs/coexistence-spec.md, CO-D16):
-      // a user who marked their own doc as host-owned would keep their login when
-      // an admin deletes them.
-      allow create: if hasNoPassword(request.resource.data) && (isAdmin() ||
-        (isAuthenticated()
-         && request.resource.data.uid == request.auth.uid
-         && isSelfAssignableRole(request.resource.data)
-         && !('authOwner' in request.resource.data)
-         && hasNoVerifiedPhone(request.resource.data)
-         && selfSignupOpen()));
+      allow create: if hasNoPassword(request.resource.data) && isAdmin();
       // Admin can update any user doc (migration re-keying, role changes). A
-      // user may update their own doc EXCEPT the fields above. The premium
+      // user may update their own doc EXCEPT the fields above. `phone` and
+      // `email` are sign-in methods, changed only by the server after a code
+      // (functions/src/auth/linkIdentifiers.ts); authOwner is Admin SDK only
+      // (CO-D16). The premium
       // entitlement fields are written only by Cloud Functions (Admin SDK
       // bypasses rules) so users cannot self-grant access.
       allow update: if hasNoPassword(request.resource.data) && (isAdmin() ||
@@ -449,9 +421,23 @@ service cloud.firestore {
       allow create: if isValidNewFeedback(feedbackId);
     }
 
-    function isFeedbackFile(path, feedbackId) {
-      return path is string
-        && path.matches('([^/]+/)?users/' + request.auth.token.get('arccms_uid', '') + '/feedback/' + feedbackId + '/[^/]+');
+    // A file in the sender's own folder for this feedback, compared part by
+    // part: `[upload folder/]users/{their record}/feedback/{id}/{name}`. Never a
+    // pattern built from the ids, since the sender picks the feedback id and an
+    // id like `x|.*` would turn the pattern into "any path" (review F): the
+    // admin's Delete then deleted whatever file the feedback named.
+    function isFeedbackFile(path, feedbackId, names) {
+      return path is string && isFeedbackFileParts(path.split('/'), feedbackId, names);
+    }
+
+    function isFeedbackFileParts(parts, feedbackId, names) {
+      let at = parts.size() - 5;
+      return (at == 0 || (at == 1 && parts[0].matches('[A-Za-z0-9_-]+')))
+        && parts[at] == 'users'
+        && parts[at + 1] == request.auth.token.get('arccms_uid', '')
+        && parts[at + 2] == 'feedback'
+        && parts[at + 3] == feedbackId
+        && parts[at + 4] in names;
     }
 
     function isValidNewFeedback(feedbackId) {
@@ -467,8 +453,8 @@ service cloud.firestore {
         && d.message is string && d.message.size() <= 5000
         && (d.message.size() > 0 || 'voicePath' in d)
         && d.page is map && d.device is map
-        && (!('screenshotPath' in d) || isFeedbackFile(d.screenshotPath, feedbackId))
-        && (!('voicePath' in d) || isFeedbackFile(d.voicePath, feedbackId))
+        && (!('screenshotPath' in d) || isFeedbackFile(d.screenshotPath, feedbackId, ['screenshot.jpg']))
+        && (!('voicePath' in d) || isFeedbackFile(d.voicePath, feedbackId, ['voice.mp4', 'voice.webm', 'voice.ogg']))
         && (!('voiceSeconds' in d) || (d.voiceSeconds is number && d.voiceSeconds <= 180));
     }
 

@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import * as configure from '../arc-configure.mjs';
 // @ts-expect-error: plain ESM script without type declarations
 import {
-    cliActiveProject, deployArgs, deployProject, deploysFunctions, deploysOnlyFunctions, namesHosting, generatedConfigPath, projectArg, retryArgs, retryTargets, unconfirmed, unconfirmedFunctions,
+    cliActiveProject, deployArgs, deployProject, deploysFunctions, deploysOnlyFunctions, namesHosting, namesTarget, generatedConfigPath, projectArg, retryArgs, retryTargets, unconfirmed, unconfirmedFunctions,
 } from '../arc-deploy.mjs';
 
 const ROOT = resolve(__dirname, '..', '..');
@@ -173,6 +173,19 @@ describe('arc-configure', () => {
             expect(committedFirebase).toHaveProperty('hosting');
         });
 
+        it("deploys no storage rules into another app's bucket, only into its own (review F)", () => {
+            const shared = configure.normalizeConfig({ databaseId: 'arccms', storagePrefix: 'arccms/', hostingSite: 'none' });
+            expect(configure.sharesDefaultBucket(shared)).toBe(true);
+            expect(configure.renderFirebaseConfig(committedFirebase, shared)).not.toHaveProperty('storage');
+
+            const own = configure.normalizeConfig({ databaseId: 'arccms', storageBucket: 'acme-arccms', hostingSite: 'none' });
+            expect(configure.sharesDefaultBucket(own)).toBe(false);
+            expect(configure.renderFirebaseConfig(committedFirebase, own).storage[0].bucket).toBe('acme-arccms');
+
+            // A standalone install owns the default bucket, upload folder or not.
+            expect(configure.sharesDefaultBucket(configure.normalizeConfig({ storagePrefix: 'arccms/' }))).toBe(false);
+        });
+
         it('prints the commands that create the resources', () => {
             const commands = configure.setupCommands({ ...config, region: 'nam5' }).join('\n');
             expect(commands).toContain('firebase firestore:databases:create arccms --location=nam5');
@@ -298,6 +311,12 @@ describe('arc-deploy', () => {
         expect(projectArg(['--project=prod'])).toBe('prod');
         expect(projectArg(['-P', 'prod'])).toBe('prod');
         expect(projectArg(['--only', 'functions'])).toBe('');
+    });
+
+    it('knows when a deploy names storage, to refuse it in a shared bucket (review F)', () => {
+        expect(namesTarget(['--only', 'functions:arccms,firestore,storage'], 'storage')).toBe(true);
+        expect(namesTarget(['--only=storage'], 'storage')).toBe(true);
+        expect(namesTarget(['--only', 'firestore'], 'storage')).toBe(false);
     });
 
     it('knows when a deploy names hosting, to refuse it where hosting is off (review O2)', () => {

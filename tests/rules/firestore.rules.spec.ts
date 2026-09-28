@@ -49,26 +49,17 @@ beforeEach(async () => {
     });
 });
 
-describe('users: create', () => {
-    it('lets a user create their own doc with role user (the sign-up page)', async () => {
-        await assertSucceeds(addDoc(collection(alice(), 'users'), { uid: ALICE, email: 'a2@x.com', role: 'user' }));
+describe('users: create (review F: sign-ups create records on the server)', () => {
+    const carol = () => env.authenticatedContext('carol-uid').firestore();
+
+    it('refuses a record a person creates for themselves, even with role user', async () => {
+        await assertFails(addDoc(collection(alice(), 'users'), { uid: ALICE, email: 'a2@x.com', role: 'user' }));
+        await assertFails(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', email: 'c@x.com' }));
     });
 
-    it('lets a user create their own doc with no role', async () => {
-        await assertSucceeds(addDoc(collection(alice(), 'users'), { uid: ALICE, email: 'a2@x.com' }));
-    });
-
-    it('refuses a self-created admin doc (the escalation)', async () => {
-        await assertFails(addDoc(collection(alice(), 'users'), { uid: ALICE, email: 'a2@x.com', role: 'admin' }));
-    });
-
-    it('refuses any other role too', async () => {
-        await assertFails(addDoc(collection(alice(), 'users'), { uid: ALICE, role: 'editor' }));
-        await assertFails(addDoc(collection(alice(), 'users'), { uid: ALICE, role: 'propertyOwner' }));
-    });
-
-    it("refuses a doc for someone else's uid", async () => {
-        await assertFails(addDoc(collection(alice(), 'users'), { uid: BOB, role: 'user' }));
+    it('refuses forged plans, credits and other people\'s emails', async () => {
+        await assertFails(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', email: 'victim@x.com', emailVerified: true }));
+        await assertFails(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', isPro: true, creditBalance: 1e9 }));
     });
 
     it('refuses unauthenticated creates', async () => {
@@ -78,36 +69,9 @@ describe('users: create', () => {
     it('lets an admin create a user with any role', async () => {
         await assertSucceeds(addDoc(collection(admin(), 'users'), { uid: 'new', role: 'admin' }));
     });
-});
-
-describe('users: sign-ups off and passwords (CO6.6)', () => {
-    const setSignups = (isSignupEnabled: boolean) => env.withSecurityRulesDisabled(async (ctx) => {
-        await setDoc(doc(ctx.firestore(), 'Settings', 'users'), { isSignupEnabled, defaultRole: 'user' });
-    });
-    const carol = () => env.authenticatedContext('carol-uid').firestore();
-
-    it('lets the first account of a fresh install (no Settings/users yet) create its record', async () => {
-        await assertSucceeds(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', email: 'c@x.com', role: 'user' }));
-    });
-
-    it('lets anyone create their own record while sign-ups are on', async () => {
-        await setSignups(true);
-        await assertSucceeds(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', email: 'c@x.com', role: 'user' }));
-    });
-
-    it('refuses a self-created record while sign-ups are off, even skipping the sign-up page', async () => {
-        await setSignups(false);
-        await assertFails(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', email: 'c@x.com', role: 'user' }));
-    });
-
-    it('still lets an admin create records while sign-ups are off', async () => {
-        await setSignups(false);
-        await assertSucceeds(addDoc(collection(admin(), 'users'), { uid: 'carol-uid', email: 'c@x.com', role: 'user' }));
-    });
 
     it('never accepts a password in a user record, from anyone', async () => {
         await assertFails(addDoc(collection(admin(), 'users'), { uid: 'new', role: 'user', password: 'hunter2' }));
-        await assertFails(addDoc(collection(carol(), 'users'), { uid: 'carol-uid', role: 'user', password: 'hunter2' }));
         await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { password: 'hunter2' }));
         await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { password: 'hunter2' }));
     });
@@ -347,6 +311,11 @@ describe('feedback (docs/feedback.md)', () => {
         await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ status: 'done' })));
         await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ sender: { name: 'The admin' } })));
         await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ screenshotPath: 'users/bob-doc/feedback/f1/screenshot.jpg' })));
+        // Review F: an id that is a pattern (`x|.*`) once matched any path, and the
+        // admin's Delete then deleted that file.
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'x|.*'), feedback({ screenshotPath: 'arccms/mediaImages/logo.png' })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ screenshotPath: 'arccms/users/alice-doc/feedback/f1/logo.svg' })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ voicePath: 'a/b/users/alice-doc/feedback/f1/voice.mp4' })));
     });
 
     it('is read, updated and deleted by admins only', async () => {

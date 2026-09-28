@@ -38,6 +38,7 @@ import { MediaManagerStore } from './media-manager.store';
 import { roleGuard } from '../../../guards/role.guard';
 import { IconBrowserComponent } from '../../../../shared/components/icon-browser/icon-browser.component';
 import { ArcIcon } from '../../../../shared/models/icon.model';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
     title: 'Media Manager | Arc CMS',
@@ -627,7 +628,7 @@ export default class MediaManagerComponent extends BaseComponent {
     }
 
     public confirmationToDeleteItem(media: MediaItem) {
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(`Are you sure you want to delete ${media.name}?`);
+        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(`Are you sure you want to delete ${escapeHtml(media.name)}?`);
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
             width: '350px',
             data: {

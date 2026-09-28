@@ -45,17 +45,14 @@ describe('firestore.rules: users', () => {
         expect(users).not.toMatch(/allow create:\s*if isAuthenticated\(\)\s*\|\|/);
     });
 
-    it('scopes create to your own uid and a self-assignable role', () => {
-        expect(users).toMatch(/request\.resource\.data\.uid == request\.auth\.uid/);
-        expect(users).toMatch(/isSelfAssignableRole\(request\.resource\.data\)/);
-        expect(rules).toMatch(/function isSelfAssignableRole\(data\)\s*\{\s*return !\('role' in data\) \|\| data\.role == 'user';/);
+    it('lets only admins create a record: sign-ups create theirs on the server (review F)', () => {
+        expect(users).toMatch(/allow create: if hasNoPassword\(request\.resource\.data\) && isAdmin\(\);/);
+        expect(rules).not.toMatch(/isSelfAssignableRole|selfSignupOpen/);
     });
 
-    it('enforces sign-ups off for self-created records, and never accepts a password (CO6.6)', () => {
-        expect(users).toMatch(/allow create: if hasNoPassword\(request\.resource\.data\) && \(isAdmin\(\) \|\|/);
-        expect(users).toMatch(/&& selfSignupOpen\(\)\)\);/);
+    it('never accepts a password in a record (CO6.6)', () => {
+        expect(users).toMatch(/allow create: if hasNoPassword\(request\.resource\.data\) && isAdmin\(\);/);
         expect(users).toMatch(/allow update: if hasNoPassword\(request\.resource\.data\) && \(isAdmin\(\) \|\|/);
-        expect(rules).toMatch(/function selfSignupOpen\(\) \{\s*let settings = \/databases\/\$\(database\)\/documents\/Settings\/users;\s*return !exists\(settings\) \|\| get\(settings\)\.data\.get\('isSignupEnabled', true\) != false;/);
     });
 
     it('blocks role, uid and the admin switches on self-update', () => {
@@ -67,7 +64,8 @@ describe('firestore.rules: users', () => {
     });
 
     it('keeps authOwner (CO-D16) for the Admin SDK only', () => {
-        expect(users).toMatch(/!\('authOwner' in request\.resource\.data\)/);
+        // Create is admin-only, so only updates need to leave it out.
+        expect(users).toMatch(/allow create: if hasNoPassword\(request\.resource\.data\) && isAdmin\(\);/);
         const blocked = users.match(/affectedKeys\(\)\s*\.hasAny\(\[([^\]]+)\]\)/)?.[1] ?? '';
         expect(blocked).toContain(`'authOwner'`);
     });

@@ -11,6 +11,7 @@ import { ToastService } from '../../services/toast.service';
 import { NotifyService } from '../../services/notify.service';
 import { TranslocoService } from '@jsverse/transloco';
 import { TranslationKey } from '../../../app/core/i18n/translation-keys';
+import { escapeHtml } from '../../utils/escape-html';
 
 export enum IActionType {
     Add = 'add',
@@ -393,7 +394,7 @@ export class BaseComponent {
         if (text) {
             const urlRegex = /((https?:\/\/|www\.)[^\s]+)/g;
 
-            let transformedText = text.replace(urlRegex, (url) => {
+            let transformedText = escapeHtml(text).replace(urlRegex, (url) => {
                 const href = url.startsWith('http') ? url : `http://${url}`;
                 return `<a href="${href}" target="_blank">${url}</a>`;
             });

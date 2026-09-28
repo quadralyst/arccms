@@ -56,6 +56,23 @@ The deploy asks how the project is used:
   `npm run deploy` again. Commit `src/environments/arc-install.ts` as well; the website reads
   it.
 
+## Storage next to another app
+
+Firebase keeps one storage rules file per bucket. When Arc CMS shares a project with another
+app (it has its own database) but keeps its files in the project's default bucket, deploying
+Arc CMS's storage rules would replace the other app's. So such an install deploys no storage
+rules: the menu does not offer them, and `--only storage` stops with a message.
+
+Give Arc CMS a bucket of its own to deploy them:
+
+1. Firebase console, Storage, the bucket menu, "Add bucket" (for example `<project>-arccms`).
+2. `npm run arc:configure -- --project=<alias> --bucket=<that bucket>`, then commit
+   `src/environments/arc-install.ts`.
+3. `npm run deploy`, then "Everything" (the functions need the new bucket too, for deleting
+   accounts).
+
+Files already uploaded stay where they are; their links keep working.
+
 ## When the deploy stops
 
 - **"...is set up with the database ... but this checkout has no settings for it"**: this
@@ -65,6 +82,8 @@ The deploy asks how the project is used:
   changed separately. Run `npm run arc:configure -- --project=<alias>`, check the result and
   commit `src/environments/arc-install.ts`.
 - **"Hosting is off for ..."**: the project publishes no website (`--site=none`).
+- **"Storage rules are not deployed for ..."**: Arc CMS shares the default bucket with another
+  app (see Storage next to another app).
 
 ## Deploying with options
 

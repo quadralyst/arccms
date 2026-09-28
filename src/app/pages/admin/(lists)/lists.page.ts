@@ -19,6 +19,7 @@ import { ConfirmationPopupComponent } from '../../../../shared/components/confir
 import { AudienceService } from '../(audience)/audience.service';
 import { IList } from '../(audience)/audience.model';
 import { ListDrawerComponent, ListDrawerMode } from './(list-drawer)/list-drawer.component';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
     title: 'Lists | Arc CMS',
@@ -153,7 +154,7 @@ export default class ListsPageComponent implements OnInit {
             return;
         }
         const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to delete <strong>${list.name}</strong>?`,
+            `Are you sure you want to delete <strong>${escapeHtml(list.name)}</strong>?`,
         );
         this.dialog.open(ConfirmationPopupComponent, {
             width: '350px',

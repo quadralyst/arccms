@@ -20,6 +20,7 @@ import AddTagComponent from './(add-tag)/add.page';
 import EditTagComponent from './(edit-tag)/edit.[tagId].page';
 import { ViewTagComponent } from './(view-tag)/view.[tagId].page';
 import { roleGuard } from '../../../../../guards/role.guard';
+import { escapeHtml } from '../../../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
     title: 'Tags Management | Arc CMS',
@@ -215,7 +216,7 @@ export default class TagsPageComponent {
     // Delete with confirmation
     deleteItem(item: ITag): void {
         const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to delete the tag <strong>"${item.label}"</strong>?`
+            `Are you sure you want to delete the tag <strong>"${escapeHtml(item.label)}"</strong>?`
         );
 
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {

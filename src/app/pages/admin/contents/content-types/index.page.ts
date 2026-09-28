@@ -20,6 +20,7 @@ import { ConfirmationPopupComponent } from '../../../../../shared/components/con
 import { GlobalTableComponent, TableColumn } from '../../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../../guards/role.guard';
+import { escapeHtml } from '../../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
   title: 'Content Types | Arc CMS',
@@ -158,7 +159,7 @@ export default class ContentTypeComponent {
 
   deleteItem(item: ContentType) {
     const msg = this.sanitizer.bypassSecurityTrustHtml(
-      this.transloco.translate('common.actions.delete_confirm', { name: item.name }),
+      this.transloco.translate('common.actions.delete_confirm', { name: escapeHtml(item.name) }),
     );
     const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
       width: '350px',

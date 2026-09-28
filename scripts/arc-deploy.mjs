@@ -61,12 +61,17 @@ export function projectArg(args) {
     return '';
 }
 
-/** Whether a deploy names hosting in --only (a plain deploy has no hosting target to check). */
-export function namesHosting(args) {
+/** Whether a deploy names this target (hosting, storage) in --only; a plain deploy names none. */
+export function namesTarget(args, target) {
     const i = args.findIndex((a) => a === '--only' || a.startsWith('--only='));
     if (i === -1) return false;
     const only = args[i].startsWith('--only=') ? args[i].slice('--only='.length) : args[i + 1] || '';
-    return only.split(',').some((target) => target.trim().split(':')[0] === 'hosting');
+    return only.split(',').some((t) => t.trim().split(':')[0] === target);
+}
+
+/** Whether a deploy names hosting in --only (a plain deploy has no hosting target to check). */
+export function namesHosting(args) {
+    return namesTarget(args, 'hosting');
 }
 
 /** Whether a deploy with these arguments deploys functions. */
@@ -227,8 +232,16 @@ export async function runDeploy(args, options = {}) {
     const firebaseArgs = deployArgs(args, generated, projectId);
     // Hosting off (arc:configure --site=none) leaves no hosting in the generated
     // config, so say that plainly rather than pass on the CLI's error (review O2).
-    if (generated && namesHosting(args) && !JSON.parse(readFileSync(generatedConfigPath(projectId), 'utf8')).hosting) {
+    const generatedConfig = generated ? JSON.parse(readFileSync(generatedConfigPath(projectId), 'utf8')) : null;
+    if (generatedConfig && namesHosting(args) && !generatedConfig.hosting) {
         console.error(`Hosting is off for ${projectId} (arc:configure --site=none): there is no website to deploy here.`);
+        return { status: 1, created: [] };
+    }
+    // Arc CMS in another app's bucket: its storage rules would replace the
+    // other app's, so the generated config has none (review F).
+    if (generatedConfig && namesTarget(args, 'storage') && !generatedConfig.storage) {
+        console.error(`Storage rules are not deployed for ${projectId}: Arc CMS keeps its files in the default bucket, which another app uses, `
+            + 'and a bucket has one rules file, so this would replace that app\'s rules. Give Arc CMS its own bucket first (docs/deploy.md).');
         return { status: 1, created: [] };
     }
     if (deploysFunctions(args) && !options.built) {

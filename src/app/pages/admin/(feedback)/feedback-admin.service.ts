@@ -4,6 +4,7 @@ import {
     limit, orderBy, query, setDoc, startAfter, updateDoc, where,
 } from '@angular/fire/firestore';
 import { Storage, deleteObject, getDownloadURL, ref } from '@angular/fire/storage';
+import { withStoragePrefix } from '../../../core/config/arc-config';
 import { FEEDBACK_COLLECTION, FEEDBACK_SETTINGS } from '../../../core/feedback/feedback.service';
 
 export type FeedbackStatus = 'new' | 'done';
@@ -42,6 +43,25 @@ export function describeBrowser(userAgent = ''): string {
     return [browser, system].filter(Boolean).join(' on ') || userAgent.slice(0, 60);
 }
 
+/** The files a feedback item may have, in the sender's own folder. */
+const FEEDBACK_FILES = {
+    screenshotPath: ['screenshot.jpg'],
+    voicePath: ['voice.mp4', 'voice.webm', 'voice.ogg'],
+};
+
+/**
+ * The path when it is this item's own file, else undefined. The admin opens and
+ * deletes these files, so a path naming anything else (another person's file,
+ * the site's media) is never used (review F).
+ */
+export function ownFeedbackFile(
+    item: { id: string; userDocId?: string }, kind: keyof typeof FEEDBACK_FILES, path: unknown, prefix?: string,
+): string | undefined {
+    if (typeof path !== 'string' || !item.userDocId) return undefined;
+    const folder = withStoragePrefix(`users/${item.userDocId}/feedback/${item.id}/`, prefix);
+    return FEEDBACK_FILES[kind].some((name) => path === folder + name) ? path : undefined;
+}
+
 function toItem(snap: QueryDocumentSnapshot): FeedbackItem {
     const data = snap.data() as Record<string, any>;
     const created = data['createdAt'];
@@ -49,6 +69,8 @@ function toItem(snap: QueryDocumentSnapshot): FeedbackItem {
         ...(data as Omit<FeedbackItem, 'id' | 'createdAt'>),
         id: snap.id,
         message: typeof data['message'] === 'string' ? data['message'] : '',
+        screenshotPath: ownFeedbackFile({ id: snap.id, userDocId: data['userDocId'] }, 'screenshotPath', data['screenshotPath']),
+        voicePath: ownFeedbackFile({ id: snap.id, userDocId: data['userDocId'] }, 'voicePath', data['voicePath']),
         status: data['status'] === 'done' ? 'done' : 'new',
         createdAt: created instanceof Timestamp ? created.toDate() : null,
     };

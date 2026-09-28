@@ -26,7 +26,7 @@ import { cliActiveProject, generatedConfigPath, runDeploy } from './arc-deploy.m
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
 import {
     APP_USERS_OWN, APP_USERS_UNCONFIGURED, HOSTING_OFF, OWN_USERS_PATH, PATHS,
-    main as configure, normalizeConfig,
+    main as configure, normalizeConfig, sharesDefaultBucket,
 } from './arc-configure.mjs';
 
 const FUNCTIONS_SRC = resolve(ROOT, 'functions/src');
@@ -96,7 +96,8 @@ export function installSummary(config) {
     return [
         `Database:   ${config.databaseId || DEFAULT_DATABASE_ID}`,
         `Website:    ${hosting}`,
-        `Storage:    ${config.storageBucket || 'the default bucket'}${config.storagePrefix ? `, folder ${config.storagePrefix}` : ''}`,
+        `Storage:    ${config.storageBucket || 'the default bucket'}${config.storagePrefix ? `, folder ${config.storagePrefix}` : ''}`
+            + `${sharesDefaultBucket(config) ? ' (shared with the other app, so no storage rules)' : ''}`,
         `App users:  ${appUsers}`,
     ];
 }
@@ -148,7 +149,7 @@ export const WEBSITE_BUILDS = {
  * when there is no earlier deploy to compare with); `dirty` says which other
  * targets changed since their last deploy.
  */
-export function deployChoices({ websiteOn, websiteBuild, changed, dirty = {} }) {
+export function deployChoices({ websiteOn, websiteBuild, changed, dirty = {}, storageOn = true }) {
     const mark = (key) => (dirty[key] ? '  (changed since the last deploy)' : '');
     const website = websiteOn && websiteBuild;
     const choices = [];
@@ -162,14 +163,14 @@ export function deployChoices({ websiteOn, websiteBuild, changed, dirty = {} }) 
     choices.push(
         {
             key: 'everything',
-            label: `Everything: functions, database rules and indexes, storage rules${website ? ', website' : ''}`,
-            only: ['functions:arccms', 'firestore', 'storage', ...(website ? ['hosting'] : [])],
+            label: `Everything: functions, database rules and indexes${storageOn ? ', storage rules' : ''}${website ? ', website' : ''}`,
+            only: ['functions:arccms', 'firestore', ...(storageOn ? ['storage'] : []), ...(website ? ['hosting'] : [])],
             website,
         },
         { key: 'functions', label: 'All functions', only: ['functions:arccms'] },
         { key: 'rules', label: `Database rules and indexes${mark('rules')}`, only: ['firestore'] },
-        { key: 'storage', label: `Storage rules${mark('storage')}`, only: ['storage'] },
     );
+    if (storageOn) choices.push({ key: 'storage', label: `Storage rules${mark('storage')}`, only: ['storage'] });
     if (website) choices.push({ key: 'website', label: `Website: build, publish, then the static pages${mark('website')}`, only: ['hosting'], website: true });
     return choices;
 }
@@ -483,7 +484,9 @@ async function menu(rl) {
     const websiteOn = config.hostingSite !== HOSTING_OFF;
     const websiteBuild = WEBSITE_BUILDS[alias];
     if (websiteOn && !websiteBuild) console.log(`The website is deployed with npm run deploy:dev or deploy:prod; ${alias || projectId} has no website build set up.`);
-    const choices = deployChoices({ websiteOn, websiteBuild, changed, dirty });
+    const storageOn = !sharesDefaultBucket(config);
+    if (!storageOn) console.log('Storage rules are not offered: Arc CMS shares the default bucket with the other app, and a bucket has one rules file (docs/deploy.md).');
+    const choices = deployChoices({ websiteOn, websiteBuild, changed, dirty, storageOn });
     const lastKey = state.choice?.[projectId];
     const preferred = Math.max(0, choices.findIndex((c) => c.key === lastKey));
     const choice = await choose(rl, 'What to deploy?', choices, lastKey ? preferred : 0);

@@ -77,7 +77,7 @@ describe('the install check (review O5)', () => {
         expect(installSummary({ databaseId: 'arccms', hostingSite: 'none', storagePrefix: 'arccms/', appUsersPath: 'users/{id}', appUsersDatabase: '(default)' })).toEqual([
             'Database:   arccms',
             'Website:    off',
-            'Storage:    the default bucket, folder arccms/',
+            'Storage:    the default bucket, folder arccms/ (shared with the other app, so no storage rules)',
             'App users:  users/{id} in (default)',
         ]);
         expect(installSummary({})[1]).toBe("Website:    the project's main site");
@@ -90,6 +90,13 @@ describe('what to deploy', () => {
         expect(keys({ websiteOn: true, websiteBuild: {}, changed: null })).toEqual(['everything', 'functions', 'rules', 'storage', 'website']);
         expect(keys({ websiteOn: false, websiteBuild: {}, changed: null })).toEqual(['everything', 'functions', 'rules', 'storage']);
         expect(keys({ websiteOn: true, websiteBuild: undefined, changed: null })).toEqual(['everything', 'functions', 'rules', 'storage']);
+    });
+
+    it("offers no storage rules when Arc CMS shares another app's bucket (review F)", () => {
+        const choices = deployChoices({ websiteOn: false, changed: null, storageOn: false } as never);
+        expect(choices.map((c: { key: string }) => c.key)).toEqual(['everything', 'functions', 'rules']);
+        expect(choices[0].only).toEqual(['functions:arccms', 'firestore']);
+        expect(choices[0].label).not.toContain('storage');
     });
 
     it('puts the changed functions first when there are some, and marks changed targets', () => {

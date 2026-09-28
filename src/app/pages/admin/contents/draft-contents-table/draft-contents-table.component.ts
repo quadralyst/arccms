@@ -49,6 +49,7 @@ import { PreviewContentComponent } from './preview-content/preview-content.compo
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { iconClasses, iconLabel } from '../../../../../shared/models/icon.model';
 import { isRepeaterType } from '../../../../../shared/models/repeater.model';
+import { escapeHtml } from '../../../../../shared/utils/escape-html';
 
 @Component({
   selector: 'arc-draft-contents-table',
@@ -805,7 +806,7 @@ export class DraftContentsTableComponent
 
   public deleteItem(item: any) {
     const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-      this.transloco.translate('admin.contents.list.remove_confirm', { title: item.title }),
+      this.transloco.translate('admin.contents.list.remove_confirm', { title: escapeHtml(item.title) }),
     );
     const dialogRef = this.dialogService.open(ConfirmationPopupComponent, {
       width: '350px',

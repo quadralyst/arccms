@@ -31,6 +31,7 @@ import { HashtagAutocompleteDirective } from '../../../../shared/directives/hash
 import { EMAIL_TAG } from '../../../../shared/constants/email-tags';
 import { arcCallable } from '../../../core/config/arc-functions';
 import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
     title: 'Broadcasts | Arc CMS',
@@ -220,7 +221,7 @@ export default class BroadcastsPageComponent implements OnInit {
 
     confirmCancel(row: BroadcastRow): void {
         const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Cancel the scheduled broadcast <strong>${row.subject || '(no subject)'}</strong>?`,
+            `Cancel the scheduled broadcast <strong>${escapeHtml(row.subject || '(no subject)')}</strong>?`,
         );
         this.dialog.open(ConfirmationPopupComponent, {
             width: '350px',

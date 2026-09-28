@@ -20,7 +20,6 @@ Arc CMS uses Firestore and Cloud Storage security rules to control data access. 
 | `isAdmin()` | Authenticated + `arcRole() == 'admin'` |
 | `isEditor()` | `isAdmin()`, or authenticated + `arcRole() == 'editor'`. Content staff. Nothing in the app grants `editor` today, so in practice this is admins |
 | `isOwnUserDoc()` | Authenticated + the document's `uid` field equals `request.auth.uid` (user doc ids are auto-generated, so ownership is the field, not the id) |
-| `isSelfAssignableRole(data)` | `data` has no `role`, or `role == 'user'` |
 
 ### Roles and the admin claim
 
@@ -33,8 +32,11 @@ Callables check it with `isArcAdmin()` (`functions/src/users/claims.ts`), and a 
 document decides who is an admin, and the rules make sure that is only admins
 and the Admin SDK:
 
-- **Create:** a signed-in user may create only a document whose `uid` is their
-  own, with no `role` or `role: 'user'`. Admins may create any user document.
+- **Create:** admins only. Every sign-up creates its record on the server
+  (`createAccountRecord`, `ensureGoogleAccount`, the phone sign-in callables,
+  `adminCreateUser`), which checks the email, sets the site's default role and
+  refuses when sign-ups are off. A record created from the browser could carry
+  another person's email, a paid plan or credits.
 - **Update:** a user may edit their own document but never `role`, `uid`,
   `isActive`, `status` or the premium entitlement fields, and may set
   `emailVerified` only to `false` (the email-change flow). Admins may edit any
