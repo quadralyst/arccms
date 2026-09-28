@@ -881,7 +881,7 @@ describe('OnboardingComponent', () => {
                 adminClaimPending: signal(true),
                 auth: {
                     currentUser: {
-                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'admin' } }),
+                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { arccms_role: 'admin' } }),
                     },
                 },
             });
@@ -967,7 +967,7 @@ describe('OnboardingComponent', () => {
                 errorMessage: signal(''),
                 auth: {
                     currentUser: {
-                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'admin' } }),
+                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { arccms_role: 'admin' } }),
                     },
                 },
                 hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
@@ -1000,7 +1000,7 @@ describe('OnboardingComponent', () => {
         it('retries claimFirstAdmin once and proceeds when that grants the claim', async () => {
             const getIdTokenResult = vi.fn()
                 .mockResolvedValueOnce({ claims: {} })
-                .mockResolvedValueOnce({ claims: { role: 'admin' } });
+                .mockResolvedValueOnce({ claims: { arccms_role: 'admin' } });
             const ctx = {
                 adminClaimPending: signal(true),
                 errorMessage: signal(''),
@@ -1115,7 +1115,7 @@ describe('OnboardingComponent', () => {
                     adminClaimPending: signal(true),
                     auth: {
                         currentUser: {
-                            getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'admin' } }),
+                            getIdTokenResult: vi.fn().mockResolvedValue({ claims: { arccms_role: 'admin' } }),
                         },
                     },
                 },
@@ -1236,7 +1236,7 @@ describe('OnboardingComponent', () => {
             const ctx = {
                 auth: {
                     currentUser: {
-                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'admin' } }),
+                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { arccms_role: 'admin' } }),
                     },
                 },
                 currentStep: signal<number>(2),

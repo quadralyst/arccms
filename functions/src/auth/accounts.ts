@@ -18,7 +18,7 @@ import { promisify } from 'node:util';
 import { db, owner } from '../init.js';
 import { phoneHash } from './phoneNumber.js';
 import { KNOWN_ROLES } from '../users/syncUserRole.js';
-import { mergeUserClaims, USER_RECORD_CLAIM } from '../users/claims.js';
+import { setRecordClaims } from '../users/claims.js';
 
 const scryptAsync = promisify(scrypt) as (pin: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -125,7 +125,7 @@ export async function requireOwnRecord(request: CallableRequest): Promise<UserRe
  * the start. The role trigger sets the same values again; merging makes that harmless.
  */
 export function applyNewAccountClaims(uid: string, userDocId: string, role: string): Promise<void> {
-    return mergeUserClaims(uid, { role: role || null, [USER_RECORD_CLAIM]: userDocId });
+    return setRecordClaims(uid, role, userDocId);
 }
 
 /** A custom token the browser exchanges for a session (`signInWithCustomToken`). */

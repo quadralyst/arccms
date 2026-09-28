@@ -101,8 +101,9 @@ describe('firestore.rules: content writes are staff only', () => {
         expect(rules).toMatch(/collection\.matches\('arc_\.\*'\) \|\| collection\.matches\('Tags_\.\*'\)\)\s*&& isEditor\(\);/);
     });
 
-    it('isEditor() is built on the role claim only', () => {
-        expect(rules).toMatch(/function isEditor\(\)\s*\{\s*return isAdmin\(\) \|\|\s*\(isAuthenticated\(\) && request\.auth\.token\.role == 'editor'\);/);
+    it('isEditor() is built on the arccms_role claim only', () => {
+        expect(rules).toMatch(/function isEditor\(\)\s*\{\s*return isAdmin\(\) \|\|\s*\(isAuthenticated\(\) && arcRole\(\) == 'editor'\);/);
+        expect(rules).toMatch(/function arcRole\(\)\s*\{\s*return request\.auth\.token\.get\('arccms_role', ''\);/);
     });
 });
 

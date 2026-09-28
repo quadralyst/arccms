@@ -30,9 +30,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.get('arccms_uid', '') == userDocId;
     }
 
+    // The ArcCMS role is the `arccms_role` claim (functions/src/users/claims.ts),
+    // never a plain `role`: an app sharing the sign-in pool may give its own
+    // admins `role: 'admin'` (docs/coexistence-spec.md, CO-D7).
+    function arcRole() {
+      return request.auth.token.get('arccms_role', '');
+    }
+
     function isAdmin() {
-      return isAuthenticated() &&
-        request.auth.token.role == 'admin';
+      return isAuthenticated() && arcRole() == 'admin';
     }
 
     // Content staff: may write content types, content, tags, media and the
@@ -42,8 +48,7 @@ service cloud.firestore {
     // comes from onUserRoleChange, and only admins or the Admin SDK can set a
     // user's `role` (see the users rules below), so nobody can self-assign it.
     function isEditor() {
-      return isAdmin() ||
-        (isAuthenticated() && request.auth.token.role == 'editor');
+      return isAdmin() || (isAuthenticated() && arcRole() == 'editor');
     }
 
     // ============================================================

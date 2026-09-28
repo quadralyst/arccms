@@ -32,7 +32,7 @@ vi.mock('firebase-admin/firestore', () => ({ Timestamp: { now: vi.fn(() => 'now'
 import { activateDripCampaign } from '../email-core/dripCampaigns.js';
 
 const activate = activateDripCampaign as unknown as (req: any) => Promise<any>;
-const admin = { auth: { token: { role: 'admin' } }, data: { campaignId: 'camp1' } };
+const admin = { auth: { token: { arccms_role: 'admin' } }, data: { campaignId: 'camp1' } };
 
 describe('activateDripCampaign', () => {
     beforeEach(() => {

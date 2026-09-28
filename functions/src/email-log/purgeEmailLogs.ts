@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db, owner } from '../init.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Callable cloud function to purge old email logs.
@@ -13,7 +14,7 @@ export const purgeEmailLogs = onCall(async (request) => {
     }
 
     const userRecord = await owner.getUser(request.auth.uid);
-    const isAdmin = userRecord.customClaims?.role === 'admin';
+    const isAdmin = isArcAdmin(userRecord.customClaims);
     if (!isAdmin) {
         throw new HttpsError('permission-denied', 'Admin access required.');
     }

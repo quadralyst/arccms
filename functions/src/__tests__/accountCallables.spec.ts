@@ -53,7 +53,7 @@ describe('createAccountRecord (email sign-up)', () => {
         const { id, created } = await call(createAccountRecord, { name: 'Asha Rao' }, 'u1', password);
         expect(created).toBe(true);
         expect(mem.read('users', id)).toMatchObject({ uid: 'u1', email: 'asha@example.com', name: 'Asha Rao', role: 'propertyOwner', authOwner: 'arccms', by: 'email' });
-        expect(claims['u1']).toEqual({ role: 'propertyOwner', arccms_uid: id });
+        expect(claims['u1']).toEqual({ arccms_role: 'propertyOwner', arccms_uid: id });
     });
 
     it('takes emailVerified from the server\'s sign-up code, not the browser', async () => {
@@ -86,7 +86,7 @@ describe('refreshMyClaims', () => {
         mem.seed('users', 'rec-7', { uid: 'u7', role: 'admin' });
         claims['u7'] = { hostApp: 'x' };
         await expect(call(refreshMyClaims, {}, 'u7')).resolves.toEqual({ arccms_uid: 'rec-7' });
-        expect(claims['u7']).toEqual({ hostApp: 'x', role: 'admin', arccms_uid: 'rec-7' });
+        expect(claims['u7']).toEqual({ hostApp: 'x', arccms_role: 'admin', arccms_uid: 'rec-7' });
     });
 
     it('refuses a sign-in with no record here', async () => {

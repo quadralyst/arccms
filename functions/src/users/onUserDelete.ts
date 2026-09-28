@@ -3,7 +3,8 @@
  * by an admin (Users, Delete) or by the person (Profile, Delete account: deleteMyAccount).
  *
  * Responsibilities (docs/account-contract.md, "Deleting an account"):
- * 1. Delete the corresponding Firebase Auth account (so the user can't sign in again)
+ * 1. Delete the corresponding Firebase Auth account (so the user can't sign in again).
+ *    An account another app owns or shares is kept, with its ArcCMS claims removed.
  * 2. Remove the hashed email from the `email_lookup` collection (first-run / signup check)
  * 3. Phone sign-in: the number's index entry and the PIN
  * 4. Everything stored under the record: every subcollection of users/{docId}, at any
@@ -22,6 +23,7 @@ import { owner, db, storage } from '../init.js';
 import { arcDocument, arcStorageBucket, userStorageFolder } from '../arc-config.js';
 import { emitAppEvent } from '../email-core/appEvents.js';
 import { arccmsOwnsAuthAccount } from './authOwner.js';
+import { clearArcClaims } from './claims.js';
 import { phoneHash } from '../auth/phoneNumber.js';
 
 const PHONE_INDEX = 'phone_index';
@@ -53,8 +55,17 @@ export const onUserDeleted = onDocumentDeleted(
         // 1. Delete Firebase Auth account, unless a host app owns or shares it
         //    (CO-D16): removing someone from ArcCMS must not delete their login
         //    to the app they actually use.
+        //    The kept account loses its ArcCMS claims, or a removed admin would
+        //    stay an admin to the rules and callables.
         if (uid && !arccmsOwnsAuthAccount(deletedData)) {
             console.log(`Kept Auth account uid=${uid}: authOwner is ${deletedData['authOwner']}.`);
+            tasks.push(
+                clearArcClaims(uid).catch((err: any) => {
+                    if (err?.code !== 'auth/user-not-found') {
+                        console.error(`Failed to clear ArcCMS claims for uid=${uid}:`, err);
+                    }
+                })
+            );
         }
         if (uid && arccmsOwnsAuthAccount(deletedData)) {
             tasks.push(

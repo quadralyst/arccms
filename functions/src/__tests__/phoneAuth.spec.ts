@@ -122,7 +122,7 @@ describe('sign-up with a new number', () => {
         expect(pin['hash']).toMatch(/^[a-f0-9]{64}$/);
         expect(JSON.stringify(pin)).not.toContain('246810');
         // Claims set before the token is issued, so the first ID token has them.
-        expect(owner.setCustomUserClaims).toHaveBeenCalledWith('uid-asha', { role: 'user', arccms_uid: user.id });
+        expect(owner.setCustomUserClaims).toHaveBeenCalledWith('uid-asha', { arccms_role: 'user', arccms_uid: user.id });
     });
 
     it("applies the site's default role", async () => {

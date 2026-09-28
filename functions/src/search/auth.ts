@@ -1,14 +1,14 @@
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import { owner } from '../init.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /** Whether the caller is an admin, by claim on the token or on the user record. */
 export async function isAdminCaller(request: CallableRequest): Promise<boolean> {
     if (!request.auth) return false;
-    const claimed = (request.auth.token as { role?: unknown } | undefined)?.role;
-    if (claimed === 'admin') return true;
+    if (isArcAdmin(request.auth.token)) return true;
     try {
         const userRecord = await owner.getUser(request.auth.uid);
-        return userRecord.customClaims?.['role'] === 'admin';
+        return isArcAdmin(userRecord.customClaims);
     } catch {
         return false;
     }

@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
 import { ensureFormList, upsertContact } from './contacts.js';
 import type { WaitlistUserData } from '../types.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: give historical unverified form signups a `pending` contact
@@ -19,7 +20,7 @@ import type { WaitlistUserData } from '../types.js';
  * the pre-U2 verify path, and `backfillContacts` owns repairing those.
  */
 export const backfillPendingContacts = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

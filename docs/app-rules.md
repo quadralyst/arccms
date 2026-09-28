@@ -51,7 +51,7 @@ match /users/{userDocId}/recordings/{fileName} {
 | Helper | True when |
 |---|---|
 | `isSignedIn()` | anyone is signed in |
-| `isAdmin()` | the signed-in person is an Arc CMS admin (`role` claim) |
+| `isAdmin()` | the signed-in person is an Arc CMS admin (`arccms_role` claim, never a plain `role`) |
 | `isEditor()` | an admin or an editor |
 | `ownsUserRecord(userDocId)` | the signed-in person owns `users/{userDocId}` (the `arccms_uid` claim, no document read; see [account-contract.md](account-contract.md)) |
 

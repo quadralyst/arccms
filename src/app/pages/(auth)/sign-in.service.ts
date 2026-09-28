@@ -83,15 +83,16 @@ export class SignInService {
     // --- The account's claims and deletion (docs/account-contract.md) ------
 
     /**
-     * Make sure the ID token carries `arccms_uid` for this record: asks the
-     * server to set the claims when the token lacks it (an account made before
-     * the claim existed), then refreshes the token. Returns whether it had to.
+     * Make sure the ID token carries this record's `arccms_uid` and its role as
+     * `arccms_role`: asks the server to set the claims when the token lacks or
+     * disagrees with them (an account made before a claim existed, or a role
+     * changed since), then refreshes the token. Returns whether it had to.
      */
-    async ensureRecordClaim(userDocId: string): Promise<boolean> {
+    async ensureRecordClaim(userDocId: string, role = ''): Promise<boolean> {
         const user = this.auth.currentUser;
         if (!user || !userDocId) return false;
-        const token = await user.getIdTokenResult();
-        if (token.claims['arccms_uid'] === userDocId) return false;
+        const { claims } = await user.getIdTokenResult();
+        if (claims['arccms_uid'] === userDocId && (claims['arccms_role'] ?? '') === (role || '')) return false;
         await this.call('refreshMyClaims', {});
         await user.getIdToken(true);
         return true;

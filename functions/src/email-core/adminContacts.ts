@@ -10,9 +10,10 @@ import {
   type MarketingConsent,
 } from './contacts.js';
 import { eraseContact } from './eraseContact.js';
+import { isArcAdmin } from '../users/claims.js';
 
 function requireAdmin(request: { auth?: { uid?: string; token?: Record<string, unknown> } }): void {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 }

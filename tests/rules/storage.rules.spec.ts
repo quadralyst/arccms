@@ -19,7 +19,9 @@ const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
 const asImage = { contentType: 'image/png' };
 
 const alice = () => env.authenticatedContext('alice-uid').storage();
-const admin = () => env.authenticatedContext('admin-uid', { role: 'admin' }).storage();
+const admin = () => env.authenticatedContext('admin-uid', { arccms_role: 'admin' }).storage();
+// A host app's own admin in a shared sign-in pool (CO-D7): not an ArcCMS admin.
+const hostAdmin = () => env.authenticatedContext('host-uid', { role: 'admin' }).storage();
 const anon = () => env.unauthenticatedContext().storage();
 
 beforeAll(async () => {
@@ -49,6 +51,11 @@ describe('storage', () => {
         await assertFails(uploadBytes(ref(alice(), 'mediaImages/evil.png'), png, asImage));
         await assertFails(uploadBytes(ref(alice(), 'mediaImages/site.png'), png, asImage));
         await assertFails(deleteObject(ref(alice(), 'mediaImages/site.png')));
+    });
+
+    it('refuses a plain `role` claim, which a host app may set (CO-D7)', async () => {
+        await assertFails(uploadBytes(ref(hostAdmin(), 'mediaImages/new.png'), png, asImage));
+        await assertFails(deleteObject(ref(hostAdmin(), 'mediaImages/site.png')));
     });
 
     it('lets an admin write anywhere', async () => {

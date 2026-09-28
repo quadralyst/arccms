@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { OAuth2Client } from 'google-auth-library';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
+import { isArcAdmin } from '../users/claims.js';
 
 export const disconnectGoogleAnalytics = onCall(
   { cors: true, enforceAppCheck: false },
@@ -10,7 +11,7 @@ export const disconnectGoogleAnalytics = onCall(
       throw new HttpsError('unauthenticated', 'Authentication required.');
     }
 
-    if (request.auth.token.role !== 'admin') {
+    if (!isArcAdmin(request.auth.token)) {
       throw new HttpsError('permission-denied', 'Admin access required.');
     }
 

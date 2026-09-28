@@ -6,7 +6,7 @@
  * users/{request.auth.uid} to check the role.
  *
  * Instead, we sync the role to Firebase Auth custom claims whenever it changes, and the
- * Firestore rules check `request.auth.token.role` (which is populated from custom claims).
+ * Firestore rules check `request.auth.token.arccms_role` (claims.ts, ROLE_CLAIM).
  *
  * Because the claim IS the admin gate, this file is security critical:
  *
@@ -26,7 +26,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import { owner, db } from '../init.js';
 import { arcDocument } from '../arc-config.js';
-import { mergeUserClaims, USER_RECORD_CLAIM } from './claims.js';
+import { isArcAdmin, mergeUserClaims, ROLE_CLAIM, setRecordClaims, USER_RECORD_CLAIM } from './claims.js';
 
 /** Roles anyone may hold without an admin granting them. Keep in step with firestore.rules. */
 export const SELF_ASSIGNABLE_ROLES: readonly string[] = ['', 'user'];
@@ -38,11 +38,11 @@ export const KNOWN_ROLES: readonly string[] = ['admin', 'user', 'propertyOwner',
 export const FIRST_ADMIN_SENTINEL = { collection: '_system', doc: 'first_admin' } as const;
 
 /**
- * Set the `role` claim, keeping every other claim the user already has.
- * An empty role removes the key rather than storing `role: ''`.
+ * Set the `arccms_role` claim, keeping every other claim the user already has.
+ * An empty role removes the key rather than storing an empty role.
  */
 export async function setRoleClaim(uid: string, role: string): Promise<void> {
-    await mergeUserClaims(uid, { role: role || null });
+    await mergeUserClaims(uid, { [ROLE_CLAIM]: role || null });
 }
 
 /**
@@ -57,7 +57,7 @@ export async function isTrustedRoleWriter(authType: string | undefined, authId: 
     if (!authId) return false;
     try {
         const writer = await owner.getUser(authId);
-        return writer.customClaims?.['role'] === 'admin';
+        return isArcAdmin(writer.customClaims);
     } catch {
         return false;
     }
@@ -114,10 +114,10 @@ export const onUserRoleChange = onDocumentWrittenWithAuthContext(
 
         try {
             await mergeUserClaims(uid, {
-                role: newRole || null,
+                [ROLE_CLAIM]: newRole || null,
                 ...(userDocId ? { [USER_RECORD_CLAIM]: userDocId } : {}),
             });
-            console.log(`Custom claims set for user ${uid}: role=${newRole}${userDocId ? `, ${USER_RECORD_CLAIM}=${userDocId}` : ''}`);
+            console.log(`Custom claims set for user ${uid}: ${ROLE_CLAIM}=${newRole}${userDocId ? `, ${USER_RECORD_CLAIM}=${userDocId}` : ''}`);
         } catch (error) {
             console.error(`Failed to set custom claims for user ${uid}:`, error);
         }
@@ -182,8 +182,8 @@ export const claimFirstAdmin = onCall(async (request) => {
 });
 
 /**
- * Admin: re-apply every user's claims (`role`, `arccms_uid`) from their records.
- * Run once after deploying the `arccms_uid` claim, and whenever claims drift.
+ * Admin: re-apply every user's claims (`arccms_role`, `arccms_uid`) from their records.
+ * Run once after deploying a new claim, and whenever claims drift.
  */
 export const syncAllUserRoles = onCall(async (request) => {
     if (!request.auth) {
@@ -217,8 +217,8 @@ export const syncAllUserRoles = onCall(async (request) => {
         }
 
         try {
-            // Also backfills the `arccms_uid` claim for records made before it existed.
-            await mergeUserClaims(uid, { ...(role ? { role } : {}), [USER_RECORD_CLAIM]: userDoc.id });
+            // Also backfills the claims for records made before they existed.
+            await setRecordClaims(uid, typeof role === 'string' ? role : '', userDoc.id);
             synced++;
         } catch (error) {
             console.error(`Failed to sync claims for ${uid}:`, error);

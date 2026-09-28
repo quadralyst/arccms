@@ -1,6 +1,6 @@
 # ArcCMS Coexistence: Build Spec
 
-**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1, CO3.2 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is deployed on `xlm-project-864ff` next to the old install (see CO4 below). CO5 done (hosting off, upload folder). CO6a built; CO6b (arccms_role) next. CO7, CO8 not started.
+**Status:** CO1 built (on `fix/role-escalation-rules`). CO2 (094007a), CO3 (5de5d92), CO3.1, CO3.2 and CO4 built on `feat/coexistence` (2026-09-23). CO3.1 is deployed to the dev project `xlm-project-864ff` (named database `arccms`); CO4 is deployed on `xlm-project-864ff` next to the old install (see CO4 below). CO5 done (hosting off, upload folder). CO6.1 to CO6.8 built (App audience, section 5b). The `arccms_role` claim (CO-D7) built 2026-09-28 on `fix/arccms-role`, with the first review fixes. CO6.9 and CO7 not started; CO8 deferred.
 **Branch:** `feat/coexistence`, cut from `fix/role-escalation-rules` (CO1) because `dev` lacks the search, discoverability and multilingual work this builds on.
 **Scope:** let ArcCMS share a Firebase project with other applications (their own
 functions, triggers, rules, storage, Firestore data and hosting) without either side
@@ -42,7 +42,7 @@ projects) are the default install with nothing to configure.
 | CO-D4 | Functions deploy group | Every install moves to **`"codebase": "arccms"`**. Functions deployed without a codebase are labelled `default`, so a host app and ArcCMS both on `default` would each offer to delete the other's functions on deploy. A named codebase makes `firebase deploy --only functions:arccms` touch only ArcCMS. |
 | CO-D5 | Function names | **Fixed prefix `arccms-`** for every function, produced by one grouped export (`export * as arccms from './all.js'`), so `sendTestEmail` deploys as `arccms-sendTestEmail`. Firebase joins groups with a hyphen; `arccms_` would mean renaming about 150 exports by hand for no gain. Fixed, not per install: a per-install prefix only matters for CO8. Secret and param names get the same prefix (`ARC_...`) so they never collide in Secret Manager. |
 | CO-D6 | URLs already out in the world | **No legacy proxies** (decided 2026-09-23, reversing the first choice). An upgraded install loses the old URLs: open-tracking pixels and links in emails already sent, webhook URLs registered with Dodo and the email provider, and the `search` endpoint in static pages published before the upgrade. The upgrade runbook re-registers webhooks and republishes pages. A proxy codebase was built in CO4 and removed the same day as untested weight with no install that needs it. |
-| CO-D7 | Roles and claims | ArcCMS reads its role from a **namespaced claim, `arccms_role`**, and writes it **merged** with existing claims. Today `setCustomUserClaims(uid, { role })` wipes every claim a host app set, and a host app's own `role: 'admin'` would grant ArcCMS admin. Transition: rules and functions accept `arccms_role` or the legacy `role` for one release on `(default)`; a backfill copies `role` to `arccms_role` for every user; the next release drops `role`. Named-database installs never accept the legacy claim. |
+| CO-D7 | Roles and claims | ArcCMS reads its role from a **namespaced claim, `arccms_role`**, and writes it **merged** with existing claims. Today `setCustomUserClaims(uid, { role })` wipes every claim a host app set, and a host app's own `role: 'admin'` would grant ArcCMS admin. Transition: rules and functions accept `arccms_role` or the legacy `role` for one release on `(default)`; a backfill copies `role` to `arccms_role` for every user; the next release drops `role`. Named-database installs never accept the legacy claim. **Revised 2026-09-28, as built: a clean switch, no transition release.** Every install goes through the CO4 upgrade runbook anyway, the browser re-applies the claims on its next page load when the token's `arccms_role` differs from the record (`ensureRecordClaim`, `refreshMyClaims`), and `syncAllUserRoles` backfills everyone else. ArcCMS no longer writes `role` and leaves existing `role` claims alone, since in a shared pool it cannot tell who set them. A kept sign-in account loses `arccms_role` and `arccms_uid` when its ArcCMS user is deleted. `roleClaimGuard.spec.ts` fails on any plain `role` claim read. |
 | CO-D8 | Security baseline first | CO1 closes the holes that a shared Auth pool makes worse, and ships to every install before anything else: role self-promotion, all-users read of `users`, and "any signed-in user may write" on content, tags and storage. In P3 every host-app user is a signed-in user of the same project. See section 2. |
 | CO-D9 | Storage | Two settings: `storageBucket` (default: the project's default bucket) and `storagePrefix` (default: empty, today's paths). P3 uses **its own bucket**, because storage rules are one file per bucket and sharing the default bucket would mean merging rules with the host app. Existing files are never moved: media documents store full download URLs, which keep working. |
 | CO-D10 | Hosting | `hostingSite` setting, default the project id (today). Replaces the five places that assume `GCLOUD_PROJECT` is the site id and the three that build `https://{projectId}.web.app`. P3 uses a second hosting site in the same project. |
@@ -319,7 +319,7 @@ Findings:
   `joinForm`, `requestFormOtp`, `finalizeFormSignup` in sequence).
 
 Not in CO4 as built: the namespaced `arccms_role` claim (CO-D7) was not part of CO1 as built
-either and is still open; the tracking pixel URL stays an opt-in setting.
+either; it was built on 2026-09-28 (see CO-D7). The tracking pixel URL stays an opt-in setting.
 
 **CO3.2: install config per Firebase project (2026-09-23).** One checkout deploys to several
 projects (dev, production, a test project), and the CO3 config could describe only one, so
@@ -386,7 +386,7 @@ existing install. CO4 is the release that needs the runbook.
 
 ---
 
-## 5b. CO6 design: the App audience (decided 2026-09-24; CO6.1 to CO6.5 built)
+## 5b. CO6 design: the App audience (decided 2026-09-24; CO6.1 to CO6.8 built)
 
 **The idea.** In the backend profile (P3), the host app's users are an audience ArcCMS
 can email, segment and run drips for, while their data stays in the host's collection.

@@ -42,7 +42,7 @@ describe('ensureGoogleAccount', () => {
             uid: 'uid-g', name: 'Ravi K', email: 'ravi@gmail.com', emailVerified: true,
             photo: 'https://p/x.jpg', role: 'user', authOwner: 'arccms', by: 'google',
         });
-        expect(owner.setCustomUserClaims).toHaveBeenCalledWith('uid-g', { role: 'user', arccms_uid: user.id });
+        expect(owner.setCustomUserClaims).toHaveBeenCalledWith('uid-g', { arccms_role: 'user', arccms_uid: user.id });
     });
 
     it('does nothing for someone who already has a record', async () => {

@@ -4,6 +4,7 @@ import { google } from 'googleapis';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { fetchAndStoreAnalyticsData } from './analyticsHelpers.js';
+import { isArcAdmin } from '../users/claims.js';
 
 export const connectGoogleAnalytics = onCall(
   { cors: true, enforceAppCheck: false },
@@ -13,7 +14,7 @@ export const connectGoogleAnalytics = onCall(
     }
 
     // Only admins can connect analytics
-    if (request.auth.token.role !== 'admin') {
+    if (!isArcAdmin(request.auth.token)) {
       throw new HttpsError('permission-denied', 'Admin access required.');
     }
 

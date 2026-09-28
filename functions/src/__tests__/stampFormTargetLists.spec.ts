@@ -37,7 +37,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 
 import { stampFormTargetLists } from '../email-core/stampFormTargetLists.js';
 
-const call = (data: any = {}) => (stampFormTargetLists as any)({ auth: { token: { role: 'admin' } }, data });
+const call = (data: any = {}) => (stampFormTargetLists as any)({ auth: { token: { arccms_role: 'admin' } }, data });
 
 describe('stampFormTargetLists', () => {
   beforeEach(() => {
@@ -47,7 +47,7 @@ describe('stampFormTargetLists', () => {
 
   it('rejects non-admins', async () => {
     await expect(
-      (stampFormTargetLists as any)({ auth: { token: { role: 'user' } }, data: {} }),
+      (stampFormTargetLists as any)({ auth: { token: { arccms_role: 'user' } }, data: {} }),
     ).rejects.toThrow(/Admin role required/);
   });
 

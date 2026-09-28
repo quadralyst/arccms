@@ -5,9 +5,10 @@ import { db } from '../init.js';
 import { backfillEnrollments, exitCampaignEnrollments, type DripCampaignDoc } from './dripEnrollment.js';
 import { appListConditionsOf } from '../app-audience/appLists.js';
 import { backfillAppCampaign } from '../app-audience/appDrips.js';
+import { isArcAdmin } from '../users/claims.js';
 
 function requireAdmin(request: { auth?: { token?: Record<string, unknown> } }): void {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 }

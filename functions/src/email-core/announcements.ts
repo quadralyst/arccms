@@ -5,6 +5,7 @@ import { db } from '../init.js';
 import { createNotification } from './notifications.js';
 import { getContactConsent } from './contacts.js';
 import { computeEmailHash } from './unsubscribeToken.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin → users announcements (spec §Phase-5.3). Fans out an in-app
@@ -101,7 +102,7 @@ async function resolveAudience(audience: Audience): Promise<Array<{ userId: stri
 }
 
 export const sendAnnouncement = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

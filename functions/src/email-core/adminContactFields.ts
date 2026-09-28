@@ -10,9 +10,10 @@ import {
   validateFieldKey,
   type ContactFieldDef,
 } from './contactFields.js';
+import { isArcAdmin } from '../users/claims.js';
 
 function requireAdmin(request: { auth?: { token?: Record<string, unknown> } }): void {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 }

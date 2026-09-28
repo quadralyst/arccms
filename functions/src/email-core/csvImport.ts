@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { upsertContact, ensureList } from './contacts.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /** A parsed, valid contact row. */
 export interface ParsedContactRow {
@@ -62,7 +63,7 @@ export function parseContactsCsv(text: string): CsvParseResult {
 
 /** Admin callable: preview a CSV import (counts + parsed rows), no writes. */
 export const previewContactImport = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
   const csvText = String(request.data?.csvText || '');
@@ -84,7 +85,7 @@ export const previewContactImport = onCall(async (request) => {
  * from marketing sends until they opt in).
  */
 export const importContacts = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

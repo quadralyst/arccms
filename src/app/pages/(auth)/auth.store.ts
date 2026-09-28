@@ -339,7 +339,7 @@ export const AuthState = signalStore(
                     const currentUser = { ...userData, isAdmin } as IAuth;
                     // As the auth listener does: the token must carry the claims first.
                     try {
-                        await signIn().ensureRecordClaim(userData.id);
+                        await signIn().ensureRecordClaim(userData.id, userData.role);
                         if (isAdmin) await user.getIdToken(true);
                     } catch (err) {
                         console.warn('Could not refresh account claims (non-fatal):', err);
@@ -381,7 +381,7 @@ export const AuthState = signalStore(
                                                 // (docs/account-contract.md). Accounts made before it existed
                                                 // get it here, once. Non-fatal: rules simply deny without it.
                                                 try {
-                                                    await signIn().ensureRecordClaim(userData.id);
+                                                    await signIn().ensureRecordClaim(userData.id, userData.role);
                                                 } catch (err) {
                                                     console.warn('Could not refresh account claims (non-fatal):', err);
                                                 }

@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
 import { ensureFormList, waitlistListId } from './contacts.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: give every existing signup form (waitlist) its mirrored
@@ -19,7 +20,7 @@ import { ensureFormList, waitlistListId } from './contacts.js';
  * showed how much a dry run catches before it writes.
  */
 export const backfillFormLists = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

@@ -30,7 +30,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 import { sendTestEmail } from '../email-core/sendTestEmail.js';
 
 const handler = sendTestEmail as unknown as (r: any) => Promise<any>;
-const adminReq = (data: any) => ({ auth: { token: { role: 'admin' } }, data });
+const adminReq = (data: any) => ({ auth: { token: { arccms_role: 'admin' } }, data });
 
 describe('sendTestEmail', () => {
   beforeEach(() => {
@@ -40,7 +40,7 @@ describe('sendTestEmail', () => {
   });
 
   it('rejects non-admins', async () => {
-    await expect(handler({ auth: { token: { role: 'user' } }, data: {} })).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(handler({ auth: { token: { arccms_role: 'user' } }, data: {} })).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
   it('rejects an invalid recipient', async () => {

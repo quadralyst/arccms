@@ -19,8 +19,10 @@ const ALICE = 'alice-uid';
 const BOB = 'bob-uid';
 
 const alice = () => env.authenticatedContext(ALICE).firestore();
-const admin = () => env.authenticatedContext('admin-uid', { role: 'admin' }).firestore();
-const editor = () => env.authenticatedContext('editor-uid', { role: 'editor' }).firestore();
+const admin = () => env.authenticatedContext('admin-uid', { arccms_role: 'admin' }).firestore();
+const editor = () => env.authenticatedContext('editor-uid', { arccms_role: 'editor' }).firestore();
+// A host app's own admin in a shared sign-in pool (CO-D7): not an ArcCMS admin.
+const hostAdmin = () => env.authenticatedContext('host-uid', { role: 'admin' }).firestore();
 const anon = () => env.unauthenticatedContext().firestore();
 
 beforeAll(async () => {
@@ -209,6 +211,13 @@ describe('content writes are staff only', () => {
 
     it('allows an editor', async () => {
         for (const write of writes(editor())) await assertSucceeds(write());
+    });
+
+    it('refuses a plain `role` claim, which a host app may set (CO-D7)', async () => {
+        for (const write of writes(hostAdmin())) await assertFails(write());
+        await assertFails(getDoc(doc(hostAdmin(), 'arc_articles_drafts', 'd1')));
+        await assertFails(getDocs(collection(hostAdmin(), 'users')));
+        await assertFails(setDoc(doc(hostAdmin(), 'Settings', 'users'), { defaultRole: 'admin' }));
     });
 
     it('keeps drafts away from non-staff readers', async () => {

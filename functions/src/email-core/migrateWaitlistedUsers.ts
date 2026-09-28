@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: move historical referral records off the retiring
@@ -38,7 +39,7 @@ interface MigrationResult {
 }
 
 export const migrateWaitlistedUsers = onCall(async (request): Promise<MigrationResult> => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

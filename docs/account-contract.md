@@ -43,9 +43,16 @@ which compares the claim with no document read.
 can lack it only for a moment after an old account first signs in, and the sign-in
 flow refreshes it before handing over.
 
-**Other claims:** `role` is Arc CMS's role (`admin`, `editor`, `user`, ...), read by
-`isAdmin()` and `isEditor()`. Arc CMS always merges claims, never replaces them, so
-claims an app sets survive. Do not name an app claim `role` or `arccms_*`.
+**Other claims:** `arccms_role` is Arc CMS's role (`admin`, `editor`, `user`, ...),
+read by `isAdmin()` and `isEditor()` and set the same ways as `arccms_uid`. The
+sign-in check above also refreshes it when it differs from the record's role.
+Arc CMS never reads or writes a plain `role` claim, so an app may use `role` for its
+own roles without giving anyone Arc CMS access. Arc CMS always merges claims, never
+replaces them, so claims an app sets survive. Do not name an app claim `arccms_*`.
+
+**A deleted account:** when an Arc CMS user is deleted but their sign-in account is
+kept (it belongs to, or is shared with, another app), Arc CMS removes `arccms_role`
+and `arccms_uid` from it and leaves every other claim.
 
 ## 3. Where an app keeps a person's data
 

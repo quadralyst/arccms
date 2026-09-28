@@ -109,7 +109,7 @@ beforeEach(() => {
     settingsUsers = null;
     sentinel = null;
     userDocs = [];
-    claimsByUid = { 'admin-uid': { role: 'admin' } };
+    claimsByUid = { 'admin-uid': { arccms_role: 'admin' } };
     mockGetUser.mockImplementation(async (uid: string) => ({ uid, customClaims: claimsByUid[uid] }));
     mockSetCustomUserClaims.mockResolvedValue(undefined);
 });
@@ -117,16 +117,16 @@ beforeEach(() => {
 // ─── setRoleClaim ─────────────────────────────────────────────────────────────
 
 describe('setRoleClaim', () => {
-    it('merges the role into existing claims instead of replacing them', async () => {
+    it('merges arccms_role into existing claims, leaving a host app\'s own `role` alone (CO-D7)', async () => {
         claimsByUid['u1'] = { hostApp: 'pro', role: 'user' };
         await setRoleClaim('u1', 'admin');
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { hostApp: 'pro', role: 'admin' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { hostApp: 'pro', role: 'user', arccms_role: 'admin' });
     });
 
-    it('removes the role key for an empty role and keeps the rest', async () => {
-        claimsByUid['u1'] = { hostApp: 'pro', role: 'admin' };
+    it('removes arccms_role for an empty role and keeps the rest', async () => {
+        claimsByUid['u1'] = { hostApp: 'pro', role: 'admin', arccms_role: 'admin' };
         await setRoleClaim('u1', '');
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { hostApp: 'pro' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { hostApp: 'pro', role: 'admin' });
     });
 });
 
@@ -160,28 +160,28 @@ describe('onUserRoleChange', () => {
             { uid: 'bob', role: 'user' }, { uid: 'bob', role: 'admin' }, 'app_user', 'admin-uid');
         await trigger(event);
         expect(refUpdate).not.toHaveBeenCalled();
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('bob', { role: 'admin' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('bob', { arccms_role: 'admin' });
     });
 
     it('syncs a role the Admin SDK set', async () => {
         const { event } = makeEvent(
             { uid: 'bob', role: 'user' }, { uid: 'bob', role: 'admin' }, 'service_account', 'sa@x.iam');
         await trigger(event);
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('bob', { role: 'admin' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('bob', { arccms_role: 'admin' });
     });
 
     it('syncs a plain user role on self sign-up', async () => {
         const { event } = makeEvent(null, { uid: 'amy', role: 'user' }, 'app_user', 'amy');
         await trigger(event);
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('amy', { role: 'user' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('amy', { arccms_role: 'user' });
     });
 
     it('lets anyone demote (a demotion is never an escalation)', async () => {
-        claimsByUid['amy'] = { role: 'admin' };
+        claimsByUid['amy'] = { arccms_role: 'admin' };
         const { event } = makeEvent(
             { uid: 'amy', role: 'admin' }, { uid: 'amy', role: 'user' }, 'app_user', 'amy');
         await trigger(event);
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('amy', { role: 'user' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('amy', { arccms_role: 'user' });
     });
 
     it('applies Settings/users.defaultRole to a self sign-up with the Admin SDK', async () => {
@@ -198,7 +198,7 @@ describe('onUserRoleChange', () => {
         const { event, refUpdate } = makeEvent(null, { uid: 'amy', role: 'user' }, 'app_user', 'amy');
         await trigger(event);
         expect(refUpdate).not.toHaveBeenCalled();
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('amy', { role: 'user' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('amy', { arccms_role: 'user' });
     });
 
     it('does not apply defaultRole to a user an admin created', async () => {
@@ -233,16 +233,16 @@ describe('arccms_uid claim (the users record id)', () => {
     it('is set with the role when a record is created', async () => {
         claimsByUid['u1'] = { hostApp: 'pro' };
         await trigger(eventFor(null, { uid: 'u1', role: 'user' }));
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { hostApp: 'pro', role: 'user', arccms_uid: 'rec-1' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u1', { hostApp: 'pro', arccms_role: 'user', arccms_uid: 'rec-1' });
     });
 
     it('follows the record to a new sign-in account', async () => {
         await trigger(eventFor({ uid: 'old', role: 'user' }, { uid: 'u2', role: 'user' }, 'rec-2'));
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u2', { role: 'user', arccms_uid: 'rec-2' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('u2', { arccms_role: 'user', arccms_uid: 'rec-2' });
     });
 
     it('writes nothing when the claims already hold these values', async () => {
-        claimsByUid['u1'] = { role: 'user', arccms_uid: 'rec-1' };
+        claimsByUid['u1'] = { arccms_role: 'user', arccms_uid: 'rec-1' };
         await trigger(eventFor(null, { uid: 'u1', role: 'user' }));
         expect(mockSetCustomUserClaims).not.toHaveBeenCalled();
     });
@@ -258,7 +258,7 @@ describe('claimFirstAdmin', () => {
         await expect(claim({ auth: { uid: 'first' } })).resolves.toEqual({ role: 'admin' });
         expect(txSet).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ uid: 'first' }));
         expect(txUpdate).toHaveBeenCalledWith({ id: 'first-doc' }, { role: 'admin' });
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('first', { role: 'admin' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('first', { arccms_role: 'admin' });
     });
 
     it('refuses once an admin exists, even without a sentinel (older installs)', async () => {
@@ -283,7 +283,7 @@ describe('claimFirstAdmin', () => {
         userDocs = [{ id: 'first-doc', data: { uid: 'first', role: 'admin' } }];
         await expect(claim({ auth: { uid: 'first' } })).resolves.toEqual({ role: 'admin' });
         expect(txUpdate).not.toHaveBeenCalled();
-        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('first', { role: 'admin' });
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('first', { arccms_role: 'admin' });
     });
 
     it('requires the caller to have a user document first', async () => {

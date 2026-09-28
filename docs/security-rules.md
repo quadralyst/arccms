@@ -16,16 +16,20 @@ Arc CMS uses Firestore and Cloud Storage security rules to control data access. 
 | Function | Description |
 |----------|-------------|
 | `isAuthenticated()` | `request.auth != null` |
-| `isAdmin()` | Authenticated + custom claim `role == 'admin'` |
-| `isEditor()` | `isAdmin()`, or authenticated + custom claim `role == 'editor'`. Content staff. Nothing in the app grants `editor` today, so in practice this is admins |
+| `arcRole()` | The `arccms_role` custom claim, or `''` |
+| `isAdmin()` | Authenticated + `arcRole() == 'admin'` |
+| `isEditor()` | `isAdmin()`, or authenticated + `arcRole() == 'editor'`. Content staff. Nothing in the app grants `editor` today, so in practice this is admins |
 | `isOwnUserDoc()` | Authenticated + the document's `uid` field equals `request.auth.uid` (user doc ids are auto-generated, so ownership is the field, not the id) |
 | `isSelfAssignableRole(data)` | `data` has no `role`, or `role == 'user'` |
 
 ### Roles and the admin claim
 
-`isAdmin()` reads the `role` custom claim on the ID token. The
-`onUserRoleChange` Cloud Function (`functions/src/users/syncUserRole.ts`) copies
-`users/{docId}.role` into that claim. So whoever can write `role` on a user
+`isAdmin()` reads the `arccms_role` custom claim on the ID token, never a plain
+`role`: an app sharing the sign-in pool may give its own admins `role: 'admin'`
+(docs/coexistence-spec.md, CO-D7). The `onUserRoleChange` Cloud Function
+(`functions/src/users/syncUserRole.ts`) copies `users/{docId}.role` into that claim.
+Callables check it with `isArcAdmin()` (`functions/src/users/claims.ts`), and a test
+(`roleClaimGuard.spec.ts`) fails if any code reads a plain `role` claim again. So whoever can write `role` on a user
 document decides who is an admin, and the rules make sure that is only admins
 and the Admin SDK:
 
@@ -46,7 +50,8 @@ already holds the admin claim. Otherwise it logs an error, reverts the role on
 the document and leaves the claim alone. Demotions always sync.
 
 Claims are **merged**: the function reads the user's existing custom claims and
-changes only `role`, so claims set by anything else survive.
+changes only `arccms_role` (and `arccms_uid`), so claims set by anything else
+survive, including a `role` another app set.
 
 **Default role for sign-ups.** The sign-up page always writes `role: 'user'`.
 If an admin set `Settings/users.defaultRole` to something else, the trigger

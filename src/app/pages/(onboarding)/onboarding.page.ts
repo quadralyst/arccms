@@ -213,14 +213,14 @@ export default class OnboardingComponent implements OnInit {
     }
 
     /**
-     * Force-refresh the ID token and report whether it carries `role: admin`.
+     * Force-refresh the ID token and report whether it carries `arccms_role: admin`.
      * The refresh is the point — the claim is set server-side by
      * `claimFirstAdmin` after signup, and a cached token will not show it.
      */
     private async hasAdminClaim(): Promise<boolean> {
         try {
             const tokenResult = await this.auth?.currentUser?.getIdTokenResult(true);
-            return tokenResult?.claims?.['role'] === 'admin';
+            return tokenResult?.claims?.['arccms_role'] === 'admin';
         } catch (err) {
             console.warn('Token refresh failed (non-fatal):', err);
             return false;

@@ -6,9 +6,11 @@ import { readSignInError, SignInService } from './sign-in.service';
 
 const ensureRecordClaim = SignInService.prototype.ensureRecordClaim;
 
-function ctx(claim: string | undefined) {
+function ctx(claim: string | undefined, role?: string) {
     const user = {
-        getIdTokenResult: vi.fn(async () => ({ claims: claim ? { arccms_uid: claim } : {} })),
+        getIdTokenResult: vi.fn(async () => ({
+            claims: { ...(claim ? { arccms_uid: claim } : {}), ...(role ? { arccms_role: role } : {}) },
+        })),
         getIdToken: vi.fn(async () => 'token'),
     };
     return { auth: { currentUser: user }, call: vi.fn(async () => ({})), user };
@@ -19,6 +21,20 @@ describe('SignInService.ensureRecordClaim', () => {
         const c = ctx('rec-1');
         await expect(ensureRecordClaim.call(c as never, 'rec-1')).resolves.toBe(false);
         expect(c.call).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the token also carries the record role', async () => {
+        const c = ctx('rec-1', 'admin');
+        await expect(ensureRecordClaim.call(c as never, 'rec-1', 'admin')).resolves.toBe(false);
+        expect(c.call).not.toHaveBeenCalled();
+    });
+
+    it('refreshes when the role claim is missing or differs from the record (CO-D7)', async () => {
+        for (const [claimRole, recordRole] of [[undefined, 'admin'], ['user', 'admin'], ['admin', 'user'], ['admin', '']]) {
+            const c = ctx('rec-1', claimRole);
+            await expect(ensureRecordClaim.call(c as never, 'rec-1', recordRole)).resolves.toBe(true);
+            expect(c.call).toHaveBeenCalledWith('refreshMyClaims', {});
+        }
     });
 
     it('asks the server for the claim, then refreshes the token, when it is missing or stale', async () => {

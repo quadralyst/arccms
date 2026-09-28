@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { buildWaitlistTemplateDefs } from './defaultTemplates.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: the current default OTP + welcome templates, read-only.
@@ -14,7 +15,7 @@ import { buildWaitlistTemplateDefs } from './defaultTemplates.js';
  * Writes nothing; seeding is {@link ensureWaitlistTemplates}'s job.
  */
 export const getWaitlistTemplateDefaults = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

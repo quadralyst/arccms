@@ -17,7 +17,7 @@ import { db, owner } from '../init.js';
 import { requireAdmin } from '../search/auth.js';
 import { AUTH_OWNER } from './authOwner.js';
 import { KNOWN_ROLES } from './syncUserRole.js';
-import { mergeUserClaims, USER_RECORD_CLAIM } from './claims.js';
+import { setRecordClaims } from './claims.js';
 
 /** Firebase Auth's own minimum. */
 export const MIN_PASSWORD_LENGTH = 6;
@@ -96,6 +96,6 @@ export const adminCreateUser = onCall(async (request) => {
         throw err;
     }
     // In the first ID token they get, whenever they first sign in.
-    await mergeUserClaims(uid, { role: input.role, [USER_RECORD_CLAIM]: ref.id });
+    await setRecordClaims(uid, input.role, ref.id);
     return { id: ref.id, uid, reusedAccount };
 });

@@ -88,7 +88,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 import { migrateTagsToContacts } from '../email-core/migrateTagsToContacts.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 
-const call = (data: any = {}) => (migrateTagsToContacts as any)({ auth: { token: { role: 'admin' } }, data });
+const call = (data: any = {}) => (migrateTagsToContacts as any)({ auth: { token: { arccms_role: 'admin' } }, data });
 
 const EMAIL_A = 'a@x.com';
 const EMAIL_B = 'b@x.com';
@@ -111,7 +111,7 @@ describe('migrateTagsToContacts', () => {
 
   it('rejects non-admins', async () => {
     await expect(
-      (migrateTagsToContacts as any)({ auth: { token: { role: 'user' } }, data: {} }),
+      (migrateTagsToContacts as any)({ auth: { token: { arccms_role: 'user' } }, data: {} }),
     ).rejects.toThrow(/Admin role required/);
   });
 

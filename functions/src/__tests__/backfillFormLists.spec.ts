@@ -49,7 +49,7 @@ vi.mock('../email-core/contacts.js', () => ({
 
 import { backfillFormLists } from '../email-core/backfillFormLists.js';
 
-const call = (data: any = {}) => (backfillFormLists as any)({ auth: { token: { role: 'admin' } }, data });
+const call = (data: any = {}) => (backfillFormLists as any)({ auth: { token: { arccms_role: 'admin' } }, data });
 
 describe('backfillFormLists', () => {
   beforeEach(() => {
@@ -61,7 +61,7 @@ describe('backfillFormLists', () => {
 
   it('rejects non-admins', async () => {
     await expect(
-      (backfillFormLists as any)({ auth: { token: { role: 'user' } }, data: {} }),
+      (backfillFormLists as any)({ auth: { token: { arccms_role: 'user' } }, data: {} }),
     ).rejects.toThrow(/Admin role required/);
   });
 

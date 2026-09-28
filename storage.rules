@@ -16,16 +16,20 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // The `arccms_role` claim, never a plain `role` (see firestore.rules, arcRole()).
+    function arcRole() {
+      return request.auth.token.get('arccms_role', '');
+    }
+
     function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
+      return isSignedIn() && arcRole() == 'admin';
     }
 
     // Same claim the Firestore rules use (firestore.rules, isEditor()). It is
     // set by the onUserRoleChange Cloud Function, and only admins or the Admin
     // SDK can change a user's role.
     function isEditor() {
-      return isAuthenticated() &&
-        (request.auth.token.role == 'admin' || request.auth.token.role == 'editor');
+      return isAuthenticated() && (arcRole() == 'admin' || arcRole() == 'editor');
     }
 
     // The signed-in person owns this users record (the `arccms_uid` claim).

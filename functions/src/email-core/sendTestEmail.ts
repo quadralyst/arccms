@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
 import type { EmailSettings } from '../types.js';
 import { queueEmail } from './queueEmail.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: send a test email of composed content (Phase 4 "Send test").
@@ -12,7 +13,7 @@ import { queueEmail } from './queueEmail.js';
  * respects the master kill-switch and hard-bounce suppression.
  */
 export const sendTestEmail = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

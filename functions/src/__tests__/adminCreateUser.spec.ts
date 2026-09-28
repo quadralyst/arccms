@@ -32,14 +32,14 @@ const m = vi.hoisted(() => {
             })),
         },
         requireAdmin: vi.fn(async () => undefined),
-        mergeUserClaims: vi.fn(async () => undefined),
+        setRecordClaims: vi.fn(async () => undefined),
     };
 });
 
 vi.mock('../init', () => ({ db: m.db, owner: m.owner }));
 vi.mock('../search/auth', () => ({ requireAdmin: m.requireAdmin }));
 vi.mock('../users/syncUserRole', () => ({ KNOWN_ROLES: ['admin', 'user', 'propertyOwner', 'facilityManager'] }));
-vi.mock('../users/claims', () => ({ USER_RECORD_CLAIM: 'arccms_uid', mergeUserClaims: m.mergeUserClaims }));
+vi.mock('../users/claims', () => ({ setRecordClaims: m.setRecordClaims }));
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: { now: vi.fn(() => 'now') } }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: (...args: any[]) => args[args.length - 1],
@@ -84,7 +84,7 @@ describe('adminCreateUser', () => {
         });
         expect(m.written[0].data).not.toHaveProperty('password');
         // Claims in their first ID token: the role and the record id.
-        expect(m.mergeUserClaims).toHaveBeenCalledWith('new-asha@x.com', { role: 'admin', arccms_uid: 'doc-1' });
+        expect(m.setRecordClaims).toHaveBeenCalledWith('new-asha@x.com', 'admin', 'doc-1');
     });
 
     it('reuses an existing sign-in account untouched and marks it shared', async () => {

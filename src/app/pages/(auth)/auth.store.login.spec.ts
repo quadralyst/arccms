@@ -59,7 +59,7 @@ describe('AuthState.login', () => {
         const store = TestBed.inject(AuthState);
         store.login({ email: 'a@x.com', password: 'pw' });
         await vi.waitFor(() => expect(store.currentUser()).toMatchObject({ id: 'rec-1', uid: 'u1' }));
-        expect(signIn.ensureRecordClaim).toHaveBeenCalledWith('rec-1');
+        expect(signIn.ensureRecordClaim).toHaveBeenCalledWith('rec-1', 'user');
         expect(store.isLoading()).toBe(false);
     });
 

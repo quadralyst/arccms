@@ -22,13 +22,15 @@ const __dirname = dirname(__filename);
 /** The email_lookup doc id among every doc() call (the other calls are record and PIN ids). */
 const hashArg = (calls: unknown[][]) => calls.map((c) => String(c[0])).find((id) => /^[0-9a-f]{64}$/.test(id));
 
-const { mockDeleteUser, mockDocDelete, mockDoc, mockCollection, mockWhere, mockRecursiveDelete, mockDeleteFiles, mockBucket, mockEmitAppEvent } = vi.hoisted(() => {
+const { mockDeleteUser, mockGetUser, mockSetClaims, mockDocDelete, mockDoc, mockCollection, mockWhere, mockRecursiveDelete, mockDeleteFiles, mockBucket, mockEmitAppEvent } = vi.hoisted(() => {
     const mockDocDelete = vi.fn();
     const mockDoc = vi.fn((id?: string) => ({ id, delete: mockDocDelete, get: vi.fn().mockResolvedValue({ data: () => undefined }) }));
     const mockDeleteFiles = vi.fn().mockResolvedValue(undefined);
     const mockWhere = vi.fn(() => ({ get: vi.fn().mockResolvedValue({ size: 0, docs: [] }) }));
     return {
         mockDeleteUser: vi.fn(),
+        mockGetUser: vi.fn(),
+        mockSetClaims: vi.fn(),
         mockDocDelete,
         mockDoc,
         mockWhere,
@@ -41,7 +43,7 @@ const { mockDeleteUser, mockDocDelete, mockDoc, mockCollection, mockWhere, mockR
 });
 
 vi.mock('../init', () => ({
-    owner: { deleteUser: mockDeleteUser },
+    owner: { deleteUser: mockDeleteUser, getUser: mockGetUser, setCustomUserClaims: mockSetClaims },
     db: { collection: mockCollection, recursiveDelete: mockRecursiveDelete },
     storage: { bucket: mockBucket },
 }));
@@ -206,6 +208,27 @@ describe('onUserDelete Cloud Function', () => {
             const hash2 = hashArg(mockDoc.mock.calls) as string;
 
             expect(hash1).toBe(hash2);
+        });
+
+        it('keeps a shared or host-owned account but removes its ArcCMS claims (review S2)', async () => {
+            const handler = await getHandler();
+            if (!handler) return;
+            for (const authOwner of ['shared', 'host']) {
+                vi.clearAllMocks();
+                mockGetUser.mockResolvedValue({ customClaims: { role: 'admin', plan: 'pro', arccms_role: 'admin', arccms_uid: 'doc-1' } });
+                mockSetClaims.mockResolvedValue(undefined);
+                await handler(makeEvent({ uid: 'kept-uid', authOwner }));
+                expect(mockDeleteUser).not.toHaveBeenCalled();
+                // The host app's own claims, `role` included, stay.
+                expect(mockSetClaims).toHaveBeenCalledWith('kept-uid', { role: 'admin', plan: 'pro' });
+            }
+        });
+
+        it('keeps going when the kept account has gone', async () => {
+            const handler = await getHandler();
+            if (!handler) return;
+            mockGetUser.mockRejectedValue({ code: 'auth/user-not-found' });
+            await expect(handler(makeEvent({ uid: 'gone-uid', authOwner: 'shared' }))).resolves.toBeUndefined();
         });
 
         it('should not call deleteUser when uid is missing', async () => {

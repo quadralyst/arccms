@@ -143,7 +143,7 @@ describe('reindexSearch callable', () => {
     });
 
     it('validates its arguments and runs for an admin', async () => {
-        const admin = { uid: 'u', token: { role: 'admin' } };
+        const admin = { uid: 'u', token: { arccms_role: 'admin' } };
         await expect(handler({ data: { source: 5 }, auth: admin })).rejects.toMatchObject({ code: 'invalid-argument' });
         const response = await handler({ data: { source: 'content' }, auth: admin }) as { results: { source: string }[] };
         expect(response.results.map(r => r.source)).toEqual(['content']);
