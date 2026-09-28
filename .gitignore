@@ -68,3 +68,6 @@ firebase.*.json
 
 # Combined core + app rules and indexes, built before every deploy (scripts/arc-rules-build.mjs).
 .arc-build/
+
+# Remembered choices of the guided deploy (scripts/arc-deploy-menu.mjs), per checkout.
+.arc-deploy-state.json

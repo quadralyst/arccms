@@ -124,10 +124,13 @@ Update `.firebaserc` if needed:
 ## 6. Deploy Firestore Rules and Indexes
 
 ```bash
-firebase deploy --only firestore:rules
-firebase deploy --only firestore:indexes
-firebase deploy --only storage
+npm run deploy
 ```
+
+Pick your project, then "Database rules and indexes", then run it again for "Storage rules".
+The deploy asks a few setup questions the first time. [docs/deploy.md](docs/deploy.md) explains
+every step. Always deploy through `npm run deploy`, not plain `firebase deploy`: only it uses
+this install's settings (its database, website and bucket).
 
 ---
 
@@ -157,36 +160,23 @@ This outputs:
 
 ## 9. Deploy Cloud Functions
 
-Build and deploy the Cloud Functions:
-
 ```bash
-cd functions && npm run build && cd ..
-firebase deploy --only functions
+npm run deploy
 ```
 
-Or deploy everything at once:
-
-```bash
-npm run build
-cd functions && npm run build && cd ..
-firebase deploy
-```
+Choose "All functions" the first time. Later, "Only the functions changed since the last
+deploy" saves time. The deploy builds the functions itself.
 
 ---
 
 ## 10. Deploy to Firebase Hosting
 
-Deploy the full application:
-
 ```bash
-firebase deploy
+npm run deploy
 ```
 
-Or deploy only hosting:
-
-```bash
-firebase deploy --only hosting
-```
+Choose "Website" (it builds the site first and publishes the static pages after), or
+"Everything" for the whole application.
 
 ---
 
@@ -197,6 +187,7 @@ firebase deploy --only hosting
 | `npm run dev` | Start development server on port 5173 |
 | `npm run build` | Build frontend for production |
 | `npm run test` | Run all tests (frontend + functions) with Vitest |
+| `npm run deploy` | Guided deploy: asks the project and what to deploy ([docs/deploy.md](docs/deploy.md)) |
 | `npm run deploy:dev` | Build and deploy to development project |
 | `npm run deploy:prod` | Build and deploy to production project |
 

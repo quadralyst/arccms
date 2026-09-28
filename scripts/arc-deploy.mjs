@@ -2,7 +2,8 @@
 /**
  * `firebase deploy` for this install (docs/coexistence-spec.md, CO-D14, CO3.2).
  *
- * Passes every argument through to `firebase deploy`, and:
+ * With no arguments it runs the guided deploy (arc-deploy-menu.mjs, docs/deploy.md).
+ * Otherwise it passes every argument through to `firebase deploy`, and:
  *
  * - picks the project the way the Firebase CLI does (--project, else the one
  *   chosen with `firebase use`, else the `default` alias), and always passes it
@@ -39,6 +40,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, readFirebaseAliases, resolveProjectId } from './arc-install-config.mjs';
+import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
 
 /** Retry rounds for functions that never reported success, and the wait before each. */
 export const RETRY_ROUNDS = 2;
@@ -193,12 +195,33 @@ function run(cmd, args) {
     });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    const args = process.argv.slice(2);
+/**
+ * Functions the CLI created in this deploy (not updated), by the plain name the
+ * callable check takes: `arccms-foo` is `foo`, `arccms-custom-foo` is
+ * `custom-foo`. Functions outside the arccms group are left out.
+ */
+export function createdFunctions(output) {
+    const names = new Set();
+    for (const line of output.replace(/\x1b\[[0-9;]*m/g, '').split('\n')) {
+        const done = /functions\[(?:[\w-]+:)?arccms-([\w-]+)\([\w-]+\)\] Successful create operation/.exec(line);
+        if (done) names.add(done[1]);
+    }
+    return [...names].sort();
+}
+
+/**
+ * Deploys with these `firebase deploy` arguments: the flag path, and what the
+ * guided deploy (arc-deploy-menu.mjs) runs. Returns the exit status and the
+ * functions this deploy created. `options.built`: the functions are built
+ * already, so skip the build. A successful deploy is recorded for the guided
+ * deploy's "only what changed" (arc-deploy-state.mjs) unless `options.record`
+ * is false (the menu records its own, with the function names).
+ */
+export async function runDeploy(args, options = {}) {
     const projectId = deployProject(args, readFirebaseAliases());
     if (!projectId) {
         console.error('No Firebase project: pass --project=<alias or id>, run firebase use, or add a "default" alias to .firebaserc.');
-        process.exit(1);
+        return { status: 1, created: [] };
     }
     const generated = !!projectId && existsSync(generatedConfigPath(projectId));
     const firebaseArgs = deployArgs(args, generated, projectId);
@@ -206,21 +229,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // config, so say that plainly rather than pass on the CLI's error (review O2).
     if (generated && namesHosting(args) && !JSON.parse(readFileSync(generatedConfigPath(projectId), 'utf8')).hosting) {
         console.error(`Hosting is off for ${projectId} (arc:configure --site=none): there is no website to deploy here.`);
-        process.exit(1);
+        return { status: 1, created: [] };
     }
-    if (deploysFunctions(args)) {
+    if (deploysFunctions(args) && !options.built) {
         console.log('> npm run build --prefix functions');
         const build = spawnSync('npm', ['run', 'build', '--prefix', resolve(ROOT, 'functions')], {
             stdio: 'inherit', shell: process.platform === 'win32',
         });
         if (build.status !== 0) {
             console.error('\nThe functions build failed, so nothing was deployed.');
-            process.exit(build.status ?? 1);
+            return { status: build.status ?? 1, created: [] };
         }
     }
     console.log(`> firebase ${firebaseArgs.join(' ')}`);
     const deploy = await run('firebase', firebaseArgs);
     let status = deploy.status;
+    const created = new Set(createdFunctions(deploy.output));
 
     let missing = unconfirmed(deploy.output);
     for (let round = 1; round <= RETRY_ROUNDS && retryTargets(missing).length; round++) {
@@ -232,6 +256,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         const again = retryArgs(firebaseArgs, targets);
         console.log(`> firebase ${again.join(' ')}`);
         const retry = await run('firebase', again);
+        for (const name of createdFunctions(retry.output)) created.add(name);
         missing = [...deletes, ...unconfirmed(retry.output)];
         if (retry.status === 0 && !missing.length && (status === 0 || deploysOnlyFunctions(args))) status = 0;
     }
@@ -252,5 +277,27 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             status = probe.status ?? 1;
         }
     }
-    process.exitCode = status;
+    if (status === 0 && options.record !== false) {
+        const i = args.findIndex((a) => a === '--only' || a.startsWith('--only='));
+        const only = i === -1 ? null : args[i].startsWith('--only=') ? args[i].slice('--only='.length) : args[i + 1] || '';
+        const parts = deployedParts(only);
+        if (parts.length) {
+            try {
+                writeState(recordDeploy(readState(), projectId, parts, { commit: gitHead(), at: new Date().toISOString() }));
+            } catch { /* a record is a convenience; never fail a deploy over it */ }
+        }
+    }
+    return { status, created: [...created].sort() };
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    const args = process.argv.slice(2);
+    if (args.length === 0) {
+        // No options: the guided deploy, or the list of options off a terminal. Its
+        // own process: the menu imports this module, which is still loading here.
+        const menu = spawnSync(process.execPath, [resolve(ROOT, 'scripts/arc-deploy-menu.mjs')], { stdio: 'inherit' });
+        process.exitCode = menu.status ?? 1;
+    } else {
+        process.exitCode = (await runDeploy(args)).status;
+    }
 }
