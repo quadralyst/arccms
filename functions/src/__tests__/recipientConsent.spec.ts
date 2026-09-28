@@ -1,5 +1,5 @@
 /** Consent for contacts and app users behind one email hash (CO6.5a). */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
 const m = vi.hoisted(() => {
     const logs: Array<Record<string, unknown>> = [];
@@ -47,6 +47,12 @@ describe('recipient consent', () => {
         m.contacts.clear();
         m.states.clear();
         m.hostDocs.clear();
+        delete process.env.ARC_APP_USERS_PATH;
+        delete process.env.ARC_APP_USERS_DATABASE;
+    });
+
+    // Other test files may run in this worker next: leave no host app configured.
+    afterAll(() => {
         delete process.env.ARC_APP_USERS_PATH;
         delete process.env.ARC_APP_USERS_DATABASE;
     });
