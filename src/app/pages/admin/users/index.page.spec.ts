@@ -70,7 +70,6 @@ describe('UsersComponent', () => {
     };
 
     const mockAuthService = {
-        addEmailLookup: vi.fn().mockResolvedValue(undefined),
         removeEmailLookup: vi.fn().mockResolvedValue(undefined),
         isFirstRun: vi.fn().mockReturnValue(of(false)),
     };

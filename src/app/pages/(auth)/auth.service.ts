@@ -7,7 +7,7 @@
  */
 
 import { Injectable, runInInjectionContext } from '@angular/core';
-import { collection, doc, getDocs, getDoc, setDoc, deleteDoc } from '@angular/fire/firestore';
+import { collection, doc, getDocs, getDoc, deleteDoc } from '@angular/fire/firestore';
 import { catchError, from, switchMap, map, Observable } from 'rxjs';
 import { GlobalAuthService } from '../../../shared/services/global-auth.service';
 import { IAuth } from './auth.model';
@@ -49,18 +49,6 @@ export class AuthService extends GlobalAuthService<IAuth> {
                 throw error;
             }),
         );
-    }
-
-    /**
-     * Add a hashed email entry to the email_lookup collection.
-     * Called during signup after the user document is created.
-     */
-    public async addEmailLookup(email: string): Promise<void> {
-        const hash = await hashEmail(email);
-        await runInInjectionContext(this.injector, () => {
-            const docRef = doc(this.firestore, EMAIL_LOOKUP_COLLECTION, hash);
-            return setDoc(docRef, { exists: true });
-        });
     }
 
     /**

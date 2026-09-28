@@ -134,12 +134,9 @@ export default class OnboardingComponent implements OnInit {
             if ((success || this.isSubmitted()) && currentUser && !error && !this.signupHandled) {
                 this.signupHandled = true;
                 this.toastService.success('Admin account created! Setting up your site…');
-                this.claimAdmin().then(() => {
-                    // Mark onboarding as in-progress so abandoned wizards are detected
-                    this.setupService.markOnboardingStarted()
-                        .catch((err) => console.warn('Failed to mark onboarding started (non-fatal):', err));
-                    return this.checkAdminClaim(0);
-                });
+                // claimFirstAdmin also marks setup as started, so an abandoned
+                // wizard is detected and only this admin may resume it.
+                this.claimAdmin().then(() => this.checkAdminClaim(0));
             }
         });
 

@@ -103,20 +103,28 @@ describe('firestore.rules — Settings secrets', () => {
         expect(settingsBlock).not.toMatch(/allow\s+write:\s*if\s+true/);
     });
 
-    it('does not let a merely-authenticated user reach the documents holding secrets', () => {
+    it('does not let a merely-authenticated user write any Settings document (review S5)', () => {
         const rules = readEffectiveRules();
-        const authenticatedList = rules.slice(
-            rules.indexOf('allow read, write: if isAuthenticated() && settingId in ['),
-            rules.indexOf('];', rules.indexOf('allow read, write: if isAuthenticated() && settingId in [')),
-        );
-        expect(authenticatedList.length).toBeGreaterThan(0);
-        // `email` holds smtp/gmail passwords and the Resend API key.
-        expect(authenticatedList).not.toMatch(/'email'/);
-        // `integrations` holds the Unsplash secretKey and the geo API key.
-        expect(authenticatedList).not.toMatch(/'integrations'/);
-        // `analytics` holds the Google OAuth clientSecret.
-        expect(authenticatedList).not.toMatch(/'analytics'/);
-        // Public-safe status flags, not secrets — these may stay.
-        expect(authenticatedList).toMatch(/'email_status'/);
+        // The Settings block itself, by its braces (comments are already stripped).
+        const start = rules.indexOf('match /Settings/{settingId} {');
+        expect(start).toBeGreaterThan(-1);
+        let end = start;
+        for (let i = start + 'match /Settings/{settingId} '.length, depth = 0; i < rules.length; i++) {
+            if (rules[i] === '{') depth++;
+            if (rules[i] === '}' && --depth === 0) { end = i + 1; break; }
+        }
+        const settingsBlock = rules.slice(start, end);
+        // Every write is admin only; "signed in" is any registered visitor, or a
+        // host app's user in a shared project.
+        const grants = settingsBlock.split('\n').filter((line) => /^\s*allow\b/.test(line));
+        expect(grants.length).toBeGreaterThan(0);
+        for (const grant of grants.filter((line) => /write/.test(line))) {
+            expect(grant, grant).toMatch(/isAdmin\(\)|if false;/);
+            expect(grant, grant).not.toMatch(/isAuthenticated\(\)/);
+        }
+        // `email`, `integrations` and `analytics` hold secrets: never readable by name.
+        for (const grant of grants.filter((line) => /read/.test(line) && !/isAdmin\(\)/.test(line))) {
+            expect(grant, grant).not.toMatch(/'email'|'integrations'|'analytics'/);
+        }
     });
 });

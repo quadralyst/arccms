@@ -144,6 +144,11 @@ async function readDefaultRole(): Promise<string | null> {
  *
  * Idempotent for the winner: calling it again as the existing first admin just re-applies the
  * claim, which lets the wizard retry after a network failure.
+ *
+ * It also marks setup as started (`Settings/onboarding_status`, with `startedBy`), so an
+ * abandoned wizard is detected and only this admin may resume it. The browser cannot write
+ * that document itself at this point: it is admin write only, and the new claim is not in
+ * the browser's token until it refreshes.
  */
 export const claimFirstAdmin = onCall(async (request) => {
     if (!request.auth) {
@@ -152,6 +157,7 @@ export const claimFirstAdmin = onCall(async (request) => {
     const uid = request.auth.uid;
 
     const sentinelRef = db.collection(FIRST_ADMIN_SENTINEL.collection).doc(FIRST_ADMIN_SENTINEL.doc);
+    const onboardingRef = db.collection('Settings').doc('onboarding_status');
 
     await db.runTransaction(async (tx) => {
         const sentinel = await tx.get(sentinelRef);
@@ -173,6 +179,7 @@ export const claimFirstAdmin = onCall(async (request) => {
 
         tx.set(sentinelRef, { uid, claimedAt: FieldValue.serverTimestamp() });
         tx.update(myDoc.ref, { role: 'admin' });
+        tx.set(onboardingRef, { completed: false, startedAt: FieldValue.serverTimestamp(), startedBy: uid });
     });
 
     // Set the claim here as well as in the trigger, so the wizard can refresh its token

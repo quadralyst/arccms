@@ -80,11 +80,9 @@ describe('firestore.rules: users', () => {
         expect(matchBlock(rules, '/_system/{docId}')).toMatch(/allow read, write:\s*if false;/);
     });
 
-    it('keeps Settings/users (defaultRole) out of the any-signed-in-user write list', () => {
+    it('lets no merely signed-in user write Settings, so Settings/users (defaultRole) is admin only', () => {
         const settings = matchBlock(rules, '/Settings/{settingId}');
-        const authList = settings.match(/allow read, write: if isAuthenticated\(\) && settingId in \[([^\]]+)\]/)?.[1] ?? '';
-        expect(authList).not.toBe('');
-        expect(authList).not.toContain("'users'");
+        expect(settings).not.toMatch(/allow[^;]*write[^;]*isAuthenticated\(\)/);
     });
 });
 

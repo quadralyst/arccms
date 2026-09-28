@@ -418,34 +418,6 @@ describe('OnboardingSetupService', () => {
         });
     });
 
-    describe('markOnboardingStarted', () => {
-        it('records who started setup, so only they are sent back to it', async () => {
-            mockAuth.currentUser = { uid: 'admin-uid' };
-            await service.markOnboardingStarted();
-            expect(mockSetDoc.mock.calls[0][1]).toEqual({
-                completed: false,
-                startedAt: 'server-timestamp',
-                startedBy: 'admin-uid',
-            });
-        });
-
-        it('should write Settings/onboarding_status with completed: false', async () => {
-            await service.markOnboardingStarted();
-
-            expect(mockSetDoc).toHaveBeenCalledTimes(1);
-            const data = mockSetDoc.mock.calls[0][1];
-            expect(data).toEqual({
-                completed: false,
-                startedAt: 'server-timestamp',
-            });
-        });
-
-        it('should propagate Firestore errors', async () => {
-            mockSetDoc.mockRejectedValueOnce(new Error('fail'));
-            await expect(service.markOnboardingStarted()).rejects.toThrow('fail');
-        });
-    });
-
     describe('markOnboardingComplete', () => {
         it('should write Settings/onboarding_status with completed: true and merge', async () => {
             await service.markOnboardingComplete();

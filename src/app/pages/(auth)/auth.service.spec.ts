@@ -104,13 +104,6 @@ describe('AuthService', () => {
         });
     });
 
-    describe('addEmailLookup Method', () => {
-        it('should be defined', () => {
-            expect(AuthService.prototype.addEmailLookup).toBeDefined();
-            expect(typeof AuthService.prototype.addEmailLookup).toBe('function');
-        });
-    });
-
     describe('removeEmailLookup Method', () => {
         it('should be defined', () => {
             expect(AuthService.prototype.removeEmailLookup).toBeDefined();

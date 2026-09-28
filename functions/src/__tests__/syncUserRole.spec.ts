@@ -261,6 +261,15 @@ describe('claimFirstAdmin', () => {
         expect(mockSetCustomUserClaims).toHaveBeenCalledWith('first', { arccms_role: 'admin' });
     });
 
+    it('marks setup as started by the new admin, which the browser may not write yet (review S5)', async () => {
+        userDocs = [{ id: 'first-doc', data: { uid: 'first', role: 'user' } }];
+        await claim({ auth: { uid: 'first' } });
+        expect(txSet).toHaveBeenCalledWith(
+            expect.objectContaining({ __path: 'Settings/onboarding_status' }),
+            expect.objectContaining({ completed: false, startedBy: 'first' }),
+        );
+    });
+
     it('refuses once an admin exists, even without a sentinel (older installs)', async () => {
         userDocs = [
             { id: 'a', data: { uid: 'existing', role: 'admin' } },
@@ -283,6 +292,7 @@ describe('claimFirstAdmin', () => {
         userDocs = [{ id: 'first-doc', data: { uid: 'first', role: 'admin' } }];
         await expect(claim({ auth: { uid: 'first' } })).resolves.toEqual({ role: 'admin' });
         expect(txUpdate).not.toHaveBeenCalled();
+        expect(txSet).not.toHaveBeenCalled();
         expect(mockSetCustomUserClaims).toHaveBeenCalledWith('first', { arccms_role: 'admin' });
     });
 

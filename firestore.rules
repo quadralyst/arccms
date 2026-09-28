@@ -131,10 +131,13 @@ service cloud.firestore {
     }
 
     // Email lookup - SHA-256 hashed emails for signup flow
-    // Public read (check if hash exists), authenticated write
+    // Public read (check if hash exists). Functions keep it in step with the
+    // users records (onUserCreated, onUserDelete, the sign-in callables); only
+    // admins write it from the browser (Users, Delete). Any signed-in writer
+    // could make a registered address look unregistered (review S5).
     match /email_lookup/{hashId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // ============================================================
@@ -152,7 +155,7 @@ service cloud.firestore {
       // from this flag rather than from the emptiness of `email_lookup`. It
       // holds only `completed` and two timestamps — it says whether the site
       // finished its setup, which any visitor to an unfinished site can see
-      // anyway. Writes stay authenticated via the block below.
+      // anyway. Writes are admin only, via the catch-all below.
       // `feedback` holds only whether the feedback button is on (docs/feedback.md);
       // admins switch it on the Feedback page.
       // `about` is public-read as well: it is the site's published identity
@@ -161,27 +164,27 @@ service cloud.firestore {
       // JSON-LD. The SPA fallback pages need it to emit the same nodes
       // (docs/discoverability-spec.md, D1). Nothing secret lives there.
       allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status', 'about', 'feedback'];
-      // Frontend-managed settings — any authenticated user can read/write.
-      // UI routes are admin-gated via role guard; rules only enforce auth.
+      // Every write below is admin only, including the public-read documents
+      // above (review S5, 2026-09-28). `about`, `site`, `email_status`,
+      // `global-message`, `misc`, `site-usage` and `onboarding_status` used to be
+      // readable and writable by any signed-in account: a member of a site with
+      // open sign-up, or a host app's user in a shared project, could change the
+      // site banner, its identity, the email flags, or send visitors back to the
+      // setup wizard. Only the admin pages and the setup wizard (after
+      // claimFirstAdmin) write them, and `claimFirstAdmin` itself writes
+      // `onboarding_status` when it makes the first admin.
       //
-      // `users` is NOT in this list (public read above, admin write below): it
-      // holds `defaultRole`, which onUserRoleChange applies to every self
-      // sign-up. A signed-in user who could write it could set it to 'admin'
-      // and sign up a second account as an admin.
+      // `users` (public read above, admin write below) holds `defaultRole`,
+      // which onUserRoleChange applies to every self sign-up. A signed-in user
+      // who could write it could set it to 'admin' and sign up a second account
+      // as an admin.
       //
-      // `email`, `integrations` and `analytics` are deliberately NOT in this list:
-      // all three carry live secrets — `email` holds smtp.password / gmail.password
-      // / resend.apiKey, `integrations` holds the Unsplash secretKey and the geo
+      // `email`, `integrations` and `analytics` are admin read as well: all three
+      // carry live secrets. `email` holds smtp.password / gmail.password /
+      // resend.apiKey, `integrations` holds the Unsplash secretKey and the geo
       // API key, `analytics` holds the Google OAuth clientSecret. Rules are the
-      // only gate a direct SDK call meets, and "authenticated" here means any
-      // registered visitor, not an admin, so this list handed the site's mail
-      // credentials to every signed-in user. They fall through to isAdmin() below.
-      // Only the admin settings pages read them, and those are admin-gated already.
-      allow read, write: if isAuthenticated() && settingId in [
-        'about', 'site', 'email_status',
-        'global-message', 'misc',
-        'site-usage', 'onboarding_status'
-      ];
+      // only gate a direct SDK call meets, and "authenticated" means any
+      // registered visitor, not an admin.
       // analytics_status — authenticated read (frontend listener for GA connect flow);
       // writes are Cloud Function only (Admin SDK bypasses rules).
       allow read: if settingId == 'analytics_status' && isAuthenticated();

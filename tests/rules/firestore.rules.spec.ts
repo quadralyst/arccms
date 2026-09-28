@@ -190,6 +190,39 @@ describe('Settings/users (holds defaultRole)', () => {
     });
 });
 
+describe('site settings and email_lookup are admin write only (review S5)', () => {
+    const PUBLIC_READ = ['about', 'email_status', 'global-message', 'misc', 'site-usage', 'onboarding_status'];
+    const ALL = [...PUBLIC_READ, 'site'];
+
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await setDoc(doc(ctx.firestore(), 'email_lookup', 'hash-a'), { exists: true });
+        });
+    });
+
+    it('refuses a signed-in member and a host app\'s admin', async () => {
+        for (const db of [alice(), hostAdmin()]) {
+            for (const id of ALL) {
+                await assertFails(setDoc(doc(db, 'Settings', id), { x: 1 }, { merge: true }));
+            }
+            await assertFails(setDoc(doc(db, 'email_lookup', 'hash-b'), { exists: true }));
+            await assertFails(deleteDoc(doc(db, 'email_lookup', 'hash-a')));
+        }
+    });
+
+    it('lets an admin write them', async () => {
+        for (const id of ALL) await assertSucceeds(setDoc(doc(admin(), 'Settings', id), { x: 1 }, { merge: true }));
+        await assertSucceeds(deleteDoc(doc(admin(), 'email_lookup', 'hash-a')));
+    });
+
+    it('keeps the public reads, and Settings/site admin read', async () => {
+        for (const id of PUBLIC_READ) await assertSucceeds(getDoc(doc(anon(), 'Settings', id)));
+        await assertSucceeds(getDoc(doc(anon(), 'email_lookup', 'hash-a')));
+        await assertFails(getDoc(doc(alice(), 'Settings', 'site')));
+        await assertSucceeds(getDoc(doc(admin(), 'Settings', 'site')));
+    });
+});
+
 describe('content writes are staff only', () => {
     const writes = (db: ReturnType<typeof alice>) => [
         () => setDoc(doc(db, 'ContentTypes', 'articles'), { slug: 'articles', name: 'x' }),

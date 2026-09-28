@@ -106,14 +106,16 @@ could delete the sentinel could claim admin again.
 | `Settings/discoverability` | Admin | Admin | Default author, crawler policy, IndexNow key |
 | `WaitlistUserTags_{id}` | Admin | Admin | Internal admin data |
 | `media/{id}` | Public | Staff | Media library records for images on public pages |
-| `email_lookup/{hash}` | Public | Authenticated | SHA-256 email hash for signup |
+| `email_lookup/{hash}` | Public | Admin | SHA-256 email hash for signup. Functions keep it in step with the users records |
 | `Settings/email_status` | Public | Admin | Only `isEnabled` flag |
-| `Settings/site-usage` | Public | Authenticated | Cookie banner config |
-| `Settings/misc` | Public | Authenticated | Misc settings |
+| `Settings/site-usage` | Public | Admin | Cookie banner config |
+| `Settings/misc` | Public | Admin | Misc settings |
 | `Settings/cache` | Public | Admin | CDN cache config |
-| `Settings/global-message` | Public | Authenticated | Banner config |
+| `Settings/global-message` | Public | Admin | Banner config |
+| `Settings/onboarding_status` | Public | Admin | Whether setup finished, and who started it. `claimFirstAdmin` writes the start |
+| `Settings/site` | Admin | Admin | Legacy site name and base URL, read by functions |
 | `Settings/users` | Public | Admin | Signup toggle and `defaultRole`, which the role trigger applies to sign-ups, so never writable by ordinary users |
-| `Settings/about` | Public | Authenticated | Site identity (name, URL, address, logo, description, profile links, public contact email): the same data every static page publishes as schema.org JSON-LD; the SPA fallback reads it to emit the same nodes |
+| `Settings/about` | Public | Admin | Site identity (name, URL, address, logo, description, profile links, public contact email): the same data every static page publishes as schema.org JSON-LD; the SPA fallback reads it to emit the same nodes |
 | `Settings/email` | Admin | Admin | Contains SMTP credentials |
 | `Settings/integrations` | Admin | Admin | Contains API keys (Unsplash) |
 | `Settings/analytics` | Admin | Admin | Contains the Google OAuth client secret |
@@ -203,8 +205,4 @@ from the media library.
 
 3. **Staff storage writes have no file-type or size validation** - Only staff can write outside `avatars/`, and avatars are limited to images under 5 MB.
 
-4. **Some settings are still writable by any signed-in user** - `Settings/about`, `site`, `email_status`, `global-message`, `misc`, `site-usage` and `onboarding_status`. None of them feeds a permission check, but any signed-in user can deface them. Only admin pages and the onboarding wizard (after the admin claim) write them, so they can move to `isAdmin()` in a follow-up.
-
-5. **`email_lookup` is writable by any signed-in user** - The email-change flow writes it from the client. A user could add or remove other hashes. It no longer decides whether onboarding runs (`Settings/onboarding_status` does, and `claimFirstAdmin` refuses once an admin exists), so the impact is limited to the "email already registered" check.
-
-6. **`emailVerified` on create is client asserted** - The sign-up page writes `emailVerified: true` after its OTP step, and the rules cannot check that the OTP happened.
+4. **`emailVerified` on create is client asserted** - The sign-up page writes `emailVerified: true` after its OTP step, and the rules cannot check that the OTP happened.

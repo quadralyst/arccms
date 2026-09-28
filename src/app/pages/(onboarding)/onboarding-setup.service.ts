@@ -256,21 +256,6 @@ export class OnboardingSetupService {
     }
 
     /**
-     * Mark onboarding as started (in-progress).
-     * Called after admin account creation (step 2) so we can detect abandoned wizards.
-     */
-    async markOnboardingStarted(): Promise<void> {
-        const startedBy = this.auth?.currentUser?.uid;
-        await setDoc(doc(this.firestore, 'Settings', 'onboarding_status'), {
-            completed: false,
-            startedAt: serverTimestamp(),
-            // Who may resume it. Everyone else is left alone while it is
-            // unfinished; see shouldShowOnboarding().
-            ...(startedBy ? { startedBy } : {}),
-        });
-    }
-
-    /**
      * Mark onboarding as fully complete.
      * Called at the end of step 5 (or when user skips to dashboard).
      */
