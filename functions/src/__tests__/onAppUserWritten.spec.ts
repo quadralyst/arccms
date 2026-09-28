@@ -16,6 +16,7 @@ const m = vi.hoisted(() => {
         emitAppEvent: vi.fn().mockResolvedValue('id'),
         syncAppDrips: vi.fn().mockResolvedValue(0),
         settings: { value: { key: { source: 'docId' }, emailField: 'email', nameField: 'name', watchedFields: ['isPro'] } as any },
+        triggerOptions: { value: undefined as unknown },
     };
 });
 
@@ -23,13 +24,13 @@ vi.mock('../init', () => ({ db: m.db }));
 vi.mock('../email-core/appEvents', () => ({ emitAppEvent: m.emitAppEvent }));
 vi.mock('../app-audience/appDrips', () => ({ syncAppDrips: m.syncAppDrips }));
 vi.mock('../app-audience/adminCallables', () => ({ readAppAudienceSettings: vi.fn(async () => m.settings.value) }));
-vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentWritten: vi.fn((_opts: unknown, h: unknown) => h) }));
+vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentWritten: vi.fn((opts: unknown, h: unknown) => { m.triggerOptions.value = opts; return h; }) }));
 vi.mock('firebase-admin/firestore', () => ({
     Timestamp: { now: vi.fn(() => 'now') },
     FieldValue: { delete: vi.fn(() => '<delete>') },
 }));
 
-import { onAppUserWritten, planAppUserWrite } from '../app-audience/onAppUserWritten.js';
+import { APP_USER_RETRY_WINDOW_MS, onAppUserWritten, planAppUserWrite, shouldRetryAppUserWrite } from '../app-audience/onAppUserWritten.js';
 import { appUserStateId } from '../app-audience/state.js';
 
 const settings = { key: { source: 'docId' as const }, emailField: 'email', nameField: 'name', watchedFields: ['isPro', 'plan.tier'] };
@@ -116,6 +117,40 @@ describe('onAppUserWritten', () => {
         m.settings.value = { key: { source: 'docId' }, emailField: 'email', nameField: 'name', watchedFields: ['isPro'] };
         process.env.ARC_APP_USERS_DATABASE = '(default)';
         process.env.ARC_APP_USERS_PATH = 'users/{id}';
+    });
+
+    describe('a failure part way through (review C6)', () => {
+        const at = (ageMs: number) => ({ ...write(asha, { ...asha, isPro: true }), time: new Date(Date.now() - ageMs).toISOString() });
+
+        it('is retried by the platform', () => {
+            expect(m.triggerOptions.value).toMatchObject({ retry: true });
+        });
+
+        it('rethrows a recent failure, so the event runs again', async () => {
+            m.syncAppDrips.mockRejectedValueOnce(new Error('Firestore unavailable'));
+            await expect(handler(at(60_000))).rejects.toThrow('Firestore unavailable');
+        });
+
+        it('gives up once the event is older than the retry window', async () => {
+            m.syncAppDrips.mockRejectedValueOnce(new Error('still broken'));
+            await expect(handler(at(APP_USER_RETRY_WINDOW_MS + 60_000))).resolves.toBeUndefined();
+        });
+
+        it('emits each event once across a retry', async () => {
+            m.syncAppDrips.mockRejectedValueOnce(new Error('transient'));
+            await expect(handler(at(1000))).rejects.toThrow();
+            await handler(at(1000));
+            const ids = m.emitAppEvent.mock.calls.map((c) => c[2].id);
+            // The same id both times: emitAppEvent creates it once and ignores the repeat.
+            expect(new Set(ids).size).toBe(1);
+        });
+
+        it('knows the window from the event time', () => {
+            const now = Date.parse('2026-09-28T12:00:00Z');
+            expect(shouldRetryAppUserWrite('2026-09-28T11:30:00Z', now)).toBe(true);
+            expect(shouldRetryAppUserWrite('2026-09-28T10:30:00Z', now)).toBe(false);
+            expect(shouldRetryAppUserWrite(undefined, now)).toBe(false);
+        });
     });
 
     it('does nothing on an install with no host app', async () => {

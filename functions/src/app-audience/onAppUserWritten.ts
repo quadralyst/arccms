@@ -20,6 +20,7 @@
  * nothing writes to, so this never runs there.
  */
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { logger } from 'firebase-functions/v2';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { emitAppEvent } from '../email-core/appEvents.js';
@@ -138,8 +139,31 @@ async function applyState(plan: AppUserWritePlan): Promise<void> {
     }
 }
 
+/**
+ * How long a failed host write is retried. Retries stop at an age, not a count:
+ * the attempt number cannot be kept on the host app's own document, and a
+ * permanent fault (settings the host no longer fits, say) would otherwise run
+ * for the platform's whole retry window on every write.
+ */
+export const APP_USER_RETRY_WINDOW_MS = 60 * 60 * 1000;
+
+/** Whether a failed run of this event should be retried, from its CloudEvent time. */
+export function shouldRetryAppUserWrite(eventTime: string | undefined, now = Date.now()): boolean {
+    const age = now - Date.parse(eventTime ?? '');
+    return Number.isFinite(age) && age <= APP_USER_RETRY_WINDOW_MS;
+}
+
+/**
+ * `retry: true` (review C6): a failure part way through (reading settings,
+ * emitting an event, joining or leaving a sequence) used to end the run, and
+ * that person's change was lost with nothing retried. Now the platform runs the
+ * event again, which is safe because every step is a no-op the second time: the
+ * state moves only if the old record is still there, events are created under
+ * ids from this event, enrollment is a create(), and each step's email has a
+ * duplicate guard.
+ */
 export const onAppUserWritten = onDocumentWritten(
-    { document: appUsersPathParam, database: appUsersDatabaseParam },
+    { document: appUsersPathParam, database: appUsersDatabaseParam, retry: true },
     async (event) => {
         if (!appUsersLocation().configured || !event.data) return;
         const { before, after } = event.data;
@@ -148,15 +172,25 @@ export const onAppUserWritten = onDocumentWritten(
         const docId = after?.id || before?.id;
         if (!docId) return;
 
-        const settings = await readAppAudienceSettings();
-        const plan = planAppUserWrite(docId, beforeData, afterData, settings);
-        if (plan.events.length || plan.moveState) await applyState(plan);
-        for (const e of plan.events) {
-            await emitAppEvent(e.type, { appUserId: e.appUserId, contactEmail: e.email || undefined, data: e.data }, {
-                id: `${event.id}.${e.suffix}`.replace(/\//g, '_'),
-            });
+        try {
+            const settings = await readAppAudienceSettings();
+            const plan = planAppUserWrite(docId, beforeData, afterData, settings);
+            if (plan.events.length || plan.moveState) await applyState(plan);
+            for (const e of plan.events) {
+                await emitAppEvent(e.type, { appUserId: e.appUserId, contactEmail: e.email || undefined, data: e.data }, {
+                    id: `${event.id}.${e.suffix}`.replace(/\//g, '_'),
+                });
+            }
+            // Sequences on App users (live) lists: joining is starting to match (CO6.5c).
+            await syncAppDrips(docId, beforeData, afterData, settings);
+        } catch (err) {
+            const retry = shouldRetryAppUserWrite(event.time);
+            logger.error(
+                `onAppUserWritten: failed for host document ${docId} (event ${event.id}); `
+                + (retry ? 'will retry.' : `giving up after ${APP_USER_RETRY_WINDOW_MS / 60000} minutes; the events and sequence changes of this write were not applied.`),
+                err,
+            );
+            if (retry) throw err;
         }
-        // Sequences on App users (live) lists: joining is starting to match (CO6.5c).
-        await syncAppDrips(docId, beforeData, afterData, settings);
     },
 );

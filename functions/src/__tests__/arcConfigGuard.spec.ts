@@ -52,6 +52,6 @@ describe('arc-config guard (functions)', () => {
 
     it('the App audience trigger binds to the host collection set at deploy time, never a fixed one', () => {
         const code = files.find((f) => f.path === HOST_TRIGGER)?.code ?? '';
-        expect(code).toMatch(/onDocumentWritten\(\s*\{\s*document:\s*appUsersPathParam,\s*database:\s*appUsersDatabaseParam\s*\}/);
+        expect(code).toMatch(/onDocumentWritten\(\s*\{\s*document:\s*appUsersPathParam,\s*database:\s*appUsersDatabaseParam\s*(,\s*retry:\s*true\s*)?\}/);
     });
 });
