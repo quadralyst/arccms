@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import * as configure from '../arc-configure.mjs';
 // @ts-expect-error: plain ESM script without type declarations
 import {
-    deployArgs, deploysFunctions, deploysOnlyFunctions, generatedConfigPath, projectArg, retryArgs, retryTargets, unconfirmed, unconfirmedFunctions,
+    deployArgs, deploysFunctions, deploysOnlyFunctions, namesHosting, generatedConfigPath, projectArg, retryArgs, retryTargets, unconfirmed, unconfirmedFunctions,
 } from '../arc-deploy.mjs';
 
 const ROOT = resolve(__dirname, '..', '..');
@@ -156,11 +156,21 @@ describe('arc-configure', () => {
                 .toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}ARC_STORAGE_BUCKET=acme-arccms\n`);
         });
 
-        it('--site=none turns hosting off: the env says so, the CLI config gets no site', () => {
+        it('--site=none turns hosting off: the env says so, and the CLI config has no hosting to deploy (review O2)', () => {
             const off = configure.normalizeConfig({ databaseId: 'arccms', hostingSite: 'none' });
             expect(configure.updateFunctionsEnv('', off)).toBe(`ARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=none\n${APP_USERS_DEFAULTS}`);
-            expect(configure.renderFirebaseConfig(committedFirebase, off).hosting.site).toBeUndefined();
-            expect(configure.renderFirebaseConfig(committedFirebase, configure.normalizeConfig({ hostingSite: 'none' }))).toBeNull();
+            const out = configure.renderFirebaseConfig(committedFirebase, off);
+            expect(out).not.toHaveProperty('hosting');
+            // Everything else is still deployed as before.
+            expect(out.functions).toEqual(committedFirebase.functions);
+            expect(out.firestore[0].database).toBe('arccms');
+        });
+
+        it('hosting off alone still gets a generated config, or firebase.json would deploy hosting (review O2)', () => {
+            const out = configure.renderFirebaseConfig(committedFirebase, configure.normalizeConfig({ hostingSite: 'none' }));
+            expect(out).not.toBeNull();
+            expect(out).not.toHaveProperty('hosting');
+            expect(committedFirebase).toHaveProperty('hosting');
         });
 
         it('prints the commands that create the resources', () => {
@@ -270,6 +280,13 @@ describe('arc-deploy', () => {
         expect(projectArg(['--project=prod'])).toBe('prod');
         expect(projectArg(['-P', 'prod'])).toBe('prod');
         expect(projectArg(['--only', 'functions'])).toBe('');
+    });
+
+    it('knows when a deploy names hosting, to refuse it where hosting is off (review O2)', () => {
+        expect(namesHosting(['--only', 'hosting'])).toBe(true);
+        expect(namesHosting(['--only=functions,hosting:site'])).toBe(true);
+        expect(namesHosting(['--only', 'functions'])).toBe(false);
+        expect(namesHosting([])).toBe(false);
     });
 
     it('knows when a deploy includes functions (and so needs the callable check)', () => {

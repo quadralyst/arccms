@@ -29,7 +29,7 @@
  *   node scripts/arc-deploy.mjs --only functions --project default
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, readFirebaseAliases, resolveProjectId } from './arc-install-config.mjs';
@@ -51,6 +51,14 @@ export function projectArg(args) {
         if ((arg === '--project' || arg === '-P') && args[i + 1]) return args[i + 1];
     }
     return '';
+}
+
+/** Whether a deploy names hosting in --only (a plain deploy has no hosting target to check). */
+export function namesHosting(args) {
+    const i = args.findIndex((a) => a === '--only' || a.startsWith('--only='));
+    if (i === -1) return false;
+    const only = args[i].startsWith('--only=') ? args[i].slice('--only='.length) : args[i + 1] || '';
+    return only.split(',').some((target) => target.trim().split(':')[0] === 'hosting');
 }
 
 /** Whether a deploy with these arguments deploys functions. */
@@ -158,7 +166,14 @@ function run(cmd, args) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     const args = process.argv.slice(2);
     const projectId = resolveProjectId(projectArg(args), readFirebaseAliases());
-    const firebaseArgs = deployArgs(args, !!projectId && existsSync(generatedConfigPath(projectId)), projectId);
+    const generated = !!projectId && existsSync(generatedConfigPath(projectId));
+    const firebaseArgs = deployArgs(args, generated, projectId);
+    // Hosting off (arc:configure --site=none) leaves no hosting in the generated
+    // config, so say that plainly rather than pass on the CLI's error (review O2).
+    if (generated && namesHosting(args) && !JSON.parse(readFileSync(generatedConfigPath(projectId), 'utf8')).hosting) {
+        console.error(`Hosting is off for ${projectId} (arc:configure --site=none): there is no website to deploy here.`);
+        process.exit(1);
+    }
     if (deploysFunctions(args)) {
         console.log('> npm run build --prefix functions');
         const build = spawnSync('npm', ['run', 'build', '--prefix', resolve(ROOT, 'functions')], {

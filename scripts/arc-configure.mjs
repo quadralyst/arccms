@@ -226,9 +226,16 @@ export function updateFunctionsEnv(existing, config) {
 /**
  * The Firebase CLI config for this install, derived from the committed
  * firebase.json, or `null` when the install uses only defaults.
+ *
+ * Hosting off (`--site=none`) removes the `hosting` block entirely (review O2).
+ * Keeping it without a site made a full deploy publish ArcCMS to the project's
+ * default site, which in a shared project is another app's (on the dev project,
+ * the old install's live site). So hosting off always gets a generated config,
+ * even when nothing else differs from firebase.json.
  */
 export function renderFirebaseConfig(base, config) {
-    if (!isNamedDatabase(config) && !config.storageBucket && !ownHostingSite(config)) return null;
+    const hostingOff = config.hostingSite === HOSTING_OFF;
+    if (!isNamedDatabase(config) && !config.storageBucket && !ownHostingSite(config) && !hostingOff) return null;
     const out = structuredClone(base);
     if (isNamedDatabase(config)) {
         const firestore = Array.isArray(base.firestore) ? base.firestore[0] : base.firestore;
@@ -241,6 +248,7 @@ export function renderFirebaseConfig(base, config) {
     if (ownHostingSite(config)) {
         out.hosting = { site: config.hostingSite, ...stripSite(base.hosting) };
     }
+    if (hostingOff) delete out.hosting;
     return out;
 }
 

@@ -348,7 +348,11 @@ configured through it: `projects.xlm-project-864ff.databaseId = arccms`.
   the content and releases nothing; removals, static-page generation, SEO files and the
   template fetch from the site are skipped; the site-settings readers already skipped an
   empty site. The editor treats `skipped` as final and shows "Website publishing off" with an
-  info toast. The generated Firebase config gets no `hosting.site`.
+  info toast. The generated Firebase config has no `hosting` block at all (review O2,
+  2026-09-28: keeping the block without a site made a full `npm run deploy` publish the
+  SPA to the project's main site), and hosting off always gets a generated config, so
+  plain firebase.json never applies to such a project. `npm run deploy -- --only hosting`
+  on it stops with a message.
 - Why it was needed: an install without its own site defaults to the project's main site.
   On `xlm-project-864ff` that is the old install's site, so the new install's publishes
   would have released pages into it.
