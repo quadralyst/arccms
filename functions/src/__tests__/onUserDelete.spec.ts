@@ -22,15 +22,17 @@ const __dirname = dirname(__filename);
 /** The email_lookup doc id among every doc() call (the other calls are record and PIN ids). */
 const hashArg = (calls: unknown[][]) => calls.map((c) => String(c[0])).find((id) => /^[0-9a-f]{64}$/.test(id));
 
-const { mockDeleteUser, mockDocDelete, mockDoc, mockCollection, mockRecursiveDelete, mockDeleteFiles, mockBucket, mockEmitAppEvent } = vi.hoisted(() => {
+const { mockDeleteUser, mockDocDelete, mockDoc, mockCollection, mockWhere, mockRecursiveDelete, mockDeleteFiles, mockBucket, mockEmitAppEvent } = vi.hoisted(() => {
     const mockDocDelete = vi.fn();
     const mockDoc = vi.fn((id?: string) => ({ id, delete: mockDocDelete, get: vi.fn().mockResolvedValue({ data: () => undefined }) }));
     const mockDeleteFiles = vi.fn().mockResolvedValue(undefined);
+    const mockWhere = vi.fn(() => ({ get: vi.fn().mockResolvedValue({ size: 0, docs: [] }) }));
     return {
         mockDeleteUser: vi.fn(),
         mockDocDelete,
         mockDoc,
-        mockCollection: vi.fn(() => ({ doc: mockDoc })),
+        mockWhere,
+        mockCollection: vi.fn(() => ({ doc: mockDoc, where: mockWhere })),
         mockRecursiveDelete: vi.fn().mockResolvedValue(undefined),
         mockDeleteFiles,
         mockBucket: vi.fn(() => ({ deleteFiles: mockDeleteFiles })),
@@ -228,6 +230,19 @@ describe('onUserDelete Cloud Function', () => {
             expect(mockRecursiveDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'rec-9' }));
             expect(mockDeleteFiles).toHaveBeenCalledWith({ prefix: 'users/rec-9/', force: true });
             expect(mockDeleteFiles).toHaveBeenCalledWith({ prefix: 'avatars/u-9/', force: true });
+        });
+
+        it('deletes the person\'s feedback', async () => {
+            const handler = await getHandler();
+            if (!handler) return;
+            const feedbackDelete = vi.fn().mockResolvedValue(undefined);
+            mockWhere.mockReturnValueOnce({
+                get: vi.fn().mockResolvedValue({ size: 2, docs: [{ ref: { delete: feedbackDelete } }, { ref: { delete: feedbackDelete } }] }),
+            });
+            await handler(makeEvent({ uid: 'u-9' }, 'rec-9'));
+            expect(mockCollection).toHaveBeenCalledWith('Feedback');
+            expect(mockWhere).toHaveBeenCalledWith('userDocId', '==', 'rec-9');
+            expect(feedbackDelete).toHaveBeenCalledTimes(2);
         });
 
         it('announces user.deleted for data an app keeps elsewhere', async () => {

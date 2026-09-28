@@ -363,6 +363,21 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Feedback: what people sent with the feedback button (docs/feedback.md).
+  {
+    path: 'admin/feedback',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(feedback)/feedback.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin SMS Logs Route (Email + SMS menu): every text message, like Email Logs.
   {
     path: 'admin/sms-logs',

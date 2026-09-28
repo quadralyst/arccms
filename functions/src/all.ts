@@ -81,6 +81,8 @@ export * from './users/adminCreateUser.js';
 export * from './users/accountCallables.js';
 // App install tracking (docs/pwa.md).
 export * from './pwa/trackPwaEvent.js';
+// Feedback button: sender details and the admins' alert (docs/feedback.md).
+export * from './feedback/onFeedbackCreated.js';
 
 // Add email_lookup entry when a user document is created
 export * from './users/onUserCreate.js';

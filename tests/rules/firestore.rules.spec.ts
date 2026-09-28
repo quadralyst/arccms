@@ -11,7 +11,7 @@ import {
     initializeTestEnvironment,
     RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -277,5 +277,50 @@ describe('data under a users record (docs/account-contract.md)', () => {
     it('lets the owner read their record by id, as the claim points to it', async () => {
         const owner = env.authenticatedContext(ALICE, { arccms_uid: 'alice-doc' }).firestore();
         await assertSucceeds(getDoc(doc(owner, 'users', 'alice-doc')));
+    });
+});
+
+describe('feedback (docs/feedback.md)', () => {
+    const sender = () => env.authenticatedContext(ALICE, { arccms_uid: 'alice-doc' }).firestore();
+    const noRecord = () => env.authenticatedContext(ALICE).firestore();
+    const feedback = (extra: Record<string, unknown> = {}) => ({
+        uid: ALICE, userDocId: 'alice-doc', message: 'The lesson froze',
+        page: { path: '/learn', title: 'Learn' }, device: { platform: 'android' },
+        status: 'new', createdAt: serverTimestamp(), ...extra,
+    });
+
+    it('lets a signed-in person send their own, with files from their own folder', async () => {
+        await assertSucceeds(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({
+            screenshotPath: 'arccms/users/alice-doc/feedback/f1/screenshot.jpg',
+            voicePath: 'users/alice-doc/feedback/f1/voice.mp4', voiceSeconds: 12,
+        })));
+        await assertSucceeds(setDoc(doc(sender(), 'Feedback', 'f2'), feedback({ message: '', voicePath: 'users/alice-doc/feedback/f2/voice.webm' })));
+    });
+
+    it('refuses someone else\'s, a record-less sign-in, an empty one, or another folder', async () => {
+        await assertFails(setDoc(doc(anon(), 'Feedback', 'f1'), feedback()));
+        await assertFails(setDoc(doc(noRecord(), 'Feedback', 'f1'), feedback()));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ userDocId: 'bob-doc' })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ message: '' })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ status: 'done' })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ sender: { name: 'The admin' } })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ screenshotPath: 'users/bob-doc/feedback/f1/screenshot.jpg' })));
+    });
+
+    it('is read, updated and deleted by admins only', async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await setDoc(doc(ctx.firestore(), 'Feedback', 'f1'), { uid: ALICE, userDocId: 'alice-doc', status: 'new' });
+        });
+        await assertFails(getDoc(doc(sender(), 'Feedback', 'f1')));
+        await assertFails(updateDoc(doc(sender(), 'Feedback', 'f1'), { status: 'done' }));
+        await assertSucceeds(getDoc(doc(admin(), 'Feedback', 'f1')));
+        await assertSucceeds(updateDoc(doc(admin(), 'Feedback', 'f1'), { status: 'done' }));
+        await assertSucceeds(deleteDoc(doc(admin(), 'Feedback', 'f1')));
+    });
+
+    it('lets anyone see whether the button is on, and only admins switch it', async () => {
+        await assertSucceeds(getDoc(doc(anon(), 'Settings', 'feedback')));
+        await assertFails(setDoc(doc(sender(), 'Settings', 'feedback'), { enabled: true }));
+        await assertSucceeds(setDoc(doc(admin(), 'Settings', 'feedback'), { enabled: true }));
     });
 });

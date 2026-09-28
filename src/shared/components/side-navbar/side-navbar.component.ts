@@ -184,6 +184,13 @@ export default class NavbarComponent extends BaseComponent {
             ],
         },
         {
+            icon: 'fa-solid fa-comment-dots',
+            label: 'Feedback',
+            labelKey: 'admin.nav.feedback',
+            route: '/admin/feedback',
+            allowRoles: [this.constantVariables.ADMIN],
+        },
+        {
             icon: 'fa-solid fa-box-open',
             label: 'Products',
             labelKey: 'admin.nav.products',

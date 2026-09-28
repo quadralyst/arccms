@@ -101,6 +101,15 @@ describe('per-user folders (docs/account-contract.md)', () => {
         await assertFails(uploadBytes(ref(owner(), 'users/rec-alice/new.png'), png, asImage));
     });
 
+    it('take the owner\'s feedback files (image or audio, under 10 MB), create only', async () => {
+        const audio = { contentType: 'audio/mp4' };
+        await assertSucceeds(uploadBytes(ref(owner(), 'users/rec-alice/feedback/f1/screenshot.jpg'), png, asImage));
+        await assertSucceeds(uploadBytes(ref(owner(), 'arccms/users/rec-alice/feedback/f1/voice.mp4'), png, audio));
+        await assertFails(uploadBytes(ref(owner(), 'users/rec-alice/feedback/f1/notes.txt'), png, { contentType: 'text/plain' }));
+        await assertFails(uploadBytes(ref(other(), 'users/rec-alice/feedback/f1/screenshot.jpg'), png, asImage));
+        await assertFails(uploadBytes(ref(owner(), 'users/rec-alice/feedback/f1/screenshot.jpg'), png, asImage)); // no overwrite
+    });
+
     it('leave everything else public, under the upload folder and at the root', async () => {
         await assertSucceeds(getBytes(ref(anon(), 'arccms/mediaImages/site.png')));
         await assertSucceeds(getBytes(ref(anon(), 'root.png')));

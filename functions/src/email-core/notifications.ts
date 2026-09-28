@@ -93,6 +93,11 @@ export const DEFAULT_NOTIFICATION_TYPES: Record<string, NotificationTypeConfig> 
     category: 'transactional', defaultChannels: { inApp: true, email: true },
     userConfigurable: false, enabled: true,
   },
+  admin_new_feedback: {
+    label: 'New feedback (admin)', description: 'Someone sent feedback with the feedback button.',
+    category: 'transactional', defaultChannels: { inApp: true, email: false },
+    userConfigurable: false, enabled: true,
+  },
   admin_webhook_failure: {
     label: 'Webhook failure (admin)', description: 'A provider webhook failed to process.',
     category: 'transactional', defaultChannels: { inApp: true, email: true },

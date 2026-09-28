@@ -9,7 +9,7 @@
  * 4. Everything stored under the record: every subcollection of users/{docId}, at any
  *    depth (Firestore keeps subcollections when a document is deleted), and the
  *    per-user Storage folder `{prefix}users/{docId}/` plus the profile photos in
- *    `avatars/{uid}/`
+ *    `avatars/{uid}/`, and the person's feedback (`Feedback` where userDocId matches)
  * 5. A `user.deleted` event on the event bus, for app code that keeps data elsewhere
  *
  * Note: The client-side delete in users/index.page.ts already attempts to remove
@@ -115,6 +115,14 @@ export const onUserDeleted = onDocumentDeleted(
             db.recursiveDelete(db.collection('users').doc(docId))
                 .then(() => console.log(`Deleted everything under users/${docId}.`))
                 .catch((err: any) => console.error(`Failed to delete data under users/${docId}:`, err))
+        );
+        // Their feedback (docs/feedback.md); its files are in the Storage folder below.
+        tasks.push(
+            (async () => {
+                const snap = await db.collection('Feedback').where('userDocId', '==', docId).get();
+                await Promise.all(snap.docs.map((d) => d.ref.delete()));
+                if (snap.size) console.log(`Deleted ${snap.size} feedback item(s) of users/${docId}.`);
+            })().catch((err: any) => console.error(`Failed to delete the feedback of users/${docId}:`, err))
         );
         const bucket = arcStorageBucket() ? storage.bucket(arcStorageBucket()) : storage.bucket();
         const folders = [userStorageFolder(docId), ...(uid ? [`avatars/${uid}/`] : [])];

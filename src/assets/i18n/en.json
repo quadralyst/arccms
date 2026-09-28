@@ -123,6 +123,22 @@
       "ios_other": "To install, open this page in Safari.",
       "copy_link": "Copy link",
       "link_copied": "Link copied. Paste it into Safari."
+    },
+    "feedback": {
+      "button": "Feedback",
+      "title": "Send feedback",
+      "placeholder": "What happened, or what would you like to see?",
+      "record": "Record a voice note",
+      "stop": "Stop",
+      "delete_voice": "Delete the voice note",
+      "mic_blocked": "The microphone is blocked. Allow it in your browser's settings, or type instead.",
+      "screenshot": "Screenshot of this screen",
+      "remove_screenshot": "Remove",
+      "send": "Send",
+      "sending": "Sending...",
+      "thanks": "Thank you! We got your feedback.",
+      "send_failed": "Could not send. Check your connection and try again.",
+      "taking_screenshot": "Taking a screenshot..."
     }
   },
   "admin": {
@@ -162,7 +178,8 @@
       "logout_confirm": "Are you sure you want to logout ?",
       "logout_success": "Logout successful.",
       "authors": "Authors",
-      "sms_logs": "SMS Logs"
+      "sms_logs": "SMS Logs",
+      "feedback": "Feedback"
     },
     "settings": {
       "localization": {
@@ -1474,6 +1491,26 @@
       "provider_test": "Test (log only)",
       "empty_title": "No SMS yet",
       "empty_description": "Sign-in codes and test messages appear here."
+    },
+    "feedback": {
+      "title": "Feedback",
+      "subtitle": "What people sent with the feedback button, newest first.",
+      "button_on": "Feedback button on",
+      "button_off": "Feedback button off",
+      "filter": "Show",
+      "filter_new": "New",
+      "filter_done": "Done",
+      "filter_all": "All",
+      "empty_new": "No new feedback.",
+      "empty": "No feedback here.",
+      "off_hint": "Turn on the feedback button to let signed-in people send feedback from any page.",
+      "someone": "Someone",
+      "open_screenshot": "Open the screenshot",
+      "mark_done": "Mark done",
+      "mark_new": "Mark as new",
+      "delete_confirm": "Delete this feedback, with its screenshot and voice note?",
+      "installed_app": "installed app",
+      "load_more": "Load more"
     }
   },
   "user": {

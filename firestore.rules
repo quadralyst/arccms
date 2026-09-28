@@ -148,12 +148,14 @@ service cloud.firestore {
       // holds only `completed` and two timestamps — it says whether the site
       // finished its setup, which any visitor to an unfinished site can see
       // anyway. Writes stay authenticated via the block below.
+      // `feedback` holds only whether the feedback button is on (docs/feedback.md);
+      // admins switch it on the Feedback page.
       // `about` is public-read as well: it is the site's published identity
       // (name, URL, address, logo, description, profile links, public contact
       // email), the same data every static page already carries as schema.org
       // JSON-LD. The SPA fallback pages need it to emit the same nodes
       // (docs/discoverability-spec.md, D1). Nothing secret lives there.
-      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status', 'about'];
+      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status', 'about', 'feedback'];
       // Frontend-managed settings — any authenticated user can read/write.
       // UI routes are admin-gated via role guard; rules only enforce auth.
       //
@@ -429,6 +431,37 @@ service cloud.firestore {
     match /PwaStats/{day} {
       allow read: if isAdmin();
       allow write: if false;
+    }
+
+    // Feedback button (docs/feedback.md). A signed-in person creates their own,
+    // new, with files only from their own folder; the onFeedbackCreated function
+    // adds `sender`. Admins read, mark done, and delete.
+    match /Feedback/{feedbackId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isValidNewFeedback(feedbackId);
+    }
+
+    function isFeedbackFile(path, feedbackId) {
+      return path is string
+        && path.matches('([^/]+/)?users/' + request.auth.token.get('arccms_uid', '') + '/feedback/' + feedbackId + '/[^/]+');
+    }
+
+    function isValidNewFeedback(feedbackId) {
+      let d = request.resource.data;
+      return isSignedIn()
+        && request.auth.token.get('arccms_uid', '') != ''
+        && d.keys().hasOnly(['uid', 'userDocId', 'message', 'screenshotPath', 'voicePath', 'voiceSeconds', 'page', 'device', 'status', 'createdAt'])
+        && d.keys().hasAll(['uid', 'userDocId', 'message', 'page', 'device', 'status', 'createdAt'])
+        && d.uid == request.auth.uid
+        && d.userDocId == request.auth.token.arccms_uid
+        && d.status == 'new'
+        && d.createdAt == request.time
+        && d.message is string && d.message.size() <= 5000
+        && (d.message.size() > 0 || 'voicePath' in d)
+        && d.page is map && d.device is map
+        && (!('screenshotPath' in d) || isFeedbackFile(d.screenshotPath, feedbackId))
+        && (!('voicePath' in d) || isFeedbackFile(d.voicePath, feedbackId))
+        && (!('voiceSeconds' in d) || (d.voiceSeconds is number && d.voiceSeconds <= 180));
     }
 
     // Erasure receipts (adminDeleteContact). Hash-keyed and address-free by
