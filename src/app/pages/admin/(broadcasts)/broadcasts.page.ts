@@ -30,6 +30,7 @@ import { Functions } from '@angular/fire/functions';
 import { HashtagAutocompleteDirective } from '../../../../shared/directives/hashtag-autocomplete/hashtag-autocomplete.directive';
 import { EMAIL_TAG } from '../../../../shared/constants/email-tags';
 import { arcCallable } from '../../../core/config/arc-functions';
+import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
 
 export const routeMeta: RouteMeta = {
     title: 'Broadcasts | Arc CMS',
@@ -82,6 +83,9 @@ export default class BroadcastsPageComponent implements OnInit {
     content = signal<BlockEditorSaveEvent | null>(null);
 
     eligible = signal<number | null>(null);
+    /** A live list in the audience read only the first app users (review C2). */
+    appUsersCapped = signal(false);
+    readonly limitNote = APP_USERS_LIMIT_NOTE;
     previewing = signal(false);
     sending = signal(false);
 
@@ -161,6 +165,7 @@ export default class BroadcastsPageComponent implements OnInit {
         try {
             const res = await this.service.previewAudience(this.buildAudience());
             this.eligible.set(res.data.eligible);
+            this.appUsersCapped.set(!!res.data.appUsersCapped);
         } catch (e) {
             console.error(e);
             this.toast.error('Failed to preview audience');

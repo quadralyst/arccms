@@ -111,7 +111,7 @@ describe('live sequences', () => {
 
     it('backfills everyone the list matches on activation', async () => {
         m.resolveAppList.mockResolvedValue({ members: [{ docId: 'u1', appUserId: 'h1' }, { docId: 'u2', appUserId: 'h2' }], scanned: 2, truncated: false });
-        expect(await backfillAppCampaign(pros as any, proConditions)).toBe(2);
+        expect(await backfillAppCampaign(pros as any, proConditions)).toEqual({ enrolled: 2, truncated: false });
         expect(m.enrollInCampaign).toHaveBeenCalledWith(pros, 'app_h2', { appUserId: 'h2', appDocId: 'u2' });
     });
 });

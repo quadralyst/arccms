@@ -14,6 +14,8 @@ const { store, mockQueueEmail } = vi.hoisted(() => ({
     contacts: new Map<string, { lists: string[]; consent: string }>(),
     // App users (live) lists (CO6.5b): list id -> its current members.
     liveLists: new Map<string, Array<{ docId: string; email: string; consent: string }>>(),
+    // Whether live lists report reading only the first MAX_APP_USERS host documents.
+    liveTruncated: false,
   },
   mockQueueEmail: vi.fn(),
 }));
@@ -83,7 +85,7 @@ vi.mock('../app-audience/appLists', async (importOriginal) => ({
       ...m, key: m.docId, name: m.docId, appUserId: `h-${m.docId}`, fields: { plan: 'pro' },
     })),
     scanned: 0,
-    truncated: false,
+    truncated: store.liveTruncated,
   }),
 }));
 
@@ -105,6 +107,7 @@ import {
 function seed(rows: Array<[string, string[], string?]>): void {
   store.contacts.clear();
   store.liveLists.clear();
+  store.liveTruncated = false;
   for (const [id, lists, consent] of rows) {
     store.contacts.set(id, { lists, consent: consent || 'subscribed' });
   }
@@ -273,6 +276,18 @@ describe('multi-list audiences (U4)', () => {
       expect(res.done).toBe(false);
       expect(res.sentCount).toBe(0);
       expect(res.lastContactId).toBe('0|');
+    });
+  });
+
+  describe('the App users limit (review C2)', () => {
+    it('the preview says when a live list read only the first app users', async () => {
+      seed([['a', ['l1']]]);
+      store.liveLists.set('live', [{ docId: 'u1', email: 'u1@app.com', consent: 'subscribed' }]);
+      expect((await countEligible({ include: ['l1', 'live'] } as any)).appUsersCapped).toBe(false);
+      store.liveTruncated = true;
+      expect((await countEligible({ include: ['l1', 'live'] } as any)).appUsersCapped).toBe(true);
+      expect((await countEligible({ include: ['l1'], exclude: ['live'] } as any)).appUsersCapped).toBe(true);
+      expect((await countEligible({ include: ['l1'] } as any)).appUsersCapped).toBe(false);
     });
   });
 

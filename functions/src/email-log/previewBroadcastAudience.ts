@@ -18,8 +18,8 @@ export const previewBroadcastAudience = onCall(async (request) => {
   }
 
   try {
-    const { count, scanned, capped } = await countEligible(audience);
-    return { eligible: count, scanned, capped };
+    const { count, scanned, capped, appUsersCapped } = await countEligible(audience);
+    return { eligible: count, scanned, capped, appUsersCapped };
   } catch (err) {
     logger.error('previewBroadcastAudience failed', err);
     throw new HttpsError('internal', 'Failed to preview audience.');

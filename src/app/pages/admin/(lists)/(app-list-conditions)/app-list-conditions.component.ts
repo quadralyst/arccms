@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { AppListCondition, AppListOp } from '../../(audience)/audience.model';
+import { APP_USERS_LIMIT_NOTE } from '../../(app-users)/app-users-limit';
 
 export interface AppListPreview {
     matched: number;
@@ -88,7 +89,7 @@ const PREVIEW_DELAY_MS = 600;
             <strong>Matches {{ p.matched }}</strong> of {{ p.scanned }} people in your app;
             {{ p.subscribed }} can be emailed now{{ p.withEmail > p.subscribed ? ' (' + (p.withEmail - p.subscribed) + ' unsubscribed)' : '' }}.
             @if (p.matched > p.withEmail) { {{ p.matched - p.withEmail }} have no email address. }
-            @if (p.truncated) { Only the first {{ p.scanned }} documents were read. }
+            @if (p.truncated) { <div class="text-warning mt-1"><i class="fas fa-triangle-exclamation me-1"></i>{{ limitNote }}</div> }
         } @else {
             <span class="text-muted">Counting matches...</span>
         }
@@ -101,6 +102,7 @@ const PREVIEW_DELAY_MS = 600;
     `],
 })
 export class AppListConditionsComponent implements OnInit, OnDestroy {
+    readonly limitNote = APP_USERS_LIMIT_NOTE;
     @Input() set conditions(value: AppListCondition[] | undefined) {
         this.rows.set((value ?? []).map((c) => ({
             field: c.field,

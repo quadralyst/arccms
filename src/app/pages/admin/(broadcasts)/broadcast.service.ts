@@ -54,7 +54,7 @@ export class BroadcastService {
     private platformId = inject(PLATFORM_ID);
 
     previewAudience(audience: BroadcastAudience) {
-        return arcCallable<{ audience: BroadcastAudience }, { eligible: number; scanned: number; capped: boolean }>(
+        return arcCallable<{ audience: BroadcastAudience }, { eligible: number; scanned: number; capped: boolean; appUsersCapped?: boolean }>(
             this.functions, 'previewBroadcastAudience',
         )({ audience });
     }

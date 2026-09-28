@@ -15,6 +15,7 @@ import { DripService, DripCampaign, TemplateOption } from './drip.service';
 import { AudienceService } from '../(audience)/audience.service';
 import { IList } from '../(audience)/audience.model';
 import { DripDrawerComponent, DripDrawerMode } from './(drip-drawer)/drip-drawer.component';
+import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
 
 export const routeMeta: RouteMeta = {
     title: 'Drip Campaigns | Arc CMS',
@@ -140,7 +141,9 @@ export default class DripsPageComponent implements OnInit, AfterViewInit {
     async activate(c: DripCampaign): Promise<void> {
         try {
             const res: any = await this.service.activate(c.id);
-            this.toast.success(`Activated${res?.data?.enrolled ? ` — enrolled ${res.data.enrolled}` : ''}`);
+            this.toast.success(`Activated${res?.data?.enrolled ? `, enrolled ${res.data.enrolled}` : ''}`);
+            // A live list read only the first app users: the rest join when their record changes (review C2).
+            if (res?.data?.appUsersCapped) this.toast.warning(`${APP_USERS_LIMIT_NOTE} They join the sequence when their record in your app changes.`);
         } catch (e) { console.error(e); this.toast.error('Failed to activate'); }
     }
 

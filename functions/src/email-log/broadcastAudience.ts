@@ -7,6 +7,7 @@ import { waitlistListId } from '../email-core/contacts.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { appListConditionsOf, resolveAppList, type AppListMember } from '../app-audience/appLists.js';
 import { readAppAudienceSettings } from '../app-audience/adminCallables.js';
+import { MAX_APP_USERS } from '../app-audience/listAppUsers.js';
 
 /**
  * Broadcasts v2 audience engine (Phase 6, §3.13).
@@ -132,6 +133,12 @@ export interface AudienceLists {
   /** Live lists among the included and excluded ones: their current members. */
   appMembers: Map<string, AppListMember[]>;
   appEmails: Map<string, Set<string>>;
+  /**
+   * A live list read only the first MAX_APP_USERS documents of the host
+   * collection, so people after them were left out. Shown to the admin as a
+   * warning (review C2); reading every document is a later change.
+   */
+  appUsersCapped: boolean;
 }
 
 export async function loadAudienceLists(audience: BroadcastAudience): Promise<AudienceLists> {
@@ -140,7 +147,8 @@ export async function loadAudienceLists(audience: BroadcastAudience): Promise<Au
   const appMembers = new Map<string, AppListMember[]>();
   const appEmails = new Map<string, Set<string>>();
   const all = [...new Set([...listIds, ...excludeIds])];
-  if (!all.length) return { listIds, excludeIds, appMembers, appEmails };
+  let appUsersCapped = false;
+  if (!all.length) return { listIds, excludeIds, appMembers, appEmails, appUsersCapped };
 
   const snaps = await db.getAll(...all.map((id) => db.collection('Lists').doc(id)));
   const live = snaps
@@ -149,13 +157,14 @@ export async function loadAudienceLists(audience: BroadcastAudience): Promise<Au
   if (live.length) {
     const settings = await readAppAudienceSettings();
     for (const l of live) {
-      const { members } = await resolveAppList(l.conditions, settings);
+      const { members, truncated } = await resolveAppList(l.conditions, settings);
+      if (truncated) appUsersCapped = true;
       const withEmail = members.filter((m) => m.email);
       appMembers.set(l.id, withEmail);
       appEmails.set(l.id, new Set(withEmail.map((m) => m.email)));
     }
   }
-  return { listIds, excludeIds, appMembers, appEmails };
+  return { listIds, excludeIds, appMembers, appEmails, appUsersCapped };
 }
 
 /** Whether an address was matched by a live list earlier in the include order. */
@@ -247,10 +256,13 @@ async function passesPremiumFilter(contact: AudienceContact, audience: Broadcast
  * Count eligible recipients for a preview (respecting consent). Bounded by
  * `maxScan` to keep the preview cheap on very large lists.
  */
-export async function countEligible(audience: BroadcastAudience, maxScan = 5000): Promise<{ count: number; scanned: number; capped: boolean }> {
+export async function countEligible(
+  audience: BroadcastAudience,
+  maxScan = 5000,
+): Promise<{ count: number; scanned: number; capped: boolean; appUsersCapped: boolean }> {
   const lists = await loadAudienceLists(audience);
-  const { listIds, excludeIds } = lists;
-  if (!listIds.length) return { count: 0, scanned: 0, capped: false };
+  const { listIds, excludeIds, appUsersCapped } = lists;
+  if (!listIds.length) return { count: 0, scanned: 0, capped: false, appUsersCapped };
 
   let count = 0;
   let scanned = 0;
@@ -271,7 +283,7 @@ export async function countEligible(audience: BroadcastAudience, maxScan = 5000)
         if (consent !== 'subscribed') continue;
         count++;
       }
-      if (scanned >= maxScan) return { count, scanned, capped: true };
+      if (scanned >= maxScan) return { count, scanned, capped: true, appUsersCapped };
       continue;
     }
 
@@ -296,9 +308,9 @@ export async function countEligible(audience: BroadcastAudience, maxScan = 5000)
       startAfter = page.lastId;
       if (page.done || !startAfter) break;
     }
-    if (scanned >= maxScan) return { count, scanned, capped: true };
+    if (scanned >= maxScan) return { count, scanned, capped: true, appUsersCapped };
   }
-  return { count, scanned, capped: false };
+  return { count, scanned, capped: false, appUsersCapped };
 }
 
 export interface AudienceChunkResult {
@@ -331,6 +343,9 @@ export async function processAudienceChunk(params: {
   const audience = broadcastData.audience!;
   const lists = await loadAudienceLists(audience);
   const { listIds, excludeIds } = lists;
+  if (lists.appUsersCapped) {
+    console.warn(`processAudienceChunk: ${broadcastId} reads only the first ${MAX_APP_USERS} app users; people after them are not emailed.`);
+  }
   const delayMs = getDelayFromLimits(providerLimits);
 
   let sentCount = params.initialSent;

@@ -36,6 +36,9 @@
             }
             <button mat-stroked-button (click)="loadLive()"><mat-icon>refresh</mat-icon> Refresh</button>
         </div>
+        @if (livePreview()?.truncated) {
+        <p class="hub-note text-warning"><i class="fas fa-triangle-exclamation"></i> {{ limitNote }}</p>
+        }
         <p class="hub-note">
             <i class="fas fa-circle-info"></i>
             @if (conditionSummary().length) {

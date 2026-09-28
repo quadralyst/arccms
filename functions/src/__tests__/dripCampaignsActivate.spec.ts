@@ -5,7 +5,7 @@ const m = vi.hoisted(() => ({
     campaign: {} as Record<string, unknown>,
     list: undefined as Record<string, unknown> | undefined,
     backfillEnrollments: vi.fn(async () => 3),
-    backfillAppCampaign: vi.fn(async () => 7),
+    backfillAppCampaign: vi.fn(async () => ({ enrolled: 7, truncated: false })),
 }));
 
 vi.mock('../init', () => ({
@@ -42,20 +42,27 @@ describe('activateDripCampaign', () => {
 
     it('backfills the members of a contact list, as before', async () => {
         m.list = { type: 'manual' };
-        expect(await activate(admin)).toEqual({ enrolled: 3 });
+        expect(await activate(admin)).toEqual({ enrolled: 3, appUsersCapped: false });
         expect(m.backfillAppCampaign).not.toHaveBeenCalled();
     });
 
     it('backfills whoever a live list matches now', async () => {
         m.list = { type: 'app', conditions: [{ field: 'isPro', op: 'is', value: 'true' }] };
-        expect(await activate(admin)).toEqual({ enrolled: 7 });
+        expect(await activate(admin)).toEqual({ enrolled: 7, appUsersCapped: false });
         expect(m.backfillAppCampaign).toHaveBeenCalledWith(expect.objectContaining({ status: 'active' }), [{ field: 'isPro', op: 'is', value: 'true' }]);
+        expect(m.backfillEnrollments).not.toHaveBeenCalled();
+    });
+
+    it('says when the live list read only the first app users (review C2)', async () => {
+        m.list = { type: 'app', conditions: [{ field: 'isPro', op: 'is', value: 'true' }] };
+        m.backfillAppCampaign.mockResolvedValueOnce({ enrolled: 7, truncated: true });
+        expect(await activate(admin)).toEqual({ enrolled: 7, appUsersCapped: true });
         expect(m.backfillEnrollments).not.toHaveBeenCalled();
     });
 
     it('enrolls nobody existing when the option is off', async () => {
         m.campaign = { ...m.campaign, enrollExistingOnActivate: false };
         m.list = { type: 'app', conditions: [] };
-        expect(await activate(admin)).toEqual({ enrolled: 0 });
+        expect(await activate(admin)).toEqual({ enrolled: 0, appUsersCapped: false });
     });
 });

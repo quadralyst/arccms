@@ -1161,7 +1161,7 @@
         "load_failed": "Could not read app users: {{error}}",
         "summary": "{{count}} people from {{collection}}",
         "without_key": "{{count}} documents have no value in the unique key field and are not shown.",
-        "truncated": "Only the first {{max}} documents were read.",
+        "truncated": "Only the first {{max}} users in your app are checked. Anyone after them is left out.",
         "empty_title": "No app users found",
         "empty_description": "The collection is empty, or nothing matches your search.",
         "key": "Unique key",

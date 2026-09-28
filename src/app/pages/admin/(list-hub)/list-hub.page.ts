@@ -21,6 +21,7 @@ import { DripService, DripCampaign } from '../(drips)/drip.service';
 import { Functions } from '@angular/fire/functions';
 import { arcCallable } from '../../../core/config/arc-functions';
 import { APP_LIST_OPERATORS, AppListPreview } from '../(lists)/(app-list-conditions)/app-list-conditions.component';
+import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
 
 /** A person an App users (live) list matches, as `previewAppList` returns them. */
 interface LiveMember {
@@ -82,6 +83,7 @@ export default class ListHubPageComponent implements OnInit {
     isLive = computed(() => this.list()?.type === 'app');
     liveMembers = signal<LiveMember[]>([]);
     livePreview = signal<AppListPreview | null>(null);
+    readonly limitNote = APP_USERS_LIMIT_NOTE;
     liveError = signal('');
 
     /** The conditions in words: "isPro is true and plan.tier is any of pro, business". */

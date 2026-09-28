@@ -96,12 +96,19 @@ export async function syncAppDrips(docId: string, before: Doc, after: Doc, setti
     return enrolled;
 }
 
-/** On activation: enroll everyone the live list matches now (idempotent). */
-export async function backfillAppCampaign(campaign: DripCampaignDoc, conditions: AppListCondition[]): Promise<number> {
-    const { members } = await resolveAppList(conditions);
+/**
+ * On activation: enroll everyone the live list matches now (idempotent).
+ * `truncated`: only the first MAX_APP_USERS host documents were read, so people
+ * after them were not enrolled now (they still are when their document changes).
+ */
+export async function backfillAppCampaign(
+    campaign: DripCampaignDoc,
+    conditions: AppListCondition[],
+): Promise<{ enrolled: number; truncated: boolean }> {
+    const { members, truncated } = await resolveAppList(conditions);
     let enrolled = 0;
     for (const m of members) {
         if (await enrollInCampaign(campaign, appContactId(m.appUserId), { appUserId: m.appUserId, appDocId: m.docId })) enrolled++;
     }
-    return enrolled;
+    return { enrolled, truncated };
 }

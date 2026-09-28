@@ -32,16 +32,21 @@ export const activateDripCampaign = onCall(async (request) => {
   await db.collection('DripCampaigns').doc(id).set({ status: 'active', updatedAt: Timestamp.now() }, { merge: true });
 
   let enrolled = 0;
+  let appUsersCapped = false;
   if (campaign.enrollExistingOnActivate) {
     // An App users (live) list has no stored members: enroll whoever matches now (CO6.5c).
     const list = await db.collection('Lists').doc(campaign.listId).get();
     const conditions = appListConditionsOf(list.exists ? list.data() : undefined);
-    enrolled = conditions
-      ? await backfillAppCampaign({ ...campaign, status: 'active' }, conditions)
-      : await backfillEnrollments({ ...campaign, status: 'active' });
+    if (conditions) {
+      const backfill = await backfillAppCampaign({ ...campaign, status: 'active' }, conditions);
+      enrolled = backfill.enrolled;
+      appUsersCapped = backfill.truncated;
+    } else {
+      enrolled = await backfillEnrollments({ ...campaign, status: 'active' });
+    }
   }
-  logger.info(`activateDripCampaign: ${id} active, backfilled ${enrolled}.`);
-  return { enrolled };
+  logger.info(`activateDripCampaign: ${id} active, backfilled ${enrolled}${appUsersCapped ? ' (first app users only)' : ''}.`);
+  return { enrolled, appUsersCapped };
 });
 
 /**

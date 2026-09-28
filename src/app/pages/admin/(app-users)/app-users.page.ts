@@ -22,6 +22,7 @@ import { arcCallable } from '../../../core/config/arc-functions';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { statusBadgeClass } from '../../../../shared/utils/status-badge';
+import { MAX_APP_USERS } from './app-users-limit';
 
 /** Mirrors functions/src/app-audience/listAppUsers.ts. */
 export interface AppUserRow {
@@ -68,8 +69,7 @@ interface AppUsersLocation {
     own?: boolean;
 }
 
-/** Mirrors MAX_APP_USERS in functions/src/app-audience/listAppUsers.ts. */
-export const MAX_APP_USERS = 2000;
+export { MAX_APP_USERS };
 
 @Component({
     standalone: true,
