@@ -96,15 +96,19 @@ function claimedByEarlierList(
 }
 
 /**
- * Resume cursor for a multi-list audience: `"<listIndex>|<contactId>"`.
- * A pre-U4 paused broadcast stored a bare contact id, which parses to list 0 —
+ * Resume cursor for a multi-list audience: `"<listIndex>|<contactId>"`, with an
+ * empty contact id for "the start of that list". Always written, even before
+ * anyone in the list was reached: a pause right at a list boundary used to save
+ * no cursor, so the resume started again from the first list and emailed it
+ * twice (review C1).
+ * A pre-U4 paused broadcast stored a bare contact id, which parses to list 0,
  * the only list it could have had.
  */
-function makeCursor(listIndex: number, contactId?: string): string | undefined {
-  return contactId === undefined ? undefined : `${listIndex}|${contactId}`;
+export function makeCursor(listIndex: number, contactId?: string): string {
+  return `${listIndex}|${contactId ?? ''}`;
 }
 
-function parseCursor(raw: string | undefined, listCount: number): { index: number; contactId?: string } {
+export function parseCursor(raw: string | undefined, listCount: number): { index: number; contactId?: string } {
   if (!raw) return { index: 0 };
   const sep = raw.indexOf('|');
   if (sep === -1) return { index: 0, contactId: raw };

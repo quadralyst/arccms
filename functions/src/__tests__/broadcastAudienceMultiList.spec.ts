@@ -272,6 +272,79 @@ describe('multi-list audiences (U4)', () => {
       expect(res.timedOut).toBe(true);
       expect(res.done).toBe(false);
       expect(res.sentCount).toBe(0);
+      expect(res.lastContactId).toBe('0|');
+    });
+  });
+
+  describe('pausing exactly at a list boundary (review C1)', () => {
+    /** The quota check runs every 25 sends; refusing it pauses the chunk right there. */
+    async function chunk(audience: any, startAfterId?: string) {
+      return processAudienceChunk({
+        broadcastData: { ...broadcastData, audience },
+        broadcastId: 'bc-1',
+        providerLimits: {} as any,
+        timeBudgetMs: 60_000,
+        startAfterId,
+        initialSent: 0,
+        initialSkipped: 0,
+        initialFailed: 0,
+        quotaChecker: async () => false,
+      });
+    }
+
+    /** Runs chunks to the end, as the pause-and-resume engine does. */
+    async function runToEnd(audience: any) {
+      const cursors: Array<string | undefined> = [];
+      let cursor: string | undefined;
+      for (let i = 0; i < 20; i++) {
+        const res = await chunk(audience, cursor);
+        if (res.done) return cursors;
+        cursor = res.lastContactId;
+        cursors.push(cursor);
+      }
+      throw new Error('never finished');
+    }
+
+    const ids = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix}${String(i).padStart(2, '0')}`);
+
+    it('saves the next list as the cursor, so the resume does not start the first list again', async () => {
+      seed([...ids('a', 25).map((id): [string, string[]] => [id, ['l1']]), ['b00', ['l2']], ['b01', ['l2']]]);
+
+      const first = await chunk({ include: ['l1', 'l2'] });
+      expect(first.quotaExhausted).toBe(true);
+      expect(first.lastContactId).toBe('1|');
+      expect(mockQueueEmail).toHaveBeenCalledTimes(25);
+
+      const second = await chunk({ include: ['l1', 'l2'] }, first.lastContactId);
+      expect(second.done).toBe(true);
+      expect(recipients()).toEqual([...ids('a', 25), 'b00', 'b01'].map((id) => `${id}@x.com`).sort());
+    });
+
+    it('emails everyone exactly once when it pauses at every boundary', async () => {
+      seed([
+        ...ids('a', 25).map((id): [string, string[]] => [id, ['l1']]),
+        ...ids('b', 25).map((id): [string, string[]] => [id, ['l2']]),
+        ...ids('c', 3).map((id): [string, string[]] => [id, ['l3']]),
+      ]);
+
+      const cursors = await runToEnd({ include: ['l1', 'l2', 'l3'] });
+
+      expect(cursors).toEqual(['1|', '2|']);
+      const sent = mockQueueEmail.mock.calls.map((c) => c[0].toEmail);
+      expect(sent).toHaveLength(53);
+      expect(new Set(sent).size).toBe(53);
+    });
+
+    it('holds at a boundary into an App users (live) list too', async () => {
+      seed(ids('a', 25).map((id): [string, string[]] => [id, ['l1']]));
+      store.liveLists.set('live', [{ docId: 'u1', email: 'u1@app.com', consent: 'subscribed' }]);
+
+      const cursors = await runToEnd({ include: ['l1', 'live'] });
+
+      expect(cursors).toEqual(['1|']);
+      const sent = mockQueueEmail.mock.calls.map((c) => c[0].toEmail);
+      expect(sent).toHaveLength(26);
+      expect(new Set(sent).size).toBe(26);
     });
   });
 
