@@ -34,6 +34,48 @@ const FIELD_TAG_PATTERN = /##FIELD:([a-zA-Z0-9_]+)(?:\|([^#]*))?##/g;
 const APP_TAG_PATTERN = /##APP\.([A-Za-z0-9_.-]+)(?:\|([^#]*))?##/g;
 
 /**
+ * Every merge tag form in one pattern, so a template is resolved in a single
+ * pass: `##FIELD:key|fb##` (groups 1, 2), `##APP.path|fb##` (3, 4) and
+ * `##TAG##` (5). A resolved value is never scanned again, so a value that
+ * itself looks like a tag (a host user named `##UNSUBSCRIBE_SECRET##`) stays
+ * plain text.
+ */
+const MERGE_TAG_PATTERN = new RegExp(
+    `${FIELD_TAG_PATTERN.source}|${APP_TAG_PATTERN.source}|##([A-Z_]+)##`,
+    'g',
+);
+
+/**
+ * The only `Settings/email` keys a `##TAG##` may read (`##SENDER_NAME##`,
+ * `##LIVE_URL##`...). The rest of that document holds provider credentials
+ * and the unsubscribe signing secret.
+ */
+const SETTINGS_TAG_KEYS = ['companyName', 'senderName', 'senderEmail', 'replyToEmail', 'liveUrl'] as const;
+
+/** Log fields that are plumbing, not merge data: never read by a `##TAG##`. */
+const LOG_KEYS_NEVER_MERGED = new Set(['bcc', 'template', 'text', 'emailHash', 'contactFields', 'appFields']);
+
+/**
+ * A merge value as HTML text. Values come from people (names, host app
+ * fields, event data), so markup in them is shown, never rendered. Line
+ * breaks become `<br>` so multi-line values keep their shape.
+ */
+export function mergeValueHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/\r?\n/g, '<br>');
+}
+
+/** A merge value for the subject line: plain text on one line. */
+function mergeValueSubject(value: string): string {
+    return value.replace(/[\r\n]+/g, ' ');
+}
+
+/**
  * Build a 1x1 tracking-pixel <img> tag.
  * Returns an empty string when TRACKING_PIXEL_URL is not configured.
  */
@@ -330,89 +372,64 @@ export async function processEmailTemplate(
         PREFERENCES_LINK: () => preferences_link || '',
     };
 
-    // Auto-detect tags from template and subject
-    let template = emailLogsData.template || '';
-    let subject = emailLogsData.subject || '';
+    const template = emailLogsData.template || '';
+    const subject = emailLogsData.subject || '';
 
-    // Custom contact fields (U4.5): ##FIELD:key## or ##FIELD:key|fallback##.
-    // Resolved before the ##TAG## pass because the colon/pipe syntax is outside
-    // that pattern's alphabet. An explicit FIELD: prefix keeps custom fields from
-    // colliding with built-in tags (a field named `company` vs ##COMPANY_NAME##).
+    // Custom contact fields (U4.5): ##FIELD:key## or ##FIELD:key|fallback##. An
+    // explicit FIELD: prefix keeps custom fields from colliding with built-in
+    // tags (a field named `company` vs ##COMPANY_NAME##).
     const fieldValues = (emailLogsData as unknown as { contactFields?: Record<string, unknown> }).contactFields || {};
-    const resolveField = (_full: string, key: string, fallback?: string): string => {
-        const raw = fieldValues[key];
-        if (raw === undefined || raw === null || raw === '') return fallback ?? '';
-        return String(raw);
-    };
-    template = template.replace(FIELD_TAG_PATTERN, (m, key, fb) => resolveField(m, key, fb));
-    subject = subject.replace(FIELD_TAG_PATTERN, (m, key, fb) => resolveField(m, key, fb));
-
+    // App user fields (CO6.5a): ##APP.<path>##, from the host fields on the log.
     const appValues = (emailLogsData as unknown as { appFields?: Record<string, unknown> }).appFields || {};
-    const resolveApp = (_full: string, path: string, fallback?: string): string => {
-        const raw = appValues[path];
-        if (raw === undefined || raw === null || raw === '') return fallback ?? '';
-        return String(raw);
-    };
-    template = template.replace(APP_TAG_PATTERN, (m, path, fb) => resolveApp(m, path, fb));
-    subject = subject.replace(APP_TAG_PATTERN, (m, path, fb) => resolveApp(m, path, fb));
+    const orFallback = (raw: unknown, fallback?: string): string =>
+        raw === undefined || raw === null || raw === '' ? fallback ?? '' : String(raw);
 
-    const combinedText = `${template} ${subject}`;
-
-    // Extract all unique tags (e.g., ##TAG_NAME##)
-    const tagPattern = /##([A-Z_]+)##/g;
+    const logData = emailLogsData as unknown as Record<string, unknown>;
+    const settingsData = pickSettingsTagData(configData);
     const foundTags = new Set<string>();
-    let match;
-
-    while ((match = tagPattern.exec(combinedText)) !== null) {
-        foundTags.add(match[1]);
-    }
-
-    // Build final replacements
-    const finalReplacements: Record<string, () => string> = {};
     const unmappedTags: string[] = [];
+    const tagValues = new Map<string, string>();
 
-    foundTags.forEach(tag => {
-        // Priority: custom > default > auto-detect from data
-        if (customReplacements?.[tag]) {
-            // Handle both string and function custom replacements
-            finalReplacements[tag] = typeof customReplacements[tag] === 'function'
-                ? customReplacements[tag] as () => string
-                : () => String(customReplacements[tag]);
+    // Priority: custom > default > auto-detect from the log, then settings.
+    const tagValue = (tag: string): string => {
+        const known = tagValues.get(tag);
+        if (known !== undefined) return known;
+        let value: string;
+        const custom = customReplacements?.[tag];
+        if (custom) {
+            value = typeof custom === 'function' ? custom() : String(custom);
         } else if (defaultMappings[tag]) {
-            finalReplacements[tag] = defaultMappings[tag];
+            value = defaultMappings[tag]();
         } else {
-            // Auto-detect: try to find value in emailLogsData or configData
-            const autoValue = autoDetectValue(
-                tag,
-                emailLogsData as unknown as Record<string, unknown>,
-                configData as unknown as Record<string, unknown> | undefined,
-            );
-            if (autoValue !== null) {
-                finalReplacements[tag] = () => autoValue;
-            } else {
-                unmappedTags.push(tag);
-                finalReplacements[tag] = () => ''; // Replace with empty string if not found
-            }
+            const autoValue = autoDetectValue(tag, logData, settingsData);
+            if (autoValue === null) unmappedTags.push(tag);
+            value = autoValue ?? ''; // Replace with empty string if not found
         }
-    });
+        tagValues.set(tag, value);
+        return value;
+    };
+
+    const valueOf = (
+        fieldKey: string | undefined, fieldFallback: string | undefined,
+        appPath: string | undefined, appFallback: string | undefined,
+        tag: string | undefined,
+    ): string => {
+        if (fieldKey !== undefined) return orFallback(fieldValues[fieldKey], fieldFallback);
+        if (appPath !== undefined) return orFallback(appValues[appPath], appFallback);
+        foundTags.add(tag as string);
+        return tagValue(tag as string);
+    };
+
+    const processedTemplate = template.replace(MERGE_TAG_PATTERN, (_m, f, ff, a, af, t) =>
+        mergeValueHtml(valueOf(f, ff, a, af, t)));
+    const processedSubject = subject.replace(MERGE_TAG_PATTERN, (_m, f, ff, a, af, t) =>
+        mergeValueSubject(valueOf(f, ff, a, af, t)));
 
     // Log unmapped tags for debugging
     if (unmappedTags.length > 0) {
         console.warn('Unmapped tags found:', unmappedTags);
         console.warn('Consider adding custom replacements for these tags');
     }
-
-    // Process template and subject
-    let processedTemplate = template;
-    let processedSubject = subject;
-
-    Object.entries(finalReplacements).forEach(([tag, replacementFn]) => {
-        const regex = new RegExp(`##${tag}##`, 'g');
-        const replacement = replacementFn();
-
-        processedTemplate = processedTemplate.replace(regex, replacement);
-        processedSubject = processedSubject.replace(regex, replacement);
-    });
 
     return {
         template: processedTemplate,
@@ -422,7 +439,17 @@ export async function processEmailTemplate(
     };
 }
 
-// Auto-detect value from data objects
+/** The `Settings/email` values a `##TAG##` may read (see SETTINGS_TAG_KEYS). */
+function pickSettingsTagData(configData: EmailSettings | undefined): Record<string, unknown> {
+    const picked: Record<string, unknown> = {};
+    for (const key of SETTINGS_TAG_KEYS) {
+        if (configData?.[key] !== undefined) picked[key] = configData[key];
+    }
+    return picked;
+}
+
+// Auto-detect value from data objects. Only plain values merge: an object
+// would print as "[object Object]", and plumbing fields stay out.
 function autoDetectValue(
     tag: string,
     emailLogsData: Record<string, unknown>,
@@ -449,8 +476,10 @@ function autoDetectValue(
         if (!source) continue;
 
         for (const key of keyVariations) {
-            if (source[key] !== undefined && source[key] !== null) {
-                return String(source[key]);
+            if (source === emailLogsData && LOG_KEYS_NEVER_MERGED.has(key)) continue;
+            const value = source[key];
+            if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                return String(value);
             }
         }
     }

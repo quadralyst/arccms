@@ -793,3 +793,105 @@ describe('processEmailTemplate — app user fields (CO6.5a)', () => {
   });
 });
 
+
+describe('processEmailTemplate — merge values are data, never tags or markup (S1, S7)', () => {
+  const settings = {
+    companyName: 'Arc CMS',
+    senderName: 'Team Arc',
+    unsubscribeSecret: 'top-secret-signing-key',
+    smtpPassword: 'legacy-smtp-password',
+    smtp: { host: 'smtp.example.com', password: 'nested-password' },
+  };
+  const base = { toName: 'Ana', toEmail: 'ana@example.com', subject: 'Hello' };
+
+  it('never resolves a tag that arrives inside a value', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      toName: '##UNSUBSCRIBE_SECRET##',
+      template: '<p>##NAME## / ##APP.name## / ##FIELD:nick##</p>',
+      appFields: { name: '##SMTP_PASSWORD##' },
+      contactFields: { nick: '##COMPANY_NAME##' },
+    } as any, settings as any);
+
+    expect(result.template).toBe('<p>##UNSUBSCRIBE_SECRET## / ##SMTP_PASSWORD## / ##COMPANY_NAME##</p>');
+    expect(result.template).not.toContain('top-secret-signing-key');
+    expect(result.template).not.toContain('legacy-smtp-password');
+  });
+
+  it('reads only the allowed settings, never secrets or credentials', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      subject: '##UNSUBSCRIBE_SECRET##',
+      template: '<p>##SENDER_NAME##|##UNSUBSCRIBE_SECRET##|##SMTP_PASSWORD##|##SMTP##</p>',
+    } as any, settings as any);
+
+    expect(result.template).toBe('<p>Team Arc|||</p>');
+    expect(result.subject).toBe('');
+    expect(result.unmappedTags).toEqual(expect.arrayContaining(['UNSUBSCRIBE_SECRET', 'SMTP_PASSWORD', 'SMTP']));
+  });
+
+  it('keeps log plumbing (bcc, template, objects) out of tags', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      bcc: 'owner@example.com',
+      template: '<p>[##BCC##][##APP_FIELDS##][##EMAIL_HASH##]</p>',
+      appFields: { plan: 'pro' },
+      emailHash: 'abc',
+    } as any, {});
+
+    expect(result.template).toBe('<p>[][][]</p>');
+  });
+
+  it('escapes markup in every value in the body, and keeps the subject plain', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      toName: '<a href="https://evil.example">Reset</a>',
+      subject: 'Hi ##NAME##, plan ##TO##',
+      template: '<p>##NAME## ##APP.bio## ##FIELD:co## ##TO##</p>',
+      appFields: { bio: 'Tom & "Jerry"' },
+      contactFields: { co: "<b>O'Neil</b>" },
+      to: '<i>pro</i>',
+    } as any, {});
+
+    expect(result.template).toBe(
+      '<p>&lt;a href=&quot;https://evil.example&quot;&gt;Reset&lt;/a&gt; Tom &amp; &quot;Jerry&quot; '
+      + '&lt;b&gt;O&#39;Neil&lt;/b&gt; &lt;i&gt;pro&lt;/i&gt;</p>',
+    );
+    expect(result.subject).toBe('Hi <a href="https://evil.example">Reset</a>, plan <i>pro</i>');
+  });
+
+  it('turns line breaks into <br> in the body and spaces in the subject', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      subject: '##TITLE##',
+      template: '<div>##BODY##</div>',
+      title: 'Daily\r\nsummary',
+      body: '3 new signup(s)\n1 failed email(s)',
+    } as any, {});
+
+    expect(result.template).toBe('<div>3 new signup(s)<br>1 failed email(s)</div>');
+    expect(result.subject).toBe('Daily summary');
+  });
+
+  it('escapes a fallback too, and records only ##TAG## forms as used tags', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+
+    const result = await processEmailTemplate({
+      ...base,
+      template: '<p>##FIELD:co|A & B## ##APP.plan|free## ##NAME##</p>',
+    } as any, {});
+
+    expect(result.template).toBe('<p>A &amp; B free Ana</p>');
+    expect(result.usedTags).toEqual(['NAME']);
+  });
+});

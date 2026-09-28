@@ -27,11 +27,12 @@ export const sendAdminDigest = onSchedule({ schedule: 'every 1 hours', timeZone:
     countFailedEmails(cutoff),
   ]);
 
-  const summary = `<ul>
-    <li><strong>${signups}</strong> new signup(s)</li>
-    <li><strong>${payments}</strong> successful payment(s)</li>
-    <li><strong>${failedEmails}</strong> failed email(s)</li>
-  </ul>`;
+  // Plain lines: merge values are escaped as text, and line breaks become <br>.
+  const summary = [
+    `${signups} new signup(s)`,
+    `${payments} successful payment(s)`,
+    `${failedEmails} failed email(s)`,
+  ].join('\n');
 
   let template = await loadTemplate('admin_digest_email');
   if (!template) {

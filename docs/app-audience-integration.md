@@ -248,6 +248,11 @@ up in Settings, Email).
 
 Credential-like fields are never available as tags.
 
+Values are plain text. In the email body, markup in a value is shown as typed, never rendered,
+and a line break becomes a new line. A value that looks like a tag (a name such as
+`##COMPANY_NAME##`) is printed as it is, never filled in. Settings tags read only the company
+name, sender name and address, reply-to address and site URL, never credentials or secrets.
+
 ## Step 10. Unsubscribe and consent
 
 Every app user is subscribed until they unsubscribe. The unsubscribe link and the preferences
