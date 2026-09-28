@@ -20,6 +20,11 @@ vi.mock('../init', () => ({
             id,
             get: async () => ({ exists: enrollmentStore.has(id), data: () => enrollmentStore.get(id) }),
             set: async (d: any) => { enrollmentStore.set(id, d); },
+            // Firestore's create(): fails with ALREADY_EXISTS (code 6) if the document exists.
+            create: async (d: any) => {
+              if (enrollmentStore.has(id)) throw Object.assign(new Error('ALREADY_EXISTS'), { code: 6 });
+              enrollmentStore.set(id, d);
+            },
           }),
           where: vi.fn(() => chain),
           get: async () => ({
@@ -70,6 +75,12 @@ describe('dripEnrollment', () => {
     expect(enr.status).toBe('active');
     expect(enr.currentStep).toBe(0);
     expect(enr.nextSendAt.__ms).toBe(1_000_000 + 24 * 3600 * 1000);
+  });
+
+  it('two runs racing for the same person enroll once (review C3)', async () => {
+    const results = await Promise.all([enrollInCampaign(campaign(), 'c1'), enrollInCampaign(campaign(), 'c1')]);
+    expect(results.sort()).toEqual([false, true]);
+    expect(mockCampaignSet).toHaveBeenCalledTimes(1);
   });
 
   it('does NOT re-enroll a contact who already has an enrollment (completed)', async () => {

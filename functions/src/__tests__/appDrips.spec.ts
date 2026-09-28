@@ -8,13 +8,22 @@ const m = vi.hoisted(() => {
     const db = {
         getAll: vi.fn(async (...refs: Array<{ id: string }>) => refs.map((r) => ({ exists: lists.has(r.id), data: () => lists.get(r.id) }))),
         collection: vi.fn((name: string) => ({
-            where: vi.fn(() => ({ get: vi.fn(async () => ({ docs: campaigns.map((c) => ({ id: c.id, data: () => c.data })) })) })),
+            where: vi.fn((field: string, _op: string, value: unknown) => ({
+                get: vi.fn(async () => (name === 'DripEnrollments'
+                    ? { docs: [...enrollments].filter(([, v]) => v[field] === value).map(([id, v]) => ({ id, ref: { id }, data: () => v })) }
+                    : { docs: campaigns.map((c) => ({ id: c.id, data: () => c.data })) })),
+            })),
             doc: vi.fn((id: string) => ({
                 id,
                 get: vi.fn(async () => (name === 'DripEnrollments'
                     ? { exists: enrollments.has(id), data: () => enrollments.get(id) }
                     : { exists: false, data: () => undefined })),
             })),
+        })),
+        runTransaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({
+            get: async (ref: { id: string }) => ({ exists: enrollments.has(ref.id) }),
+            set: (ref: { id: string }, data: Record<string, unknown>) => { enrollments.set(ref.id, data); },
+            delete: (ref: { id: string }) => { enrollments.delete(ref.id); },
         })),
     };
     return {
@@ -90,15 +99,53 @@ describe('live sequences', () => {
 
     it('exits a person who stops matching, or is deleted', async () => {
         const id = `camp-pro_app_${appUserStateId('u1')}`;
-        m.enrollments.set(id, { status: 'active' });
+        m.enrollments.set(id, { status: 'active', campaignId: 'camp-pro', appDocId: 'u1', appUserId: appUserStateId('u1') });
         await syncAppDrips('u1', { isPro: true }, { isPro: false }, settings);
         expect(m.exitEnrollment).toHaveBeenLastCalledWith(expect.objectContaining({ id }), 'camp-pro', 'left_list');
         await syncAppDrips('u1', { isPro: true }, undefined, settings);
         expect(m.exitEnrollment).toHaveBeenLastCalledWith(expect.objectContaining({ id }), 'camp-pro', 'app_user_deleted');
     });
 
+    describe('a changed unique key (review C3)', () => {
+        const byEmail = { key: { source: 'field' as const, field: 'email' }, emailField: 'email', watchedFields: [] };
+        const oldId = `camp-pro_app_${appUserStateId('a@x.com')}`;
+        const newId = `camp-pro_app_${appUserStateId('b@x.com')}`;
+        const enrolled = { status: 'active', campaignId: 'camp-pro', appDocId: 'u1', appUserId: appUserStateId('a@x.com'), contactId: `app_${appUserStateId('a@x.com')}`, currentStep: 1 };
+
+        it('moves the enrollment to the new key, keeping its progress', async () => {
+            m.enrollments.set(oldId, { ...enrolled });
+            await syncAppDrips('u1', { email: 'a@x.com', isPro: true }, { email: 'b@x.com', isPro: true }, byEmail);
+            expect(m.enrollments.has(oldId)).toBe(false);
+            expect(m.enrollments.get(newId)).toMatchObject({
+                status: 'active', currentStep: 1, appUserId: appUserStateId('b@x.com'), contactId: `app_${appUserStateId('b@x.com')}`, rekeyedFrom: oldId,
+            });
+        });
+
+        it('so leaving later exits it, and matching again does not start a second one', async () => {
+            m.enrollments.set(oldId, { ...enrolled });
+            await syncAppDrips('u1', { email: 'a@x.com', isPro: true }, { email: 'b@x.com', isPro: true }, byEmail);
+            await syncAppDrips('u1', { email: 'b@x.com', isPro: true }, { email: 'b@x.com', isPro: false }, byEmail);
+            expect(m.exitEnrollment).toHaveBeenLastCalledWith(expect.objectContaining({ id: newId }), 'camp-pro', 'left_list');
+            expect(m.enrollments.size).toBe(1);
+        });
+
+        it('moves enrollments even when no sequence is active right now', async () => {
+            m.campaigns.length = 0;
+            m.enrollments.set(oldId, { ...enrolled, status: 'active' });
+            await syncAppDrips('u1', { email: 'a@x.com' }, { email: 'b@x.com' }, byEmail);
+            expect(m.enrollments.has(newId)).toBe(true);
+        });
+
+        it('exits the old one as a duplicate when the new key already has one', async () => {
+            m.enrollments.set(oldId, { ...enrolled });
+            m.enrollments.set(newId, { ...enrolled, appUserId: appUserStateId('b@x.com') });
+            await syncAppDrips('u1', { email: 'a@x.com', isPro: true }, { email: 'b@x.com', isPro: true }, byEmail);
+            expect(m.exitEnrollment).toHaveBeenCalledWith(expect.objectContaining({ id: oldId }), 'camp-pro', 'duplicate');
+        });
+    });
+
     it('leaves a finished enrollment alone', async () => {
-        m.enrollments.set(`camp-pro_app_${appUserStateId('u1')}`, { status: 'completed' });
+        m.enrollments.set(`camp-pro_app_${appUserStateId('u1')}`, { status: 'completed', campaignId: 'camp-pro', appDocId: 'u1' });
         await syncAppDrips('u1', { isPro: true }, { isPro: false }, settings);
         expect(m.exitEnrollment).not.toHaveBeenCalled();
     });

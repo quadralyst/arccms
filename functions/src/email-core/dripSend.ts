@@ -99,6 +99,7 @@ export async function sendDueEnrollment(
     templateIsActive: template.isActive !== false,
     emailSettings: settings,
     data: { title: campaign.name, ...listContext },
+    dedupeKey: stepDedupeKey(ref, enr, stepIndex),
   });
 
   if (result.status === 'pending') return advanceEnrollment(ref, campaign, stepIndex);
@@ -190,6 +191,7 @@ async function sendDueAppEnrollment(
     isSubscribed: true,
     appUser: { id: appUserId, fields: appMergeFields(data) },
     data: { title: campaign.name },
+    dedupeKey: stepDedupeKey(ref, enr, stepIndex),
   });
 
   if (result.status === 'pending') return advanceEnrollment(ref, campaign, stepIndex);
@@ -200,6 +202,22 @@ async function sendDueAppEnrollment(
   }
   await holdEnrollment(ref);
   return 'held';
+}
+
+/**
+ * One key per step of one enrollment, for queueEmail's duplicate guard: the
+ * scheduler and the day-0 fast path can both find a step due, or a trigger can
+ * run twice, and the second send of the same step is then a no-op that still
+ * advances the enrollment (review C3). The enrollment time is part of it, so a
+ * person enrolled again later (a new enrollment document) is emailed again.
+ */
+export function stepDedupeKey(
+  ref: FirebaseFirestore.DocumentReference,
+  enr: FirebaseFirestore.DocumentData,
+  stepIndex: number,
+): string {
+  const enrolledAt = (enr['enrolledAt'] as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+  return `drip:${ref.id}:${enrolledAt}:${stepIndex}`;
 }
 
 /** After a sent step: schedule the next one, or complete. */

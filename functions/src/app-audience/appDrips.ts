@@ -61,27 +61,63 @@ export function planAppDrips(before: Doc, after: Doc, live: LiveCampaign[]): App
     return changes;
 }
 
+/**
+ * A person's enrollments follow their unique key (review C3). An enrollment is
+ * filed under `<campaign>_app_<sha256(key)>`, so after the key changes (email as
+ * the key, say) the old one was out of reach: leaving the list did not exit it,
+ * and matching again enrolled a second one. Every enrollment for this host
+ * document moves to the new key, whatever its status; if the new key already
+ * has one for that sequence, the old one is exited as a duplicate.
+ */
+export async function rekeyAppEnrollments(docId: string, appUserId: string): Promise<number> {
+    const snap = await db.collection('DripEnrollments').where('appDocId', '==', docId).get();
+    let moved = 0;
+    for (const doc of snap.docs) {
+        const data = doc.data();
+        if (data['appUserId'] === appUserId) continue;
+        const campaignId = String(data['campaignId']);
+        const target = db.collection('DripEnrollments').doc(`${campaignId}_${appContactId(appUserId)}`);
+        const outcome = await db.runTransaction(async (tx) => {
+            const existing = await tx.get(target);
+            if (existing.exists) return 'duplicate' as const;
+            tx.set(target, { ...data, appUserId, contactId: appContactId(appUserId), rekeyedFrom: doc.id });
+            tx.delete(doc.ref);
+            return 'moved' as const;
+        });
+        if (outcome === 'moved') moved++;
+        else if (data['status'] === 'active') await exitEnrollment(doc.ref, campaignId, 'duplicate');
+    }
+    return moved;
+}
+
 /** Applies one host write to the live sequences. Returns how many enrollments were made. */
 export async function syncAppDrips(docId: string, before: Doc, after: Doc, settings: AppAudienceSettings): Promise<number> {
+    const keyOf = (data: Doc) => (data ? resolveAppUser(docId, data, settings).key : '');
+    const oldKey = keyOf(before);
+    const newKey = keyOf(after);
+    // Before anything else, and whether or not a sequence is active now: a paused
+    // sequence's enrollments must follow the key too.
+    if (oldKey && newKey && oldKey !== newKey) await rekeyAppEnrollments(docId, appUserStateId(newKey));
+
     const live = await activeLiveCampaigns();
     if (!live.length) return 0;
     const { enroll, exit } = planAppDrips(before, after, live);
     if (!enroll.length && !exit.length) return 0;
 
-    // Enroll under the current key; exit under the key they had when they matched.
-    const keyOf = (data: Doc) => (data ? resolveAppUser(docId, data, settings).key : '');
-    for (const campaign of exit) {
-        const key = keyOf(before);
-        if (!key) continue;
-        const ref = db.collection('DripEnrollments').doc(`${campaign.id}_${appContactId(appUserStateId(key))}`);
-        const snap = await ref.get();
-        if (snap.exists && snap.data()?.['status'] === 'active') {
-            await exitEnrollment(ref, campaign.id, after ? 'left_list' : 'app_user_deleted');
+    // Exit by the host document, which never changes, rather than by a key.
+    if (exit.length) {
+        const leaving = new Set(exit.map((c) => c.id));
+        const snap = await db.collection('DripEnrollments').where('appDocId', '==', docId).get();
+        for (const doc of snap.docs) {
+            const data = doc.data();
+            if (data['status'] === 'active' && leaving.has(String(data['campaignId']))) {
+                await exitEnrollment(doc.ref, String(data['campaignId']), after ? 'left_list' : 'app_user_deleted');
+            }
         }
     }
 
     let enrolled = 0;
-    const key = keyOf(after);
+    const key = newKey;
     if (key) {
         const appUserId = appUserStateId(key);
         for (const campaign of enroll) {
