@@ -10,6 +10,7 @@ app: see docs/custom-code.md, and run `npm run check:core`.
 | `routes.ts` | the app's pages, as Angular routes |
 | `pages/` | the app's pages, found by file name like `src/app/pages` (`learn.page.ts` is `/learn`) |
 | `nav.ts` | the app's items in the admin menu |
+| `home.ts` | where each role lands after signing in |
 | `i18n/{lang}.json` | the app's translations (and rewording of core ones) |
 | `styles.css` | the app's global styles, loaded after everything else |
 | `pwa.ts`, `pwa-icon.svg` or `.png` | the installable app: on or off, name, colours, icon (docs/pwa.md) |

@@ -20,6 +20,7 @@ plug point), then pull it. `npm run check:core` catches accidental edits.
 | `src/custom/routes.ts` | the app's pages as Angular routes (`CUSTOM_ROUTES`) |
 | `src/custom/pages/` | the app's pages found by file name, like `src/app/pages` (`learn.page.ts` is `/learn`) |
 | `src/custom/nav.ts` | the app's items in the admin menu (`CUSTOM_NAV`), shown before Profile |
+| `src/custom/home.ts` | where each role lands after signing in (`CUSTOM_HOME`), for example `{ user: '/learn' }` |
 | `src/custom/i18n/{lang}.json` | the app's translations, laid over the core ones |
 | `src/custom/styles.css` | the app's global styles, loaded after every core stylesheet |
 | `src/custom/pwa.ts`, `src/custom/pwa-icon.svg` (or `.png`) | the installable app: on or off, name, colours, start page, icon ([pwa.md](pwa.md)) |
@@ -38,6 +39,7 @@ install too; `check:core` accepts them.
 | Routes | `src/app/app.routes.ts` | `CUSTOM_ROUTES` come after every core route (an app page cannot replace a core page by accident) and before the file-based pages |
 | Pages | `vite.config.ts` | `additionalPagesDirs: ['/src/custom/pages']` |
 | Admin menu | `side-navbar.component.ts` | `CUSTOM_NAV` inserted before Profile |
+| Home page | `core/home/home.ts` | `CUSTOM_HOME` over the defaults (admins `/admin/dashboard`, everyone else `/user/dashboard`); a sign-in started from a page (`/signup?redirect=/learn`) returns to that page first. With a home other than the dashboard, the account menu gets a **Home** item |
 | Translations | `translation.loader.ts` | `src/custom/i18n/{lang}.json` merged over the core file, key by key: new keys, and rewording of core ones |
 | Styles | `index.html` | `src/custom/styles.css` is the last stylesheet |
 | PWA | `vite.config.ts`, `pwa.service.ts` | `CUSTOM_PWA` laid over the core defaults at build time; the icon file is found by name |
@@ -50,6 +52,11 @@ install too; `check:core` accepts them.
 export const CUSTOM_ROUTES: Routes = [
   { path: 'learn', loadComponent: () => import('./pages/learn.page').then((m) => m.default) },
 ];
+```
+
+```ts
+// src/custom/home.ts: parents land on the app, admins keep the admin area
+export const CUSTOM_HOME: HomePages = { user: '/learn' };
 ```
 
 ```ts

@@ -25,7 +25,8 @@ describe('AuthCheckerComponent', () => {
     };
 
     const mockRouter = {
-        navigate: vi.fn()
+        navigate: vi.fn(),
+        navigateByUrl: vi.fn(),
     };
 
     beforeEach(async () => {
@@ -59,12 +60,19 @@ describe('AuthCheckerComponent', () => {
         mockSetupService.shouldShowOnboarding.mockReturnValue(of(false));
         mockAuthStore.initAuthStateListener.mockReturnValue(of({ role: 'admin' }));
         component.ngOnInit();
-        expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/dashboard']);
+        expect(mockRouter.navigateByUrl).toHaveBeenCalledWith('/admin/dashboard');
     });
 
-    it('should navigate to /signup when non-admin user and setup is complete', () => {
+    it('should send a signed-in member to their home page when setup is complete', () => {
         mockSetupService.shouldShowOnboarding.mockReturnValue(of(false));
         mockAuthStore.initAuthStateListener.mockReturnValue(of({ role: 'user' }));
+        component.ngOnInit();
+        expect(mockRouter.navigateByUrl).toHaveBeenCalledWith('/user/dashboard');
+    });
+
+    it('should navigate to /signup when nobody is signed in', () => {
+        mockSetupService.shouldShowOnboarding.mockReturnValue(of(false));
+        mockAuthStore.initAuthStateListener.mockReturnValue(of(null));
         component.ngOnInit();
         expect(mockRouter.navigate).toHaveBeenCalledWith(['/signup']);
     });

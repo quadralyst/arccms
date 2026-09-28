@@ -9,6 +9,7 @@ import { mergeTranslations } from './core/i18n/translation.loader';
 import { insertCustomNav, type MenuItem } from '../shared/components/side-navbar/side-navbar.component';
 import { CUSTOM_ROUTES } from '../custom/routes';
 import { CUSTOM_NAV } from '../custom/nav';
+import { CUSTOM_HOME } from '../custom/home';
 import customEn from '../custom/i18n/en.json';
 import customHi from '../custom/i18n/hi.json';
 
@@ -19,6 +20,7 @@ describe('custom space', () => {
     it('ships every starter file empty', () => {
         expect(CUSTOM_ROUTES).toEqual([]);
         expect(CUSTOM_NAV).toEqual([]);
+        expect(CUSTOM_HOME).toEqual({});
         expect(customEn).toEqual({});
         expect(customHi).toEqual({});
         expect(read('functions/src/custom/index.ts')).toMatch(/^export \{\};$/m);

@@ -1515,6 +1515,7 @@
   },
   "user": {
     "nav": {
+      "home": "Home",
       "dashboard": "Dashboard",
       "account": "Account & Billing",
       "premium": "Premium",

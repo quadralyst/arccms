@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, computed, inject, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthState } from '../(auth)/auth.store';
 import { EntitlementService } from './entitlement.service';
+import { homeFor, USER_DASHBOARD } from '../../core/home/home';
 
 /**
  * Sidebar layout for the signed-in member area (dashboard, account, profile,
@@ -35,6 +36,9 @@ import { EntitlementService } from './entitlement.service';
                 </div>
 
                 <nav class="menu">
+                    @if (appHome(); as home) {
+                        <a [routerLink]="home"><i class="fa-solid fa-house"></i> {{ 'user.nav.home' | transloco }}</a>
+                    }
                     <a routerLink="/user/dashboard" routerLinkActive="active"><i class="fa-solid fa-gauge"></i> {{ 'user.nav.dashboard' | transloco }}</a>
                     <a routerLink="/account" routerLinkActive="active"><i class="fa-solid fa-receipt"></i> {{ 'user.nav.account' | transloco }}</a>
                     <a routerLink="/user/premium" routerLinkActive="active"><i class="fa-solid fa-star"></i> {{ 'user.nav.premium' | transloco }}</a>
@@ -82,6 +86,12 @@ export class UserShellComponent implements OnInit {
     authState = inject(AuthState);
     entitlements = inject(EntitlementService);
     private router = inject(Router);
+
+    /** The app's own home page for this person (src/custom/home.ts), when it is not this area's dashboard. */
+    readonly appHome = computed(() => {
+        const home = homeFor(this.authState.currentUser()?.role);
+        return home === USER_DASHBOARD || home.startsWith('/admin') ? null : home;
+    });
 
     displayName(): string {
         const u = this.authState.currentUser();

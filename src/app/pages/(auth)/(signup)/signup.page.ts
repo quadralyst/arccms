@@ -41,6 +41,7 @@ import { classifyIdentifier, formatPhone } from '../../../../shared/utils/identi
 import { readSignInError, SignInService } from '../sign-in.service';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
+import { homeFor, safeRedirect } from '../../../core/home/home';
 
 export const routeMeta: RouteMeta = {
   title: 'Signup | Arc CMS',
@@ -726,11 +727,14 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.pendingGoogleCredential = null;
         void this.signIn?.linkCredential(credential).catch((err) => console.warn('Could not connect Google:', err));
       }
-      const isAdmin = this.authStore.isAdmin();
-      const route = isAdmin ? '/admin/dashboard' : '/user/dashboard';
+      // Back to the page that sent them here (/signup?redirect=/learn), else
+      // their role's home page (src/custom/home.ts over Arc CMS's defaults).
+      const role = this.authStore.isAdmin() ? 'admin' : user.role;
+      const asked = safeRedirect(this.router.parseUrl(this.router.url).queryParams['redirect']);
+      const route = asked ?? homeFor(role);
 
       this.toastService.success('Please wait! Redirecting...');
-      this.router.navigate([route], { replaceUrl: true });
+      this.router.navigateByUrl(route, { replaceUrl: true });
     }
   }
 
