@@ -75,7 +75,7 @@ export function clock(seconds: number): string {
                                 </button>
                             } @else {
                                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="startRecording()"
-                                    [disabled]="stage() === 'sending'">
+                                    [disabled]="stage() === 'sending' || startingMic()">
                                     <i class="fa-solid fa-microphone"></i> {{ 'common.feedback.record' | transloco }}
                                 </button>
                             }
@@ -207,6 +207,8 @@ export class FeedbackComponent {
     readonly message = signal('');
     readonly voice = signal<VoiceNote | null>(null);
     readonly recording = signal(false);
+    /** Waiting for the microphone (the permission prompt): the Record button waits too. */
+    readonly startingMic = signal(false);
     readonly elapsed = signal(0);
     readonly micBlocked = signal(false);
     readonly error = signal('');
@@ -217,6 +219,8 @@ export class FeedbackComponent {
         this.stage() === 'compose' && !this.recording() && (this.message().trim().length > 0 || !!this.voice()));
 
     private recorder: VoiceRecorder | null = null;
+    /** The recorder whose microphone is still starting; cleared when the panel closes. */
+    private starting: VoiceRecorder | null = null;
     private ticker: ReturnType<typeof setInterval> | null = null;
     private closeTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -243,16 +247,35 @@ export class FeedbackComponent {
         inject(DestroyRef).onDestroy(() => this.reset());
     }
 
+    /**
+     * Start a voice note. The microphone can take a while (the permission
+     * prompt), so a second press waits, and if the panel closed in the meantime
+     * the microphone is released as soon as it starts (review F): it used to
+     * record, unseen, for up to the time limit.
+     */
     async startRecording(): Promise<void> {
+        if (this.recorder || this.starting) return;
         this.micBlocked.set(false);
         const recorder = new VoiceRecorder();
         recorder.onLimit = (note) => this.recorded(note);
+        this.starting = recorder;
+        this.startingMic.set(true);
         try {
             await recorder.start();
         } catch {
-            this.micBlocked.set(true);
+            if (this.starting === recorder) {
+                this.starting = null;
+                this.startingMic.set(false);
+                this.micBlocked.set(true);
+            }
             return;
         }
+        if (this.starting !== recorder) {
+            recorder.cancel();
+            return;
+        }
+        this.starting = null;
+        this.startingMic.set(false);
         this.recorder = recorder;
         this.recording.set(true);
         this.elapsed.set(0);
@@ -304,6 +327,8 @@ export class FeedbackComponent {
     private reset(): void {
         this.recorder?.cancel();
         this.recorder = null;
+        this.starting = null;
+        this.startingMic.set(false);
         if (this.ticker) clearInterval(this.ticker);
         if (this.closeTimer) clearTimeout(this.closeTimer);
         this.ticker = null;

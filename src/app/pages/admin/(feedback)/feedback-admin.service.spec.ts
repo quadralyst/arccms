@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeBrowser, ownFeedbackFile } from './feedback-admin.service';
+import { describeBrowser, ownFeedbackFile, sitePath, toFeedbackItem } from './feedback-admin.service';
 
 describe('describeBrowser', () => {
     it('names the browser and the system', () => {
@@ -31,5 +31,26 @@ describe('ownFeedbackFile (review F)', () => {
         expect(ownFeedbackFile(item, 'voicePath', 'arccms/users/rec1/feedback/AbCdEfGhIjKlMnOpQrSt/screenshot.jpg', 'arccms/')).toBeUndefined();
         expect(ownFeedbackFile(item, 'voicePath', 42, 'arccms/')).toBeUndefined();
         expect(ownFeedbackFile({ id: 'x' }, 'voicePath', 'users/undefined/feedback/x/voice.webm', '')).toBeUndefined();
+    });
+});
+
+describe('reading an item the browser wrote (review F)', () => {
+    it('survives a malformed item: wrong types become blanks, never a crash', () => {
+        const item = toFeedbackItem('f1', {
+            userDocId: 'rec1', message: 42, page: 'x', device: { userAgent: 1, viewport: { w: 1 }, installed: 'yes' },
+            sender: ['x'], status: 'odd', voiceSeconds: '12',
+        });
+        expect(item).toMatchObject({ id: 'f1', userDocId: 'rec1', message: '', status: 'new', page: undefined, sender: undefined, voiceSeconds: undefined });
+        expect(item.device).toMatchObject({ userAgent: undefined, viewport: undefined, installed: false });
+        expect(() => describeBrowser(item.device?.userAgent)).not.toThrow();
+        expect(describeBrowser(1 as never)).toBe('');
+    });
+
+    it('links only to a page on this site', () => {
+        expect(sitePath('/learn/1')).toBe('/learn/1');
+        expect(sitePath('https://evil.example')).toBeUndefined();
+        expect(sitePath('//evil.example')).toBeUndefined();
+        expect(sitePath('/\\evil.example')).toBeUndefined();
+        expect(sitePath('javascript:alert(1)')).toBeUndefined();
     });
 });

@@ -19,19 +19,24 @@ export interface FeedbackDraft {
     voice: VoiceNote | null;
 }
 
-/** What the page and device were, for the person reading the feedback. */
+/**
+ * What the page and device were, for the person reading the feedback. The
+ * rules take these keys only, with these lengths (firestore.rules,
+ * isFeedbackPage and isFeedbackDevice).
+ */
 export function describeContext(installed: boolean) {
     const { platform } = detectPlatform(navigator.userAgent, navigator.maxTouchPoints);
+    const cut = (value: unknown, max: number) => String(value ?? '').slice(0, max);
     return {
         // The path only: a full address can carry codes or tokens in its query.
-        page: { path: location.pathname, title: document.title },
+        page: { path: cut(location.pathname, 500), title: cut(document.title, 300) },
         device: {
-            platform,
-            userAgent: navigator.userAgent,
+            platform: cut(platform, 40),
+            userAgent: cut(navigator.userAgent, 500),
             screen: `${screen.width}x${screen.height}`,
             viewport: `${window.innerWidth}x${window.innerHeight}`,
             installed,
-            language: navigator.language,
+            language: cut(navigator.language, 40),
         },
     };
 }

@@ -6,6 +6,21 @@ import { translocoTestingModule } from '../../../test/transloco-test-providers';
 import { FeedbackService } from '../../../app/core/feedback/feedback.service';
 import { clock, FeedbackComponent, routeHidesFeedback } from './feedback.component';
 
+// A recorder whose microphone starts when the test says so (the permission prompt).
+const recorders = vi.hoisted(() => [] as Array<{ release: () => void; cancel: ReturnType<typeof import('vitest').vi.fn> }>);
+vi.mock('../../../app/core/feedback/voice-recorder', async (importOriginal) => {
+    const real = await importOriginal<typeof import('../../../app/core/feedback/voice-recorder')>();
+    class FakeRecorder {
+        onLimit: unknown = null;
+        cancel = vi.fn();
+        release!: () => void;
+        start = () => new Promise<void>((resolve) => { this.release = resolve; });
+        elapsed = () => 0;
+        constructor() { recorders.push(this as never); }
+    }
+    return { ...real, canRecordVoice: () => true, VoiceRecorder: FakeRecorder };
+});
+
 describe('routeHidesFeedback and clock', () => {
     it('finds feedbackButton: false anywhere on the way to the page', () => {
         const leaf: any = { data: { feedbackButton: false }, firstChild: null };
@@ -113,5 +128,22 @@ describe('FeedbackComponent', () => {
         fixture.detectChanges();
         expect(el.textContent).toContain('Could not send');
         expect(el.querySelector('textarea')!.value).toBe('Hello');
+    });
+
+    it('releases the microphone when the panel closed while it was starting, and waits on a second press (review F)', async () => {
+        recorders.length = 0;
+        const fixture = await render();
+        const c = fixture.componentInstance;
+        const first = c.startRecording();
+        void c.startRecording(); // a double click
+        expect(recorders).toHaveLength(1);
+        expect(c.startingMic()).toBe(true);
+
+        c.close();
+        recorders[0].release();
+        await first;
+        expect(recorders[0].cancel).toHaveBeenCalled();
+        expect(c.recording()).toBe(false);
+        expect(c.startingMic()).toBe(false);
     });
 });

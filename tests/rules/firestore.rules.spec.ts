@@ -294,6 +294,19 @@ describe('feedback (docs/feedback.md)', () => {
         page: { path: '/learn', title: 'Learn' }, device: { platform: 'android' },
         status: 'new', createdAt: serverTimestamp(), ...extra,
     });
+    beforeEach(() => env.withSecurityRulesDisabled((ctx) =>
+        setDoc(doc(ctx.firestore(), 'Settings', 'feedback'), { enabled: true })));
+
+    it('refuses feedback while the button is off, and odd page or device details (review F)', async () => {
+        await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'Settings', 'feedback'), { enabled: false }));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback()));
+        await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'Settings', 'feedback'), { enabled: true }));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ device: { userAgent: 1 } })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ device: { platform: 'android', blob: 'x'.repeat(10) } })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ page: { path: 'x'.repeat(600) } })));
+        await assertSucceeds(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ device: { platform: 'android', installed: true, userAgent: 'UA' } })));
+    });
+
 
     it('lets a signed-in person send their own, with files from their own folder', async () => {
         await assertSucceeds(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({

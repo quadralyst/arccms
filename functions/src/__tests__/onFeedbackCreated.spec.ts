@@ -12,16 +12,21 @@ vi.mock('../init', async () => {
 vi.mock('../email-core/adminAlerts', () => ({ notifyAdmins }));
 vi.mock('firebase-functions/v2/firestore', () => ({
     onDocumentCreated: vi.fn((_path: string, handler: unknown) => handler),
+    onDocumentWrittenWithAuthContext: vi.fn(),
 }));
+vi.mock('firebase-admin/firestore', async () => {
+    const { FakeTimestamp } = await import('./helpers/memoryFirestore.js');
+    return { Timestamp: FakeTimestamp, FieldValue: { delete: () => ({ _delete: true }), serverTimestamp: () => ({}) } };
+});
 
 import { db } from '../init.js';
-import { feedbackSummary, onFeedbackCreated } from '../feedback/onFeedbackCreated.js';
+import { FEEDBACK_ALERTS_PER_HOUR, feedbackSummary, onFeedbackCreated } from '../feedback/onFeedbackCreated.js';
 import type { MemoryFirestore } from './helpers/memoryFirestore.js';
 
 const mem = db as unknown as MemoryFirestore;
 type Handler = (event: unknown) => Promise<void>;
 const run = (id: string) =>
-    (onFeedbackCreated as unknown as Handler)({ data: { data: () => mem.read('Feedback', id), ref: db.collection('Feedback').doc(id) } });
+    (onFeedbackCreated as unknown as Handler)({ data: { id, data: () => mem.read('Feedback', id), ref: db.collection('Feedback').doc(id) } });
 
 beforeEach(() => {
     mem.store.clear();
@@ -59,5 +64,15 @@ describe('onFeedbackCreated', () => {
         await run('f2');
         expect(mem.read('Feedback', 'f2')!['sender']).toEqual({ name: '', email: '', phone: '' });
         expect(notifyAdmins).toHaveBeenCalledWith('admin_new_feedback', expect.objectContaining({ body: 'Someone sent a voice note.' }));
+    });
+
+    it(`alerts the admins about ${FEEDBACK_ALERTS_PER_HOUR} items an hour from one sender, and still keeps the rest (review F)`, async () => {
+        mem.seed('users', 'rec-1', { name: 'Asha' });
+        for (let i = 0; i < FEEDBACK_ALERTS_PER_HOUR + 3; i++) {
+            mem.seed('Feedback', `f${i}`, { userDocId: 'rec-1', message: `note ${i}` });
+            await run(`f${i}`);
+        }
+        expect(notifyAdmins).toHaveBeenCalledTimes(FEEDBACK_ALERTS_PER_HOUR);
+        expect(mem.read('Feedback', `f${FEEDBACK_ALERTS_PER_HOUR + 2}`)).toMatchObject({ sender: { name: 'Asha' } });
     });
 });

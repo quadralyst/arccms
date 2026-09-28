@@ -440,9 +440,35 @@ service cloud.firestore {
         && parts[at + 4] in names;
     }
 
+    // The admin's switch (Settings, Feedback). Off hides the button, and the
+    // rules refuse feedback too, or a script could keep writing it (review F).
+    function feedbackOn() {
+      let setting = /databases/$(database)/documents/Settings/feedback;
+      return exists(setting) && get(setting).data.get('enabled', false) == true;
+    }
+
+    function isShortText(m, key, max) {
+      return !(key in m) || (m[key] is string && m[key].size() <= max);
+    }
+
+    // The page and device the browser describes (feedback.service.ts,
+    // describeContext): known keys and short values only, so an item stays small.
+    function isFeedbackPage(p) {
+      return p is map && p.keys().hasOnly(['path', 'title'])
+        && isShortText(p, 'path', 500) && isShortText(p, 'title', 300);
+    }
+
+    function isFeedbackDevice(v) {
+      return v is map && v.keys().hasOnly(['platform', 'userAgent', 'screen', 'viewport', 'installed', 'language'])
+        && isShortText(v, 'platform', 40) && isShortText(v, 'userAgent', 500)
+        && isShortText(v, 'screen', 40) && isShortText(v, 'viewport', 40) && isShortText(v, 'language', 40)
+        && (!('installed' in v) || v.installed is bool);
+    }
+
     function isValidNewFeedback(feedbackId) {
       let d = request.resource.data;
       return isSignedIn()
+        && feedbackOn()
         && request.auth.token.get('arccms_uid', '') != ''
         && d.keys().hasOnly(['uid', 'userDocId', 'message', 'screenshotPath', 'voicePath', 'voiceSeconds', 'page', 'device', 'status', 'createdAt'])
         && d.keys().hasAll(['uid', 'userDocId', 'message', 'page', 'device', 'status', 'createdAt'])
@@ -452,7 +478,7 @@ service cloud.firestore {
         && d.createdAt == request.time
         && d.message is string && d.message.size() <= 5000
         && (d.message.size() > 0 || 'voicePath' in d)
-        && d.page is map && d.device is map
+        && isFeedbackPage(d.page) && isFeedbackDevice(d.device)
         && (!('screenshotPath' in d) || isFeedbackFile(d.screenshotPath, feedbackId, ['screenshot.jpg']))
         && (!('voicePath' in d) || isFeedbackFile(d.voicePath, feedbackId, ['voice.mp4', 'voice.webm', 'voice.ogg']))
         && (!('voiceSeconds' in d) || (d.voiceSeconds is number && d.voiceSeconds <= 180));

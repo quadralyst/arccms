@@ -30,7 +30,8 @@ export interface FeedbackItem {
 export const PAGE_SIZE = 25;
 
 /** "Chrome on Android", from the browser's own description. */
-export function describeBrowser(userAgent = ''): string {
+export function describeBrowser(raw: unknown = ''): string {
+    const userAgent = typeof raw === 'string' ? raw : '';
     const browser = /Edg\//.test(userAgent) ? 'Edge'
         : /CriOS|Chrome\//.test(userAgent) ? 'Chrome'
             : /FxiOS|Firefox\//.test(userAgent) ? 'Firefox'
@@ -62,18 +63,45 @@ export function ownFeedbackFile(
     return FEEDBACK_FILES[kind].some((name) => path === folder + name) ? path : undefined;
 }
 
-function toItem(snap: QueryDocumentSnapshot): FeedbackItem {
-    const data = snap.data() as Record<string, any>;
+const isMap = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+const text = (value: unknown, max = 500): string | undefined => (typeof value === 'string' ? value.slice(0, max) : undefined);
+
+/** A path on this site (`/about`), never another site's address, for the item's link. */
+export function sitePath(value: unknown): string | undefined {
+    const path = text(value);
+    return path && path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/\\') ? path : undefined;
+}
+
+/**
+ * The item as the inbox shows it. Everything the browser wrote is read as the
+ * type the page expects, so one malformed item (review F: a `userAgent` that
+ * was a number stopped the list at that item) cannot break the inbox.
+ */
+export function toFeedbackItem(id: string, data: Record<string, any>): FeedbackItem {
     const created = data['createdAt'];
+    const page = isMap(data['page']) ? data['page'] : null;
+    const device = isMap(data['device']) ? data['device'] : null;
+    const sender = isMap(data['sender']) ? data['sender'] : null;
     return {
-        ...(data as Omit<FeedbackItem, 'id' | 'createdAt'>),
-        id: snap.id,
+        id,
+        userDocId: text(data['userDocId']) ?? '',
+        voiceSeconds: typeof data['voiceSeconds'] === 'number' ? data['voiceSeconds'] : undefined,
+        page: page ? { path: sitePath(page['path']), title: text(page['title']) } : undefined,
+        device: device ? {
+            platform: text(device['platform']), userAgent: text(device['userAgent']), screen: text(device['screen']),
+            viewport: text(device['viewport']), installed: device['installed'] === true, language: text(device['language']),
+        } : undefined,
+        sender: sender ? { name: text(sender['name']), email: text(sender['email']), phone: text(sender['phone']) } : undefined,
         message: typeof data['message'] === 'string' ? data['message'] : '',
-        screenshotPath: ownFeedbackFile({ id: snap.id, userDocId: data['userDocId'] }, 'screenshotPath', data['screenshotPath']),
-        voicePath: ownFeedbackFile({ id: snap.id, userDocId: data['userDocId'] }, 'voicePath', data['voicePath']),
+        screenshotPath: ownFeedbackFile({ id, userDocId: text(data['userDocId']) }, 'screenshotPath', data['screenshotPath']),
+        voicePath: ownFeedbackFile({ id, userDocId: text(data['userDocId']) }, 'voicePath', data['voicePath']),
         status: data['status'] === 'done' ? 'done' : 'new',
         createdAt: created instanceof Timestamp ? created.toDate() : null,
     };
+}
+
+function toItem(snap: QueryDocumentSnapshot): FeedbackItem {
+    return toFeedbackItem(snap.id, snap.data() as Record<string, any>);
 }
 
 /** The admin Feedback inbox (docs/feedback.md). */

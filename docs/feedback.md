@@ -56,7 +56,9 @@ shows who sent it (name, email, phone, from their account), when, the message, t
 voice note, the screenshot (click to open it full size), the page and the device.
 **Mark done** moves it out of New; **Delete** removes it with its files.
 
-Each new item also rings the admin bell (notification type `admin_new_feedback`).
+Each new item also rings the admin bell (notification type `admin_new_feedback`),
+for up to 10 items an hour from one person; past that the feedback is still kept,
+without a notification.
 
 ## For apps
 
@@ -81,11 +83,13 @@ This works on pages that hide the floating button too.
   `sender`, which the `onFeedbackCreated` function adds from the sender's record.
   The browser cannot set `sender` itself.
 - Files: in the sender's own folder, `users/{userDocId}/feedback/{id}/` (after the
-  install's storage prefix): `screenshot.jpg` and `voice.mp4`, `.webm` or `.ogg`,
-  10 MB at most each.
+  install's storage prefix): only `screenshot.jpg` (a JPEG, under 5 MB) and
+  `voice.mp4`, `.webm` or `.ogg` (audio, under 10 MB).
 - `Settings/feedback`: `{ enabled }`.
 
-Rules: a signed-in person with an account record can create feedback that is
-theirs, new, and points only at files in their own folder. Only admins can read,
-change or delete it. Deleting an account deletes its feedback and files
+Rules: while the button is on, a signed-in person with an account record can
+create feedback that is theirs, new, points only at those files in their own
+folder, and describes the page and device with the known fields only (short
+text). Only admins can read, change or delete it. The inbox links only to pages on
+this site and opens or deletes only the item's own files. Deleting an account deletes its feedback and files
 (docs/account-contract.md).
