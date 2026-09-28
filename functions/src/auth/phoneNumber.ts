@@ -52,9 +52,13 @@ export function normalizePhone(raw: unknown, defaultCountryCode: string = DEFAUL
     return isValidInternational(full) ? `+${full}` : null;
 }
 
-/** Whether an E.164 number starts with one of the allowed country codes. */
+/**
+ * Whether an E.164 number starts with one of the allowed country codes. An empty
+ * list allows nothing (review F): it used to allow every country, so clearing
+ * the field opened SMS to numbers anywhere, and their cost.
+ */
 export function isAllowedCountry(e164: string, allowedCountryCodes: readonly string[]): boolean {
-    if (!allowedCountryCodes.length) return true;
+    if (!allowedCountryCodes.length) return false;
     return allowedCountryCodes.some((code) => e164.startsWith(`+${String(code).replace(/\D/g, '')}`));
 }
 

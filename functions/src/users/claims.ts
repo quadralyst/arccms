@@ -35,6 +35,13 @@ export function isArcAdmin(claims: unknown): boolean {
 /**
  * Merge claims into an account. A value of `null` or `''` removes that claim.
  * Writes nothing when every claim already has its value.
+ *
+ * Firebase has no atomic merge: this reads the claims, then writes them all. If
+ * another app sharing the sign-in pool sets its own claims on the same account
+ * in between, one of the two writes is lost (review F). ArcCMS writes claims
+ * rarely (sign-up, a role change, blocking, deletion), so this is accepted
+ * rather than guarded; an app that writes claims often should re-read and
+ * merge in the same way, and `syncAllUserRoles` re-applies ArcCMS's own.
  */
 export async function mergeUserClaims(uid: string, patch: Record<string, string | null>): Promise<void> {
     const user = await owner.getUser(uid);

@@ -14,11 +14,19 @@
  * `opened_installed` also mark their record (`pwa`), which gives the install rate.
  * Visitors who are not signed in are counted too: people often install before
  * signing in.
+ *
+ * Anyone can call it, so (review F) one caller counts at most PWA_EVENTS_PER_HOUR
+ * events an hour (the rest are accepted and not counted, so a script cannot
+ * inflate the dashboard much), and a record is written only when something
+ * changes: its first install, or the first home-screen opening of a day. Each
+ * write to a record also runs the users triggers.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
-import { findUserByUid } from '../auth/accounts.js';
+import { callerKey, consumeRateLimit, findUserByUid } from '../auth/accounts.js';
+
+export const PWA_EVENTS_PER_HOUR = 30;
 
 export const PWA_STATS = 'PwaStats';
 export const PWA_EVENTS = ['prompt_shown', 'installed', 'dismissed', 'opened_installed'] as const;
@@ -46,14 +54,22 @@ export const trackPwaEvent = onCall(async (request) => {
     const platform = PWA_PLATFORMS.find((p) => p === data.platform);
     if (!event || !platform) throw new HttpsError('invalid-argument', 'Unknown event or platform.');
 
+    try {
+        await consumeRateLimit(`pwa-${callerKey(request)}`, PWA_EVENTS_PER_HOUR, 60 * 60 * 1000, 'Too many');
+    } catch {
+        return { ok: true, counted: false };
+    }
+
     const day = statsDay();
     await db.collection(PWA_STATS).doc(day).set(statsUpdate(event, platform, day), { merge: true });
 
     const uid = request.auth?.uid;
     if (uid && (event === 'installed' || event === 'opened_installed')) {
         const record = await findUserByUid(uid);
-        if (record) {
-            const pwa = (record.data['pwa'] ?? {}) as { installed?: boolean };
+        const pwa = (record?.data['pwa'] ?? {}) as { installed?: boolean; platform?: string; lastOpenedAt?: { toDate?: () => Date } };
+        const openedToday = statsDay(pwa.lastOpenedAt?.toDate?.() ?? new Date(0)) === day;
+        const known = pwa.installed === true && pwa.platform === platform && (event === 'installed' || openedToday);
+        if (record && !known) {
             await record.ref.set({
                 pwa: {
                     installed: true,

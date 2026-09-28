@@ -60,10 +60,13 @@ export class SmsSettingsService {
     }
 
     async save(form: SmsSettingsForm): Promise<void> {
+        const defaultCountryCode = form.defaultCountryCode.replace(/\D/g, '') || DEFAULT_SMS_FORM.defaultCountryCode;
+        const allowed = parseCountryCodes(form.allowedCountryCodes);
         const data: Record<string, unknown> = {
             provider: form.provider,
-            defaultCountryCode: form.defaultCountryCode.replace(/\D/g, '') || DEFAULT_SMS_FORM.defaultCountryCode,
-            allowedCountryCodes: parseCountryCodes(form.allowedCountryCodes),
+            defaultCountryCode,
+            // Empty means the default country only (functions/src/sms/smsSettings.ts).
+            allowedCountryCodes: allowed.length ? allowed : [defaultCountryCode],
             msg91OtpTemplateId: form.msg91OtpTemplateId.trim(),
             updatedAt: serverTimestamp(),
         };

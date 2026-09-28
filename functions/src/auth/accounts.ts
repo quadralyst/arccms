@@ -13,7 +13,7 @@
  */
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import { Timestamp, type DocumentReference, type DocumentSnapshot } from 'firebase-admin/firestore';
-import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { db, owner } from '../init.js';
 import { phoneHash } from './phoneNumber.js';
@@ -164,19 +164,64 @@ export async function hashPin(pin: string, salt: Buffer): Promise<string> {
     return (await scryptAsync(pin, salt, 32)).toString('hex');
 }
 
+/**
+ * The PIN pepper (review F): a random secret in `_system/pin_pepper`, which no
+ * client can read, mixed into every PIN hash. A 6-digit PIN has only a million
+ * values, so a copy of `auth_pins` alone (a mistaken rule, an export of one
+ * collection) could be cracked offline in hours; without the pepper it cannot.
+ * Made on first use, then kept in memory.
+ */
+export const PIN_PEPPER_DOC = { collection: '_system', doc: 'pin_pepper' } as const;
+let pepperCache: Promise<string> | null = null;
+
+export function pinPepper(): Promise<string> {
+    pepperCache ??= db.runTransaction(async (tx) => {
+        const ref = db.collection(PIN_PEPPER_DOC.collection).doc(PIN_PEPPER_DOC.doc);
+        const snap = await tx.get(ref);
+        const existing = snap.data()?.['value'];
+        if (typeof existing === 'string' && existing) return existing;
+        const value = randomBytes(32).toString('base64');
+        tx.set(ref, { value, createdAt: Timestamp.now() });
+        return value;
+    }).catch((err) => {
+        pepperCache = null;
+        throw err;
+    });
+    return pepperCache;
+}
+
+/** For tests: forget the pepper read from Firestore. */
+export function resetPinPepperCache(): void {
+    pepperCache = null;
+}
+
+/** Version 2 hashes: the PIN keyed with the pepper, then scrypt with the salt. */
+export const PIN_HASH_VERSION = 2;
+
+async function hashPinV2(pin: string, salt: Buffer): Promise<string> {
+    const keyed = createHmac('sha256', await pinPepper()).update(pin).digest('hex');
+    return hashPin(keyed, salt);
+}
+
+/** A stored PIN record for this PIN: a new salt, the pepper, and no lock. */
+async function pinRecord(pin: string): Promise<Record<string, unknown>> {
+    const salt = randomBytes(16);
+    return {
+        salt: salt.toString('hex'),
+        hash: await hashPinV2(pin, salt),
+        version: PIN_HASH_VERSION,
+        failedAttempts: 0,
+        updatedAt: Timestamp.now(),
+    };
+}
+
 export async function hasPin(uid: string): Promise<boolean> {
     return (await db.collection(AUTH_PINS).doc(uid).get()).exists;
 }
 
 /** Set or replace a PIN, which also clears any lock. */
 export async function setPin(uid: string, pin: string): Promise<void> {
-    const salt = randomBytes(16);
-    await db.collection(AUTH_PINS).doc(uid).set({
-        salt: salt.toString('hex'),
-        hash: await hashPin(pin, salt),
-        failedAttempts: 0,
-        updatedAt: Timestamp.now(),
-    });
+    await db.collection(AUTH_PINS).doc(uid).set(await pinRecord(pin));
 }
 
 export type PinCheck =
@@ -190,6 +235,7 @@ export type PinCheck =
  * all read the same count (review F).
  */
 export async function checkPin(uid: string, pin: string): Promise<PinCheck> {
+    await pinPepper(); // read (or made) before the transaction below, not inside it
     const ref = db.collection(AUTH_PINS).doc(uid);
     return db.runTransaction(async (tx): Promise<PinCheck> => {
         const snap = await tx.get(ref);
@@ -198,10 +244,14 @@ export async function checkPin(uid: string, pin: string): Promise<PinCheck> {
         const failed = Number(data['failedAttempts'] ?? 0);
         if (failed >= MAX_PIN_ATTEMPTS) return { ok: false, reason: 'locked' };
 
+        const salt = Buffer.from(String(data['salt'] ?? ''), 'hex');
+        const peppered = data['version'] === PIN_HASH_VERSION;
         const expected = Buffer.from(String(data['hash'] ?? ''), 'hex');
-        const actual = Buffer.from(await hashPin(pin, Buffer.from(String(data['salt'] ?? ''), 'hex')), 'hex');
+        const actual = Buffer.from(peppered ? await hashPinV2(pin, salt) : await hashPin(pin, salt), 'hex');
         if (expected.length === actual.length && timingSafeEqual(expected, actual)) {
-            if (failed) tx.update(ref, { failedAttempts: 0 });
+            // A PIN set before the pepper is stored again with it, now that we know it.
+            if (!peppered) tx.set(ref, await pinRecord(pin));
+            else if (failed) tx.update(ref, { failedAttempts: 0 });
             return { ok: true };
         }
         tx.update(ref, { failedAttempts: failed + 1, lastFailedAt: Timestamp.now() });

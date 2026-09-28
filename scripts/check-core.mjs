@@ -15,7 +15,9 @@
  *   core      Arc CMS files: move the change into the custom space, or build
  *             it in Arc CMS itself and pull it
  *
- * Exit code 1 when a core file changed, 0 otherwise.
+ * Exit code 1 when a core file changed, or when there is no Arc CMS version to
+ * compare with (so the check never passes without checking); 0 otherwise, and in
+ * Arc CMS itself (its own repository has no upstream).
  *
  *   npm run check:core                     compares with upstream/main
  *   npm run check:core -- --against upstream/dev
@@ -69,13 +71,26 @@ function lines(text) {
     return text ? text.split('\n').filter(Boolean) : [];
 }
 
-/** Every path that differs from `against`: committed, staged, unstaged and new files. */
+/**
+ * Every path that differs from `against`: committed, staged, unstaged and new
+ * files. `--no-renames`, or a core file moved into the custom space would be
+ * listed only under its new, custom path (review F).
+ */
 export function changedPaths(against, cwd = process.cwd()) {
     const base = git(['merge-base', 'HEAD', against], cwd);
     return [
-        ...lines(git(['diff', '--name-only', base], cwd)),
+        ...lines(git(['diff', '--name-only', '--no-renames', base], cwd)),
         ...lines(git(['ls-files', '--others', '--exclude-standard'], cwd)),
     ];
+}
+
+/** Whether this checkout is Arc CMS itself: a remote points at its repository. */
+export function isArcCmsItself(cwd) {
+    try {
+        return /[/:]quadralyst\/arccms(\.git)?$/m.test(git(['remote', '-v'], cwd).replace(/ \((fetch|push)\)/g, ''));
+    } catch {
+        return false;
+    }
 }
 
 function hasRef(ref, cwd) {
@@ -92,11 +107,15 @@ export function main(argv = process.argv.slice(2), log = console.log, cwd = proc
     const against = i === -1 ? DEFAULT_UPSTREAM : argv[i + 1];
 
     if (!hasRef(against, cwd)) {
-        log(`No ${against} to compare with. In an app built on Arc CMS, add Arc CMS as the upstream remote once:`);
+        if (isArcCmsItself(cwd)) {
+            log('This is Arc CMS itself: there is no core to protect, so nothing to check.');
+            return 0;
+        }
+        // Passing here would let an app edit core files with the check still green.
+        log(`No ${against} to compare with, so nothing was checked. Add Arc CMS as the upstream remote once:`);
         log(`  git remote add upstream ${ARC_CMS_REPO}`);
         log('  git fetch upstream');
-        log('(In Arc CMS itself there is nothing to check.)');
-        return 0;
+        return 1;
     }
 
     const groups = group(changedPaths(against, cwd));

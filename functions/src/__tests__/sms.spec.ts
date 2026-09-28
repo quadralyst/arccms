@@ -34,6 +34,11 @@ describe('resolveSmsSettings', () => {
         expect(settings.defaultCountryCode).toBe('44');
         expect(settings.allowedCountryCodes).toEqual(['91', '44']);
     });
+
+    it('reads an emptied country list as the default country only, never everywhere (review F)', () => {
+        expect(resolveSmsSettings({ defaultCountryCode: '44', allowedCountryCodes: [] }).allowedCountryCodes).toEqual(['44']);
+        expect(resolveSmsSettings({ allowedCountryCodes: ['', ' '] }).allowedCountryCodes).toEqual(['91']);
+    });
 });
 
 describe('buildMsg91OtpRequest', () => {

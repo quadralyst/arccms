@@ -29,7 +29,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 }));
 
 import { db } from '../init.js';
-import { PWA_STATS, statsDay, statsUpdate, trackPwaEvent } from '../pwa/trackPwaEvent.js';
+import { PWA_EVENTS_PER_HOUR, PWA_STATS, statsDay, statsUpdate, trackPwaEvent } from '../pwa/trackPwaEvent.js';
 import type { MemoryFirestore } from './helpers/memoryFirestore.js';
 
 const mem = db as unknown as MemoryFirestore;
@@ -85,5 +85,26 @@ describe('trackPwaEvent', () => {
         mem.seed('users', 'rec-1', { uid: 'u1' });
         await call({ event: 'dismissed', platform: 'desktop' }, 'u1');
         expect(mem.read('users', 'rec-1')!['pwa']).toBeUndefined();
+    });
+
+    it(`counts at most ${PWA_EVENTS_PER_HOUR} events an hour from one caller, quietly (review F)`, async () => {
+        const from = (ip: string) => (trackPwaEvent as unknown as Handler)({
+            data: { event: 'prompt_shown', platform: 'android' }, rawRequest: { ip, headers: {} },
+        });
+        for (let i = 0; i < PWA_EVENTS_PER_HOUR; i++) await from('203.0.113.9');
+        await expect(from('203.0.113.9')).resolves.toEqual({ ok: true, counted: false });
+        await expect(from('203.0.113.10')).resolves.toEqual({ ok: true });
+    });
+
+    it('writes the record only when something changes: not again for the same install or the same day (review F)', async () => {
+        const today = { toDate: () => new Date() };
+        mem.seed('users', 'rec-1', { uid: 'u1', pwa: { installed: true, platform: 'ios', lastOpenedAt: today } });
+        await call({ event: 'installed', platform: 'ios' }, 'u1');
+        await call({ event: 'opened_installed', platform: 'ios' }, 'u1');
+        expect(mem.read('users', 'rec-1')!['pwa']).toEqual({ installed: true, platform: 'ios', lastOpenedAt: today });
+
+        mem.seed('users', 'rec-1', { uid: 'u1', pwa: { installed: true, platform: 'ios', lastOpenedAt: { toDate: () => new Date(Date.now() - 2 * 86_400_000) } } });
+        await call({ event: 'opened_installed', platform: 'ios' }, 'u1');
+        expect((mem.read('users', 'rec-1')!['pwa'] as Record<string, unknown>)['lastOpenedAt']).toEqual({ _serverTimestamp: true });
     });
 });

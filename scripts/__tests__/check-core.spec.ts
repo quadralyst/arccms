@@ -78,10 +78,25 @@ describe('check-core', () => {
             expect(out).toContain('docs/custom-code.md');
         });
 
-        it('explains how to add Arc CMS as upstream when there is nothing to compare with', () => {
+        it('fails, and explains how to add Arc CMS as upstream, when there is nothing to compare with (review F)', () => {
+            const { code, out } = run();
+            expect(code).toBe(1);
+            expect(out).toContain('git remote add upstream');
+        });
+
+        it('passes in Arc CMS itself, which has no upstream', () => {
+            git('remote', 'add', 'origin', 'git@github.com:quadralyst/arccms.git');
             const { code, out } = run();
             expect(code).toBe(0);
-            expect(out).toContain('git remote add upstream');
+            expect(out).toContain('Arc CMS itself');
+        });
+
+        it('names a core file moved into the custom space (review F)', () => {
+            mkdirSync(join(dir, 'src', 'custom', 'moved'), { recursive: true });
+            git('mv', 'firestore.rules', 'src/custom/moved/firestore.rules');
+            const { code, out } = run('--against', 'arc-base');
+            expect(code).toBe(1);
+            expect(out).toContain('firestore.rules');
         });
     });
 });

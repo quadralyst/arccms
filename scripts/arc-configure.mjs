@@ -141,6 +141,12 @@ export function validateConfig(config) {
     if (config.appUsers && config.appUsers !== APP_USERS_OWN) {
         errors.push(`app-users must be "own" (this install's own users), not "${config.appUsers}". For another app's users, use --app-users-database and --app-users-path.`);
     }
+    // One folder, ending in a slash: the storage rules keep `users/` private only
+    // at the bucket root or one folder down (review F). `arccms` (no slash) would
+    // put uploads in `arccmsusers/...`; `sites/arccms/` would make them public.
+    if (config.storagePrefix && !/^[A-Za-z0-9_-]+\/$/.test(config.storagePrefix)) {
+        errors.push(`prefix "${config.storagePrefix}" must be one folder ending in a slash, for example "arccms/".`);
+    }
     if (config.databaseId && !/^(\(default\)|[a-z][a-z0-9-]{2,62})$/.test(config.databaseId)) {
         errors.push(`databaseId "${config.databaseId}" is not a valid Firestore database id (lowercase letters, digits and hyphens, 3 to 63 characters, starting with a letter).`);
     }

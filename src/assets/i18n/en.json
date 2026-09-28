@@ -787,7 +787,7 @@
         "default_country": "Default country code",
         "default_country_hint": "Added to numbers typed without one. 91 is India.",
         "allowed_countries": "Allowed country codes",
-        "allowed_countries_hint": "Only these numbers can sign in by phone. Separate them with commas.",
+        "allowed_countries_hint": "Only these numbers can sign in by phone. Separate them with commas. Left empty, only the default country.",
         "save": "Save SMS settings",
         "saved": "SMS settings saved",
         "test_title": "Send a test SMS",

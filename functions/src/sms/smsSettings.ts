@@ -41,12 +41,15 @@ export function resolveSmsSettings(raw: Record<string, unknown> | undefined): Sm
     const provider = SMS_PROVIDERS.includes(data['provider'] as SmsProviderId)
         ? (data['provider'] as SmsProviderId)
         : DEFAULT_SMS_SETTINGS.provider;
-    const allowed = Array.isArray(data['allowedCountryCodes'])
+    const defaultCountryCode = digits(data['defaultCountryCode']) || DEFAULT_SMS_SETTINGS.defaultCountryCode;
+    const listed = Array.isArray(data['allowedCountryCodes'])
         ? (data['allowedCountryCodes'] as unknown[]).map(digits).filter(Boolean)
-        : DEFAULT_SMS_SETTINGS.allowedCountryCodes;
+        : [];
+    // No list (or an emptied one) means the default country only, never everywhere.
+    const allowed = listed.length ? listed : [defaultCountryCode];
     return {
         provider,
-        defaultCountryCode: digits(data['defaultCountryCode']) || DEFAULT_SMS_SETTINGS.defaultCountryCode,
+        defaultCountryCode,
         allowedCountryCodes: allowed,
         msg91AuthKey: typeof data['msg91AuthKey'] === 'string' ? data['msg91AuthKey'].trim() : '',
         msg91OtpTemplateId: typeof data['msg91OtpTemplateId'] === 'string' ? data['msg91OtpTemplateId'].trim() : '',

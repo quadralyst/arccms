@@ -48,13 +48,16 @@ Detached accounts view.
   marking a new email verified need the ticket back, so nobody else who knows the
   number or address can use the code. `link` codes belong to the signed-in account
   that asked instead.
-- **PINs:** `auth_pins/{uid}`, scrypt with a random salt; the 5th wrong PIN in a row
+- **PINs:** `auth_pins/{uid}`, scrypt with a random salt, keyed with a server secret
+  (`_system/pin_pepper`, made on first use; PINs set before it are upgraded when
+  next used), so a copy of `auth_pins` alone cannot be cracked; the 5th wrong PIN in a row
   locks it until a reset by SMS code. A new PIN may not be one digit repeated, a
   run such as 123456 or 987654, or a common pattern such as 121212. A reset signs
   out every other session.
 - **Limits:** per IP (checks, codes, PIN tries) and per number (5 codes an hour),
   and for email codes per address (5 an hour), in `_rate_limits`; only
-  `Settings/sms.allowedCountryCodes` (default `91`) pass. The IP is the last
+  `Settings/sms.allowedCountryCodes` (default `91`) pass, and an empty list means
+  the default country only. The IP is the last
   `X-Forwarded-For` entry, the one Google's front end added.
 - **Google:** Firebase's provider, one account per email. `ensureGoogleAccount`
   creates the record for a first-timer. `onUserCreated` marks the Auth email

@@ -77,7 +77,9 @@ shown, installed, "not now", and opened from the home screen. Each counts once p
 device (opening: once a day). They are added up by day in `PwaStats/{YYYY-MM-DD}`
 (UTC), readable by admins only. A signed-in person's record also gets
 `pwa: { installed, platform, installedAt, lastOpenedAt }`, which is what the install
-rate counts.
+rate counts. Anyone can call the function, so one caller counts at most 30 events an
+hour, and a record is written only when something changes (its first install, the
+first opening of a day).
 
 iPhone has no "installed" event, so the first open from the home screen counts as
 the install. Visitors who are not signed in are counted too, since people often

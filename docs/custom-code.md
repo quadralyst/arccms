@@ -156,5 +156,8 @@ npm run test
 
 `npm run check:core` lists every core file the app changed compared with the Arc CMS
 version it is based on (`--against upstream/dev` to compare with another branch). It
-exits with 1 when there are any, so it can run in CI. Dependency lists
-(`package.json`, `functions/package.json`) are reported for a look but allowed.
+exits with 1 when there are any, so it can run in CI, and also when there is no
+Arc CMS version to compare with (add the `upstream` remote), so it never passes
+without checking. A core file moved into the custom space still counts as a core
+change. Dependency lists (`package.json`, `functions/package.json`) are reported for
+a look but allowed.

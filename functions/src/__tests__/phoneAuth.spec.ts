@@ -281,4 +281,22 @@ describe('attempt counters and the caller\'s address (review F)', () => {
         for (const pin of ['000000', '999999', '123456', '234567', '987654', '890123', '112233', '123123']) expect(isWeakPin(pin)).toBe(true);
         for (const pin of ['246810', '135790', '192837', '604175']) expect(isWeakPin(pin)).toBe(false);
     });
+
+    it('peppers new PIN hashes, and upgrades a PIN set before the pepper when it is used (review F)', async () => {
+        const { hashPin, PIN_HASH_VERSION, PIN_PEPPER_DOC, resetPinPepperCache } = await import('../auth/accounts.js');
+        resetPinPepperCache(); // the store was cleared since an earlier test read it
+        const token = await signUp('246810');
+        expect(token).toBe('token-uid-asha');
+        const stored = mem.read('auth_pins', 'uid-asha')!;
+        expect(stored['version']).toBe(PIN_HASH_VERSION);
+        expect(mem.read(PIN_PEPPER_DOC.collection, PIN_PEPPER_DOC.doc)!['value']).toMatch(/^[A-Za-z0-9+/=]{44}$/);
+        // Without the pepper, the stored hash cannot be matched by guessing PINs.
+        expect(await hashPin('246810', Buffer.from(String(stored['salt']), 'hex'))).not.toBe(stored['hash']);
+
+        const salt = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
+        mem.seed('auth_pins', 'uid-asha', { salt: salt.toString('hex'), hash: await hashPin('246810', salt), failedAttempts: 0 });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810' })).resolves.toEqual({ token: 'token-uid-asha' });
+        expect(mem.read('auth_pins', 'uid-asha')).toMatchObject({ version: PIN_HASH_VERSION, failedAttempts: 0 });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810' })).resolves.toEqual({ token: 'token-uid-asha' });
+    });
 });

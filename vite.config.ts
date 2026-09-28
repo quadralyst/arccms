@@ -159,9 +159,19 @@ export default defineConfig(({ mode }) => {
               options: { cacheName: 'arc-files', expiration: { maxEntries: 60 } },
             },
             {
-              urlPattern: ({ request }) => request.destination === 'image',
+              // Images, but never a person's own files (`users/...` in Storage: a
+              // feedback screenshot, a private upload), which would stay on a shared
+              // device after sign-out; and only real answers (200), since an opaque
+              // cross-site answer takes megabytes of the device's quota (review F).
+              urlPattern: ({ request, url }) => request.destination === 'image'
+                && !(url.hostname === 'firebasestorage.googleapis.com'
+                  && /\/o\/([^/]+\/)?users\//.test(decodeURIComponent(url.pathname))),
               handler: 'StaleWhileRevalidate',
-              options: { cacheName: 'arc-images', expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 } },
+              options: {
+                cacheName: 'arc-images',
+                cacheableResponse: { statuses: [200] },
+                expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              },
             },
             {
               urlPattern: ({ url }) => /^(fonts\.(googleapis|gstatic)\.com|cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)$/.test(url.hostname),

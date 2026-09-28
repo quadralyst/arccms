@@ -20,8 +20,8 @@ describe('isAllowedCountry', () => {
         expect(isAllowedCountry('+447700900123', ['91', '44'])).toBe(true);
     });
 
-    it('allows everything when no list is set', () => {
-        expect(isAllowedCountry('+447700900123', [])).toBe(true);
+    it('allows nothing with an empty list, never everywhere (review F)', () => {
+        expect(isAllowedCountry('+447700900123', [])).toBe(false);
     });
 });
 

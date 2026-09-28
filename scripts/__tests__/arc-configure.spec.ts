@@ -112,6 +112,14 @@ describe('arc-configure', () => {
             expect(configure.validateConfig(configure.normalizeConfig({ databaseId: 'ArcCMS_db' }))).toHaveLength(1);
         });
 
+        it('takes an upload folder only as one folder ending in a slash (review F)', () => {
+            const errors = (prefix: string) => configure.validateConfig(configure.normalizeConfig({ storagePrefix: prefix }));
+            expect(errors('arccms/')).toEqual([]);
+            expect(errors('arccms')).toHaveLength(1);
+            expect(errors('sites/arccms/')).toHaveLength(1);
+            expect(errors('../x/')).toHaveLength(1);
+        });
+
         it('rejects unknown flags', () => {
             expect(() => configure.parseFlags(['--databse=arccms'])).toThrow(/Unknown argument/);
         });
