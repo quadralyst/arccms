@@ -898,6 +898,9 @@ export type TranslationKey =
     | 'admin.settings.email.keep_days'
     | 'admin.settings.email.keep_days_hint'
     | 'admin.settings.email.keep_days_range'
+    | 'admin.settings.email.load_failed_note'
+    | 'admin.settings.email.load_failed_retry'
+    | 'admin.settings.email.load_failed_title'
     | 'admin.settings.email.per_day'
     | 'admin.settings.email.per_day_hint'
     | 'admin.settings.email.per_hour'
@@ -2302,6 +2305,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.email.keep_days',
     'admin.settings.email.keep_days_hint',
     'admin.settings.email.keep_days_range',
+    'admin.settings.email.load_failed_note',
+    'admin.settings.email.load_failed_retry',
+    'admin.settings.email.load_failed_title',
     'admin.settings.email.per_day',
     'admin.settings.email.per_day_hint',
     'admin.settings.email.per_hour',

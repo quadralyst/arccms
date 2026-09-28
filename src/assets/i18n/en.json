@@ -430,7 +430,10 @@
         "test_passed": "Test Passed",
         "send_test": "Send a Test Email",
         "rate_limits_for": "Rate Limits ({{ provider }})",
-        "forced_off": "Forced off while email is disabled."
+        "forced_off": "Forced off while email is disabled.",
+        "load_failed_title": "Email settings could not be loaded",
+        "load_failed_note": "Nothing was changed. Reload the page, or sign out and in again if it keeps happening.",
+        "load_failed_retry": "Try again"
       },
       "payments": {
         "subtitle": "Configure Dodo Payments and the emails sent on payment events.",

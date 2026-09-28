@@ -43,6 +43,20 @@ describe('EmailSettingService', () => {
         expect(service).toBeTruthy();
     });
 
+    it('passes a failed read on, never defaults that a save would write over the real settings', async () => {
+        const { getDoc } = await import('@angular/fire/firestore');
+        vi.mocked(getDoc).mockRejectedValue(new Error('permission-denied'));
+        const { firstValueFrom } = await import('rxjs');
+        await expect(firstValueFrom(service.getEmailSettings())).rejects.toThrow('permission-denied');
+    });
+
+    it('returns defaults when the document does not exist yet', async () => {
+        const { getDoc } = await import('@angular/fire/firestore');
+        vi.mocked(getDoc).mockResolvedValue({ exists: () => false } as never);
+        const { firstValueFrom } = await import('rxjs');
+        await expect(firstValueFrom(service.getEmailSettings())).resolves.toMatchObject({ activeProvider: 'smtp' });
+    });
+
     describe('DEFAULT_EMAIL_SETTINGS', () => {
         it('should have email disabled by default', () => {
             expect(DEFAULT_EMAIL_SETTINGS.isEnabled).toBe(false);

@@ -1,7 +1,7 @@
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import { Firestore, doc, getDoc, setDoc, serverTimestamp } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
-import { from, map, Observable, of, catchError } from 'rxjs';
+import { from, map, Observable } from 'rxjs';
 import {
     DEFAULT_EMAIL_SETTINGS,
     IConnectionTestPayload,
@@ -22,7 +22,9 @@ export class EmailSettingService {
     private injector = inject(Injector);
 
     /**
-     * Fetch email settings from Firestore
+     * Fetch email settings from Firestore. Defaults only when the document does
+     * not exist yet; a failed read errors, so the page never shows (and a save
+     * never writes) defaults over the real settings.
      */
     getEmailSettings(): Observable<IEmailSettings> {
         const docRef = runInInjectionContext(this.injector, () => doc(this.firestore, SETTINGS_COLLECTION, EMAIL_SETTINGS_DOC));
@@ -34,10 +36,6 @@ export class EmailSettingService {
                 }
                 return { ...DEFAULT_EMAIL_SETTINGS };
             }),
-            catchError((error) => {
-                console.error('Error fetching email settings:', error);
-                return of({ ...DEFAULT_EMAIL_SETTINGS });
-            })
         );
     }
 

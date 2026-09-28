@@ -1,4 +1,18 @@
 <div class="email-settings">
+    @if (loadError()) {
+    <div class="disabled-state">
+        <div class="disabled-content">
+            <div class="disabled-icon">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3>{{ 'admin.settings.email.load_failed_title' | transloco }}</h3>
+            <p class="text-muted">{{ 'admin.settings.email.load_failed_note' | transloco }}</p>
+            <button mat-flat-button color="primary" (click)="loadSettings()">
+                <i class="fa-solid fa-rotate-right me-2"></i>{{ 'admin.settings.email.load_failed_retry' | transloco }}
+            </button>
+        </div>
+    </div>
+    } @else {
     <!-- Email Disabled State -->
     @if (!emailEnabled() && !configuring()) {
     <div class="disabled-state">
@@ -347,5 +361,6 @@
             </div>
         </div>
     </form>
+    }
     }
 </div>

@@ -68,6 +68,8 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
     configuring = signal(false);
     showProviderList = signal(false);
     isLoading = signal(true);
+    /** The settings could not be read: show the error, never an editable form of defaults. */
+    loadError = signal(false);
     isSaving = signal(false);
     isTesting = signal(false);
     testPassed = signal(false);
@@ -151,8 +153,9 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
             });
     }
 
-    private loadSettings(): void {
+    loadSettings(): void {
         this.isLoading.set(true);
+        this.loadError.set(false);
         this.emailSettingService.getEmailSettings().subscribe({
             next: (settings) => {
                 // Migrate legacy rateLimit to providerRateLimits if needed
@@ -204,7 +207,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
             },
             error: (error) => {
                 console.error('Failed to load email settings:', error);
-                this.toastService.openCustomSnackbar('Failed to load settings', 'error', 'error');
+                this.loadError.set(true);
                 this.isLoading.set(false);
             },
         });
