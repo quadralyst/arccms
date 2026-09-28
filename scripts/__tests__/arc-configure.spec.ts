@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import * as configure from '../arc-configure.mjs';
 // @ts-expect-error: plain ESM script without type declarations
 import {
-    deployArgs, deploysFunctions, deploysOnlyFunctions, namesHosting, generatedConfigPath, projectArg, retryArgs, retryTargets, unconfirmed, unconfirmedFunctions,
+    cliActiveProject, deployArgs, deployProject, deploysFunctions, deploysOnlyFunctions, namesHosting, generatedConfigPath, projectArg, retryArgs, retryTargets, unconfirmed, unconfirmedFunctions,
 } from '../arc-deploy.mjs';
 
 const ROOT = resolve(__dirname, '..', '..');
@@ -264,15 +264,33 @@ describe('arc-deploy', () => {
             .toEqual(['deploy', '--only', 'functions', '--project', 'dev']);
     });
 
-    it("adds the target project's generated config when there is one", () => {
+    it("adds the target project's generated config when there is one, and always names the project (review O4)", () => {
         expect(deployArgs(['--only', 'functions'], true, 'acme-prod', ROOT))
-            .toEqual(['deploy', '--config', 'firebase.acme-prod.json', '--only', 'functions']);
+            .toEqual(['deploy', '--config', 'firebase.acme-prod.json', '--only', 'functions', '--project', 'acme-prod']);
+        expect(deployArgs(['--only', 'functions'], false, 'acme-prod'))
+            .toEqual(['deploy', '--only', 'functions', '--project', 'acme-prod']);
         expect(generatedConfigPath('acme-prod')).toBe(join(ROOT, 'firebase.acme-prod.json'));
     });
 
     it('leaves an explicit --config alone and never passes --probe or --no-probe to firebase', () => {
-        expect(deployArgs(['--config', 'other.json', '--no-probe'], true, 'acme-prod')).toEqual(['deploy', '--config', 'other.json']);
-        expect(deployArgs(['--probe', '--only', 'functions'], false, 'acme-prod')).toEqual(['deploy', '--only', 'functions']);
+        expect(deployArgs(['--config', 'other.json', '--no-probe'], true, 'acme-prod')).toEqual(['deploy', '--config', 'other.json', '--project', 'acme-prod']);
+        expect(deployArgs(['--probe', '--only', 'functions', '-P', 'prod'], false, 'acme-prod')).toEqual(['deploy', '--only', 'functions', '-P', 'prod']);
+    });
+
+    it('targets the project the CLI would: --project, else firebase use, else the default alias (review O4)', () => {
+        const aliases = { default: 'acme-dev', production: 'acme-prod' };
+        const active = (id: string) => () => id;
+        expect(deployProject(['--project', 'production'], aliases, active('acme-dev'))).toBe('acme-prod');
+        expect(deployProject(['--only', 'functions'], aliases, active('acme-prod'))).toBe('acme-prod');
+        expect(deployProject([], aliases, active(''))).toBe('acme-dev');
+        expect(deployProject(['--project=some-id'], aliases, active('acme-prod'))).toBe('some-id');
+    });
+
+    it("reads the CLI's active project, and nothing when it cannot", () => {
+        const run = (stdout: string) => (() => ({ stdout })) as any;
+        expect(cliActiveProject(run('{"status":"success","result":"acme-prod"}'))).toBe('acme-prod');
+        expect(cliActiveProject(run('{"status":"error","error":"No active project"}'))).toBe('');
+        expect(cliActiveProject(run('not json'))).toBe('');
     });
 
     it('finds the project in every form the CLI accepts', () => {

@@ -4,6 +4,12 @@
  *
  * Passes every argument through to `firebase deploy`, and:
  *
+ * - picks the project the way the Firebase CLI does (--project, else the one
+ *   chosen with `firebase use`, else the `default` alias), and always passes it
+ *   to the CLI. It used to take the `default` alias whenever --project was
+ *   missing while the CLI deployed to the `firebase use` project, so after
+ *   `firebase use production` the production project was deployed with the dev
+ *   project's config: its database id, its rules targets (review O4);
  * - adds `--config firebase.<projectId>.json` when `npm run arc:configure`
  *   generated one for the target project, so a project set up with a named
  *   database, its own bucket or its own hosting site deploys those. Without that
@@ -84,14 +90,38 @@ export function deploysOnlyFunctions(args) {
 
 /**
  * The `firebase` arguments for a deploy. An explicit --config/-c wins; otherwise
- * the target project's generated config is added when it exists.
+ * the target project's generated config is added when it exists. The project is
+ * always named, so the CLI deploys to the project whose config this is.
  */
 export function deployArgs(args, generatedExists, projectId, cwd = process.cwd()) {
     const passthrough = args.filter((a) => a !== '--no-probe' && a !== '--probe');
+    const withProject = projectArg(passthrough) || !projectId ? passthrough : [...passthrough, '--project', projectId];
     const hasConfig = passthrough.some((a) => a === '--config' || a === '-c' || a.startsWith('--config='));
-    if (hasConfig || !generatedExists || !projectId) return ['deploy', ...passthrough];
+    if (hasConfig || !generatedExists || !projectId) return ['deploy', ...withProject];
     const config = generatedConfigPath(projectId);
-    return ['deploy', '--config', relative(cwd, config) || config, ...passthrough];
+    return ['deploy', '--config', relative(cwd, config) || config, ...withProject];
+}
+
+/**
+ * The project the Firebase CLI deploys to when no --project is given: the one
+ * chosen with `firebase use` for this directory (it falls back to the
+ * `default` alias itself), or '' when the CLI cannot say.
+ */
+export function cliActiveProject(run = spawnSync) {
+    const result = run('firebase', ['use', '--json'], { encoding: 'utf8', shell: process.platform === 'win32' });
+    try {
+        const parsed = JSON.parse(String(result.stdout || ''));
+        return parsed.status === 'success' && typeof parsed.result === 'string' ? parsed.result : '';
+    } catch {
+        return '';
+    }
+}
+
+/** The project a deploy targets: --project, else the CLI's active project, else the `default` alias. */
+export function deployProject(args, aliases, active = () => cliActiveProject()) {
+    const explicit = projectArg(args);
+    if (explicit) return resolveProjectId(explicit, aliases);
+    return active() || resolveProjectId('', aliases);
 }
 
 /**
@@ -165,7 +195,11 @@ function run(cmd, args) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     const args = process.argv.slice(2);
-    const projectId = resolveProjectId(projectArg(args), readFirebaseAliases());
+    const projectId = deployProject(args, readFirebaseAliases());
+    if (!projectId) {
+        console.error('No Firebase project: pass --project=<alias or id>, run firebase use, or add a "default" alias to .firebaserc.');
+        process.exit(1);
+    }
     const generated = !!projectId && existsSync(generatedConfigPath(projectId));
     const firebaseArgs = deployArgs(args, generated, projectId);
     // Hosting off (arc:configure --site=none) leaves no hosting in the generated

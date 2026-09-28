@@ -334,7 +334,10 @@ switching meant editing files by hand. Now:
 
 `arc:configure -- --project=<alias or id>` resolves `.firebaserc` aliases (no flag means the
 `default` alias, as with the CLI) and changes only that project. `npm run deploy` finds the
-project in `--project`/`-P` and adds that project's generated config. With `--probe`, after a
+project as the Firebase CLI does (`--project`/`-P`, else the one chosen with `firebase use`,
+else the `default` alias), always passes it to the CLI (review O4, 2026-09-28: it used to take
+the `default` alias while the CLI deployed to the `firebase use` project), and adds that
+project's generated config. With `--probe`, after a
 deploy that includes functions it runs `functions/scripts/check-callable-access.sh` against it,
 failing the deploy if a callable is blocked. The check is off by default since 2026-09-28 (it
 made every deploy slow); run it after a deploy that adds a callable, and before a release. `export-indexes` and the purge script
