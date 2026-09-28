@@ -270,6 +270,10 @@
           "label": "App audience",
           "description": "Your app's users, read live"
         },
+        "automations": {
+          "label": "Automations",
+          "description": "Emails and actions when things happen"
+        },
         "sms": {
           "label": "SMS",
           "description": "Text messages for phone sign-in"
@@ -701,6 +705,7 @@
         "test_doc_id": "Document id (optional)",
         "test_result": "How ArcCMS reads it",
         "test_none": "No such document.",
+        "test_failed": "The test did not run: {{error}}",
         "save": "Save",
         "saved": "App audience settings saved.",
         "save_failed": "Could not save the settings.",

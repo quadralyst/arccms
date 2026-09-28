@@ -786,6 +786,7 @@ export type TranslationKey =
     | 'admin.settings.app_audience.saved'
     | 'admin.settings.app_audience.test'
     | 'admin.settings.app_audience.test_doc_id'
+    | 'admin.settings.app_audience.test_failed'
     | 'admin.settings.app_audience.test_none'
     | 'admin.settings.app_audience.test_result'
     | 'admin.settings.app_audience.title'
@@ -941,6 +942,8 @@ export type TranslationKey =
     | 'admin.settings.hub.analytics.label'
     | 'admin.settings.hub.app-audience.description'
     | 'admin.settings.hub.app-audience.label'
+    | 'admin.settings.hub.automations.description'
+    | 'admin.settings.hub.automations.label'
     | 'admin.settings.hub.discoverability.description'
     | 'admin.settings.hub.discoverability.label'
     | 'admin.settings.hub.email.description'
@@ -2193,6 +2196,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.app_audience.saved',
     'admin.settings.app_audience.test',
     'admin.settings.app_audience.test_doc_id',
+    'admin.settings.app_audience.test_failed',
     'admin.settings.app_audience.test_none',
     'admin.settings.app_audience.test_result',
     'admin.settings.app_audience.title',
@@ -2348,6 +2352,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.analytics.label',
     'admin.settings.hub.app-audience.description',
     'admin.settings.hub.app-audience.label',
+    'admin.settings.hub.automations.description',
+    'admin.settings.hub.automations.label',
     'admin.settings.hub.discoverability.description',
     'admin.settings.hub.discoverability.label',
     'admin.settings.hub.email.description',

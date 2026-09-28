@@ -173,6 +173,9 @@ interface TestResult {
               {{ 'admin.settings.app_audience.test' | transloco }}
             </button>
           </div>
+          @if (testError()) {
+            <div class="alert alert-warning mb-4">{{ 'admin.settings.app_audience.test_failed' | transloco: { error: testError() } }}</div>
+          }
           @if (testResult(); as t) {
             @if (t.resolved; as r) {
               <p class="fw-semibold mb-1">{{ 'admin.settings.app_audience.test_result' | transloco }}</p>
@@ -257,6 +260,8 @@ export class AppAudienceSettingsPage implements OnInit {
     readonly testDocId = signal('');
     readonly testing = signal(false);
     readonly testResult = signal<TestResult | null>(null);
+    /** A failed Test, shown by the Test button. Not `error`, which hides the editor for a page that could not load. */
+    readonly testError = signal('');
 
     readonly channels = [
         { id: 'email', labelKey: 'admin.settings.app_audience.email_field', value: this.emailField },
@@ -327,12 +332,14 @@ export class AppAudienceSettingsPage implements OnInit {
 
     async runTest(): Promise<void> {
         this.testing.set(true);
+        this.testError.set('');
         try {
             const res = await arcCallable<{ settings: AppAudienceSettings; docId?: string }, TestResult>(
                 this.functions, 'testAppUser')({ settings: this.currentSettings(), docId: this.testDocId() || undefined });
             this.testResult.set(res.data);
         } catch (err) {
-            this.error.set(err instanceof Error ? err.message : String(err));
+            this.testResult.set(null);
+            this.testError.set(err instanceof Error ? err.message : String(err));
         } finally {
             this.testing.set(false);
         }

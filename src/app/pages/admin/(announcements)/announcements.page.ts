@@ -15,7 +15,7 @@ import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AudienceService } from '../(audience)/audience.service';
-import { IList } from '../(audience)/audience.model';
+import { IList, contactLists } from '../(audience)/audience.model';
 import { arcCallable } from '../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
@@ -71,7 +71,8 @@ export default class AnnouncementsPageComponent implements OnInit {
 
     ngOnInit(): void {
         void this.seed();
-        this.audience.getLists().subscribe((l) => this.lists.set(l));
+        // A live list has no members an announcement could reach: not offered.
+        this.audience.getLists().subscribe((l) => this.lists.set(contactLists(l)));
     }
 
     private async seed(): Promise<void> {

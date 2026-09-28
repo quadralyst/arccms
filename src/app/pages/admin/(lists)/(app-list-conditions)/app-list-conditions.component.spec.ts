@@ -55,4 +55,34 @@ describe('AppListConditionsComponent', () => {
         expect(c.current()).toEqual([{ field: 'status', op: 'empty' }]);
         c.ngOnDestroy();
     });
+
+    it('keeps a new row with no field when the parent hands the conditions back (review UI bug)', () => {
+        const c = TestBed.createComponent(AppListConditionsComponent).componentInstance;
+        // What the list editor does: pass every emitted value straight back in.
+        c.conditionsChange.subscribe((v) => { c.conditions = v; });
+        c.conditions = [{ field: 'isPro', op: 'is', value: 'true' }];
+        c.add();
+        expect(c.rows()).toHaveLength(2);
+        c.update(1, { op: 'not_empty' });
+        expect(c.rows()).toHaveLength(2);
+        c.update(1, { field: 'plan.tier' });
+        expect(c.current()).toEqual([{ field: 'isPro', op: 'is', value: 'true' }, { field: 'plan.tier', op: 'not_empty' }]);
+        // A different list's conditions still replace the rows.
+        c.conditions = [{ field: 'status', op: 'empty' }];
+        expect(c.rows()).toEqual([{ field: 'status', op: 'empty', text: '' }]);
+        c.ngOnDestroy();
+    });
+
+    it('lets the field be typed when there is no sample of the app\'s fields', () => {
+        const fixture = TestBed.createComponent(AppListConditionsComponent);
+        const c = fixture.componentInstance;
+        c.add();
+        fixture.detectChanges();
+        const input = (fixture.nativeElement as HTMLElement).querySelector('.cond-field input') as HTMLInputElement;
+        expect(input).not.toBeNull();
+        input.value = ' plan.tier ';
+        input.dispatchEvent(new Event('input'));
+        expect(c.rows()[0].field).toBe('plan.tier');
+        c.ngOnDestroy();
+    });
 });

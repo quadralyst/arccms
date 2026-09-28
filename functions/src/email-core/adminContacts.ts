@@ -11,6 +11,7 @@ import {
 } from './contacts.js';
 import { eraseContact } from './eraseContact.js';
 import { isArcAdmin } from '../users/claims.js';
+import { refuseLiveLists } from './liveListGuard.js';
 
 function requireAdmin(request: { auth?: { uid?: string; token?: Record<string, unknown> } }): void {
   if (!isArcAdmin(request.auth?.token)) {
@@ -26,6 +27,7 @@ export const adminAddContact = onCall(async (request) => {
 
   const listIds = Array.isArray(request.data?.listIds) ? (request.data.listIds as string[]) : [];
   const consentAffirmed = request.data?.consentAffirmed === true;
+  await refuseLiveLists(listIds);
 
   const { emailHash, created } = await upsertContact({
     email,
@@ -114,6 +116,7 @@ export const adminUpdateContactLists = onCall(async (request) => {
   if (!emailHash) throw new HttpsError('invalid-argument', 'emailHash is required.');
   const add = Array.isArray(request.data?.add) ? (request.data.add as string[]) : [];
   const remove = Array.isArray(request.data?.remove) ? (request.data.remove as string[]) : [];
+  await refuseLiveLists(add);
 
   const added = add.length ? await addContactToLists(emailHash, add) : [];
   const removed = remove.length ? await removeContactFromLists(emailHash, remove) : [];

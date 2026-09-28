@@ -86,6 +86,27 @@ describe('AppAudienceSettingsPage', () => {
         expect(text).not.toContain("This install's own users");
     });
 
+    it('shows a failed Test by the Test button and keeps the editor (review UI bug)', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: configured, settings: { key: { source: 'docId' }, watchedFields: [] } };
+        m.responses['arccms-sampleAppUsers'] = { sampleSize: 1, fields: [{ path: 'email', examples: ['a@x.com'], seenIn: 1 }] };
+        const fixture = await open();
+        const page = fixture.componentInstance;
+        m.httpsCallable.mockImplementationOnce(() => async () => { throw new Error('No document u9'); });
+        await page.runTest();
+        fixture.detectChanges();
+        expect(page.error()).toBe('');
+        expect(page.testError()).toBe('No document u9');
+        const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+        expect(text).toContain('No document u9');
+        // The editor is still there: the fields table and the Save button.
+        expect(text).toContain('email');
+        expect((fixture.nativeElement as HTMLElement).querySelector('button.btn-primary')).not.toBeNull();
+        // Trying again clears it.
+        m.responses['arccms-testAppUser'] = { resolved: { docId: 'u1', key: 'u1', email: 'a@x.com', phone: '', name: '' } };
+        await page.runTest();
+        expect(page.testError()).toBe('');
+    });
+
     it('saves exactly the edited settings, without empty optional fields', async () => {
         m.responses['arccms-appAudienceStatus'] = { location: configured, settings: { key: { source: 'docId' }, watchedFields: [] } };
         m.responses['arccms-sampleAppUsers'] = { sampleSize: 0, fields: [] };

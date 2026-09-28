@@ -63,10 +63,15 @@ const PREVIEW_DELAY_MS = 600;
         <div class="condition-row d-flex gap-2 align-items-start flex-wrap mb-1">
             <mat-form-field appearance="outline" class="cond-field">
                 <mat-label>Field</mat-label>
-                <mat-select [ngModel]="row.field" (ngModelChange)="update(i, { field: $event })">
-                    @for (f of fields(); track f) { <mat-option [value]="f">{{ f }}</mat-option> }
-                    @if (row.field && !fields().includes(row.field)) { <mat-option [value]="row.field">{{ row.field }}</mat-option> }
-                </mat-select>
+                @if (fields().length) {
+                    <mat-select [ngModel]="row.field" (ngModelChange)="update(i, { field: $event })">
+                        @for (f of fields(); track f) { <mat-option [value]="f">{{ f }}</mat-option> }
+                        @if (row.field && !fields().includes(row.field)) { <mat-option [value]="row.field">{{ row.field }}</mat-option> }
+                    </mat-select>
+                } @else {
+                    <!-- No sample of the app's fields (still loading, or none): type the path. -->
+                    <input matInput placeholder="for example plan.tier" [ngModel]="row.field" (ngModelChange)="update(i, { field: $event.trim() })" />
+                }
             </mat-form-field>
             <mat-form-field appearance="outline" class="cond-op">
                 <mat-label>Condition</mat-label>
@@ -113,6 +118,10 @@ export class AppListConditionsComponent implements OnInit, OnDestroy {
         return Math.max(0, p.withEmail - (p.sharedEmail ?? 0) - p.subscribed);
     }
     @Input() set conditions(value: AppListCondition[] | undefined) {
+        // The parent hands back what this component just emitted. Rebuilding the
+        // rows from it would drop a row still being filled in (no field yet),
+        // which is left out of the emitted conditions: keep the rows then.
+        if (JSON.stringify(value ?? []) === JSON.stringify(this.current())) return;
         this.rows.set((value ?? []).map((c) => ({
             field: c.field,
             op: c.op,

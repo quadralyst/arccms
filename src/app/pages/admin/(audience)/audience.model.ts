@@ -101,6 +101,16 @@ export interface IList {
     conditions?: AppListCondition[];
 }
 
+/**
+ * Lists contacts can be put on or chosen from: every list but App users (live)
+ * ones, whose members are whoever matches their conditions at each use. Adding
+ * a contact, importing, announcing and list actions in automations use these;
+ * broadcasts and sequences support live lists and use them all.
+ */
+export function contactLists(lists: IList[]): IList[] {
+    return lists.filter((l) => l.type !== 'app');
+}
+
 export interface ICsvPreview {
     validCount: number;
     invalidCount: number;

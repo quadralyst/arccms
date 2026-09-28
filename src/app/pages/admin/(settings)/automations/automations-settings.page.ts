@@ -18,7 +18,7 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { AudienceService } from '../../(audience)/audience.service';
-import { IList } from '../../(audience)/audience.model';
+import { IList, contactLists } from '../../(audience)/audience.model';
 import {
     ConditionKind,
     EventDraft,
@@ -250,7 +250,7 @@ export class AutomationsSettingsPage implements OnInit {
     notificationTypes = signal<string[]>([]);
     lists = signal<IList[]>([]);
     /** Membership actions only make sense for lists people are added to. */
-    contactLists = computed(() => this.lists().filter((l) => l.type !== 'app'));
+    contactLists = computed(() => contactLists(this.lists()));
     problems = computed(() => Object.fromEntries(
         Object.entries(this.drafts()).map(([type, d]) => [type, draftProblems(d)]),
     ) as Record<string, string[]>);

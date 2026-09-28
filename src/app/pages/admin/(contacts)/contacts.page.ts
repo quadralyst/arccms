@@ -18,7 +18,7 @@ import { ToastService } from '../../../../shared/services/toast.service';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AudienceService } from '../(audience)/audience.service';
-import { IContact, IList, ITag, IContactField, MarketingConsent } from '../(audience)/audience.model';
+import { IContact, IList, ITag, IContactField, MarketingConsent, contactLists } from '../(audience)/audience.model';
 import { statusBadgeClass } from '../../../../shared/utils/status-badge';
 import { ContactDrawerComponent, ContactDrawerMode } from './(contact-drawer)/contact-drawer.component';
 
@@ -148,7 +148,8 @@ export default class ContactsPageComponent implements OnInit {
             this.contacts.set(c);
             this.loading.set(false);
         });
-        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
+        // Contacts are added to, imported into and filtered by stored lists only (not live ones).
+        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(contactLists(l)));
         this.audience.getTags().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((t) => this.tags.set(t));
         this.audience.getFields().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((f) => this.fields.set(f));
     }
