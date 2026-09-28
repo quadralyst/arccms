@@ -346,15 +346,20 @@ export async function askSetup(rl, projectId) {
         answers.site = site.value === 'own' ? await ask(rl, 'Site name', `${projectId}-arccms`) : HOSTING_OFF;
         answers.bucket = await ask(rl, 'Storage bucket for Arc CMS uploads', `${projectId}-arccms`);
         answers.prefix = await ask(rl, 'Folder in it', 'arccms/');
-        answers.appUsers = (await yes(rl, 'Email the other app\'s users from Arc CMS (the App audience)?', true)) ? 'host' : 'none';
-        if (answers.appUsers === 'host') {
-            answers.appUsersDatabase = await ask(rl, 'The other app\'s database', DEFAULT_DATABASE_ID);
-            answers.appUsersPath = await ask(rl, 'Its users collection, as <collection>/{id}', 'users/{id}');
+        // The App audience is the other app's users: ask only where they are.
+        const path = await ask(rl, 'Where does the other app keep its users? <collection>/{id}, or none', 'users/{id}');
+        if (path.toLowerCase() === 'none') {
+            answers.appUsers = 'none';
+        } else {
+            answers.appUsers = 'host';
+            answers.appUsersPath = path;
+            answers.appUsersDatabase = await ask(rl, 'In which database', DEFAULT_DATABASE_ID);
         }
     } else {
         const site = await yes(rl, 'Publish the website on this project\'s main site?', true);
         if (!site) answers.site = HOSTING_OFF;
-        answers.appUsers = (await yes(rl, 'Use your own users for live lists and change events (the App audience)?', false)) ? 'own' : 'none';
+        // The App audience is this site's own users: nothing to ask.
+        answers.appUsers = 'own';
     }
     return answers;
 }

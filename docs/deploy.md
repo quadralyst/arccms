@@ -45,13 +45,16 @@ remembered (in `.arc-deploy-state.json`, not committed) for the next "only what 
 The deploy asks how the project is used:
 
 - **Only by Arc CMS** (its own website or app): whether to publish the website on the project's
-  main site, and whether your own users should be the App audience. Then it deploys as usual.
+  main site. The site's own users become the App audience (live lists, change events,
+  `##APP.*##` tags), reading their `email`, `name` and `phone` until you change that in
+  Settings, App audience. Then it deploys as usual.
 - **Shared with another app** (Arc CMS as its admin or backend): Arc CMS gets its own database,
-  website (or none), storage bucket and folder, so neither app touches the other's, and
-  optionally the other app's users as the App audience. It then lists the commands that create
-  the database, site and bucket, and stops: create them first (the database in the same
-  location as the other app), then run `npm run deploy` again. Commit
-  `src/environments/arc-install.ts` as well; the website reads it.
+  website (or none), storage bucket and folder, so neither app touches the other's. The other
+  app's users are the App audience: it asks where they are (`users/{id}` unless you say
+  otherwise, or `none`). It then lists the commands that create the database, site and bucket,
+  and stops: create them first (the database in the same location as the other app), then run
+  `npm run deploy` again. Commit `src/environments/arc-install.ts` as well; the website reads
+  it.
 
 ## When the deploy stops
 

@@ -156,14 +156,17 @@ describe('the first-time setup', () => {
         const log = console.log;
         console.log = () => undefined;
         try {
-            // Shared; database default; own site default name; bucket default; folder default; App audience yes; defaults.
-            const answers = await askSetup(scripted(['2', '', '1', '', '', '', '', '', '']) as never, 'acme');
+            // Shared; database, own site and its name, bucket, folder, users path and database all on Enter.
+            const answers = await askSetup(scripted(['2', '', '1', '', '', '', '', '']) as never, 'acme');
             expect(answers).toEqual({
                 shared: true, database: 'arccms', site: 'acme-arccms', bucket: 'acme-arccms', prefix: 'arccms/',
                 appUsers: 'host', appUsersDatabase: '(default)', appUsersPath: 'users/{id}',
             });
-            // Only Arc CMS; website off; own users as the App audience.
-            expect(await askSetup(scripted(['1', 'n', 'y']) as never, 'acme')).toEqual({ shared: false, site: 'none', appUsers: 'own' });
+            // Shared, and the other app has no users.
+            expect((await askSetup(scripted(['2', '', '2', '', '', 'none']) as never, 'acme')).appUsers).toBe('none');
+            // Only Arc CMS: its own users are the App audience, with no question; website off.
+            expect(await askSetup(scripted(['1', 'n']) as never, 'acme')).toEqual({ shared: false, site: 'none', appUsers: 'own' });
+            expect(await askSetup(scripted(['1', '']) as never, 'acme')).toEqual({ shared: false, appUsers: 'own' });
         } finally {
             console.log = log;
         }
