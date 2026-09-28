@@ -168,10 +168,16 @@ change with a new deploy). Then:
 4. **Test** with a document id (or the first document) to see the person as ArcCMS reads
    them. Then **Save** (`Settings/app_audience` in the ArcCMS database).
 
-Fields whose names look like credentials (ending in password, secret, token, api key,
-private key, otp, pin, hash, salt or credential) are always shown as `(hidden)` and are never
-put into an email. If the host stores a secret under another name, rename it in the host app
-or tell the developer.
+Fields whose names look like credentials are always shown as `(hidden)` and are never put
+into an email or an event. A name counts when it contains password, passcode, secret, token,
+credential or jwt, when one of its words is otp, pin, pwd, hash, salt, cvv or ssn, or when it
+is a key, code or id of a kind such as `apiKey`, `privateKey`, `resetCode` or `sessionId`.
+Everything under such a field is hidden too (`credentials.google`), and so is a matching key
+inside a list or a deeper map. A yes/no value stays visible (`passwordless: true`). If the host
+stores a secret under another name, rename it in the host app or tell the developer.
+
+An email log keeps only the host fields that email's `##APP.*##` tags use, never the person's
+whole document.
 
 **Confirm:** Audience, App users lists the host's users with the right names and addresses.
 

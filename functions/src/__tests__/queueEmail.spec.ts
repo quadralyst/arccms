@@ -404,8 +404,15 @@ describe('queueEmail', () => {
 
     it('puts the app user id and their merge fields on a pending log', async () => {
       mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
-      await queueEmail({ ...baseParams, appUser });
+      await queueEmail({ ...baseParams, subject: 'Your ##APP.plan.tier## plan', template: '<p>Pro: ##APP.isPro|no##</p>', appUser });
       expect(lastAddArg()).toMatchObject({ status: 'pending', appUserId: 'h1', appFields: appUser.fields });
+    });
+
+    it('keeps only the fields the email uses, never the whole host document (review S6)', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      const person = { id: 'h1', fields: { isPro: 'true', 'plan.tier': 'pro', phone: '+91 98', city: 'Pune' } };
+      await queueEmail({ ...baseParams, subject: 'Hi', template: '<p>##APP.plan.tier## ##APP.missing|x##</p>', appUser: person });
+      expect(lastAddArg().appFields).toEqual({ 'plan.tier': 'pro' });
     });
 
     it('keeps the id on a skipped log, so an unsubscribe still reaches the person, but not the fields', async () => {

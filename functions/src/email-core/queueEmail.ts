@@ -8,6 +8,7 @@ import type {
 } from '../types.js';
 import { computeEmailHash } from './unsubscribeToken.js';
 import { getContactGateState } from './contacts.js';
+import { usedAppFields } from '../app-audience/mergeFields.js';
 
 /** Default max delivery attempts before an email is marked `failed`. */
 export const DEFAULT_MAX_ATTEMPTS = 3;
@@ -191,7 +192,8 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     ...base,
     status: 'pending',
     ...(contact.fields ? { contactFields: contact.fields } : {}),
-    ...(params.appUser ? { appFields: params.appUser.fields } : {}),
+    // Only the host fields this email's ##APP.*## tags use, never the whole document.
+    ...(params.appUser ? { appFields: usedAppFields(params.appUser.fields, params.template, params.subject) } : {}),
   };
   if (!params.dedupeKey) {
     const id = await writeLog(pending);

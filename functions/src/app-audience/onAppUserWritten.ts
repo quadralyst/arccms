@@ -25,7 +25,7 @@ import { db } from '../init.js';
 import { emitAppEvent } from '../email-core/appEvents.js';
 import { appUsersDatabaseParam, appUsersLocation, appUsersPathParam, type AppAudienceSettings } from './config.js';
 import { readAppAudienceSettings } from './adminCallables.js';
-import { displayValue, isSensitiveField, MASKED_VALUE, maskResolvedAppUser, resolveAppUser, valueAt } from './fields.js';
+import { comparableValue, isSensitiveField, MASKED_VALUE, maskResolvedAppUser, resolveAppUser, safeDisplayValue, valueAt } from './fields.js';
 import { APP_AUDIENCE_STATE, appUserStateId } from './state.js';
 import { syncAppDrips } from './appDrips.js';
 
@@ -94,9 +94,13 @@ export function planAppUserWrite(docId: string, before: Doc, after: Doc, setting
     const fields = new Set(settings.watchedFields);
     if (settings.key.source === 'field') fields.add(settings.key.field);
     for (const field of fields) {
-        const from = displayValue(valueAt(before, field));
-        const to = displayValue(valueAt(after, field));
-        if (from === to) continue;
+        // Compared whole, so a change deep in a map or past the display length
+        // still counts; shown with credential-like keys inside it hidden.
+        const oldValue = valueAt(before, field);
+        const newValue = valueAt(after, field);
+        if (comparableValue(oldValue) === comparableValue(newValue)) continue;
+        const from = safeDisplayValue(oldValue);
+        const to = safeDisplayValue(newValue);
         const hidden = isSensitiveField(field);
         plan.events.push({
             type: APP_USER_CHANGED_PREFIX + field,

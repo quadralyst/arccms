@@ -76,6 +76,19 @@ describe('planAppUserWrite', () => {
         expect(plan.events[0].data).toMatchObject({ from: '(hidden)', to: '(hidden)' });
     });
 
+    it('counts a change deep in a watched map or past the display length, showing credentials hidden (review S6)', () => {
+        const s = { ...settings, watchedFields: ['profile'] };
+        const long = 'x'.repeat(200);
+        const before = { profile: { bio: long + 'a', auth: { token: 't-old' } } };
+        const after = { profile: { bio: long + 'b', auth: { token: 't-new' } } };
+        const plan = planAppUserWrite('u1', before, after, s);
+        expect(plan.events).toHaveLength(1);
+        expect(JSON.stringify(plan.events[0].data)).not.toMatch(/t-old|t-new/);
+        const onlySecret = planAppUserWrite('u1', { profile: { token: 'a' } }, { profile: { token: 'b' } }, s);
+        expect(onlySecret.events).toHaveLength(1);
+        expect(onlySecret.events[0].data).toMatchObject({ from: '{"token":"(hidden)"}', to: '{"token":"(hidden)"}' });
+    });
+
     it('ignores a person without a unique key', () => {
         const s = { ...settings, key: { source: 'field' as const, field: 'phone' } };
         expect(planAppUserWrite('u1', undefined, asha, s)).toEqual({ events: [] });

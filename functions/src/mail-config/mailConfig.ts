@@ -8,6 +8,7 @@ import { getMiscSettings } from '../shared/site-settings.js';
 import { POWERED_BY_EMAIL_HTML } from '../shared/html-document.js';
 import { buildUnsubscribeUrl, buildPreferencesUrl } from '../email-core/unsubscribeToken.js';
 import { getUnsubscribeSecret } from '../email-core/unsubscribeSecret.js';
+import { APP_TAG_PATTERN } from '../app-audience/mergeFields.js';
 
 /** Base retry backoff unit: 5 minutes. */
 const RETRY_BASE_MS = 5 * 60 * 1000;
@@ -26,12 +27,9 @@ const DEFAULT_MAX_ATTEMPTS = 3;
  */
 const FIELD_TAG_PATTERN = /##FIELD:([a-zA-Z0-9_]+)(?:\|([^#]*))?##/g;
 
-/**
- * App user field merge tag (App audience, CO6.5a): `##APP.<path>##`, with an
- * optional fallback, `##APP.subscription.tier|free##`. Resolved from the host
- * fields copied onto the log when the email was queued (`appFields`).
- */
-const APP_TAG_PATTERN = /##APP\.([A-Za-z0-9_.-]+)(?:\|([^#]*))?##/g;
+// App user field merge tag (App audience, CO6.5a): APP_TAG_PATTERN in
+// app-audience/mergeFields.ts, resolved from the host fields the queue copied
+// onto the log (`appFields`).
 
 /**
  * Every merge tag form in one pattern, so a template is resolved in a single

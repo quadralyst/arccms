@@ -38,7 +38,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 }));
 
 import { appUsersLocation, normalizeAppAudienceSettings, APP_USERS_UNCONFIGURED } from '../app-audience/config.js';
-import { flattenFields, resolveAppUser, valueAt } from '../app-audience/fields.js';
+import { flattenFields, resolveAppUser, valueAt, isSensitiveField, isSensitiveName, redactValue, comparableValue } from '../app-audience/fields.js';
 import { sampleAppUsers, testAppUser } from '../app-audience/adminCallables.js';
 
 const sample = sampleAppUsers as unknown as (req: any) => Promise<any>;
@@ -113,6 +113,47 @@ describe('reading host documents', () => {
             'auth.refreshToken': '(hidden)',
             passwordless: 'true',
         });
+    });
+
+    it('catches credential names in every naming style, and leaves look-alikes visible (review S6)', () => {
+        for (const name of ['password', 'passcode', 'user_pwd', 'otpCode', 'OTP', 'pinCode', 'sessionId', 'session_token', 'jwt',
+            'idToken', 'stripeSecretKey', 'APIKey', 'api-key', 'privateKey', 'resetCode', 'verification_code', 'passwordHash',
+            'salt', 'cvv', 'ssn', 'credentials', 'mfaSecret', 'sessionCookie']) {
+            expect(isSensitiveName(name), name).toBe(true);
+        }
+        for (const name of ['email', 'shipping', 'zipCode', 'countryCode', 'referralCode', 'keyboard', 'key', 'userId',
+            'isPinned', 'passport', 'hashtags', 'cookieConsent', 'plan', 'subscription']) {
+            expect(isSensitiveName(name), name).toBe(false);
+        }
+    });
+
+    it('hides everything under a credential-like parent, not only the last segment', () => {
+        expect(isSensitiveField('credentials.google')).toBe(true);
+        expect(isSensitiveField('auth.tokens.0')).toBe(true);
+        expect(flattenFields({ credentials: { google: 'g-secret', apple: 'a-secret' } })).toEqual({ credentials: '(hidden)' });
+    });
+
+    it('hides credentials inside lists and maps deeper than it flattens', () => {
+        const flat = flattenFields({
+            devices: [{ name: 'phone', pushToken: 'push-1' }, { name: 'tablet', sessionId: 's-2' }],
+            a: { b: { c: { d: { apiKey: 'deep', note: 'fine' } } } },
+        });
+        expect(flat.devices).toBe('[{"name":"phone","pushToken":"(hidden)"},{"name":"tablet","sessionId":"(hidden)"}]');
+        expect(flat['a.b.c']).toBe('{"d":{"apiKey":"(hidden)","note":"fine"}}');
+        expect(JSON.stringify(flat)).not.toMatch(/push-1|s-2|deep/);
+    });
+
+    it('shows a yes/no or empty value whatever its name', () => {
+        expect(flattenFields({ passwordless: true, hasPin: false, otp: null, pin: 1234 }))
+            .toEqual({ passwordless: 'true', hasPin: 'false', otp: '', pin: '(hidden)' });
+        expect(redactValue({ list: [{ token: 'x', tokenSet: true }] })).toEqual({ list: [{ token: '(hidden)', tokenSet: true }] });
+    });
+
+    it('compares values whole and in a fixed key order', () => {
+        const long = 'x'.repeat(200);
+        expect(comparableValue({ note: long + 'a' })).not.toBe(comparableValue({ note: long + 'b' }));
+        expect(comparableValue({ a: 1, b: 2 })).toBe(comparableValue({ b: 2, a: 1 }));
+        expect(comparableValue(ts('2026-10-01T00:00:00.000Z'))).toBe('2026-10-01T00:00:00.000Z');
     });
 
     it('resolves the key from the document id or any field, email lower-cased', () => {
