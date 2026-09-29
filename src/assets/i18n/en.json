@@ -31,7 +31,8 @@
       "show": "Show",
       "hide": "Hide",
       "copy": "Copy",
-      "save_short": "Save"
+      "save_short": "Save",
+      "more": "More actions"
     },
     "state": {
       "loading": "Loading..."
@@ -64,7 +65,8 @@
       "index": "#",
       "description": "Description",
       "type": "Type",
-      "id": "ID"
+      "id": "ID",
+      "phone": "Phone"
     },
     "yes": "Yes",
     "no": "No",
@@ -109,6 +111,35 @@
       "empty": "No results",
       "showing_for": "Showing results for \"{{term}}\"",
       "all_results": "See all results"
+    },
+    "pwa": {
+      "update_ready": "A new version is ready.",
+      "update": "Update",
+      "install_title": "Install the app",
+      "install_note": "Open it from your home screen, like any other app.",
+      "install": "Install",
+      "not_now": "Not now",
+      "ios_step_share": "Tap the Share button in Safari.",
+      "ios_step_add": "Choose “Add to Home Screen”.",
+      "ios_other": "To install, open this page in Safari.",
+      "copy_link": "Copy link",
+      "link_copied": "Link copied. Paste it into Safari."
+    },
+    "feedback": {
+      "button": "Feedback",
+      "title": "Send feedback",
+      "placeholder": "What happened, or what would you like to see?",
+      "record": "Record a voice note",
+      "stop": "Stop",
+      "delete_voice": "Delete the voice note",
+      "mic_blocked": "The microphone is blocked. Allow it in your browser's settings, or type instead.",
+      "screenshot": "Screenshot of this screen",
+      "remove_screenshot": "Remove",
+      "send": "Send",
+      "sending": "Sending...",
+      "thanks": "Thank you! We got your feedback.",
+      "send_failed": "Could not send. Check your connection and try again.",
+      "taking_screenshot": "Taking a screenshot..."
     }
   },
   "admin": {
@@ -122,7 +153,8 @@
       "lists": "Lists",
       "tags": "Tags",
       "fields": "Fields",
-      "email": "Email",
+      "app_users": "App users",
+      "email": "Email + SMS",
       "brand_kit": "Brand Kit",
       "composer": "Composer",
       "broadcasts": "Broadcasts",
@@ -146,7 +178,9 @@
       "email_templates": "Email Templates",
       "logout_confirm": "Are you sure you want to logout ?",
       "logout_success": "Logout successful.",
-      "authors": "Authors"
+      "authors": "Authors",
+      "sms_logs": "SMS Logs",
+      "feedback": "Feedback"
     },
     "settings": {
       "localization": {
@@ -232,6 +266,18 @@
         "discoverability": {
           "label": "Discoverability",
           "description": "AI crawlers, llms.txt & IndexNow"
+        },
+        "app-audience": {
+          "label": "App audience",
+          "description": "Your app's users, read live"
+        },
+        "automations": {
+          "label": "Automations",
+          "description": "Emails and actions when things happen"
+        },
+        "sms": {
+          "label": "SMS",
+          "description": "Text messages for phone sign-in"
         }
       },
       "about": {
@@ -290,12 +336,19 @@
         "subtitle": "Configure user signup and role settings",
         "enable": "Enable User Settings",
         "enable_signups": "Enable User Signups",
-        "enable_signups_hint": "Allow new users to create accounts from the /signup page",
+        "enable_signups_hint": "Allow new users to create their own accounts. When off, only admins can add users (Users, Add user), and the database refuses self-created accounts. Turn it off when ArcCMS shares sign-ins with another app.",
         "default_role": "Default Role for New Users",
         "default_role_hint": "Role assigned to users who sign up",
         "assigned_note": "New users signing up will be assigned the",
         "assigned_note_end": "role.",
-        "signups_disabled": "User signups are currently disabled. Only existing users can log in."
+        "signups_disabled": "User signups are currently disabled. Only existing users can log in.",
+        "sign_in_methods": "Sign-in methods",
+        "phone_sign_in": "Phone number",
+        "phone_sign_in_hint": "People sign in with their mobile number: an SMS code the first time, then a 6-digit PIN.",
+        "sms_settings_link": "SMS settings",
+        "google_sign_in": "Google",
+        "google_sign_in_hint": "One tap with a Google account. Turn Google on in the Firebase console first (Authentication, Sign-in method).",
+        "sign_in_saved": "Sign-in methods saved"
       },
       "message": {
         "title": "Global Message Banner",
@@ -382,7 +435,10 @@
         "test_passed": "Test Passed",
         "send_test": "Send a Test Email",
         "rate_limits_for": "Rate Limits ({{ provider }})",
-        "forced_off": "Forced off while email is disabled."
+        "forced_off": "Forced off while email is disabled.",
+        "load_failed_title": "Email settings could not be loaded",
+        "load_failed_note": "Nothing was changed. Reload the page, or sign out and in again if it keeps happening.",
+        "load_failed_retry": "Try again"
       },
       "payments": {
         "subtitle": "Configure Dodo Payments and the emails sent on payment events.",
@@ -619,6 +675,137 @@
         "applied": "Applied: {{ files }} file(s) updated on the site.",
         "save_failed": "Could not save the settings.",
         "apply_failed": "Saved, but applying to the site failed. The next publish will apply them."
+      },
+      "app_audience": {
+        "title": "App audience",
+        "intro": "Connect the collection where your app keeps its users. ArcCMS reads it where it lives, copies nothing, and can email and segment those people. They never sign in to ArcCMS.",
+        "location_title": "Host collection",
+        "database": "Database",
+        "collection": "Collection",
+        "not_configured": "No host collection is configured. Set it with npm run arc:configure -- --app-users-database=(default) --app-users-path=users/{id} and deploy the functions.",
+        "location_hint": "Set when the functions are deployed, because the trigger that watches it is fixed then.",
+        "reading_title": "How to read a user",
+        "key": "Unique key",
+        "key_hint": "What identifies one person. ArcCMS keys everything it remembers about them by this value.",
+        "key_doc_id": "The document id",
+        "key_field": "A field",
+        "choose_field": "Choose a field",
+        "email_field": "Email field",
+        "phone_field": "Phone field",
+        "name_field": "Name field",
+        "none": "None",
+        "channels_hint": "People without an email are listed but cannot be emailed.",
+        "watched": "Watch for changes",
+        "watched_hint": "A change in these fields is an event that can start an email or drip. Only their last values are stored.",
+        "fields_title": "Fields found",
+        "fields_hint": "From {{ count }} sample documents. Every field is available in emails as ##APP.<field>##.",
+        "col_field": "Field",
+        "col_examples": "Examples",
+        "col_seen": "In samples",
+        "test": "Test with a document",
+        "test_doc_id": "Document id (optional)",
+        "test_result": "How ArcCMS reads it",
+        "test_none": "No such document.",
+        "test_failed": "The test did not run: {{error}}",
+        "save": "Save",
+        "saved": "App audience settings saved.",
+        "save_failed": "Could not save the settings.",
+        "load_failed": "Could not read the host collection: {{ error }}",
+        "watched_available": "Fields ({{ count }})",
+        "watched_filter": "Filter fields",
+        "watched_no_match": "No fields left to watch.",
+        "watched_selected": "Watched ({{ count }})",
+        "watched_empty": "No fields watched yet. Tick one on the left.",
+        "watched_remove": "Stop watching {{ field }}",
+        "own_users": "This install's own users (people who signed up to this site) are the audience. Contacts still hold everyone else, such as newsletter and waitlist sign-ups. Someone who is both is emailed once, and their unsubscribe applies to both."
+      },
+      "automations": {
+        "title": "Automations",
+        "intro": "Send an email, create a notification or change list membership when something happens. Each event can have several rules; for a field change in your app, a rule can check the old and the new value.",
+        "load_failed": "Could not load automations: {{error}}",
+        "on": "On",
+        "off": "Off",
+        "rule_count": "{{count}} rules",
+        "event_on": "Run this event's rules",
+        "app_user_hint": "People from your app are not contacts, so these rules send emails only. Use an App users (live) list to group them.",
+        "rule_name": "Rule name",
+        "rule_on": "Active",
+        "remove_rule": "Remove",
+        "when_from": "When {{field}} was",
+        "when_to": "and becomes",
+        "condition": {
+          "any": "anything",
+          "equals": "exactly",
+          "any_of": "any of",
+          "none_of": "none of"
+        },
+        "value_placeholder": "Value, or values separated by commas",
+        "send_email": "Send an email",
+        "template": "Email template",
+        "choose_template": "Choose a template",
+        "category": "Email type",
+        "transactional": "Transactional (reaches everyone)",
+        "marketing": "Marketing (respects unsubscribes)",
+        "create_notification": "Create a notification",
+        "notification_type": "Notification type",
+        "notification_title": "Title",
+        "notification_body": "Message",
+        "notification_link": "Link (optional)",
+        "add_to_lists": "Add to lists",
+        "remove_from_lists": "Remove from lists",
+        "no_rules": "No rules yet. Add one to act on this event.",
+        "add_rule": "Add rule",
+        "save": "Save",
+        "new_rule_name": "Rule {{n}}",
+        "saved": "Automation saved",
+        "save_failed": "Could not save: {{error}}",
+        "problem": {
+          "rule_needs_name": "Every rule needs a name.",
+          "email_needs_template": "Choose a template for each email.",
+          "notification_incomplete": "A notification needs a type and a title.",
+          "rule_needs_action": "Every rule needs at least one action."
+        },
+        "events": {
+          "user_signed_up": "A user signs up",
+          "payment_succeeded": "A payment succeeds",
+          "payment_failed": "A payment fails",
+          "waitlist_joined": "Someone joins a waitlist",
+          "app_user_created": "A new user appears in your app",
+          "app_user_deleted": "A user is deleted in your app",
+          "app_user_changed": "{{field}} changes in your app"
+        }
+      },
+      "sms": {
+        "title": "SMS",
+        "intro": "Phone sign-in sends a 6-digit code by SMS. Until a provider is set up, nothing is sent: codes are in SMS Logs, and the sign-in page shows new sign-up codes.",
+        "provider": "Provider",
+        "provider_log": "Test (log only): nothing is sent",
+        "provider_msg91": "MSG91",
+        "msg91_auth_key": "MSG91 auth key",
+        "msg91_auth_key_hint": "A key is saved. Leave this empty to keep it.",
+        "msg91_template": "OTP template ID",
+        "msg91_template_hint": "Your DLT-approved MSG91 OTP template. It must contain ##OTP##.",
+        "default_country": "Default country code",
+        "default_country_hint": "Added to numbers typed without one. 91 is India.",
+        "allowed_countries": "Allowed country codes",
+        "allowed_countries_hint": "Only these numbers can sign in by phone. Separate them with commas. Left empty, only the default country.",
+        "save": "Save SMS settings",
+        "saved": "SMS settings saved",
+        "test_title": "Send a test SMS",
+        "test_phone": "Phone number",
+        "test_send": "Send test",
+        "test_logged": "Recorded in SMS Logs. The test provider sends nothing.",
+        "test_sent": "Sent. Check the phone.",
+        "test_failed": "Not sent: {{ error }}",
+        "col_time": "Time",
+        "col_to": "To",
+        "col_message": "Message",
+        "col_status": "Status",
+        "status_logged": "Logged",
+        "status_sent": "Sent",
+        "status_failed": "Failed",
+        "logs_link": "See every message in SMS Logs",
+        "test_mode_warning": "Test mode: no SMS is sent, and the sign-in page shows sign-up codes, so anyone can sign up with any number. Switch to MSG91 before real people use phone sign-in."
       }
     },
     "contents": {
@@ -764,6 +951,8 @@
         "slug_exists": "URL slug \"{{ slug }}\" already exists. Please use a different slug.",
         "deployed_success": "Static page deployed successfully!",
         "deploy_error": "Deployment failed: {{ error }}",
+        "deploy_skipped": "Website publishing off",
+        "deploy_skipped_info": "Saved. Publishing to the website is turned off for this install, so no page was released.",
         "unknown_error": "Unknown error",
         "version_restored": "Restored version v{{ version }}. Review and save when ready.",
         "url_copied": "URL copied to clipboard",
@@ -910,7 +1099,10 @@
       "empty_description": "No users found matching your criteria.",
       "invalid_action": "Invalid action",
       "none_selected": "No user selected",
-      "verify": "Verify"
+      "verify": "Verify",
+      "show_detached": "Detached accounts",
+      "show_all": "All users",
+      "detached_hint": "Accounts whose only email or phone number was moved to another account. They are kept and cannot sign in."
     },
     "audience": {
       "contacts": {
@@ -963,6 +1155,47 @@
         "empty_description": "Create a field like Company or Role, then map a form input to it.",
         "import": "Import past form data",
         "new": "New field"
+      },
+      "app_users": {
+        "title": "App users",
+        "subtitle": "People from your app, read live from its own user collection. ArcCMS keeps only their email preferences.",
+        "search": "Search app users",
+        "search_placeholder": "key, email, phone or name",
+        "refresh": "Refresh",
+        "not_configured": "No app is connected yet. Connect your app's user collection when you configure the install, then choose how to read it in Settings.",
+        "open_settings": "Open App audience settings",
+        "load_failed": "Could not read app users: {{error}}",
+        "summary": "{{count}} people from {{collection}}",
+        "without_key": "{{count}} documents have no value in the unique key field and are not shown.",
+        "truncated": "Only the first {{max}} users in your app are checked. Anyone after them is left out.",
+        "empty_title": "No app users found",
+        "empty_description": "The collection is empty, or nothing matches your search.",
+        "key": "Unique key",
+        "email": "Email",
+        "phone": "Phone",
+        "name": "Name",
+        "consent": "Email status",
+        "doc_id": "Document",
+        "detail_title": "App user",
+        "fields": "All fields in the app",
+        "fields_hint": "Read live from your app. Values that look like credentials are hidden.",
+        "subscribed": "Subscribed",
+        "unsubscribed": "Unsubscribed",
+        "showing": "Showing {{start}} to {{end}} of {{total}}",
+        "close": "Close",
+        "activity": "Recent activity",
+        "activity_none": "No events yet. Changes to watched fields in your app appear here.",
+        "empty_value": "(empty)",
+        "activity_status": {
+          "ok": "Actions ran",
+          "no_mapping": "No rule set up for this event",
+          "disabled": "Rule switched off",
+          "no_matching_rule": "No rule matched",
+          "error": "Failed",
+          "pending": "Waiting to be processed",
+          "other": "{{status}}"
+        },
+        "subtitle_own": "This site's own users, read live. Use live lists and automations on their data, such as plan or role."
       }
     },
     "dashboard": {
@@ -1008,7 +1241,15 @@
       "count_this_week": "+{{ count }} this week",
       "count_published": "{{ count }} Published",
       "count_draft": "{{ count }} Draft",
-      "last_sync": "Last sync: {{ date }}"
+      "last_sync": "Last sync: {{ date }}",
+      "app_installs": "App installs",
+      "installs_30d": "Installs, last 30 days",
+      "install_rate": "Install rate",
+      "install_rate_note": "{{ installed }} of {{ total }} people",
+      "opened_30d": "Opened from the home screen, last 30 days",
+      "platform_android": "Android",
+      "platform_ios": "iPhone and iPad",
+      "platform_desktop": "Computer"
     },
     "media": {
       "searching": "Searching...",
@@ -1244,6 +1485,41 @@
       "no_query": "Type in the search box above to find content.",
       "empty": "Nothing matched \"{{query}}\".",
       "open": "Open"
+    },
+    "sms_logs": {
+      "title": "SMS Logs",
+      "subtitle": "Every text message, newest first",
+      "settings": "SMS settings",
+      "refresh": "Refresh",
+      "status": "Status",
+      "status_all": "All",
+      "col_purpose": "Type",
+      "col_provider": "Provider",
+      "purpose_otp": "Sign-in code",
+      "purpose_test": "Test",
+      "provider_test": "Test (log only)",
+      "empty_title": "No SMS yet",
+      "empty_description": "Sign-in codes and test messages appear here."
+    },
+    "feedback": {
+      "title": "Feedback",
+      "subtitle": "What people sent with the feedback button, newest first.",
+      "button_on": "Feedback button on",
+      "button_off": "Feedback button off",
+      "filter": "Show",
+      "filter_new": "New",
+      "filter_done": "Done",
+      "filter_all": "All",
+      "empty_new": "No new feedback.",
+      "empty": "No feedback here.",
+      "off_hint": "Turn on the feedback button to let signed-in people send feedback from any page.",
+      "someone": "Someone",
+      "open_screenshot": "Open the screenshot",
+      "mark_done": "Mark done",
+      "mark_new": "Mark as new",
+      "delete_confirm": "Delete this feedback, with its screenshot and voice note?",
+      "installed_app": "installed app",
+      "load_more": "Load more"
     }
   },
   "user": {

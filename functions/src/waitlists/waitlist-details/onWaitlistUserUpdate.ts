@@ -6,9 +6,10 @@ import {
   createOtpEmailLog,
 } from '../../utils/emailTemplateHelper.js';
 import { WaitlistUserData } from '../../types.js';
+import { arcDocument } from '../../arc-config.js';
 
 export const onWaitlistUserUpdate = onDocumentUpdated(
-  'Waitlists/{WaitlistsId}/users/{usersId}',
+  arcDocument('Waitlists/{WaitlistsId}/users/{usersId}'),
   async (event) => {
     const oldValue = event.data?.before.data() as WaitlistUserData | undefined;
     const newValue = event.data?.after.data() as WaitlistUserData | undefined;

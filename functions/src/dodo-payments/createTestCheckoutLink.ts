@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions/v2';
 import { db, owner } from '../init.js';
 import { getDodoClient } from './dodoClient.js';
 import { ProductDoc, providerProductId } from './types.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Callable (admin only): generate a Dodo checkout URL for a SPECIFIC tier's
@@ -17,7 +18,7 @@ export const createTestCheckoutLink = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Authentication required.');
   }
   const userRecord = await owner.getUser(request.auth.uid);
-  if (userRecord.customClaims?.['role'] !== 'admin') {
+  if (!isArcAdmin(userRecord.customClaims)) {
     throw new HttpsError('permission-denied', 'Admin access required.');
   }
 

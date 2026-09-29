@@ -101,7 +101,9 @@ function defaultCallableData(name: string): Record<string, unknown> {
  */
 function mockCallables(overrides: Record<string, (data?: any) => any> = {}) {
     const spies: Record<string, ReturnType<typeof vi.fn>> = {};
-    vi.mocked(FunctionsSDK.httpsCallable).mockImplementation(((_fns: unknown, name: string) => {
+    vi.mocked(FunctionsSDK.httpsCallable).mockImplementation(((_fns: unknown, deployedName: string) => {
+        // arcCallable() adds the arccms- group prefix; the tests speak in plain names.
+        const name = deployedName.replace(/^arccms-/, '');
         if (!spies[name]) {
             spies[name] = vi.fn(async (data?: any) => ({
                 data: overrides[name] ? overrides[name](data) : defaultCallableData(name),
@@ -149,7 +151,7 @@ describe('WaitlistService', () => {
         // now needs getPublicMemberView to return a member, and requestFormOtp to report
         // `sent`, in the same test.
         vi.mocked(FunctionsSDK.httpsCallable).mockImplementation(
-            ((_fns: unknown, name: string) => vi.fn(async () => ({ data: defaultCallableData(name) }))) as any,
+            ((_fns: unknown, name: string) => vi.fn(async () => ({ data: defaultCallableData(name.replace(/^arccms-/, '')) }))) as any,
         );
     });
 
@@ -182,7 +184,7 @@ describe('WaitlistService', () => {
         it('delegates to the joinForm callable', async () => {
             await service.joinWaitlist('waitlist-1', { email: 'new@example.com', firstName: 'New' });
 
-            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'joinForm');
+            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'arccms-joinForm');
             expect(joinSpy).toHaveBeenCalledWith(expect.objectContaining({
                 waitlistId: 'waitlist-1', email: 'new@example.com', firstName: 'New',
             }));
@@ -220,7 +222,7 @@ describe('WaitlistService', () => {
         it('asks the server to send the code after joining', async () => {
             await service.joinWaitlist('waitlist-1', { email: 'new@example.com' });
 
-            const called = vi.mocked(FunctionsSDK.httpsCallable).mock.calls.map((c) => c[1]);
+            const called = vi.mocked(FunctionsSDK.httpsCallable).mock.calls.map((c) => String(c[1]).replace(/^arccms-/, ''));
             expect(called).toContain('joinForm');
             expect(called).toContain('requestFormOtp');
         });
@@ -346,7 +348,7 @@ describe('WaitlistService', () => {
 
             const result = await service.getLeaderboard('test-waitlist');
 
-            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'getPublicLeaderboard');
+            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'arccms-getPublicLeaderboard');
             expect(callableSpy).toHaveBeenCalledWith({ waitlistId: 'test-waitlist' });
             // The point of the change: no client-side read of member documents.
             expect(getDocsSpy).not.toHaveBeenCalled();
@@ -481,7 +483,7 @@ describe('WaitlistService', () => {
 
             await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
 
-            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'finalizeFormSignup');
+            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'arccms-finalizeFormSignup');
             expect(spies['finalizeFormSignup']).toHaveBeenCalledWith(
                 expect.objectContaining({ waitlistId: 'waitlist-1', userId: 'user-1' }),
             );
@@ -557,7 +559,7 @@ describe('WaitlistService', () => {
 
             await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', '');
 
-            const calledFns = vi.mocked(FunctionsSDK.httpsCallable).mock.calls.map((c) => c[1]);
+            const calledFns = vi.mocked(FunctionsSDK.httpsCallable).mock.calls.map((c) => String(c[1]).replace(/^arccms-/, ''));
             // The member view is fetched first (#51), then the code is checked, then the
             // signup is finalised — all server-side.
             expect(calledFns).toContain('getPublicMemberView');

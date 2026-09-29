@@ -17,6 +17,9 @@ export interface IAuth extends IBaseModel {
     status: string; // Active, Disable, Pending
     uid: string;
     isActive: boolean;
+    /** Sign-in by phone (E.164). Set only by the server, after an SMS code. */
+    phone?: string;
+    phoneVerified?: boolean;
     /**
      * The admin UI language this person reads (M-D11). Independent of the
      * languages the site publishes in — see core/i18n/admin-language.service.ts.

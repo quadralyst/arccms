@@ -399,6 +399,31 @@ describe('processPublishQueue', () => {
         });
     });
 
+    describe('IndexNow only after a real release (CO5)', () => {
+        const publishOne = async () => {
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Test', content: '<p>body</p>', urlSlug: 'test' }),
+            });
+            mockGenerateDetailPage.mockImplementation(async (_slug: string, _id: string, batch: any) => {
+                batch.add('/articles/test.html', '<html></html>');
+            });
+            await handler(createEvent('publish', 'articles', 'doc1'));
+        };
+
+        it('pings search engines when the release went out', async () => {
+            mockDeployBatchToHosting.mockResolvedValue(true);
+            await publishOne();
+            expect(mockSubmitBatchToIndexNow).toHaveBeenCalled();
+        });
+
+        it('does not ping for pages that never went live (release failed, or hosting is off)', async () => {
+            mockDeployBatchToHosting.mockResolvedValue(false);
+            await publishOne();
+            expect(mockSubmitBatchToIndexNow).not.toHaveBeenCalled();
+        });
+    });
+
     describe('redeploy action — restoring pages a hosting deploy dropped', () => {
         it('should regenerate the detail and list pages', async () => {
             mockGet.mockResolvedValue({

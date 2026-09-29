@@ -18,6 +18,7 @@ import { PageHeaderComponent } from '../../../../shared/components/page-header/p
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { roleGuard } from '../../../guards/role.guard';
 import { WaitlistEditDrawerComponent, WaitlistFormData } from './edit-drawer/waitlist-edit-drawer.component';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
     title: 'Waitlists | Arc CMS',
@@ -264,7 +265,7 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
 
     async deleteWaitlist(waitlist: IWaitlist): Promise<void> {
         const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to delete <strong>${waitlist.name}</strong>?`
+            `Are you sure you want to delete <strong>${escapeHtml(waitlist.name)}</strong>?`
         );
 
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {

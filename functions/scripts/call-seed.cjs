@@ -13,6 +13,7 @@
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
+const { loadArcEnv } = require('./arc-env.cjs');
 
 // Determine environment from CLI arg (default: "dev")
 const envArg = (process.argv[2] || 'dev').toLowerCase();
@@ -35,6 +36,18 @@ if (!projectId) {
     console.error(`Error: Could not resolve project ID for "${envArg}" from .firebaserc.`);
     process.exit(1);
 }
+
+// The install's database and hosting site (docs/coexistence-spec.md, CO3), read
+// as the Firebase CLI reads them for a deploy (arc-env.cjs, review O3).
+loadArcEnv(path.join(__dirname, '..'), projectId);
+
+// Hosting off (arc:configure --site=none): there is no site to seed, and the
+// seed would only mark every page as skipped.
+if (process.env.ARC_HOSTING_SITE === 'none') {
+    console.log(`Hosting is off for ${projectId} (arc:configure --site=none): no static pages to seed.`);
+    process.exit(0);
+}
+const hostingSite = process.env.ARC_HOSTING_SITE || projectId;
 
 // Read Firebase CLI refresh token to build Application Default Credentials
 let refreshToken;
@@ -66,6 +79,7 @@ process.env.GOOGLE_APPLICATION_CREDENTIALS = tmpAdc;
 process.env.GCLOUD_PROJECT = projectId;
 process.env.FIREBASE_CONFIG = JSON.stringify({ projectId });
 
+
 async function main() {
     // Dynamic import() because the compiled output is ESM ("type": "module")
     const { runSeed } = await import('../lib/pages/seedStaticPages.js');
@@ -77,7 +91,8 @@ async function main() {
     console.log('╚══════════════════════════════════════════════╝');
     console.log('');
     console.log(`  Project:  ${projectId}`);
-    console.log(`  Hosting:  https://${projectId}.web.app`);
+    console.log(`  Database: ${process.env.ARC_DATABASE_ID || '(default)'}`);
+    console.log(`  Hosting:  https://${hostingSite}.web.app`);
     console.log('');
     console.log('  Initializing Firebase Admin SDK...');
 

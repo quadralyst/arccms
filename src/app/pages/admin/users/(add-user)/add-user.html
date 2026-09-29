@@ -52,7 +52,7 @@
 
         <div class="row mb-4">
             <div class="col-12">
-                <label for="password" class="form-label">Password <span class="required">*</span></label>
+                <label for="password" class="form-label">Temporary password <span class="required">*</span></label>
                 <input type="password" formControlName="password" class="form-control" id="password"
                     placeholder="Password (min 8 characters)" [class]="{
                         'is-invalid': password?.invalid && (password?.dirty || password?.touched),
@@ -64,6 +64,10 @@
                 } @else {
                 <div class="invalid-feedback">Password must be at least 8 characters.</div>
                 }
+                <div class="form-text">
+                    Share it with them; it is never stored with the user record. If this address already has a
+                    sign-in account (for example a user of your app), they keep their existing password.
+                </div>
             </div>
         </div>
 
@@ -80,7 +84,7 @@
 
         <div class="d-grid gap-2 d-flex justify-content-end mt-4">
             <button type="button" class="btn btn-light btn-sm" (click)="closeAdd()">Cancel</button>
-            <button type="submit" class="btn btn-primary btn-sm ms-2">Save User</button>
+            <button type="submit" class="btn btn-primary btn-sm ms-2" [disabled]="saving()">Save User</button>
         </div>
     </form>
 

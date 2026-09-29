@@ -22,6 +22,7 @@ import { ConfirmationPopupComponent } from '../confirmation-popup/confirmation-p
 import { ContentTypesStore } from '../../../app/pages/admin/contents/content-types/content-types.store';
 import { ContentType, contentTypeName } from '../../../app/pages/admin/contents/content-types/content-types.model';
 import { WaitlistAdminStore } from '../../../app/pages/admin/(waitlists)/waitlist.store';
+import { CUSTOM_NAV } from '../../../custom/nav';
 
 export type MenuItem = {
     icon?: string;
@@ -45,6 +46,17 @@ export type MenuItem = {
     queryParams?: Record<string, string>;
     separator?: boolean;
 };
+
+/**
+ * Put the app's menu items (src/custom/nav.ts, docs/custom-code.md) before
+ * Profile, or at the end when there is no Profile item. Changes `items` in place.
+ */
+export function insertCustomNav(items: MenuItem[], custom: readonly MenuItem[]): MenuItem[] {
+    if (!custom.length) return items;
+    const profileIndex = items.findIndex((i) => i.label === 'Profile');
+    items.splice(profileIndex === -1 ? items.length : profileIndex, 0, ...custom.map((item) => ({ ...item })));
+    return items;
+}
 
 @Component({
     selector: 'arc-side-navbar',
@@ -101,6 +113,15 @@ export default class NavbarComponent extends BaseComponent {
      * because they are also fed to `matTooltip`, sorted, and compared.
      */
     private readonly activeLang = signal(this.transloco.getActiveLang());
+    /**
+     * Bumped when a translation file finishes loading. The labels are resolved
+     * with a synchronous `translate()`, which returns the bare key until the
+     * file is in. On a first visit that can be after the nav has rendered (a
+     * fresh install arrives from the onboarding wizard, which loads no admin
+     * strings), and the active language never changes, so without this the
+     * menu keeps showing keys until a reload.
+     */
+    private readonly translationsLoaded = signal(0);
     readonly waitlistAdminStore = inject(WaitlistAdminStore);
 
     baseMenuItems: MenuItem[] = [
@@ -144,11 +165,12 @@ export default class NavbarComponent extends BaseComponent {
                 { label: 'Lists', labelKey: 'admin.nav.lists', route: '/admin/lists', icon: 'fa-solid fa-rectangle-list' },
                 { label: 'Tags', labelKey: 'admin.nav.tags', route: '/admin/contact-tags', icon: 'fa-solid fa-tags' },
                 { label: 'Fields', labelKey: 'admin.nav.fields', route: '/admin/contact-fields', icon: 'fa-solid fa-table-columns' },
+                { label: 'App users', labelKey: 'admin.nav.app_users', route: '/admin/app-users', icon: 'fa-solid fa-mobile-screen' },
             ],
         },
         {
             icon: 'fa-solid fa-palette',
-            label: 'Email',
+            label: 'Email + SMS',
             labelKey: 'admin.nav.email',
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
@@ -158,7 +180,15 @@ export default class NavbarComponent extends BaseComponent {
                 { label: 'Drip Campaigns', labelKey: 'admin.nav.drip_campaigns', route: '/admin/email/drip-campaigns', icon: 'fa-solid fa-droplet' },
                 { label: 'Announcements', labelKey: 'admin.nav.announcements', route: '/admin/email/announcements', icon: 'fa-solid fa-bullhorn' },
                 { label: 'Email Logs', labelKey: 'admin.nav.email_logs', route: '/admin/email-logs', icon: 'fa-solid fa-envelope-open-text' },
+                { label: 'SMS Logs', labelKey: 'admin.nav.sms_logs', route: '/admin/sms-logs', icon: 'fa-solid fa-comment-sms' },
             ],
+        },
+        {
+            icon: 'fa-solid fa-comment-dots',
+            label: 'Feedback',
+            labelKey: 'admin.nav.feedback',
+            route: '/admin/feedback',
+            allowRoles: [this.constantVariables.ADMIN],
         },
         {
             icon: 'fa-solid fa-box-open',
@@ -281,6 +311,8 @@ export default class NavbarComponent extends BaseComponent {
         items.splice(waitlistSectionEnd + 1, 0, contentGroup);
         // Add separator after the Content group (before Media Manager)
         items.splice(waitlistSectionEnd + 2, 0, { label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
+        // The app's own items (src/custom/nav.ts), before Profile.
+        insertCustomNav(items, CUSTOM_NAV);
         // Add separator before Profile (find its index)
         const profileIndex = items.findIndex(i => i.label === 'Profile');
         if (profileIndex > -1) {
@@ -303,6 +335,7 @@ export default class NavbarComponent extends BaseComponent {
     /** A menu item's display label: translated when we authored it, data otherwise. */
     menuLabel(item: MenuItem): string {
         this.activeLang();
+        this.translationsLoaded();
         return item.labelKey ? this.transloco.translate(item.labelKey) : item.label;
     }
 
@@ -310,6 +343,12 @@ export default class NavbarComponent extends BaseComponent {
         this.transloco.langChanges$
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe(lang => this.activeLang.set(lang));
+        this.transloco.events$
+            .pipe(
+                filter((event) => event.type === 'translationLoadSuccess'),
+                takeUntilDestroyed(this.destroyRef),
+            )
+            .subscribe(() => this.translationsLoaded.update((n) => n + 1));
         this.contentTypesStore.getAll();
         this.waitlistAdminStore.subscribe();
         this.router.events

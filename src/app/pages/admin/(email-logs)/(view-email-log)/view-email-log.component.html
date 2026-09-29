@@ -97,14 +97,16 @@
         <h6 class="section-title">Email Content</h6>
         <div class="subject-line mb-2">
             <strong>Subject:</strong>
-            {{ emailLog.processedSubject || emailLog.subject || '(no subject)' }}
+            {{ sentSubject(emailLog) }}
         </div>
         @if(!emailLog.processedTemplate && emailLog.template) {
         <div class="alert alert-info small mb-2">
             Showing raw template (processed version not available for older logs)
         </div>
         }
-        <div class="email-preview" [innerHTML]="processedHtml()"></div>
+        <!-- A sandboxed frame (review F): the email as sent, including anything a
+             visitor typed into a form, can never run script in the admin's session. -->
+        <iframe class="email-preview" sandbox="" title="Email as sent" [srcdoc]="processedHtml()"></iframe>
     </div>
 
     <!-- Metadata -->

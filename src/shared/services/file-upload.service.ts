@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { deleteObject, getDownloadURL, ref, Storage, uploadBytesResumable } from '@angular/fire/storage';
 import { deleteDoc, doc, Firestore, getDoc } from '@angular/fire/firestore';
 import { fitLongestSide, IMAGE_SIZES, ImageSize, imageSizeLimits } from '../utils/image-sizes';
+import { withStoragePrefix } from '../../app/core/config/arc-config';
 
 /** Allowed MIME types for media upload */
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -214,6 +215,23 @@ export class FileUploadService {
     }
 
     /**
+     * Upload a member's profile photo to `avatars/{uid}/`, the one storage
+     * folder a non-admin may write (storage.rules). Resized to a 512px WebP
+     * square-ish bound; no media library record, since members have no access
+     * to the media library. Resolves to the download URL for `users.photo`.
+     */
+    async uploadAvatar(uid: string, file: File): Promise<string> {
+        const typeError = this.validateFileType(file);
+        if (typeError) {
+            throw new Error(typeError);
+        }
+        const img = await this.loadImageFromFile(file);
+        const { width, height } = fitLongestSide(img.naturalWidth, img.naturalHeight, 512);
+        const blob = await this.encodeImage(img, width, height, 'image/webp');
+        return this.uploadBlob(`avatars/${uid}/avatar-${Date.now()}.webp`, blob, 'image/webp', () => {});
+    }
+
+    /**
      * Upload a File to Firebase Storage in every size.
      *
      * Flow: File → validate → decode → XL with its longest side bounded by
@@ -240,7 +258,7 @@ export class FileUploadService {
             const sizeError = this.validateFileSize(file, settings.maxFileSize);
             if (sizeError) throw new Error(sizeError);
             const filename = this.generateSeoFilename(file.name, file.type);
-            const downloadURL = await this.uploadBlob(`mediaImages/${filename}`, file, file.type, progressCallback);
+            const downloadURL = await this.uploadBlob(withStoragePrefix(`mediaImages/${filename}`), file, file.type, progressCallback);
             return { downloadURL, name: filename, uploadTime: new Date() };
         }
 
@@ -292,7 +310,7 @@ export class FileUploadService {
             if (uploaded.has(dimKey)) continue;
 
             const { blob } = encoded.get(dimKey)!;
-            const path = `mediaImages/${baseName}-${size}${extension}`;
+            const path = withStoragePrefix(`mediaImages/${baseName}-${size}${extension}`);
             const url = await this.uploadBlob(path, blob, outputMimeType, (pct) => {
                 progressCallback(totalBytes ? ((doneBytes + (blob.size * pct) / 100) / totalBytes) * 100 : pct);
             });
@@ -324,7 +342,7 @@ export class FileUploadService {
             const storage = this.storage;
             const uniquename = this.generateUniqueImageName();
 
-            const storageRef = ref(storage, `mediaImages/${uniquename}.jpg`);
+            const storageRef = ref(storage, withStoragePrefix(`mediaImages/${uniquename}.jpg`));
             const byteCharacters = atob(base64Image.split(',')[1]);
             const byteNumbers = new Array(byteCharacters.length);
 

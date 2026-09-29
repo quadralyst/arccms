@@ -16,6 +16,7 @@ import { CONTENT_DRAFTS_SOURCE_ID } from '../search/sources/content-drafts.js';
 import { buildSearchContext } from '../search/context.js';
 import { indexDocument, removeSearchEntries } from '../search/writer.js';
 import { runReindex } from '../search/reindexSearch.js';
+import { arcDocument, arcHostingSite } from '../arc-config.js';
 
 interface QueueItem {
     action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all';
@@ -203,7 +204,7 @@ async function addDiscoverabilityFiles(batch: HostingBatch): Promise<void> {
 }
 
 export const processPublishQueue = onDocumentCreated({
-    document: '_publish_queue/{queueId}',
+    ...arcDocument('_publish_queue/{queueId}'),
     // A 'redeploy-all' rebuilds every published page in one invocation —
     // template fetches and all — which does not fit in the 60s default.
     timeoutSeconds: 540,
@@ -238,7 +239,7 @@ export const processPublishQueue = onDocumentCreated({
             await generateAndDeployRssFeeds(batch);
             await addDiscoverabilityFiles(batch);
             if (!batch.isEmpty) {
-                await deployBatchToHosting(process.env.GCLOUD_PROJECT || '', batch, '', '');
+                await deployBatchToHosting(arcHostingSite(), batch, '', '');
                 await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
             }
             console.log(`Redeployed ${pages} page(s) in ${batch.size} file(s)`);
@@ -477,12 +478,16 @@ export const processPublishQueue = onDocumentCreated({
         try {
             // First argument is the Hosting *site*, not the collection — the
             // deploy silently targets a site that does not exist otherwise.
-            const siteId = process.env.GCLOUD_PROJECT || '';
-            await deployBatchToHosting(siteId, batch, publishedCollection, docId);
-            console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
+            const siteId = arcHostingSite();
+            const released = await deployBatchToHosting(siteId, batch, publishedCollection, docId);
             // Only after the release succeeded: a ping for pages that never
-            // went live would send the engines to a 404 (D-D9).
-            await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
+            // went live would send the engines to a 404 (D-D9). deployBatchToHosting
+            // records a failure (or hosting being off) rather than throwing, so the
+            // answer has to come from its return value.
+            if (released) {
+                console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
+                await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
+            }
         } catch (deployErr) {
             console.error(`Hosting release failed for ${action} ${contentTypeSlug}/${docId}:`, deployErr);
         }

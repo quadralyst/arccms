@@ -7,11 +7,12 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import {
     IDiscoverabilitySettings,
     normalizeDiscoverabilitySettings,
 } from '../../../../../shared/models/discoverability.model';
+import { arcCallable } from '../../../../core/config/arc-functions';
 
 export interface RegenerateSeoFilesResult {
     files: string[];
@@ -49,7 +50,7 @@ export class DiscoverabilitySettingsService {
     /** Pushes robots.txt, llms.txt and the IndexNow key file to Hosting now. */
     async apply(): Promise<RegenerateSeoFilesResult> {
         if (!this.functions) throw new Error('Firebase Functions is not available.');
-        const callable = httpsCallable<void, RegenerateSeoFilesResult>(this.functions, 'regenerateSeoFiles');
+        const callable = arcCallable<void, RegenerateSeoFilesResult>(this.functions, 'regenerateSeoFiles');
         return (await callable()).data;
     }
 }

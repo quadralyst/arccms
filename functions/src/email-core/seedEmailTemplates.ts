@@ -4,6 +4,7 @@ import { ensureDefaultTemplates } from './defaultTemplates.js';
 import { ensureNotificationTypes } from './notifications.js';
 import { ensureEventMappings } from './appEvents.js';
 import { ensureSystemLists } from './contacts.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: seed the whole email system's default config (idempotent).
@@ -13,7 +14,7 @@ import { ensureSystemLists } from './contacts.js';
  * the admin UI (and can be wired into onboarding).
  */
 export const seedEmailTemplates = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

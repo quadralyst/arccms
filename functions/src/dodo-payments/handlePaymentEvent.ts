@@ -11,6 +11,7 @@ import { notifyAdmins } from '../email-core/adminAlerts.js';
 import { emitAppEvent } from '../email-core/appEvents.js';
 import { toMajorUnits } from './money.js';
 import { DodoWebhookPayload, DodoWebhookData, ProductDoc, TransactionDoc, TransactionStatus, PAYMENT_PROVIDER } from './types.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Give up after this many failed attempts. Without a cap, `retry: true` would
@@ -32,7 +33,7 @@ const MAX_PROCESSING_ATTEMPTS = 5;
  * a stable per-event id, so a redelivery is a no-op rather than a duplicate.
  */
 export const handlePaymentEvent = onDocumentCreated(
-  { document: 'WebhookEvents/{eventId}', retry: true },
+  { ...arcDocument('WebhookEvents/{eventId}'), retry: true },
   async (event) => {
     const eventId = event.params.eventId;
     const snap = event.data;

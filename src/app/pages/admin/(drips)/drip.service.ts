@@ -3,10 +3,11 @@ import { isPlatformBrowser } from '@angular/common';
 import {
     Firestore, collection, collectionData, doc, addDoc, setDoc, serverTimestamp, query, orderBy,
 } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { Observable, catchError, of } from 'rxjs';
 import { dedupeTemplatesByType } from '../../../../shared/utils/template-dedupe';
 import { buildNewEmailTemplate, NewEmailMeta } from '../../../../shared/email-compiler/new-template';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 export interface DripStep { id: string; templateId: string; delayHours: number; }
 
@@ -108,10 +109,10 @@ export class DripService {
     }
 
     activate(campaignId: string) {
-        return httpsCallable(this.functions, 'activateDripCampaign')({ campaignId });
+        return arcCallable(this.functions, 'activateDripCampaign')({ campaignId });
     }
 
     archive(campaignId: string) {
-        return httpsCallable(this.functions, 'archiveDripCampaign')({ campaignId });
+        return arcCallable(this.functions, 'archiveDripCampaign')({ campaignId });
     }
 }

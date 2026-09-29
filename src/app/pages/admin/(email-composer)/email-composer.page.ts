@@ -6,7 +6,7 @@ import {
     Firestore, collection, collectionData, doc, addDoc, updateDoc, serverTimestamp, query, orderBy,
 } from '@angular/fire/firestore';
 import { catchError, of } from 'rxjs';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -26,6 +26,7 @@ import { GlobalTableComponent, TableColumn } from '../../../../shared/components
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { EmailPreviewDialogComponent } from './email-preview-dialog.component';
 import { getComposerTags } from '../../../../shared/constants/email-tags';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
     title: 'Email Composer | Arc CMS',
@@ -292,7 +293,7 @@ export default class EmailComposerPageComponent implements OnInit {
         );
         if (!to) return;
         try {
-            const callable = httpsCallable(this.functions, 'sendTestEmail');
+            const callable = arcCallable(this.functions, 'sendTestEmail');
             await callable({ toEmail: to, subject, html: e.html });
             this.toast.success('Test email queued');
         } catch (err) {

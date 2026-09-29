@@ -17,7 +17,7 @@ import {
     ValidationErrors,
     Validators,
 } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { take, firstValueFrom } from 'rxjs';
 import { Auth } from '@angular/fire/auth';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -35,6 +35,7 @@ import {
     PROVIDER_DEFAULT_LIMITS,
 } from '../admin/(settings)/email-setting/email-setting.model';
 import { environment } from '../../../environments/environment';
+import { LegalNoticeComponent } from '../../../shared/components/legal-notice/legal-notice.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Onboarding | Arc CMS',
@@ -43,7 +44,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     selector: 'arc-onboarding',
     standalone: true,
-    imports: [ReactiveFormsModule, CommonModule, MatDialogModule],
+    imports: [ReactiveFormsModule, CommonModule, MatDialogModule, RouterLink, LegalNoticeComponent],
     templateUrl: './onboarding.page.html',
     styleUrls: ['./onboarding.page.scss'],
 })
@@ -91,6 +92,12 @@ export default class OnboardingComponent implements OnInit {
     // and the connection-test callable refuses a claimless caller, so each of
     // those entry points re-checks through `ensureAdminClaim()` before acting.
     adminClaimPending = signal(false);
+    /**
+     * Setup was started, but nobody is signed in. The wizard cannot continue
+     * without the admin's session (every later step writes admin-only data),
+     * and it has no sign-in form, so it says so and links to /signup.
+     */
+    needsSignIn = signal(false);
 
     // Forms
     onboardingForm!: FormGroup;
@@ -120,15 +127,16 @@ export default class OnboardingComponent implements OnInit {
                 this.isSubmitted.set(false);
             }
 
-            // After signup succeeds, wait for custom claim then advance to step 3
-            if (success && currentUser && !error && !this.signupHandled) {
+            // After signup succeeds, claim admin, then wait for the claim and
+            // advance to step 3. `isSubmitted` rather than only `isSuccess`: the
+            // account is created as role 'user', and the auth listener reports
+            // isSuccess false for that role, so it can race the signup's own flag.
+            if ((success || this.isSubmitted()) && currentUser && !error && !this.signupHandled) {
                 this.signupHandled = true;
                 this.toastService.success('Admin account created! Setting up your site…');
-                // Mark onboarding as in-progress so abandoned wizards are detected
-                this.setupService.markOnboardingStarted()
-                    .catch((err) => console.warn('Failed to mark onboarding started (non-fatal):', err));
-                
-                this.signupTimeoutId = setTimeout(() => this.checkAdminClaim(0), 2000);
+                // claimFirstAdmin also marks setup as started, so an abandoned
+                // wizard is detected and only this admin may resume it.
+                this.claimAdmin().then(() => this.checkAdminClaim(0));
             }
         });
 
@@ -147,7 +155,22 @@ export default class OnboardingComponent implements OnInit {
             } else if (state === 'in-progress') {
                 // Re-entry: admin account exists but wizard wasn't finished
                 this.signupHandled = true; // prevent effect from re-firing
-                this.currentStep.set(3);
+                this.setupService.resumeAccess().pipe(take(1)).subscribe((access) => {
+                    if (access === 'other') {
+                        // Someone else started setup; it is theirs to finish.
+                        this.router.navigate(['/']);
+                        return;
+                    }
+                    if (access === 'signed-out') {
+                        this.needsSignIn.set(true);
+                        return;
+                    }
+                    // The admin claim may never have been granted (claimFirstAdmin
+                    // failed last time), so the first admin-only step re-checks it
+                    // and retries the claim through ensureAdminClaim().
+                    this.adminClaimPending.set(true);
+                    this.currentStep.set(3);
+                });
             }
             // 'first-run' — stay on step 1 and create the admin account.
         });
@@ -174,14 +197,27 @@ export default class OnboardingComponent implements OnInit {
     }
 
     /**
-     * Force-refresh the ID token and report whether it carries `role: admin`.
+     * Ask the server to make this account the first admin. Failure is logged,
+     * not thrown: the callers go on to check the token, and report a missing
+     * claim in words the admin can act on.
+     */
+    private async claimAdmin(): Promise<void> {
+        try {
+            await this.setupService.claimFirstAdmin();
+        } catch (err) {
+            console.warn('claimFirstAdmin failed:', err);
+        }
+    }
+
+    /**
+     * Force-refresh the ID token and report whether it carries `arccms_role: admin`.
      * The refresh is the point — the claim is set server-side by
-     * `onUserRoleChange` after signup, and a cached token will not show it.
+     * `claimFirstAdmin` after signup, and a cached token will not show it.
      */
     private async hasAdminClaim(): Promise<boolean> {
         try {
             const tokenResult = await this.auth?.currentUser?.getIdTokenResult(true);
-            return tokenResult?.claims?.['role'] === 'admin';
+            return tokenResult?.claims?.['arccms_role'] === 'admin';
         } catch (err) {
             console.warn('Token refresh failed (non-fatal):', err);
             return false;
@@ -203,8 +239,21 @@ export default class OnboardingComponent implements OnInit {
      * the caller report a generic failure for a permission error.
      */
     private async ensureAdminClaim(): Promise<boolean> {
+        // Signed out (the session ended mid-wizard): no claim can arrive, and
+        // "still propagating" would send the admin waiting for nothing.
+        if (!this.auth?.currentUser) {
+            this.needsSignIn.set(true);
+            return false;
+        }
         if (!this.adminClaimPending()) return true;
 
+        if (await this.hasAdminClaim()) {
+            this.adminClaimPending.set(false);
+            return true;
+        }
+
+        // Still no claim: the claim call itself may have failed. Retry it once.
+        await this.claimAdmin();
         if (await this.hasAdminClaim()) {
             this.adminClaimPending.set(false);
             return true;
@@ -298,7 +347,10 @@ export default class OnboardingComponent implements OnInit {
             name: this.onboardingForm.get('name')?.value?.trim(),
             email: this.onboardingForm.get('email')?.value?.trim().toLowerCase(),
             password: this.onboardingForm.get('password')?.value,
-            role: this.constantVariables.ADMIN,
+            // Not ADMIN: the rules refuse a self-written admin role. The wizard
+            // claims admin through the claimFirstAdmin callable once this
+            // account exists (see the effect in the constructor).
+            role: 'user',
             status: 'Active',
             isActive: true,
             emailVerified: true,
@@ -564,6 +616,20 @@ export default class OnboardingComponent implements OnInit {
     }
 
     async skipSetupAndGo(): Promise<void> {
+        // Skip is offered after completeSetup() failed. Still try for the
+        // defaults, each on its own: the failure may have been the one thing a
+        // retry cannot fix, and a site with no content type and no signup form
+        // is a worse start than one with whichever of them could be made.
+        for (const create of [
+            () => this.setupService.createDefaultContentTypes(),
+            () => this.setupService.createDefaultWaitlist(),
+        ]) {
+            try {
+                await create();
+            } catch (err) {
+                console.warn('Default could not be created on skip (non-fatal):', err);
+            }
+        }
         try {
             await this.setupService.markOnboardingComplete();
         } catch (err) {

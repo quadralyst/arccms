@@ -8,6 +8,8 @@ import type {
 } from '../types.js';
 import { computeEmailHash } from './unsubscribeToken.js';
 import { getContactGateState } from './contacts.js';
+import { usedAppFields } from '../app-audience/mergeFields.js';
+import { appUserSubscribed } from './appUserConsent.js';
 
 /** Default max delivery attempts before an email is marked `failed`. */
 export const DEFAULT_MAX_ATTEMPTS = 3;
@@ -57,6 +59,20 @@ export interface QueueEmailParams {
    * Transactional emails ignore this.
    */
   isSubscribed?: boolean;
+  /**
+   * The app user this email goes to (App audience, CO6.5a): their `AppAudience`
+   * id and their host fields for `##APP.<path>##`. The id rides on every log,
+   * including skipped ones, so an unsubscribe from this email reaches their record.
+   */
+  appUser?: {
+    id: string;
+    /**
+     * Their host document, so a later unsubscribe from this address can check
+     * the person still has it (recipientConsent.ts, review C7).
+     */
+    docId?: string;
+    fields: Record<string, string>;
+  };
   /** Extra tag data merged onto the log (otp, currency, price, waitlistName…). */
   data?: Record<string, unknown>;
   /** Override default max delivery attempts. */
@@ -116,6 +132,8 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     attempts: 0,
     maxAttempts: params.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
     createdAt: Timestamp.now(),
+    ...(params.appUser ? { appUserId: params.appUser.id } : {}),
+    ...(params.appUser?.docId ? { appDocId: params.appUser.docId } : {}),
     ...(params.data || {}),
   };
 
@@ -155,11 +173,14 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
 
   // 5. Category / consent check (marketing only).
   //    Prefer the unified Contacts consent (Phase 3); fall back to the caller's
-  //    legacy `isSubscribed` signal when no contact exists yet.
+  //    legacy `isSubscribed` signal when no contact exists yet. An app user
+  //    follows appUserSubscribed(): only a contact that unsubscribed blocks them.
   if (params.category === 'marketing') {
-    const subscribed = contact.consent !== null
-      ? contact.consent === 'subscribed'
-      : params.isSubscribed !== false;
+    const subscribed = params.appUser
+      ? appUserSubscribed(contact.consent, params.isSubscribed !== false)
+      : contact.consent !== null
+        ? contact.consent === 'subscribed'
+        : params.isSubscribed !== false;
     if (!subscribed) {
       return blocked('skipped', 'unsubscribed');
     }
@@ -184,6 +205,8 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     ...base,
     status: 'pending',
     ...(contact.fields ? { contactFields: contact.fields } : {}),
+    // Only the host fields this email's ##APP.*## tags use, never the whole document.
+    ...(params.appUser ? { appFields: usedAppFields(params.appUser.fields, params.template, params.subject) } : {}),
   };
   if (!params.dedupeKey) {
     const id = await writeLog(pending);

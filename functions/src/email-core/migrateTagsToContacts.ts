@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
 import { computeEmailHash } from './unsubscribeToken.js';
 import { ensureTag, addTagsToContact, tagIdFromLabel } from './contactTags.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: lift per-waitlist tags into the global audience layer
@@ -24,7 +25,7 @@ import { ensureTag, addTagsToContact, tagIdFromLabel } from './contactTags.js';
  * Pass `{ dryRun: true }` to report the plan without writing.
  */
 export const migrateTagsToContacts = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 
@@ -130,7 +131,7 @@ export const migrateTagsToContacts = onCall(async (request) => {
 
 /** Admin callable: set a contact's tags (Contacts are functions-only writes). */
 export const adminSetContactTags = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

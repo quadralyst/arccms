@@ -1,5 +1,6 @@
 import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { decrementReferralCounts } from '../../utils/referralHelper.js';
+import { arcDocument } from '../../arc-config.js';
 
 interface WaitlistUserData {
   referredBy?: string;
@@ -14,7 +15,7 @@ interface WaitlistUserData {
  * totalReferrals count and removes the referral record.
  */
 export const onWaitlistUserDelete = onDocumentDeleted(
-  'Waitlists/{WaitlistsId}/users/{usersId}',
+  arcDocument('Waitlists/{WaitlistsId}/users/{usersId}'),
   async (event) => {
     const deletedData = event.data?.data() as WaitlistUserData | undefined;
     if (!deletedData) return;

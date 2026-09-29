@@ -10,7 +10,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { store, mockQueueEmail } = vi.hoisted(() => ({
   // contactId -> { lists: string[], consent: string }
-  store: { contacts: new Map<string, { lists: string[]; consent: string }>() },
+  store: {
+    contacts: new Map<string, { lists: string[]; consent: string }>(),
+    // App users (live) lists (CO6.5b): list id -> its current members.
+    liveLists: new Map<string, Array<{ docId: string; email: string; consent: string }>>(),
+    // Whether live lists report reading only the first MAX_APP_USERS host documents.
+    liveTruncated: false,
+  },
   mockQueueEmail: vi.fn(),
 }));
 
@@ -43,16 +49,44 @@ function contactsQuery(filterListId?: string, after?: string) {
   return chain;
 }
 
-vi.mock('../init', () => ({
+vi.mock('../init', async () => {
+  const { createHash } = await import('node:crypto');
+  const hash = (email: string) => createHash('sha256').update(email.trim().toLowerCase()).digest('hex');
+  return {
   db: {
+    getAll: async (...refs: Array<{ coll: string; id: string }>) => refs.map((r) => {
+      if (r.coll === 'Lists') {
+        const live = store.liveLists.has(r.id);
+        return { exists: live, data: () => (live ? { type: 'app', conditions: [{ field: 'list', op: 'is', value: r.id }] } : undefined) };
+      }
+      const entry = [...store.contacts.entries()].find(([id]) => hash(`${id}@x.com`) === r.id);
+      return entry
+        ? { exists: true, id: r.id, data: () => ({ email: `${entry[0]}@x.com`, listIds: entry[1].lists, consent: { marketing: entry[1].consent } }) }
+        : { exists: false, id: r.id, data: () => undefined };
+    }),
     collection: vi.fn((name: string) => {
-      if (name === 'Contacts') return contactsQuery();
+      if (name === 'Lists') return { doc: (id: string) => ({ coll: 'Lists', id }) };
+      if (name === 'Contacts') return Object.assign(contactsQuery(), { doc: (id: string) => ({ coll: 'Contacts', id }) });
       if (name === 'users') {
         return { where: () => ({ limit: () => ({ get: async () => ({ empty: true, docs: [] }) }) }) };
       }
       return {};
     }),
   },
+  };
+});
+
+vi.mock('../app-audience/adminCallables', () => ({ readAppAudienceSettings: async () => ({ key: { source: 'docId' }, watchedFields: [] }) }));
+vi.mock('../app-audience/appLists', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../app-audience/appLists.js')>()),
+  // The list's own id rides in its one condition, so each live list has its own members.
+  resolveAppList: async (conditions: Array<{ value: string }>) => ({
+    members: (store.liveLists.get(conditions[0].value) || []).map((m) => ({
+      ...m, key: m.docId, name: m.docId, appUserId: `h-${m.docId}`, fields: { plan: 'pro' },
+    })),
+    scanned: 0,
+    truncated: store.liveTruncated,
+  }),
 }));
 
 vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
@@ -72,6 +106,8 @@ import {
 
 function seed(rows: Array<[string, string[], string?]>): void {
   store.contacts.clear();
+  store.liveLists.clear();
+  store.liveTruncated = false;
   for (const [id, lists, consent] of rows) {
     store.contacts.set(id, { lists, consent: consent || 'subscribed' });
   }
@@ -109,7 +145,9 @@ describe('multi-list audiences (U4)', () => {
     // sentCount here means the same thing it does in production.
     mockQueueEmail.mockImplementation(async (params: any) => {
       const id = String(params.toEmail).split('@')[0];
-      const subscribed = store.contacts.get(id)?.consent === 'subscribed';
+      // A contact's consent wins; otherwise the app user's (queueEmail's isSubscribed fallback).
+      const contact = store.contacts.get(id);
+      const subscribed = contact ? contact.consent === 'subscribed' : params.isSubscribed !== false;
       return subscribed
         ? { id: 'log', status: 'pending' }
         : { id: 'log', status: 'skipped', skipReason: 'unsubscribed' };
@@ -237,6 +275,126 @@ describe('multi-list audiences (U4)', () => {
       expect(res.timedOut).toBe(true);
       expect(res.done).toBe(false);
       expect(res.sentCount).toBe(0);
+      expect(res.lastContactId).toBe('0|');
+    });
+  });
+
+  describe('two host accounts with one address (review C5)', () => {
+    it('emails the address once and counts it once', async () => {
+      seed([]);
+      store.liveLists.set('live', [
+        { docId: 'd1', email: 'same@app.com', consent: 'subscribed' },
+        { docId: 'd2', email: 'same@app.com', consent: 'subscribed' },
+        { docId: 'd3', email: 'other@app.com', consent: 'subscribed' },
+      ]);
+      expect((await countEligible({ include: ['live'] } as any)).count).toBe(2);
+      await send({ include: ['live'] });
+      expect(recipients()).toEqual(['other@app.com', 'same@app.com']);
+    });
+
+    it('respects an opt-out from either account', async () => {
+      seed([]);
+      store.liveLists.set('live', [
+        { docId: 'd1', email: 'same@app.com', consent: 'subscribed' },
+        { docId: 'd2', email: 'same@app.com', consent: 'unsubscribed' },
+      ]);
+      expect((await countEligible({ include: ['live'] } as any)).count).toBe(0);
+    });
+  });
+
+  describe('app users and pending contacts (review C4)', () => {
+    it('counts an app user whose address is a contact still pending, but not one who unsubscribed', async () => {
+      // Contacts are named <id>@x.com in this mock; the live list uses the same addresses.
+      seed([['p', ['other'], 'pending'], ['u', ['other'], 'unsubscribed']]);
+      store.liveLists.set('live', [
+        { docId: 'd1', email: 'p@x.com', consent: 'subscribed' },
+        { docId: 'd2', email: 'u@x.com', consent: 'subscribed' },
+      ]);
+      expect((await countEligible({ include: ['live'] } as any)).count).toBe(1);
+    });
+  });
+
+  describe('the App users limit (review C2)', () => {
+    it('the preview says when a live list read only the first app users', async () => {
+      seed([['a', ['l1']]]);
+      store.liveLists.set('live', [{ docId: 'u1', email: 'u1@app.com', consent: 'subscribed' }]);
+      expect((await countEligible({ include: ['l1', 'live'] } as any)).appUsersCapped).toBe(false);
+      store.liveTruncated = true;
+      expect((await countEligible({ include: ['l1', 'live'] } as any)).appUsersCapped).toBe(true);
+      expect((await countEligible({ include: ['l1'], exclude: ['live'] } as any)).appUsersCapped).toBe(true);
+      expect((await countEligible({ include: ['l1'] } as any)).appUsersCapped).toBe(false);
+    });
+  });
+
+  describe('pausing exactly at a list boundary (review C1)', () => {
+    /** The quota check runs every 25 sends; refusing it pauses the chunk right there. */
+    async function chunk(audience: any, startAfterId?: string) {
+      return processAudienceChunk({
+        broadcastData: { ...broadcastData, audience },
+        broadcastId: 'bc-1',
+        providerLimits: {} as any,
+        timeBudgetMs: 60_000,
+        startAfterId,
+        initialSent: 0,
+        initialSkipped: 0,
+        initialFailed: 0,
+        quotaChecker: async () => false,
+      });
+    }
+
+    /** Runs chunks to the end, as the pause-and-resume engine does. */
+    async function runToEnd(audience: any) {
+      const cursors: Array<string | undefined> = [];
+      let cursor: string | undefined;
+      for (let i = 0; i < 20; i++) {
+        const res = await chunk(audience, cursor);
+        if (res.done) return cursors;
+        cursor = res.lastContactId;
+        cursors.push(cursor);
+      }
+      throw new Error('never finished');
+    }
+
+    const ids = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix}${String(i).padStart(2, '0')}`);
+
+    it('saves the next list as the cursor, so the resume does not start the first list again', async () => {
+      seed([...ids('a', 25).map((id): [string, string[]] => [id, ['l1']]), ['b00', ['l2']], ['b01', ['l2']]]);
+
+      const first = await chunk({ include: ['l1', 'l2'] });
+      expect(first.quotaExhausted).toBe(true);
+      expect(first.lastContactId).toBe('1|');
+      expect(mockQueueEmail).toHaveBeenCalledTimes(25);
+
+      const second = await chunk({ include: ['l1', 'l2'] }, first.lastContactId);
+      expect(second.done).toBe(true);
+      expect(recipients()).toEqual([...ids('a', 25), 'b00', 'b01'].map((id) => `${id}@x.com`).sort());
+    });
+
+    it('emails everyone exactly once when it pauses at every boundary', async () => {
+      seed([
+        ...ids('a', 25).map((id): [string, string[]] => [id, ['l1']]),
+        ...ids('b', 25).map((id): [string, string[]] => [id, ['l2']]),
+        ...ids('c', 3).map((id): [string, string[]] => [id, ['l3']]),
+      ]);
+
+      const cursors = await runToEnd({ include: ['l1', 'l2', 'l3'] });
+
+      expect(cursors).toEqual(['1|', '2|']);
+      const sent = mockQueueEmail.mock.calls.map((c) => c[0].toEmail);
+      expect(sent).toHaveLength(53);
+      expect(new Set(sent).size).toBe(53);
+    });
+
+    it('holds at a boundary into an App users (live) list too', async () => {
+      seed(ids('a', 25).map((id): [string, string[]] => [id, ['l1']]));
+      store.liveLists.set('live', [{ docId: 'u1', email: 'u1@app.com', consent: 'subscribed' }]);
+
+      const cursors = await runToEnd({ include: ['l1', 'live'] });
+
+      expect(cursors).toEqual(['1|']);
+      const sent = mockQueueEmail.mock.calls.map((c) => c[0].toEmail);
+      expect(sent).toHaveLength(26);
+      expect(new Set(sent).size).toBe(26);
     });
   });
 
@@ -250,4 +408,65 @@ describe('multi-list audiences (U4)', () => {
       expect(mockQueueEmail).not.toHaveBeenCalled();
     });
   });
+
+  describe('App users (live) lists (CO6.5b)', () => {
+    const live = (listId: string, rows: Array<[string, string?]>) =>
+      store.liveLists.set(listId, rows.map(([id, consent]) => ({ docId: id, email: `${id}@x.com`, consent: consent || 'subscribed' })));
+
+    it('sends to a live list\'s members with their app fields, skipping app unsubscribes', async () => {
+      seed([]);
+      live('app1', [['ann'], ['bob', 'unsubscribed']]);
+      const res = await send({ include: ['app1'] });
+      expect(recipients()).toEqual(['ann@x.com', 'bob@x.com']);
+      expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({
+        toEmail: 'ann@x.com', isSubscribed: true, appUser: { id: 'h-ann', docId: 'ann', fields: { plan: 'pro' } },
+      }));
+      expect(res).toMatchObject({ sentCount: 1, skippedCount: 1, done: true });
+    });
+
+    it('emails an address on a contact list and a live list once, by the first list', async () => {
+      seed([['ann', ['c1']], ['cat', ['c1']]]);
+      live('app1', [['ann'], ['dan']]);
+      await send({ include: ['c1', 'app1'] });
+      expect(recipients()).toEqual(['ann@x.com', 'cat@x.com', 'dan@x.com']);
+
+      mockQueueEmail.mockClear();
+      await send({ include: ['app1', 'c1'] });
+      expect(recipients()).toEqual(['ann@x.com', 'cat@x.com', 'dan@x.com']);
+    });
+
+    it('excludes by live list and by contact list, across kinds', async () => {
+      seed([['ann', ['c1']], ['cat', ['c1', 'blocked']]]);
+      live('app1', [['cat'], ['dan']]);
+      live('app-ex', [['ann']]);
+      await send({ include: ['c1', 'app1'], exclude: ['app-ex', 'blocked'] });
+      expect(recipients()).toEqual(['dan@x.com']);
+    });
+
+    it('counts what the send would deliver', async () => {
+      seed([['ann', ['c1']], ['eve', ['c1'], 'unsubscribed']]);
+      live('app1', [['ann'], ['dan'], ['fay', 'unsubscribed'], ['eve']]);
+      // ann: once. dan: yes. fay: app-unsubscribed. eve: the contact's unsubscribe wins.
+      expect((await countEligible({ include: ['c1', 'app1'] })).count).toBe(2);
+    });
+
+    it('own users (CO6.8): a site user is also an all-users contact, so is emailed once, and a contact unsubscribe wins', async () => {
+      // ann and eve signed up to the site: users (the live list) and contacts on all-users.
+      seed([['ann', ['all-users']], ['eve', ['all-users'], 'unsubscribed']]);
+      live('pros', [['ann'], ['eve']]);
+      await send({ include: ['all-users', 'pros'] });
+      expect(mockQueueEmail.mock.calls.filter((c) => c[0].toEmail === 'ann@x.com')).toHaveLength(1);
+      // eve is queued once and skipped by her contact consent, never sent via the live list.
+      expect(mockQueueEmail.mock.calls.filter((c) => c[0].toEmail === 'eve@x.com')).toHaveLength(1);
+      expect((await countEligible({ include: ['pros'] })).count).toBe(1);
+    });
+
+    it('resumes a live list after its last document', async () => {
+      seed([]);
+      live('app1', [['ann'], ['bob'], ['cat']]);
+      await send({ include: ['app1'] }, '0|bob');
+      expect(recipients()).toEqual(['cat@x.com']);
+    });
+  });
 });
+

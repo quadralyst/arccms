@@ -8,7 +8,7 @@ vi.mock('@angular/fire/functions', async () => {
     const actual = await vi.importActual<typeof import('@angular/fire/functions')>('@angular/fire/functions');
     return {
         ...actual,
-        httpsCallable: (_functions: unknown, name: string) => (data: unknown) => callableMock(name, data),
+        httpsCallable: (_functions: unknown, name: string) => (data: unknown) => callableMock(name.replace(/^arccms-/, ''), data),
     };
 });
 

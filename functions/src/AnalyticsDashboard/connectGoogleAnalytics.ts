@@ -1,8 +1,10 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { OAuth2Client } from 'google-auth-library';
 import { google } from 'googleapis';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { db } from '../init.js';
 import { fetchAndStoreAnalyticsData } from './analyticsHelpers.js';
+import { isArcAdmin } from '../users/claims.js';
 
 export const connectGoogleAnalytics = onCall(
   { cors: true, enforceAppCheck: false },
@@ -12,7 +14,7 @@ export const connectGoogleAnalytics = onCall(
     }
 
     // Only admins can connect analytics
-    if (request.auth.token.role !== 'admin') {
+    if (!isArcAdmin(request.auth.token)) {
       throw new HttpsError('permission-denied', 'Admin access required.');
     }
 
@@ -22,7 +24,6 @@ export const connectGoogleAnalytics = onCall(
       throw new HttpsError('invalid-argument', 'Authorization code is required.');
     }
 
-    const db = getFirestore();
 
     // 1. Read OAuth client credentials from Settings/analytics
     const settingsDoc = await db.collection('Settings').doc('analytics').get();

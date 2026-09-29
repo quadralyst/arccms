@@ -7,6 +7,8 @@ import {
   ApplicationConfig,
   EnvironmentProviders,
   Provider,
+  inject,
+  provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideClientHydration, withEventReplay, withIncrementalHydration } from '@angular/platform-browser';
@@ -17,8 +19,8 @@ import { provideFileRouter, requestContextInterceptor, withExtraRoutes } from '@
 // Firebase imports
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { provideAuth, getAuth } from '@angular/fire/auth';
-import { getFirestore, provideFirestore } from '@angular/fire/firestore';
-import { getStorage, provideStorage } from '@angular/fire/storage';
+import { provideFirestore } from '@angular/fire/firestore';
+import { provideStorage } from '@angular/fire/storage';
 import { getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getAnalytics, provideAnalytics, ScreenTrackingService, UserTrackingService } from '@angular/fire/analytics';
 
@@ -27,10 +29,12 @@ import { MatPaginatorIntl } from '@angular/material/paginator';
 
 import { routes } from './app.routes';
 import { environment } from '../environments/environment';
+import { arcFirestore, arcStorage } from './core/config/arc-firebase';
 import { ADMIN_LANGUAGE_CODES, DEFAULT_ADMIN_LANGUAGE } from './core/i18n/admin-languages';
 import { AdminTranslationLoader } from './core/i18n/translation.loader';
 import { provideAdminLocale } from './core/i18n/admin-locale.provider';
 import { TranslatedPaginatorIntl } from './core/i18n/paginator-intl';
+import { PwaService } from './core/pwa/pwa.service';
 
 // Analytics requires `window` and must only run in the browser.
 // During SSR, `typeof window` is 'undefined', so we skip these providers.
@@ -55,8 +59,8 @@ export const appConfig: ApplicationConfig = {
 
     // Firebase Core Providers
     provideFirebaseApp(() => initializeApp(environment.firebaseConfig)),
-    provideFirestore(() => getFirestore()),
-    provideStorage(() => getStorage()),
+    provideFirestore((injector) => arcFirestore(injector)),
+    provideStorage((injector) => arcStorage(injector)),
     provideFunctions(() => getFunctions()),
 
     // Firebase Auth Provider
@@ -82,6 +86,10 @@ export const appConfig: ApplicationConfig = {
     provideAdminLocale(),
     // Material's paginator ships its own English; see paginator-intl.ts.
     { provide: MatPaginatorIntl, useClass: TranslatedPaginatorIntl },
+
+    // The installable app: service worker, update bar, install counts (docs/pwa.md).
+    // Does nothing unless src/custom/pwa.ts turns it on.
+    provideAppInitializer(() => inject(PwaService).start()),
 
     // Google Analytics 4 - Automatic screen/user tracking (browser-only)
     ...analyticsProviders,

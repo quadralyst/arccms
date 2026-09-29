@@ -150,6 +150,19 @@ describe('contacts helpers', () => {
     expect(c.consent.marketing).toBe('subscribed');
   });
 
+  it('upsertContact names a contact from firstName when no name is given (signup forms)', async () => {
+    await upsertContact({ email: EMAIL, firstName: 'Smoke Tester', source: 'waitlist' });
+    const c = store.get(`Contacts/${HASH}`);
+    expect(c.name).toBe('Smoke Tester');
+    expect(c.firstName).toBe('Smoke Tester');
+  });
+
+  it('upsertContact never replaces an existing name with a firstName', async () => {
+    await upsertContact({ email: EMAIL, name: 'Asha Rao', source: 'signup' });
+    await upsertContact({ email: EMAIL, firstName: 'Asha', source: 'waitlist' });
+    expect(store.get(`Contacts/${HASH}`).name).toBe('Asha Rao');
+  });
+
   it('upsertContact merges a second source without duplicating', async () => {
     await upsertContact({ email: EMAIL, source: 'signup' });
     const res = await upsertContact({ email: EMAIL, source: 'customer' });

@@ -11,6 +11,43 @@
  */
 
 export type TranslationKey =
+    | 'admin.audience.app_users.activity'
+    | 'admin.audience.app_users.activity_none'
+    | 'admin.audience.app_users.activity_status.disabled'
+    | 'admin.audience.app_users.activity_status.error'
+    | 'admin.audience.app_users.activity_status.no_mapping'
+    | 'admin.audience.app_users.activity_status.no_matching_rule'
+    | 'admin.audience.app_users.activity_status.ok'
+    | 'admin.audience.app_users.activity_status.other'
+    | 'admin.audience.app_users.activity_status.pending'
+    | 'admin.audience.app_users.close'
+    | 'admin.audience.app_users.consent'
+    | 'admin.audience.app_users.detail_title'
+    | 'admin.audience.app_users.doc_id'
+    | 'admin.audience.app_users.email'
+    | 'admin.audience.app_users.empty_description'
+    | 'admin.audience.app_users.empty_title'
+    | 'admin.audience.app_users.empty_value'
+    | 'admin.audience.app_users.fields'
+    | 'admin.audience.app_users.fields_hint'
+    | 'admin.audience.app_users.key'
+    | 'admin.audience.app_users.load_failed'
+    | 'admin.audience.app_users.name'
+    | 'admin.audience.app_users.not_configured'
+    | 'admin.audience.app_users.open_settings'
+    | 'admin.audience.app_users.phone'
+    | 'admin.audience.app_users.refresh'
+    | 'admin.audience.app_users.search'
+    | 'admin.audience.app_users.search_placeholder'
+    | 'admin.audience.app_users.showing'
+    | 'admin.audience.app_users.subscribed'
+    | 'admin.audience.app_users.subtitle'
+    | 'admin.audience.app_users.subtitle_own'
+    | 'admin.audience.app_users.summary'
+    | 'admin.audience.app_users.title'
+    | 'admin.audience.app_users.truncated'
+    | 'admin.audience.app_users.unsubscribed'
+    | 'admin.audience.app_users.without_key'
     | 'admin.audience.contacts.add'
     | 'admin.audience.contacts.any'
     | 'admin.audience.contacts.backfill'
@@ -143,6 +180,8 @@ export type TranslationKey =
     | 'admin.contents.editor.default_badge'
     | 'admin.contents.editor.deploy_error'
     | 'admin.contents.editor.deploy_failed'
+    | 'admin.contents.editor.deploy_skipped'
+    | 'admin.contents.editor.deploy_skipped_info'
     | 'admin.contents.editor.deployed'
     | 'admin.contents.editor.deployed_success'
     | 'admin.contents.editor.deploying'
@@ -318,6 +357,7 @@ export type TranslationKey =
     | 'admin.contents.types.update_failed'
     | 'admin.contents.types.updated'
     | 'admin.dashboard.active'
+    | 'admin.dashboard.app_installs'
     | 'admin.dashboard.col_date'
     | 'admin.dashboard.col_details'
     | 'admin.dashboard.col_referrals'
@@ -339,6 +379,9 @@ export type TranslationKey =
     | 'admin.dashboard.ga_setup_hint'
     | 'admin.dashboard.growth_leads'
     | 'admin.dashboard.inactive'
+    | 'admin.dashboard.install_rate'
+    | 'admin.dashboard.install_rate_note'
+    | 'admin.dashboard.installs_30d'
     | 'admin.dashboard.last_sync'
     | 'admin.dashboard.media'
     | 'admin.dashboard.media_files'
@@ -346,6 +389,10 @@ export type TranslationKey =
     | 'admin.dashboard.no_data'
     | 'admin.dashboard.no_recent_activity'
     | 'admin.dashboard.no_recent_signups'
+    | 'admin.dashboard.opened_30d'
+    | 'admin.dashboard.platform_android'
+    | 'admin.dashboard.platform_desktop'
+    | 'admin.dashboard.platform_ios'
     | 'admin.dashboard.property_account'
     | 'admin.dashboard.property_intro'
     | 'admin.dashboard.property_title'
@@ -445,6 +492,24 @@ export type TranslationKey =
     | 'admin.data.preset_everything'
     | 'admin.data.subtitle'
     | 'admin.data.title'
+    | 'admin.feedback.button_off'
+    | 'admin.feedback.button_on'
+    | 'admin.feedback.delete_confirm'
+    | 'admin.feedback.empty'
+    | 'admin.feedback.empty_new'
+    | 'admin.feedback.filter'
+    | 'admin.feedback.filter_all'
+    | 'admin.feedback.filter_done'
+    | 'admin.feedback.filter_new'
+    | 'admin.feedback.installed_app'
+    | 'admin.feedback.load_more'
+    | 'admin.feedback.mark_done'
+    | 'admin.feedback.mark_new'
+    | 'admin.feedback.off_hint'
+    | 'admin.feedback.open_screenshot'
+    | 'admin.feedback.someone'
+    | 'admin.feedback.subtitle'
+    | 'admin.feedback.title'
     | 'admin.media.api_hint'
     | 'admin.media.api_not_configured'
     | 'admin.media.configure_api'
@@ -489,6 +554,7 @@ export type TranslationKey =
     | 'admin.media.uploaded'
     | 'admin.nav.about'
     | 'admin.nav.announcements'
+    | 'admin.nav.app_users'
     | 'admin.nav.audience'
     | 'admin.nav.audience_and_emails'
     | 'admin.nav.authors'
@@ -506,6 +572,7 @@ export type TranslationKey =
     | 'admin.nav.email_templates'
     | 'admin.nav.export_data'
     | 'admin.nav.export_files'
+    | 'admin.nav.feedback'
     | 'admin.nav.fields'
     | 'admin.nav.import_data'
     | 'admin.nav.import_files'
@@ -518,6 +585,7 @@ export type TranslationKey =
     | 'admin.nav.profile'
     | 'admin.nav.settings'
     | 'admin.nav.signup_forms'
+    | 'admin.nav.sms_logs'
     | 'admin.nav.tags'
     | 'admin.nav.transactions'
     | 'admin.nav.users'
@@ -689,6 +757,95 @@ export type TranslationKey =
     | 'admin.settings.analytics.subtitle'
     | 'admin.settings.analytics.title'
     | 'admin.settings.analytics.why_note'
+    | 'admin.settings.app_audience.channels_hint'
+    | 'admin.settings.app_audience.choose_field'
+    | 'admin.settings.app_audience.col_examples'
+    | 'admin.settings.app_audience.col_field'
+    | 'admin.settings.app_audience.col_seen'
+    | 'admin.settings.app_audience.collection'
+    | 'admin.settings.app_audience.database'
+    | 'admin.settings.app_audience.email_field'
+    | 'admin.settings.app_audience.fields_hint'
+    | 'admin.settings.app_audience.fields_title'
+    | 'admin.settings.app_audience.intro'
+    | 'admin.settings.app_audience.key'
+    | 'admin.settings.app_audience.key_doc_id'
+    | 'admin.settings.app_audience.key_field'
+    | 'admin.settings.app_audience.key_hint'
+    | 'admin.settings.app_audience.load_failed'
+    | 'admin.settings.app_audience.location_hint'
+    | 'admin.settings.app_audience.location_title'
+    | 'admin.settings.app_audience.name_field'
+    | 'admin.settings.app_audience.none'
+    | 'admin.settings.app_audience.not_configured'
+    | 'admin.settings.app_audience.own_users'
+    | 'admin.settings.app_audience.phone_field'
+    | 'admin.settings.app_audience.reading_title'
+    | 'admin.settings.app_audience.save'
+    | 'admin.settings.app_audience.save_failed'
+    | 'admin.settings.app_audience.saved'
+    | 'admin.settings.app_audience.test'
+    | 'admin.settings.app_audience.test_doc_id'
+    | 'admin.settings.app_audience.test_failed'
+    | 'admin.settings.app_audience.test_none'
+    | 'admin.settings.app_audience.test_result'
+    | 'admin.settings.app_audience.title'
+    | 'admin.settings.app_audience.watched'
+    | 'admin.settings.app_audience.watched_available'
+    | 'admin.settings.app_audience.watched_empty'
+    | 'admin.settings.app_audience.watched_filter'
+    | 'admin.settings.app_audience.watched_hint'
+    | 'admin.settings.app_audience.watched_no_match'
+    | 'admin.settings.app_audience.watched_remove'
+    | 'admin.settings.app_audience.watched_selected'
+    | 'admin.settings.automations.add_rule'
+    | 'admin.settings.automations.add_to_lists'
+    | 'admin.settings.automations.app_user_hint'
+    | 'admin.settings.automations.category'
+    | 'admin.settings.automations.choose_template'
+    | 'admin.settings.automations.condition.any'
+    | 'admin.settings.automations.condition.any_of'
+    | 'admin.settings.automations.condition.equals'
+    | 'admin.settings.automations.condition.none_of'
+    | 'admin.settings.automations.create_notification'
+    | 'admin.settings.automations.event_on'
+    | 'admin.settings.automations.events.app_user_changed'
+    | 'admin.settings.automations.events.app_user_created'
+    | 'admin.settings.automations.events.app_user_deleted'
+    | 'admin.settings.automations.events.payment_failed'
+    | 'admin.settings.automations.events.payment_succeeded'
+    | 'admin.settings.automations.events.user_signed_up'
+    | 'admin.settings.automations.events.waitlist_joined'
+    | 'admin.settings.automations.intro'
+    | 'admin.settings.automations.load_failed'
+    | 'admin.settings.automations.marketing'
+    | 'admin.settings.automations.new_rule_name'
+    | 'admin.settings.automations.no_rules'
+    | 'admin.settings.automations.notification_body'
+    | 'admin.settings.automations.notification_link'
+    | 'admin.settings.automations.notification_title'
+    | 'admin.settings.automations.notification_type'
+    | 'admin.settings.automations.off'
+    | 'admin.settings.automations.on'
+    | 'admin.settings.automations.problem.email_needs_template'
+    | 'admin.settings.automations.problem.notification_incomplete'
+    | 'admin.settings.automations.problem.rule_needs_action'
+    | 'admin.settings.automations.problem.rule_needs_name'
+    | 'admin.settings.automations.remove_from_lists'
+    | 'admin.settings.automations.remove_rule'
+    | 'admin.settings.automations.rule_count'
+    | 'admin.settings.automations.rule_name'
+    | 'admin.settings.automations.rule_on'
+    | 'admin.settings.automations.save'
+    | 'admin.settings.automations.save_failed'
+    | 'admin.settings.automations.saved'
+    | 'admin.settings.automations.send_email'
+    | 'admin.settings.automations.template'
+    | 'admin.settings.automations.title'
+    | 'admin.settings.automations.transactional'
+    | 'admin.settings.automations.value_placeholder'
+    | 'admin.settings.automations.when_from'
+    | 'admin.settings.automations.when_to'
     | 'admin.settings.background_style'
     | 'admin.settings.banner_enabled'
     | 'admin.settings.discoverability.allowed'
@@ -742,6 +899,9 @@ export type TranslationKey =
     | 'admin.settings.email.keep_days'
     | 'admin.settings.email.keep_days_hint'
     | 'admin.settings.email.keep_days_range'
+    | 'admin.settings.email.load_failed_note'
+    | 'admin.settings.email.load_failed_retry'
+    | 'admin.settings.email.load_failed_title'
     | 'admin.settings.email.per_day'
     | 'admin.settings.email.per_day_hint'
     | 'admin.settings.email.per_hour'
@@ -780,6 +940,10 @@ export type TranslationKey =
     | 'admin.settings.hub.about.label'
     | 'admin.settings.hub.analytics.description'
     | 'admin.settings.hub.analytics.label'
+    | 'admin.settings.hub.app-audience.description'
+    | 'admin.settings.hub.app-audience.label'
+    | 'admin.settings.hub.automations.description'
+    | 'admin.settings.hub.automations.label'
     | 'admin.settings.hub.discoverability.description'
     | 'admin.settings.hub.discoverability.label'
     | 'admin.settings.hub.email.description'
@@ -798,6 +962,8 @@ export type TranslationKey =
     | 'admin.settings.hub.search.label'
     | 'admin.settings.hub.site-usage.description'
     | 'admin.settings.hub.site-usage.label'
+    | 'admin.settings.hub.sms.description'
+    | 'admin.settings.hub.sms.label'
     | 'admin.settings.hub.subtitle'
     | 'admin.settings.hub.title'
     | 'admin.settings.hub.user.description'
@@ -995,6 +1161,36 @@ export type TranslationKey =
     | 'admin.settings.site_usage.reject_text_required'
     | 'admin.settings.site_usage.subtitle'
     | 'admin.settings.site_usage.title'
+    | 'admin.settings.sms.allowed_countries'
+    | 'admin.settings.sms.allowed_countries_hint'
+    | 'admin.settings.sms.col_message'
+    | 'admin.settings.sms.col_status'
+    | 'admin.settings.sms.col_time'
+    | 'admin.settings.sms.col_to'
+    | 'admin.settings.sms.default_country'
+    | 'admin.settings.sms.default_country_hint'
+    | 'admin.settings.sms.intro'
+    | 'admin.settings.sms.logs_link'
+    | 'admin.settings.sms.msg91_auth_key'
+    | 'admin.settings.sms.msg91_auth_key_hint'
+    | 'admin.settings.sms.msg91_template'
+    | 'admin.settings.sms.msg91_template_hint'
+    | 'admin.settings.sms.provider'
+    | 'admin.settings.sms.provider_log'
+    | 'admin.settings.sms.provider_msg91'
+    | 'admin.settings.sms.save'
+    | 'admin.settings.sms.saved'
+    | 'admin.settings.sms.status_failed'
+    | 'admin.settings.sms.status_logged'
+    | 'admin.settings.sms.status_sent'
+    | 'admin.settings.sms.test_failed'
+    | 'admin.settings.sms.test_logged'
+    | 'admin.settings.sms.test_mode_warning'
+    | 'admin.settings.sms.test_phone'
+    | 'admin.settings.sms.test_send'
+    | 'admin.settings.sms.test_sent'
+    | 'admin.settings.sms.test_title'
+    | 'admin.settings.sms.title'
     | 'admin.settings.test_connection.check_folders'
     | 'admin.settings.test_connection.email_invalid'
     | 'admin.settings.test_connection.email_required'
@@ -1011,9 +1207,29 @@ export type TranslationKey =
     | 'admin.settings.user.enable'
     | 'admin.settings.user.enable_signups'
     | 'admin.settings.user.enable_signups_hint'
+    | 'admin.settings.user.google_sign_in'
+    | 'admin.settings.user.google_sign_in_hint'
+    | 'admin.settings.user.phone_sign_in'
+    | 'admin.settings.user.phone_sign_in_hint'
+    | 'admin.settings.user.sign_in_methods'
+    | 'admin.settings.user.sign_in_saved'
     | 'admin.settings.user.signups_disabled'
+    | 'admin.settings.user.sms_settings_link'
     | 'admin.settings.user.subtitle'
     | 'admin.settings.user.title'
+    | 'admin.sms_logs.col_provider'
+    | 'admin.sms_logs.col_purpose'
+    | 'admin.sms_logs.empty_description'
+    | 'admin.sms_logs.empty_title'
+    | 'admin.sms_logs.provider_test'
+    | 'admin.sms_logs.purpose_otp'
+    | 'admin.sms_logs.purpose_test'
+    | 'admin.sms_logs.refresh'
+    | 'admin.sms_logs.settings'
+    | 'admin.sms_logs.status'
+    | 'admin.sms_logs.status_all'
+    | 'admin.sms_logs.subtitle'
+    | 'admin.sms_logs.title'
     | 'admin.transactions.col_amount'
     | 'admin.transactions.col_customer'
     | 'admin.transactions.col_date'
@@ -1029,12 +1245,15 @@ export type TranslationKey =
     | 'admin.transactions.test_badge_hint'
     | 'admin.transactions.title'
     | 'admin.users.add'
+    | 'admin.users.detached_hint'
     | 'admin.users.empty_description'
     | 'admin.users.empty_title'
     | 'admin.users.invalid_action'
     | 'admin.users.none_selected'
     | 'admin.users.page_subtitle'
     | 'admin.users.page_title'
+    | 'admin.users.show_all'
+    | 'admin.users.show_detached'
     | 'admin.users.verify'
     | 'common.actions.add'
     | 'common.actions.back'
@@ -1049,6 +1268,7 @@ export type TranslationKey =
     | 'common.actions.enable'
     | 'common.actions.hide'
     | 'common.actions.logout'
+    | 'common.actions.more'
     | 'common.actions.open'
     | 'common.actions.remove'
     | 'common.actions.reset'
@@ -1063,6 +1283,20 @@ export type TranslationKey =
     | 'common.dialog.delete'
     | 'common.dialog.logout'
     | 'common.dialog.unpublish'
+    | 'common.feedback.button'
+    | 'common.feedback.delete_voice'
+    | 'common.feedback.mic_blocked'
+    | 'common.feedback.placeholder'
+    | 'common.feedback.record'
+    | 'common.feedback.remove_screenshot'
+    | 'common.feedback.screenshot'
+    | 'common.feedback.send'
+    | 'common.feedback.send_failed'
+    | 'common.feedback.sending'
+    | 'common.feedback.stop'
+    | 'common.feedback.taking_screenshot'
+    | 'common.feedback.thanks'
+    | 'common.feedback.title'
     | 'common.filters.all'
     | 'common.filters.clear'
     | 'common.filters.filtered'
@@ -1081,6 +1315,17 @@ export type TranslationKey =
     | 'common.paginator.previous_page'
     | 'common.paginator.range'
     | 'common.paginator.range_empty'
+    | 'common.pwa.copy_link'
+    | 'common.pwa.install'
+    | 'common.pwa.install_note'
+    | 'common.pwa.install_title'
+    | 'common.pwa.ios_other'
+    | 'common.pwa.ios_step_add'
+    | 'common.pwa.ios_step_share'
+    | 'common.pwa.link_copied'
+    | 'common.pwa.not_now'
+    | 'common.pwa.update'
+    | 'common.pwa.update_ready'
     | 'common.search.all_results'
     | 'common.search.empty'
     | 'common.search.placeholder'
@@ -1102,6 +1347,7 @@ export type TranslationKey =
     | 'common.table.last_updated'
     | 'common.table.name'
     | 'common.table.no_records'
+    | 'common.table.phone'
     | 'common.table.role'
     | 'common.table.showing_range'
     | 'common.table.showing_range_filtered'
@@ -1176,6 +1422,43 @@ export type TranslationKey =
 
 /** The same list at runtime, for the parity spec and for validation. */
 export const TRANSLATION_KEYS: readonly TranslationKey[] = [
+    'admin.audience.app_users.activity',
+    'admin.audience.app_users.activity_none',
+    'admin.audience.app_users.activity_status.disabled',
+    'admin.audience.app_users.activity_status.error',
+    'admin.audience.app_users.activity_status.no_mapping',
+    'admin.audience.app_users.activity_status.no_matching_rule',
+    'admin.audience.app_users.activity_status.ok',
+    'admin.audience.app_users.activity_status.other',
+    'admin.audience.app_users.activity_status.pending',
+    'admin.audience.app_users.close',
+    'admin.audience.app_users.consent',
+    'admin.audience.app_users.detail_title',
+    'admin.audience.app_users.doc_id',
+    'admin.audience.app_users.email',
+    'admin.audience.app_users.empty_description',
+    'admin.audience.app_users.empty_title',
+    'admin.audience.app_users.empty_value',
+    'admin.audience.app_users.fields',
+    'admin.audience.app_users.fields_hint',
+    'admin.audience.app_users.key',
+    'admin.audience.app_users.load_failed',
+    'admin.audience.app_users.name',
+    'admin.audience.app_users.not_configured',
+    'admin.audience.app_users.open_settings',
+    'admin.audience.app_users.phone',
+    'admin.audience.app_users.refresh',
+    'admin.audience.app_users.search',
+    'admin.audience.app_users.search_placeholder',
+    'admin.audience.app_users.showing',
+    'admin.audience.app_users.subscribed',
+    'admin.audience.app_users.subtitle',
+    'admin.audience.app_users.subtitle_own',
+    'admin.audience.app_users.summary',
+    'admin.audience.app_users.title',
+    'admin.audience.app_users.truncated',
+    'admin.audience.app_users.unsubscribed',
+    'admin.audience.app_users.without_key',
     'admin.audience.contacts.add',
     'admin.audience.contacts.any',
     'admin.audience.contacts.backfill',
@@ -1308,6 +1591,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.default_badge',
     'admin.contents.editor.deploy_error',
     'admin.contents.editor.deploy_failed',
+    'admin.contents.editor.deploy_skipped',
+    'admin.contents.editor.deploy_skipped_info',
     'admin.contents.editor.deployed',
     'admin.contents.editor.deployed_success',
     'admin.contents.editor.deploying',
@@ -1483,6 +1768,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.update_failed',
     'admin.contents.types.updated',
     'admin.dashboard.active',
+    'admin.dashboard.app_installs',
     'admin.dashboard.col_date',
     'admin.dashboard.col_details',
     'admin.dashboard.col_referrals',
@@ -1504,6 +1790,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.ga_setup_hint',
     'admin.dashboard.growth_leads',
     'admin.dashboard.inactive',
+    'admin.dashboard.install_rate',
+    'admin.dashboard.install_rate_note',
+    'admin.dashboard.installs_30d',
     'admin.dashboard.last_sync',
     'admin.dashboard.media',
     'admin.dashboard.media_files',
@@ -1511,6 +1800,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.no_data',
     'admin.dashboard.no_recent_activity',
     'admin.dashboard.no_recent_signups',
+    'admin.dashboard.opened_30d',
+    'admin.dashboard.platform_android',
+    'admin.dashboard.platform_desktop',
+    'admin.dashboard.platform_ios',
     'admin.dashboard.property_account',
     'admin.dashboard.property_intro',
     'admin.dashboard.property_title',
@@ -1610,6 +1903,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.data.preset_everything',
     'admin.data.subtitle',
     'admin.data.title',
+    'admin.feedback.button_off',
+    'admin.feedback.button_on',
+    'admin.feedback.delete_confirm',
+    'admin.feedback.empty',
+    'admin.feedback.empty_new',
+    'admin.feedback.filter',
+    'admin.feedback.filter_all',
+    'admin.feedback.filter_done',
+    'admin.feedback.filter_new',
+    'admin.feedback.installed_app',
+    'admin.feedback.load_more',
+    'admin.feedback.mark_done',
+    'admin.feedback.mark_new',
+    'admin.feedback.off_hint',
+    'admin.feedback.open_screenshot',
+    'admin.feedback.someone',
+    'admin.feedback.subtitle',
+    'admin.feedback.title',
     'admin.media.api_hint',
     'admin.media.api_not_configured',
     'admin.media.configure_api',
@@ -1654,6 +1965,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.uploaded',
     'admin.nav.about',
     'admin.nav.announcements',
+    'admin.nav.app_users',
     'admin.nav.audience',
     'admin.nav.audience_and_emails',
     'admin.nav.authors',
@@ -1671,6 +1983,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.email_templates',
     'admin.nav.export_data',
     'admin.nav.export_files',
+    'admin.nav.feedback',
     'admin.nav.fields',
     'admin.nav.import_data',
     'admin.nav.import_files',
@@ -1683,6 +1996,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.profile',
     'admin.nav.settings',
     'admin.nav.signup_forms',
+    'admin.nav.sms_logs',
     'admin.nav.tags',
     'admin.nav.transactions',
     'admin.nav.users',
@@ -1854,6 +2168,95 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.analytics.subtitle',
     'admin.settings.analytics.title',
     'admin.settings.analytics.why_note',
+    'admin.settings.app_audience.channels_hint',
+    'admin.settings.app_audience.choose_field',
+    'admin.settings.app_audience.col_examples',
+    'admin.settings.app_audience.col_field',
+    'admin.settings.app_audience.col_seen',
+    'admin.settings.app_audience.collection',
+    'admin.settings.app_audience.database',
+    'admin.settings.app_audience.email_field',
+    'admin.settings.app_audience.fields_hint',
+    'admin.settings.app_audience.fields_title',
+    'admin.settings.app_audience.intro',
+    'admin.settings.app_audience.key',
+    'admin.settings.app_audience.key_doc_id',
+    'admin.settings.app_audience.key_field',
+    'admin.settings.app_audience.key_hint',
+    'admin.settings.app_audience.load_failed',
+    'admin.settings.app_audience.location_hint',
+    'admin.settings.app_audience.location_title',
+    'admin.settings.app_audience.name_field',
+    'admin.settings.app_audience.none',
+    'admin.settings.app_audience.not_configured',
+    'admin.settings.app_audience.own_users',
+    'admin.settings.app_audience.phone_field',
+    'admin.settings.app_audience.reading_title',
+    'admin.settings.app_audience.save',
+    'admin.settings.app_audience.save_failed',
+    'admin.settings.app_audience.saved',
+    'admin.settings.app_audience.test',
+    'admin.settings.app_audience.test_doc_id',
+    'admin.settings.app_audience.test_failed',
+    'admin.settings.app_audience.test_none',
+    'admin.settings.app_audience.test_result',
+    'admin.settings.app_audience.title',
+    'admin.settings.app_audience.watched',
+    'admin.settings.app_audience.watched_available',
+    'admin.settings.app_audience.watched_empty',
+    'admin.settings.app_audience.watched_filter',
+    'admin.settings.app_audience.watched_hint',
+    'admin.settings.app_audience.watched_no_match',
+    'admin.settings.app_audience.watched_remove',
+    'admin.settings.app_audience.watched_selected',
+    'admin.settings.automations.add_rule',
+    'admin.settings.automations.add_to_lists',
+    'admin.settings.automations.app_user_hint',
+    'admin.settings.automations.category',
+    'admin.settings.automations.choose_template',
+    'admin.settings.automations.condition.any',
+    'admin.settings.automations.condition.any_of',
+    'admin.settings.automations.condition.equals',
+    'admin.settings.automations.condition.none_of',
+    'admin.settings.automations.create_notification',
+    'admin.settings.automations.event_on',
+    'admin.settings.automations.events.app_user_changed',
+    'admin.settings.automations.events.app_user_created',
+    'admin.settings.automations.events.app_user_deleted',
+    'admin.settings.automations.events.payment_failed',
+    'admin.settings.automations.events.payment_succeeded',
+    'admin.settings.automations.events.user_signed_up',
+    'admin.settings.automations.events.waitlist_joined',
+    'admin.settings.automations.intro',
+    'admin.settings.automations.load_failed',
+    'admin.settings.automations.marketing',
+    'admin.settings.automations.new_rule_name',
+    'admin.settings.automations.no_rules',
+    'admin.settings.automations.notification_body',
+    'admin.settings.automations.notification_link',
+    'admin.settings.automations.notification_title',
+    'admin.settings.automations.notification_type',
+    'admin.settings.automations.off',
+    'admin.settings.automations.on',
+    'admin.settings.automations.problem.email_needs_template',
+    'admin.settings.automations.problem.notification_incomplete',
+    'admin.settings.automations.problem.rule_needs_action',
+    'admin.settings.automations.problem.rule_needs_name',
+    'admin.settings.automations.remove_from_lists',
+    'admin.settings.automations.remove_rule',
+    'admin.settings.automations.rule_count',
+    'admin.settings.automations.rule_name',
+    'admin.settings.automations.rule_on',
+    'admin.settings.automations.save',
+    'admin.settings.automations.save_failed',
+    'admin.settings.automations.saved',
+    'admin.settings.automations.send_email',
+    'admin.settings.automations.template',
+    'admin.settings.automations.title',
+    'admin.settings.automations.transactional',
+    'admin.settings.automations.value_placeholder',
+    'admin.settings.automations.when_from',
+    'admin.settings.automations.when_to',
     'admin.settings.background_style',
     'admin.settings.banner_enabled',
     'admin.settings.discoverability.allowed',
@@ -1907,6 +2310,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.email.keep_days',
     'admin.settings.email.keep_days_hint',
     'admin.settings.email.keep_days_range',
+    'admin.settings.email.load_failed_note',
+    'admin.settings.email.load_failed_retry',
+    'admin.settings.email.load_failed_title',
     'admin.settings.email.per_day',
     'admin.settings.email.per_day_hint',
     'admin.settings.email.per_hour',
@@ -1945,6 +2351,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.about.label',
     'admin.settings.hub.analytics.description',
     'admin.settings.hub.analytics.label',
+    'admin.settings.hub.app-audience.description',
+    'admin.settings.hub.app-audience.label',
+    'admin.settings.hub.automations.description',
+    'admin.settings.hub.automations.label',
     'admin.settings.hub.discoverability.description',
     'admin.settings.hub.discoverability.label',
     'admin.settings.hub.email.description',
@@ -1963,6 +2373,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.hub.search.label',
     'admin.settings.hub.site-usage.description',
     'admin.settings.hub.site-usage.label',
+    'admin.settings.hub.sms.description',
+    'admin.settings.hub.sms.label',
     'admin.settings.hub.subtitle',
     'admin.settings.hub.title',
     'admin.settings.hub.user.description',
@@ -2160,6 +2572,36 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.site_usage.reject_text_required',
     'admin.settings.site_usage.subtitle',
     'admin.settings.site_usage.title',
+    'admin.settings.sms.allowed_countries',
+    'admin.settings.sms.allowed_countries_hint',
+    'admin.settings.sms.col_message',
+    'admin.settings.sms.col_status',
+    'admin.settings.sms.col_time',
+    'admin.settings.sms.col_to',
+    'admin.settings.sms.default_country',
+    'admin.settings.sms.default_country_hint',
+    'admin.settings.sms.intro',
+    'admin.settings.sms.logs_link',
+    'admin.settings.sms.msg91_auth_key',
+    'admin.settings.sms.msg91_auth_key_hint',
+    'admin.settings.sms.msg91_template',
+    'admin.settings.sms.msg91_template_hint',
+    'admin.settings.sms.provider',
+    'admin.settings.sms.provider_log',
+    'admin.settings.sms.provider_msg91',
+    'admin.settings.sms.save',
+    'admin.settings.sms.saved',
+    'admin.settings.sms.status_failed',
+    'admin.settings.sms.status_logged',
+    'admin.settings.sms.status_sent',
+    'admin.settings.sms.test_failed',
+    'admin.settings.sms.test_logged',
+    'admin.settings.sms.test_mode_warning',
+    'admin.settings.sms.test_phone',
+    'admin.settings.sms.test_send',
+    'admin.settings.sms.test_sent',
+    'admin.settings.sms.test_title',
+    'admin.settings.sms.title',
     'admin.settings.test_connection.check_folders',
     'admin.settings.test_connection.email_invalid',
     'admin.settings.test_connection.email_required',
@@ -2176,9 +2618,29 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.user.enable',
     'admin.settings.user.enable_signups',
     'admin.settings.user.enable_signups_hint',
+    'admin.settings.user.google_sign_in',
+    'admin.settings.user.google_sign_in_hint',
+    'admin.settings.user.phone_sign_in',
+    'admin.settings.user.phone_sign_in_hint',
+    'admin.settings.user.sign_in_methods',
+    'admin.settings.user.sign_in_saved',
     'admin.settings.user.signups_disabled',
+    'admin.settings.user.sms_settings_link',
     'admin.settings.user.subtitle',
     'admin.settings.user.title',
+    'admin.sms_logs.col_provider',
+    'admin.sms_logs.col_purpose',
+    'admin.sms_logs.empty_description',
+    'admin.sms_logs.empty_title',
+    'admin.sms_logs.provider_test',
+    'admin.sms_logs.purpose_otp',
+    'admin.sms_logs.purpose_test',
+    'admin.sms_logs.refresh',
+    'admin.sms_logs.settings',
+    'admin.sms_logs.status',
+    'admin.sms_logs.status_all',
+    'admin.sms_logs.subtitle',
+    'admin.sms_logs.title',
     'admin.transactions.col_amount',
     'admin.transactions.col_customer',
     'admin.transactions.col_date',
@@ -2194,12 +2656,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.transactions.test_badge_hint',
     'admin.transactions.title',
     'admin.users.add',
+    'admin.users.detached_hint',
     'admin.users.empty_description',
     'admin.users.empty_title',
     'admin.users.invalid_action',
     'admin.users.none_selected',
     'admin.users.page_subtitle',
     'admin.users.page_title',
+    'admin.users.show_all',
+    'admin.users.show_detached',
     'admin.users.verify',
     'common.actions.add',
     'common.actions.back',
@@ -2214,6 +2679,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.actions.enable',
     'common.actions.hide',
     'common.actions.logout',
+    'common.actions.more',
     'common.actions.open',
     'common.actions.remove',
     'common.actions.reset',
@@ -2228,6 +2694,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.dialog.delete',
     'common.dialog.logout',
     'common.dialog.unpublish',
+    'common.feedback.button',
+    'common.feedback.delete_voice',
+    'common.feedback.mic_blocked',
+    'common.feedback.placeholder',
+    'common.feedback.record',
+    'common.feedback.remove_screenshot',
+    'common.feedback.screenshot',
+    'common.feedback.send',
+    'common.feedback.send_failed',
+    'common.feedback.sending',
+    'common.feedback.stop',
+    'common.feedback.taking_screenshot',
+    'common.feedback.thanks',
+    'common.feedback.title',
     'common.filters.all',
     'common.filters.clear',
     'common.filters.filtered',
@@ -2246,6 +2726,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.paginator.previous_page',
     'common.paginator.range',
     'common.paginator.range_empty',
+    'common.pwa.copy_link',
+    'common.pwa.install',
+    'common.pwa.install_note',
+    'common.pwa.install_title',
+    'common.pwa.ios_other',
+    'common.pwa.ios_step_add',
+    'common.pwa.ios_step_share',
+    'common.pwa.link_copied',
+    'common.pwa.not_now',
+    'common.pwa.update',
+    'common.pwa.update_ready',
     'common.search.all_results',
     'common.search.empty',
     'common.search.placeholder',
@@ -2267,6 +2758,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.table.last_updated',
     'common.table.name',
     'common.table.no_records',
+    'common.table.phone',
     'common.table.role',
     'common.table.showing_range',
     'common.table.showing_range_filtered',

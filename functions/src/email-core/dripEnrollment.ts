@@ -27,7 +27,24 @@ export interface DripCampaignDoc {
   counts?: { enrolled: number; completed: number; exited: number };
 }
 
-export type ExitReason = 'left_list' | 'unsubscribed' | 'archived' | 'erased';
+export type ExitReason = 'left_list' | 'unsubscribed' | 'archived' | 'erased' | 'app_user_deleted' | 'duplicate';
+
+/**
+ * An app user in a sequence on an App users (live) list (CO6.5c). The id rides
+ * in `contactId` with a prefix no email hash can have, so enrollment ids,
+ * de-duplication and the flush queries work unchanged.
+ */
+export interface AppEnrollee {
+  appUserId: string;
+  /** The host document, read again at every step. */
+  appDocId: string;
+}
+
+export const APP_CONTACT_PREFIX = 'app_';
+
+export function appContactId(appUserId: string): string {
+  return `${APP_CONTACT_PREFIX}${appUserId}`;
+}
 
 function enrollmentId(campaignId: string, contactId: string): string {
   return `${campaignId}_${contactId}`;
@@ -38,24 +55,32 @@ function delayMs(delayHours: number): number {
   return Math.max(0, delayHours) * 60 * 60 * 1000;
 }
 
-/** Enroll a contact into a specific campaign at step 0 (idempotent). */
-export async function enrollInCampaign(campaign: DripCampaignDoc, contactId: string): Promise<boolean> {
+/** Enroll a contact, or an app user (`app`), into a specific campaign at step 0 (idempotent). */
+export async function enrollInCampaign(campaign: DripCampaignDoc, contactId: string, app?: AppEnrollee): Promise<boolean> {
   if (campaign.status !== 'active' || !campaign.steps?.length) return false;
   const id = enrollmentId(campaign.id, contactId);
   const ref = db.collection('DripEnrollments').doc(id);
-  const existing = await ref.get();
-  if (existing.exists) return false; // natural dedup — never re-enter
 
+  // create() is the dedup: it fails if the enrollment exists, so never re-enter,
+  // and two triggers racing for the same person (a repeated event delivery)
+  // cannot both enroll, which a read-then-write allowed (review C3).
   const now = Timestamp.now();
-  await ref.set({
-    campaignId: campaign.id,
-    listId: campaign.listId,
-    contactId,
-    status: 'active',
-    currentStep: 0,
-    nextSendAt: Timestamp.fromMillis(now.toMillis() + delayMs(campaign.steps[0].delayHours)),
-    enrolledAt: now,
-  });
+  try {
+    await ref.create({
+      campaignId: campaign.id,
+      listId: campaign.listId,
+      contactId,
+      status: 'active',
+      currentStep: 0,
+      nextSendAt: Timestamp.fromMillis(now.toMillis() + delayMs(campaign.steps[0].delayHours)),
+      enrolledAt: now,
+      ...(app ? { appUserId: app.appUserId, appDocId: app.appDocId } : {}),
+    });
+  } catch (err) {
+    // 6 = ALREADY_EXISTS
+    if ((err as { code?: unknown }).code === 6) return false;
+    throw err;
+  }
   await bumpCampaignCount(campaign.id, 'enrolled', 1);
   return true;
 }

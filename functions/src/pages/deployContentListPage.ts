@@ -25,6 +25,7 @@ import { isTemplateFragment } from '../shared/template-fragment.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
+import { arcHostingSite } from '../arc-config.js';
 
 // ─── Fallback Template ──────────────────────────────────────────────────────
 
@@ -102,8 +103,8 @@ async function loadListTemplate(templateFolder: string | undefined, siteId: stri
         // Fall through to Tier 2
     }
 
-    // Tier 2: Fetch from hosting
-    try {
+    // Tier 2: Fetch from hosting (none to fetch from when hosting is off)
+    if (siteId) try {
         const url = `https://${siteId}.web.app/templates/${folder}/list.html`;
         const res = await fetch(url);
         if (res.ok) {
@@ -141,7 +142,7 @@ export async function generateAndDeployContentListPage(
 ): Promise<void> {
     // See generateAndDeployContentDetailPage.
     const target = batch ?? new HostingBatch();
-    const siteId = process.env.GCLOUD_PROJECT || '';
+    const siteId = arcHostingSite();
 
     // 1. Read ContentType
     const contentTypeQuery = await db

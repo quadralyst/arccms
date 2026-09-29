@@ -32,6 +32,7 @@ import { UserStore } from './user.store';
 import { roleGuard } from '../../../guards/role.guard';
 import { AuthService } from '../../(auth)/auth.service';
 import { AuthState } from '../../(auth)/auth.store';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
     title: 'Users Management | Arc CMS',
@@ -85,6 +86,8 @@ export default class UsersComponent {
     filters = signal<Record<string, string>>({});
     sortField = signal('createdAt');
     sortOrder = signal<'asc' | 'desc'>('desc');
+    /** Only accounts whose last email or number moved to another account (kept, cannot sign in). */
+    showDetached = signal(false);
 
     // Role from route params
     role: string | null | undefined;
@@ -157,6 +160,10 @@ export default class UsersComponent {
                 });
             }
         });
+
+        if (this.showDetached()) {
+            whereConditions.push({ field: 'status', operator: '==', value: 'Detached' });
+        }
 
         // Add role filter if set
         if (this.role) {
@@ -245,13 +252,19 @@ export default class UsersComponent {
         this.fetchData();
     }
 
+    toggleDetached(): void {
+        this.showDetached.update((on) => !on);
+        this.currentPage.set(0);
+        this.fetchData();
+    }
+
     clearFilters(): void {
         this.filters.set({});
         this.fetchData();
     }
 
     hasActiveFilters(): boolean {
-        return Object.values(this.filters()).some((v) => v && v.trim());
+        return this.showDetached() || Object.values(this.filters()).some((v) => v && v.trim());
     }
 
     // Record count helpers
@@ -270,7 +283,7 @@ export default class UsersComponent {
     // User actions
     deleteItem(item: IUser): void {
         const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to delete <strong>${item.name}</strong>?`
+            `Are you sure you want to delete <strong>${escapeHtml(item.name)}</strong>?`
         );
 
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
@@ -308,7 +321,7 @@ export default class UsersComponent {
     onActiveDeactivate(item: IUser): void {
         const action = item.isActive ? 'block' : 'unblock';
         const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to ${action} <strong>${item.name}</strong>?`
+            `Are you sure you want to ${action} <strong>${escapeHtml(item.name)}</strong>?`
         );
 
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
@@ -358,6 +371,11 @@ export default class UsersComponent {
             {
                 key: 'email',
                 header: 'common.table.email',
+                type: 'text'
+            },
+            {
+                key: 'phone',
+                header: 'common.table.phone',
                 type: 'text'
             },
             {

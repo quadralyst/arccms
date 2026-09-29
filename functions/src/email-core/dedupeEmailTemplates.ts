@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin maintenance callable: remove duplicate `EmailTemplate` documents.
@@ -16,7 +17,7 @@ import { db } from '../init.js';
  * untouched. Safe to re-run — a deduped collection is a no-op.
  */
 export const dedupeEmailTemplates = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

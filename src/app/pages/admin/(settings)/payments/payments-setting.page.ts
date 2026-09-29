@@ -48,7 +48,7 @@ export const routeMeta: RouteMeta = {
         EmailTemplateEditorComponent, TranslocoPipe],
     template: `
         <div class="payments-settings">
-            <h3 class="settings-title">{{ 'admin.settings.hub.payments' | transloco }}</h3>
+            <h3 class="settings-title">{{ 'admin.settings.hub.payments.label' | transloco }}</h3>
             <p class="text-muted mb-4">{{ 'admin.settings.payments.subtitle' | transloco }}</p>
 
             @if (isLoading()) {
@@ -120,7 +120,7 @@ export const routeMeta: RouteMeta = {
                             <div class="webhook-hint">
                                 <i class="fa-solid fa-circle-info me-1"></i>
                                 {{ 'admin.settings.payments.webhook_note' | transloco }}
-                                <code>dodoWebhook</code> {{ 'admin.settings.payments.webhook_note_end' | transloco }}
+                                <code>arccms-dodoWebhook</code> {{ 'admin.settings.payments.webhook_note_end' | transloco }}
                             </div>
 
                             <div class="d-flex justify-content-end gap-2 mt-3">

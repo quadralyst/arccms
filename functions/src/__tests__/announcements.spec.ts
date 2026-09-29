@@ -38,7 +38,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 import { sendAnnouncement } from '../email-core/announcements.js';
 
 const handler = sendAnnouncement as unknown as (r: any) => Promise<any>;
-const adminReq = (data: any) => ({ auth: { uid: 'admin1', token: { role: 'admin' } }, data });
+const adminReq = (data: any) => ({ auth: { uid: 'admin1', token: { arccms_role: 'admin' } }, data });
 
 describe('sendAnnouncement', () => {
   beforeEach(() => {
@@ -54,7 +54,7 @@ describe('sendAnnouncement', () => {
   });
 
   it('rejects non-admins', async () => {
-    await expect(handler({ auth: { token: { role: 'user' } }, data: {} })).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(handler({ auth: { token: { arccms_role: 'user' } }, data: {} })).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
   it('fans out to all users with counts (email on)', async () => {

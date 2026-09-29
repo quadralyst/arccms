@@ -2,6 +2,7 @@ import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Deleting a tag pulls it off every contact carrying it (U2).
@@ -13,7 +14,7 @@ import { db } from '../init.js';
  * Pages by re-querying, since each processed contact stops matching, with a cap
  * so a pathological loop can't run away.
  */
-export const onContactTagDelete = onDocumentDeleted('ContactTags/{tagId}', async (event) => {
+export const onContactTagDelete = onDocumentDeleted(arcDocument('ContactTags/{tagId}'), async (event) => {
   const tagId = event.params.tagId;
   const PAGE = 400;
   const MAX_PAGES = 250; // 100k contacts — far beyond any real tag

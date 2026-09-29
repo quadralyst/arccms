@@ -1,11 +1,11 @@
 /**
  * Signup Page Component
- * 
- * Multi-step signup flow:
- * 1. Email Entry (request) - Check if email exists
- * 2. Login Step - If email exists, show login form
- * 3. OTP Verification - For new users, verify email
- * 4. Registration - Create account with name and password
+ *
+ * One flow for email and phone; only the channel differs:
+ * 1. Request - "Phone number or email" (pasted text is cleaned up at once), or Google
+ * 2. Registered: email → password (login), phone → 6-digit PIN (pin)
+ * 3. New: a code by email or SMS (verify), then name and a password or PIN (signup)
+ * Forgot PIN (or a registered number with no PIN yet): SMS code (verify), then a new PIN (newPin).
  */
 
 import { RouteMeta } from '@analogjs/router';
@@ -19,29 +19,40 @@ import {
   OnInit,
   PLATFORM_ID,
   signal,
+  untracked,
+  viewChild,
 } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
+import type { AuthCredential } from '@angular/fire/auth';
 import { filter, firstValueFrom, take } from 'rxjs';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
-import { AuthState } from '../auth.store';
+import { AuthState, NO_ACCESS_MESSAGE } from '../auth.store';
 import { AuthService } from '../auth.service';
 import { ConstantVariables } from '../../../../shared/constants/common-constants';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
 import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
+import { arcCallable } from '../../../core/config/arc-functions';
+import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
+import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
+import { classifyIdentifier, formatPhone } from '../../../../shared/utils/identifier.util';
+import { readSignInError, SignInService } from '../sign-in.service';
+import { environment } from '../../../../environments/environment';
+import { arcConfig } from '../../../core/config/arc-config';
 
 export const routeMeta: RouteMeta = {
   title: 'Signup | Arc CMS',
 };
 
-type SignupStep = 'request' | 'login' | 'verify' | 'signup' | 'disabled';
+type SignupStep = 'request' | 'login' | 'pin' | 'verify' | 'signup' | 'newPin' | 'disabled';
+type Channel = 'email' | 'phone';
 
 @Component({
   selector: 'arc-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterModule, NgOptimizedImage],
+  imports: [ReactiveFormsModule, CommonModule, RouterModule, NgOptimizedImage, LegalNoticeComponent, CodeInputComponent],
   templateUrl: './signup.page.html',
   styleUrls: ['./signup.page.scss'],
 })
@@ -55,6 +66,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private userSettingService = inject(UserSettingService);
   private emailConfigStatus = inject(EmailConfigStatusService);
   private functions = inject(Functions);
+  private signIn = inject(SignInService);
   currentStep = signal<SignupStep>('request');
 
   isLoading = signal(false);
@@ -65,12 +77,44 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   showLoginPassword = signal(false);
   showPassword = signal(false);
   showConfirmPassword = signal(false);
-  private defaultRole = 'user';
+  showPin = signal(false);
   signupSettings: any;
+
+  /** Which sign-in methods the site offers besides email (Settings, Users). */
+  phoneEnabled = signal(false);
+  googleEnabled = signal(false);
+
+  /** Email or phone: decided at the request step. */
+  channel = signal<Channel>('email');
+  /** The number in E.164, as the server read it. */
+  phone = signal('');
+  phoneDisplay = computed(() => formatPhone(this.phone()));
+  /** What the SMS code is for: a new account, or a new PIN. */
+  phonePurpose = signal<'signup' | 'reset'>('signup');
+  /** The PIN typed on the sign-up and new-PIN steps. */
+  newPin = signal('');
+  /** The PIN locked after too many wrong tries. */
+  pinLocked = signal(false);
+  /** Test SMS provider only: the code that was not sent, shown under the boxes. */
+  testCode = signal('');
+  /** Test SMS provider, reset code: no SMS went out and the code is only in SMS Logs. */
+  testCodeInLogs = signal(false);
+  /**
+   * Development builds only: which Firebase project and database this page signs
+   * in to, so nobody signs in to the wrong install by mistake. Empty in production.
+   */
+  readonly instanceLabel = environment.production
+    ? ''
+    : `${environment.firebaseConfig.projectId} · ${arcConfig.databaseId} database`;
+
+  private codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
+  private pinBoxes = viewChild<CodeInputComponent>('pinBoxes');
 
   private countdownInterval: any;
   /** True only when the user actually completed the OTP step (email verification). */
   private otpVerified = false;
+  /** A Google sign-in that hit an existing email account: linked after the password. */
+  private pendingGoogleCredential: AuthCredential | null = null;
 
   registrationForm!: FormGroup;
   private fb = inject(FormBuilder);
@@ -93,8 +137,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
       // Handle error
       if (error) {
-        this.errorMessage.set(error);
-        this.authActionPending = false; // a failed attempt must not redirect later
+        untracked(() => this.handleAuthError(error, this.authStore.errorCode()));
       }
 
       // Redirect once a signup/login the user just initiated has produced a
@@ -107,6 +150,24 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.handleLoginSuccess();
       }
     });
+  }
+
+  /**
+   * Show a failed sign-up or sign-in. A sign-up refused because the email is
+   * already registered goes to the sign-in step instead: the "is this email
+   * new?" check reads Firestore (email_lookup), but the account lives in
+   * Firebase Auth, and the two disagree whenever the lookup entry was never
+   * written (its trigger failed, the database was replaced) or the Auth pool is
+   * shared with another app. Auth is the truth, so ask for the password.
+   */
+  handleAuthError(error: string, code: string): void {
+    this.authActionPending = false; // a failed attempt must not redirect later
+    if (code === 'auth/email-already-in-use' && this.currentStep() === 'signup') {
+      this.goToStep('login');
+      this.successMessage.set('You already have an account with this email. Enter your password to sign in.');
+      return;
+    }
+    this.errorMessage.set(error);
   }
 
   ngOnInit() {
@@ -127,10 +188,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         return;
       }
 
-      // Check if signups are enabled
+      // Check if signups are enabled, and which sign-in methods are on
       this.userSettingService.getSettings().subscribe(settings => {
         this.signupSettings = settings;
-        this.defaultRole = settings.defaultRole || 'user';
+        this.phoneEnabled.set(settings.phoneSignIn === true);
+        this.googleEnabled.set(settings.googleSignIn === true);
+        this.updateValidators(this.currentStep());
       });
 
       // Listen for auth state changes on initial load
@@ -145,9 +208,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private initForm(): void {
     this.registrationForm = this.fb.group(
       {
-        email: ['', [Validators.required, Validators.email]],
+        identifier: ['', [Validators.required]],
         loginPassword: [''],
-        otp: [''],
         name: [''],
         password: [''],
         confirmPassword: [''],
@@ -162,26 +224,48 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       : { mismatch: true };
   }
 
+  /** The request field accepts an email, and a phone number when phone sign-in is on. */
+  private identifierValidator = (control: AbstractControl): ValidationErrors | null => {
+    const kind = classifyIdentifier(control.value).kind;
+    if (kind === 'email' || (kind === 'phone' && this.phoneEnabled())) return null;
+    return { identifier: true };
+  };
+
+  /** The email the email steps work with. */
+  get email(): string {
+    return classifyIdentifier(this.registrationForm.get('identifier')?.value).value;
+  }
+
+  /** Where the code went, as the person reads it. */
+  sentTo(): string {
+    return this.channel() === 'phone' ? this.phoneDisplay() : this.email;
+  }
+
   getStepTitle(): string {
+    const phone = this.channel() === 'phone';
     const titles: Record<SignupStep, string> = {
       request: 'Welcome',
       login: 'Welcome Back',
-      verify: 'Verify Email',
+      pin: 'Welcome Back',
+      verify: phone ? (this.phonePurpose() === 'reset' ? 'Set Your PIN' : 'Verify Number') : 'Verify Email',
       signup: 'Create Account',
-      disabled: 'Signups are disabled',
+      newPin: 'Choose a New PIN',
+      disabled: 'Sign-ups are closed',
     };
     return titles[this.currentStep()];
   }
 
   getStepDescription(): string {
-    const descriptions: Record<SignupStep, string> = {
-      request: 'Enter your email to get started',
+    const titles: Record<SignupStep, string> = {
+      request: this.phoneEnabled() ? 'Enter your phone number or email to get started' : 'Enter your email to get started',
       login: 'Sign in to your account',
-      verify: 'Enter the 6-digit code sent to your email',
+      pin: 'Enter your 6-digit PIN',
+      verify: `Enter the 6-digit code sent to your ${this.channel() === 'phone' ? 'phone' : 'email'}`,
       signup: 'Complete your registration',
-      disabled: 'Signups are disabled',
+      newPin: 'You will use it to sign in',
+      disabled: "New accounts can't be created right now",
     };
-    return descriptions[this.currentStep()];
+    return titles[this.currentStep()];
   }
 
   goToStep(step: SignupStep) {
@@ -189,6 +273,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.errorMessage.set('');
     this.successMessage.set('');
     this.otpError.set('');
+    this.newPin.set('');
     this.updateValidators(step);
   }
 
@@ -204,59 +289,88 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     // Set validators based on step
     switch (step) {
       case 'request':
-        controls['email'].setValidators([Validators.required, Validators.email]);
+        controls['identifier'].setValidators([Validators.required, this.identifierValidator]);
         break;
       case 'login':
         controls['loginPassword'].setValidators([Validators.required, Validators.minLength(8)]);
         break;
-      case 'verify':
-        controls['otp'].setValidators([Validators.required, Validators.minLength(6)]);
-        break;
       case 'signup':
         controls['name'].setValidators([Validators.required, Validators.minLength(2)]);
-        controls['password'].setValidators([Validators.required, Validators.minLength(8)]);
-        controls['confirmPassword'].setValidators([Validators.required]);
+        if (this.channel() === 'email') {
+          controls['password'].setValidators([Validators.required, Validators.minLength(8)]);
+          controls['confirmPassword'].setValidators([Validators.required]);
+        }
         break;
     }
 
+    Object.keys(controls).forEach((key) => controls[key].updateValueAndValidity({ emitEvent: false }));
     this.registrationForm.updateValueAndValidity();
   }
 
   handleSubmit() {
     switch (this.currentStep()) {
       case 'request':
-        this.checkEmail();
+        this.checkIdentifier();
         break;
       case 'login':
         this.login();
         break;
-      case 'verify':
-        this.verifyOtp();
-        break;
       case 'signup':
         this.register();
+        break;
+      case 'newPin':
+        this.saveNewPin();
         break;
     }
   }
 
-  async checkEmail() {
-    if (this.registrationForm.get('email')?.invalid) {
-      this.registrationForm.get('email')?.markAsTouched();
+  /**
+   * Pasted or finished typing: show the cleaned-up value at once, a number
+   * without spaces or +91, an email in lower case with no spaces.
+   */
+  cleanIdentifier(): void {
+    // A paste lands in the field after the event, so read it on the next tick.
+    setTimeout(() => {
+      const control = this.registrationForm.get('identifier');
+      const id = classifyIdentifier(control?.value);
+      if (id.kind !== 'unknown' && control?.value !== id.display) {
+        control?.setValue(id.display);
+      }
+    });
+  }
+
+  /** Step 1: decide between email and phone, and between signing in and signing up. */
+  async checkIdentifier(): Promise<void> {
+    const control = this.registrationForm.get('identifier');
+    if (control?.invalid) {
+      control.markAsTouched();
       return;
     }
+    const id = classifyIdentifier(control?.value);
+    if (id.kind === 'phone') {
+      await this.checkPhone(control?.value);
+    } else {
+      this.channel.set('email');
+      await this.checkEmail();
+    }
+  }
 
+  async checkEmail() {
     this.isLoading.set(true);
     this.errorMessage.set('');
     this.otpVerified = false; // reset for a fresh flow
 
-    const email = this.registrationForm.get('email')?.value?.trim().toLowerCase();
+    const email = this.email;
 
     try {
-      const res = await (await this.authStore.checkItemNumberExist(email)).toPromise();
+      const status = await this.emailStatus(email);
 
-      if (res && res.length) {
-        // User exists, go to login
+      // `unfinished`: a recent sign-up whose last step never answered; the
+      // password step finishes it (auth.store login).
+      if (status === 'registered' || status === 'unfinished') {
         this.goToStep('login');
+      } else if (status === 'no-access') {
+        this.errorMessage.set(NO_ACCESS_MESSAGE);
       } else {
         if (!this.signupSettings.isSignupEnabled) {
           this.goToStep('disabled');
@@ -276,7 +390,49 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         }
       }
     } catch (error) {
-      this.errorMessage.set('Error checking email. Please try again.');
+      this.errorMessage.set("We couldn't check that email. Please try again.");
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  /**
+   * Ask the server, which reads the user records themselves (see
+   * functions/src/auth/emailAccount.ts). Should that call fail, fall back to the
+   * `email_lookup` check, which can say "new" for a record whose lookup entry
+   * was never written; the sign-up then lands on the password step instead.
+   */
+  private async emailStatus(email: string): Promise<'registered' | 'new' | 'no-access' | 'unfinished'> {
+    try {
+      return (await this.signIn.checkEmail(email)).status;
+    } catch {
+      const res = await (await this.authStore.checkItemNumberExist(email)).toPromise();
+      return res && res.length ? 'registered' : 'new';
+    }
+  }
+
+  /** A number: PIN when it has an account with one, otherwise an SMS code first. */
+  async checkPhone(typed: string): Promise<void> {
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+    this.channel.set('phone');
+    try {
+      const account = await this.signIn.checkPhone(typed);
+      this.phone.set(account.phone);
+      if (account.exists && account.hasPin) {
+        this.pinLocked.set(false);
+        this.goToStep('pin');
+        return;
+      }
+      if (!account.exists && !account.signupOpen) {
+        this.goToStep('disabled');
+        return;
+      }
+      this.phonePurpose.set(account.exists ? 'reset' : 'signup');
+      this.goToStep('verify');
+      await this.sendOtp();
+    } catch (err) {
+      this.errorMessage.set(readSignInError(err).message);
     } finally {
       this.isLoading.set(false);
     }
@@ -294,22 +450,28 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   /**
    * Request a verification code from the server (E3). The code is generated,
-   * hashed and delivered server-side via the email pipeline — never in the client.
+   * hashed and delivered server-side (email pipeline or SMS), never in the client.
    */
   async sendOtp(): Promise<void> {
-    const email = this.registrationForm.get('email')?.value?.trim().toLowerCase();
-    const name = this.registrationForm.get('name')?.value || undefined;
     this.otpError.set('');
 
     try {
-      const callable = httpsCallable(this.functions, 'requestSignupOtp');
-      await callable({ email, name });
-      this.toastService.success('Verification code sent to your email');
+      if (this.channel() === 'phone') {
+        this.testCode.set('');
+        const reply = await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose());
+        this.testCode.set(reply.testCode ?? '');
+        this.testCodeInLogs.set(!!reply.testMode && !reply.testCode);
+        if (!reply.testMode) this.toastService.success('Code sent by SMS');
+      } else {
+        const name = this.registrationForm.get('name')?.value || undefined;
+        const callable = arcCallable(this.functions, 'requestSignupOtp');
+        await callable({ email: this.email, name });
+        this.toastService.success('Verification code sent to your email');
+      }
       this.startCountdown();
     } catch (error: any) {
-      const message = error?.message || 'Could not send verification code. Please try again.';
+      const message = readSignInError(error, 'Could not send verification code. Please try again.').message;
       this.otpError.set(message);
-      this.toastService.error(message);
     }
   }
 
@@ -330,69 +492,58 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   resendOtp() {
     if (this.resendCountdown() > 0) return;
     this.otpError.set('');
+    this.codeBoxes()?.reset();
     void this.sendOtp();
   }
 
-  onOtpInput(event: any, index: number) {
-    const input = event.target;
-    const value = input.value.replace(/[^0-9]/g, '');
-    input.value = value;
-
-    if (value && index < 5) {
-      const next = document.querySelector(`[data-index="${index + 1}"]`) as HTMLInputElement;
-      next?.focus();
-    }
-
-    // Combine all OTP inputs into the form control. The boxes use the `.code-input`
-    // class (see signup.page.scss); querying the old `.otp-input` matched nothing,
-    // leaving `otp` empty so verification always failed.
-    const otpInputs = document.querySelectorAll('.code-input') as NodeListOf<HTMLInputElement>;
-    const otp = Array.from(otpInputs).map((i) => i.value).join('');
-    this.registrationForm.get('otp')?.setValue(otp);
+  /** Test mode: put the shown code in the boxes, which verifies it. */
+  useTestCode(): void {
+    this.codeBoxes()?.fill(this.testCode());
   }
 
-  onOtpKeyDown(event: KeyboardEvent, index: number) {
-    if (event.key === 'Backspace' && index > 0) {
-      const current = event.target as HTMLInputElement;
-      if (!current.value) {
-        const prev = document.querySelector(`[data-index="${index - 1}"]`) as HTMLInputElement;
-        prev?.focus();
-      }
-    }
-  }
-
-  async verifyOtp(): Promise<void> {
-    const otp = this.registrationForm.get('otp')?.value;
+  /** The code boxes: verify on the last digit, or on the Verify button. */
+  async verifyOtp(code?: string): Promise<void> {
+    const otp = code ?? this.codeBoxes()?.value() ?? '';
+    if (this.isLoading()) return;
 
     if (!otp || otp.length !== 6) {
       this.otpError.set('Please enter the 6-digit code');
       return;
     }
 
-    const email = this.registrationForm.get('email')?.value?.trim().toLowerCase();
     this.isLoading.set(true);
     this.otpError.set('');
 
     try {
+      if (this.channel() === 'phone') {
+        await this.signIn.verifyPhoneCode(this.phone(), otp, this.phonePurpose());
+        this.goToStep(this.phonePurpose() === 'reset' ? 'newPin' : 'signup');
+        return;
+      }
       // Server-authoritative verification (E3): the server checks the hashed
       // code, expiry and attempt cap. Only a successful call marks the email verified.
-      const callable = httpsCallable(this.functions, 'verifySignupOtp');
-      const result = await callable({ email, code: otp });
-      if ((result.data as { verified?: boolean })?.verified) {
+      const result = await this.signIn.verifySignupCode(this.email, otp);
+      if (result.verified) {
         this.otpVerified = true;
         this.toastService.success('Email verified successfully');
         this.goToStep('signup');
       } else {
-        this.otpError.set('Invalid verification code');
+        this.otpError.set("That code didn't work. Check it and try again.");
+        this.codeBoxes()?.reset();
       }
     } catch (error: any) {
-      this.otpError.set(error?.message || 'Invalid verification code');
+      this.otpError.set(readSignInError(error, "That code didn't work").message);
+      this.codeBoxes()?.reset();
     } finally {
       this.isLoading.set(false);
     }
   }
 
   register() {
+    if (this.channel() === 'phone') {
+      void this.registerPhone();
+      return;
+    }
     if (this.registrationForm.invalid || this.hasPasswordMismatch()) {
       Object.keys(this.registrationForm.controls).forEach((key) => {
         this.registrationForm.get(key)?.markAsTouched();
@@ -405,9 +556,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
     const formData = {
       name: this.registrationForm.get('name')?.value,
-      email: this.registrationForm.get('email')?.value?.trim().toLowerCase(),
+      email: this.email,
       password: this.registrationForm.get('password')?.value,
-      role: this.defaultRole,
+      // Always 'user': the rules refuse any other self-written role. The
+      // site's default role (Settings/users.defaultRole) is applied by the
+      // onUserRoleChange Cloud Function right after this document is created.
+      role: 'user',
       status: 'Active',
       isActive: true,
       // Verified only if the user actually completed the OTP step. When email is
@@ -419,6 +573,68 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.authStore.signup(formData);
   }
 
+  /** New number: name and PIN create the account on the server, which signs us in. */
+  private async registerPhone(): Promise<void> {
+    const nameControl = this.registrationForm.get('name');
+    if (nameControl?.invalid) {
+      nameControl.markAsTouched();
+      return;
+    }
+    if (this.newPin().length !== 6) {
+      this.errorMessage.set('Choose a 6-digit PIN');
+      return;
+    }
+    await this.finishPhoneSignIn(() => this.signIn.completePhoneSignup(this.phone(), nameControl?.value, this.newPin()));
+  }
+
+  /** Forgot PIN, or a number that never had one. */
+  async saveNewPin(): Promise<void> {
+    if (this.newPin().length !== 6) {
+      this.errorMessage.set('Choose a 6-digit PIN');
+      return;
+    }
+    await this.finishPhoneSignIn(() => this.signIn.resetPin(this.phone(), this.newPin()));
+  }
+
+  /** The PIN boxes: sign in on the last digit, or on the Verify button. */
+  async signInWithPin(pin?: string): Promise<void> {
+    const value = pin ?? this.pinBoxes()?.value() ?? '';
+    if (this.isLoading()) return;
+    if (value.length !== 6) {
+      this.errorMessage.set('Enter your 6-digit PIN');
+      return;
+    }
+    const failed = await this.finishPhoneSignIn(() => this.signIn.signInWithPin(this.phone(), value));
+    if (failed?.reason === 'locked') this.pinLocked.set(true);
+    if (failed?.reason === 'no-pin') this.forgotPin();
+    if (failed) this.pinBoxes()?.reset();
+  }
+
+  /** Run a phone sign-in call; the session it starts is picked up by the auth effect. */
+  private async finishPhoneSignIn(action: () => Promise<void>) {
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+    this.authActionPending = true;
+    try {
+      await action();
+      return null;
+    } catch (err) {
+      this.authActionPending = false;
+      const error = readSignInError(err);
+      this.errorMessage.set(error.message);
+      return error;
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  /** Forgot PIN: a code by SMS, then a new PIN. */
+  forgotPin(): void {
+    this.phonePurpose.set('reset');
+    this.goToStep('verify');
+    void this.sendOtp();
+  }
+
   login() {
     if (this.registrationForm.get('loginPassword')?.invalid) {
       this.registrationForm.get('loginPassword')?.markAsTouched();
@@ -428,24 +644,74 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.errorMessage.set('');
     this.authStore.clearList(); // Clear previous error state
 
-    const email = this.registrationForm.get('email')?.value;
     const password = this.registrationForm.get('loginPassword')?.value;
 
     this.authActionPending = true;
-    this.authStore.login({ email, password });
+    this.authStore.login({ email: this.email, password });
   }
 
   forgotPassword() {
-    const email = this.registrationForm.get('email')?.value;
+    const email = this.email;
     if (email) {
       this.authStore.forgotPassword(email).then((res: any) => {
         if (res?.status === 200) {
-          this.successMessage.set('Password reset email sent!');
+          this.successMessage.set(`We've emailed a link to reset your password to ${email}.`);
         } else {
-          this.errorMessage.set('Failed to send reset email');
+          this.errorMessage.set("We couldn't send the reset email. Please try again.");
         }
       });
     }
+  }
+
+  /** One tap. A first-timer gets an account from the Google profile. */
+  async continueWithGoogle(): Promise<void> {
+    if (this.isLoading()) return;
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+    try {
+      await this.signIn.signInWithGoogle();
+      this.authActionPending = true;
+      const user = await this.authStore.refreshCurrentUser();
+      if (!user) throw { code: 'no-record', message: NO_ACCESS_MESSAGE };
+    } catch (err) {
+      this.authActionPending = false;
+      await this.handleGoogleError(err);
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  private async handleGoogleError(err: unknown): Promise<void> {
+    const code = String((err as { code?: string })?.code ?? '');
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+    if (code === 'auth/account-exists-with-different-credential') {
+      // An email account already has this address: sign in with the password
+      // once, and Google is connected to it.
+      this.pendingGoogleCredential = this.signIn.googleCredentialFrom(err);
+      const email = (err as { customData?: { email?: string } })?.customData?.email ?? '';
+      this.registrationForm.get('identifier')?.setValue(email);
+      this.channel.set('email');
+      this.goToStep('login');
+      this.successMessage.set('You already have an account with this email. Enter your password once to connect Google.');
+      return;
+    }
+    const error = readSignInError(err, 'Google sign-in did not work. Please try again.');
+    // Signed in to Google but no access here: do not stay half signed in.
+    await firstValueFrom(this.authStore.logout()).catch(() => undefined);
+    if (error.reason === 'signup-closed') {
+      this.goToStep('disabled');
+      return;
+    }
+    this.errorMessage.set(code.startsWith('auth/') ? 'Google sign-in did not work. Please try again.' : error.message);
+  }
+
+  /** Back to the first step, keeping what was typed. */
+  changeIdentifier(): void {
+    this.testCode.set('');
+    this.testCodeInLogs.set(false);
+    clearInterval(this.countdownInterval);
+    this.resendCountdown.set(0);
+    this.goToStep('request');
   }
 
   private navigationInProgress = false;
@@ -460,6 +726,11 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     const user = this.authStore.currentUser();
     if (user) {
       this.navigationInProgress = true;
+      if (this.pendingGoogleCredential) {
+        const credential = this.pendingGoogleCredential;
+        this.pendingGoogleCredential = null;
+        void this.signIn?.linkCredential(credential).catch((err) => console.warn('Could not connect Google:', err));
+      }
       const isAdmin = this.authStore.isAdmin();
       const route = isAdmin ? '/admin/dashboard' : '/user/dashboard';
 

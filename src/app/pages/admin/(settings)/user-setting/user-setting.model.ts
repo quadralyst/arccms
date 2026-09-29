@@ -8,6 +8,10 @@ export interface IUserSettings {
     id?: string;
     isSignupEnabled: boolean;
     defaultRole: string;
+    /** Sign in with a phone number (SMS code, then a PIN). Needs Settings, SMS. */
+    phoneSignIn?: boolean;
+    /** Sign in with Google. Needs the Google provider on in the Firebase console. */
+    googleSignIn?: boolean;
     createdAt?: any;
     updatedAt?: any;
 }
@@ -15,6 +19,8 @@ export interface IUserSettings {
 export const DEFAULT_USER_SETTINGS: IUserSettings = {
     isSignupEnabled: true,
     defaultRole: 'user',
+    phoneSignIn: false,
+    googleSignIn: false,
 };
 
 export const AVAILABLE_ROLES = [

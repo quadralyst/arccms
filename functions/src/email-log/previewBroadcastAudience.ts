@@ -2,13 +2,14 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import type { BroadcastAudience } from '../types.js';
 import { countEligible } from './broadcastAudience.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: preview how many recipients a broadcast audience will reach
  * (Phase 6.1) — respecting marketing consent. Bounded scan for large lists.
  */
 export const previewBroadcastAudience = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
   const audience = request.data?.audience as BroadcastAudience | undefined;
@@ -17,8 +18,8 @@ export const previewBroadcastAudience = onCall(async (request) => {
   }
 
   try {
-    const { count, scanned, capped } = await countEligible(audience);
-    return { eligible: count, scanned, capped };
+    const { count, scanned, capped, appUsersCapped } = await countEligible(audience);
+    return { eligible: count, scanned, capped, appUsersCapped };
   } catch (err) {
     logger.error('previewBroadcastAudience failed', err);
     throw new HttpsError('internal', 'Failed to preview audience.');

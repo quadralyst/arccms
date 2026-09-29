@@ -1,6 +1,8 @@
 <div class="page-container">
     <arc-page-header [title]="list()?.name || 'List'"
-        [subtitle]="isFormFed()
+        [subtitle]="isLive()
+            ? 'App users (live): people from your app who match this list\'s conditions right now'
+            : isFormFed()
             ? 'Fed by a signup form — membership syncs automatically'
             : 'Manual list — add or remove members freely'">
         @if (isFormFed()) {
@@ -22,6 +24,37 @@
             <a mat-flat-button color="primary" routerLink="/admin/lists">Back to Lists</a>
         </div>
     } @else {
+        @if (isLive()) {
+        <div class="hub-counts">
+            @if (livePreview(); as p) {
+                <span class="count-chip"><strong>{{ p.matched }}</strong> match now</span>
+                <span class="count-chip"><strong>{{ p.subscribed }}</strong> can be emailed</span>
+                <span class="count-chip"><strong>{{ unsubscribedOf(p) }}</strong> unsubscribed</span>
+                @if (p.matched > p.withEmail) {
+                    <span class="count-chip"><strong>{{ p.matched - p.withEmail }}</strong> no email</span>
+                }
+                @if (p.sharedEmail) {
+                    <span class="count-chip" title="Each address gets one email"><strong>{{ p.sharedEmail }}</strong> share an address</span>
+                }
+            }
+            <button mat-stroked-button (click)="loadLive()"><mat-icon>refresh</mat-icon> Refresh</button>
+        </div>
+        @if (livePreview()?.truncated) {
+        <p class="hub-note text-warning"><i class="fas fa-triangle-exclamation"></i> {{ limitNote }}</p>
+        }
+        <p class="hub-note">
+            <i class="fas fa-circle-info"></i>
+            @if (conditionSummary().length) {
+                Everyone in your app where {{ conditionSummary().join(' and ') }}.
+            } @else {
+                No conditions: everyone in your app.
+            }
+            Change the conditions with Edit on the Lists page.
+        </p>
+        @if (liveError()) {
+            <div class="alert alert-danger">Could not read your app's users: {{ liveError() }}</div>
+        }
+        } @else {
         <!-- Headline counts: pending members exist but are never mailable -->
         <div class="hub-counts">
             <span class="count-chip"><strong>{{ counts().subscribed }}</strong> subscribed</span>
@@ -36,6 +69,7 @@
                 </span>
             }
         </div>
+        }
 
         <mat-tab-group animationDuration="0ms" class="hub-tabs">
             <!-- ── Members ─────────────────────────────────────────── -->
@@ -49,12 +83,23 @@
                             place in the funnel and can be re-enabled at any time.
                         </p>
                     }
+                    @if (isLive()) {
+                    @if (livePreview()?.matched && livePreview()!.matched > liveMembers().length) {
+                        <p class="hub-note">Showing the first {{ liveMembers().length }} of {{ livePreview()!.matched }}.</p>
+                    }
+                    <app-global-table [data]="liveMembers()" [columns]="liveColumns" [loading]="!livePreview() && !liveError()"
+                        emptyIcon="fas fa-mobile-screen" emptyTitle="Nobody matches right now"
+                        emptyDescription="People appear here as soon as your app's data matches the conditions."
+                        [showEmptyAction]="false">
+                    </app-global-table>
+                    } @else {
                     <app-global-table [data]="members()" [columns]="memberColumns" [loading]="loading()"
                         emptyIcon="fas fa-user-group" emptyTitle="No members yet"
                         [emptyDescription]="isFormFed()
                             ? 'Members appear here as soon as someone signs up through the form.'
                             : 'Add contacts to this list from Audience → Contacts.'">
                     </app-global-table>
+                    }
                 </div>
             </mat-tab>
 
@@ -80,7 +125,13 @@
                 <div class="tab-body">
                     <p class="hub-note">
                         <i class="fas fa-circle-info"></i>
+                        @if (isLive()) {
+                        A sequence sends automatically when someone starts matching this list, for example when a
+                        change in your app makes them match. Day 0 fires on join. They leave the sequence when they
+                        stop matching, unsubscribe or are deleted in your app.
+                        } @else {
                         A sequence sends automatically when someone joins this list. Day 0 fires on join.
+                        }
                     </p>
                     <div class="tab-actions">
                         <button mat-flat-button color="primary" (click)="newSequence()">

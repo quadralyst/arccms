@@ -7,7 +7,7 @@ import { Functions } from '@angular/fire/functions';
 import { MatDialog } from '@angular/material/dialog';
 import EmailSettingPageComponent from './email-setting.page';
 import { EmailSettingService } from './email-setting.service';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { DEFAULT_EMAIL_SETTINGS } from './email-setting.model';
 import { TestConnectionDialogComponent } from './test-connection-dialog.component';
 import { IEmailProviderComponent } from './providers/email-provider-base';
@@ -98,6 +98,21 @@ describe('EmailSettingPageComponent', () => {
 
     it('should load settings on init', () => {
         expect(mockEmailSettingService.getEmailSettings).toHaveBeenCalled();
+    });
+
+    it('shows an error instead of a form of defaults when the settings cannot be read', () => {
+        mockEmailSettingService.getEmailSettings.mockReturnValue(throwError(() => new Error('permission-denied')));
+        const localFixture = TestBed.createComponent(EmailSettingPageComponent);
+        localFixture.detectChanges();
+        const el: HTMLElement = localFixture.nativeElement;
+        expect(localFixture.componentInstance.loadError()).toBe(true);
+        expect(el.querySelector('form')).toBeNull();
+        expect(el.textContent).toContain('Email settings could not be loaded');
+
+        // Try again reads once more and shows the settings when it works.
+        mockEmailSettingService.getEmailSettings.mockReturnValue(of(DEFAULT_EMAIL_SETTINGS));
+        localFixture.componentInstance.loadSettings();
+        expect(localFixture.componentInstance.loadError()).toBe(false);
     });
 
     it('should seed provider form cache from loaded settings', () => {

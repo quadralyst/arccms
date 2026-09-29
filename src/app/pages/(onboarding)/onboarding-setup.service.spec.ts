@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Firestore } from '@angular/fire/firestore';
+import { Functions } from '@angular/fire/functions';
+import { Auth } from '@angular/fire/auth';
 import { Observable, of } from 'rxjs';
 import { AuthService } from '../(auth)/auth.service';
 import { OnboardingSetupService } from './onboarding-setup.service';
@@ -34,25 +36,57 @@ vi.mock('@angular/fire/firestore', async () => {
     };
 });
 
+const mockCallable = vi.fn().mockResolvedValue({ data: { role: 'admin' } });
+const mockHttpsCallable = vi.fn((..._args: any[]) => mockCallable);
+
+vi.mock('@angular/fire/functions', async () => {
+    const actual = await vi.importActual('@angular/fire/functions');
+    return {
+        ...actual,
+        httpsCallable: (...args: any[]) => mockHttpsCallable(...args),
+    };
+});
+
 describe('OnboardingSetupService', () => {
     let service: OnboardingSetupService;
     const mockFirestore = {};
     const mockAuthService = { isFirstRun: vi.fn().mockReturnValue(of(false)) };
+    // The Firebase Auth instance: who is signed in, once the session is restored.
+    const mockAuth: { currentUser: { uid: string } | null; authStateReady: () => Promise<void> } = {
+        currentUser: null,
+        authStateReady: vi.fn().mockResolvedValue(undefined),
+    };
 
     beforeEach(() => {
         vi.clearAllMocks();
         mockGetDocs.mockResolvedValue({ empty: true });
         mockAuthService.isFirstRun.mockReturnValue(of(false));
+        mockAuth.currentUser = null;
 
         TestBed.configureTestingModule({
             providers: [
                 OnboardingSetupService,
                 { provide: Firestore, useValue: mockFirestore },
+                { provide: Functions, useValue: {} },
                 { provide: AuthService, useValue: mockAuthService },
+                { provide: Auth, useValue: mockAuth },
             ],
         });
 
         service = TestBed.inject(OnboardingSetupService);
+    });
+
+    describe('claimFirstAdmin', () => {
+        it('calls the claimFirstAdmin callable', async () => {
+            await service.claimFirstAdmin();
+            expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'arccms-claimFirstAdmin');
+            expect(mockCallable).toHaveBeenCalled();
+        });
+
+        it('propagates a refusal so the caller can report it', async () => {
+            mockCallable.mockRejectedValueOnce(new Error('This site already has an administrator.'));
+            await expect(service.claimFirstAdmin()).rejects.toThrow('already has an administrator');
+        });
     });
 
     describe('saveSiteInfo', () => {
@@ -318,14 +352,15 @@ describe('OnboardingSetupService', () => {
     });
 
     describe('createDefaultWaitlist', () => {
-        it('should create Waitlists/default document', async () => {
+        it('should create the default form under the shared id the landing pages use', async () => {
             await service.createDefaultWaitlist();
 
             expect(mockSetDoc).toHaveBeenCalledTimes(1);
+            expect(mockDoc).toHaveBeenCalledWith(expect.anything(), 'Waitlists', 'waitlist-form');
 
             const data = mockSetDoc.mock.calls[0][1];
             expect(data).toEqual(expect.objectContaining({
-                slug: 'default',
+                slug: 'waitlist-form',
                 name: 'Waitlist',
                 isActive: true,
                 otpEnabled: true,
@@ -383,24 +418,6 @@ describe('OnboardingSetupService', () => {
         });
     });
 
-    describe('markOnboardingStarted', () => {
-        it('should write Settings/onboarding_status with completed: false', async () => {
-            await service.markOnboardingStarted();
-
-            expect(mockSetDoc).toHaveBeenCalledTimes(1);
-            const data = mockSetDoc.mock.calls[0][1];
-            expect(data).toEqual({
-                completed: false,
-                startedAt: 'server-timestamp',
-            });
-        });
-
-        it('should propagate Firestore errors', async () => {
-            mockSetDoc.mockRejectedValueOnce(new Error('fail'));
-            await expect(service.markOnboardingStarted()).rejects.toThrow('fail');
-        });
-    });
-
     describe('markOnboardingComplete', () => {
         it('should write Settings/onboarding_status with completed: true and merge', async () => {
             await service.markOnboardingComplete();
@@ -417,6 +434,16 @@ describe('OnboardingSetupService', () => {
         it('should propagate Firestore errors', async () => {
             mockSetDoc.mockRejectedValueOnce(new Error('fail'));
             await expect(service.markOnboardingComplete()).rejects.toThrow('fail');
+        });
+
+        it('turns sign-ups off first on an admin-only install (CO6.6), once the admin exists', async () => {
+            service.adminOnlySignIn = true;
+            await service.markOnboardingComplete();
+
+            expect(mockSetDoc).toHaveBeenCalledTimes(2);
+            expect(mockSetDoc.mock.calls[0][1]).toEqual({ isSignupEnabled: false, updatedAt: 'server-timestamp' });
+            expect(mockSetDoc.mock.calls[0][2]).toEqual({ merge: true });
+            expect(mockSetDoc.mock.calls[1][1]).toEqual({ completed: true, completedAt: 'server-timestamp' });
         });
     });
 
@@ -486,8 +513,34 @@ describe('OnboardingSetupService', () => {
             expect(await read()).toBe(false);
         });
 
-        it('should be true when the wizard was started but never finished', async () => {
-            mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ completed: false }) });
+        const inProgress = (startedBy?: string) =>
+            mockGetDoc.mockResolvedValueOnce({
+                exists: () => true,
+                data: () => ({ completed: false, ...(startedBy ? { startedBy } : {}) }),
+            });
+
+        it('should be true for the admin who started an unfinished wizard', async () => {
+            inProgress('admin-uid');
+            mockAuth.currentUser = { uid: 'admin-uid' };
+            expect(await read()).toBe(true);
+        });
+
+        it('should be false for signed-out visitors while setup is unfinished', async () => {
+            // The lock this prevents: every visitor, and /signup where the admin
+            // signs in, used to be sent to a wizard with no sign-in form.
+            inProgress('admin-uid');
+            expect(await read()).toBe(false);
+        });
+
+        it('should be false for anyone else signed in while setup is unfinished', async () => {
+            inProgress('admin-uid');
+            mockAuth.currentUser = { uid: 'someone-else' };
+            expect(await read()).toBe(false);
+        });
+
+        it('should be true for any signed-in user on a flag that predates startedBy', async () => {
+            inProgress();
+            mockAuth.currentUser = { uid: 'admin-uid' };
             expect(await read()).toBe(true);
         });
 
@@ -495,6 +548,33 @@ describe('OnboardingSetupService', () => {
             mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
             mockAuthService.isFirstRun.mockReturnValue(of(true));
             expect(await read()).toBe(true);
+        });
+    });
+
+    describe('resumeAccess', () => {
+        const read = () => new Promise<string>((resolve) => {
+            service.resumeAccess().subscribe(resolve);
+        });
+        const inProgress = () => mockGetDoc.mockResolvedValueOnce({
+            exists: () => true,
+            data: () => ({ completed: false, startedBy: 'admin-uid' }),
+        });
+
+        it('is owner for the admin who started setup', async () => {
+            inProgress();
+            mockAuth.currentUser = { uid: 'admin-uid' };
+            expect(await read()).toBe('owner');
+        });
+
+        it('is signed-out when nobody is signed in', async () => {
+            inProgress();
+            expect(await read()).toBe('signed-out');
+        });
+
+        it('is other for a different signed-in user', async () => {
+            inProgress();
+            mockAuth.currentUser = { uid: 'someone-else' };
+            expect(await read()).toBe('other');
         });
     });
 });

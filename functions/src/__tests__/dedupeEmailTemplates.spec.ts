@@ -28,7 +28,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 import { dedupeEmailTemplates } from '../email-core/dedupeEmailTemplates.js';
 
 const handler = dedupeEmailTemplates as unknown as (r: any) => Promise<any>;
-const adminReq = { auth: { token: { role: 'admin' } } };
+const adminReq = { auth: { token: { arccms_role: 'admin' } } };
 
 /** Build a fake QueryDocumentSnapshot. */
 function docOf(id: string, data: Record<string, unknown>) {
@@ -39,7 +39,7 @@ describe('dedupeEmailTemplates', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('rejects non-admins', async () => {
-    await expect(handler({ auth: { token: { role: 'user' } } })).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(handler({ auth: { token: { arccms_role: 'user' } } })).rejects.toMatchObject({ code: 'permission-denied' });
     expect(mockCollectionGet).not.toHaveBeenCalled();
   });
 

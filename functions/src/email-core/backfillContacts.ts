@@ -8,6 +8,7 @@ import {
   SYSTEM_LISTS,
   waitlistListId,
 } from './contacts.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: build the `Contacts` layer from existing users + verified
@@ -15,7 +16,7 @@ import {
  * never duplicate and list membership counts stay stable.
  */
 export const backfillContacts = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

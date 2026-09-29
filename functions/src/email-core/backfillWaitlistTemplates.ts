@@ -9,6 +9,7 @@ import {
   SUPERSEDED_WELCOME_SUBJECTS,
   WELCOME_SUBJECT_DEFAULT,
 } from './defaultTemplates.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: give every existing signup form its default OTP + welcome
@@ -23,7 +24,7 @@ import {
  * repeated runs. `dryRun` reports what would be created without writing.
  */
 export const backfillWaitlistTemplates = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

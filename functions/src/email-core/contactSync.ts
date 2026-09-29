@@ -19,6 +19,7 @@ import { setContactFields } from './contactFields.js';
 import { flushDueEnrollments } from './dripSend.js';
 import type { WaitlistUserData } from '../types.js';
 import { emitAppEvent } from './appEvents.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Contacts auto-sync (spec §Phase-3.1). Each product moment that creates or
@@ -28,15 +29,17 @@ import { emitAppEvent } from './appEvents.js';
 /**
  * Consent a form signup implies, from the member doc alone (U2).
  *
- * A member who hasn't confirmed their address is `pending`: they exist in the
- * audience and are counted, but are not mailable until they verify. Direct-join
- * forms skip OTP and create the member already verified, so they start
- * `subscribed`. An explicit `isSubscribed: false` always wins — that is a stated
- * opt-out, not an unconfirmed address.
+ * Signing up is agreeing to marketing email (decided 2026-09-23; the signup
+ * forms carry the notice, and there is no separate opt-in). So a member who
+ * finished signing up is `subscribed`: either they verified their address, or
+ * the form confirmed them without a code (`isConfirmed`), which is what every
+ * form does while email is not configured. Only a signup still waiting for its
+ * code is `pending`, because that address is unproven. An explicit
+ * `isSubscribed: false` always wins: that is a stated opt-out.
  */
-function signupConsent(member: WaitlistUserData): MarketingConsent {
+export function signupConsent(member: WaitlistUserData): MarketingConsent {
   if (member.isSubscribed === false) return 'unsubscribed';
-  return member.emailVerified === true ? 'subscribed' : 'pending';
+  return member.emailVerified === true || member.isConfirmed === true ? 'subscribed' : 'pending';
 }
 
 interface FormMeta {
@@ -104,7 +107,7 @@ async function applyFormFields(
 }
 
 /** New user → contact (source `signup`), joins the `all-users` system list. */
-export const onUserCreateContact = onDocumentCreated('users/{docId}', async (event) => {
+export const onUserCreateContact = onDocumentCreated(arcDocument('users/{docId}'), async (event) => {
   const user = event.data?.data();
   const email: string | undefined = user?.['email'];
   if (!user || !email) return;
@@ -125,7 +128,7 @@ export const onUserCreateContact = onDocumentCreated('users/{docId}', async (eve
 });
 
 /** User deleted → unlink + drop from system lists (cleanup). */
-export const onUserDeleteContact = onDocumentDeleted('users/{docId}', async (event) => {
+export const onUserDeleteContact = onDocumentDeleted(arcDocument('users/{docId}'), async (event) => {
   const email: string | undefined = event.data?.data()?.['email'];
   if (!email) return;
   try {
@@ -148,7 +151,7 @@ export const onUserDeleteContact = onDocumentDeleted('users/{docId}', async (eve
  * form keeps their consent (and an `unsubscribed` one stays suppressed).
  */
 export const onWaitlistUserCreateContact = onDocumentCreated(
-  'Waitlists/{waitlistId}/users/{userId}',
+  arcDocument('Waitlists/{waitlistId}/users/{userId}'),
   async (event) => {
     const member = event.data?.data() as WaitlistUserData | undefined;
     if (!member?.email) return;
@@ -187,14 +190,19 @@ export const onWaitlistUserCreateContact = onDocumentCreated(
 
 /** Waitlist member becomes verified → contact (source `waitlist`), joins `waitlist-{id}`. */
 export const onWaitlistVerifiedContact = onDocumentUpdated(
-  'Waitlists/{waitlistId}/users/{userId}',
+  arcDocument('Waitlists/{waitlistId}/users/{userId}'),
   async (event) => {
     const before = event.data?.before.data() as WaitlistUserData | undefined;
     const after = event.data?.after.data() as WaitlistUserData | undefined;
     if (!before || !after) return;
 
+    // A signup completes by verifying its code, or, on a form without one, by
+    // being confirmed directly. Either is the moment a pending contact becomes
+    // subscribed. A code-verified signup is confirmed right after, so this can
+    // run twice for one person; the promotion below only ever fires once.
     const justVerified = before.emailVerified !== true && after.emailVerified === true;
-    if (!justVerified || !after.email) return;
+    const justConfirmed = before.isConfirmed !== true && after.isConfirmed === true;
+    if (!(justVerified || justConfirmed) || !after.email) return;
 
     const waitlistId = event.params.waitlistId;
 
@@ -240,7 +248,11 @@ export const onWaitlistVerifiedContact = onDocumentUpdated(
         }
       }
 
-      await emitAppEvent('waitlist.joined', { contactEmail: after.email, data: { waitlistId } });
+      // Joined = confirmed. Emitting on verification too would send the event
+      // twice for every code-verified signup.
+      if (justConfirmed) {
+        await emitAppEvent('waitlist.joined', { contactEmail: after.email, data: { waitlistId } });
+      }
     } catch (err) {
       logger.error('onWaitlistVerifiedContact failed', err);
     }
@@ -271,7 +283,7 @@ export const onWaitlistVerifiedContact = onDocumentUpdated(
  *   through another list, or whose consent record we are obliged to keep.
  */
 export const onWaitlistUserDeleted = onDocumentDeleted(
-  'Waitlists/{waitlistId}/users/{userId}',
+  arcDocument('Waitlists/{waitlistId}/users/{userId}'),
   async (event) => {
     const member = event.data?.data() as WaitlistUserData | undefined;
     if (!member?.email) return;

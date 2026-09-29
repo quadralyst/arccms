@@ -2,6 +2,7 @@ import { db } from '../init.js';
 import { GoogleAuth } from 'google-auth-library';
 import * as zlib from 'node:zlib';
 import * as crypto from 'node:crypto';
+import { arcHostingSite } from '../arc-config.js';
 
 const API_BASE = 'https://firebasehosting.googleapis.com/v1beta1';
 
@@ -191,13 +192,27 @@ export async function deployBatchToHosting(
     batch: HostingBatch,
     collectionName: string,
     docId: string,
-): Promise<void> {
-    if (batch.isEmpty) return;
+): Promise<boolean> {
+    if (batch.isEmpty) return false;
     const batchFiles = batch.files;
     const batchRemovals = batch.removedPaths;
     // Reported in status/logs; a batch is described by its first file.
     const filePath = batchFiles[0]?.path || batchRemovals[0] || '';
-    siteId = siteId || process.env.GCLOUD_PROJECT || '';
+    siteId = siteId || arcHostingSite();
+    if (!siteId) {
+        // Hosting is off for this install (ARC_HOSTING_SITE=none, CO5). Say so on
+        // the content, so the editor reports it instead of waiting for a release.
+        await updateDeployStatus(collectionName, docId, {
+            deployStatus: 'skipped',
+            deployedAt: new Date(),
+            deployError: 'Publishing to the website is turned off for this install (ARC_HOSTING_SITE=none). '
+                + 'The content is saved; no page was released.',
+            deployErrorCode: 'HOSTING_OFF',
+            deployDurationMs: 0,
+        });
+        console.log(`Hosting is off; skipped releasing ${batch.size} file(s) (${filePath}).`);
+        return false;
+    }
     const steps: DeployStep[] = [];
     const startedAt = new Date();
     let errorMessage: string | null = null;
@@ -359,6 +374,7 @@ export async function deployBatchToHosting(
         steps,
         error: errorMessage,
     });
+    return !errorMessage;
 }
 
 /**
@@ -393,7 +409,8 @@ export async function removeFileFromHosting(
     siteId: string,
     filePath: string,
 ): Promise<void> {
-    siteId = siteId || process.env.GCLOUD_PROJECT || '';
+    siteId = siteId || arcHostingSite();
+    if (!siteId) return; // Hosting is off for this install (CO5).
 
     // Step 1: Auth
     const token = await getAuthToken();

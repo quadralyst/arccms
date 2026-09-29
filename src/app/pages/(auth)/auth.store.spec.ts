@@ -86,7 +86,7 @@ describe('AuthState Store', () => {
                 expect(AuthState).toBeDefined();
             });
 
-            it('should define changeEmail method', () => {
+            it('should define refreshCurrentUser method', () => {
                 expect(AuthState).toBeDefined();
             });
         });
@@ -226,36 +226,19 @@ describe('AuthState Store', () => {
         });
     });
 
-    describe('changeEmail — source code verification', () => {
+    describe('changing the email', () => {
         const fs = require('fs');
         const path = require('path');
-        const sourcePath = path.resolve(__dirname, 'auth.store.ts');
-        let source: string;
+        const source: string = fs.readFileSync(path.resolve(__dirname, 'auth.store.ts'), 'utf-8');
 
-        try {
-            source = fs.readFileSync(sourcePath, 'utf-8');
-        } catch {
-            source = '';
-        }
-
-        it('should define changeEmail method', () => {
-            expect(source).toContain('async changeEmail(docId');
+        it('is not done by the store any more (the profile verifies a code and the server moves it)', () => {
+            expect(source).not.toContain('async changeEmail(');
+            expect(source).not.toContain('updateUserEmail');
         });
 
-        it('should call authService.updateUserEmail', () => {
-            expect(source).toContain('authService.updateUserEmail(docId, oldEmail, newEmail, currentPassword)');
-        });
-
-        it('should check for "Email updated" success result', () => {
-            expect(source).toContain("result === 'Email updated'");
-        });
-
-        it('should update currentUser with new email on success', () => {
-            expect(source).toContain('email: newEmail');
-        });
-
-        it('should set emailVerified to false on email change', () => {
-            expect(source).toContain('emailVerified: false');
+        it('refreshCurrentUser re-reads the record after a server-side change', () => {
+            expect(source).toContain('async refreshCurrentUser()');
+            expect(source).toContain('authService.getCurrentUserByUid(user.uid)');
         });
     });
 
@@ -279,16 +262,6 @@ describe('AuthState Store', () => {
             );
             expect(updateProfileSection).not.toContain('as any');
             expect(updateProfileSection).toContain('as IAuth');
-        });
-
-        it('should use IAuth type cast instead of any in changeEmail', () => {
-            // Regression: was using "as any" which bypassed TypeScript safety
-            const changeEmailSection = source.slice(
-                source.indexOf('async changeEmail'),
-                source.indexOf('async forgotPassword'),
-            );
-            expect(changeEmailSection).not.toContain('as any');
-            expect(changeEmailSection).toContain('as IAuth');
         });
 
         it('should guard against null currentUser with ternary in updateUserProfile', () => {

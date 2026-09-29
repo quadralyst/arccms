@@ -1,19 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { TranslatablePipe } from '../../../app/core/i18n/translatable.pipe';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, DoCheck, EventEmitter, Input, Output, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { map } from 'rxjs';
+import { RowActionsComponent, ROW_ACTIONS_COMPACT_QUERY } from '../row-actions/row-actions.component';
+import { RowAction, RowActionsPlan, planRowActions } from '../row-actions/row-actions';
 
-export interface TableAction {
-    icon: string; // fallback icon class
-    action: string;
-    label?: string; // fallback tooltip
-    class?: string; // fallback class
-    hide?: (row: any) => boolean;
-    iconFn?: (row: any) => string;
-    labelFn?: (row: any) => string;
-    onAction?: (row: any) => void;
-    isRowClick?: boolean;
-}
+/** A row action. See row-actions.ts for how a table lays them out. */
+export type TableAction = RowAction;
 
 export interface TableColumn {
     key: string;
@@ -41,6 +37,8 @@ export interface TableColumn {
     clickable?: boolean;
 
     actions?: TableAction[];
+    /** For 'actions' columns: icons kept inline once the "more" menu is in use (default 2). */
+    maxInline?: number;
     badgeConfig?: {
         trueClass?: string;
         falseClass?: string;
@@ -74,9 +72,9 @@ export interface TableColumn {
     templateUrl: './global-table.component.html',
     styleUrls: ['./global-table.component.scss'],
     standalone: true,
-    imports: [CommonModule, TranslocoPipe, TranslatablePipe]
+    imports: [CommonModule, TranslocoPipe, TranslatablePipe, RowActionsComponent]
 })
-export class GlobalTableComponent {
+export class GlobalTableComponent implements DoCheck {
     /**
      * Truthiness behind a `badge` column.
      *
@@ -122,6 +120,32 @@ export class GlobalTableComponent {
     @Input() sortField: string = '';
     @Input() sortOrder: 'asc' | 'desc' = 'desc';
     @Output() sortChange = new EventEmitter<string>();
+
+    private readonly compact = toSignal(
+        inject(BreakpointObserver).observe(ROW_ACTIONS_COMPACT_QUERY).pipe(map(s => s.matches)),
+        { initialValue: false },
+    );
+    private plans = new Map<TableColumn, RowActionsPlan>();
+
+    /**
+     * Work out each actions column's layout once per check, before the rows
+     * render. Not cached across checks: `hide` often reads page state (the list
+     * hub hides Remove on a form-fed list) or a row changed in place, and a plan
+     * keyed on the `data` array would keep showing actions that are gone.
+     * Once per check costs the same `hide` calls the old per-button template did.
+     */
+    ngDoCheck(): void {
+        const compact = this.compact();
+        this.plans = new Map(this.columns
+            .filter(col => col.type === 'actions')
+            .map(col => [col, planRowActions(col.actions, this.data, { compact, maxInline: col.maxInline })]));
+    }
+
+    /** One layout for the whole actions column, so every row lines up. */
+    actionsPlan(col: TableColumn): RowActionsPlan {
+        return this.plans.get(col)
+            ?? planRowActions(col.actions, this.data, { compact: this.compact(), maxInline: col.maxInline });
+    }
 
     onActionClick(action: TableAction, row: any) {
         if (action.onAction) {

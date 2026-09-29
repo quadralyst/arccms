@@ -9,7 +9,8 @@
  */
 
 import { Injectable, inject } from '@angular/core';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
+import { arcCallable } from '../../app/core/config/arc-functions';
 
 declare global {
   interface Window {
@@ -124,22 +125,22 @@ export class GoogleOAuthService {
     redirectUri: string;
     measurementId: string;
   }): Promise<ConnectAnalyticsResult> {
-    const callable = httpsCallable<typeof data, ConnectAnalyticsResult>(this.functions, 'connectGoogleAnalytics');
+    const callable = arcCallable<typeof data, ConnectAnalyticsResult>(this.functions, 'connectGoogleAnalytics');
     return callable(data).then((r) => r.data);
   }
 
   refreshAnalyticsData(): Promise<AnalyticsActionResult> {
-    const callable = httpsCallable<Record<string, never>, AnalyticsActionResult>(this.functions, 'refreshAnalyticsData');
+    const callable = arcCallable<Record<string, never>, AnalyticsActionResult>(this.functions, 'refreshAnalyticsData');
     return callable({}).then((r) => r.data);
   }
 
   disconnectAnalytics(): Promise<AnalyticsActionResult> {
-    const callable = httpsCallable<Record<string, never>, AnalyticsActionResult>(this.functions, 'disconnectGoogleAnalytics');
+    const callable = arcCallable<Record<string, never>, AnalyticsActionResult>(this.functions, 'disconnectGoogleAnalytics');
     return callable({}).then((r) => r.data);
   }
 
   selectProperty(data: { propertyId: string; displayName: string }): Promise<AnalyticsActionResult> {
-    const callable = httpsCallable<typeof data, AnalyticsActionResult>(this.functions, 'selectAnalyticsProperty');
+    const callable = arcCallable<typeof data, AnalyticsActionResult>(this.functions, 'selectAnalyticsProperty');
     return callable(data).then((r) => r.data);
   }
 }

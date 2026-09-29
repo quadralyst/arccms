@@ -2,9 +2,10 @@ import { inject, Injectable } from '@angular/core';
 import {
     Firestore, collection, collectionData, doc, updateDoc, getDocs, query, where, orderBy, limit, serverTimestamp, getDoc,
 } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { Observable, of, catchError } from 'rxjs';
 import { INotification, INotificationTypeConfig } from './notification.model';
+import { arcCallable } from '../../app/core/config/arc-functions';
 
 /**
  * User-facing notifications (Phase 5). Reads the signed-in user's notifications
@@ -51,11 +52,11 @@ export class NotificationService {
     }
 
     updatePrefs(prefs: Record<string, { email: boolean }>) {
-        return httpsCallable(this.functions, 'updateMyNotificationPrefs')({ prefs });
+        return arcCallable(this.functions, 'updateMyNotificationPrefs')({ prefs });
     }
 
     getMyPrefs() {
-        return httpsCallable<unknown, { types: Array<{ key: string; label: string; description: string }>; prefs: Record<string, { email?: boolean }> }>(
+        return arcCallable<unknown, { types: Array<{ key: string; label: string; description: string }>; prefs: Record<string, { email?: boolean }> }>(
             this.functions, 'getMyNotificationPrefs',
         )({});
     }

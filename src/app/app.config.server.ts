@@ -6,18 +6,19 @@ import { appConfig } from './app.config';
 // Firebase SSR imports
 import { initializeServerApp, provideFirebaseApp } from '@angular/fire/app';
 import { provideAuth, getAuth } from '@angular/fire/auth';
-import { getFirestore, provideFirestore } from '@angular/fire/firestore';
-import { getStorage, provideStorage } from '@angular/fire/storage';
+import { provideFirestore } from '@angular/fire/firestore';
+import { provideStorage } from '@angular/fire/storage';
 import { getFunctions, provideFunctions } from '@angular/fire/functions';
 import { environment } from '../environments/environment';
+import { arcFirestore, arcStorage } from './core/config/arc-firebase';
 
 const serverConfig: ApplicationConfig = {
   providers: [
     provideServerRendering(),
     // Override client Firebase config with server-safe versions
     provideFirebaseApp(() => initializeServerApp(environment.firebaseConfig, {})),
-    provideFirestore(() => getFirestore()),
-    provideStorage(() => getStorage()),
+    provideFirestore((injector) => arcFirestore(injector)),
+    provideStorage((injector) => arcStorage(injector)),
     provideFunctions(() => getFunctions()),
     provideAuth(() => getAuth()),
   ],

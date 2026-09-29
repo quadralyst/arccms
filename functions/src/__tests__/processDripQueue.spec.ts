@@ -50,7 +50,7 @@ const handler = processDripQueue as unknown as () => Promise<void>;
 function enrollment(over: any = {}) {
   const update = vi.fn().mockResolvedValue(undefined);
   return {
-    ref: { update },
+    ref: { id: 'camp1_c1', update },
     data: () => ({ campaignId: 'camp1', contactId: 'c1', currentStep: 0, status: 'active', ...over }),
   };
 }
@@ -78,6 +78,26 @@ describe('processDripQueue', () => {
     await handler();
 
     expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({ source: 'drip', category: 'marketing' }));
+    expect(e.ref.update).toHaveBeenCalledWith(expect.objectContaining({ currentStep: 1 }));
+  });
+
+  it('guards each step against a second send, per enrollment and enrollment time (review C3)', async () => {
+    const e = enrollment({ currentStep: 1, enrolledAt: { toMillis: () => 42 } });
+    mockEnrollmentsGet.mockResolvedValue({ docs: [e], size: 1 });
+
+    await handler();
+
+    expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({ dedupeKey: 'drip:camp1_c1:42:1' }));
+  });
+
+  it('advances past a step that was already queued, without a second email', async () => {
+    const e = enrollment({ currentStep: 0 });
+    mockEnrollmentsGet.mockResolvedValue({ docs: [e], size: 1 });
+    mockQueueEmail.mockResolvedValue({ id: 'log', status: 'pending', duplicate: true });
+
+    await handler();
+
+    expect(mockQueueEmail).toHaveBeenCalledTimes(1);
     expect(e.ref.update).toHaveBeenCalledWith(expect.objectContaining({ currentStep: 1 }));
   });
 

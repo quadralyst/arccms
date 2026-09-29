@@ -77,6 +77,15 @@ export function getComposerTags(type?: string): string[] {
     return getEmailTags('composer_common');
 }
 
+/**
+ * `##APP.<field>##` tags for the App audience fields an email can use (a
+ * broadcast to an App users (live) list, say). Fields that look like
+ * credentials are never merged, so never offered.
+ */
+export function appFieldTags(fields: ReadonlyArray<{ path: string; hidden?: boolean }>): string[] {
+    return [...new Set(fields.filter((f) => f.path && !f.hidden).map((f) => `##APP.${f.path}##`))].sort();
+}
+
 /** Strip `#` and lowercase, so tags and queries compare on their word core. */
 export function normalizeTagQuery(value: string): string {
     return value.replace(/#/g, '').toLowerCase();
@@ -124,9 +133,11 @@ export interface HashToken {
 export function findActiveHashToken(value: string, caret: number): HashToken | null {
     const before = (value ?? '').slice(0, Math.max(0, caret));
     // One-or-more '#' immediately followed by word chars, anchored at the caret.
-    const match = /#+(\w*)$/.exec(before);
+    // Dots may follow the first word char (`##APP.product.name##`), but a dot
+    // straight after the hashes is punctuation after a finished tag.
+    const match = /#+(\w[\w.]*)?$/.exec(before);
     if (!match) return null;
-    return { hashIndex: match.index, query: match[1] };
+    return { hashIndex: match.index, query: match[1] ?? '' };
 }
 
 /**

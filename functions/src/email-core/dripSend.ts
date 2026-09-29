@@ -1,9 +1,15 @@
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import { db } from '../init.js';
+import { db, firestoreFor } from '../init.js';
 import type { EmailSettings, EmailTemplateData } from '../types.js';
 import { queueEmail } from './queueEmail.js';
 import { resolveListContext } from './dripContext.js';
 import type { DripCampaignDoc } from './dripEnrollment.js';
+import { appUsersLocation } from '../app-audience/config.js';
+import { readAppAudienceSettings } from '../app-audience/adminCallables.js';
+import { resolveAppUser } from '../app-audience/fields.js';
+import { appMergeFields } from '../app-audience/mergeFields.js';
+import { appListConditionsOf, matchesAppConditions } from '../app-audience/appLists.js';
+import { APP_AUDIENCE_STATE, appUserStateId, stateFrom } from '../app-audience/state.js';
 
 /**
  * Sending one due drip enrollment — shared by the 15-minute scheduler and the
@@ -47,6 +53,10 @@ export async function sendDueEnrollment(
   }
   if (campaign.status !== 'active') return 'held';
 
+  // An app user on an App users (live) list (CO6.5c) is checked against the host
+  // app instead of Contacts.
+  if (enr['appDocId']) return sendDueAppEnrollment(ref, enr, campaign, deps);
+
   // Contact must still exist, still be on the list, and still be subscribed.
   const contactSnap = await db.collection('Contacts').doc(enr['contactId']).get();
   const contact = contactSnap.data();
@@ -89,23 +99,10 @@ export async function sendDueEnrollment(
     templateIsActive: template.isActive !== false,
     emailSettings: settings,
     data: { title: campaign.name, ...listContext },
+    dedupeKey: stepDedupeKey(ref, enr, stepIndex),
   });
 
-  if (result.status === 'pending') {
-    const nextIndex = stepIndex + 1;
-    if (nextIndex >= campaign.steps.length) {
-      await completeEnrollment(ref, campaign.id);
-      return 'completed';
-    }
-    const delayMs = Math.max(0, campaign.steps[nextIndex].delayHours) * 60 * 60 * 1000;
-    await ref.update({
-      currentStep: nextIndex,
-      nextSendAt: Timestamp.fromMillis(Date.now() + delayMs),
-      lastSentAt: Timestamp.now(),
-      heldReason: FieldValue.delete(),
-    });
-    return 'sent';
-  }
+  if (result.status === 'pending') return advanceEnrollment(ref, campaign, stepIndex);
 
   if (result.skipReason === 'suppressed') {
     await exitEnrollment(ref, campaign.id, 'unsubscribed');
@@ -132,6 +129,117 @@ export async function sendDueEnrollment(
   // Kill-switch / feature disabled / template inactive → hold, retry later.
   await holdEnrollment(ref);
   return 'held';
+}
+
+/**
+ * The app-user side of {@link sendDueEnrollment} (CO6.5c): the person must still
+ * exist in the host app, still match the list's conditions and still be
+ * subscribed in ArcCMS; the email address and `##APP.*##` values are read now,
+ * so a step always goes to the current address with current values.
+ */
+async function sendDueAppEnrollment(
+  ref: FirebaseFirestore.DocumentReference,
+  enr: FirebaseFirestore.DocumentData,
+  campaign: DripCampaignDoc,
+  deps: SendEnrollmentDeps,
+): Promise<EnrollmentOutcome> {
+  const location = appUsersLocation();
+  const listSnap = await db.collection('Lists').doc(campaign.listId).get();
+  const conditions = appListConditionsOf(listSnap.exists ? listSnap.data() : undefined);
+  if (!location.configured || !conditions) {
+    await exitEnrollment(ref, campaign.id, 'left_list');
+    return 'exited';
+  }
+  const hostSnap = await firestoreFor(location.database).collection(location.collection).doc(String(enr['appDocId'])).get();
+  const data = hostSnap.exists ? hostSnap.data() ?? {} : undefined;
+  if (!data) { await exitEnrollment(ref, campaign.id, 'app_user_deleted'); return 'exited'; }
+  if (!matchesAppConditions(data, conditions)) { await exitEnrollment(ref, campaign.id, 'left_list'); return 'exited'; }
+
+  const settings = await readAppAudienceSettings();
+  const person = resolveAppUser(hostSnap.id, data, settings);
+  // The record follows the key, so read it by the current key (it moves when the key changes).
+  const appUserId = person.key ? appUserStateId(person.key) : String(enr['appUserId']);
+  const state = await db.collection(APP_AUDIENCE_STATE).doc(appUserId).get();
+  if (stateFrom(state.exists ? state.data() : undefined).consent === 'unsubscribed') {
+    await exitEnrollment(ref, campaign.id, 'unsubscribed');
+    return 'exited';
+  }
+  // No address yet: wait, the app may add one.
+  if (!person.email) { await holdEnrollment(ref); return 'held'; }
+
+  const stepIndex: number = enr['currentStep'] || 0;
+  const step = campaign.steps?.[stepIndex];
+  if (!step) { await completeEnrollment(ref, campaign.id); return 'completed'; }
+  const template = await loadTemplate(step.templateId);
+  if (!template) { await holdEnrollment(ref); return 'held'; }
+  const emailSettings = deps.settings
+    ?? ((await db.collection('Settings').doc('email').get()).data() as EmailSettings | undefined);
+
+  const result = await queueEmail({
+    source: 'drip',
+    category: 'marketing',
+    toEmail: person.email,
+    toName: person.name || undefined,
+    senderEmail: template.senderEmail,
+    senderName: template.senderName,
+    subject: template.subject,
+    template: template.template,
+    text: template.previewText || '',
+    type: template.type || 'drip_step',
+    templateIsActive: template.isActive !== false,
+    emailSettings,
+    isSubscribed: true,
+    appUser: { id: appUserId, docId: hostSnap.id, fields: appMergeFields(data) },
+    data: { title: campaign.name },
+    dedupeKey: stepDedupeKey(ref, enr, stepIndex),
+  });
+
+  if (result.status === 'pending') return advanceEnrollment(ref, campaign, stepIndex);
+  // Suppressed, or unsubscribed as a contact with the same address: stop. (A
+  // contact still pending does not block an app user, so it never lands here.)
+  if (result.skipReason === 'suppressed' || result.skipReason === 'unsubscribed') {
+    await exitEnrollment(ref, campaign.id, 'unsubscribed');
+    return 'exited';
+  }
+  await holdEnrollment(ref);
+  return 'held';
+}
+
+/**
+ * One key per step of one enrollment, for queueEmail's duplicate guard: the
+ * scheduler and the day-0 fast path can both find a step due, or a trigger can
+ * run twice, and the second send of the same step is then a no-op that still
+ * advances the enrollment (review C3). The enrollment time is part of it, so a
+ * person enrolled again later (a new enrollment document) is emailed again.
+ */
+export function stepDedupeKey(
+  ref: FirebaseFirestore.DocumentReference,
+  enr: FirebaseFirestore.DocumentData,
+  stepIndex: number,
+): string {
+  const enrolledAt = (enr['enrolledAt'] as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+  return `drip:${ref.id}:${enrolledAt}:${stepIndex}`;
+}
+
+/** After a sent step: schedule the next one, or complete. */
+async function advanceEnrollment(
+  ref: FirebaseFirestore.DocumentReference,
+  campaign: DripCampaignDoc,
+  stepIndex: number,
+): Promise<EnrollmentOutcome> {
+  const nextIndex = stepIndex + 1;
+  if (nextIndex >= campaign.steps.length) {
+    await completeEnrollment(ref, campaign.id);
+    return 'completed';
+  }
+  const delayMs = Math.max(0, campaign.steps[nextIndex].delayHours) * 60 * 60 * 1000;
+  await ref.update({
+    currentStep: nextIndex,
+    nextSendAt: Timestamp.fromMillis(Date.now() + delayMs),
+    lastSentAt: Timestamp.now(),
+    heldReason: FieldValue.delete(),
+  });
+  return 'sent';
 }
 
 /**

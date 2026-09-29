@@ -19,6 +19,7 @@ import { ConfirmationPopupComponent } from '../../../../shared/components/confir
 import { AudienceService } from '../(audience)/audience.service';
 import { IList } from '../(audience)/audience.model';
 import { ListDrawerComponent, ListDrawerMode } from './(list-drawer)/list-drawer.component';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
     title: 'Lists | Arc CMS',
@@ -61,9 +62,12 @@ export default class ListsPageComponent implements OnInit {
             // Static markup only — never interpolate list-supplied values here.
             transformFn: (r) => r.formId
                 ? '<span class="status-badge is-info">Form</span>'
-                : `<span class="status-badge ${r.type === 'system' ? 'is-info' : 'is-neutral'}">${r.type}</span>`,
+                : r.type === 'app'
+                    ? '<span class="status-badge is-success">App users (live)</span>'
+                    : `<span class="status-badge ${r.type === 'system' ? 'is-info' : 'is-neutral'}">${r.type}</span>`,
         },
-        { key: 'memberCount', header: 'admin.audience.lists.members', type: 'text', transformFn: (r) => r.memberCount || 0 },
+        // A live list stores no members; its hub counts who matches now.
+        { key: 'memberCount', header: 'admin.audience.lists.members', type: 'text', transformFn: (r) => (r.type === 'app' ? 'live' : r.memberCount || 0) },
         {
             key: 'actions', header: 'common.table.actions', type: 'actions',
             actions: [
@@ -150,7 +154,7 @@ export default class ListsPageComponent implements OnInit {
             return;
         }
         const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to delete <strong>${list.name}</strong>?`,
+            `Are you sure you want to delete <strong>${escapeHtml(list.name)}</strong>?`,
         );
         this.dialog.open(ConfirmationPopupComponent, {
             width: '350px',

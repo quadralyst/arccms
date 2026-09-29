@@ -15,6 +15,7 @@ import { PageHeaderComponent } from '../../../../../shared/components/page-heade
 import { UserSettingService } from './user-setting.service';
 import { AVAILABLE_ROLES, IUserSettings } from './user-setting.model';
 import { MatButtonModule } from '@angular/material/button';
+import { RouterLink } from '@angular/router';
 
 export const routeMeta: RouteMeta = {
     title: 'User Settings | Arc CMS',
@@ -34,7 +35,7 @@ export const routeMeta: RouteMeta = {
         MatFormFieldModule,
         MatProgressSpinnerModule,
         MatButtonModule,
-        PageHeaderComponent, TranslocoPipe],
+        PageHeaderComponent, TranslocoPipe, RouterLink],
     templateUrl: './user-setting.page.html',
     styleUrl: './user-setting.page.scss',
 })
@@ -108,6 +109,21 @@ export default class UserSettingPageComponent extends BaseComponent implements O
             );
         } catch (error) {
             console.error('Failed to update default role:', error);
+            this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
+        } finally {
+            this.isSaving.set(false);
+        }
+    }
+
+    /** Phone or Google sign-in on or off; saved on its own, like the other switches. */
+    async toggleMethod(key: 'phoneSignIn' | 'googleSignIn', enabled: boolean): Promise<void> {
+        this.isSaving.set(true);
+        try {
+            await this.userSettingService.saveSettings({ ...this.userSettingsForm.value, [key]: enabled });
+            this.userSettings = { ...(this.userSettings ?? this.userSettingsForm.value), [key]: enabled };
+            this.toastService.openCustomSnackbar(this.t('admin.settings.user.sign_in_saved'), 'success', 'check_circle');
+        } catch (error) {
+            console.error('Failed to update sign-in methods:', error);
             this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
         } finally {
             this.isSaving.set(false);

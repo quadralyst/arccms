@@ -9,7 +9,7 @@ export default defineConfig({
         globals: true,
         environment: 'jsdom',
         setupFiles: ['./src/test/setup.ts', 'functions/src/__tests__/setup.ts'],
-        include: ['src/**/*.spec.ts', 'functions/src/**/*.spec.ts'],
+        include: ['src/**/*.spec.ts', 'functions/src/**/*.spec.ts', 'scripts/**/*.spec.ts'],
         reporters: ['default'],
         server: {
             deps: {
@@ -37,6 +37,8 @@ export default defineConfig({
     resolve: {
         alias: {
             'src': resolve(__dirname, './src'),
+            // Provided by the PWA build plugin (vite.config.ts), which tests do not load.
+            'virtual:pwa-register': resolve(__dirname, './src/test/pwa-register.stub.ts'),
         },
     },
 });

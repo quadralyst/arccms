@@ -212,7 +212,7 @@ describe('WaitlistFormService', () => {
             form.addEventListener('submit', () => order.push('submit'));
             form.dispatchEvent(new Event('submit'));
 
-            expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'ensureWaitlistExists');
+            expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'arccms-ensureWaitlistExists');
             expect(callable).toHaveBeenCalledWith({ waitlistId: 'test-waitlist' });
             expect(order).toEqual(['ensure', 'submit']);
         });
@@ -307,7 +307,7 @@ describe('WaitlistFormService', () => {
       `;
 
             const url = service.getLeaderboardUrl(container);
-            expect(url).toBe('/leaderboard/default');
+            expect(url).toBe('/leaderboard/waitlist-form');
         });
     });
 
@@ -828,6 +828,68 @@ describe('WaitlistFormService', () => {
                     signupMetadata: mockMetadata
                 })
             );
+        });
+    });
+
+    describe('default form id resolution', () => {
+        const resolve = (id: string) => (service as any).resolveWaitlistId(id) as Promise<string>;
+        const existing = (ids: string[]) => {
+            mockWaitlistService.getWaitlist.mockImplementation(async (id: string) => (ids.includes(id) ? { id } : null));
+            mockWaitlistService.getWaitlistBySlug.mockResolvedValue(null);
+        };
+
+        it('uses waitlist-form when it exists', async () => {
+            existing(['waitlist-form', 'get-early-access-to-arc-cms']);
+            expect(await resolve('waitlist-form')).toBe('waitlist-form');
+        });
+
+        it('keeps an older install on its existing default form, so signups do not move', async () => {
+            existing(['get-early-access-to-arc-cms', 'default']);
+            expect(await resolve('waitlist-form')).toBe('get-early-access-to-arc-cms');
+        });
+
+        it('falls back to the onboarding "default" form when that is the only one', async () => {
+            existing(['default']);
+            expect(await resolve('waitlist-form')).toBe('default');
+        });
+
+        it('asks for waitlist-form on a fresh install with no form yet', async () => {
+            existing([]);
+            expect(await resolve('waitlist-form')).toBe('waitlist-form');
+        });
+
+        it('never rewrites any other form id', async () => {
+            existing(['get-early-access-to-arc-cms']);
+            expect(await resolve('product-launch')).toBe('product-launch');
+            expect(mockWaitlistService.getWaitlist).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('terms notice on every signup form', () => {
+        const notice = (form: HTMLFormElement) => form.querySelectorAll('[data-legal-notice]');
+
+        it('adds the notice above the submit button', () => {
+            const form = document.createElement('form');
+            form.innerHTML = '<input name="email" /><button type="submit">Join</button>';
+            (service as any).ensureLegalNotice(form);
+            expect(notice(form)).toHaveLength(1);
+            expect(notice(form)[0].nextElementSibling?.tagName).toBe('BUTTON');
+        });
+
+        it('leaves a form that already carries its own notice alone', () => {
+            const form = document.createElement('form');
+            form.innerHTML = '<p data-legal-notice>Custom terms</p><button type="submit">Join</button>';
+            (service as any).ensureLegalNotice(form);
+            (service as any).ensureLegalNotice(form);
+            expect(notice(form)).toHaveLength(1);
+            expect(notice(form)[0].textContent).toBe('Custom terms');
+        });
+
+        it('appends it when the form has no submit button', () => {
+            const form = document.createElement('form');
+            form.innerHTML = '<input name="email" />';
+            (service as any).ensureLegalNotice(form);
+            expect(form.lastElementChild?.hasAttribute('data-legal-notice')).toBe(true);
         });
     });
 });

@@ -2,8 +2,13 @@ import { Timestamp, FieldPath } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import type { BroadcastAudience, BroadcastEmailDoc, ProviderRateLimits } from '../types.js';
 import { queueEmail } from '../email-core/queueEmail.js';
+import { appUserSubscribed } from '../email-core/appUserConsent.js';
 import { getDelayFromLimits, sleep } from './broadcastHelper.js';
 import { waitlistListId } from '../email-core/contacts.js';
+import { computeEmailHash } from '../email-core/unsubscribeToken.js';
+import { appListConditionsOf, oneMemberPerAddress, resolveAppList, type AppListMember } from '../app-audience/appLists.js';
+import { readAppAudienceSettings } from '../app-audience/adminCallables.js';
+import { MAX_APP_USERS } from '../app-audience/listAppUsers.js';
 
 /**
  * Broadcasts v2 audience engine (Phase 6, §3.13).
@@ -93,15 +98,19 @@ function claimedByEarlierList(
 }
 
 /**
- * Resume cursor for a multi-list audience: `"<listIndex>|<contactId>"`.
- * A pre-U4 paused broadcast stored a bare contact id, which parses to list 0 —
+ * Resume cursor for a multi-list audience: `"<listIndex>|<contactId>"`, with an
+ * empty contact id for "the start of that list". Always written, even before
+ * anyone in the list was reached: a pause right at a list boundary used to save
+ * no cursor, so the resume started again from the first list and emailed it
+ * twice (review C1).
+ * A pre-U4 paused broadcast stored a bare contact id, which parses to list 0,
  * the only list it could have had.
  */
-function makeCursor(listIndex: number, contactId?: string): string | undefined {
-  return contactId === undefined ? undefined : `${listIndex}|${contactId}`;
+export function makeCursor(listIndex: number, contactId?: string): string {
+  return `${listIndex}|${contactId ?? ''}`;
 }
 
-function parseCursor(raw: string | undefined, listCount: number): { index: number; contactId?: string } {
+export function parseCursor(raw: string | undefined, listCount: number): { index: number; contactId?: string } {
   if (!raw) return { index: 0 };
   const sep = raw.indexOf('|');
   if (sep === -1) return { index: 0, contactId: raw };
@@ -109,6 +118,90 @@ function parseCursor(raw: string | undefined, listCount: number): { index: numbe
   const contactId = raw.slice(sep + 1);
   if (!Number.isInteger(index) || index < 0 || index >= listCount) return { index: 0, contactId };
   return { index, contactId: contactId || undefined };
+}
+
+/**
+ * The lists of an audience, with App users (live) lists resolved (CO6.5b).
+ *
+ * A live list has no members stored: it is read from the host collection once
+ * per invocation, sorted by document id so the resume cursor works as it does
+ * for contacts. Contacts and app users are only comparable by email, so the
+ * send-once and exclusion rules also compare addresses across list kinds.
+ */
+export interface AudienceLists {
+  listIds: string[];
+  excludeIds: string[];
+  /** Live lists among the included and excluded ones: their current members. */
+  appMembers: Map<string, AppListMember[]>;
+  appEmails: Map<string, Set<string>>;
+  /**
+   * A live list read only the first MAX_APP_USERS documents of the host
+   * collection, so people after them were left out. Shown to the admin as a
+   * warning (review C2); reading every document is a later change.
+   */
+  appUsersCapped: boolean;
+}
+
+export async function loadAudienceLists(audience: BroadcastAudience): Promise<AudienceLists> {
+  const listIds = audienceListIds(audience);
+  const excludeIds = audienceExcludeListIds(audience);
+  const appMembers = new Map<string, AppListMember[]>();
+  const appEmails = new Map<string, Set<string>>();
+  const all = [...new Set([...listIds, ...excludeIds])];
+  let appUsersCapped = false;
+  if (!all.length) return { listIds, excludeIds, appMembers, appEmails, appUsersCapped };
+
+  const snaps = await db.getAll(...all.map((id) => db.collection('Lists').doc(id)));
+  const live = snaps
+    .map((snap, i) => ({ id: all[i], conditions: appListConditionsOf(snap.exists ? snap.data() : undefined) }))
+    .filter((l): l is { id: string; conditions: NonNullable<typeof l.conditions> } => l.conditions !== null);
+  if (live.length) {
+    const settings = await readAppAudienceSettings();
+    for (const l of live) {
+      const { members, truncated } = await resolveAppList(l.conditions, settings);
+      if (truncated) appUsersCapped = true;
+      // One member per address, so two host accounts with one address get one email (review C5).
+      const withEmail = oneMemberPerAddress(members);
+      appMembers.set(l.id, withEmail);
+      appEmails.set(l.id, new Set(withEmail.map((m) => m.email)));
+    }
+  }
+  return { listIds, excludeIds, appMembers, appEmails, appUsersCapped };
+}
+
+/** Whether an address was matched by a live list earlier in the include order. */
+function inEarlierAppList(email: string, lists: AudienceLists, currentIndex: number): boolean {
+  const e = (email || '').toLowerCase();
+  for (let i = 0; i < currentIndex; i++) {
+    if (lists.appEmails.get(lists.listIds[i])?.has(e)) return true;
+  }
+  return false;
+}
+
+function inExcludedAppList(email: string, lists: AudienceLists): boolean {
+  const e = (email || '').toLowerCase();
+  return lists.excludeIds.some((id) => lists.appEmails.get(id)?.has(e));
+}
+
+/** Contacts, if any, behind app users' addresses: one batched read. */
+async function contactsByEmail(emails: string[]): Promise<Map<string, AudienceContact>> {
+  const out = new Map<string, AudienceContact>();
+  const unique = [...new Set(emails.filter(Boolean))];
+  for (let i = 0; i < unique.length; i += 100) {
+    const chunk = unique.slice(i, i + 100);
+    const snaps = await db.getAll(...chunk.map((e) => db.collection('Contacts').doc(computeEmailHash(e))));
+    snaps.forEach((snap, j) => {
+      if (snap.exists) out.set(chunk[j], { id: snap.id, ...(snap.data() as Omit<AudienceContact, 'id'>) });
+    });
+  }
+  return out;
+}
+
+/** An app user's send-once and exclusion check, including a contact with the same address. */
+function appMemberSkipped(member: AppListMember, contact: AudienceContact | undefined, lists: AudienceLists, index: number): boolean {
+  if (inEarlierAppList(member.email, lists, index) || inExcludedAppList(member.email, lists)) return true;
+  if (contact && (claimedByEarlierList(contact, lists.listIds, index) || isExcluded(contact, lists.excludeIds))) return true;
+  return false;
 }
 
 /** Fetch one page of contacts in a single list, ordered by doc id. */
@@ -165,24 +258,44 @@ async function passesPremiumFilter(contact: AudienceContact, audience: Broadcast
  * Count eligible recipients for a preview (respecting consent). Bounded by
  * `maxScan` to keep the preview cheap on very large lists.
  */
-export async function countEligible(audience: BroadcastAudience, maxScan = 5000): Promise<{ count: number; scanned: number; capped: boolean }> {
-  const listIds = audienceListIds(audience);
-  if (!listIds.length) return { count: 0, scanned: 0, capped: false };
-  const excludeIds = audienceExcludeListIds(audience);
+export async function countEligible(
+  audience: BroadcastAudience,
+  maxScan = 5000,
+): Promise<{ count: number; scanned: number; capped: boolean; appUsersCapped: boolean }> {
+  const lists = await loadAudienceLists(audience);
+  const { listIds, excludeIds, appUsersCapped } = lists;
+  if (!listIds.length) return { count: 0, scanned: 0, capped: false, appUsersCapped };
 
   let count = 0;
   let scanned = 0;
 
   for (let listIndex = 0; listIndex < listIds.length; listIndex++) {
     const listId = listIds[listIndex];
+
+    // App users (live): appUserSubscribed(), the rule queueEmail applies: a contact's
+    // opt-out wins, anything else defers to the app user. Contact-only filters do not apply.
+    const members = lists.appMembers.get(listId);
+    if (members) {
+      const contacts = await contactsByEmail(members.map((m) => m.email));
+      for (const m of members) {
+        scanned++;
+        const contact = contacts.get(m.email);
+        if (appMemberSkipped(m, contact, lists, listIndex)) continue;
+        if (!appUserSubscribed(contact?.consent?.marketing, m.consent === 'subscribed')) continue;
+        count++;
+      }
+      if (scanned >= maxScan) return { count, scanned, capped: true, appUsersCapped };
+      continue;
+    }
+
     let startAfter: string | undefined;
     while (scanned < maxScan) {
       const page = await fetchContactPage(listId, startAfter, PAGE_SIZE);
       for (const c of page.contacts) {
         scanned++;
         // Same send-once rule the send path uses, so preview == delivery.
-        if (claimedByEarlierList(c, listIds, listIndex)) continue;
-        if (isExcluded(c, excludeIds)) continue;
+        if (claimedByEarlierList(c, listIds, listIndex) || inEarlierAppList(c.email, lists, listIndex)) continue;
+        if (isExcluded(c, excludeIds) || inExcludedAppList(c.email, lists)) continue;
         // Mirror queueEmail's marketing gate exactly: only an explicitly
         // `subscribed` contact is mailable. Testing `!== 'unsubscribed'` used to
         // count `pending` members (U2) and legacy contacts carrying no consent
@@ -196,9 +309,9 @@ export async function countEligible(audience: BroadcastAudience, maxScan = 5000)
       startAfter = page.lastId;
       if (page.done || !startAfter) break;
     }
-    if (scanned >= maxScan) return { count, scanned, capped: true };
+    if (scanned >= maxScan) return { count, scanned, capped: true, appUsersCapped };
   }
-  return { count, scanned, capped: false };
+  return { count, scanned, capped: false, appUsersCapped };
 }
 
 export interface AudienceChunkResult {
@@ -229,8 +342,11 @@ export async function processAudienceChunk(params: {
 }): Promise<AudienceChunkResult> {
   const { broadcastData, broadcastId, providerLimits, timeBudgetMs, quotaChecker } = params;
   const audience = broadcastData.audience!;
-  const listIds = audienceListIds(audience);
-  const excludeIds = audienceExcludeListIds(audience);
+  const lists = await loadAudienceLists(audience);
+  const { listIds, excludeIds } = lists;
+  if (lists.appUsersCapped) {
+    console.warn(`processAudienceChunk: ${broadcastId} reads only the first ${MAX_APP_USERS} app users; people after them are not emailed.`);
+  }
   const delayMs = getDelayFromLimits(providerLimits);
 
   let sentCount = params.initialSent;
@@ -261,6 +377,52 @@ export async function processAudienceChunk(params: {
   for (let listIndex = resume.index; listIndex < listIds.length; listIndex++) {
     const listId = listIds[listIndex];
 
+    const members = lists.appMembers.get(listId);
+    if (members) {
+      const pending = startAfter ? members.filter((m) => m.docId > startAfter!) : members;
+      const contacts = await contactsByEmail(pending.map((m) => m.email));
+      for (const member of pending) {
+        if (Date.now() - startTime > timeBudgetMs) {
+          return finish({ timedOut: true }, makeCursor(listIndex, startAfter));
+        }
+        if (quotaChecker && processedInChunk > 0 && processedInChunk % 25 === 0) {
+          const ok = await quotaChecker();
+          if (!ok) return finish({ quotaExhausted: true }, makeCursor(listIndex, startAfter));
+        }
+        if (appMemberSkipped(member, contacts.get(member.email), lists, listIndex)) {
+          startAfter = member.docId;
+          continue;
+        }
+        try {
+          const res = await queueEmail({
+            source: 'broadcast',
+            category: 'marketing',
+            toEmail: member.email,
+            toName: member.name || undefined,
+            senderEmail: broadcastData.senderEmail,
+            senderName: broadcastData.senderName,
+            subject: broadcastData.subject,
+            template: broadcastData.template,
+            text: broadcastData.previewText || '',
+            type: 'broadcast',
+            isSubscribed: member.consent === 'subscribed',
+            appUser: { id: member.appUserId, docId: member.docId, fields: member.fields },
+            data: { broadcastId, waitlistId: broadcastData.waitlistId },
+          });
+          if (res.status === 'pending') sentCount++;
+          else skippedCount++;
+        } catch (err) {
+          failedCount++;
+          console.error(`processAudienceChunk: queueEmail failed for app user ${member.appUserId}:`, err);
+        }
+        startAfter = member.docId;
+        processedInChunk++;
+        await sleep(delayMs);
+      }
+      startAfter = undefined;
+      continue;
+    }
+
     for (;;) {
       const page = await fetchContactPage(listId, startAfter, PAGE_SIZE);
       if (!page.contacts.length) break;
@@ -277,7 +439,8 @@ export async function processAudienceChunk(params: {
         }
 
         // Someone on several included lists is emailed once, by the first list.
-        if (claimedByEarlierList(contact, listIds, listIndex) || isExcluded(contact, excludeIds)) {
+        if (claimedByEarlierList(contact, listIds, listIndex) || inEarlierAppList(contact.email, lists, listIndex)
+          || isExcluded(contact, excludeIds) || inExcludedAppList(contact.email, lists)) {
           startAfter = contact.id;
           continue;
         }

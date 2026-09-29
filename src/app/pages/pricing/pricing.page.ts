@@ -1,7 +1,7 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Component, inject, OnDestroy, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -13,6 +13,7 @@ import { displayPrice, isDiscounted, formatMoney, resolveDisplayTier } from '../
 import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { buildOrganization, organizationId, setJsonLd } from '../../../shared/utils/structured-data';
 import { buildProductNodes } from '../../../shared/utils/product-jsonld';
+import { arcCallable } from '../../core/config/arc-functions';
 
 @Component({
     standalone: true,
@@ -422,7 +423,7 @@ export default class PricingPageComponent implements OnInit, OnDestroy {
 
         this.buyingId.set(product.id);
         try {
-            const createSession = httpsCallable(this.functions, 'createCheckoutSession');
+            const createSession = arcCallable(this.functions, 'createCheckoutSession');
             const result = await createSession({ productId: product.id });
             const data = result.data as { checkoutUrl?: string };
             if (data.checkoutUrl) {

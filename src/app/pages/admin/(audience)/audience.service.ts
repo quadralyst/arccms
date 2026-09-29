@@ -15,9 +15,10 @@ import {
     limit,
     getCountFromServer,
 } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { Observable, catchError, map, of } from 'rxjs';
-import { IContact, IList, ITag, IContactField, ICsvPreview, MarketingConsent, tagIdFromLabel } from './audience.model';
+import { AppListCondition, IContact, IList, ITag, IContactField, ICsvPreview, MarketingConsent, tagIdFromLabel } from './audience.model';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 /**
  * Admin data access for the unified audience layer (Phase 3).
@@ -65,21 +66,21 @@ export class AudienceService {
     }
 
     upsertField(def: Partial<IContactField> & { label: string }) {
-        return httpsCallable<unknown, { ok: boolean; key: string }>(this.functions, 'adminUpsertContactField')(def);
+        return arcCallable<unknown, { ok: boolean; key: string }>(this.functions, 'adminUpsertContactField')(def);
     }
 
     deleteField(key: string) {
-        return httpsCallable(this.functions, 'adminDeleteContactField')({ key });
+        return arcCallable(this.functions, 'adminDeleteContactField')({ key });
     }
 
     /** Set field values on one contact (admin edits bypass the fill policy). */
     setContactFields(emailHash: string, values: Record<string, unknown>) {
-        return httpsCallable(this.functions, 'adminSetContactFields')({ emailHash, values });
+        return arcCallable(this.functions, 'adminSetContactFields')({ emailHash, values });
     }
 
     /** Lift historical formData onto contact fields (U4.5 runbook step 9). */
     migrateFormDataToContactFields(dryRun = false) {
-        return httpsCallable<unknown, {
+        return arcCallable<unknown, {
             forms: number; membersScanned: number; contactsUpdated: number;
             valuesWritten: number; membersWithoutContact: number;
             conflicts: string[]; unmappedForms: string[];
@@ -166,7 +167,7 @@ export class AudienceService {
      * read-only.
      */
     setContactDisabled(emailHash: string, disabled: boolean) {
-        return httpsCallable(this.functions, 'adminSetContactDisabled')({ emailHash, disabled });
+        return arcCallable(this.functions, 'adminSetContactDisabled')({ emailHash, disabled });
     }
 
     /**
@@ -176,7 +177,7 @@ export class AudienceService {
      * not for pausing sends (that is {@link setContactDisabled}).
      */
     deleteContact(emailHash: string) {
-        return httpsCallable<unknown, {
+        return arcCallable<unknown, {
             existed: boolean;
             listsRemoved: string[];
             memberDocsDeleted: number;
@@ -202,22 +203,24 @@ export class AudienceService {
         );
     }
 
-    /** Create a manual list (admins may write Lists directly). */
-    async createList(name: string, description = ''): Promise<void> {
+    /**
+     * Create a manual list, or an App users (live) list when `conditions` are
+     * given (admins may write Lists directly). A live list stores no members.
+     */
+    async createList(name: string, description = '', conditions?: AppListCondition[]): Promise<void> {
         const ref = doc(collection(this.firestore, 'Lists'));
         await setDoc(ref, {
             id: ref.id,
             name,
             description,
-            type: 'manual',
-            memberCount: 0,
+            ...(conditions ? { type: 'app', conditions } : { type: 'manual', memberCount: 0 }),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
     }
 
-    /** Rename / re-describe a manual list (admins may write Lists directly). */
-    async updateList(id: string, patch: { name?: string; description?: string }): Promise<void> {
+    /** Rename / re-describe a list, or change a live list's conditions (admins may write Lists directly). */
+    async updateList(id: string, patch: { name?: string; description?: string; conditions?: AppListCondition[] }): Promise<void> {
         await setDoc(
             doc(this.firestore, 'Lists', id),
             { ...patch, updatedAt: serverTimestamp() },
@@ -286,18 +289,18 @@ export class AudienceService {
 
     /** Replace a contact's tags (Contacts are functions-only writes). */
     setContactTags(emailHash: string, tagIds: string[]) {
-        return httpsCallable(this.functions, 'adminSetContactTags')({ emailHash, tagIds });
+        return arcCallable(this.functions, 'adminSetContactTags')({ emailHash, tagIds });
     }
 
     /** Lift per-waitlist tags into the global layer (U2 runbook step 5). */
     migrateTagsToContacts(dryRun = false) {
-        return httpsCallable(this.functions, 'migrateTagsToContacts')({ dryRun });
+        return arcCallable(this.functions, 'migrateTagsToContacts')({ dryRun });
     }
 
     // ── Cloud Function mutations ──
 
     backfillContacts() {
-        return httpsCallable(this.functions, 'backfillContacts')({});
+        return arcCallable(this.functions, 'backfillContacts')({});
     }
 
     /**
@@ -306,35 +309,35 @@ export class AudienceService {
      * verified members and app users.
      */
     backfillPendingContacts(dryRun = false) {
-        return httpsCallable<unknown, { forms: number; scanned: number; created: number; existing: number }>(
+        return arcCallable<unknown, { forms: number; scanned: number; created: number; existing: number }>(
             this.functions, 'backfillPendingContacts',
         )({ dryRun });
     }
 
     /** Give every existing signup form its mirrored list (U1 runbook step 2). */
     backfillFormLists() {
-        return httpsCallable<unknown, { forms: number; created: number; repaired: number; errors: string[] }>(
+        return arcCallable<unknown, { forms: number; created: number; repaired: number; errors: string[] }>(
             this.functions, 'backfillFormLists',
         )({});
     }
 
     previewCsv(csvText: string) {
-        return httpsCallable<{ csvText: string }, ICsvPreview>(this.functions, 'previewContactImport')({ csvText });
+        return arcCallable<{ csvText: string }, ICsvPreview>(this.functions, 'previewContactImport')({ csvText });
     }
 
     importContacts(rows: Array<{ email: string; name?: string }>, listId: string, consentAffirmed: boolean) {
-        return httpsCallable(this.functions, 'importContacts')({ rows, listId, consentAffirmed });
+        return arcCallable(this.functions, 'importContacts')({ rows, listId, consentAffirmed });
     }
 
     addContact(email: string, name: string, listIds: string[], consentAffirmed: boolean) {
-        return httpsCallable(this.functions, 'adminAddContact')({ email, name, listIds, consentAffirmed });
+        return arcCallable(this.functions, 'adminAddContact')({ email, name, listIds, consentAffirmed });
     }
 
     setConsent(emailHash: string, marketing: MarketingConsent) {
-        return httpsCallable(this.functions, 'adminSetContactConsent')({ emailHash, marketing });
+        return arcCallable(this.functions, 'adminSetContactConsent')({ emailHash, marketing });
     }
 
     updateContactLists(emailHash: string, add: string[], remove: string[]) {
-        return httpsCallable(this.functions, 'adminUpdateContactLists')({ emailHash, add, remove });
+        return arcCallable(this.functions, 'adminUpdateContactLists')({ emailHash, add, remove });
     }
 }

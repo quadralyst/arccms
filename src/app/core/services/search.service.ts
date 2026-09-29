@@ -12,13 +12,14 @@
  */
 
 import { inject, Injectable } from '@angular/core';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import {
     ReindexRequest,
     SearchRequest,
     SearchResponse,
     SourceReindexResult,
 } from '../../../shared/models/search.model';
+import { arcCallable } from '../config/arc-functions';
 
 /** Queries shorter than this are not sent (S4 item 1). */
 export const MIN_QUERY_LENGTH = 2;
@@ -84,7 +85,7 @@ export class SearchService {
     /** Rebuilds the index. Admin only; the function enforces it. */
     async reindex(request: ReindexRequest = {}): Promise<SourceReindexResult[]> {
         if (!this.functions) throw new Error('Firebase Functions is not available.');
-        const callable = httpsCallable<ReindexRequest, { results: SourceReindexResult[] }>(this.functions, 'reindexSearch');
+        const callable = arcCallable<ReindexRequest, { results: SourceReindexResult[] }>(this.functions, 'reindexSearch');
         const result = await callable(request);
         this.cache.clear();
         return result.data.results;
@@ -97,7 +98,7 @@ export class SearchService {
 
     protected async call(request: SearchRequest): Promise<SearchResponse> {
         if (!this.functions) return { results: [], tookMs: 0 };
-        const callable = httpsCallable<SearchRequest, SearchResponse>(this.functions, 'search');
+        const callable = arcCallable<SearchRequest, SearchResponse>(this.functions, 'search');
         // The SDK would send an undefined field as null; leave it out instead.
         const payload = Object.fromEntries(
             Object.entries(request).filter(([, value]) => value !== undefined),

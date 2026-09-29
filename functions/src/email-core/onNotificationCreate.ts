@@ -6,6 +6,7 @@ import { getNotificationTypeConfig } from './notifications.js';
 import { computeEmailHash } from './unsubscribeToken.js';
 import { ensureDefaultTemplates } from './defaultTemplates.js';
 import { queueEmail } from './queueEmail.js';
+import { arcDocument } from '../arc-config.js';
 
 const GENERIC_TEMPLATE_TYPE = 'notification_generic_email';
 
@@ -18,7 +19,7 @@ const GENERIC_TEMPLATE_TYPE = 'notification_generic_email';
  * feature is on, and the master switch is on (enforced by queueEmail). Every
  * "no" is recorded in `emailDelivery.skippedReason` — never silent.
  */
-export const onNotificationCreate = onDocumentCreated('Notifications/{id}', async (event) => {
+export const onNotificationCreate = onDocumentCreated(arcDocument('Notifications/{id}'), async (event) => {
   const notif = event.data?.data();
   const id = event.params.id;
   if (!notif?.['userId'] || !notif?.['type']) return;

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Component, inject, Injector, OnInit, runInInjectionContext, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -15,7 +15,8 @@ import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AudienceService } from '../(audience)/audience.service';
-import { IList } from '../(audience)/audience.model';
+import { IList, contactLists } from '../(audience)/audience.model';
+import { arcCallable } from '../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
     title: 'Announcements & Notifications | Arc CMS',
@@ -70,12 +71,13 @@ export default class AnnouncementsPageComponent implements OnInit {
 
     ngOnInit(): void {
         void this.seed();
-        this.audience.getLists().subscribe((l) => this.lists.set(l));
+        // A live list has no members an announcement could reach: not offered.
+        this.audience.getLists().subscribe((l) => this.lists.set(contactLists(l)));
     }
 
     private async seed(): Promise<void> {
         try {
-            await httpsCallable(this.functions, 'seedEmailTemplates')({});
+            await arcCallable(this.functions, 'seedEmailTemplates')({});
         } catch { /* non-fatal — may already be seeded */ }
         await this.loadConfig();
     }
@@ -103,7 +105,7 @@ export default class AnnouncementsPageComponent implements OnInit {
                     ? { kind: 'list', include: [...this.includeListIds] }
                     : { kind: 'all' };
             if (this.excludeListIds.length) audience.exclude = [...this.excludeListIds];
-            const res: any = await httpsCallable(this.functions, 'sendAnnouncement')({
+            const res: any = await arcCallable(this.functions, 'sendAnnouncement')({
                 title: this.title, body: this.body, link: this.link || undefined, audience, sendEmail: this.sendEmail,
             });
             const d = res?.data || {};

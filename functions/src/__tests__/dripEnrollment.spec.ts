@@ -20,6 +20,11 @@ vi.mock('../init', () => ({
             id,
             get: async () => ({ exists: enrollmentStore.has(id), data: () => enrollmentStore.get(id) }),
             set: async (d: any) => { enrollmentStore.set(id, d); },
+            // Firestore's create(): fails with ALREADY_EXISTS (code 6) if the document exists.
+            create: async (d: any) => {
+              if (enrollmentStore.has(id)) throw Object.assign(new Error('ALREADY_EXISTS'), { code: 6 });
+              enrollmentStore.set(id, d);
+            },
           }),
           where: vi.fn(() => chain),
           get: async () => ({
@@ -72,6 +77,12 @@ describe('dripEnrollment', () => {
     expect(enr.nextSendAt.__ms).toBe(1_000_000 + 24 * 3600 * 1000);
   });
 
+  it('two runs racing for the same person enroll once (review C3)', async () => {
+    const results = await Promise.all([enrollInCampaign(campaign(), 'c1'), enrollInCampaign(campaign(), 'c1')]);
+    expect(results.sort()).toEqual([false, true]);
+    expect(mockCampaignSet).toHaveBeenCalledTimes(1);
+  });
+
   it('does NOT re-enroll a contact who already has an enrollment (completed)', async () => {
     enrollmentStore.set('camp1_c1', { status: 'completed', currentStep: 2 });
     const created = await enrollInCampaign(campaign(), 'c1');
@@ -103,4 +114,10 @@ describe('dripEnrollment', () => {
     expect(enrollmentStore.get('camp1_c1')?.status).toBe('active');
     expect(enrollmentStore.get('camp1_c2')?.status).toBe('active');
   });
+
+  it('stores an app user\'s ids on their enrollment, keyed by the app contact id (CO6.5c)', async () => {
+    expect(await enrollInCampaign(campaign(), 'app_h1', { appUserId: 'h1', appDocId: 'u1' })).toBe(true);
+    expect(enrollmentStore.get('camp1_app_h1')).toMatchObject({ contactId: 'app_h1', appUserId: 'h1', appDocId: 'u1', status: 'active' });
+  });
 });
+

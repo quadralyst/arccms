@@ -63,6 +63,7 @@ import {
   onWaitlistUserCreateContact,
   onWaitlistUserDeleted,
   onWaitlistVerifiedContact,
+  signupConsent,
 } from '../email-core/contactSync.js';
 
 const createH = onUserCreateContact as unknown as (e: any) => Promise<void>;
@@ -321,6 +322,40 @@ describe('contactSync triggers', () => {
       ));
 
       expect(mockSetContactConsent).toHaveBeenCalledWith('h', 'unsubscribed', 'a@b.com');
+    });
+  });
+
+  describe('a completed signup is subscribed, with or without a code (2026-09-23)', () => {
+    it('promotes a pending contact when a form without a code confirms the member', async () => {
+      // No email configured means no verification code: finalizeFormSignup
+      // confirms the member with emailVerified false. That is a finished signup.
+      mockGetContactConsent.mockResolvedValue('pending');
+
+      await wlH(updateEvent(
+        { email: 'a@b.com', emailVerified: false, isConfirmed: false },
+        { email: 'a@b.com', emailVerified: false, isConfirmed: true },
+      ));
+
+      expect(mockSetContactConsent).toHaveBeenCalledWith('h', 'subscribed', 'a@b.com');
+    });
+
+    it('creates the contact subscribed when the member doc arrives already confirmed', () => {
+      expect(signupConsent({ email: 'a@b.com', isConfirmed: true } as any)).toBe('subscribed');
+      expect(signupConsent({ email: 'a@b.com', emailVerified: true } as any)).toBe('subscribed');
+    });
+
+    it('keeps a signup still waiting for its code pending, and an opt-out unsubscribed', () => {
+      expect(signupConsent({ email: 'a@b.com' } as any)).toBe('pending');
+      expect(signupConsent({ email: 'a@b.com', isConfirmed: true, isSubscribed: false } as any)).toBe('unsubscribed');
+    });
+
+    it('ignores unrelated updates to a confirmed member', async () => {
+      await wlH(updateEvent(
+        { email: 'a@b.com', isConfirmed: true, queuePosition: 3 },
+        { email: 'a@b.com', isConfirmed: true, queuePosition: 2 },
+      ));
+      expect(mockSetContactConsent).not.toHaveBeenCalled();
+      expect(mockUpsertContact).not.toHaveBeenCalled();
     });
   });
 

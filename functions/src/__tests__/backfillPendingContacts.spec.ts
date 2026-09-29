@@ -65,7 +65,7 @@ vi.mock('../email-core/contacts.js', () => ({
 import { backfillPendingContacts } from '../email-core/backfillPendingContacts.js';
 
 const call = (data: any = {}) =>
-  (backfillPendingContacts as any)({ auth: { token: { role: 'admin' } }, data });
+  (backfillPendingContacts as any)({ auth: { token: { arccms_role: 'admin' } }, data });
 
 describe('backfillPendingContacts', () => {
   beforeEach(() => {
@@ -78,7 +78,7 @@ describe('backfillPendingContacts', () => {
 
   it('rejects non-admins', async () => {
     await expect(
-      (backfillPendingContacts as any)({ auth: { token: { role: 'user' } }, data: {} }),
+      (backfillPendingContacts as any)({ auth: { token: { arccms_role: 'user' } }, data: {} }),
     ).rejects.toThrow(/Admin role required/);
   });
 

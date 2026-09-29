@@ -317,6 +317,12 @@
                             {{ 'admin.contents.editor.deployed' | transloco }}
                         </span>
                         }
+                        @if(deployStatus() === 'skipped'){
+                        <span class="status-badge deploying" [title]="deployError()">
+                            <i class="fa-solid fa-circle-info"></i>
+                            {{ 'admin.contents.editor.deploy_skipped' | transloco }}
+                        </span>
+                        }
                         @if(deployStatus() === 'failed'){
                         <span class="status-badge deploy-failed" [title]="deployError()">
                             <i class="fa-solid fa-exclamation-triangle"></i>

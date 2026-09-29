@@ -45,6 +45,9 @@ Thumbs.db
 
 # Environment files
 .env*
+# The install config default (docs/coexistence-spec.md, CO3): holds no secrets, and the
+# Firebase CLI needs ARC_DATABASE_ID set to deploy non-interactively.
+!functions/.env
 
 # Firebase project config (contains project IDs — keep out of source control)
 .firebaserc
@@ -57,3 +60,14 @@ public_new/*
 
 # Claude Code local config
 .claude/
+
+# ArcCMS install config (docs/coexistence-spec.md). Per install, like environment.ts.
+arccms.config.json
+# Generated per project by arc:configure (firebase.json itself is not matched).
+firebase.*.json
+
+# Combined core + app rules and indexes, built before every deploy (scripts/arc-rules-build.mjs).
+.arc-build/
+
+# Remembered choices of the guided deploy (scripts/arc-deploy-menu.mjs), per checkout.
+.arc-deploy-state.json

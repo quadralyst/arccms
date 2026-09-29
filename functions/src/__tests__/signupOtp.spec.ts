@@ -34,8 +34,17 @@ vi.mock('../init', () => ({
       }
       return {};
     }),
+    // A transaction that reads and writes through the same document mocks.
+    runTransaction: vi.fn((fn: (tx: any) => Promise<unknown>) => fn({
+      get: (ref: any) => ref.get(),
+      update: (ref: any, data: unknown) => ref.update(data),
+      delete: (ref: any) => ref.delete?.(),
+    })),
   },
 }));
+
+const { mockRateLimit } = vi.hoisted(() => ({ mockRateLimit: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../auth/accounts', () => ({ callerKey: () => 'caller', consumeRateLimit: mockRateLimit }));
 
 vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
 vi.mock('../email-core/defaultTemplates', () => ({ ensureDefaultTemplates: mockEnsureDefaults }));
@@ -85,6 +94,12 @@ describe('requestSignupOtp', () => {
     mockOtpGet.mockResolvedValue({ exists: false });
     mockTemplateGet.mockResolvedValue(activeTemplate);
     mockQueueEmail.mockResolvedValue({ id: 'log-1', status: 'pending' });
+  });
+
+  it('limits codes per caller and per address (review F)', async () => {
+    await reqHandler({ data: { email: EMAIL } });
+    expect(mockRateLimit).toHaveBeenCalledWith('email-otp-ip-caller', 20, 3_600_000, expect.any(String));
+    expect(mockRateLimit).toHaveBeenCalledWith(`email-otp-${HASH}`, 5, 3_600_000, expect.any(String));
   });
 
   it('rejects an invalid email', async () => {
@@ -151,7 +166,7 @@ describe('verifySignupOtp', () => {
   });
 
   it('returns not-found when there is no pending code', async () => {
-    mockOtpGet.mockResolvedValue({ exists: false });
+    mockOtpGet.mockResolvedValue({ exists: false, data: () => undefined });
     await expect(verifyHandler({ data: { email: EMAIL, code: '123456' } })).rejects.toMatchObject({ code: 'not-found' });
   });
 
@@ -174,7 +189,10 @@ describe('verifySignupOtp', () => {
   it('verifies a correct code and marks the record verified', async () => {
     mockOtpGet.mockResolvedValue({ exists: true, data: () => ({ expiresAt: future(), attempts: 0, codeHash: hashCode('246810') }) });
     const res = await verifyHandler({ data: { email: EMAIL, code: '246810' } });
-    expect(res).toEqual({ verified: true });
-    expect(mockOtpUpdate).toHaveBeenCalledWith(expect.objectContaining({ verified: true }));
+    // The ticket goes back to this browser; only its hash is stored (review F).
+    expect(res).toEqual({ verified: true, ticket: expect.stringMatching(/^[\w-]{32}$/) });
+    expect(mockOtpUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      verified: true, attempts: 1, ticketHash: createHash('sha256').update(res.ticket).digest('hex'),
+    }));
   });
 });

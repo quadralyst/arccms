@@ -1,7 +1,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
+import { db } from '../init.js';
 import { google } from 'googleapis';
 import { createOAuth2Client, fetchAndStoreAnalyticsData } from './analyticsHelpers.js';
+import { isArcAdmin } from '../users/claims.js';
 
 export const selectAnalyticsProperty = onCall(
   { cors: true, enforceAppCheck: false },
@@ -10,7 +11,7 @@ export const selectAnalyticsProperty = onCall(
       throw new HttpsError('unauthenticated', 'Authentication required.');
     }
 
-    if (request.auth.token.role !== 'admin') {
+    if (!isArcAdmin(request.auth.token)) {
       throw new HttpsError('permission-denied', 'Admin access required.');
     }
 
@@ -20,7 +21,6 @@ export const selectAnalyticsProperty = onCall(
       throw new HttpsError('invalid-argument', 'Property ID is required.');
     }
 
-    const db = getFirestore();
     const settingsDoc = await db.collection('Settings').doc('analytics').get();
     const settings = settingsDoc.data();
 

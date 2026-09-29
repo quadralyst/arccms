@@ -28,9 +28,13 @@ describe('OnboardingComponent', () => {
      * it reads have to be attached the same way the other private methods are.
      */
     const adminClaimCtx = () => ({
+        // Signed in: ensureAdminClaim() treats a missing session as "sign in".
+        auth: { currentUser: { uid: 'admin-uid' } },
+        needsSignIn: signal(false),
         adminClaimPending: signal(false),
         ensureAdminClaim: (OnboardingComponent.prototype as any).ensureAdminClaim,
         hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
+        claimAdmin: vi.fn().mockResolvedValue(undefined),
     });
 
     describe('Component Definition', () => {
@@ -319,7 +323,7 @@ describe('OnboardingComponent', () => {
             expect(signup).not.toHaveBeenCalled();
         });
 
-        it('calls authStore.signup with role=admin when form is valid', () => {
+        it('calls authStore.signup with role=user when form is valid (admin is claimed server side)', () => {
             const signup = vi.fn();
             const formValues: Record<string, string> = {
                 name: 'Alice Admin',
@@ -341,7 +345,7 @@ describe('OnboardingComponent', () => {
             };
             OnboardingComponent.prototype.register.call(ctx);
             expect(signup).toHaveBeenCalledWith(
-                expect.objectContaining({ role: 'admin', isActive: true, emailVerified: true })
+                expect.objectContaining({ role: 'user', isActive: true, emailVerified: true })
             );
         });
     });
@@ -361,18 +365,43 @@ describe('OnboardingComponent', () => {
             expect(navigate).toHaveBeenCalledWith(['/']);
         });
 
+        const inProgressCtx = (access: string) => ({
+            setupService: {
+                getOnboardingState: vi.fn().mockReturnValue(of('in-progress')),
+                resumeAccess: vi.fn().mockReturnValue(of(access)),
+            },
+            router: { navigate: vi.fn() },
+            signupHandled: false,
+            currentStep: signal<number>(1),
+            adminClaimPending: signal(false),
+            needsSignIn: signal(false),
+        });
+
         it('sets step to 3 when onboarding is in progress (re-entry)', () => {
-            const navigate = vi.fn();
-            const ctx = {
-                setupService: { getOnboardingState: vi.fn().mockReturnValue(of('in-progress')) },
-                router: { navigate },
-                signupHandled: false,
-                currentStep: signal<number>(1),
-            };
+            const ctx = inProgressCtx('owner');
             OnboardingComponent.prototype.ngOnInit.call(ctx);
-            expect(navigate).not.toHaveBeenCalled();
+            expect(ctx.router.navigate).not.toHaveBeenCalled();
             expect(ctx.currentStep()).toBe(3);
             expect(ctx.signupHandled).toBe(true);
+            // The claim may never have been granted, so the next admin-only
+            // step must re-check it (and retry claimFirstAdmin).
+            expect(ctx.adminClaimPending()).toBe(true);
+            expect(ctx.needsSignIn()).toBe(false);
+        });
+
+        it('asks a signed-out visitor to sign in rather than showing step 3', () => {
+            const ctx = inProgressCtx('signed-out');
+            OnboardingComponent.prototype.ngOnInit.call(ctx);
+            expect(ctx.needsSignIn()).toBe(true);
+            expect(ctx.currentStep()).toBe(1);
+            expect(ctx.router.navigate).not.toHaveBeenCalled();
+        });
+
+        it('sends someone other than the admin who started setup to the site', () => {
+            const ctx = inProgressCtx('other');
+            OnboardingComponent.prototype.ngOnInit.call(ctx);
+            expect(ctx.router.navigate).toHaveBeenCalledWith(['/']);
+            expect(ctx.currentStep()).toBe(1);
         });
 
         it('stays on step 1 when it IS first run', () => {
@@ -852,7 +881,7 @@ describe('OnboardingComponent', () => {
                 adminClaimPending: signal(true),
                 auth: {
                     currentUser: {
-                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'admin' } }),
+                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { arccms_role: 'admin' } }),
                     },
                 },
             });
@@ -899,8 +928,28 @@ describe('OnboardingComponent', () => {
     });
 
     describe('ensureAdminClaim', () => {
+        it('asks the visitor to sign in when the session is gone, instead of "propagating"', async () => {
+            const ctx = {
+                auth: { currentUser: null },
+                needsSignIn: signal(false),
+                adminClaimPending: signal(true),
+                errorMessage: signal(''),
+                hasAdminClaim: vi.fn(),
+                claimAdmin: vi.fn(),
+            };
+
+            const ok = await (OnboardingComponent.prototype as any).ensureAdminClaim.call(ctx);
+
+            expect(ok).toBe(false);
+            expect(ctx.needsSignIn()).toBe(true);
+            expect(ctx.claimAdmin).not.toHaveBeenCalled();
+            expect(ctx.errorMessage()).toBe('');
+        });
+
         it('passes straight through when no claim is pending', async () => {
             const ctx = {
+                auth: { currentUser: { uid: 'admin-uid' } },
+                needsSignIn: signal(false),
                 adminClaimPending: signal(false),
                 errorMessage: signal(''),
                 hasAdminClaim: vi.fn(),
@@ -918,7 +967,7 @@ describe('OnboardingComponent', () => {
                 errorMessage: signal(''),
                 auth: {
                     currentUser: {
-                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'admin' } }),
+                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { arccms_role: 'admin' } }),
                     },
                 },
                 hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
@@ -937,13 +986,41 @@ describe('OnboardingComponent', () => {
                 errorMessage: signal(''),
                 auth: { currentUser: { getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }) } },
                 hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
+                claimAdmin: vi.fn().mockResolvedValue(undefined),
             };
 
             const ok = await (OnboardingComponent.prototype as any).ensureAdminClaim.call(ctx);
 
+            expect(ctx.claimAdmin).toHaveBeenCalledTimes(1);
             expect(ok).toBe(false);
             expect(ctx.adminClaimPending()).toBe(true);
             expect(ctx.errorMessage()).toContain('propagating');
+        });
+
+        it('retries claimFirstAdmin once and proceeds when that grants the claim', async () => {
+            const getIdTokenResult = vi.fn()
+                .mockResolvedValueOnce({ claims: {} })
+                .mockResolvedValueOnce({ claims: { arccms_role: 'admin' } });
+            const ctx = {
+                adminClaimPending: signal(true),
+                errorMessage: signal(''),
+                auth: { currentUser: { getIdTokenResult } },
+                hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
+                claimAdmin: vi.fn().mockResolvedValue(undefined),
+            };
+
+            const ok = await (OnboardingComponent.prototype as any).ensureAdminClaim.call(ctx);
+
+            expect(ctx.claimAdmin).toHaveBeenCalledTimes(1);
+            expect(ok).toBe(true);
+            expect(ctx.adminClaimPending()).toBe(false);
+        });
+
+        it('claimAdmin swallows a refused claim so the token check can report it', async () => {
+            const claimFirstAdmin = vi.fn().mockRejectedValue(new Error('already has an administrator'));
+            const ctx = { setupService: { claimFirstAdmin } };
+            await expect((OnboardingComponent.prototype as any).claimAdmin.call(ctx)).resolves.toBeUndefined();
+            expect(claimFirstAdmin).toHaveBeenCalled();
         });
 
         it('blocks the admin-only writes in step 3 while the claim is missing', async () => {
@@ -1038,7 +1115,7 @@ describe('OnboardingComponent', () => {
                     adminClaimPending: signal(true),
                     auth: {
                         currentUser: {
-                            getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'admin' } }),
+                            getIdTokenResult: vi.fn().mockResolvedValue({ claims: { arccms_role: 'admin' } }),
                         },
                     },
                 },
@@ -1106,6 +1183,21 @@ describe('OnboardingComponent', () => {
     // ─── Step 5: skipSetupAndGo ────────────────────────────────────────────
 
     describe('skipSetupAndGo', () => {
+        it('still tries for each default, independently, before finishing', async () => {
+            const order: string[] = [];
+            const setupService = {
+                createDefaultContentTypes: vi.fn(async () => { order.push('types'); throw new Error('denied'); }),
+                createDefaultWaitlist: vi.fn(async () => { order.push('waitlist'); }),
+                markOnboardingComplete: vi.fn(async () => { order.push('complete'); }),
+            };
+            const ctx = { setupService, router: { navigate: vi.fn() } };
+            await OnboardingComponent.prototype.skipSetupAndGo.call(ctx);
+            // A failed content type must not stop the waitlist, and neither may
+            // stop setup from being marked complete.
+            expect(order).toEqual(['types', 'waitlist', 'complete']);
+            expect(ctx.router.navigate).toHaveBeenCalledWith(['/admin/dashboard'], { replaceUrl: true });
+        });
+
         it('marks onboarding complete and navigates to dashboard', async () => {
             const navigate = vi.fn();
             const markComplete = vi.fn().mockResolvedValue(undefined);
@@ -1144,7 +1236,7 @@ describe('OnboardingComponent', () => {
             const ctx = {
                 auth: {
                     currentUser: {
-                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { role: 'admin' } }),
+                        getIdTokenResult: vi.fn().mockResolvedValue({ claims: { arccms_role: 'admin' } }),
                     },
                 },
                 currentStep: signal<number>(2),

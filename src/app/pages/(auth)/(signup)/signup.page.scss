@@ -561,3 +561,78 @@ input:focus {
         padding: 40px !important;
     }
 }
+/* ===================Phone and Google sign-in============================ */
+
+.or-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0 16px;
+    color: #6c757d;
+    font-size: 0.875rem;
+
+    &::before,
+    &::after {
+        content: '';
+        flex: 1;
+        border-top: 1px solid #dee2e6;
+    }
+}
+
+.google-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 1px solid #dadce0;
+    color: #3c4043;
+    font-weight: 500;
+
+    &:hover {
+        background: #f8f9fa;
+    }
+
+    .google-logo {
+        margin-right: 10px;
+    }
+}
+
+.pin-toggle {
+    display: block;
+    margin: 6px auto 0;
+    text-decoration: none;
+}
+
+/* Test SMS provider: the code shown instead of sent */
+.test-code {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: 14px;
+    padding: 8px 12px;
+    border: 1px dashed #f59e0b;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 0.875rem;
+
+    strong {
+        font-size: 1.1rem;
+        letter-spacing: 0.15em;
+    }
+
+    .test-code-hint {
+        text-decoration: underline;
+    }
+}
+
+/* Development builds: which project and database this page signs in to */
+.instance-label {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    font-family: monospace;
+    color: #6c757d;
+}

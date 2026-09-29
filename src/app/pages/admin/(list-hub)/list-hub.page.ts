@@ -18,6 +18,19 @@ import { AudienceService } from '../(audience)/audience.service';
 import { IContact, IList, ITag } from '../(audience)/audience.model';
 import { BroadcastService, BroadcastRow, audienceListIds } from '../(broadcasts)/broadcast.service';
 import { DripService, DripCampaign } from '../(drips)/drip.service';
+import { Functions } from '@angular/fire/functions';
+import { arcCallable } from '../../../core/config/arc-functions';
+import { APP_LIST_OPERATORS, AppListPreview } from '../(lists)/(app-list-conditions)/app-list-conditions.component';
+import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
+
+/** A person an App users (live) list matches, as `previewAppList` returns them. */
+interface LiveMember {
+    docId: string;
+    key: string;
+    email: string;
+    name: string;
+    consent: string;
+}
 
 /**
  * One workspace per list: who is in it, what one-off sends went to it, and what
@@ -48,6 +61,7 @@ export default class ListHubPageComponent implements OnInit {
     private dialog = inject(MatDialog);
     private sanitizer = inject(DomSanitizer);
     private destroyRef = inject(DestroyRef);
+    private functions = inject(Functions);
 
     listId = signal('');
     list = signal<IList | null>(null);
@@ -60,6 +74,39 @@ export default class ListHubPageComponent implements OnInit {
 
     /** A form-fed list mirrors a signup form; membership is derived, not edited. */
     isFormFed = computed(() => !!this.list()?.formId);
+
+    /**
+     * An App users (live) list (CO6.5b): its members are whoever in the host app
+     * matches its conditions right now, read on open. Nothing to edit here but
+     * the conditions (on the Lists page).
+     */
+    isLive = computed(() => this.list()?.type === 'app');
+    liveMembers = signal<LiveMember[]>([]);
+    livePreview = signal<AppListPreview | null>(null);
+    readonly limitNote = APP_USERS_LIMIT_NOTE;
+
+    /** Addresses that unsubscribed: one per address, as a send counts them. */
+    unsubscribedOf(p: AppListPreview): number {
+        return Math.max(0, p.withEmail - (p.sharedEmail ?? 0) - p.subscribed);
+    }
+    liveError = signal('');
+
+    /** The conditions in words: "isPro is true and plan.tier is any of pro, business". */
+    conditionSummary = computed(() => (this.list()?.conditions ?? []).map((c) => {
+        const label = APP_LIST_OPERATORS.find((o) => o.op === c.op)?.label ?? c.op;
+        const value = Array.isArray(c.value) ? c.value.join(', ') : c.value ?? '';
+        return `${c.field} ${label}${value ? ` ${value}` : ''}`;
+    }));
+
+    liveColumns: TableColumn[] = [
+        { key: 'name', header: 'Name', type: 'text', transformFn: (r) => r.name || '-' },
+        { key: 'email', header: 'Email', type: 'text', transformFn: (r) => r.email || '(no email)' },
+        { key: 'key', header: 'Unique key', type: 'code' },
+        {
+            key: 'consent', header: 'Status', type: 'html',
+            transformFn: (r) => `<span class="${statusBadgeClass(r.consent)}">${r.consent}</span>`,
+        },
+    ];
 
     tagsById = computed(() => new Map(this.tags().map((t) => [t.id, t])));
 
@@ -111,11 +158,11 @@ export default class ListHubPageComponent implements OnInit {
             key: 'actions', header: 'Actions', type: 'actions',
             actions: [
                 {
-                    action: 'disable', icon: 'fas fa-ban text-danger', label: 'Disable emails', class: 'delete',
+                    action: 'disable', slot: 'emails', icon: 'fas fa-ban text-danger', label: 'Disable emails', class: 'delete',
                     hide: (row) => !!row.disabled, onAction: (row) => this.confirmDisable(row),
                 },
                 {
-                    action: 'enable', icon: 'fas fa-circle-check text-success', label: 'Re-enable emails', class: 'edit',
+                    action: 'enable', slot: 'emails', icon: 'fas fa-circle-check text-success', label: 'Re-enable emails', class: 'edit',
                     hide: (row) => !row.disabled, onAction: (row) => this.setDisabled(row, false),
                 },
                 {
@@ -158,8 +205,10 @@ export default class ListHubPageComponent implements OnInit {
         }
 
         this.audience.getList(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => {
+            const conditionsChanged = JSON.stringify(l?.conditions) !== JSON.stringify(this.list()?.conditions);
             this.list.set(l);
             this.loading.set(false);
+            if (l?.type === 'app' && (conditionsChanged || !this.livePreview())) void this.loadLive();
         });
         this.audience.getContactsInList(id).pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe((c) => this.members.set(c));
@@ -168,6 +217,18 @@ export default class ListHubPageComponent implements OnInit {
             .subscribe((b) => this.allBroadcasts.set(b));
         this.drips.watchCampaigns().pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe((c) => this.allCampaigns.set(c));
+    }
+
+    /** Who the live list matches now. */
+    async loadLive(): Promise<void> {
+        this.liveError.set('');
+        try {
+            const res = await arcCallable<{ listId: string }, AppListPreview & { rows: LiveMember[] }>(this.functions, 'previewAppList')({ listId: this.listId() });
+            this.livePreview.set(res.data);
+            this.liveMembers.set(res.data.rows);
+        } catch (e: any) {
+            this.liveError.set(e?.message || String(e));
+        }
     }
 
     /** Compose a broadcast with this list pre-selected as the audience. */

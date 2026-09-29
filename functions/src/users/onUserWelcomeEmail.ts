@@ -1,7 +1,9 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { queueEmail } from '../email-core/queueEmail.js';
+import { ensureDefaultTemplates } from '../email-core/defaultTemplates.js';
 import type { EmailTemplateData } from '../types.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Welcome-on-signup (D9): when a user document is created, queue a
@@ -12,16 +14,25 @@ import type { EmailTemplateData } from '../types.js';
  * Separate from `onUserCreated` (which maintains `email_lookup`) so email
  * delivery and lookup-maintenance fail independently.
  */
-export const onUserCreateWelcomeEmail = onDocumentCreated('users/{docId}', async (event) => {
+export const onUserCreateWelcomeEmail = onDocumentCreated(arcDocument('users/{docId}'), async (event) => {
   const user = event.data?.data();
   if (!user?.['email']) return;
 
   try {
-    const snap = await db
+    const findTemplate = () => db
       .collection('EmailTemplate')
       .where('type', '==', 'signup_welcome_email')
       .limit(1)
       .get();
+    let snap = await findTemplate();
+    if (snap.empty) {
+      // A new install has no templates until something seeds them, and nothing
+      // on the sign-up path did, so the first users of every new site got no
+      // welcome email (found testing a fresh install, 2026-09-23). Seed the
+      // defaults now. Idempotent: existing templates of any type are left alone.
+      await ensureDefaultTemplates();
+      snap = await findTemplate();
+    }
     if (snap.empty) {
       console.log('onUserCreateWelcomeEmail: no signup_welcome_email template; skipping.');
       return;

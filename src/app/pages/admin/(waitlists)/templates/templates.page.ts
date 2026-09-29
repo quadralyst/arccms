@@ -11,7 +11,7 @@ import { ChangeDetectorRef, Component, OnInit, Injector, inject, runInInjectionC
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import { Firestore, collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where, orderBy } from '@angular/fire/firestore';
-import { Functions, httpsCallable } from '@angular/fire/functions';
+import { Functions } from '@angular/fire/functions';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { IEmailTemplate } from '../email-template.model';
 import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
@@ -28,6 +28,7 @@ import { roleGuard } from '../../../../guards/role.guard';
 import { EmailSettingService } from '../../(settings)/email-setting/email-setting.service';
 import { HashtagAutocompleteDirective } from '../../../../../shared/directives/hashtag-autocomplete/hashtag-autocomplete.directive';
 import { getEmailTags } from '../../../../../shared/constants/email-tags';
+import { arcCallable } from '../../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
     title: 'Email Templates | Arc CMS',
@@ -140,7 +141,7 @@ export default class TemplatesComponent implements OnInit {
     private async loadServerDefaults(): Promise<void> {
         try {
             const callable = runInInjectionContext(this.injector, () =>
-                httpsCallable<unknown, { defaults: { type: string; subject: string; template: string }[] }>(
+                arcCallable<unknown, { defaults: { type: string; subject: string; template: string }[] }>(
                     this.functions, 'getWaitlistTemplateDefaults'));
             const res = await callable({});
             for (const def of res.data?.defaults || []) {
@@ -300,7 +301,7 @@ export default class TemplatesComponent implements OnInit {
     private async seedMissingTemplates(waitlistId: string): Promise<void> {
         try {
             const callable = runInInjectionContext(this.injector, () =>
-                httpsCallable(this.functions, 'backfillWaitlistTemplates'));
+                arcCallable(this.functions, 'backfillWaitlistTemplates'));
             await callable({});
 
             const templatesRef = runInInjectionContext(this.injector, () => collection(this.firestore, 'EmailTemplate'));

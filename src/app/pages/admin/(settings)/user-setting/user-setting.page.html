@@ -73,6 +73,42 @@
             </div>
             }
 
+            <!-- Sign-in methods besides email -->
+            <div class="methods-heading">{{ 'admin.settings.user.sign_in_methods' | transloco }}</div>
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">
+                        <i class="fa-solid fa-mobile-screen me-2"></i>
+                        {{ 'admin.settings.user.phone_sign_in' | transloco }}
+                    </div>
+                    <div class="setting-description">
+                        {{ 'admin.settings.user.phone_sign_in_hint' | transloco }}
+                        <a routerLink="/admin/settings/sms">{{ 'admin.settings.user.sms_settings_link' | transloco }}</a>
+                    </div>
+                </div>
+                <div class="setting-control">
+                    <mat-slide-toggle [checked]="userSettings?.phoneSignIn" (change)="toggleMethod('phoneSignIn', $event.checked)"
+                        [disabled]="isSaving()" color="primary">
+                    </mat-slide-toggle>
+                </div>
+            </div>
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">
+                        <i class="fa-brands fa-google me-2"></i>
+                        {{ 'admin.settings.user.google_sign_in' | transloco }}
+                    </div>
+                    <div class="setting-description">
+                        {{ 'admin.settings.user.google_sign_in_hint' | transloco }}
+                    </div>
+                </div>
+                <div class="setting-control">
+                    <mat-slide-toggle [checked]="userSettings?.googleSignIn" (change)="toggleMethod('googleSignIn', $event.checked)"
+                        [disabled]="isSaving()" color="primary">
+                    </mat-slide-toggle>
+                </div>
+            </div>
+
             <!-- Info Banner -->
             <div class="info-banner" [class.disabled-banner]="!userSettings?.isSignupEnabled">
                 @if (userSettings?.isSignupEnabled) {

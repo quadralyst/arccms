@@ -5,6 +5,7 @@ import type { BroadcastEmailDoc, ProviderRateLimits, EmailSettings } from '../ty
 import { processRecipientBatch } from './broadcastHelper.js';
 import { runAudienceBroadcast } from './broadcastAudience.js';
 import { legacyToProviderLimits, checkQuota } from '../mail-config/emailCounter.js';
+import { arcDocument } from '../arc-config.js';
 
 /**
  * Processing time budget (ms). Same as processBroadcast.
@@ -18,7 +19,7 @@ const PROCESSING_BUDGET_MS = (540 - 60) * 1000;
  * Self-chains by creating another _broadcast_continue doc if it times out again.
  */
 export const continueBroadcast = onDocumentCreated(
-    '_broadcast_continue/{docId}',
+    arcDocument('_broadcast_continue/{docId}'),
     async (event) => {
         const data = event.data?.data();
         const docRef = event.data?.ref;

@@ -11,7 +11,7 @@
 #   JSON  PERMISSION_DENIED       → the function ran and refused you; working fine
 #
 # Fix a blocked one with:
-#   gcloud run services add-iam-policy-binding <lowercased-name> \
+#   gcloud run services add-iam-policy-binding arccms-<lowercased-name> \
 #     --region=us-central1 --member=allUsers --role=roles/run.invoker --project=<id>
 # (or Cloud Console → Cloud Run → service → Security → allow unauthenticated)
 #
@@ -26,7 +26,8 @@ PROJECT="${FIREBASE_PROJECT:-xlm-project-864ff}"
 REGION="${FIREBASE_REGION:-us-central1}"
 BASE="https://${REGION}-${PROJECT}.cloudfunctions.net"
 
-# Every onCall function the browser invokes. Keep in sync with functions/src/index.ts.
+# Every onCall function the browser invokes, by plain name. Keep in sync with
+# functions/src/all.ts. They deploy as arccms-<name> (docs/coexistence-spec.md, CO-D5).
 CALLABLES=(
   requestFormOtp verifyFormOtp
   adminAddContact adminSetContactConsent adminUpdateContactLists adminSetContactDisabled
@@ -36,14 +37,32 @@ CALLABLES=(
   normalizeWaitlistTemplateIds dedupeEmailTemplates seedEmailTemplates
   previewBroadcastAudience sendTestEmail sendAnnouncement unsubscribeLegacyLink
   getOptimizedLeaderboard ensureWaitlistExists
+  joinForm finalizeFormSignup getPublicMemberView getPublicLeaderboard creditReferral
+  getMyNotificationPrefs updateMyNotificationPrefs claimFirstAdmin search adminCreateUser
+  appAudienceStatus sampleAppUsers testAppUser listAppUsers getAppUser previewAppList
+  checkEmailAccount checkPhoneAccount requestPhoneOtp verifyPhoneOtp completePhoneSignup
+  signInWithPin resetPin setPin ensureGoogleAccount checkIdentifierForLink
+  requestEmailLinkOtp linkEmail linkPhone sendTestSms verifySignupOtp requestSignupOtp
+  createAccountRecord refreshMyClaims deleteMyAccount trackPwaEvent
 )
 
+# The app's callables (functions/src/custom/public-callables.txt, docs/custom-code.md),
+# deployed as arccms-custom-<name>.
+CUSTOM_LIST="$(dirname "$0")/../src/custom/public-callables.txt"
+if [ -f "$CUSTOM_LIST" ]; then
+  while IFS= read -r line; do
+    name="$(printf '%s' "$line" | sed 's/#.*//' | tr -d '[:space:]')"
+    [ -n "$name" ] && CALLABLES+=("custom-$name")
+  done < "$CUSTOM_LIST"
+fi
+
 blocked=()
+missing=()
 # Any positional arguments narrow the check to just those functions.
 if [ "$#" -gt 0 ]; then CALLABLES=("$@"); fi
 
 for fn in "${CALLABLES[@]}"; do
-  resp=$(curl -s -m 20 -w '\n%{http_code}' -X POST "$BASE/$fn" -H "Content-Type: application/json" -d '{"data":{}}' 2>/dev/null)
+  resp=$(curl -s -m 20 -w '\n%{http_code}' -X POST "$BASE/arccms-$fn" -H "Content-Type: application/json" -d '{"data":{}}' 2>/dev/null)
   code=$(printf '%s' "$resp" | tail -n1)
   body=$(printf '%s' "$resp" | sed '$d')
   if [ -z "$code" ]; then
@@ -51,7 +70,8 @@ for fn in "${CALLABLES[@]}"; do
   elif [ "$code" = "404" ]; then
     # Not deployed. Checked explicitly because a 404 body is not "403 Forbidden",
     # so a naive check would report a missing function as healthy.
-    printf "%-34s ⚠️  NOT DEPLOYED (404)\n" "$fn"
+    printf "%-34s ❌ NOT DEPLOYED (404)\n" "$fn"
+    missing+=("$fn")
   elif echo "$body" | grep -qi "403 Forbidden"; then
     printf "%-34s ❌ BLOCKED by Cloud Run — needs invoker grant\n" "$fn"
     blocked+=("$fn")
@@ -61,12 +81,18 @@ for fn in "${CALLABLES[@]}"; do
 done
 
 echo
+if [ ${#missing[@]} -gt 0 ]; then
+  echo "Not deployed: ${missing[*]}"
+  echo "Every callable here is exported from functions/src/all.ts, so a missing one means the"
+  echo "deploy used an old build or skipped it. Rebuild (npm run build --prefix functions) and redeploy."
+fi
 if [ ${#blocked[@]} -eq 0 ]; then
+  if [ ${#missing[@]} -gt 0 ]; then exit 1; fi
   echo "All callables reachable."
 else
   echo "Run these to fix:"
   for fn in "${blocked[@]}"; do
-    echo "  gcloud run services add-iam-policy-binding $(echo "$fn" | tr '[:upper:]' '[:lower:]') \\"
+    echo "  gcloud run services add-iam-policy-binding arccms-$(echo "$fn" | tr '[:upper:]' '[:lower:]') \\"
     echo "    --region=$REGION --member=allUsers --role=roles/run.invoker --project=$PROJECT"
   done
   exit 1

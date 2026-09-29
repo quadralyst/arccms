@@ -19,6 +19,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AudienceService } from '../(audience)/audience.service';
 import { UserService } from '../users/user.service';
 import { roleGuard } from '../../../guards/role.guard';
+import { PWA } from '../../../core/pwa/pwa.service';
+import { PwaStatsService } from '../../../core/pwa/pwa-stats.service';
 
 export const routeMeta: RouteMeta = {
   title: 'Dashboard | Arc CMS',
@@ -80,6 +82,10 @@ export default class DashboardComponent extends BaseComponent {
 
   // Email configuration status
   emailConfigService = inject(EmailConfigStatusService);
+
+  // App installs (docs/pwa.md), when this install's PWA is on
+  readonly pwaEnabled = PWA.enabled;
+  pwaStats = inject(PwaStatsService);
 
   // Content types list (need actual items for names/icons)
   contentTypes = computed(() => this.contentTypesStore.items());
@@ -169,6 +175,7 @@ export default class DashboardComponent extends BaseComponent {
     this.loadMediaCount();
     this.loadGrowthAndLeadsCounts();
     this.loadRecentWaitlistSignups();
+    if (this.pwaEnabled) void this.pwaStats.load();
     // Auto-refresh is handled reactively by the effect in the constructor
   }
 

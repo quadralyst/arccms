@@ -8,6 +8,20 @@ import { signal } from '@angular/core';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
+import { Functions } from '@angular/fire/functions';
+
+const m = vi.hoisted(() => ({
+    calls: [] as Array<{ name: string; data: any }>,
+    result: { value: { id: 'doc1', uid: 'uid1', reusedAccount: false } as any },
+}));
+vi.mock('@angular/fire/functions', () => ({
+    Functions: class {},
+    httpsCallable: vi.fn((_f: unknown, name: string) => async (data: any) => {
+        m.calls.push({ name, data });
+        if (m.result.value instanceof Error) throw m.result.value;
+        return { data: m.result.value };
+    }),
+}));
 
 import AddUserComponent from './add.page';
 import { UserStore } from '../user.store';
@@ -55,6 +69,7 @@ describe('AddUserComponent', () => {
                 { provide: GlobalService, useValue: mockGlobalService },
                 { provide: Router, useValue: mockRouter },
                 { provide: ActivatedRoute, useValue: mockActivatedRoute },
+                { provide: Functions, useValue: {} },
             ],
         }).compileComponents();
 
@@ -110,50 +125,65 @@ describe('AddUserComponent', () => {
         });
     });
 
-    describe('Form Submission', () => {
+    describe('Form Submission (CO6.6: through adminCreateUser)', () => {
+        beforeEach(() => {
+            m.calls.length = 0;
+            m.result.value = { id: 'doc1', uid: 'uid1', reusedAccount: false };
+            mockToastService.success.mockClear();
+            mockToastService.error.mockClear();
+        });
+        const fill = (email = 'newuser@example.com') => component.addForm.setValue({ name: 'New User', email, password: 'password123' });
+        const flush = () => new Promise((r) => setTimeout(r));
+
         it('should not submit invalid form', () => {
             component.onSubmit();
-            expect(mockUserStore.add).not.toHaveBeenCalled();
+            expect(m.calls).toEqual([]);
             expect(component.errorMessages.length).toBeGreaterThan(0);
         });
 
-        it('should submit valid form', () => {
-            mockUserStore.add.mockClear();
-            component.addForm.setValue({
-                name: 'New User',
-                email: 'newuser@example.com',
-                password: 'password123',
-            });
-
+        it('creates the account and record on the server, never writing the password to Firestore', async () => {
+            const closeSpy = vi.spyOn(component.close, 'emit');
+            fill();
             component.onSubmit();
+            await flush();
+            expect(m.calls).toEqual([{ name: 'arccms-adminCreateUser', data: { name: 'New User', email: 'newuser@example.com', password: 'password123', role: 'user' } }]);
+            expect(mockUserStore.add).not.toHaveBeenCalled();
+            expect(mockToastService.success).toHaveBeenCalledWith('User created. Share the temporary password with them.');
+            expect(closeSpy).toHaveBeenCalled();
+        });
 
-            expect(mockUserStore.add).toHaveBeenCalled();
+        it('passes the role being added', async () => {
+            component.role = 'admin';
+            fill();
+            component.onSubmit();
+            await flush();
+            expect(m.calls[0].data.role).toBe('admin');
+        });
+
+        it('says so when an existing sign-in account was reused', async () => {
+            m.result.value = { id: 'doc1', uid: 'uid1', reusedAccount: true };
+            fill();
+            component.onSubmit();
+            await flush();
+            expect(mockToastService.success).toHaveBeenCalledWith(expect.stringContaining('keep their existing password'));
         });
 
         it('should detect duplicate email', () => {
-            component.addForm.setValue({
-                name: 'Another User',
-                email: 'existing@example.com', // Same as existing user
-                password: 'password123',
-            });
-
+            fill('existing@example.com');
             component.onSubmit();
-
             expect(component.alreadyExist).toBeTruthy();
+            expect(m.calls).toEqual([]);
         });
 
-        it('should show success toast on successful creation', () => {
-            mockToastService.success.mockClear();
-            mockUserStore.add.mockClear();
-            component.addForm.setValue({
-                name: 'New User',
-                email: 'newuser2@example.com',
-                password: 'password123',
-            });
-
+        it('shows the server\'s error and stays open', async () => {
+            m.result.value = Object.assign(new Error('An ArcCMS user with this email already exists.'), { code: 'functions/already-exists' });
+            const closeSpy = vi.spyOn(component.close, 'emit');
+            fill();
             component.onSubmit();
-
-            expect(mockToastService.success).toHaveBeenCalledWith('User created successfully.');
+            await flush();
+            expect(mockToastService.error).toHaveBeenCalledWith('An ArcCMS user with this email already exists.');
+            expect(component.alreadyExist).toBe(true);
+            expect(closeSpy).not.toHaveBeenCalled();
         });
     });
 

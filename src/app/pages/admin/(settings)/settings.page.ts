@@ -301,6 +301,13 @@ export default class SettingsPageComponent extends BaseComponent {
             description: 'Signup & role settings',
         },
         {
+            id: 'sms',
+            label: 'SMS',
+            icon: 'fa-solid fa-comment-sms',
+            route: '/admin/settings/sms',
+            description: 'Text messages for phone sign-in',
+        },
+        {
             id: 'message',
             label: 'Global Messages',
             icon: 'fa-solid fa-comment',
@@ -334,6 +341,20 @@ export default class SettingsPageComponent extends BaseComponent {
             icon: 'fa-solid fa-robot',
             route: '/admin/settings/discoverability',
             description: 'AI crawlers, llms.txt & IndexNow',
+        },
+        {
+            id: 'app-audience',
+            label: 'App audience',
+            icon: 'fa-solid fa-users-viewfinder',
+            route: '/admin/settings/app-audience',
+            description: "Your app's users, read live",
+        },
+        {
+            id: 'automations',
+            label: 'Automations',
+            icon: 'fa-solid fa-bolt',
+            route: '/admin/settings/automations',
+            description: 'Emails and actions when things happen',
         },
         {
             id: 'misc',

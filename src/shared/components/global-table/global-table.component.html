@@ -105,16 +105,10 @@
                             </div>
                         </ng-container>
 
-                        <!-- Actions Type -->
+                        <!-- Actions Type: icons plus a "more" menu when there are many -->
                         <ng-container *ngIf="col.type === 'actions'">
-                            <ng-container *ngFor="let action of col.actions">
-                                <button *ngIf="!action.hide || !action.hide(row)" class="action-btn"
-                                    [class]="action.class || ''"
-                                    [title]="action.labelFn ? action.labelFn(row) : (action.label | translatable)"
-                                    (click)="onActionClick(action, row); $event.stopPropagation()">
-                                    <i [class]="action.iconFn ? action.iconFn(row) : action.icon"></i>
-                                </button>
-                            </ng-container>
+                            <arc-row-actions [actions]="col.actions" [row]="row" [plan]="actionsPlan(col)"
+                                (actionClick)="actionClick.emit($event)"></arc-row-actions>
                         </ng-container>
                     </td>
                 </tr>

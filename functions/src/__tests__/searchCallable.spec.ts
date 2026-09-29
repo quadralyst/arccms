@@ -144,7 +144,7 @@ describe('authorize', () => {
         await expect(authorize({ auth: { uid: 'u', token: {} } } as never, parseRequest({ q: 'x', scope: 'admin' })))
             .rejects.toMatchObject({ code: 'permission-denied' });
 
-        await expect(authorize({ auth: { uid: 'u', token: { role: 'admin' } } } as never, parseRequest({ q: 'x', scope: 'admin', sources: ['content-drafts'] })))
+        await expect(authorize({ auth: { uid: 'u', token: { arccms_role: 'admin' } } } as never, parseRequest({ q: 'x', scope: 'admin', sources: ['content-drafts'] })))
             .resolves.toBeUndefined();
     });
 

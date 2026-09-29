@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as zlib from 'node:zlib';
 import * as crypto from 'node:crypto';
 
@@ -321,6 +321,31 @@ describe('deployFileToHosting', () => {
             const body = JSON.parse(populateCall[1].body);
             expect(Object.keys(body.files)).toEqual(['/test.html']);
         });
+    });
+});
+
+describe('hosting turned off (ARC_HOSTING_SITE=none, CO5)', () => {
+    beforeEach(() => {
+        vi.resetAllMocks();
+        restoreMockImplementations();
+        process.env.GCLOUD_PROJECT = 'test-project';
+        process.env.ARC_HOSTING_SITE = 'none';
+    });
+    afterEach(() => { delete process.env.ARC_HOSTING_SITE; });
+
+    it('releases nothing, never calls the Hosting API, and records why on the content', async () => {
+        await deployFileToHosting('', '/test.html', TEST_CONTENT, 'arc_articles', 'doc1');
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+            deployStatus: 'skipped',
+            deployErrorCode: 'HOSTING_OFF',
+        }));
+    });
+
+    it('does not remove files either', async () => {
+        await removeFileFromHosting('', '/test.html');
+        expect(mockFetch).not.toHaveBeenCalled();
     });
 });
 

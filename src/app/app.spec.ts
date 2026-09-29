@@ -14,6 +14,8 @@ import { DEFAULT_SITE_USAGE_SETTINGS, ISiteUsageSettings } from './pages/admin/(
 
 import { GaTrackingService } from '../shared/services/ga-tracking.service';
 import { Firestore } from '@angular/fire/firestore';
+import { signal } from '@angular/core';
+import { FeedbackService } from './core/feedback/feedback.service';
 
 vi.mock('@angular/fire/firestore', () => ({
     doc: vi.fn(),
@@ -62,6 +64,10 @@ describe('App Component', () => {
                 { provide: SiteUsageService, useValue: mockSiteUsageService },
                 { provide: GaTrackingService, useValue: mockGaTrackingService },
                 { provide: Firestore, useValue: {} },
+                {
+                    provide: FeedbackService,
+                    useValue: { start: vi.fn(), available: signal(false), panelOpen: signal(false), capturing: signal(false), screenshot: signal(null) },
+                },
             ],
         }).compileComponents();
 

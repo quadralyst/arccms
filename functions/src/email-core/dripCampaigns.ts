@@ -3,9 +3,12 @@ import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { backfillEnrollments, exitCampaignEnrollments, type DripCampaignDoc } from './dripEnrollment.js';
+import { appListConditionsOf } from '../app-audience/appLists.js';
+import { backfillAppCampaign } from '../app-audience/appDrips.js';
+import { isArcAdmin } from '../users/claims.js';
 
 function requireAdmin(request: { auth?: { token?: Record<string, unknown> } }): void {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 }
@@ -29,11 +32,21 @@ export const activateDripCampaign = onCall(async (request) => {
   await db.collection('DripCampaigns').doc(id).set({ status: 'active', updatedAt: Timestamp.now() }, { merge: true });
 
   let enrolled = 0;
+  let appUsersCapped = false;
   if (campaign.enrollExistingOnActivate) {
-    enrolled = await backfillEnrollments({ ...campaign, status: 'active' });
+    // An App users (live) list has no stored members: enroll whoever matches now (CO6.5c).
+    const list = await db.collection('Lists').doc(campaign.listId).get();
+    const conditions = appListConditionsOf(list.exists ? list.data() : undefined);
+    if (conditions) {
+      const backfill = await backfillAppCampaign({ ...campaign, status: 'active' }, conditions);
+      enrolled = backfill.enrolled;
+      appUsersCapped = backfill.truncated;
+    } else {
+      enrolled = await backfillEnrollments({ ...campaign, status: 'active' });
+    }
   }
-  logger.info(`activateDripCampaign: ${id} active, backfilled ${enrolled}.`);
-  return { enrolled };
+  logger.info(`activateDripCampaign: ${id} active, backfilled ${enrolled}${appUsersCapped ? ' (first app users only)' : ''}.`);
+  return { enrolled, appUsersCapped };
 });
 
 /**

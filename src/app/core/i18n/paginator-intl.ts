@@ -6,7 +6,10 @@
  * under a fully translated table — on nine pages of this admin.
  *
  * `changes` is how Material learns a label moved; emitting on every language
- * change is what makes the switch take effect without a reload.
+ * change is what makes the switch take effect without a reload. It also emits
+ * when a translation file finishes loading: `translate()` returns the bare key
+ * until then, and on a first visit (a fresh install arriving from the
+ * onboarding wizard) the paginator can render before the file is in.
  *
  * Spec: docs/multilingual-spec.md — Phase M6.
  */
@@ -15,6 +18,7 @@ import { DestroyRef, Injectable, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatPaginatorIntl } from '@angular/material/paginator';
 import { TranslocoService } from '@jsverse/transloco';
+import { filter, merge } from 'rxjs';
 
 @Injectable()
 export class TranslatedPaginatorIntl extends MatPaginatorIntl {
@@ -23,7 +27,10 @@ export class TranslatedPaginatorIntl extends MatPaginatorIntl {
 
     constructor() {
         super();
-        this.transloco.langChanges$
+        merge(
+            this.transloco.langChanges$,
+            this.transloco.events$.pipe(filter((event) => event.type === 'translationLoadSuccess')),
+        )
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe(() => this.applyLabels());
     }

@@ -26,6 +26,8 @@ vi.mock('@angular/fire/firestore', () => ({
 // Import functions after mocking for usage in tests
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from '@angular/fire/storage';
 import { doc, getDoc, deleteDoc } from '@angular/fire/firestore';
+// Paths go through the install's upload folder (arc-install.ts), whatever it is.
+import { arcConfig } from '../../app/core/config/arc-config';
 
 // Mock instances for DI
 const mockFirestore = {};
@@ -89,7 +91,7 @@ describe('FileUploadService', () => {
             const result = await service.uploadFileInDb(mockBase64, progressSpy);
 
             // Service uses injected mockStorage
-            expect(ref).toHaveBeenCalledWith(mockStorage, expect.stringMatching(/^mediaImages\/image_\d+\.jpg$/));
+            expect(ref).toHaveBeenCalledWith(mockStorage, expect.stringMatching(new RegExp(`^${arcConfig.storagePrefix}mediaImages/image_\\d+\\.jpg$`)));
             expect(uploadBytesResumable).toHaveBeenCalled();
             expect(progressSpy).toHaveBeenCalledWith(50);
             expect(result).toEqual({

@@ -75,6 +75,9 @@ function makeRes() {
 
 describe('handleUnsubscribe', () => {
   beforeEach(() => {
+    // No host app here, whatever an earlier test file in this worker set.
+    delete process.env.ARC_APP_USERS_PATH;
+    delete process.env.ARC_APP_USERS_DATABASE;
     vi.clearAllMocks();
     mockSettingsGet.mockResolvedValue({ data: () => ({ unsubscribeSecret: SECRET }) });
     mockEmailLogsGet.mockResolvedValue({ empty: false, docs: [{ data: () => ({ toEmail: EMAIL }) }] });

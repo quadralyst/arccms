@@ -47,7 +47,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 
 import { normalizeWaitlistTemplateIds } from '../email-core/normalizeWaitlistTemplateIds.js';
 
-const admin = { auth: { token: { role: 'admin' } } } as any;
+const admin = { auth: { token: { arccms_role: 'admin' } } } as any;
 const call = (data: any = {}) => (normalizeWaitlistTemplateIds as any)({ ...admin, data });
 
 const WELCOME = 'waitlist_welcome_email';
@@ -60,7 +60,7 @@ describe('normalizeWaitlistTemplateIds', () => {
 
   it('rejects non-admins', async () => {
     await expect(
-      (normalizeWaitlistTemplateIds as any)({ auth: { token: { role: 'user' } }, data: {} }),
+      (normalizeWaitlistTemplateIds as any)({ auth: { token: { arccms_role: 'user' } }, data: {} }),
     ).rejects.toThrow(/Admin role required/);
   });
 

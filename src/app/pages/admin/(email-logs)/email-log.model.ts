@@ -33,3 +33,14 @@ export interface IEmailLog extends IBaseModel {
 }
 
 export const EMAIL_LOGS_COLLECTION = 'EmailLogs';
+
+/**
+ * The subject as the person received it. Once sent, `processedSubject` is the
+ * truth even when it came out blank (a tag with nothing to fill it); showing the
+ * template's subject then, as the log used to, displays raw `##TAGS##` that were
+ * never sent. Not yet sent, the template's subject is all there is.
+ */
+export function sentSubject(log: Pick<IEmailLog, 'subject' | 'processedSubject'>): string {
+    const subject = log.processedSubject !== undefined && log.processedSubject !== null ? log.processedSubject : log.subject;
+    return subject || '(no subject)';
+}

@@ -11,9 +11,44 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // ------------------------------------------------------------
+    // Helpers for app rules (firestore.app.rules, docs/app-rules.md).
+    // Apps call these, plus isAdmin() and isEditor() below; keep their
+    // names and meaning stable.
+    // ------------------------------------------------------------
+
+    // Any signed-in person.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // The signed-in person owns this users record. Reads the `arccms_uid`
+    // claim (functions/src/users/claims.ts), so it costs no document read. A
+    // token without the claim owns nothing: the browser refreshes the claim
+    // at sign-in, so a missing one means deny.
+    function ownsUserRecord(userDocId) {
+      return isSignedIn() && request.auth.token.get('arccms_uid', '') == userDocId;
+    }
+
+    // The ArcCMS role is the `arccms_role` claim (functions/src/users/claims.ts),
+    // never a plain `role`: an app sharing the sign-in pool may give its own
+    // admins `role: 'admin'` (docs/coexistence-spec.md, CO-D7).
+    function arcRole() {
+      return request.auth.token.get('arccms_role', '');
+    }
+
     function isAdmin() {
-      return isAuthenticated() &&
-        request.auth.token.role == 'admin';
+      return isAuthenticated() && arcRole() == 'admin';
+    }
+
+    // Content staff: may write content types, content, tags, media and the
+    // publish queue. Admins, plus an `editor` role that CO1 reserves
+    // (docs/coexistence-spec.md). Nothing in the app grants `editor` today and
+    // every admin route is admin-only, so in practice this is admins. The claim
+    // comes from onUserRoleChange, and only admins or the Admin SDK can set a
+    // user's `role` (see the users rules below), so nobody can self-assign it.
+    function isEditor() {
+      return isAdmin() || (isAuthenticated() && arcRole() == 'editor');
     }
 
     // ============================================================
@@ -21,10 +56,12 @@ service cloud.firestore {
     //    SSR (unauthenticated) needs to read these collections.
     // ============================================================
 
-    // ContentTypes - content type definitions, SSR reads for routing
+    // ContentTypes - content type definitions, SSR reads for routing.
+    // Writes are staff only: any signed-in user used to be able to rewrite a
+    // content type, and deleting one cascades through its content.
     match /ContentTypes/{docId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if isEditor();
     }
 
     // Authors - who writes for the site (docs/discoverability-spec.md, D-D5).
@@ -39,7 +76,7 @@ service cloud.firestore {
 
     // Dynamic content, tags, and waitlist-tag collections:
     //   arc_{slug}           → published content, public read
-    //   arc_{slug}_drafts    → drafts, authenticated read
+    //   arc_{slug}_drafts    → drafts, staff read
     //   Tags_{slug}          → tags, public read
     //   WaitlistUserTags_{id}→ admin only
     // Firestore does NOT support prefix matching in paths, so we
@@ -47,16 +84,17 @@ service cloud.firestore {
     match /{collection}/{docId} {
       // Published content: arc_* but NOT *_drafts → public read
       allow read: if collection.matches('arc_.*') && !collection.matches('.*_drafts');
-      // Draft content: arc_*_drafts → authenticated read
-      allow read: if collection.matches('arc_.*_drafts') && isAuthenticated();
+      // Draft content: arc_*_drafts → staff read (only the admin editor reads drafts)
+      allow read: if collection.matches('arc_.*_drafts') && isEditor();
       // Tags: Tags_* → public read
       allow read: if collection.matches('Tags_.*');
       // WaitlistUserTags: admin read
       allow read: if collection.matches('WaitlistUserTags_.*') && isAdmin();
 
-      // Writes: arc_* and Tags_* → authenticated
+      // Writes: arc_* and Tags_* → staff. These were writable by any signed-in
+      // user, and sign-up is open, so anyone could publish or deface content.
       allow write: if (collection.matches('arc_.*') || collection.matches('Tags_.*'))
-                   && isAuthenticated();
+                   && isEditor();
       // WaitlistUserTags → admin write; allow unauthenticated usageCount increment for signup flow
       allow create, delete: if collection.matches('WaitlistUserTags_.*') && isAdmin();
       allow update: if collection.matches('WaitlistUserTags_.*')
@@ -73,27 +111,33 @@ service cloud.firestore {
 
       // translations/{lang} subcollection — per-language content variants (M2).
       // Mirrors the parent's access model:
-      //   arc_*_drafts → authored in the editor, so authenticated read/write
+      //   arc_*_drafts → authored in the editor, so staff read/write
       //   arc_*        → published variants, public read (the language pages
       //                  and the SPA fallback are public); written only by the
       //                  publish pipeline, which bypasses rules via Admin SDK.
       match /translations/{lang} {
-        allow read, write: if collection.matches('arc_.*_drafts') && isAuthenticated();
+        allow read, write: if collection.matches('arc_.*_drafts') && isEditor();
         allow read: if collection.matches('arc_.*') && !collection.matches('.*_drafts');
       }
     }
 
-    // Media metadata - images displayed on public pages
+    // Media metadata - images displayed on public pages. Staff write: the
+    // media library is an admin tool. Members set a profile photo through
+    // their own storage folder (storage.rules, avatars/{uid}) and never
+    // create media documents.
     match /media/{docId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if isEditor();
     }
 
     // Email lookup - SHA-256 hashed emails for signup flow
-    // Public read (check if hash exists), authenticated write
+    // Public read (check if hash exists). Functions keep it in step with the
+    // users records (onUserCreated, onUserDelete, the sign-in callables); only
+    // admins write it from the browser (Users, Delete). Any signed-in writer
+    // could make a registered address look unregistered (review S5).
     match /email_lookup/{hashId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // ============================================================
@@ -111,29 +155,36 @@ service cloud.firestore {
       // from this flag rather than from the emptiness of `email_lookup`. It
       // holds only `completed` and two timestamps — it says whether the site
       // finished its setup, which any visitor to an unfinished site can see
-      // anyway. Writes stay authenticated via the block below.
+      // anyway. Writes are admin only, via the catch-all below.
+      // `feedback` holds only whether the feedback button is on (docs/feedback.md);
+      // admins switch it on the Feedback page.
       // `about` is public-read as well: it is the site's published identity
       // (name, URL, address, logo, description, profile links, public contact
       // email), the same data every static page already carries as schema.org
       // JSON-LD. The SPA fallback pages need it to emit the same nodes
       // (docs/discoverability-spec.md, D1). Nothing secret lives there.
-      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status', 'about'];
-      // Frontend-managed settings — any authenticated user can read/write.
-      // UI routes are admin-gated via role guard; rules only enforce auth.
+      allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status', 'about', 'feedback'];
+      // Every write below is admin only, including the public-read documents
+      // above (review S5, 2026-09-28). `about`, `site`, `email_status`,
+      // `global-message`, `misc`, `site-usage` and `onboarding_status` used to be
+      // readable and writable by any signed-in account: a member of a site with
+      // open sign-up, or a host app's user in a shared project, could change the
+      // site banner, its identity, the email flags, or send visitors back to the
+      // setup wizard. Only the admin pages and the setup wizard (after
+      // claimFirstAdmin) write them, and `claimFirstAdmin` itself writes
+      // `onboarding_status` when it makes the first admin.
       //
-      // `email`, `integrations` and `analytics` are deliberately NOT in this list:
-      // all three carry live secrets — `email` holds smtp.password / gmail.password
-      // / resend.apiKey, `integrations` holds the Unsplash secretKey and the geo
+      // `users` (public read above, admin write below) holds `defaultRole`,
+      // which onUserRoleChange applies to every self sign-up. A signed-in user
+      // who could write it could set it to 'admin' and sign up a second account
+      // as an admin.
+      //
+      // `email`, `integrations` and `analytics` are admin read as well: all three
+      // carry live secrets. `email` holds smtp.password / gmail.password /
+      // resend.apiKey, `integrations` holds the Unsplash secretKey and the geo
       // API key, `analytics` holds the Google OAuth clientSecret. Rules are the
-      // only gate a direct SDK call meets, and "authenticated" here means any
-      // registered visitor, not an admin, so this list handed the site's mail
-      // credentials to every signed-in user. They fall through to isAdmin() below.
-      // Only the admin settings pages read them, and those are admin-gated already.
-      allow read, write: if isAuthenticated() && settingId in [
-        'about', 'site', 'email_status',
-        'users', 'global-message', 'misc',
-        'site-usage', 'onboarding_status'
-      ];
+      // only gate a direct SDK call meets, and "authenticated" means any
+      // registered visitor, not an admin.
       // analytics_status — authenticated read (frontend listener for GA connect flow);
       // writes are Cloud Function only (Admin SDK bypasses rules).
       allow read: if settingId == 'analytics_status' && isAuthenticated();
@@ -164,24 +215,62 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // 3. USERS - Authenticated read, owner/admin write
+    // 3. USERS - own doc or admin
     // ============================================================
 
+    // Doc IDs are auto-generated, so ownership is the `uid` field, not the id.
+    //
+    // `role` is the source of the Auth custom claim that isAdmin() checks
+    // (functions/src/users/syncUserRole.ts copies it). So a user must never be
+    // able to set it:
+    //   - create: admins only. Every sign-up creates its record on the server
+    //     (createAccountRecord, ensureGoogleAccount, the phone callables,
+    //     adminCreateUser), which checks the email, the role and whether
+    //     sign-ups are open. A client-created record could carry another
+    //     person's email, a plan or credits (review F).
+    //   - update: never `role`, `uid`, the admin switches (`isActive`,
+    //     `status`), or the premium fields; `emailVerified` may only go to false.
+    //   - the first admin of a fresh install comes from the `claimFirstAdmin`
+    //     callable, which grants admin once and only while no admin exists.
+    // Reads are own doc or admin. Client queries on `users` must therefore
+    // filter on `uid == request.auth.uid` (getCurrentUserByUid does).
+    function isOwnUserDoc() {
+      return isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    // Passwords live in Firebase Auth only, never in a user record.
+    function hasNoPassword(data) {
+      return !('password' in data);
+    }
+
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() || isAdmin();
-      // Doc IDs are auto-generated; compare auth uid against the uid field in the doc.
-      // Admin can update any user doc (migration re-keying). A user may update their
-      // own doc EXCEPT the premium entitlement fields — those are written only by
-      // Cloud Functions (Admin SDK bypasses rules) so users cannot self-grant access.
-      allow update: if isAdmin() ||
-        (isAuthenticated() && resource.data.uid == request.auth.uid
+      allow read: if isAdmin() || isOwnUserDoc();
+      allow create: if hasNoPassword(request.resource.data) && isAdmin();
+      // Admin can update any user doc (migration re-keying, role changes). A
+      // user may update their own doc EXCEPT the fields above. `phone` and
+      // `email` are sign-in methods, changed only by the server after a code
+      // (functions/src/auth/linkIdentifiers.ts); authOwner is Admin SDK only
+      // (CO-D16). The premium
+      // entitlement fields are written only by Cloud Functions (Admin SDK
+      // bypasses rules) so users cannot self-grant access.
+      allow update: if hasNoPassword(request.resource.data) && (isAdmin() ||
+        (isOwnUserDoc()
          && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
+              .hasAny(['role', 'uid', 'isActive', 'status', 'authOwner',
+                       'email', 'phone', 'phoneVerified', 'detachedAt', 'detachedReason',
+                       'isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
                        'premiumExpiresAt', 'provider', 'providerSubscriptionId', 'providerCustomerId',
                        'premiumTrialReminderSent', 'premiumEventAt', 'updatesUntil',
-                       'premiumTierLabel', 'premiumDiscountCode', 'creditBalance']));
+                       'premiumTierLabel', 'premiumDiscountCode', 'creditBalance'])
+         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['emailVerified'])
+             || request.resource.data.emailVerified == false)));
       allow delete: if isAdmin();
+    }
+
+    // First-admin sentinel, written once by the claimFirstAdmin callable.
+    // Admin SDK only: a client that could delete it could claim admin again.
+    match /_system/{docId} {
+      allow read, write: if false;
     }
 
     // ============================================================
@@ -220,10 +309,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Publish queue — admin writes trigger docs; Cloud Function processes them
+    // Publish queue: staff write trigger docs; Cloud Function processes them
     match /_publish_queue/{docId} {
       allow read: if false;       // Cloud Functions use Admin SDK (bypasses rules)
-      allow write: if isAuthenticated();
+      allow write: if isEditor();
     }
 
     // ============================================================
@@ -287,6 +376,112 @@ service cloud.firestore {
 
     match /signup_otps/{emailHash} {
       allow read, write: if false; // Cloud Functions only (never client-readable)
+    }
+
+    // Phone sign-in (functions/src/auth). Codes, PIN hashes, the number to
+    // account index and rate-limit counters are Cloud Functions only: the
+    // browser asks the callables, never these documents.
+    match /phone_otps/{phoneHash} {
+      allow read, write: if false;
+    }
+    match /phone_index/{phoneHash} {
+      allow read, write: if false;
+    }
+    match /auth_pins/{uid} {
+      allow read, write: if false;
+    }
+    match /_rate_limits/{key} {
+      allow read, write: if false;
+    }
+
+    // A phone number or email moved from one account to another. Admin read;
+    // written only by the functions that move them.
+    match /account_transfers/{transferId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Every SMS sent (or, with the log provider, only recorded). Admin read.
+    match /SmsLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // App install counters by day (trackPwaEvent, docs/pwa.md). Admin read.
+    match /PwaStats/{day} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Feedback button (docs/feedback.md). A signed-in person creates their own,
+    // new, with files only from their own folder; the onFeedbackCreated function
+    // adds `sender`. Admins read, mark done, and delete.
+    match /Feedback/{feedbackId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isValidNewFeedback(feedbackId);
+    }
+
+    // A file in the sender's own folder for this feedback, compared part by
+    // part: `[upload folder/]users/{their record}/feedback/{id}/{name}`. Never a
+    // pattern built from the ids, since the sender picks the feedback id and an
+    // id like `x|.*` would turn the pattern into "any path" (review F): the
+    // admin's Delete then deleted whatever file the feedback named.
+    function isFeedbackFile(path, feedbackId, names) {
+      return path is string && isFeedbackFileParts(path.split('/'), feedbackId, names);
+    }
+
+    function isFeedbackFileParts(parts, feedbackId, names) {
+      let at = parts.size() - 5;
+      return (at == 0 || (at == 1 && parts[0].matches('[A-Za-z0-9_-]+')))
+        && parts[at] == 'users'
+        && parts[at + 1] == request.auth.token.get('arccms_uid', '')
+        && parts[at + 2] == 'feedback'
+        && parts[at + 3] == feedbackId
+        && parts[at + 4] in names;
+    }
+
+    // The admin's switch (Settings, Feedback). Off hides the button, and the
+    // rules refuse feedback too, or a script could keep writing it (review F).
+    function feedbackOn() {
+      let setting = /databases/$(database)/documents/Settings/feedback;
+      return exists(setting) && get(setting).data.get('enabled', false) == true;
+    }
+
+    function isShortText(m, key, max) {
+      return !(key in m) || (m[key] is string && m[key].size() <= max);
+    }
+
+    // The page and device the browser describes (feedback.service.ts,
+    // describeContext): known keys and short values only, so an item stays small.
+    function isFeedbackPage(p) {
+      return p is map && p.keys().hasOnly(['path', 'title'])
+        && isShortText(p, 'path', 500) && isShortText(p, 'title', 300);
+    }
+
+    function isFeedbackDevice(v) {
+      return v is map && v.keys().hasOnly(['platform', 'userAgent', 'screen', 'viewport', 'installed', 'language'])
+        && isShortText(v, 'platform', 40) && isShortText(v, 'userAgent', 500)
+        && isShortText(v, 'screen', 40) && isShortText(v, 'viewport', 40) && isShortText(v, 'language', 40)
+        && (!('installed' in v) || v.installed is bool);
+    }
+
+    function isValidNewFeedback(feedbackId) {
+      let d = request.resource.data;
+      return isSignedIn()
+        && feedbackOn()
+        && request.auth.token.get('arccms_uid', '') != ''
+        && d.keys().hasOnly(['uid', 'userDocId', 'message', 'screenshotPath', 'voicePath', 'voiceSeconds', 'page', 'device', 'status', 'createdAt'])
+        && d.keys().hasAll(['uid', 'userDocId', 'message', 'page', 'device', 'status', 'createdAt'])
+        && d.uid == request.auth.uid
+        && d.userDocId == request.auth.token.arccms_uid
+        && d.status == 'new'
+        && d.createdAt == request.time
+        && d.message is string && d.message.size() <= 5000
+        && (d.message.size() > 0 || 'voicePath' in d)
+        && isFeedbackPage(d.page) && isFeedbackDevice(d.device)
+        && (!('screenshotPath' in d) || isFeedbackFile(d.screenshotPath, feedbackId, ['screenshot.jpg']))
+        && (!('voicePath' in d) || isFeedbackFile(d.voicePath, feedbackId, ['voice.mp4', 'voice.webm', 'voice.ogg']))
+        && (!('voiceSeconds' in d) || (d.voiceSeconds is number && d.voiceSeconds <= 180));
     }
 
     // Erasure receipts (adminDeleteContact). Hash-keyed and address-free by
@@ -459,6 +654,13 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
     }
+
+    // ============================================================
+    // App rules. `npm run rules:build` (run by every deploy) puts the
+    // install's firestore.app.rules here, inside this same scope, so they
+    // can call the helpers above. Keep the marker on a line of its own.
+    // ============================================================
+    // @arc-app-rules
 
     // ============================================================
     // No catch-all needed - Firestore denies unmatched paths by default

@@ -3,10 +3,11 @@ import { logger } from 'firebase-functions/v2';
 
 import { db } from '../init.js';
 import { deleteFormList } from '../email-core/contacts.js';
+import { arcDocument } from '../arc-config.js';
 
 const BATCH_LIMIT = 500;
 
-export const onWaitlistsDelete = onDocumentDeleted('Waitlists/{WaitlistsId}', async (event) => {
+export const onWaitlistsDelete = onDocumentDeleted(arcDocument('Waitlists/{WaitlistsId}'), async (event) => {
   const docId = event.params.WaitlistsId;
 
   await deleteSubCollections(docId);

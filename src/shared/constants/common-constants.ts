@@ -60,45 +60,46 @@ export class ConstantVariables {
 
     public defaultEmailTags = ['##OTP##', '##RECEIVER_NAME##', '##COMPANY_NAME##'];
 
+    /** What a person reads when sign-in fails: plain words, and what to do next. */
     public firebaseAuthErrors = [
-        { code: 'auth/missing-password', message: 'Your password is missing.' },
-        { code: 'auth/email-already-in-use', message: 'The email address is already in use by another account.' },
-        { code: 'auth/invalid-email', message: 'The email address is not valid.' },
-        { code: 'auth/operation-not-allowed', message: 'Email/password authentication is not enabled.' },
-        { code: 'auth/weak-password', message: 'The password must be at least 6 characters long.' },
-        { code: 'auth/user-disabled', message: 'The user account has been disabled by an administrator.' },
-        { code: 'auth/user-not-found', message: 'There is no user record corresponding to this identifier.' },
-        { code: 'auth/wrong-password', message: 'The password is incorrect.' },
+        { code: 'auth/missing-password', message: 'Please enter your password.' },
+        { code: 'auth/email-already-in-use', message: 'You already have an account with this email. Enter your password to sign in.' },
+        { code: 'auth/invalid-email', message: 'That email address does not look right.' },
+        { code: 'auth/operation-not-allowed', message: 'This way of signing in is not turned on for this site.' },
+        { code: 'auth/weak-password', message: 'Use at least 8 characters for your password.' },
+        { code: 'auth/user-disabled', message: 'This account is blocked. Please contact the site administrator.' },
+        { code: 'auth/user-not-found', message: 'Wrong email or password. Please try again.' },
+        { code: 'auth/wrong-password', message: 'Wrong password. Please try again, or use Forgot Password.' },
         {
             code: 'auth/account-exists-with-different-credential',
-            message: 'An account already exists with the same email but different sign-in credentials.',
+            message: 'You already have an account with this email. Sign in with your password.',
         },
         {
             code: 'auth/credential-already-in-use',
-            message: 'This credential is already associated with a different user account.',
+            message: 'This sign-in is already used by another account.',
         },
-        { code: 'auth/popup-closed-by-user', message: 'The authentication popup was closed before completion.' },
+        { code: 'auth/popup-closed-by-user', message: 'The sign-in window was closed. Please try again.' },
         {
             code: 'auth/cancelled-popup-request',
-            message: 'Multiple pop-ups requested, but only one can be open at a time.',
+            message: 'A sign-in window is already open.',
         },
-        { code: 'auth/popup-blocked', message: 'The authentication popup was blocked by the browser.' },
-        { code: 'auth/invalid-phone-number', message: 'The phone number is not a valid phone number.' },
-        { code: 'auth/quota-exceeded', message: 'SMS quota exceeded for the project.' },
-        { code: 'auth/missing-phone-number', message: 'A phone number must be provided for authentication.' },
-        { code: 'auth/too-many-requests', message: 'Too many requests were made; try again later.' },
-        { code: 'auth/code-expired', message: 'The SMS verification code has expired.' },
-        { code: 'auth/invalid-verification-code', message: 'The verification code entered is incorrect.' },
+        { code: 'auth/popup-blocked', message: 'Your browser blocked the sign-in window. Allow pop-ups for this site and try again.' },
+        { code: 'auth/invalid-phone-number', message: 'Enter a valid mobile number.' },
+        { code: 'auth/quota-exceeded', message: 'We cannot send more codes right now. Please try again later.' },
+        { code: 'auth/missing-phone-number', message: 'Enter your mobile number.' },
+        { code: 'auth/too-many-requests', message: 'Too many attempts. Please wait a few minutes and try again.' },
+        { code: 'auth/code-expired', message: 'That code has expired. Please ask for a new one.' },
+        { code: 'auth/invalid-verification-code', message: "That code didn't work." },
         {
             code: 'auth/network-request-failed',
-            message: 'A network error (e.g., timeout, interrupted connection) occurred.',
+            message: 'No internet connection. Check your connection and try again.',
         },
-        { code: 'auth/internal-error', message: 'An internal Firebase error occurred.' },
-        { code: 'auth/invalid-credential', message: 'The supplied credential is invalid or has expired.' },
+        { code: 'auth/internal-error', message: 'Something went wrong. Please try again.' },
+        // Current Firebase returns this for a wrong password or an unknown email alike.
+        { code: 'auth/invalid-credential', message: 'Wrong password. Please try again, or use Forgot Password.' },
         {
             code: 'auth/requires-recent-login',
-            message:
-                'This operation is sensitive and requires recent authentication. Log in again before retrying this request.',
+            message: 'For your security, please sign in again and retry.',
         },
     ];
 

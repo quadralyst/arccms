@@ -13,7 +13,8 @@ import { EntitlementService } from './entitlement.service';
  */
 export const userGuard: CanActivateFn = (_route, state) => {
     const platformId = inject(PLATFORM_ID);
-    if (!isPlatformBrowser(platformId)) return true; // SSR: enforce on the client after hydration
+    // Never render a signed-in page on the server (see roleGuard): the browser renders it.
+    if (!isPlatformBrowser(platformId)) return false;
 
     const authState = inject(AuthState);
     const router = inject(Router);
@@ -31,7 +32,7 @@ export const userGuard: CanActivateFn = (_route, state) => {
  */
 export const entitledGuard: CanActivateFn = (_route, state) => {
     const platformId = inject(PLATFORM_ID);
-    if (!isPlatformBrowser(platformId)) return true;
+    if (!isPlatformBrowser(platformId)) return false; // see userGuard
 
     const authState = inject(AuthState);
     const entitlements = inject(EntitlementService);

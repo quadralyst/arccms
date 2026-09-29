@@ -27,11 +27,14 @@ export const roleGuard: CanActivateFn | CanMatchFn = (
     const router = inject(Router);
     const constantVariables = inject(ConstantVariables);
 
-    // Skip guard during SSR — Firebase Auth is not available server-side,
-    // so the guard would always redirect to /admin/unauthorized and set the
-    // wrong page title. Auth will be enforced on the client after hydration.
+    // Never render a signed-in page on the server. Nobody is signed in there, so
+    // every read the page starts is refused, and a page that does not catch one
+    // (the Contacts page's lists, for one) stopped the whole dev server with an
+    // unhandled rejection (found in a smoke test, 2026-09-27). The live site
+    // never server-renders these pages anyway (it serves __shell.html); the
+    // browser renders them, and checks access, after the page loads.
     if (!isPlatformBrowser(platformId)) {
-        return true;
+        return false;
     }
 
     const requiredRoles = route.data?.['allowedRoles'] as string[];

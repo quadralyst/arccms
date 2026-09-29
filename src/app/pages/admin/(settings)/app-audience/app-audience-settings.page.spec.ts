@@ -1,0 +1,156 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { Functions } from '@angular/fire/functions';
+import { Firestore } from '@angular/fire/firestore';
+
+const m = vi.hoisted(() => {
+    const responses: Record<string, unknown> = {};
+    const calls: Array<{ name: string; data: unknown }> = [];
+    return {
+        responses,
+        calls,
+        httpsCallable: vi.fn((_f: unknown, name: string) => async (data: unknown) => {
+            calls.push({ name, data });
+            return { data: responses[name] };
+        }),
+        setDoc: vi.fn().mockResolvedValue(undefined),
+        doc: vi.fn((_fs: unknown, ...path: string[]) => path.join('/')),
+    };
+});
+vi.mock('@angular/fire/functions', () => ({ Functions: class {}, httpsCallable: m.httpsCallable }));
+vi.mock('@angular/fire/firestore', () => ({ Firestore: class {}, doc: m.doc, setDoc: m.setDoc }));
+
+import { AppAudienceSettingsPage } from './app-audience-settings.page';
+import { ToastService } from '../../../../../shared/services/toast.service';
+import { translocoTestingModule } from '../../../../../test/transloco-test-providers';
+
+const configured = { configured: true, database: '(default)', path: 'users/{uid}', collection: 'users' };
+
+async function open() {
+    const fixture = TestBed.createComponent(AppAudienceSettingsPage);
+    fixture.detectChanges();
+    await fixture.componentInstance.ngOnInit();
+    fixture.detectChanges();
+    return fixture;
+}
+
+describe('AppAudienceSettingsPage', () => {
+    beforeEach(async () => {
+        vi.clearAllMocks();
+        m.calls.length = 0;
+        await TestBed.configureTestingModule({
+            imports: [AppAudienceSettingsPage, translocoTestingModule()],
+            providers: [
+                { provide: Functions, useValue: {} },
+                { provide: Firestore, useValue: {} },
+                { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn() } },
+            ],
+        }).compileComponents();
+    });
+
+    it('explains how to connect a collection when none is configured, and samples nothing', async () => {
+        m.responses['arccms-appAudienceStatus'] = {
+            location: { configured: false, database: '(default)', path: '_arccms_app_users_not_configured/{id}', collection: '' },
+            settings: { key: { source: 'docId' }, watchedFields: [] },
+        };
+        const fixture = await open();
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('No host collection is configured');
+        expect(m.calls.map((c) => c.name)).not.toContain('arccms-sampleAppUsers');
+    });
+
+    it('loads the saved settings and the sampled fields', async () => {
+        m.responses['arccms-appAudienceStatus'] = {
+            location: configured,
+            settings: { key: { source: 'field', field: 'phone' }, emailField: 'email', watchedFields: ['plan'] },
+        };
+        m.responses['arccms-sampleAppUsers'] = {
+            sampleSize: 2,
+            fields: [{ path: 'email', examples: ['a@x.com'], seenIn: 2 }, { path: 'plan', examples: ['free'], seenIn: 2 }],
+        };
+        const fixture = await open();
+        const page = fixture.componentInstance;
+        expect(page.keySource()).toBe('field');
+        expect(page.keyField()).toBe('phone');
+        expect(page.fields().map((f) => f.path)).toEqual(['email', 'plan']);
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('users/{uid}');
+    });
+
+    it('explains an audience of the site\'s own users (CO6.8), and only then', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: { ...configured, own: true }, settings: { key: { source: 'docId' }, watchedFields: [] } };
+        m.responses['arccms-sampleAppUsers'] = { sampleSize: 0, fields: [] };
+        let text = ((await open()).nativeElement as HTMLElement).textContent;
+        expect(text).toContain("This install's own users");
+
+        m.responses['arccms-appAudienceStatus'] = { location: configured, settings: { key: { source: 'docId' }, watchedFields: [] } };
+        text = ((await open()).nativeElement as HTMLElement).textContent;
+        expect(text).not.toContain("This install's own users");
+    });
+
+    it('shows a failed Test by the Test button and keeps the editor (review UI bug)', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: configured, settings: { key: { source: 'docId' }, watchedFields: [] } };
+        m.responses['arccms-sampleAppUsers'] = { sampleSize: 1, fields: [{ path: 'email', examples: ['a@x.com'], seenIn: 1 }] };
+        const fixture = await open();
+        const page = fixture.componentInstance;
+        m.httpsCallable.mockImplementationOnce(() => async () => { throw new Error('No document u9'); });
+        await page.runTest();
+        fixture.detectChanges();
+        expect(page.error()).toBe('');
+        expect(page.testError()).toBe('No document u9');
+        const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+        expect(text).toContain('No document u9');
+        // The editor is still there: the fields table and the Save button.
+        expect(text).toContain('email');
+        expect((fixture.nativeElement as HTMLElement).querySelector('button.btn-primary')).not.toBeNull();
+        // Trying again clears it.
+        m.responses['arccms-testAppUser'] = { resolved: { docId: 'u1', key: 'u1', email: 'a@x.com', phone: '', name: '' } };
+        await page.runTest();
+        expect(page.testError()).toBe('');
+    });
+
+    it('saves exactly the edited settings, without empty optional fields', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: configured, settings: { key: { source: 'docId' }, watchedFields: [] } };
+        m.responses['arccms-sampleAppUsers'] = { sampleSize: 0, fields: [] };
+        const page = (await open()).componentInstance;
+        page.keySource.set('field');
+        page.keyField.set('mobile');
+        page.nameField.set('profile.name');
+        page.toggleWatched('plan');
+
+        await page.save();
+
+        expect(m.setDoc).toHaveBeenCalledWith('Settings/app_audience', {
+            key: { source: 'field', field: 'mobile' },
+            nameField: 'profile.name',
+            watchedFields: ['plan'],
+        });
+    });
+
+    it('needs the key field chosen before saving a field key', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: configured, settings: { key: { source: 'docId' }, watchedFields: [] } };
+        m.responses['arccms-sampleAppUsers'] = { sampleSize: 0, fields: [] };
+        const page = (await open()).componentInstance;
+        page.keySource.set('field');
+        expect(page.canSave()).toBe(false);
+    });
+
+    it('moves a field between the available and watched lists, and filters the available one', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: configured, settings: { key: { source: 'docId' }, watchedFields: [] } };
+        m.responses['arccms-sampleAppUsers'] = {
+            sampleSize: 1,
+            fields: ['email', 'isPro', 'premiumStatus'].map((path) => ({ path, examples: [], seenIn: 1 })),
+        };
+        const page = (await open()).componentInstance;
+
+        page.toggleWatched('isPro');
+        expect(page.watched()).toEqual(['isPro']);
+        expect(page.availableFields().map((f) => f.path)).toEqual(['email', 'premiumStatus']);
+
+        page.watchFilter.set('PREM');
+        expect(page.availableFields().map((f) => f.path)).toEqual(['premiumStatus']);
+
+        page.toggleWatched('isPro'); // the x on the right
+        page.watchFilter.set('');
+        expect(page.watched()).toEqual([]);
+        expect(page.availableFields().map((f) => f.path)).toEqual(['email', 'isPro', 'premiumStatus']);
+    });
+});

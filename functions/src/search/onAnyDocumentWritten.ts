@@ -17,6 +17,7 @@ import { findSources } from './registry.js';
 import { buildSearchContext } from './context.js';
 import { indexDocument } from './writer.js';
 import type { SearchDocument } from './source.js';
+import { arcDocument } from '../arc-config.js';
 
 /** Indexes one document for every triggered source that watches its collection. */
 export async function syncDocument(
@@ -37,7 +38,7 @@ export async function syncDocument(
     }
 }
 
-export const onAnyDocumentWritten = onDocumentWritten('{collection}/{docId}', async (event) => {
+export const onAnyDocumentWritten = onDocumentWritten(arcDocument('{collection}/{docId}'), async (event) => {
     const { collection, docId } = event.params;
     if (findSources(collection).length === 0) return;
 
@@ -52,7 +53,7 @@ export const onAnyDocumentWritten = onDocumentWritten('{collection}/{docId}', as
  * so a translation write re-indexes the parent.
  */
 export const onTranslationWritten = onDocumentWritten(
-    '{collection}/{docId}/translations/{lang}',
+    arcDocument('{collection}/{docId}/translations/{lang}'),
     async (event) => {
         const { collection, docId } = event.params;
         if (findSources(collection).length === 0) return;

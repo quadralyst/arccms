@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { owner } from '../init.js';
 import { getDodoSettings, buildDodoClient } from './dodoClient.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Callable (admin only): validate the stored Dodo Payments credentials by
@@ -13,7 +14,7 @@ export const testDodoConnection = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Authentication required.');
   }
   const userRecord = await owner.getUser(request.auth.uid);
-  if (userRecord.customClaims?.['role'] !== 'admin') {
+  if (!isArcAdmin(userRecord.customClaims)) {
     throw new HttpsError('permission-denied', 'Admin access required.');
   }
 

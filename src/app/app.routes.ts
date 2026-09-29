@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { roleGuard } from './guards/role.guard';
 import { languageRouteGuard } from './guards/language.guard';
 import { userGuard, entitledGuard } from './pages/user/user.guards';
+import { CUSTOM_ROUTES } from '../custom/routes';
 
 export const routes: Routes = [
   // AnalogJS file-based routes handle /admin/* automatically via .page.ts files
@@ -110,6 +111,11 @@ export const routes: Routes = [
               import('./pages/admin/(settings)/user-setting/user-setting.page').then((m) => m.default),
           },
           {
+            path: 'sms',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/sms/sms-settings.page').then((m) => m.SmsSettingsPage),
+          },
+          {
             path: 'message',
             loadComponent: () =>
               import('./pages/admin/(settings)/message/message.page').then((m) => m.default),
@@ -138,6 +144,16 @@ export const routes: Routes = [
             path: 'search',
             loadComponent: () =>
               import('./pages/admin/(settings)/search/search-settings.page').then((m) => m.SearchSettingsPage),
+          },
+          {
+            path: 'app-audience',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/app-audience/app-audience-settings.page').then((m) => m.AppAudienceSettingsPage),
+          },
+          {
+            path: 'automations',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/automations/automations-settings.page').then((m) => m.AutomationsSettingsPage),
           },
           {
             path: 'discoverability',
@@ -282,6 +298,21 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Audience Route (App users, CO6.3): the host app's users, read live.
+  {
+    path: 'admin/app-users',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(app-users)/app-users.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin Audience Route (Tags). Declared explicitly like every other admin
   // feature route rather than relying on file-based routing, which resolves
   // server-side but does not reliably reach the client route table here — the
@@ -329,6 +360,36 @@ export const routes: Routes = [
         path: '',
         loadComponent: () =>
           import('./pages/admin/(email-logs)/email-logs.page').then((m) => m.default),
+      },
+    ],
+  },
+  // Admin Feedback: what people sent with the feedback button (docs/feedback.md).
+  {
+    path: 'admin/feedback',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(feedback)/feedback.page').then((m) => m.default),
+      },
+    ],
+  },
+  // Admin SMS Logs Route (Email + SMS menu): every text message, like Email Logs.
+  {
+    path: 'admin/sms-logs',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(sms-logs)/sms-logs.page').then((m) => m.default),
       },
     ],
   },
@@ -535,4 +596,8 @@ export const routes: Routes = [
       import('./pages/page.parts/content-list.component').then((m) => m.ContentListComponent),
   },
 
+  // The app's own routes (src/custom/routes.ts, docs/custom-code.md). After every
+  // core route, so an app page never replaces a core one by accident; still
+  // ahead of the file-based pages, which Analog adds after these.
+  ...CUSTOM_ROUTES,
 ];

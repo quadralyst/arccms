@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
 import { waitlistListId } from './contacts.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: stamp `targetListIds` on every existing signup form
@@ -17,7 +18,7 @@ import { waitlistListId } from './contacts.js';
  * and never drops manual lists an admin has already added.
  */
 export const stampFormTargetLists = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

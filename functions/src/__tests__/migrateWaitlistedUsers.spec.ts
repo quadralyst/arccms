@@ -70,7 +70,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 
 const { migrateWaitlistedUsers } = await import('../email-core/migrateWaitlistedUsers.js');
 
-const admin = { auth: { token: { role: 'admin' } } };
+const admin = { auth: { token: { arccms_role: 'admin' } } };
 const call = (data: any = {}) => (migrateWaitlistedUsers as any)({ ...admin, data });
 
 /** A registry doc, its member back-reference, and one referral under the old path. */
@@ -101,7 +101,7 @@ describe('migrateWaitlistedUsers', () => {
 
   it('requires an admin caller', async () => {
     await expect(
-      (migrateWaitlistedUsers as any)({ auth: { token: { role: 'user' } }, data: {} }),
+      (migrateWaitlistedUsers as any)({ auth: { token: { arccms_role: 'user' } }, data: {} }),
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 

@@ -2,7 +2,8 @@
  * Profile Page Component
  *
  * Displays and manages user profile information.
- * Allows users to update their photo, name, email, and password.
+ * Allows users to update their photo, name and password. Email, phone and
+ * Google are managed in the Sign-in methods card (sign-in-methods.component.ts).
  */
 
 import { RouteMeta } from '@analogjs/router';
@@ -12,6 +13,11 @@ import { MatDialog } from '@angular/material/dialog';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { AuthState } from '../auth.store';
 import MediaManagerComponent from '../../admin/(media)/media.page';
+import { FileUploadService } from '../../../../shared/services/file-upload.service';
+import { readSignInError, SignInService } from '../sign-in.service';
+import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
+import { firstValueFrom } from 'rxjs';
+import { SignInMethodsComponent } from './sign-in-methods.component';
 
 export const routeMeta: RouteMeta = {
   title: 'Profile | Arc CMS',
@@ -20,7 +26,7 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'arc-profile',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, SignInMethodsComponent],
   templateUrl: './profile.page.html',
   styleUrls: ['./profile.page.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -28,10 +34,11 @@ export const routeMeta: RouteMeta = {
 export default class ProfileComponent extends BaseComponent {
   authStore = inject(AuthState);
   private dialog = inject(MatDialog);
+  private fileUpload = inject(FileUploadService);
+  private signIn = inject(SignInService);
 
   // Section editing states
   isEditingName = signal(false);
-  isEditingEmail = signal(false);
   isChangingPassword = signal(false);
 
   // Feedback
@@ -40,22 +47,15 @@ export default class ProfileComponent extends BaseComponent {
 
   // Per-section loading
   isSavingName = signal(false);
-  isSavingEmail = signal(false);
   isSavingPassword = signal(false);
 
   // Password visibility toggles
-  showEmailPassword = signal(false);
   showCurrentPassword = signal(false);
   showNewPassword = signal(false);
   showConfirmPassword = signal(false);
 
   // Form controls
   nameControl = new FormControl('', [Validators.required, Validators.maxLength(50)]);
-
-  emailForm = new FormGroup({
-    email: new FormControl('', [Validators.required, Validators.email]),
-    password: new FormControl('', [Validators.required]),
-  });
 
   passwordForm = new FormGroup({
     currentPassword: new FormControl('', [Validators.required]),
@@ -64,6 +64,11 @@ export default class ProfileComponent extends BaseComponent {
   });
 
   currentUser = computed(() => this.authStore.currentUser());
+
+  /** Only accounts that sign in with email and password can change a password. */
+  hasPassword(): boolean {
+    return this.signIn.hasPassword();
+  }
 
   get hasPasswordMismatch(): boolean {
     const newPw = this.passwordForm.get('newPassword')?.value;
@@ -89,7 +94,37 @@ export default class ProfileComponent extends BaseComponent {
 
   // --- Photo ---
 
-  openPhotoSelector(): void {
+  async onAvatarFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    const user = this.currentUser();
+    if (!file || !user?.uid) return;
+
+    this.clearMessages();
+    try {
+      const url = await this.fileUpload.uploadAvatar(user.uid, file);
+      await this.authStore.updateUserProfile(user.id, { photo: url });
+      if (this.authStore.isSuccess()) {
+        this.successMsg.set('Profile photo updated!');
+      } else {
+        this.errorMsg.set(this.authStore.error() || 'Failed to update photo');
+      }
+    } catch (err) {
+      this.errorMsg.set(err instanceof Error ? err.message : 'Failed to upload photo');
+    }
+  }
+
+  /**
+   * Admins pick from the media library. Everyone else uploads a file to their
+   * own `avatars/{uid}/` folder: the media library and its storage paths are
+   * staff-only in the rules.
+   */
+  openPhotoSelector(fileInput?: HTMLInputElement): void {
+    if (this.currentUser()?.role !== 'admin') {
+      fileInput?.click();
+      return;
+    }
     const dialogRef = this.dialog.open(MediaManagerComponent, {
       enterAnimationDuration: '450ms',
       exitAnimationDuration: '300ms',
@@ -174,61 +209,6 @@ export default class ProfileComponent extends BaseComponent {
     }
   }
 
-  // --- Email ---
-
-  startEditEmail(): void {
-    this.isEditingEmail.set(true);
-    this.emailForm.patchValue({
-      email: '',
-      password: '',
-    });
-    this.clearMessages();
-  }
-
-  cancelEditEmail(): void {
-    this.isEditingEmail.set(false);
-    this.emailForm.reset();
-    this.showEmailPassword.set(false);
-    this.clearMessages();
-  }
-
-  async saveEmail(): Promise<void> {
-    if (this.emailForm.invalid) {
-      this.emailForm.markAllAsTouched();
-      return;
-    }
-
-    const user = this.currentUser();
-    if (!user) return;
-
-    const newEmail = this.emailForm.get('email')!.value!;
-    const password = this.emailForm.get('password')!.value!;
-
-    if (newEmail === user.email) {
-      this.errorMsg.set('New email is the same as your current email.');
-      return;
-    }
-
-    this.isSavingEmail.set(true);
-    this.clearMessages();
-
-    try {
-      await this.authStore.changeEmail(user.id, user.email, newEmail, password);
-
-      if (this.authStore.isSuccess()) {
-        this.successMsg.set('Email updated successfully!');
-        this.isEditingEmail.set(false);
-        this.emailForm.reset();
-      } else {
-        this.errorMsg.set(this.authStore.error() || 'Failed to update email');
-      }
-    } catch (error) {
-      this.errorMsg.set('An error occurred while updating email.');
-    } finally {
-      this.isSavingEmail.set(false);
-    }
-  }
-
   // --- Password ---
 
   startChangePassword(): void {
@@ -275,6 +255,54 @@ export default class ProfileComponent extends BaseComponent {
     } finally {
       this.isSavingPassword.set(false);
     }
+  }
+
+  // --- Delete account ---
+
+  isDeleting = signal(false);
+  /** The server wants a fresh sign-in before deleting. */
+  deleteNeedsSignIn = signal(false);
+
+  /** Admins are removed by another admin, under Users. */
+  canDeleteAccount(): boolean {
+    return this.currentUser()?.role !== 'admin';
+  }
+
+  /** Deletes the account and everything stored under it (docs/account-contract.md). */
+  async deleteAccount(): Promise<void> {
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmationPopupComponent, {
+      width: '400px',
+      data: {
+        dialogType: 'Delete account',
+        dialogMessage: this.sanitizer.bypassSecurityTrustHtml(
+          'This deletes your account and everything saved in it. <strong>It cannot be undone.</strong>',
+        ),
+        btnText: 'Delete my account',
+        panelType: 'warn',
+      },
+    }).afterClosed());
+    if (!confirmed) return;
+
+    this.clearMessages();
+    this.isDeleting.set(true);
+    try {
+      await this.signIn.deleteMyAccount();
+      await firstValueFrom(this.authStore.logout());
+      this.toastService.success('Your account was deleted.');
+      await this.router.navigate(['/'], { replaceUrl: true });
+    } catch (err) {
+      const error = readSignInError(err);
+      this.deleteNeedsSignIn.set(error.reason === 'recent-sign-in');
+      this.errorMsg.set(error.message);
+    } finally {
+      this.isDeleting.set(false);
+    }
+  }
+
+  /** Sign out, to sign in again before deleting. */
+  async signInAgain(): Promise<void> {
+    await firstValueFrom(this.authStore.logout());
+    await this.router.navigate(['/signup']);
   }
 
   // --- Utilities ---

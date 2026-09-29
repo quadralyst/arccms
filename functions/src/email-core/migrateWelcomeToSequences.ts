@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { ensureWaitlistTemplates } from './defaultTemplates.js';
+import { isArcAdmin } from '../users/claims.js';
 
 /**
  * Admin callable: turn each form's welcome email into a day-0 sequence step
@@ -21,7 +22,7 @@ import { ensureWaitlistTemplates } from './defaultTemplates.js';
  * Reversible: unset `welcomeMigrated` and the direct trigger resumes.
  */
 export const migrateWelcomeToSequences = onCall(async (request) => {
-  if (request.auth?.token?.['role'] !== 'admin') {
+  if (!isArcAdmin(request.auth?.token)) {
     throw new HttpsError('permission-denied', 'Admin role required.');
   }
 

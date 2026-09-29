@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Firestore } from '@angular/fire/firestore';
 import { Storage } from '@angular/fire/storage';
 import { ImportFilesService, FileWithPath } from './import-files.service';
+// Paths go through the install's upload folder (arc-install.ts), whatever it is.
+import { withStoragePrefix } from '../../../../core/config/arc-config';
 
 const mockUploadOn = vi.fn();
 vi.mock('@angular/fire/storage', () => ({
@@ -53,7 +55,7 @@ describe('ImportFilesService', () => {
 
             await service.uploadFile(file, 'mediaImages/test.jpg', vi.fn());
 
-            expect(mockRef).toHaveBeenCalledWith(expect.anything(), 'mediaImages/test.jpg');
+            expect(mockRef).toHaveBeenCalledWith(expect.anything(), withStoragePrefix('mediaImages/test.jpg'));
         });
 
         it('should report progress via callback', async () => {
@@ -80,7 +82,7 @@ describe('ImportFilesService', () => {
             const result = await service.uploadFile(file, 'mediaImages/test.jpg', vi.fn());
 
             expect(result.downloadURL).toBe('https://storage.example.com/uploaded-file.jpg');
-            expect(result.fullPath).toBe('mediaImages/test.jpg');
+            expect(result.fullPath).toBe(withStoragePrefix('mediaImages/test.jpg'));
         });
     });
 
@@ -181,7 +183,7 @@ describe('ImportFilesService', () => {
 
             await service.importFromManifest(manifest, files, vi.fn());
 
-            expect(mockRef).toHaveBeenCalledWith(expect.anything(), 'custom/path/img1.jpg');
+            expect(mockRef).toHaveBeenCalledWith(expect.anything(), withStoragePrefix('custom/path/img1.jpg'));
         });
     });
 });

@@ -6,51 +6,230 @@
  * users/{request.auth.uid} to check the role.
  *
  * Instead, we sync the role to Firebase Auth custom claims whenever it changes, and the
- * Firestore rules check `request.auth.token.role` (which is populated from custom claims).
+ * Firestore rules check `request.auth.token.arccms_role` (claims.ts, ROLE_CLAIM).
+ *
+ * Because the claim IS the admin gate, this file is security critical:
+ *
+ * - The rules are the first line: only admins create user documents (every sign-up creates
+ *   its record on the server), and a person may never change their own `role`. Only admins
+ *   (by the claim) and the Admin SDK can set a role.
+ * - `onUserRoleChange` is the second line. It still refuses to grant an elevated role unless
+ *   the write came from the Admin SDK or from someone who already holds the admin claim, and
+ *   reverts the document if it did not. If the rules ever regress, the claim does not follow.
+ * - The first admin of a fresh install cannot come from either path (nobody is an admin yet),
+ *   so the onboarding wizard calls `claimFirstAdmin`, which grants admin exactly once.
+ * - Claims are merged, never replaced, so claims set by anything else survive
+ *   (docs/coexistence-spec.md, CO-D7).
  */
-import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onDocumentWrittenWithAuthContext } from 'firebase-functions/v2/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { FieldValue } from 'firebase-admin/firestore';
 import { owner, db } from '../init.js';
+import { arcDocument } from '../arc-config.js';
+import { clearArcClaims, isArcAdmin, mergeUserClaims, ROLE_CLAIM, setRecordClaims, USER_RECORD_CLAIM } from './claims.js';
+
+/** Roles anyone may hold without an admin granting them. Keep in step with firestore.rules. */
+export const SELF_ASSIGNABLE_ROLES: readonly string[] = ['', 'user'];
+
+/** Roles the app knows (UserRole in src/shared/components/base/base.component.ts). */
+export const KNOWN_ROLES: readonly string[] = ['admin', 'user', 'propertyOwner', 'facilityManager'];
+
+/** Sentinel written once, by `claimFirstAdmin`, when the first admin is created. Admin SDK only. */
+export const FIRST_ADMIN_SENTINEL = { collection: '_system', doc: 'first_admin' } as const;
+
+/**
+ * Set the `arccms_role` claim, keeping every other claim the user already has.
+ * An empty role removes the key rather than storing an empty role.
+ */
+export async function setRoleClaim(uid: string, role: string): Promise<void> {
+    await mergeUserClaims(uid, { [ROLE_CLAIM]: role || null });
+}
+
+/**
+ * Did this write come from someone allowed to grant roles?
+ *
+ * Admin SDK writes (other functions, scripts, the console) arrive as `service_account` or
+ * `system`. A client write carries the writer's uid in `authId`, and is trusted only if that
+ * user holds the admin claim right now. Anything else, including a missing `authId`, is not.
+ */
+export async function isTrustedRoleWriter(authType: string | undefined, authId: string | undefined): Promise<boolean> {
+    if (authType === 'service_account' || authType === 'system') return true;
+    if (!authId) return false;
+    try {
+        const writer = await owner.getUser(authId);
+        return isArcAdmin(writer.customClaims);
+    } catch {
+        return false;
+    }
+}
+
+/** Blocked (Users, Block) or detached (its last sign-in moved away): no ArcCMS access. */
+export function isBlockedRecord(data: Record<string, unknown> | undefined): boolean {
+    return !!data && (data['isActive'] === false || data['status'] === 'Detached');
+}
 
 /**
  * When a user document is created or updated, sync the role to Firebase Auth custom claims.
+ *
+ * A blocked or detached record has no claims, and its sessions are ended, so a
+ * blocked admin stops being an admin within the hour instead of for as long as
+ * they stay signed in; unblocking puts the claims back. When a record moves to
+ * another sign-in account, the old one loses its claims (review F).
  */
-export const onUserRoleChange = onDocumentWritten(
-    'users/{docId}',
+export const onUserRoleChange = onDocumentWrittenWithAuthContext(
+    arcDocument('users/{docId}'),
     async (event) => {
-        const afterData = event.data?.after?.data();
+        const afterSnap = event.data?.after;
+        const afterData = afterSnap?.data();
         const beforeData = event.data?.before?.data();
 
         // Skip if document was deleted
-        if (!afterData) return;
+        if (!afterSnap || !afterData) return;
 
         const uid = afterData.uid;
         if (!uid) return;
 
-        // Only sync if role actually changed (or on create)
-        const newRole = afterData.role || '';
-        const oldRole = beforeData?.role || '';
-        if (beforeData && newRole === oldRole) return;
+        const newRole: string = afterData.role || '';
+        const oldRole: string = beforeData?.role || '';
+        const isCreate = !beforeData;
+
+        // Self sign-up: apply the site's configured default role (Settings/users.defaultRole).
+        // The client can only create a 'user' document, so the upgrade happens here, with the
+        // Admin SDK. The rewrite re-fires this trigger, which then syncs the claim.
+        if (isCreate && SELF_ASSIGNABLE_ROLES.includes(newRole) && event.authId === uid) {
+            const defaultRole = await readDefaultRole();
+            if (defaultRole && defaultRole !== 'user' && defaultRole !== newRole) {
+                await afterSnap.ref.update({ role: defaultRole });
+                return;
+            }
+        }
+
+        // The record id travels as the `arccms_uid` claim (claims.ts): set on create,
+        // and again if the record is moved to another sign-in account.
+        const userDocId: string = afterSnap.id || event.params?.docId || '';
+        const uidChanged = !isCreate && beforeData?.uid !== uid;
+
+        const blocked = isBlockedRecord(afterData);
+        const blockChanged = !isCreate && blocked !== isBlockedRecord(beforeData);
+
+        // Only sync if role actually changed (or on create, a new uid, or blocked or unblocked)
+        if (!isCreate && newRole === oldRole && !uidChanged && !blockChanged) return;
+
+        if (uidChanged && beforeData?.uid) {
+            await clearArcClaims(String(beforeData.uid)).catch((error) => {
+                if ((error as { code?: string })?.code !== 'auth/user-not-found') {
+                    console.error(`Failed to clear the claims of the previous sign-in ${beforeData.uid}:`, error);
+                }
+            });
+        }
+        if (blocked) {
+            try {
+                await clearArcClaims(uid);
+                await owner.revokeRefreshTokens(uid);
+                console.log(`Record ${userDocId} is blocked: claims removed and sessions ended for ${uid}.`);
+            } catch (error) {
+                console.error(`Failed to remove the claims of blocked user ${uid}:`, error);
+            }
+            return;
+        }
+
+        const escalation = !SELF_ASSIGNABLE_ROLES.includes(newRole);
+        if (escalation && !(await isTrustedRoleWriter(event.authType, event.authId))) {
+            console.error(
+                `Refused role '${newRole}' for user ${uid}: written by ${event.authType}:${event.authId ?? 'none'}, ` +
+                'who is not an admin. Reverting the document.',
+            );
+            await afterSnap.ref.update({ role: isCreate ? 'user' : oldRole || 'user' });
+            return;
+        }
 
         try {
-            await owner.setCustomUserClaims(uid, { role: newRole });
-            console.log(`Custom claims set for user ${uid}: role=${newRole}`);
+            await mergeUserClaims(uid, {
+                [ROLE_CLAIM]: newRole || null,
+                ...(userDocId ? { [USER_RECORD_CLAIM]: userDocId } : {}),
+            });
+            console.log(`Custom claims set for user ${uid}: ${ROLE_CLAIM}=${newRole}${userDocId ? `, ${USER_RECORD_CLAIM}=${userDocId}` : ''}`);
         } catch (error) {
             console.error(`Failed to set custom claims for user ${uid}:`, error);
         }
     }
 );
 
+async function readDefaultRole(): Promise<string | null> {
+    try {
+        const snap = await db.collection('Settings').doc('users').get();
+        const role = snap.exists ? snap.data()?.['defaultRole'] : null;
+        return typeof role === 'string' && KNOWN_ROLES.includes(role) ? role : null;
+    } catch (error) {
+        console.warn('Could not read Settings/users.defaultRole:', error);
+        return null;
+    }
+}
+
 /**
- * One-time callable function to sync roles for all existing users.
- * Call this once after deploying, then it can be removed.
+ * Make the caller the site's first admin. Used by the onboarding wizard on a fresh install.
+ *
+ * Succeeds only when no admin has ever been created: no `_system/first_admin` sentinel and no
+ * `users` document with `role: 'admin'` (the second check covers installs that predate the
+ * sentinel). Everything runs in one transaction, so two racing callers cannot both win.
+ *
+ * Idempotent for the winner: calling it again as the existing first admin just re-applies the
+ * claim, which lets the wizard retry after a network failure.
+ *
+ * It also marks setup as started (`Settings/onboarding_status`, with `startedBy`), so an
+ * abandoned wizard is detected and only this admin may resume it. The browser cannot write
+ * that document itself at this point: it is admin write only, and the new claim is not in
+ * the browser's token until it refreshes.
+ */
+export const claimFirstAdmin = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'Must be authenticated');
+    }
+    const uid = request.auth.uid;
+
+    const sentinelRef = db.collection(FIRST_ADMIN_SENTINEL.collection).doc(FIRST_ADMIN_SENTINEL.doc);
+    const onboardingRef = db.collection('Settings').doc('onboarding_status');
+
+    await db.runTransaction(async (tx) => {
+        const sentinel = await tx.get(sentinelRef);
+        const mine = await tx.get(db.collection('users').where('uid', '==', uid).limit(1));
+        if (mine.empty) {
+            throw new HttpsError('failed-precondition', 'Create your user profile before claiming admin.');
+        }
+        const myDoc = mine.docs[0];
+
+        if (sentinel.exists) {
+            if (sentinel.data()?.['uid'] === uid && myDoc.data()['role'] === 'admin') return;
+            throw new HttpsError('permission-denied', 'This site already has an administrator.');
+        }
+
+        const admins = await tx.get(db.collection('users').where('role', '==', 'admin').limit(1));
+        if (!admins.empty) {
+            throw new HttpsError('permission-denied', 'This site already has an administrator.');
+        }
+
+        tx.set(sentinelRef, { uid, claimedAt: FieldValue.serverTimestamp() });
+        tx.update(myDoc.ref, { role: 'admin' });
+        tx.set(onboardingRef, { completed: false, startedAt: FieldValue.serverTimestamp(), startedBy: uid });
+    });
+
+    // Set the claim here as well as in the trigger, so the wizard can refresh its token
+    // straight away instead of polling for the trigger to land.
+    await setRoleClaim(uid, 'admin');
+    return { role: 'admin' };
+});
+
+/**
+ * Admin: re-apply every user's claims (`arccms_role`, `arccms_uid`) from their records.
+ * Run once after deploying a new claim, and whenever claims drift.
  */
 export const syncAllUserRoles = onCall(async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'Must be authenticated');
     }
 
-    // Check caller is admin by querying the users collection
+    // Check caller is admin by querying the users collection. Safe because the rules let
+    // only admins and the Admin SDK write `role`.
     const callerQuery = await db.collection('users')
         .where('uid', '==', request.auth.uid)
         .where('role', '==', 'admin')
@@ -70,13 +249,14 @@ export const syncAllUserRoles = onCall(async (request) => {
         const uid = data.uid;
         const role = data.role;
 
-        if (!uid || !role) {
+        if (!uid) {
             skipped++;
             continue;
         }
 
         try {
-            await owner.setCustomUserClaims(uid, { role });
+            // Also backfills the claims for records made before they existed.
+            await setRecordClaims(uid, typeof role === 'string' ? role : '', userDoc.id);
             synced++;
         } catch (error) {
             console.error(`Failed to sync claims for ${uid}:`, error);
