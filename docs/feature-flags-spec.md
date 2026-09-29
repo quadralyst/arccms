@@ -256,7 +256,8 @@ callable (`listSearchCollections`, using the Admin SDK's list of collections).
 | **Content** | the content collections | Nothing here; a link to the content type editor, where searchable fields are already chosen |
 | **Searchable** | listed in the file and set up | Edit the setup, Rebuild, see the entry count and last rebuild |
 | **Needs setup** | listed in the file, not set up yet | Set it up (below); nothing is indexed until then |
-| **Not searchable** | in the database, not in the file | Shows the exact line to add to `search-sources.ts` with a copy button, and a note that a functions deploy makes it searchable |
+| **Waiting for deploy** | set up here, not in the file yet | Edit the setup; copy the line to add. It is indexed once a developer adds the line and deploys (decided 2026-09-29: the admin chooses the fields, the developer only adds the name) |
+| **Not searchable** | in the database, not in the file | Set it up now, or copy the exact line to add to `search-sources.ts` |
 | **Never searchable** | on the list in 6.3 | Greyed out with the reason |
 
 Setting up a collection:
@@ -278,6 +279,12 @@ Setting up a collection:
 The setup lives in `Settings/search_collections`, one entry per collection:
 `{ label, fields: [{ path, weight }], title, snippet?, link?, scope }`. The trigger and
 the rebuild read it once per run, cached, the way the localization settings are.
+Above the collections, "What is searchable" lists each source with the fields it
+tokenizes, the high ones in bold: per content type for content (title, summary, author
+and the fields ticked on the type), the setup's fields for a collection, and the fields
+of a code source, or "set in code" when it picks them per document. The collection
+list callable returns these.
+
 The admin search box and page stop naming `content-drafts` and search every source an
 admin may read except published content (whose drafts they already find), through a
 new `except` option on the search callable; the box hides when there is nothing to

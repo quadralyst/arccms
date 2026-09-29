@@ -11,10 +11,18 @@ import { refusedReason } from './refused.js';
 import { collectionSourceId, readCollectionSetups, type CollectionSetup } from './collections.js';
 import { DRAFT_COLLECTION_REGEX } from './sources/content-drafts.js';
 import { PUBLISHED_COLLECTION_REGEX } from './sources/content.js';
+import { contentSearchFields } from './sources/content-fields.js';
+import { loadContentTypes } from './context.js';
+import type { SearchFieldSpec, SearchSource } from './source.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { CUSTOM_SEARCH_SOURCES, SEARCH_COLLECTIONS } from '../custom/search-sources.js';
 
-export type CollectionState = 'content' | 'searchable' | 'needs_setup' | 'code' | 'not_listed' | 'refused';
+/**
+ * content: content's own. searchable: named and set up. needs_setup: named, not set
+ * up. waiting: set up in Search settings, not named yet, so no trigger indexes it.
+ * code: a source written in code. not_listed: neither. refused: never searchable.
+ */
+export type CollectionState = 'content' | 'searchable' | 'needs_setup' | 'waiting' | 'code' | 'not_listed' | 'refused';
 
 export interface SearchCollectionRow {
     name: string;
@@ -36,13 +44,52 @@ export function collectionState(name: string, setups: Record<string, CollectionS
     }
     const code = CUSTOM_SEARCH_SOURCES.find((s) => s.collection === name);
     if (code) return { name, state: 'code', sourceId: code.id, label: code.label || code.id };
+    const setup = setups[name];
     if (SEARCH_COLLECTIONS.includes(name)) {
-        const setup = setups[name];
         return setup
             ? { name, state: 'searchable', sourceId: collectionSourceId(name), label: setup.label || name, setup }
             : { name, state: 'needs_setup', sourceId: collectionSourceId(name) };
     }
-    return { name, state: 'not_listed' };
+    return setup
+        ? { name, state: 'waiting', sourceId: collectionSourceId(name), label: setup.label || name, setup }
+        : { name, state: 'not_listed' };
+}
+
+/** Whether an admin may set a collection up in Search settings: not refused, not content's, not written in code. */
+export function canSetUp(state: CollectionState): boolean {
+    return state === 'searchable' || state === 'needs_setup' || state === 'waiting' || state === 'not_listed';
+}
+
+export interface IndexedField {
+    path: string;
+    /** Counts most, with type-ahead. */
+    high: boolean;
+}
+
+/** What each source tokenizes, for Search settings: per content type for content. */
+export interface SourceFields {
+    fields: IndexedField[] | null;
+    byType?: { type: string; fields: IndexedField[] }[];
+}
+
+const fromSpecs = (specs: SearchFieldSpec[]): IndexedField[] => specs.map((s) => ({ path: s.path, high: s.weight >= 3 }));
+
+export async function indexedFields(setups: Record<string, CollectionSetup>): Promise<Record<string, SourceFields>> {
+    const out: Record<string, SourceFields> = {};
+    if (isFeatureOn('content')) {
+        const types = [...(await loadContentTypes(true)).values()].sort((a, b) => a.name.localeCompare(b.name));
+        const byType = (list: typeof types) => list.map((t) => ({ type: t.name, fields: fromSpecs(contentSearchFields(t)) }));
+        out['content'] = { fields: null, byType: byType(types.filter((t) => t.hasPublicUrl !== false)) };
+        out['content-drafts'] = { fields: null, byType: byType(types) };
+    }
+    for (const source of CUSTOM_SEARCH_SOURCES as SearchSource[]) {
+        // A source that picks its fields per document says so: "set in code".
+        out[source.id] = { fields: Array.isArray(source.fields) ? fromSpecs(source.fields) : null };
+    }
+    for (const [collection, setup] of Object.entries(setups)) {
+        out[collectionSourceId(collection)] = { fields: setup.fields.map((f) => ({ path: f.path, high: f.weight === 'high' })) };
+    }
+    return out;
 }
 
 export const listSearchCollections = onCall(async (request) => {
@@ -50,7 +97,7 @@ export const listSearchCollections = onCall(async (request) => {
     const [refs, setups] = await Promise.all([db.listCollections(), readCollectionSetups(true)]);
     // Named collections show even before they hold a document.
     const names = [...new Set([...refs.map((ref) => ref.id), ...SEARCH_COLLECTIONS])].sort((a, b) => a.localeCompare(b));
-    return { collections: names.map((name) => collectionState(name, setups)) };
+    return { collections: names.map((name) => collectionState(name, setups)), fields: await indexedFields(setups) };
 });
 
 const SAMPLE_SIZE = 20;
@@ -94,8 +141,11 @@ export function textFields(docs: Record<string, unknown>[]): SampledTextField[] 
 export const sampleCollectionFields = onCall(async (request) => {
     await requireAdmin(request);
     const collection = (request.data as { collection?: unknown } | undefined)?.collection;
-    if (typeof collection !== 'string' || !SEARCH_COLLECTIONS.includes(collection)) {
-        throw new HttpsError('invalid-argument', 'Name a collection listed in SEARCH_COLLECTIONS.');
+    // Any collection an admin may set up, named yet or not: never a refused one
+    // (logs, codes, Settings), content's own, or one written in code.
+    if (typeof collection !== 'string' || !/^[A-Za-z0-9_-]+$/.test(collection)
+        || !canSetUp(collectionState(collection, await readCollectionSetups()).state)) {
+        throw new HttpsError('invalid-argument', 'This collection cannot be set up for search.');
     }
     const snap = await db.collection(collection).limit(SAMPLE_SIZE).get();
     const docs = snap.docs.map((d) => d.data() as Record<string, unknown>);

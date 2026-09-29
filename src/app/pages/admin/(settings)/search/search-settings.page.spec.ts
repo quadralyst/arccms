@@ -47,7 +47,15 @@ describe('SearchSettingsPage', () => {
         setDocMock.mockReset().mockResolvedValue(undefined);
         searchMock = {
             reindex: vi.fn().mockResolvedValue([{ source: 'content', documents: 3, entries: 4, removed: 0, collections: [], durationMs: 5 }]),
-            listCollections: vi.fn().mockResolvedValue(COLLECTIONS),
+            listCollections: vi.fn().mockResolvedValue({
+                collections: COLLECTIONS,
+                fields: {
+                    content: { fields: null, byType: [{ type: 'Articles', fields: [{ path: 'title', high: true }, { path: 'customFields.city', high: false }] }] },
+                    'content-drafts': { fields: null, byType: [] },
+                    'collection-Lessons': { fields: [{ path: 'title', high: true }] },
+                    products: { fields: null },
+                },
+            }),
             sampleFields: vi.fn().mockResolvedValue({
                 fields: [{ path: 'name', count: 3, example: 'Fractions' }, { path: 'summary', count: 2, example: 'Halves' }, { path: 'slug', count: 3, example: 'fractions' }],
                 samples: [{ id: 'q1', values: { name: 'Fractions', summary: 'Halves', slug: 'fractions' } }],
@@ -75,6 +83,20 @@ describe('SearchSettingsPage', () => {
         expect(component.reindexedAt(content.status)?.getTime()).toBe(1_700_000_000_000);
         expect(component.sourceRows()[2]).toMatchObject({ label: 'Lessons', scope: 'admin', collection: 'Lessons' });
         expect(component.sourceRows()[3].collection).toBeUndefined();
+    });
+
+    it('shows what each source tokenizes, the high fields bold', () => {
+        const lines = [...fixture.nativeElement.querySelectorAll('[data-testid="source-fields"]')].map((el: Element) => el.textContent!.replace(/\s+/g, ' ').trim());
+        expect(lines).toEqual(['Articles: title, customFields.city', 'No content types yet', 'title', 'Fields set in code']);
+        expect(fixture.nativeElement.querySelector('[data-testid="source-fields"] .fw-semibold').textContent).toBe('title');
+    });
+
+    it('sets up a collection not named yet, and saves it to wait for the deploy', async () => {
+        await component.openEditor('users');
+        await component.save();
+        expect(setDocMock).toHaveBeenCalled();
+        expect(searchMock.reindex).not.toHaveBeenCalled();
+        expect(component.message()).toContain('SEARCH_COLLECTIONS');
     });
 
     it("lists every collection but content's own, the ones to act on first", () => {

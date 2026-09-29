@@ -85,7 +85,24 @@ export const CORE_SOURCE_LABEL_KEYS: Record<string, string> = {
 };
 
 /** How a collection stands in Search settings (functions/src/search/adminCollections.ts). */
-export type SearchCollectionState = 'content' | 'searchable' | 'needs_setup' | 'code' | 'not_listed' | 'refused';
+export type SearchCollectionState = 'content' | 'searchable' | 'needs_setup' | 'waiting' | 'code' | 'not_listed' | 'refused';
+
+/** A field a source tokenizes; `high` counts most, with type-ahead. */
+export interface IndexedField {
+    path: string;
+    high: boolean;
+}
+
+/** What each source tokenizes (per content type for content); null fields: set in code. */
+export interface SourceFields {
+    fields: IndexedField[] | null;
+    byType?: { type: string; fields: IndexedField[] }[];
+}
+
+export interface SearchCollectionList {
+    collections: SearchCollectionRow[];
+    fields: Record<string, SourceFields>;
+}
 
 export interface CollectionField {
     path: string;

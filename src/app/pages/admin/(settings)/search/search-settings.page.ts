@@ -3,11 +3,12 @@
  *
  * What is searchable and how (docs/feature-flags-spec.md, section 6.4):
  *
- *  - every source in the index, with its counts and a Rebuild button;
+ *  - every source in the index, the fields it tokenizes, its counts and a Rebuild button;
  *  - every collection in the database and where it stands: searchable, named
  *    but not set up, set up in code, not named (with the line a developer adds
- *    to functions/src/custom/search-sources.ts), or never searchable;
- *  - the setup of a named collection: which text fields to search and how much
+ *    to functions/src/custom/search-sources.ts), set up but waiting for that line
+ *    and a deploy, or never searchable;
+ *  - the setup of a collection, named yet or not: which text fields to search and how much
  *    they count, what a result shows, who may search it, and a live preview.
  *    Saving writes `Settings/search_collections` and rebuilds that collection,
  *    with no deploy.
@@ -30,6 +31,7 @@ import {
     SearchScope,
     SearchSourceStatus,
     SearchStatus,
+    SourceFields,
     collectionSourceId,
     fillLinkPattern,
 } from '../../../../../shared/models/search.model';
@@ -41,6 +43,8 @@ interface SourceRow {
     translate: boolean;
     scope: SearchScope | null;
     status: SearchSourceStatus | null;
+    /** What it tokenizes. */
+    fields: SourceFields | null;
     /** The collection whose setup this source comes from, for Edit. */
     collection?: string;
 }
@@ -70,10 +74,11 @@ const SCOPE_KEY: Record<SearchScope, string> = {
     admin: 'admin.settings.search.scope_admin',
 };
 
-const STATE_ORDER: SearchCollectionState[] = ['needs_setup', 'searchable', 'code', 'not_listed', 'refused'];
+const STATE_ORDER: SearchCollectionState[] = ['needs_setup', 'waiting', 'searchable', 'code', 'not_listed', 'refused'];
 
 const STATE_BADGE: Record<SearchCollectionState, string> = {
     needs_setup: 'bg-warning text-dark',
+    waiting: 'bg-secondary',
     searchable: 'bg-success',
     code: 'bg-info text-dark',
     not_listed: 'bg-light text-muted border',
@@ -114,6 +119,20 @@ const STATE_BADGE: Record<SearchCollectionState, string> = {
                   <td>
                     <strong>{{ row.translate ? (row.label | transloco) : row.label }}</strong>
                     <div class="text-muted small"><code>{{ row.id }}</code></div>
+                    <!-- What it tokenizes; bold fields count most and match as you type. -->
+                    <div class="small mt-1" data-testid="source-fields">
+                      @if (row.fields?.byType; as byType) {
+                        @for (t of byType; track t.type) {
+                          <div><span class="text-muted">{{ t.type }}: </span>
+                            @for (f of t.fields; track f.path; let last = $last) {<span [class.fw-semibold]="f.high">{{ f.path }}</span>@if (!last) {, }}
+                          </div>
+                        } @empty { <span class="text-muted">{{ 'admin.settings.search.no_content_types' | transloco }}</span> }
+                      } @else if (row.fields?.fields; as fields) {
+                        @for (f of fields; track f.path; let last = $last) {<span [class.fw-semibold]="f.high">{{ f.path }}</span>@if (!last) {, }}
+                      } @else {
+                        <span class="text-muted">{{ 'admin.settings.search.set_in_code' | transloco }}</span>
+                      }
+                    </div>
                   </td>
                   <td>{{ row.scope ? (scopeKey(row.scope) | transloco) : '–' }}</td>
                   <td class="text-end">{{ row.status?.documents ?? '–' }}</td>
@@ -291,6 +310,17 @@ const STATE_BADGE: Record<SearchCollectionState, string> = {
                         <button type="button" class="btn btn-link btn-sm" (click)="copyLine(row.name)">
                           <i class="far fa-copy me-1"></i>{{ (copied() === row.name ? 'admin.settings.search.copied' : 'admin.settings.search.copy_line') | transloco }}
                         </button>
+                        <button type="button" class="btn btn-outline-primary btn-sm" [disabled]="busy() !== null" (click)="openEditor(row.name)">
+                          {{ 'admin.settings.search.set_up' | transloco }}
+                        </button>
+                      }
+                      @case ('waiting') {
+                        <button type="button" class="btn btn-link btn-sm" (click)="copyLine(row.name)">
+                          <i class="far fa-copy me-1"></i>{{ (copied() === row.name ? 'admin.settings.search.copied' : 'admin.settings.search.copy_line') | transloco }}
+                        </button>
+                        <button type="button" class="btn btn-link btn-sm" [disabled]="busy() !== null" (click)="openEditor(row.name)">
+                          {{ 'common.actions.edit' | transloco }}
+                        </button>
                       }
                     }
                   </td>
@@ -321,16 +351,18 @@ export class SearchSettingsPage implements OnInit {
     readonly copied = signal('');
     readonly status = signal<SearchStatus>({});
     readonly collections = signal<SearchCollectionRow[]>([]);
+    readonly fields = signal<Record<string, SourceFields>>({});
     readonly editor = signal<Editor | null>(null);
 
     /** Content's two sources, then every collection or code source that has entries or a setup. */
     readonly sourceRows = computed<SourceRow[]>(() => {
         const statuses = this.status().sources ?? {};
+        const fields = this.fields();
         const rows: SourceRow[] = [];
         if (isOn('content')) {
             rows.push(
-                { id: 'content', label: CORE_SOURCE_LABEL_KEYS['content'], translate: true, scope: 'public', status: statuses['content'] ?? null },
-                { id: 'content-drafts', label: CORE_SOURCE_LABEL_KEYS['content-drafts'], translate: true, scope: 'admin', status: statuses['content-drafts'] ?? null },
+                { id: 'content', label: CORE_SOURCE_LABEL_KEYS['content'], translate: true, scope: 'public', status: statuses['content'] ?? null, fields: fields['content'] ?? null },
+                { id: 'content-drafts', label: CORE_SOURCE_LABEL_KEYS['content-drafts'], translate: true, scope: 'admin', status: statuses['content-drafts'] ?? null, fields: fields['content-drafts'] ?? null },
             );
         }
         for (const c of this.collections()) {
@@ -341,6 +373,7 @@ export class SearchSettingsPage implements OnInit {
                 translate: false,
                 scope: c.setup?.scope ?? statuses[c.sourceId]?.scope ?? null,
                 status: statuses[c.sourceId] ?? null,
+                fields: fields[c.sourceId] ?? null,
                 collection: c.state === 'searchable' ? c.name : undefined,
             });
         }
@@ -484,7 +517,14 @@ export class SearchSettingsPage implements OnInit {
             await setDoc(ref, { collections: { ...current, [ed.name]: setup } });
             this.editor.set(null);
             this.busy.set(null);
-            await this.rebuild(collectionSourceId(ed.name));
+            // Only a named collection has a trigger and a source to rebuild; the rest wait for the line and a deploy.
+            const state = this.collections().find((c) => c.name === ed.name)?.state;
+            if (state === 'searchable' || state === 'needs_setup') {
+                await this.rebuild(collectionSourceId(ed.name));
+            } else {
+                this.message.set(this.transloco.translate('admin.settings.search.saved_waiting', { name: ed.name }));
+                await this.load();
+            }
         } catch (err) {
             console.error('Could not save the search setup:', err);
             this.editorError.set(this.transloco.translate('admin.settings.search.rebuild_failed'));
@@ -529,11 +569,12 @@ export class SearchSettingsPage implements OnInit {
             this.searchService.listCollections().catch((err) => {
                 console.error('Could not list collections:', err);
                 this.listError.set(this.transloco.translate('admin.settings.search.load_failed'));
-                return [] as SearchCollectionRow[];
+                return { collections: [] as SearchCollectionRow[], fields: {} };
             }),
         ]);
         this.status.set(status);
-        this.collections.set(collections);
+        this.collections.set(collections.collections);
+        this.fields.set(collections.fields);
         this.isLoading.set(false);
     }
 }

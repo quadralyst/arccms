@@ -1148,6 +1148,7 @@ export type TranslationKey =
     | 'admin.settings.search.load_failed'
     | 'admin.settings.search.needs_title'
     | 'admin.settings.search.never'
+    | 'admin.settings.search.no_content_types'
     | 'admin.settings.search.no_fields'
     | 'admin.settings.search.no_sources'
     | 'admin.settings.search.none'
@@ -1164,9 +1165,11 @@ export type TranslationKey =
     | 'admin.settings.search.result_snippet'
     | 'admin.settings.search.result_title'
     | 'admin.settings.search.save_rebuild'
+    | 'admin.settings.search.saved_waiting'
     | 'admin.settings.search.scope_admin'
     | 'admin.settings.search.scope_authenticated'
     | 'admin.settings.search.scope_public'
+    | 'admin.settings.search.set_in_code'
     | 'admin.settings.search.set_up'
     | 'admin.settings.search.source_content'
     | 'admin.settings.search.source_content_drafts'
@@ -1176,6 +1179,7 @@ export type TranslationKey =
     | 'admin.settings.search.state_not_listed'
     | 'admin.settings.search.state_refused'
     | 'admin.settings.search.state_searchable'
+    | 'admin.settings.search.state_waiting'
     | 'admin.settings.search.title'
     | 'admin.settings.search.weight_high'
     | 'admin.settings.search.weight_normal'
@@ -2598,6 +2602,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.search.load_failed',
     'admin.settings.search.needs_title',
     'admin.settings.search.never',
+    'admin.settings.search.no_content_types',
     'admin.settings.search.no_fields',
     'admin.settings.search.no_sources',
     'admin.settings.search.none',
@@ -2614,9 +2619,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.search.result_snippet',
     'admin.settings.search.result_title',
     'admin.settings.search.save_rebuild',
+    'admin.settings.search.saved_waiting',
     'admin.settings.search.scope_admin',
     'admin.settings.search.scope_authenticated',
     'admin.settings.search.scope_public',
+    'admin.settings.search.set_in_code',
     'admin.settings.search.set_up',
     'admin.settings.search.source_content',
     'admin.settings.search.source_content_drafts',
@@ -2626,6 +2633,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.search.state_not_listed',
     'admin.settings.search.state_refused',
     'admin.settings.search.state_searchable',
+    'admin.settings.search.state_waiting',
     'admin.settings.search.title',
     'admin.settings.search.weight_high',
     'admin.settings.search.weight_normal',

@@ -16,7 +16,7 @@ import { Functions } from '@angular/fire/functions';
 import {
     CollectionSample,
     ReindexRequest,
-    SearchCollectionRow,
+    SearchCollectionList,
     SearchRequest,
     SearchResponse,
     SourceReindexResult,
@@ -93,11 +93,11 @@ export class SearchService {
         return result.data.results;
     }
 
-    /** Every top-level collection and whether it is searchable. Admin only. */
-    async listCollections(): Promise<SearchCollectionRow[]> {
-        if (!this.functions) return [];
-        const result = await arcCallable<unknown, { collections: SearchCollectionRow[] }>(this.functions, 'listSearchCollections')({});
-        return result.data.collections;
+    /** Every top-level collection, whether it is searchable, and what each source tokenizes. Admin only. */
+    async listCollections(): Promise<SearchCollectionList> {
+        if (!this.functions) return { collections: [], fields: {} };
+        const result = await arcCallable<unknown, SearchCollectionList>(this.functions, 'listSearchCollections')({});
+        return { collections: result.data.collections ?? [], fields: result.data.fields ?? {} };
     }
 
     /** The text fields in a sample of a named collection's documents. Admin only. */

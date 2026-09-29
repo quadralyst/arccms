@@ -19,7 +19,10 @@ vi.mock('../search/context.js', () => ({
     buildSearchContext: vi.fn(async (collection: string, docId: string) => ({
         collection, docId, localization: { defaultLanguage: 'en', enabledLanguages: [] }, contentTypes: new Map(),
     })),
-    loadContentTypes: vi.fn(),
+    loadContentTypes: vi.fn(async () => new Map([
+        ['articles', { id: 'a', slug: 'articles', name: 'Articles', hasPublicUrl: true, fields: [{ key: 'city', type: 'text' }], searchFields: ['city'] }],
+        ['notes', { id: 'n', slug: 'notes', name: 'Notes', hasPublicUrl: false, fields: [] }],
+    ])),
     clearSearchContextCache: vi.fn(),
 }));
 
@@ -52,7 +55,7 @@ import { syncDocument } from '../search/sync.js';
 import { searchSync } from '../search/collectionTriggers.js';
 import { onSearchQueued } from '../search/searchQueue.js';
 import { buildCollectionSource, fillLink, validSetup } from '../search/collections.js';
-import { collectionState, textFields } from '../search/adminCollections.js';
+import { canSetUp, collectionState, indexedFields, textFields } from '../search/adminCollections.js';
 import { productsSource } from '../search/sources/products.js';
 
 const LESSONS = { label: 'Lessons', fields: [{ path: 'title', weight: 'high' }, { path: 'summary', weight: 'normal' }], title: 'title', snippet: 'summary', link: '/admin/lessons/{id}', scope: 'admin' };
@@ -199,5 +202,23 @@ describe('Search settings', () => {
         expect(collectionState('Lessons', s)).toMatchObject({ state: 'searchable', sourceId: 'collection-Lessons' });
         expect(collectionState('Lessons', {})).toMatchObject({ state: 'needs_setup' });
         expect(collectionState('users', s)).toMatchObject({ state: 'not_listed' });
+        // Set up before a developer named it: kept, but nothing indexes it yet.
+        expect(collectionState('users', { users: validSetup(LESSONS)! })).toMatchObject({ state: 'waiting', sourceId: 'collection-users' });
+    });
+
+    it('lets an admin set up any collection but refused ones, content and code sources', () => {
+        expect(['searchable', 'needs_setup', 'waiting', 'not_listed'].every((s) => canSetUp(s as never))).toBe(true);
+        expect(['refused', 'content', 'code'].some((s) => canSetUp(s as never))).toBe(false);
+    });
+
+    it('lists what each source tokenizes: content per type, code sources, and setups', async () => {
+        const fields = await indexedFields({ Lessons: validSetup(LESSONS)! });
+        expect(fields['content'].byType).toEqual([{ type: 'Articles', fields: [
+            { path: 'title', high: true }, { path: 'summary', high: expect.any(Boolean) },
+            { path: 'authorName', high: expect.any(Boolean) }, { path: 'customFields.city', high: expect.any(Boolean) },
+        ] }]);
+        expect(fields['content-drafts'].byType?.map((t) => t.type)).toEqual(['Articles', 'Notes']);
+        expect(fields['products'].fields?.map((f) => f.path)).toEqual(['name', 'description', 'features']);
+        expect(fields['collection-Lessons'].fields).toEqual([{ path: 'title', high: true }, { path: 'summary', high: false }]);
     });
 });
