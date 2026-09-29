@@ -1385,6 +1385,7 @@ export type TranslationKey =
     | 'user.dashboard.credits'
     | 'user.dashboard.deal'
     | 'user.dashboard.discount'
+    | 'user.dashboard.empty'
     | 'user.dashboard.free_note'
     | 'user.dashboard.get_started'
     | 'user.dashboard.history'
@@ -1410,10 +1411,13 @@ export type TranslationKey =
     | 'user.free'
     | 'user.nav.account'
     | 'user.nav.dashboard'
+    | 'user.nav.payments'
     | 'user.nav.plans'
     | 'user.nav.premium'
     | 'user.nav.profile'
     | 'user.nav.sign_out'
+    | 'user.payments.subtitle'
+    | 'user.payments.title'
     | 'user.premium.advanced_analytics'
     | 'user.premium.back'
     | 'user.premium.on_plan'
@@ -2800,6 +2804,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'user.dashboard.credits',
     'user.dashboard.deal',
     'user.dashboard.discount',
+    'user.dashboard.empty',
     'user.dashboard.free_note',
     'user.dashboard.get_started',
     'user.dashboard.history',
@@ -2825,10 +2830,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'user.free',
     'user.nav.account',
     'user.nav.dashboard',
+    'user.nav.payments',
     'user.nav.plans',
     'user.nav.premium',
     'user.nav.profile',
     'user.nav.sign_out',
+    'user.payments.subtitle',
+    'user.payments.title',
     'user.premium.advanced_analytics',
     'user.premium.back',
     'user.premium.on_plan',

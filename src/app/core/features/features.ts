@@ -3,7 +3,8 @@
  * list (docs/feature-flags-spec.md). vite.config.ts resolves the same choice at
  * build start, so a choice that cannot be built never reaches the browser.
  */
-import type { CanMatchFn } from '@angular/router';
+import { inject } from '@angular/core';
+import { RedirectCommand, Router, type CanActivateFn } from '@angular/router';
 import { CUSTOM_FEATURES } from '../../../custom/features';
 import { resolveFeatures, type FeatureId } from './feature-registry';
 
@@ -13,7 +14,12 @@ export function isOn(id: FeatureId): boolean {
     return FEATURES.has(id);
 }
 
-/** A route of a feature that is off never matches, so the visitor gets the not-found page. */
-export function featureGuard(id: FeatureId): CanMatchFn {
-    return () => isOn(id);
+/**
+ * For a page of a feature that is off: shows the not-found page and keeps the
+ * address. A `canActivate`, not a `canMatch`: the file router wraps each page in
+ * a parent route, which would still match (and render nothing) if the page
+ * itself refused to.
+ */
+export function featureGuard(id: FeatureId): CanActivateFn {
+    return () => isOn(id) || new RedirectCommand(inject(Router).parseUrl('/not-found'), { skipLocationChange: true });
 }

@@ -32,13 +32,21 @@ describe('App Routes', () => {
 
         it('should have valid route configurations', () => {
             routes.forEach(route => {
-                expect(route).toHaveProperty('path');
+                // Every route has a path, except the one that matches by function
+                // (a feature that is off, docs/feature-flags-spec.md).
+                expect(route.path !== undefined || route.matcher !== undefined).toBe(true);
                 // Each route should have either component, loadComponent, or redirectTo
                 const hasComponent = route.component !== undefined;
                 const hasLoadComponent = route.loadComponent !== undefined;
                 const hasRedirect = route.redirectTo !== undefined;
                 expect(hasComponent || hasLoadComponent || hasRedirect).toBe(true);
             });
+        });
+    });
+
+    describe('Features', () => {
+        it('answers the URLs of a feature that is off before any other route', () => {
+            expect(routes[0].matcher).toBeTypeOf('function');
         });
     });
 

@@ -3,8 +3,14 @@ import { roleGuard } from './guards/role.guard';
 import { languageRouteGuard } from './guards/language.guard';
 import { userGuard, entitledGuard } from './pages/user/user.guards';
 import { CUSTOM_ROUTES } from '../custom/routes';
+import { CUSTOM_USER_DASHBOARD } from '../custom/user-dashboard';
+import { FEATURE_OFF_ROUTE, whenOn } from './core/features/feature-routes';
 
 export const routes: Routes = [
+  // A feature this app turned off (src/custom/features.ts) answers every one of
+  // its URLs with the not-found page, whichever route or file would serve it.
+  FEATURE_OFF_ROUTE,
+
   // AnalogJS file-based routes handle /admin/* automatically via .page.ts files
   // This is just a fallback redirect for /admin to /admin/dashboard
   {
@@ -46,11 +52,12 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/waitlist/leaderboard/leaderboard.component').then((m) => m.LeaderboardComponent),
   },
-  {
+  // Any three-segment /user URL fits, so it goes when signup forms are off.
+  ...whenOn('forms', [{
     path: 'user/:waitlistId/:userId',
     loadComponent: () =>
       import('./pages/waitlist/user-details/user-details.component').then((m) => m.UserDetailsComponent),
-  },
+  }]),
   {
     path: 'unsubscribe/:userId',
     loadComponent: () =>
@@ -206,6 +213,15 @@ export const routes: Routes = [
         ],
       },
     ],
+  },
+
+  // The member's home: a blank core page, or the app's own (src/custom/user-dashboard.ts).
+  {
+    path: 'user/dashboard',
+    title: 'Dashboard | Arc CMS',
+    canActivate: [userGuard],
+    loadComponent: CUSTOM_USER_DASHBOARD
+      ?? (() => import('./pages/user/(dashboard)/dashboard.page').then((m) => m.default)),
   },
 
   // Member profile (rendered in the user shell, not the admin shell)
@@ -528,6 +544,14 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/account/account.page').then((m) => m.default),
   },
+  // The member's plan, credits and recent activity (the payments feature).
+  ...whenOn('payments', [{
+    path: 'user/payments',
+    title: 'Payments | Arc CMS',
+    canActivate: [userGuard],
+    loadComponent: () =>
+      import('./pages/user/payments/payments.page').then((m) => m.default),
+  }]),
   // Members-only premium area (paid entitlement required)
   {
     path: 'user/premium',
@@ -577,13 +601,14 @@ export const routes: Routes = [
   // /search is the file-based src/app/pages/search.page.ts; this is its
   // /{lang}/search twin, listed before the two-segment content route so a
   // language prefix plus 'search' is never read as a content type.
-  {
+  // These fit any URL of their length, so a feature that is off leaves them out.
+  ...whenOn('search', [{
     path: ':lang/search',
     canMatch: [languageRouteGuard],
     loadComponent: () =>
       import('./pages/search.page').then((m) => m.default),
-  },
-  {
+  }]),
+  ...whenOn('content', [{
     path: ':lang/:contentTypeSlug/:urlSlug',
     canMatch: [languageRouteGuard],
     loadComponent: () =>
@@ -594,7 +619,7 @@ export const routes: Routes = [
     canMatch: [languageRouteGuard],
     loadComponent: () =>
       import('./pages/page.parts/content-list.component').then((m) => m.ContentListComponent),
-  },
+  }]),
 
   // The app's own routes (src/custom/routes.ts, docs/custom-code.md). After every
   // core route, so an app page never replaces a core one by accident; still

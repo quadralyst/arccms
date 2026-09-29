@@ -17,6 +17,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { SearchBoxComponent } from '../../../shared/components/search-box/search-box.component';
 import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
+import { isOn } from '../../core/features/features';
 
 /** English defaults; public/i18n/{lang}/strings.json overrides them per language. */
 export const PUBLIC_SEARCH_STRINGS = {
@@ -37,7 +38,11 @@ export type PublicSearchStringKey = keyof typeof PUBLIC_SEARCH_STRINGS;
     standalone: true,
     imports: [SearchBoxComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
+    // Without the search feature the site's header keeps its <arc-search> tag,
+    // which then shows nothing (docs/feature-flags-spec.md).
+    host: { '[style.display]': "searchOn ? null : 'none'" },
     template: `
+        @if (searchOn) {
         <arc-search-box
             scope="public"
             [lang]="lang()"
@@ -47,10 +52,12 @@ export type PublicSearchStringKey = keyof typeof PUBLIC_SEARCH_STRINGS;
             [emptyText]="text('search_empty')"
             [showingForText]="text('search_showing_for')"
             [allResultsText]="text('search_all_results')"></arc-search-box>
+        }
     `,
     styles: [':host { display: block; flex: 0 1 220px; min-width: 120px; max-width: 100%; }'],
 })
 export class PublicSearchComponent {
+    readonly searchOn = isOn('search');
     private localization = inject(LocalizationService);
     private uiStrings = inject(UiStringsService);
 

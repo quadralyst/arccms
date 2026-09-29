@@ -32,6 +32,7 @@ import { AuthState, NO_ACCESS_MESSAGE } from '../auth.store';
 import { AuthService } from '../auth.service';
 import { ConstantVariables } from '../../../../shared/constants/common-constants';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
+import { phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
 import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { arcCallable } from '../../../core/config/arc-functions';
@@ -191,7 +192,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       // Check if signups are enabled, and which sign-in methods are on
       this.userSettingService.getSettings().subscribe(settings => {
         this.signupSettings = settings;
-        this.phoneEnabled.set(settings.phoneSignIn === true);
+        this.phoneEnabled.set(phoneSignInOn(settings));
         this.googleEnabled.set(settings.googleSignIn === true);
         this.updateValidators(this.currentStep());
       });

@@ -7,6 +7,8 @@ import { withoutFeaturesOff, type MenuItem } from '../../../shared/components/si
 import { exportableKnownCollections, KNOWN_COLLECTIONS } from '../../pages/admin/(data)/data-constants';
 import { templateFeature } from '../../pages/admin/(email-composer)/email-composer.page';
 import type { FeatureId } from './feature-registry';
+import { featureOfPath, featureOffMatcher, whenOn } from './feature-routes';
+import { phoneSignInOn } from '../../pages/admin/(settings)/user-setting/user-setting.model';
 
 const allOn = () => true;
 const offOnly = (...off: FeatureId[]) => (id: FeatureId) => !off.includes(id);
@@ -66,5 +68,54 @@ describe('email composer template features', () => {
         expect(templateFeature('trial_ending_email')).toBe('payments');
         expect(templateFeature('signup_otp_email')).toBeUndefined();
         expect(templateFeature('my_newsletter')).toBeUndefined();
+    });
+});
+
+describe('feature URLs', () => {
+    const path = (url: string) => url.split('/').filter(Boolean);
+
+    it('knows which feature owns a URL, including the file router second URLs', () => {
+        expect(featureOfPath(path('/admin/email/broadcasts'))).toBe('email-marketing');
+        expect(featureOfPath(path('/admin/broadcasts'))).toBe('email-marketing');
+        expect(featureOfPath(path('/admin/waitlists/dashboard/abc'))).toBe('forms');
+        expect(featureOfPath(path('/checkout/success'))).toBe('payments');
+        expect(featureOfPath(path('/user/payments'))).toBe('payments');
+        expect(featureOfPath(path('/admin/settings/sms'))).toBe('sms');
+        expect(featureOfPath(path('/admin/contents/blog/edit/1'))).toBe('content');
+    });
+
+    it('leaves core URLs alone', () => {
+        for (const url of ['/', '/admin/dashboard', '/admin/users', '/admin/settings', '/admin/settings/user',
+            '/admin/email/composer', '/admin/email-logs', '/user/dashboard', '/user/profile', '/unsubscribe/x', '/signup']) {
+            expect(featureOfPath(path(url))).toBeUndefined();
+        }
+    });
+
+    it('matches a whole segment, not a prefix of one', () => {
+        expect(featureOfPath(path('/pricingx'))).toBeUndefined();
+        expect(featureOfPath(path('/search/more'))).toBeUndefined();
+    });
+
+    it('answers the URLs of features that are off, consuming the whole URL', () => {
+        const segments = (url: string) => path(url).map((p) => ({ path: p }) as never);
+        const matcher = featureOffMatcher(offOnly('payments'));
+        const url = segments('/checkout/success');
+        expect(matcher(url, {} as never, {} as never)).toEqual({ consumed: url });
+        expect(matcher(segments('/admin/waitlists'), {} as never, {} as never)).toBeNull();
+        expect(matcher(segments('/admin/users'), {} as never, {} as never)).toBeNull();
+    });
+
+    it('keeps or drops a feature\'s own routes', () => {
+        expect(whenOn('forms', [{ path: 'x' }], allOn)).toEqual([{ path: 'x' }]);
+        expect(whenOn('forms', [{ path: 'x' }], offOnly('forms'))).toEqual([]);
+    });
+});
+
+describe('phone sign-in', () => {
+    it('needs both the setting and the SMS feature', () => {
+        expect(phoneSignInOn({ phoneSignIn: true }, true)).toBe(true);
+        expect(phoneSignInOn({ phoneSignIn: true }, false)).toBe(false);
+        expect(phoneSignInOn({ phoneSignIn: false }, true)).toBe(false);
+        expect(phoneSignInOn(null, true)).toBe(false);
     });
 });

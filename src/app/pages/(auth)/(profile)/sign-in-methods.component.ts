@@ -17,6 +17,7 @@ import { readSignInError, SignInService, type LinkCheck } from '../sign-in.servi
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
+import { phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
 import { classifyIdentifier, formatPhone } from '../../../../shared/utils/identifier.util';
 
 type Kind = 'email' | 'phone';
@@ -226,7 +227,7 @@ export class SignInMethodsComponent implements OnInit {
     ngOnInit(): void {
         this.googleConnected.set(this.signIn.hasGoogle());
         firstValueFrom(this.settings.getSettings()).then((s) => {
-            this.phoneEnabled.set(s.phoneSignIn === true);
+            this.phoneEnabled.set(phoneSignInOn(s));
             this.googleEnabled.set(s.googleSignIn === true);
         }).catch(() => undefined);
     }

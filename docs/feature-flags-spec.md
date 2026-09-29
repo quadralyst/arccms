@@ -98,8 +98,11 @@ leave a feature on). The
   labels, default state, `needs`, and `resolveFeatures(choice)`, which returns the
   enabled set or throws with a readable message.
 - `src/app/core/features/features.ts`: `export const FEATURES = resolveFeatures(CUSTOM_FEATURES)`,
-  plus `isOn(id)` and `featureGuard(id)` (a `canMatch` guard, so a route of a feature
-  that is off is never matched and the visitor gets the normal not-found page).
+  plus `isOn(id)` and `featureGuard(id)` (a `canActivate` that shows the not-found page
+  and keeps the address, for file-based pages whose URL cannot tell their feature).
+- `src/app/core/features/feature-routes.ts`: `FEATURE_URLS`, the URLs each feature owns
+  (`a/**` for everything below `a`), and `FEATURE_OFF_ROUTE`, first in the route table,
+  which answers every URL of a feature that is off with the not-found page.
 - `vite.config.ts` calls `resolveFeatures` once at build start, so a bad choice fails
   `npm run dev` and `npm run build` straight away.
 
@@ -108,16 +111,16 @@ leave a feature on). The
 | Surface | Today | Change |
 |---------|-------|--------|
 | Sidebar | Hard-coded list; always subscribes to `ContentTypes` (two listeners) and `Waitlists` | `MenuItem.feature?`; items of features that are off are dropped. The ContentTypes and Waitlists subscriptions start only when `content` / `forms` is on. The dead `MediaManagerComponent` import is removed. |
-| Explicit routes | About 60 in `app.routes.ts` | Grouped per feature: `...feature('payments', [...])`. A feature that is off contributes no routes, so its chunks are never requested. The `:lang/:contentTypeSlug...` routes belong to `content`; `:lang/search` is core. |
-| File-based pages | Served by the file router whatever the menu shows | Each feature page's `routeMeta` gets `canMatch: [featureGuard('<id>')]`. The same pass removes the "shadow" URLs the file router creates for pages that already have an explicit route (for example `/admin/broadcasts` next to `/admin/email/broadcasts`). |
+| Routes and pages | About 60 explicit routes plus the file-based pages, served whatever the menu shows | One route first in the table (`FEATURE_OFF_ROUTE`) answers every URL in `FEATURE_URLS` of a feature that is off with the not-found page. It also covers the file router's second URL for pages with an explicit route (`/admin/broadcasts` next to `/admin/email/broadcasts`), so no page file changes. Routes whose URL cannot tell their feature are left out with `whenOn(id, [...])`: `:lang/search` (search), `:lang/:contentTypeSlug...` (content), `user/:waitlistId/:userId` (forms). The two file-based content pages (`/:contentTypeSlug...`) carry `featureGuard('content')`. |
 | Settings tabs | Hard-coded 15 | `feature?` per tab: payments, sms, discoverability (`seo`), app-audience (`audience`). Integrations hides the geolocation field when `forms` is off. User settings hides the phone sign-in switch when `sms` is off. |
 | Admin search box and page | Search only `content-drafts` | With `search`: search every source an admin may read (section 6.4); hidden when there is none. |
-| Public search | Header search and `/search` | With `search`, when a public source exists (with defaults: when `content` is on). |
+| Public search | Header search and `/search` | With `search`: without it the site's `<arc-search>` tag shows nothing and `/search` is not found. Related items on content pages hide too. |
 | Search settings tab | Lists the hard-coded sources with a Rebuild button | With `search`. Rebuilt around collections: see section 6.4. |
 | Content editor, content pages | Link suggestions and related items call search | Hidden without `search`. |
 | Admin dashboard | Every widget | Content cards and recent activity with `content`, per-form cards and signup counts with `forms`, contact counts and recent signups with `audience`, app installs with `pwa`. |
-| Member area | Shell and `/user/dashboard` show credits, Pro badge, billing links | Those parts render only with `payments`. `/user/dashboard` stays (core) and shows what is on. |
-| Home page | Starts the waitlist form code | Only with `forms`. |
+| Member area | `/user/dashboard` is the credits, plans and activity page; the shell shows credits, Pro badge, billing links | `/user/dashboard` is a blank core page (a greeting, the install prompt when the PWA is on), or the app's own page through `src/custom/user-dashboard.ts`. The old page moves to `/user/payments` (payments). The shell's Payments, Account & Billing, Premium and Plans links, Pro badge and credits render only with `payments`, which is also the only time it loads the entitlement. |
+| Signup forms on pages | The form service reads, counts and submits any `data-waitlist-form` | The site's markup stays as written; without `forms` the service does nothing, and F4 removes the form functions. |
+| Sign-up and profile | Offer phone sign-in when the setting is on | Only when the setting is on **and** `sms` is on (`phoneSignInOn`). |
 | Onboarding | Seeds content types and a default form | Seeds only what is on. |
 | Automations editor | Offers every event and action | Payment events with `payments`, form events with `forms`, `app_user.*` events and list actions with `audience`. |
 | Email composer | Every template type | Form (`waitlist_*`) and payment templates only with their feature. Marketing templates stay without `email-marketing`: automations can send them. |
@@ -125,9 +128,12 @@ leave a feature on). The
 
 ### 4.3 Custom apps
 
-`CUSTOM_NAV` items and `CUSTOM_ROUTES` may set `feature` too, so an app page that
-only makes sense with payments disappears with it. An app cannot define new feature
-ids; its own pages are simply its own.
+`CUSTOM_NAV` items may set `feature` too, so an app menu item that only makes sense
+with payments disappears with it; app routes use `whenOn(id, [...])`. An app cannot
+define new feature ids; its own pages are simply its own.
+
+`src/custom/user-dashboard.ts` (`CUSTOM_USER_DASHBOARD`, empty by default) points
+`/user/dashboard` at the app's own page.
 
 ---
 
@@ -342,7 +348,7 @@ the whole suite. A spec about a particular choice mocks the file itself.
 |-------|-------------|-----------|
 | **F1** Registry and file | `feature-registry.ts`, `features.ts`, `src/custom/features.ts` (empty), `resolveFeatures` with `off` and `needs`, Vite build check, custom-space test and `docs/custom-code.md` rows | Unit tests for resolve, needs, unknown ids; nothing visible changes |
 | **F2** Admin surfaces | Sidebar (and its listeners), settings tabs and fields, dashboard widgets, automations editor, composer categories, data export list | With `off: ['content', 'forms', 'audience', 'email-marketing', 'payments']` the admin shows only core; browser check at localhost:5173 |
-| **F3** Routes and public side | Feature-grouped explicit routes, `featureGuard` on file pages, shadow URL removal, home form, member area, onboarding seeding | A disabled feature's URLs give not-found; no requests for its chunks or collections in the network panel |
+| **F3** Routes and public side | `FEATURE_URLS` and the feature-off route, `whenOn` for parameter routes, `featureGuard` on the content pages, member dashboard split (`/user/dashboard` blank, `/user/payments`) with the `user-dashboard.ts` plug point, form service, phone sign-in, public search, related items, onboarding seeding | A disabled feature's URLs give not-found (built 2026-09-29, checked in the browser) |
 | **F4** Functions | Split `all.ts`, `features/<id>.ts`, generator and prebuild, the crossings in 5.3 | `lib/index.js` with those features off has none of their functions; all tests pass with every feature on and with each one off |
 | **F5** Search | Section 6: `search-sources.ts` and per-collection triggers, the draft search queue and its writers, removal of the every-write and translations triggers, high-volume refusal, the new Search settings screen (collection list, field picker, preview, rebuild), `Settings/search_collections`, admin search from every readable source, search developer guide update | A collection added to the file and set up in Search settings is indexed and found in admin search; a write to EmailLogs starts no function (checked in the Cloud Functions logs on the dev project); a draft save updates the index; naming `EmailLogs` fails the build |
 | **F6** Deploy tooling | Section 7 | A full functions deploy on the dev project with features off deletes exactly the expected functions and the probe passes; turning them back on recreates them |

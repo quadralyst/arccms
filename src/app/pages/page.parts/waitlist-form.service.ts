@@ -18,6 +18,7 @@ import { DEFAULT_INTEGRATIONS_SETTINGS, IGeoConfig } from '../admin/(settings)/i
 import { DEFAULT_WAITLIST_FORM_ID, LEGACY_DEFAULT_WAITLIST_FORM_IDS } from '../../../shared/constants/waitlist-form';
 import { buildLegalNoticeElement, legalNoticeLang } from '../../../shared/constants/legal-notice';
 import { arcCallable } from '../../core/config/arc-functions';
+import { isOn } from '../../core/features/features';
 
 type WaitlistStep = 'signup' | 'verify' | 'success' | 'existing-user' | 'error';
 
@@ -173,6 +174,9 @@ export class WaitlistFormService {
      */
     async initWaitlistForms(container: HTMLElement, htmlFileName?: string): Promise<void> {
         if (!isPlatformBrowser(this.platformId)) return;
+        // Without signup forms the page's markup stays as the site wrote it, but
+        // nothing reads, counts or submits it (docs/feature-flags-spec.md).
+        if (!isOn('forms')) return;
 
         // Start behavioral tracking for Phase 2 metadata
         this.metadataService.startBehaviorTracking();

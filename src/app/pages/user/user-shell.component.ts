@@ -5,11 +5,13 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthState } from '../(auth)/auth.store';
 import { EntitlementService } from './entitlement.service';
+import { isOn } from '../../core/features/features';
 
 /**
- * Sidebar layout for the signed-in member area (dashboard, account, profile,
- * premium). Projects page content via <ng-content>. Loads the shared entitlement
- * once so every page, the Pro badge, and the *appIfEntitled directive react to it.
+ * Sidebar layout for the signed-in member area (dashboard, profile, and with the
+ * payments feature payments, account, premium and plans). Projects page content via
+ * <ng-content>. With payments, loads the shared entitlement once so every page, the
+ * Pro badge, and the *appIfEntitled directive react to it.
  *
  * Gates on currentUser() (not the buggy isAuthenticated() signal).
  */
@@ -26,24 +28,33 @@ import { EntitlementService } from './entitlement.service';
                     <div class="avatar">{{ initial() }}</div>
                     <div class="who">
                         <span class="name">{{ displayName() }}</span>
-                        @if (entitlements.isPro()) {
-                            <span class="badge pro">{{ entitlements.premiumType() || 'Pro' }}</span>
-                        } @else {
-                            <span class="badge free">{{ 'user.free' | transloco }}</span>
+                        @if (paymentsOn) {
+                            @if (entitlements.isPro()) {
+                                <span class="badge pro">{{ entitlements.premiumType() || 'Pro' }}</span>
+                            } @else {
+                                <span class="badge free">{{ 'user.free' | transloco }}</span>
+                            }
                         }
                     </div>
                 </div>
 
                 <nav class="menu">
                     <a routerLink="/user/dashboard" routerLinkActive="active"><i class="fa-solid fa-gauge"></i> {{ 'user.nav.dashboard' | transloco }}</a>
+                    @if (paymentsOn) {
+                    <a routerLink="/user/payments" routerLinkActive="active"><i class="fa-solid fa-coins"></i> {{ 'user.nav.payments' | transloco }}</a>
                     <a routerLink="/account" routerLinkActive="active"><i class="fa-solid fa-receipt"></i> {{ 'user.nav.account' | transloco }}</a>
                     <a routerLink="/user/premium" routerLinkActive="active"><i class="fa-solid fa-star"></i> {{ 'user.nav.premium' | transloco }}</a>
+                    }
                     <a routerLink="/user/profile" routerLinkActive="active"><i class="fa-solid fa-user"></i> {{ 'user.nav.profile' | transloco }}</a>
+                    @if (paymentsOn) {
                     <a routerLink="/pricing" routerLinkActive="active"><i class="fa-solid fa-tag"></i> {{ 'user.nav.plans' | transloco }}</a>
+                    }
                 </nav>
 
                 <div class="foot">
+                    @if (paymentsOn) {
                     <span class="credits"><i class="fa-solid fa-coins me-1"></i>{{ entitlements.creditBalance() }} {{ 'user.credits' | transloco }}</span>
+                    }
                     <button mat-stroked-button type="button" (click)="signOut()">{{ 'user.nav.sign_out' | transloco }}</button>
                 </div>
             </aside>
@@ -82,6 +93,7 @@ export class UserShellComponent implements OnInit {
     authState = inject(AuthState);
     entitlements = inject(EntitlementService);
     private router = inject(Router);
+    readonly paymentsOn = isOn('payments');
 
     displayName(): string {
         const u = this.authState.currentUser();
@@ -93,7 +105,7 @@ export class UserShellComponent implements OnInit {
     }
 
     ngOnInit(): void {
-        this.entitlements.load().subscribe();
+        if (this.paymentsOn) this.entitlements.load().subscribe();
     }
 
     signOut(): void {

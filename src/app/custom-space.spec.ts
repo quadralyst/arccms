@@ -9,6 +9,7 @@ import { mergeTranslations } from './core/i18n/translation.loader';
 import { insertCustomNav, type MenuItem } from '../shared/components/side-navbar/side-navbar.component';
 import { CUSTOM_ROUTES } from '../custom/routes';
 import { CUSTOM_NAV } from '../custom/nav';
+import { CUSTOM_USER_DASHBOARD } from '../custom/user-dashboard';
 import customEn from '../custom/i18n/en.json';
 import customHi from '../custom/i18n/hi.json';
 
@@ -19,6 +20,7 @@ describe('custom space', () => {
     it('ships every starter file empty', () => {
         expect(CUSTOM_ROUTES).toEqual([]);
         expect(CUSTOM_NAV).toEqual([]);
+        expect(CUSTOM_USER_DASHBOARD).toBeNull();
         // Specs always see every feature on (src/test/setup.ts), so read the file itself.
         expect(read('src/custom/features.ts')).toMatch(/^export const CUSTOM_FEATURES: FeatureChoice = \{\};$/m);
         expect(customEn).toEqual({});
@@ -50,6 +52,25 @@ describe('custom space', () => {
             expect(PWA.enabled).toBe(true);
             vi.doUnmock('../custom/features');
             expect(read('vite.config.ts')).toContain("resolvePwaConfig(CUSTOM_PWA, features.has('pwa'))");
+        });
+    });
+
+    describe('member dashboard', () => {
+        const dashboardRoute = (routes: { path?: string }[]) => routes.find((r) => r.path === 'user/dashboard') as { loadComponent: () => unknown };
+
+        it('shows the core blank dashboard when the app names none', async () => {
+            const { routes } = await import('./app.routes');
+            const page = await dashboardRoute(routes).loadComponent();
+            expect((page as { name: string }).name).toBe('UserDashboardComponent');
+        });
+
+        it("shows the app's own page when it names one", async () => {
+            vi.resetModules();
+            class LessonsHome {}
+            vi.doMock('../custom/user-dashboard', () => ({ CUSTOM_USER_DASHBOARD: async () => LessonsHome }));
+            const { routes } = await import('./app.routes');
+            expect(await dashboardRoute(routes).loadComponent()).toBe(LessonsHome);
+            vi.doUnmock('../custom/user-dashboard');
         });
     });
 

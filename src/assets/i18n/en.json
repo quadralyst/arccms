@@ -1529,6 +1529,7 @@
   "user": {
     "nav": {
       "dashboard": "Dashboard",
+      "payments": "Payments",
       "account": "Account & Billing",
       "premium": "Premium",
       "profile": "Profile",
@@ -1537,7 +1538,12 @@
     },
     "free": "Free",
     "credits": "credits",
+    "payments": {
+      "title": "Payments",
+      "subtitle": "Your plan, credits and recent activity."
+    },
     "dashboard": {
+      "empty": "Nothing here yet.",
       "subtitle": "Here's your account at a glance.",
       "welcome": "Welcome back, {{ name }}",
       "get_started": "Get started",

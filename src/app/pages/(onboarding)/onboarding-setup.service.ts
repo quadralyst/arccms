@@ -17,6 +17,7 @@ import { DEFAULT_EMAIL_SETTINGS, IEmailSettings, hasValidProviderConfig } from '
 import { AuthService } from '../(auth)/auth.service';
 import { arcCallable } from '../../core/config/arc-functions';
 import { arcConfig } from '../../core/config/arc-config';
+import { isOn } from '../../core/features/features';
 
 /**
  * Where an install sits relative to the onboarding wizard.
@@ -241,11 +242,12 @@ export class OnboardingSetupService {
      * the admin can create a waitlist from the admin UI whenever they want one.
      */
     async completeSetup(): Promise<{ waitlistCreated: boolean }> {
-        await this.createDefaultContentTypes();
+        // Seed only what this app has (docs/feature-flags-spec.md).
+        if (isOn('content')) await this.createDefaultContentTypes();
 
         let waitlistCreated = true;
         try {
-            await this.createDefaultWaitlist();
+            if (isOn('forms')) await this.createDefaultWaitlist();
         } catch (err) {
             console.warn('Default waitlist could not be created (non-fatal):', err);
             waitlistCreated = false;

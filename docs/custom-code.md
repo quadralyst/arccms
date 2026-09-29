@@ -20,6 +20,7 @@ plug point), then pull it. `npm run check:core` catches accidental edits.
 | `src/custom/routes.ts` | the app's pages as Angular routes (`CUSTOM_ROUTES`) |
 | `src/custom/pages/` | the app's pages found by file name, like `src/app/pages` (`learn.page.ts` is `/learn`) |
 | `src/custom/nav.ts` | the app's items in the admin menu (`CUSTOM_NAV`), shown before Profile |
+| `src/custom/user-dashboard.ts` | the app's own page at `/user/dashboard`, where members land (`CUSTOM_USER_DASHBOARD`); empty shows Arc CMS's blank dashboard |
 | `src/custom/i18n/{lang}.json` | the app's translations, laid over the core ones |
 | `src/custom/styles.css` | the app's global styles, loaded after every core stylesheet |
 | `src/custom/pwa.ts`, `src/custom/pwa-icon.svg` (or `.png`) | the installable app: name, colours, start page, icon ([pwa.md](pwa.md)); it is turned on in `features.ts` |
@@ -38,7 +39,8 @@ install too; `check:core` accepts them.
 |---|---|---|
 | Routes | `src/app/app.routes.ts` | `CUSTOM_ROUTES` come after every core route (an app page cannot replace a core page by accident) and before the file-based pages |
 | Pages | `vite.config.ts` | `additionalPagesDirs: ['/src/custom/pages']` |
-| Admin menu | `side-navbar.component.ts` | `CUSTOM_NAV` inserted before Profile |
+| Admin menu | `side-navbar.component.ts` | `CUSTOM_NAV` inserted before Profile; an item with `feature` goes when that feature is off |
+| Member dashboard | `app.routes.ts` | `CUSTOM_USER_DASHBOARD` loads at `/user/dashboard` in place of the blank core page |
 | Translations | `translation.loader.ts` | `src/custom/i18n/{lang}.json` merged over the core file, key by key: new keys, and rewording of core ones |
 | Styles | `index.html` | `src/custom/styles.css` is the last stylesheet |
 | PWA | `vite.config.ts`, `pwa.service.ts` | `CUSTOM_PWA` laid over the core defaults at build time; the icon file is found by name |

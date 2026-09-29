@@ -32,6 +32,7 @@ import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../../../shar
 import { cleanReferences } from '../../../shared/models/references.model';
 import { buildMappedNode } from '../../../shared/utils/schema-mapping';
 import { SearchService } from '../../core/services/search.service';
+import { isOn } from '../../core/features/features';
 import { RELATED_LIMIT, RelatedItem, pickRelated, relatedQuery } from '../../../shared/utils/related-content';
 import {
     buildBreadcrumbList,
@@ -775,7 +776,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             const typeSlug = this.contentTypeSlug();
             const lang = this.pageLang() || this.localization.defaultLanguage();
             untracked(() => {
-                if (!content?.urlSlug || !isPlatformBrowser(this.platformId)) return;
+                // Related items come from search; without it there are none.
+                if (!content?.urlSlug || !isPlatformBrowser(this.platformId) || !isOn('search')) return;
                 const key = `${typeSlug}/${content.urlSlug}/${lang}`;
                 if (key === this.relatedKey) return;
                 this.relatedKey = key;

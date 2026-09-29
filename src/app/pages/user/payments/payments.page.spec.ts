@@ -5,14 +5,14 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Functions } from '@angular/fire/functions';
 import { of } from 'rxjs';
 import { vi, describe, beforeEach, it, expect } from 'vitest';
-import UsersDashboardComponent from './dashboard.page';
+import UserPaymentsComponent from './payments.page';
 import { AuthState } from '../../(auth)/auth.store';
 import { MembershipService } from '../../payments-ui/membership.service';
 import { TransactionsService } from '../../admin/(transactions)/transactions.service';
 import { CreditLedgerService } from '../../payments-ui/credit-ledger.service';
 
-describe('UsersDashboardComponent', () => {
-    let fixture: ComponentFixture<UsersDashboardComponent>;
+describe('UserPaymentsComponent', () => {
+    let fixture: ComponentFixture<UserPaymentsComponent>;
 
     const mockAuth = {
         currentUser: vi.fn().mockReturnValue({ uid: 'u1', name: 'Ada Lovelace', email: 'ada@example.com' }),
@@ -26,7 +26,7 @@ describe('UsersDashboardComponent', () => {
 
     async function setup() {
         await TestBed.configureTestingModule({
-            imports: [UsersDashboardComponent],
+            imports: [UserPaymentsComponent],
             providers: [
                 ...headerTestProviders(),
                 provideRouter([]),
@@ -38,7 +38,7 @@ describe('UsersDashboardComponent', () => {
                 { provide: Functions, useValue: {} },
             ],
         }).compileComponents();
-        fixture = TestBed.createComponent(UsersDashboardComponent);
+        fixture = TestBed.createComponent(UserPaymentsComponent);
         fixture.detectChanges();
     }
 
@@ -49,9 +49,9 @@ describe('UsersDashboardComponent', () => {
         mockLedger.getAll.mockReturnValue(of({ collectionData: [] }));
     });
 
-    it('greets the user by first name', async () => {
+    it('is titled Payments', async () => {
         await setup();
-        expect(fixture.nativeElement.textContent).toContain('Welcome back, Ada');
+        expect(fixture.nativeElement.textContent).toContain('Payments');
     });
 
     it('shows the onboarding empty state for a brand-new free user', async () => {
