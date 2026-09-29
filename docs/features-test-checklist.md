@@ -81,17 +81,19 @@ Mark each line `[x]` when it passes, or note what happened.
 
 ## 5. Search
 
-- [ ] 5.1 Search settings lists every collection with its state. Never searchable, with a reason:
+- [x] 5.1 Search settings lists every collection with its state. Never searchable, with a reason:
       logs, events, notifications, `SearchIndex`, `email_lookup`, `form_otps`, `phone_otps`,
       `Settings`, and `_` collections.
-- [ ] 5.2 "What is searchable" shows the fields each source tokenizes: per content type for
+- [x] 5.2 "What is searchable" shows the fields each source tokenizes: per content type for
       content, the most important in bold.
-- [ ] 5.3 **Set up** on a collection that is not named (for example `Feedback`): the panel lists
+- [x] 5.3 **Set up** on a collection that is not named (for example `Feedback`): the panel lists
       its text fields with examples; pick fields, title, snippet, link, who may search it; the
       preview follows. Save: the collection shows **Waiting for deploy**, nothing is rebuilt.
-- [ ] 5.4 Known issue to fix: the panel pre-ticks the most common fields (for `Feedback`,
-      `device.language` and `device.platform`) and uses the first as the title. It should
-      prefer name-like fields (title, name, subject) and descriptive ones (summary, message).
+- [x] 5.4 Fixed 2026-09-29: the panel pre-ticked the most common fields (for `Feedback`,
+      `device.language` and `device.platform`). It now ticks name-like fields high (title, name,
+      subject, heading, label) and descriptive ones normal (summary, description, message, text,
+      body, comment, content, details, note), and nothing else; `Feedback` gets `page.title` and
+      `sender.name`.
 - [ ] 5.5 Name it: add `'Feedback'` to `SEARCH_COLLECTIONS` in
       `functions/src/custom/search-sources.ts`, then deploy its trigger and the search callables:
       `npm run deploy -- --only functions:arccms:arccms.searchSync,functions:arccms:arccms.search,functions:arccms:arccms.reindexSearch,functions:arccms:arccms.listSearchCollections,functions:arccms:arccms.sampleCollectionFields --project default`

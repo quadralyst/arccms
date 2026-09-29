@@ -68,6 +68,25 @@ interface Editor {
     sampleIndex: number;
 }
 
+/** Fields that usually name a document, and ones that usually describe it: the setup's first guesses. */
+const NAME_FIELD = /(^|\.)(title|name|subject|heading|label)$/i;
+const TEXT_FIELD = /(^|\.)(summary|description|message|text|body|comment|content|details|note)s?$/i;
+
+/**
+ * A new setup's first guess: name-like fields ticked high and descriptive ones
+ * normal, the first of each as title and snippet. Nothing else is ticked, so an
+ * id, a path or a user agent is never searched unless the admin picks it.
+ */
+export function guessSetup(paths: string[]): { ticked: Map<string, 'high' | 'normal'>; title: string; snippet: string } {
+    const names = paths.filter((p) => NAME_FIELD.test(p));
+    const texts = paths.filter((p) => TEXT_FIELD.test(p) && !NAME_FIELD.test(p));
+    const ticked = new Map<string, 'high' | 'normal'>([
+        ...names.map((p) => [p, 'high'] as const),
+        ...texts.map((p) => [p, 'normal'] as const),
+    ]);
+    return { ticked, title: names[0] ?? texts[0] ?? '', snippet: names.length ? texts[0] ?? '' : texts[1] ?? '' };
+}
+
 const SCOPE_KEY: Record<SearchScope, string> = {
     public: 'admin.settings.search.scope_public',
     authenticated: 'admin.settings.search.scope_authenticated',
@@ -467,18 +486,19 @@ export class SearchSettingsPage implements OnInit {
             const chosen = new Map((setup?.fields ?? []).map((f) => [f.path, f.weight]));
             // A saved field no longer in the sample stays, so saving never drops it silently.
             const paths = [...new Set([...sample.fields.map((f) => f.path), ...chosen.keys()])];
-            const fields: FieldChoice[] = paths.map((path, i) => ({
+            const guess = guessSetup(paths);
+            const fields: FieldChoice[] = paths.map((path) => ({
                 path,
                 example: sample.fields.find((f) => f.path === path)?.example ?? '',
-                included: setup ? chosen.has(path) : i < 2,
-                weight: chosen.get(path) ?? (i === 0 ? 'high' : 'normal'),
+                included: setup ? chosen.has(path) : guess.ticked.has(path),
+                weight: chosen.get(path) ?? guess.ticked.get(path) ?? 'normal',
             }));
             this.editor.set({
                 name,
                 label: setup?.label ?? name,
                 fields,
-                title: setup?.title ?? fields[0]?.path ?? '',
-                snippet: setup?.snippet ?? '',
+                title: setup?.title ?? guess.title,
+                snippet: setup?.snippet ?? (setup ? '' : guess.snippet),
                 link: setup?.link ?? '',
                 scope: setup?.scope ?? 'admin',
                 sample,

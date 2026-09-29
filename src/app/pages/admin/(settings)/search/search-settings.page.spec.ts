@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Firestore } from '@angular/fire/firestore';
-import { SearchSettingsPage } from './search-settings.page';
+import { SearchSettingsPage, guessSetup } from './search-settings.page';
 import { SearchService } from '../../../../core/services/search.service';
 import type { SearchCollectionRow } from '../../../../../shared/models/search.model';
 
@@ -57,7 +57,7 @@ describe('SearchSettingsPage', () => {
                 },
             }),
             sampleFields: vi.fn().mockResolvedValue({
-                fields: [{ path: 'name', count: 3, example: 'Fractions' }, { path: 'summary', count: 2, example: 'Halves' }, { path: 'slug', count: 3, example: 'fractions' }],
+                fields: [{ path: 'slug', count: 3, example: 'fractions' }, { path: 'name', count: 3, example: 'Fractions' }, { path: 'summary', count: 2, example: 'Halves' }],
                 samples: [{ id: 'q1', values: { name: 'Fractions', summary: 'Halves', slug: 'fractions' } }],
             }),
         };
@@ -109,23 +109,34 @@ describe('SearchSettingsPage', () => {
     it('prefills a new setup from the sampled fields and previews a real document', async () => {
         await component.openEditor('Quizzes');
         const ed = component.editor()!;
+        // Name-like fields ticked high, descriptive ones normal, nothing else (not the commoner slug).
         expect(ed.fields.map(f => [f.path, f.included, f.weight])).toEqual([
-            ['name', true, 'high'], ['summary', true, 'normal'], ['slug', false, 'normal'],
+            ['slug', false, 'normal'], ['name', true, 'high'], ['summary', true, 'normal'],
         ]);
         expect(ed.title).toBe('name');
+        expect(ed.snippet).toBe('summary');
 
-        component.patch({ snippet: 'summary', link: '/quizzes/{slug}' });
+        component.patch({ link: '/quizzes/{slug}' });
         expect(component.preview()).toEqual({ title: 'Fractions', snippet: 'Halves', badge: 'Quizzes', link: '/quizzes/fractions' });
+    });
+
+    it('guesses title and snippet from field names, and ticks nothing technical', () => {
+        const feedback = guessSetup(['device.language', 'device.platform', 'page.path', 'page.title', 'sender.email', 'sender.name', 'message', 'uid']);
+        expect(feedback.title).toBe('page.title');
+        expect(feedback.snippet).toBe('message');
+        expect([...feedback.ticked.keys()]).toEqual(['page.title', 'sender.name', 'message']);
+        expect(guessSetup(['uid', 'createdAt']).ticked.size).toBe(0);
+        expect(guessSetup(['description', 'notes'])).toMatchObject({ title: 'description', snippet: 'notes' });
     });
 
     it('saves the setup whole, then rebuilds that collection', async () => {
         await component.openEditor('Quizzes');
-        component.setField(1, { included: false });
+        component.setField(2, { included: false });
         await component.save();
 
         const written = setDocMock.mock.calls[0][1] as { collections: Record<string, unknown> };
         expect(written.collections['Lessons']).toEqual(LESSONS_SETUP);
-        expect(written.collections['Quizzes']).toEqual({ fields: [{ path: 'name', weight: 'high' }], title: 'name', scope: 'admin' });
+        expect(written.collections['Quizzes']).toEqual({ fields: [{ path: 'name', weight: 'high' }], title: 'name', snippet: 'summary', scope: 'admin' });
         expect(searchMock.reindex).toHaveBeenCalledWith({ source: 'collection-Quizzes' });
         expect(component.editor()).toBeNull();
     });
