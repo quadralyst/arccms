@@ -92,6 +92,8 @@ export interface SearchContext {
 export interface SearchSource {
     /** Stable identifier. Part of every index document ID, so never rename casually. */
     id: string;
+    /** Name shown in Search settings and on admin results. Defaults to the id. */
+    label?: string;
     /**
      * The collection to watch, or a pattern for a family of collections such
      * as `/^arc_(.+)_drafts$/`. Top-level collections only.

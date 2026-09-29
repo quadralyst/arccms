@@ -13,6 +13,7 @@ import { ensureIndexNowKey, submitBatchToIndexNow } from '../pages/indexNow.js';
 import { getDiscoverabilitySettings } from '../shared/discoverability-settings.js';
 import { contentSource, CONTENT_SOURCE_ID } from '../search/sources/content.js';
 import { CONTENT_DRAFTS_SOURCE_ID } from '../search/sources/content-drafts.js';
+import { syncDocument } from '../search/sync.js';
 import { buildSearchContext } from '../search/context.js';
 import { indexDocument, removeSearchEntries } from '../search/writer.js';
 import { runReindex } from '../search/reindexSearch.js';
@@ -133,6 +134,12 @@ async function stampLastPublishedAt(draftCollection: string, docId: string): Pro
         await db.collection(draftCollection).doc(docId).update({
             lastPublishedAt: Timestamp.now(),
         });
+        // The drafts index shows Draft, Published or Edited from this stamp, and
+        // no trigger watches draft writes (docs/feature-flags-spec.md 6.5).
+        if (isFeatureOn('search')) {
+            const draft = await db.collection(draftCollection).doc(docId).get();
+            await syncDocument(draftCollection, docId, draft.exists ? draft.data() ?? null : null);
+        }
     } catch (error) {
         // A missing draft (deleted mid-publish) is not worth failing the run —
         // the status badge degrades to "Published", which is the safe default.

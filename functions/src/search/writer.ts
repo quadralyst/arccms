@@ -203,6 +203,17 @@ export async function removeSearchEntries(sourceId: string, collection: string, 
     return existing.size;
 }
 
+/** Removes every entry of a collection, whatever the source: the collection is gone. */
+export async function removeCollectionEntries(collection: string): Promise<number> {
+    const existing = await db.collection(SEARCH_INDEX_COLLECTION).where('collection', '==', collection).get();
+    for (let start = 0; start < existing.size; start += 400) {
+        const batch = db.batch();
+        existing.docs.slice(start, start + 400).forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+    }
+    return existing.size;
+}
+
 /** Builds and writes one document's entries for one source. */
 export async function indexDocument(
     source: SearchSource,

@@ -15,6 +15,8 @@ export interface SearchRequest {
     lang?: string;
     scope?: SearchScope;
     sources?: string[];
+    /** With no `sources`: every source the scope may read except these. */
+    except?: string[];
     limit?: number;
 }
 
@@ -60,6 +62,9 @@ export interface SourceReindexResult {
 
 /** One source's block in `Settings/search_status`. */
 export interface SearchSourceStatus {
+    /** Written by every rebuild since F5 (docs/feature-flags-spec.md 6.4). */
+    label?: string;
+    scope?: SearchScope | null;
     collections: string[];
     documents: number;
     entries: number;
@@ -73,16 +78,59 @@ export interface SearchStatus {
     updatedAt?: unknown;
 }
 
-/**
- * The sources the admin UI knows how to name. The registry lives in the
- * functions code; this list only supplies labels for the settings page and
- * is safe to be behind.
- */
-export const KNOWN_SEARCH_SOURCES: { id: string; labelKey: string; scope: SearchScope }[] = [
-    { id: 'content', labelKey: 'admin.settings.search.source_content', scope: 'public' },
-    { id: 'content-drafts', labelKey: 'admin.settings.search.source_content_drafts', scope: 'admin' },
-    { id: 'products', labelKey: 'admin.settings.search.source_products', scope: 'public' },
-];
+/** Labels for core's own sources; an app's sources carry theirs in the status document. */
+export const CORE_SOURCE_LABEL_KEYS: Record<string, string> = {
+    content: 'admin.settings.search.source_content',
+    'content-drafts': 'admin.settings.search.source_content_drafts',
+};
+
+/** How a collection stands in Search settings (functions/src/search/adminCollections.ts). */
+export type SearchCollectionState = 'content' | 'searchable' | 'needs_setup' | 'code' | 'not_listed' | 'refused';
+
+export interface CollectionField {
+    path: string;
+    weight: 'high' | 'normal';
+}
+
+/** A collection's setup in `Settings/search_collections` (functions/src/search/collections.ts). */
+export interface CollectionSetup {
+    label?: string;
+    fields: CollectionField[];
+    title: string;
+    snippet?: string;
+    link?: string;
+    scope: SearchScope;
+}
+
+export interface SearchCollectionRow {
+    name: string;
+    state: SearchCollectionState;
+    sourceId?: string;
+    label?: string;
+    reason?: string;
+    setup?: CollectionSetup;
+}
+
+export interface SampledTextField {
+    path: string;
+    count: number;
+    example: string;
+}
+
+export interface CollectionSample {
+    fields: SampledTextField[];
+    samples: { id: string; values: Record<string, string> }[];
+}
+
+/** A collection's source id, as the functions make it. */
+export function collectionSourceId(collection: string): string {
+    return `collection-${collection}`;
+}
+
+/** Fills `{id}` and `{field}` in a link pattern, as the functions do. */
+export function fillLinkPattern(pattern: string, values: Record<string, string>, docId: string): string {
+    return pattern.replace(/\{([^}]+)\}/g, (_m, key: string) => encodeURIComponent(key === 'id' ? docId : values[key] ?? ''));
+}
 
 /** Splits a string into plain and highlighted segments from character ranges. */
 export function highlightSegments(

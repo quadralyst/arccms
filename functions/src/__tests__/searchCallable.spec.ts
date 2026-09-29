@@ -44,6 +44,12 @@ const index: FakeEntry[] = [];
 const issuedQueries: { filters: [string, string, unknown][] }[] = [];
 const getUser = vi.fn();
 
+// Search settings: no collection set up (docs/feature-flags-spec.md 6.4).
+vi.mock('../search/collections.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../search/collections.js')>()),
+    readCollectionSetups: vi.fn(async () => ({})),
+}));
+
 vi.mock('../init.js', () => ({
     db: {
         collection: () => {
@@ -156,6 +162,11 @@ describe('authorize', () => {
 });
 
 describe('candidateQueries', () => {
+    it('reads every readable source but the excepted ones, by source', () => {
+        const queries = candidateQueries(parseRequest({ q: 'x', lang: 'all', scope: 'admin', except: ['content'] }));
+        expect(queries.map(q => `${q.field}:${q.value}`)).toEqual(['source:content-drafts']);
+    });
+
     it('queries each readable scope for the language and for any-language', () => {
         const queries = candidateQueries(parseRequest({ q: 'x', lang: 'en', scope: 'public' }));
         expect(queries).toEqual([

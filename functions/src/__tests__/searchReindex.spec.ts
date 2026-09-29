@@ -19,13 +19,22 @@ const state = {
     settingsWrites: [] as unknown[],
 };
 
+// Search settings: no collection set up (docs/feature-flags-spec.md 6.4).
+vi.mock('../search/collections.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../search/collections.js')>()),
+    readCollectionSetups: vi.fn(async () => ({})),
+}));
+
 vi.mock('../init.js', () => ({
     db: {
         listCollections: async () => Object.keys(state.collections).map(id => ({ id })),
         batch: () => batch,
         collection: (name: string) => {
             if (name === 'Settings') {
-                return { doc: () => ({ set: async (data: unknown) => { state.settingsWrites.push(data); } }) };
+                return { doc: () => ({
+                    set: async (data: unknown) => { state.settingsWrites.push(data); },
+                    get: async () => ({ data: () => ({ sources: { content: {}, gone: {} } }) }),
+                }) };
             }
             if (name === 'ContentTypes') {
                 return { get: async () => ({ docs: [
@@ -125,10 +134,13 @@ describe('reindexSource', () => {
 describe('runReindex', () => {
     it('records per-source status in Settings/search_status', async () => {
         const results = await runReindex();
-        expect(results.map(r => r.source)).toEqual(['content', 'content-drafts', 'products']);
-        const write = state.settingsWrites[0] as Record<string, unknown>;
-        expect(write['sources.content']).toMatchObject({ documents: 1, entries: 1 });
-        expect(write['sources.content-drafts']).toMatchObject({ documents: 2, entries: 2 });
+        // Products is not searchable until the app adds it (docs/feature-flags-spec.md 6.1).
+        expect(results.map(r => r.source)).toEqual(['content', 'content-drafts']);
+        const write = state.settingsWrites[0] as { sources: Record<string, unknown> };
+        expect(write.sources['content']).toMatchObject({ documents: 1, entries: 1, scope: 'public' });
+        expect(write.sources['content-drafts']).toMatchObject({ documents: 2, entries: 2, scope: 'admin' });
+        // A source rebuilt before but gone now loses its status on a full rebuild.
+        expect(Object.keys((state.settingsWrites[1] as { sources: Record<string, unknown> }).sources)).toEqual(['gone']);
     });
 
     it('rejects an unknown source', async () => {

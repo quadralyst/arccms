@@ -1,5 +1,6 @@
 import { Injectable, runInInjectionContext } from '@angular/core';
-import { CollectionReference, collection, getDocs, getDoc, setDoc, deleteDoc, query, where, limit, doc, writeBatch, orderBy } from '@angular/fire/firestore';
+import { CollectionReference, collection, getDocs, getDoc, query, where, limit, doc, writeBatch, orderBy } from '@angular/fire/firestore';
+import { draftQueueEntry } from '../../../../../shared/services/search-queue';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IDraftContents, INextContentReference } from './draft-contents.model';
 import { IContentTranslation, pruneTranslation } from './content-translation.model';
@@ -81,7 +82,14 @@ export class DraftContentsService extends DbService<IDraftContents> {
         );
         // Not a merge write: pruned-away fields must actually disappear so that
         // clearing a field in the editor restores the default-language value.
-        await runInInjectionContext(this.injector, () => setDoc(ref, { ...pruned, lang: translation.lang }));
+        // The draft is queued for search with it (docs/feature-flags-spec.md 6.5).
+        await runInInjectionContext(this.injector, () => {
+            const batch = writeBatch(this.firestore);
+            batch.set(ref, { ...pruned, lang: translation.lang });
+            const entry = draftQueueEntry(this.firestore, ref.path);
+            if (entry) batch.set(entry.ref, entry.data);
+            return batch.commit();
+        });
     }
 
     /** Removes a language variant entirely, reverting it to the base content. */
@@ -89,7 +97,13 @@ export class DraftContentsService extends DbService<IDraftContents> {
         const ref = runInInjectionContext(this.injector, () =>
             doc(this.translationsRef(contentTypeSlug, docId), lang),
         );
-        await runInInjectionContext(this.injector, () => deleteDoc(ref));
+        await runInInjectionContext(this.injector, () => {
+            const batch = writeBatch(this.firestore);
+            batch.delete(ref);
+            const entry = draftQueueEntry(this.firestore, ref.path);
+            if (entry) batch.set(entry.ref, entry.data);
+            return batch.commit();
+        });
     }
 
     /**

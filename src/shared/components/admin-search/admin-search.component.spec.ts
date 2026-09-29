@@ -25,11 +25,12 @@ describe('AdminSearchComponent', () => {
         expect(fixture.nativeElement.querySelector('arc-search-box')).toBeNull();
     });
 
-    it('renders the admin search box with the drafts source, every language and the hotkey', async () => {
+    it('renders the admin search box over every source but published content, every language and the hotkey', async () => {
         const fixture = await render(true);
         const box = fixture.debugElement.children[0].componentInstance;
         expect(box.scope).toBe('admin');
-        expect(box.sources).toEqual(['content-drafts']);
+        expect(box.sources).toBeUndefined();
+        expect(box.except).toEqual(['content']);
         expect(box.lang).toBe('all');
         expect(box.hotkey).toBe(true);
         expect(box.resultsUrl).toBe('/admin/search');

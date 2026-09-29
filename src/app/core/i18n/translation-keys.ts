@@ -1133,22 +1133,53 @@ export type TranslationKey =
     | 'admin.settings.search.col_last_rebuilt'
     | 'admin.settings.search.col_scope'
     | 'admin.settings.search.col_source'
+    | 'admin.settings.search.collections_heading'
+    | 'admin.settings.search.collections_intro'
+    | 'admin.settings.search.copied'
+    | 'admin.settings.search.copy_line'
     | 'admin.settings.search.developer_note'
+    | 'admin.settings.search.editor_title'
     | 'admin.settings.search.entries_hint'
+    | 'admin.settings.search.fields_heading'
+    | 'admin.settings.search.fields_hint'
     | 'admin.settings.search.intro'
+    | 'admin.settings.search.label'
+    | 'admin.settings.search.link_hint'
+    | 'admin.settings.search.load_failed'
+    | 'admin.settings.search.needs_title'
     | 'admin.settings.search.never'
+    | 'admin.settings.search.no_fields'
+    | 'admin.settings.search.no_sources'
+    | 'admin.settings.search.none'
+    | 'admin.settings.search.preview_empty'
+    | 'admin.settings.search.preview_heading'
+    | 'admin.settings.search.public_warning'
     | 'admin.settings.search.rebuild'
     | 'admin.settings.search.rebuild_all'
     | 'admin.settings.search.rebuild_failed'
     | 'admin.settings.search.rebuilding'
     | 'admin.settings.search.rebuilt'
+    | 'admin.settings.search.result_heading'
+    | 'admin.settings.search.result_link'
+    | 'admin.settings.search.result_snippet'
+    | 'admin.settings.search.result_title'
+    | 'admin.settings.search.save_rebuild'
     | 'admin.settings.search.scope_admin'
     | 'admin.settings.search.scope_authenticated'
     | 'admin.settings.search.scope_public'
+    | 'admin.settings.search.set_up'
     | 'admin.settings.search.source_content'
     | 'admin.settings.search.source_content_drafts'
-    | 'admin.settings.search.source_products'
+    | 'admin.settings.search.sources_heading'
+    | 'admin.settings.search.state_code'
+    | 'admin.settings.search.state_needs_setup'
+    | 'admin.settings.search.state_not_listed'
+    | 'admin.settings.search.state_refused'
+    | 'admin.settings.search.state_searchable'
     | 'admin.settings.search.title'
+    | 'admin.settings.search.weight_high'
+    | 'admin.settings.search.weight_normal'
+    | 'admin.settings.search.who_can_search'
     | 'admin.settings.site_usage.accept_placeholder'
     | 'admin.settings.site_usage.accept_text'
     | 'admin.settings.site_usage.accept_text_required'
@@ -2552,22 +2583,53 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.search.col_last_rebuilt',
     'admin.settings.search.col_scope',
     'admin.settings.search.col_source',
+    'admin.settings.search.collections_heading',
+    'admin.settings.search.collections_intro',
+    'admin.settings.search.copied',
+    'admin.settings.search.copy_line',
     'admin.settings.search.developer_note',
+    'admin.settings.search.editor_title',
     'admin.settings.search.entries_hint',
+    'admin.settings.search.fields_heading',
+    'admin.settings.search.fields_hint',
     'admin.settings.search.intro',
+    'admin.settings.search.label',
+    'admin.settings.search.link_hint',
+    'admin.settings.search.load_failed',
+    'admin.settings.search.needs_title',
     'admin.settings.search.never',
+    'admin.settings.search.no_fields',
+    'admin.settings.search.no_sources',
+    'admin.settings.search.none',
+    'admin.settings.search.preview_empty',
+    'admin.settings.search.preview_heading',
+    'admin.settings.search.public_warning',
     'admin.settings.search.rebuild',
     'admin.settings.search.rebuild_all',
     'admin.settings.search.rebuild_failed',
     'admin.settings.search.rebuilding',
     'admin.settings.search.rebuilt',
+    'admin.settings.search.result_heading',
+    'admin.settings.search.result_link',
+    'admin.settings.search.result_snippet',
+    'admin.settings.search.result_title',
+    'admin.settings.search.save_rebuild',
     'admin.settings.search.scope_admin',
     'admin.settings.search.scope_authenticated',
     'admin.settings.search.scope_public',
+    'admin.settings.search.set_up',
     'admin.settings.search.source_content',
     'admin.settings.search.source_content_drafts',
-    'admin.settings.search.source_products',
+    'admin.settings.search.sources_heading',
+    'admin.settings.search.state_code',
+    'admin.settings.search.state_needs_setup',
+    'admin.settings.search.state_not_listed',
+    'admin.settings.search.state_refused',
+    'admin.settings.search.state_searchable',
     'admin.settings.search.title',
+    'admin.settings.search.weight_high',
+    'admin.settings.search.weight_normal',
+    'admin.settings.search.who_can_search',
     'admin.settings.site_usage.accept_placeholder',
     'admin.settings.site_usage.accept_text',
     'admin.settings.site_usage.accept_text_required',

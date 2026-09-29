@@ -10,10 +10,10 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { requireAdmin } from './auth.js';
-import { SEARCH_SOURCES, findSource } from './registry.js';
+import { findSource, refreshSearchSources, searchSources } from './registry.js';
 import { buildSearchContext, clearSearchContextCache } from './context.js';
 import { buildEntries } from './writer.js';
 import {
@@ -133,9 +133,15 @@ export async function reindexSource(
 }
 
 async function recordStatus(results: SourceReindexResult[]): Promise<void> {
-    const update: Record<string, unknown> = {};
+    // A nested object with merge, not dotted keys: set() would store those as
+    // literal field names. The label and scope let Search settings show sources
+    // it has no code for (an app's own, docs/feature-flags-spec.md 6.4).
+    const sources: Record<string, unknown> = {};
     for (const result of results) {
-        update[`sources.${result.source}`] = {
+        const source = findSource(result.source);
+        sources[result.source] = {
+            label: source?.label || result.source,
+            scope: source?.scope ?? null,
             collections: result.collections,
             documents: result.documents,
             entries: result.entries,
@@ -144,16 +150,16 @@ async function recordStatus(results: SourceReindexResult[]): Promise<void> {
             reindexedAt: Timestamp.now(),
         };
     }
-    update['updatedAt'] = Timestamp.now();
-    await db.collection('Settings').doc(SEARCH_STATUS_DOC).set(update, { merge: true });
+    await db.collection('Settings').doc(SEARCH_STATUS_DOC).set({ sources, updatedAt: Timestamp.now() }, { merge: true });
 }
 
 /** Rebuilds the index and records the outcome. Shared with the publish queue. */
 export async function runReindex(input: ReindexRequest = {}): Promise<SourceReindexResult[]> {
     clearSearchContextCache();
+    await refreshSearchSources(true);
     const targets = input.source
         ? [findSource(input.source)].filter((s): s is SearchSource => !!s)
-        : [...SEARCH_SOURCES];
+        : searchSources();
     if (input.source && targets.length === 0) {
         throw new HttpsError('not-found', `Unknown search source: ${input.source}`);
     }
@@ -163,7 +169,26 @@ export async function runReindex(input: ReindexRequest = {}): Promise<SourceRein
         results.push(await reindexSource(source, input.collection));
     }
     await recordStatus(results);
+    if (!input.source) await removeGoneSources(targets.map(source => source.id));
     return results;
+}
+
+/**
+ * A full rebuild leaves the index holding exactly today's sources: entries of a
+ * source rebuilt before but gone now (a collection taken out of
+ * search-sources.ts, a feature turned off) are deleted, and so is its status.
+ */
+async function removeGoneSources(current: string[]): Promise<void> {
+    const statusRef = db.collection('Settings').doc(SEARCH_STATUS_DOC);
+    const known = Object.keys(((await statusRef.get()).data()?.['sources'] as Record<string, unknown>) ?? {});
+    const gone = known.filter(id => !current.includes(id));
+    for (const id of gone) {
+        const entries = await db.collection(SEARCH_INDEX_COLLECTION).where('source', '==', id).get();
+        await commitInChunks(entries.docs.map(doc => (batch: FirebaseFirestore.WriteBatch) => batch.delete(doc.ref)));
+    }
+    if (gone.length) {
+        await statusRef.set({ sources: Object.fromEntries(gone.map(id => [id, FieldValue.delete()])) }, { merge: true });
+    }
 }
 
 export const reindexSearch = onCall({ timeoutSeconds: 540, memory: '512MiB' }, async (request) => {

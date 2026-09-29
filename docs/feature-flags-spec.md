@@ -217,25 +217,26 @@ Everything below needs `search` on.
 | a listed collection | one line each in `search-sources.ts` | chosen in Search settings | listed **and** set up in Search settings | Search settings | its own trigger |
 
 Nothing else is indexed. `Products` is indexed today; after this change it is not,
-unless the app lists it (core keeps a suggested setup for it, 6.4). Nothing in the UI
-searches products today, so nothing visible changes.
+unless the app lists the ready-made `productsSource` (6.2). Nothing in the UI searches
+products today, so nothing visible changes.
 
 ### 6.2 The custom file
 
-`functions/src/custom/search-sources.ts` ships empty. It only names collections:
+`functions/src/custom/search-sources.ts` ships empty:
 
 ```ts
-export const SEARCH_COLLECTIONS: string[] = [
-  'Products',
-  'Lessons',
-];
+export const SEARCH_COLLECTIONS: string[] = ['Lessons'];              // set up in Search settings
+export const CUSTOM_SEARCH_SOURCES: SearchSource[] = [productsSource]; // written in code
 ```
 
 Adding or removing a name needs a functions deploy (it adds or removes a trigger).
-Everything else about the collection is set up in Search settings. Developers who
-need what the settings cannot express (languages, variants, custom ranking) can
-still export a full `SearchSource` from the same file as `CUSTOM_SEARCH_SOURCES`
-(docs/search-developer-guide.md); its collection gets a trigger the same way.
+Everything else about a named collection is set up in Search settings. A source
+written in code covers what the settings cannot express (leaving documents out,
+a computed badge, languages, ranking); its collection gets a trigger the same way,
+and it shows in Search settings as "Set up in code". **Products is such a source**
+(it leaves inactive products out and shows the price), ready-made in
+`functions/src/search/sources/products.ts`: an app lists `productsSource` to
+make products searchable.
 
 ### 6.3 High-volume collections are refused
 
@@ -276,12 +277,16 @@ Setting up a collection:
 The setup lives in `Settings/search_collections`, one entry per collection:
 `{ label, fields: [{ path, weight }], title, snippet?, link?, scope }`. The trigger and
 the rebuild read it once per run, cached, the way the localization settings are.
-Core ships a suggested setup for `Products` (name high, description normal, public),
-offered when that collection is listed and not yet set up.
-
 The admin search box and page stop naming `content-drafts` and search every source an
-admin may read, labelled by the setup's `label`; the box hides when there is none.
-The hard-coded `KNOWN_SEARCH_SOURCES` list goes.
+admin may read except published content (whose drafts they already find), through a
+new `except` option on the search callable; the box hides when there is nothing to
+search. The hard-coded `KNOWN_SEARCH_SOURCES` list goes: the status document now
+carries each source's label and scope. The public search box and `/search` show with
+`search` and `content` both on; an app with other public sources places its own box.
+
+A full rebuild leaves the index holding exactly today's sources: entries of a source
+rebuilt before but gone now (a collection taken out of the file, a feature turned
+off) are deleted with its status.
 
 ### 6.5 Which writes start a search function
 
@@ -302,12 +307,15 @@ EmailLogs, SmsLogs, AppEvents and the rest), checks the name and stops. A second
 draft translation adds a small document to `_search_queue`
 (`{ collection, docId, removed }`) **in the same batch**, so a draft cannot be saved
 without its queue entry. The trigger indexes the draft (with its translations) and
-deletes the queue entry. Writers found so far, confirmed in F5:
-`draft-contents.service` (save, delete, translations), `collection-ref-sync.service`,
-`onboarding-setup.service` (seeding), the content type editor, and data import. All
-of them go through one helper, and a test fails if a file writes to a drafts
-collection without it. Functions that write drafts call the index directly. The
-rules allow admins to create queue documents and nobody to read them.
+deletes the queue entry. The shared database service's add, update,
+batch add and delete, and the translation save and delete, write the entry through
+one helper (`src/shared/services/search-queue.ts`); a test checks each of them. The
+other browser writes to drafts (next-content links, collection reference sync) change
+no indexed field. Data import does not queue: rebuild after an import. Functions that
+write drafts call the index directly: publishing re-indexes the draft after stamping
+it, and deleting a content type removes its collections' entries. The rules let staff
+write an entry holding only `collection` (a drafts collection), `docId` and `at`, and
+nobody read it.
 
 **Result:** a search function starts only for a write to a listed collection, a
 draft save, or a publish. A write to logs, users, settings or anything else never
@@ -355,7 +363,7 @@ the whole suite. A spec about a particular choice mocks the file itself.
 | **F2** Admin surfaces | Sidebar (and its listeners), settings tabs and fields, dashboard widgets, automations editor, composer categories, data export list | With `off: ['content', 'forms', 'audience', 'email-marketing', 'payments']` the admin shows only core; browser check at localhost:5173 |
 | **F3** Routes and public side | `FEATURE_URLS` and the feature-off route, `whenOn` for parameter routes, `featureGuard` on the content pages, member dashboard split (`/user/dashboard` blank, `/user/payments`) with the `user-dashboard.ts` plug point, form service, phone sign-in, public search, related items, onboarding seeding | A disabled feature's URLs give not-found (built 2026-09-29, checked in the browser) |
 | **F4** Functions | Split `all.ts`, `features/<id>.ts`, generator and prebuild, the crossings in 5.3, callable probe from the build | `lib/index.js` with those features off has none of their functions; all tests pass (built 2026-09-29) |
-| **F5** Search | Section 6: `search-sources.ts` and per-collection triggers, the draft search queue and its writers, removal of the every-write and translations triggers, high-volume refusal, the new Search settings screen (collection list, field picker, preview, rebuild), `Settings/search_collections`, admin search from every readable source, search developer guide update | A collection added to the file and set up in Search settings is indexed and found in admin search; a write to EmailLogs starts no function (checked in the Cloud Functions logs on the dev project); a draft save updates the index; naming `EmailLogs` fails the build |
+| **F5** Search | Section 6: `search-sources.ts` and per-collection triggers, the draft search queue and its writers, removal of the every-write and translations triggers, high-volume refusal, the new Search settings screen (collection list, field picker, preview, rebuild), `Settings/search_collections`, admin search from every readable source, search developer guide update | Built 2026-09-29 and unit tested. On the dev project after the F6 deploy: a collection added to the file and set up in Search settings is indexed and found in admin search; a write to EmailLogs starts no function; a draft save updates the index. The rules tests need Java 21 to run |
 | **F6** Deploy tooling | Section 7 | A full functions deploy on the dev project with features off deletes exactly the expected functions and the probe passes; turning them back on recreates them |
 | **F7** Coverage test and guide | Section 8 test; `docs/features.md` (how to choose, what each feature owns, what turning one off does to URLs and data) | Test fails on an unclaimed route, tab, nav item or function |
 
@@ -370,7 +378,7 @@ deploy on the dev project to check.
   (F-D3), and the deploy lists them and asks first.
 - **Webhooks and links** of a removed feature stop working (section 7).
 - **Products drop out of the index** on installs that relied on it, until the app
-  lists `Products` and accepts the suggested setup. Nothing in the UI searches
+  lists the ready-made `productsSource` (6.2). Nothing in the UI searches
   products today.
 - **The first full deploy deletes `onAnyDocumentWritten` and `onTranslationWritten`
   on every install.** Drafts saved between that deploy and the new frontend going

@@ -41,7 +41,7 @@ describe('AdminSearchPage', () => {
     });
 
     it('searches the drafts index across every language for the q parameter', () => {
-        expect(searchMock.search).toHaveBeenCalledWith({ q: 'kar', lang: 'all', scope: 'admin', sources: ['content-drafts'], limit: 20 });
+        expect(searchMock.search).toHaveBeenCalledWith({ q: 'kar', lang: 'all', scope: 'admin', except: ['content'], limit: 20 });
         expect(component.results()).toHaveLength(1);
         expect(component.tookMs()).toBe(12);
     });

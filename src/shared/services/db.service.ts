@@ -55,6 +55,7 @@ import {
 import { QueryParams } from '../models';
 import { IBaseModel, OmitCommonFields } from '../models/base-model';
 import { GlobalService } from './global.service';
+import { draftQueueEntry } from './search-queue';
 
 export const COLLECTION_NAME = new InjectionToken<string>('CollectionName');
 
@@ -354,6 +355,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                     modifiedAt: now,
                 };
                 transaction.update(docRef, updateData);
+                this.queueForSearch(transaction, docRef.path);
                 return docRef.id;
             })),
         ).pipe(
@@ -383,6 +385,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                     throw new Error('Document does not exist!');
                 }
                 transaction.update(docRef, processedData);
+                this.queueForSearch(transaction, docRef.path);
             })),
         );
     }
@@ -396,11 +399,13 @@ export class DbService<T extends IBaseModel> extends GlobalService {
             return of([]);
         }
 
-        const chunkSize = 500; // Firestore writeBatch limit
         const allIds: string[] = [];
 
         const commitChunks = async (): Promise<string[]> => {
             const targetCollection = this.getCollectionRef(collectionSuffix);
+            // Firestore's writeBatch limit is 500; a draft also writes its search queue entry.
+            const queued = !!runInInjectionContext(this.injector, () => draftQueueEntry(this.firestore, `${targetCollection.path}/x`));
+            const chunkSize = queued ? 250 : 500;
             for (let i = 0; i < items.length; i += chunkSize) {
                 const chunk = items.slice(i, i + chunkSize);
                 const batch = runInInjectionContext(this.injector, () => writeBatch(this.firestore));
@@ -421,6 +426,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                         ...processedData,
                         id: newDocRef.id,
                     } as WithFieldValue<T>);
+                    this.queueForSearch(batch, newDocRef.path);
                 }
 
                 await batch.commit();
@@ -447,6 +453,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                     throw new Error('Document does not exist!');
                 }
                 transaction.delete(docRef);
+                this.queueForSearch(transaction, docRef.path);
             })),
         ).pipe(
             catchError((error) => {
@@ -454,6 +461,15 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                 return throwError(() => error);
             }),
         );
+    }
+
+    /**
+     * A draft write also queues the draft for search, in the same batch or
+     * transaction (docs/feature-flags-spec.md 6.5); any other write, nothing.
+     */
+    private queueForSearch(writer: { set: (ref: any, data: any) => unknown }, path: string): void {
+        const entry = runInInjectionContext(this.injector, () => draftQueueEntry(this.firestore, path));
+        if (entry) writer.set(entry.ref, entry.data);
     }
 
     private processDocumentReferences(data: any): any {

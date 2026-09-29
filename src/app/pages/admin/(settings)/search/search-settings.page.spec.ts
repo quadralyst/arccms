@@ -3,30 +3,55 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Firestore } from '@angular/fire/firestore';
 import { SearchSettingsPage } from './search-settings.page';
 import { SearchService } from '../../../../core/services/search.service';
+import type { SearchCollectionRow } from '../../../../../shared/models/search.model';
 
-const { getDocMock } = vi.hoisted(() => ({ getDocMock: vi.fn() }));
+const { getDocMock, setDocMock } = vi.hoisted(() => ({ getDocMock: vi.fn(), setDocMock: vi.fn() }));
 vi.mock('@angular/fire/firestore', async () => {
     const actual = await vi.importActual<typeof import('@angular/fire/firestore')>('@angular/fire/firestore');
-    return { ...actual, doc: vi.fn(() => ({})), getDoc: (...args: unknown[]) => getDocMock(...args) };
+    return {
+        ...actual,
+        doc: vi.fn((_db: unknown, _c: string, id: string) => ({ id })),
+        getDoc: (...args: unknown[]) => getDocMock(...args),
+        setDoc: (...args: unknown[]) => setDocMock(...args),
+    };
 });
+
+const LESSONS_SETUP = { label: 'Lessons', fields: [{ path: 'title', weight: 'high' as const }], title: 'title', scope: 'admin' as const };
+
+const COLLECTIONS: SearchCollectionRow[] = [
+    { name: 'arc_blog_drafts', state: 'content', sourceId: 'content-drafts' },
+    { name: 'EmailLogs', state: 'refused', reason: 'one document per email sent' },
+    { name: 'Lessons', state: 'searchable', sourceId: 'collection-Lessons', label: 'Lessons', setup: LESSONS_SETUP },
+    { name: 'Products', state: 'code', sourceId: 'products', label: 'Products' },
+    { name: 'Quizzes', state: 'needs_setup', sourceId: 'collection-Quizzes' },
+    { name: 'users', state: 'not_listed' },
+];
 
 describe('SearchSettingsPage', () => {
     let fixture: ComponentFixture<SearchSettingsPage>;
     let component: SearchSettingsPage;
-    let searchMock: { reindex: ReturnType<typeof vi.fn> };
+    let searchMock: { reindex: ReturnType<typeof vi.fn>; listCollections: ReturnType<typeof vi.fn>; sampleFields: ReturnType<typeof vi.fn> };
 
     beforeEach(async () => {
-        getDocMock.mockResolvedValue({
-            exists: () => true,
-            data: () => ({
-                sources: {
-                    content: { documents: 3, entries: 4, reindexedAt: { seconds: 1_700_000_000 } },
-                    directory: { documents: 1, entries: 1 },
-                },
-            }),
-        });
+        getDocMock.mockImplementation(async (ref: { id: string }) => ref.id === 'search_status'
+            ? {
+                exists: () => true,
+                data: () => ({
+                    sources: {
+                        content: { documents: 3, entries: 4, reindexedAt: { seconds: 1_700_000_000 } },
+                        'collection-Lessons': { label: 'Lessons', scope: 'admin', documents: 2, entries: 2 },
+                    },
+                }),
+            }
+            : { exists: () => true, data: () => ({ collections: { Lessons: LESSONS_SETUP } }) });
+        setDocMock.mockReset().mockResolvedValue(undefined);
         searchMock = {
             reindex: vi.fn().mockResolvedValue([{ source: 'content', documents: 3, entries: 4, removed: 0, collections: [], durationMs: 5 }]),
+            listCollections: vi.fn().mockResolvedValue(COLLECTIONS),
+            sampleFields: vi.fn().mockResolvedValue({
+                fields: [{ path: 'name', count: 3, example: 'Fractions' }, { path: 'summary', count: 2, example: 'Halves' }, { path: 'slug', count: 3, example: 'fractions' }],
+                samples: [{ id: 'q1', values: { name: 'Fractions', summary: 'Halves', slug: 'fractions' } }],
+            }),
         };
 
         await TestBed.configureTestingModule({
@@ -43,28 +68,72 @@ describe('SearchSettingsPage', () => {
         fixture.detectChanges();
     });
 
-    it('lists the known sources with their status and unknown ones from the status doc', () => {
-        const content = component.rows().find(r => r.id === 'content');
-        expect(content?.status?.entries).toBe(4);
-        expect(component.rows().find(r => r.id === 'content-drafts')?.status).toBeNull();
-        expect(component.unknownRows().map(r => r.id)).toEqual(['directory']);
-        expect(component.reindexedAt(content!.status)?.getTime()).toBe(1_700_000_000_000);
+    it('lists content, then the set-up and code sources, with their status', () => {
+        expect(component.sourceRows().map(r => r.id)).toEqual(['content', 'content-drafts', 'collection-Lessons', 'products']);
+        const content = component.sourceRows()[0];
+        expect(content.status?.entries).toBe(4);
+        expect(component.reindexedAt(content.status)?.getTime()).toBe(1_700_000_000_000);
+        expect(component.sourceRows()[2]).toMatchObject({ label: 'Lessons', scope: 'admin', collection: 'Lessons' });
+        expect(component.sourceRows()[3].collection).toBeUndefined();
     });
 
-    it('rebuilds one source and reports the counts', async () => {
+    it("lists every collection but content's own, the ones to act on first", () => {
+        expect(component.collectionRows().map(r => r.name)).toEqual(['Quizzes', 'Lessons', 'Products', 'users', 'EmailLogs']);
+        const text = fixture.nativeElement.textContent;
+        expect(text).toContain('Never searchable');
+        expect(text).toContain('one document per email sent');
+    });
+
+    it('prefills a new setup from the sampled fields and previews a real document', async () => {
+        await component.openEditor('Quizzes');
+        const ed = component.editor()!;
+        expect(ed.fields.map(f => [f.path, f.included, f.weight])).toEqual([
+            ['name', true, 'high'], ['summary', true, 'normal'], ['slug', false, 'normal'],
+        ]);
+        expect(ed.title).toBe('name');
+
+        component.patch({ snippet: 'summary', link: '/quizzes/{slug}' });
+        expect(component.preview()).toEqual({ title: 'Fractions', snippet: 'Halves', badge: 'Quizzes', link: '/quizzes/fractions' });
+    });
+
+    it('saves the setup whole, then rebuilds that collection', async () => {
+        await component.openEditor('Quizzes');
+        component.setField(1, { included: false });
+        await component.save();
+
+        const written = setDocMock.mock.calls[0][1] as { collections: Record<string, unknown> };
+        expect(written.collections['Lessons']).toEqual(LESSONS_SETUP);
+        expect(written.collections['Quizzes']).toEqual({ fields: [{ path: 'name', weight: 'high' }], title: 'name', scope: 'admin' });
+        expect(searchMock.reindex).toHaveBeenCalledWith({ source: 'collection-Quizzes' });
+        expect(component.editor()).toBeNull();
+    });
+
+    it('refuses a setup with no field or no title', async () => {
+        await component.openEditor('Quizzes');
+        component.patch({ title: '' });
+        await component.save();
+        expect(setDocMock).not.toHaveBeenCalled();
+        expect(component.editorError()).toBeTruthy();
+    });
+
+    it('opens an existing setup as saved', async () => {
+        await component.openEditor('Lessons');
+        const ed = component.editor()!;
+        // `title` was saved but is not in this sample: it stays, ticked.
+        expect(ed.fields.find(f => f.path === 'title')).toMatchObject({ included: true, weight: 'high' });
+        expect(ed.fields.find(f => f.path === 'name')?.included).toBe(false);
+        expect(ed.scope).toBe('admin');
+    });
+
+    it('rebuilds one source or everything, and surfaces failures', async () => {
         await component.rebuild('content');
         expect(searchMock.reindex).toHaveBeenCalledWith({ source: 'content' });
         expect(component.message()).toContain('4');
-        expect(component.busy()).toBeNull();
-    });
-
-    it('rebuilds everything with an empty request and surfaces failures', async () => {
-        await component.rebuild();
-        expect(searchMock.reindex).toHaveBeenCalledWith({});
 
         searchMock.reindex.mockRejectedValueOnce(new Error('nope'));
         const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
         await component.rebuild();
+        expect(searchMock.reindex).toHaveBeenCalledWith({});
         expect(component.error()).toBeTruthy();
         spy.mockRestore();
     });

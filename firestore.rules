@@ -315,6 +315,18 @@ service cloud.firestore {
       allow write: if isEditor();
     }
 
+    // Draft search queue (docs/feature-flags-spec.md 6.5): the editor writes an
+    // entry with each draft save, onSearchQueued indexes the draft and deletes it.
+    // Only its two fields, so it cannot be used to store anything else.
+    match /_search_queue/{docId} {
+      allow read: if false;       // Cloud Functions use Admin SDK (bypasses rules)
+      allow write: if isEditor()
+                   && request.resource.data.keys().hasOnly(['collection', 'docId', 'at'])
+                   && request.resource.data.collection is string
+                   && request.resource.data.collection.matches('arc_.*_drafts')
+                   && request.resource.data.docId is string;
+    }
+
     // ============================================================
     // 4. ADMIN-ONLY COLLECTIONS
     // ============================================================

@@ -8,7 +8,6 @@ vi.mock('../init.js', () => ({ db: {}, owner: {} }));
 
 import { buildEntries } from '../search/writer.js';
 import { productsSource } from '../search/sources/products.js';
-import { findSources } from '../search/registry.js';
 import type { SearchContext } from '../search/source.js';
 
 const ctx: SearchContext = {
@@ -19,10 +18,6 @@ const ctx: SearchContext = {
 };
 
 describe('productsSource', () => {
-    it('is registered for the Products collection', () => {
-        expect(findSources('Products').map(s => s.id)).toEqual(['products']);
-    });
-
     it('indexes name, description and features, and shows the price as the badge', async () => {
         const [entry] = await buildEntries(productsSource, {
             name: 'Gold Plan', description: 'Everything in Plus and more', features: ['Priority support', 'Unlimited pages'],

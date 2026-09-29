@@ -16,7 +16,7 @@
 import { onCall, HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import { db } from '../init.js';
 import { isAdminCaller } from './auth.js';
-import { SEARCH_SOURCES, findSource } from './registry.js';
+import { findSource, refreshSearchSources, searchSources } from './registry.js';
 import { queryTokens } from './tokenizer.js';
 import { rank, type Highlights } from './ranking.js';
 import { fallbackTokenSets } from './fallback.js';
@@ -47,6 +47,11 @@ export interface SearchRequest {
     lang?: string;
     scope?: SearchScope;
     sources?: string[];
+    /**
+     * With no `sources`: every source the scope may read except these. The admin
+     * search box leaves out published content, whose drafts it already finds.
+     */
+    except?: string[];
     limit?: number;
 }
 
@@ -75,6 +80,7 @@ interface ParsedRequest {
     lang: string;
     scope: SearchScope;
     sources: SearchSource[] | null;
+    except: string[];
     limit: number;
 }
 
@@ -118,6 +124,14 @@ export function parseRequest(data: unknown): ParsedRequest {
         });
     }
 
+    let except: string[] = [];
+    if (raw.except !== undefined) {
+        if (!Array.isArray(raw.except) || raw.except.some(id => typeof id !== 'string')) {
+            throw new HttpsError('invalid-argument', 'except must be a list of source ids.');
+        }
+        except = raw.except;
+    }
+
     let limit = DEFAULT_LIMIT;
     if (raw.limit !== undefined) {
         if (typeof raw.limit !== 'number' || !Number.isFinite(raw.limit)) {
@@ -126,7 +140,7 @@ export function parseRequest(data: unknown): ParsedRequest {
         limit = Math.max(1, Math.min(MAX_LIMIT, Math.floor(raw.limit)));
     }
 
-    return { q, lang, scope, sources, limit };
+    return { q, lang, scope, sources, except, limit };
 }
 
 /**
@@ -162,10 +176,16 @@ export function candidateQueries(parsed: ParsedRequest): CandidateQuery[] {
     const langs = parsed.lang === ANY_LANGUAGE || parsed.lang === ALL_LANGUAGES
         ? [parsed.lang]
         : [parsed.lang, ANY_LANGUAGE];
+    const readable = readableScopes(parsed.scope);
     const targets: { field: 'scope' | 'source'; value: string }[] = parsed.sources
         ? parsed.sources.map(source => ({ field: 'source', value: source.id }))
+        : parsed.except.length
+            // By source rather than by scope, so the excepted ones are never read.
+            ? searchSources()
+                .filter(source => readable.includes(source.scope) && !parsed.except.includes(source.id))
+                .map(source => ({ field: 'source' as const, value: source.id }))
         : readableScopes(parsed.scope)
-            .filter(scope => SEARCH_SOURCES.some(source => source.scope === scope))
+            .filter(scope => searchSources().some(source => source.scope === scope))
             .map(scope => ({ field: 'scope', value: scope }));
     return targets.flatMap(target => langs.map(lang => ({ ...target, lang })));
 }
@@ -231,6 +251,7 @@ export async function runSearch(parsed: ParsedRequest): Promise<SearchResponse> 
 }
 
 export const search = onCall({ cors: true }, async (request) => {
+    await refreshSearchSources();
     const parsed = parseRequest(request.data);
     await authorize(request, parsed);
     return runSearch(parsed);

@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { FEATURE_IDS } from '../feature-flags.js';
-import { FEATURE_IDS as FRONTEND_FEATURE_IDS } from '../../../src/app/core/features/feature-registry';
 // @ts-expect-error plain JavaScript script, no types
 import { renderFeatureFiles } from '../../../scripts/arc-features.mjs';
 
@@ -17,12 +16,15 @@ const exportedModules = (source: string) => [...source.matchAll(/from '\.\.?\/([
 
 describe('function features', () => {
     it('know the same features as the frontend', () => {
-        expect([...FEATURE_IDS]).toEqual([...FRONTEND_FEATURE_IDS]);
+        // Read as text: importing a file outside functions/src would move the build output.
+        const registry = readFileSync(resolve(SRC, '../../src/app/core/features/feature-registry.ts'), 'utf8');
+        const list = registry.match(/export const FEATURE_IDS = \[([^\]]*)\]/)?.[1] ?? '';
+        expect([...list.matchAll(/'([^']+)'/g)].map((m) => m[1])).toEqual([...FEATURE_IDS]);
     });
 
-    it('keep one file per feature, named after it', () => {
+    it('keep one file per feature, or per set of features joined with +, named after them', () => {
         for (const file of readdirSync(resolve(SRC, 'features'))) {
-            expect(FEATURE_IDS).toContain(file.replace(/\.ts$/, ''));
+            for (const id of file.replace(/\.ts$/, '').split('+')) expect(FEATURE_IDS).toContain(id);
         }
     });
 
@@ -43,15 +45,18 @@ describe('function features', () => {
 });
 
 describe('arc-features generator', () => {
-    it('lists the features that are on, and exports the functions of those that have any', () => {
-        const { enabledFile, exportsFile } = renderFeatureFiles(['content', 'data', 'pwa'], (id: string) => id !== 'data');
+    it('lists the features that are on, and exports the files whose features are all on', () => {
+        const files = ['content', 'pwa', 'search', 'search+content'];
+        const { enabledFile, exportsFile } = renderFeatureFiles(['content', 'data', 'pwa'], files);
         expect(enabledFile).toContain('export const ENABLED_FEATURES: readonly string[] = ["content","data","pwa"];');
         expect(exportsFile).toContain("export * from './features/content.js';\nexport * from './features/pwa.js';");
-        expect(exportsFile).not.toContain('data');
+        expect(exportsFile).not.toContain('search');
+
+        expect(renderFeatureFiles(['content', 'search'], files).exportsFile).toContain("export * from './features/search+content.js';");
     });
 
     it('writes a module even with no optional features', () => {
-        const { enabledFile, exportsFile } = renderFeatureFiles([], () => true);
+        const { enabledFile, exportsFile } = renderFeatureFiles([], ['content']);
         expect(enabledFile).toContain('= [];');
         expect(exportsFile).toContain('export {};');
     });

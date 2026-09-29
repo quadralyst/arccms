@@ -8,6 +8,7 @@
  * Never throws: a search failure means no Related block, not a failed publish.
  */
 import { parseRequest, runSearch, type SearchResult } from '../search/search.js';
+import { refreshSearchSources } from '../search/registry.js';
 import { CONTENT_SOURCE_ID } from '../search/sources/content.js';
 import { tokenize } from '../search/tokenizer.js';
 import { isFeatureOn } from '../feature-flags.js';
@@ -51,6 +52,7 @@ export async function findRelated(input: {
     // Related items come from search; none without it (docs/feature-flags-spec.md).
     if (!q || !isFeatureOn('search')) return [];
     try {
+        await refreshSearchSources();
         const parsed = parseRequest({ q, lang: input.lang, scope: 'public', sources: [CONTENT_SOURCE_ID], limit: RELATED_LIMIT + 1 });
         const response = await runSearch(parsed);
         return pickRelated(response.results, { contentType: input.contentType, urlSlug: input.urlSlug });

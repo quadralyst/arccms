@@ -28,7 +28,12 @@ import { SearchResult, highlightSegments } from '../../models/search.model';
             <ol class="arc-results">
                 @for (result of results; track result.source + result.docId + result.lang) {
                     <li class="arc-results__item">
-                        @if (navigation === 'router') {
+                        @if (!result.link) {
+                            <!-- A collection set up without a link: shown, not opened. -->
+                            <span class="arc-results__title">
+                                <ng-container *ngTemplateOutlet="title; context: { $implicit: result }"></ng-container>
+                            </span>
+                        } @else if (navigation === 'router') {
                             <a class="arc-results__title" [routerLink]="result.link" (click)="picked.emit(result)">
                                 <ng-container *ngTemplateOutlet="title; context: { $implicit: result }"></ng-container>
                             </a>

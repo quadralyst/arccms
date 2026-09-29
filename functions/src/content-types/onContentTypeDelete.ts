@@ -2,6 +2,8 @@ import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
 import { arcDocument } from '../arc-config.js';
+import { isFeatureOn } from '../feature-flags.js';
+import { removeCollectionEntries } from '../search/writer.js';
 
 const BATCH_LIMIT = 400;
 
@@ -17,6 +19,14 @@ export const onContentTypeDeleted = onDocumentDeleted(
             deleteCollection(getDraftCollectionName(slug)),
             deleteCollection(`Tags_${slug}`),
         ]);
+        // Nothing watches these collections' writes (docs/feature-flags-spec.md 6.5),
+        // so their search entries go here.
+        if (isFeatureOn('search')) {
+            await Promise.all([
+                removeCollectionEntries(getPublishedCollectionName(slug)),
+                removeCollectionEntries(getDraftCollectionName(slug)),
+            ]);
+        }
     }
 );
 

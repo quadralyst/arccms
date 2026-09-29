@@ -2,8 +2,10 @@
  * Writes the functions' view of the app's features (docs/feature-flags-spec.md):
  *
  *   functions/src/enabled-features.gen.ts   the features that are on, for runtime checks
- *   functions/src/feature-exports.gen.ts    `export *` of functions/src/features/<id>.ts
- *                                           for each of them, which all.ts re-exports
+ *   functions/src/feature-exports.gen.ts    `export *` of each functions/src/features file
+ *                                           whose features are all on, which all.ts
+ *                                           re-exports: `forms.ts` needs forms,
+ *                                           `search+content.ts` needs both
  *
  * The functions cannot import src/custom/features.ts (they compile only
  * functions/src), so this runs before every functions build (the `prebuild`
@@ -12,7 +14,7 @@
  *
  * Needs Node 22.18 or later, which loads the TypeScript files directly.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -25,11 +27,18 @@ const EXPORTS_OUT = resolve(FUNCTIONS_SRC, 'feature-exports.gen.ts');
 
 const HEADER = '// Generated from src/custom/features.ts by scripts/arc-features.mjs. Do not edit.\n';
 
-/** The two files' content for a set of enabled feature ids. */
-export function renderFeatureFiles(enabled, hasFunctions = (id) => existsSync(resolve(FUNCTIONS_SRC, 'features', `${id}.ts`))) {
+const featureFiles = () => readdirSync(resolve(FUNCTIONS_SRC, 'features'))
+    .filter((file) => file.endsWith('.ts'))
+    .map((file) => file.slice(0, -3))
+    .sort();
+
+/** The two files' content for a set of enabled feature ids and the feature files there are. */
+export function renderFeatureFiles(enabled, files = featureFiles()) {
     const ids = [...enabled];
     const enabledFile = `${HEADER}export const ENABLED_FEATURES: readonly string[] = ${JSON.stringify(ids)};\n`;
-    const exportLines = ids.filter(hasFunctions).map((id) => `export * from './features/${id}.js';`);
+    const exportLines = files
+        .filter((name) => name.split('+').every((id) => ids.includes(id)))
+        .map((name) => `export * from './features/${name}.js';`);
     const exportsFile = `${HEADER}${exportLines.length ? exportLines.join('\n') : 'export {};'}\n`;
     return { enabledFile, exportsFile };
 }

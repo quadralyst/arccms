@@ -57,7 +57,8 @@ export type PublicSearchStringKey = keyof typeof PUBLIC_SEARCH_STRINGS;
     styles: [':host { display: block; flex: 0 1 220px; min-width: 120px; max-width: 100%; }'],
 })
 export class PublicSearchComponent {
-    readonly searchOn = isOn('search');
+    // Public search looks for published content; an app without it places its own box.
+    readonly searchOn = isOn('search') && isOn('content');
     private localization = inject(LocalizationService);
     private uiStrings = inject(UiStringsService);
 

@@ -27,6 +27,7 @@ plug point), then pull it. `npm run check:core` catches accidental edits.
 | `src/custom/features.ts` | the Arc CMS features the app turns off, like `off: ['payments', 'sms']`, or on, like `on: ['pwa']` ([feature-flags-spec.md](feature-flags-spec.md)) |
 | `functions/src/custom/index.ts` | the app's Cloud Functions and triggers |
 | `functions/src/custom/public-callables.txt` | the app's callables, checked after every deploy |
+| `functions/src/custom/search-sources.ts` | the collections the app makes searchable (`SEARCH_COLLECTIONS`, set up in Admin, Settings, Search) and sources written in code (`CUSTOM_SEARCH_SOURCES`) ([search-developer-guide.md](search-developer-guide.md)) |
 | `firestore.app.rules`, `storage.app.rules`, `firestore.app.indexes.json` | the app's security rules and indexes ([app-rules.md](app-rules.md)) |
 | `tests/rules/custom/`, `docs/custom/` | the app's rules tests and docs |
 

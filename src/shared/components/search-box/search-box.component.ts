@@ -161,6 +161,8 @@ export class SearchBoxComponent implements OnInit, OnDestroy {
     @Input() scope: SearchScope = 'public';
     /** Limit to these sources. Omit for every source the scope may read. */
     @Input() sources?: string[];
+    /** With no `sources`: every source the scope may read except these. */
+    @Input() except?: string[];
     /** The language being viewed. Omit for language-neutral sources only. */
     @Input() lang?: string;
     @Input() limit = 8;
@@ -278,6 +280,8 @@ export class SearchBoxComponent implements OnInit, OnDestroy {
         this.picked.emit(result);
         this.focused.set(false);
         this.inputRef?.nativeElement.blur();
+        // A collection set up without a link has nowhere to go.
+        if (!result.link) return;
         if (this.navigation === 'router') {
             void this.router.navigateByUrl(result.link);
         } else if (this.navigation === 'location' && isPlatformBrowser(this.platformId)) {
@@ -305,6 +309,7 @@ export class SearchBoxComponent implements OnInit, OnDestroy {
                 lang: this.lang,
                 scope: this.scope,
                 sources: this.sources,
+                except: this.except,
                 limit: this.limit,
             });
             // null: a newer query answered first, or will.

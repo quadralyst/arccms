@@ -26,6 +26,8 @@ describe('custom space', () => {
         expect(customEn).toEqual({});
         expect(customHi).toEqual({});
         expect(read('functions/src/custom/index.ts')).toMatch(/^export \{\};$/m);
+        expect(read('functions/src/custom/search-sources.ts')).toMatch(/^export const SEARCH_COLLECTIONS: string\[\] = \[\];$/m);
+        expect(read('functions/src/custom/search-sources.ts')).toMatch(/^export const CUSTOM_SEARCH_SOURCES: SearchSource\[\] = \[\];$/m);
     });
 
     describe('features', () => {

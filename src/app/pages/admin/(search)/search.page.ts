@@ -84,7 +84,9 @@ export default class AdminSearchPage implements OnInit, OnDestroy {
         this.loading.set(true);
         try {
             const response = await this.searchService.search({
-                q, lang: 'all', scope: 'admin', sources: ['content-drafts'], limit: 20,
+                // Every source an admin may read but published content, whose
+                // drafts it already finds (docs/feature-flags-spec.md 6.4).
+                q, lang: 'all', scope: 'admin', except: ['content'], limit: 20,
             });
             if (!response) return;
             this.results.set(response.results);

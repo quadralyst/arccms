@@ -29,10 +29,13 @@ search box ──▶ `search` callable ──▶ Firestore token query ──▶
 - The index lives in one Firestore collection, `SearchIndex`, which clients
   cannot read. Every query goes through the `search` callable, which enforces
   the source's scope before reading anything.
-- Index entries are written three ways: automatically by a wildcard Firestore
-  trigger when a document in a registered collection changes, explicitly by
-  your own Cloud Function code, and in bulk by the reindex tool in
-  Admin, Settings, Search.
+- Index entries are written four ways: by a trigger on each collection you
+  make searchable, by the draft queue and the publish pipeline for content,
+  explicitly by your own Cloud Function code, and in bulk by the reindex tool
+  in Admin, Settings, Search. Nothing watches every write: a write to a
+  collection that is not searchable starts no search function.
+- Search is a feature (docs/feature-flags-spec.md). An app that turns it off
+  has no search functions at all.
 
 What search is good at: short fields such as names, titles, taglines, SKUs,
 cities. Type-ahead ("kar" finds "Karun"), any word order, accents and case
@@ -43,21 +46,52 @@ middle of words, stemming, synonyms. Keep indexed fields short.
 
 ## 2. Adding a source: the whole procedure
 
-Time: under an hour the first time, ten minutes after that.
+There are two ways. Most collections need only the first.
 
-### Step 1. Write the source file
+### Way 1. Name the collection, set it up in Admin
 
-Copy `functions/src/search/sources/_template.ts` to
-`functions/src/search/sources/<your-source>.ts` and fill it in. Here is a
-worked example for a `Directory` collection whose documents look like
+1. Add its name to `functions/src/custom/search-sources.ts`:
+
+   ```ts
+   export const SEARCH_COLLECTIONS: string[] = ['Directory'];
+   ```
+
+2. Deploy the functions. The collection gets its own trigger,
+   `arccms-searchSync-Directory`:
+
+   ```bash
+   npm run deploy -- --only functions:arccms --project <alias>
+   ```
+
+3. In Admin, Settings, Search, the collection shows as **Needs setup**. Press
+   **Set up**: tick the text fields to search (high fields count more and
+   match as you type), pick the result's title, snippet and link (`{id}` and
+   `{field}` placeholders, or none for results that do not open), choose who
+   may search it, check the preview, and press **Save and rebuild**.
+
+Changing the setup later needs no deploy. Removing the name from the file
+removes the trigger on the next deploy; **Rebuild everything** then removes
+its entries.
+
+Logs, events, queues and the index itself can never be named (they are
+listed in `functions/src/search/refused.ts`); the functions refuse to load.
+
+### Way 2. Write a source in code
+
+For what the settings cannot express: leaving some documents out
+(`include`), a computed badge, several languages (`variants`), custom
+ranking (`boost`). Copy `functions/src/search/sources/_template.ts` to a file
+of your own under `functions/src/custom/` and fill it in. A worked example for
+a `Directory` collection whose documents look like
 `{ name, tagline, city, slug, status, createdAt }`:
 
 ```ts
-// functions/src/search/sources/directory.ts
-import type { SearchSource } from '../source.js';
+// functions/src/custom/directory-source.ts
+import type { SearchSource } from '../search/source.js';
 
 export const directorySource: SearchSource = {
     id: 'directory',
+    label: 'Directory',
     collection: 'Directory',
     scope: 'public',
     fields: [
@@ -77,36 +111,16 @@ export const directorySource: SearchSource = {
 };
 ```
 
-### Step 2. Register it
-
-Add one import and one array entry in `functions/src/search/registry.ts`:
+List it in `functions/src/custom/search-sources.ts`:
 
 ```ts
-import { directorySource } from './sources/directory.js';
-
-export const SEARCH_SOURCES: readonly SearchSource[] = [
-    contentSource,
-    contentDraftsSource,
-    directorySource,
-];
+import { directorySource } from './directory-source.js';
+export const CUSTOM_SEARCH_SOURCES: SearchSource[] = [directorySource];
 ```
 
-### Step 3. Give the admin page a label (optional)
-
-`src/shared/models/search.model.ts` has `KNOWN_SEARCH_SOURCES`, which only
-supplies labels for Admin, Settings, Search. Add a row and the two
-translation keys (`src/assets/i18n/en.json` and `hi.json`, then
-`npm run i18n:keys`). A source missing from this list still appears on the
-page, labelled by its id.
-
-### Step 4. Deploy and reindex
-
-```bash
-cd functions && npm run build && firebase deploy --project default --only functions --non-interactive --force
-```
-
-Then open Admin, Settings, Search and press **Rebuild** on your source. From
-now on the wildcard trigger keeps it current as documents change.
+Deploy the functions (its collection gets a trigger, as in Way 1), then press
+**Rebuild** on it in Admin, Settings, Search, where it shows as
+**Set up in code** with its `label`.
 
 ### Step 5. Put a search box on a page
 
@@ -158,7 +172,8 @@ Defined in `functions/src/search/source.ts`.
 | `lang` | no | `(doc, ctx) => string`. The document's language when each carries one. Default `*`, meaning language-neutral. |
 | `variants` | no | `(doc, ctx) => Promise<{ lang, doc }[]>`. For multilingual sources: one entry per language. Each variant's `doc` is what `fields` and `display` see. The content sources use it to merge translations. |
 | `boost` | no | Multiplier on the final score. `1.5` ranks this source above others on equal matches. Default 1. |
-| `trigger` | no | Set `false` to keep the wildcard trigger off this source, when your own Cloud Function writes the collection and indexes it explicitly. Default true. |
+| `label` | no | The name Admin, Settings, Search and admin results show. Default: the id. |
+| `trigger` | no | Set `false` for no trigger on this source's collection, when your own Cloud Function writes the collection and indexes it explicitly. Default true. A source on a pattern of collections must set it false. |
 | `expandCollections` | no | `() => Promise<string[]>`. For a `RegExp` source, the collections to walk during a reindex. Default: list the database and match. |
 
 `ctx` (`SearchContext`) carries `collection`, `docId`, `localization`
@@ -225,13 +240,13 @@ entries never collide because the source id is part of the entry id.
 
 ## 6. Keeping the index current
 
-**Automatic.** `onAnyDocumentWritten` fires for every top-level document
-write in the database. It looks the collection up in the registry and
-returns at once for anything unregistered. For a registered collection it
-rebuilds that document's entries: creates and updates upsert, deletes
-remove, and a document that `include` now rejects is removed too.
-Translation subcollections (`{collection}/{id}/translations/{lang}`)
-re-index their parent.
+**Automatic.** Each searchable collection has its own trigger,
+`searchSync-<Collection>`, which rebuilds a document's entries when it is
+written: creates and updates upsert, deletes remove, and a document that
+`include` now rejects is removed too. Content is different, because its
+collections are created at runtime: every draft save in the editor also
+writes an entry to `_search_queue`, which `onSearchQueued` indexes, and
+publishing indexes the published document itself.
 
 **Explicit.** When your own Cloud Function writes the data, index it in the
 same operation so a failure is logged beside the write:
@@ -298,7 +313,8 @@ list. It is the same code on both sides, in
 - [ ] `include` keeps out documents that have no page to link to.
 - [ ] `link` is root-relative and correct for every language the source has.
 - [ ] Fields are short; nothing rich-text or paragraph-length is indexed.
-- [ ] The source is registered and deployed, and a reindex has run.
+- [ ] The collection is named in `functions/src/custom/search-sources.ts` (or the
+      source listed there), the functions are deployed, and a rebuild has run.
 - [ ] A search box or `SearchService` call names the source with a scope
       that can reach it.
 - [ ] Tests: a source is plain data, so a spec can call `buildEntries`
@@ -310,5 +326,6 @@ list. It is the same code on both sides, in
 `functions/src/search/sources/products.ts` indexes the `Products`
 collection (name, description, features) for the public site, links to
 `/pricing`, shows the price as the badge and leaves inactive products out.
-It was added by following this guide verbatim and is the shortest real
-source to read after the template.
+It is the shortest real source to read after the template. It is ready-made
+but off: an app that wants products searchable lists `productsSource` in
+`CUSTOM_SEARCH_SOURCES`.

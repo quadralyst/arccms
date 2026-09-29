@@ -196,6 +196,7 @@ describe('content writes are staff only', () => {
         () => setDoc(doc(db, 'Tags_articles', 't1'), { name: 'x' }),
         () => setDoc(doc(db, 'media', 'm1'), { downloadURL: 'x' }),
         () => addDoc(collection(db, '_publish_queue'), { action: 'publish' }),
+        () => setDoc(doc(db, '_search_queue', 'arc_articles_drafts~d1'), { collection: 'arc_articles_drafts', docId: 'd1', at: new Date() }),
     ];
 
     it('refuses a signed-in non-staff user', async () => {
@@ -215,6 +216,13 @@ describe('content writes are staff only', () => {
         await assertFails(getDoc(doc(hostAdmin(), 'arc_articles_drafts', 'd1')));
         await assertFails(getDocs(collection(hostAdmin(), 'users')));
         await assertFails(setDoc(doc(hostAdmin(), 'Settings', 'users'), { defaultRole: 'admin' }));
+    });
+
+    it('lets the search queue hold only a draft to index, and nobody read it', async () => {
+        const queue = (fields: Record<string, unknown>) => setDoc(doc(admin(), '_search_queue', 'q1'), fields);
+        await assertFails(queue({ collection: 'users', docId: 'u1' }));
+        await assertFails(queue({ collection: 'arc_articles_drafts', docId: 'd1', note: 'x' }));
+        await assertFails(getDoc(doc(admin(), '_search_queue', 'q1')));
     });
 
     it('keeps drafts away from non-staff readers', async () => {

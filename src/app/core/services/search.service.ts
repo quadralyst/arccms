@@ -14,7 +14,9 @@
 import { inject, Injectable } from '@angular/core';
 import { Functions } from '@angular/fire/functions';
 import {
+    CollectionSample,
     ReindexRequest,
+    SearchCollectionRow,
     SearchRequest,
     SearchResponse,
     SourceReindexResult,
@@ -91,6 +93,20 @@ export class SearchService {
         return result.data.results;
     }
 
+    /** Every top-level collection and whether it is searchable. Admin only. */
+    async listCollections(): Promise<SearchCollectionRow[]> {
+        if (!this.functions) return [];
+        const result = await arcCallable<unknown, { collections: SearchCollectionRow[] }>(this.functions, 'listSearchCollections')({});
+        return result.data.collections;
+    }
+
+    /** The text fields in a sample of a named collection's documents. Admin only. */
+    async sampleFields(collection: string): Promise<CollectionSample> {
+        if (!this.functions) return { fields: [], samples: [] };
+        const result = await arcCallable<{ collection: string }, CollectionSample>(this.functions, 'sampleCollectionFields')({ collection });
+        return result.data;
+    }
+
     /** Drops the session cache, for after content changes. */
     clearCache(): void {
         this.cache.clear();
@@ -113,6 +129,7 @@ export class SearchService {
             request.lang ?? '',
             request.scope ?? 'public',
             [...(request.sources ?? [])].sort(),
+            [...(request.except ?? [])].sort(),
             request.limit ?? 0,
         ]);
     }

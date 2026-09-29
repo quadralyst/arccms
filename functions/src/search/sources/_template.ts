@@ -1,5 +1,8 @@
 /**
- * Copy this file to add a search source, then register it in registry.ts.
+ * Copy this file to write a search source in code, then list it in
+ * CUSTOM_SEARCH_SOURCES in functions/src/custom/search-sources.ts. Most
+ * collections need no code: name them there and set them up in Admin,
+ * Settings, Search.
  *
  * Walkthrough: docs/search-developer-guide.md.
  *
