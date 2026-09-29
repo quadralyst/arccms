@@ -78,22 +78,45 @@ tableColumns: TableColumn[] = [
 *Note: You can also use `classFn` on a badge column to return dynamic classes based on complex logic.*
 
 ### Actions Configuration
+
+List the row's actions; the table decides the layout, so pages rarely need more than this:
+
 ```typescript
 {
+    key: 'actions',
+    header: 'common.table.actions',
     type: 'actions',
     actions: [
-        { 
-            action: 'edit', 
-            icon: 'fas fa-pen', 
-            label: 'Edit' 
-        },
-        { 
-            action: 'delete', 
-            icon: 'fas fa-trash text-danger', // can include color classes
-            hide: (row) => row.isProtected // conditionally hide
-        }
+        { action: 'view', icon: 'fas fa-eye text-secondary', label: 'common.actions.view', onAction: (row) => this.openView(row) },
+        { action: 'edit', icon: 'fas fa-pen text-primary', label: 'common.actions.edit', onAction: (row) => this.openEdit(row) },
+        { action: 'block', icon: 'fas fa-ban', labelFn: (row) => row.isActive ? 'Block' : 'Unblock', onAction: (row) => this.toggle(row) },
+        { action: 'delete', icon: 'fas fa-trash text-danger', label: 'common.actions.delete', hide: (row) => row.isProtected, onAction: (row) => this.delete(row) }
     ]
 }
+```
+
+How the table lays them out:
+
+- **Up to 3 actions on a row** (2 on a narrow screen): all show as icons.
+- **More than that:** the top 2 (1 on a narrow screen) stay as icons; the rest go into a "more" menu with their labels.
+- **Danger actions come last:** after a small gap inline, or below a divider (in red) in the menu. `delete`, `remove`, `archive`, `cancel` and any action with `class: 'delete'` count as danger.
+- **Order:** `edit` first, then `view` / `open` / `preview`, then the rest in the order given, danger last.
+- **Every row gets the same layout:** the count is of actions visible (after `hide`) across the whole page, and a row that hides an action keeps an empty slot so icons line up.
+
+Optional settings for when the defaults are wrong:
+
+| Property | Where | Description |
+|----------|-------|-------------|
+| `danger` | action | Force danger on or off. |
+| `priority` | action | Lower comes first (edit 10, view 20, others 50, danger 90). |
+| `slot` | action | Actions that never show together (activate / pause / resume) share a slot name so they take one position. |
+| `placement` | action | `'inline'` or `'menu'` to force where it goes. |
+| `maxInline` | column | Icons kept inline once the menu is in use (default 2). |
+
+The layout lives in `arc-row-actions` (`src/shared/components/row-actions/`). A hand-built table can use it directly; pass every row on the page as `rows` so all rows line up:
+
+```html
+<arc-row-actions [actions]="rowActions" [row]="item" [rows]="items()"></arc-row-actions>
 ```
 
 ## Inputs

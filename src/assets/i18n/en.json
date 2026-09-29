@@ -31,7 +31,8 @@
       "show": "Show",
       "hide": "Hide",
       "copy": "Copy",
-      "save_short": "Save"
+      "save_short": "Save",
+      "more": "More actions"
     },
     "state": {
       "loading": "Loading..."

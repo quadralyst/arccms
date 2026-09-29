@@ -70,15 +70,15 @@ export default class DripsPageComponent implements OnInit, AfterViewInit {
                     isRowClick: true, onAction: (row) => this.openEdit(row),
                 },
                 {
-                    action: 'activate', icon: 'fas fa-play text-success', label: 'Activate', class: 'edit',
+                    action: 'activate', slot: 'status', icon: 'fas fa-play text-success', label: 'Activate', class: 'edit',
                     hide: (row) => row.status !== 'draft', onAction: (row) => this.activate(row),
                 },
                 {
-                    action: 'resume', icon: 'fas fa-play text-success', label: 'Resume', class: 'edit',
+                    action: 'resume', slot: 'status', icon: 'fas fa-play text-success', label: 'Resume', class: 'edit',
                     hide: (row) => row.status !== 'paused', onAction: (row) => this.resume(row),
                 },
                 {
-                    action: 'pause', icon: 'fas fa-pause', label: 'Pause', class: 'edit',
+                    action: 'pause', slot: 'status', icon: 'fas fa-pause', label: 'Pause', class: 'edit',
                     hide: (row) => row.status !== 'active', onAction: (row) => this.pause(row),
                 },
                 {

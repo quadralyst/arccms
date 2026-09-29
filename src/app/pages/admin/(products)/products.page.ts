@@ -17,6 +17,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Functions } from '@angular/fire/functions';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { RowActionsComponent } from '../../../../shared/components/row-actions/row-actions.component';
+import { RowAction } from '../../../../shared/components/row-actions/row-actions';
 import { roleGuard } from '../../../guards/role.guard';
 import { ProductsStore } from './products.store';
 import { IProduct } from './product.model';
@@ -33,7 +35,7 @@ export const routeMeta: RouteMeta = {
     imports: [
         CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatIconModule,
         MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule, MatTableModule,
-        MatSidenavModule, MatTooltipModule, MatProgressSpinnerModule, PageHeaderComponent, TranslocoPipe],
+        MatSidenavModule, MatTooltipModule, MatProgressSpinnerModule, PageHeaderComponent, RowActionsComponent, TranslocoPipe],
     template: `
       <mat-drawer-container class="products-drawer-container" hasBackdrop="true">
         <!-- ═══════════ Right-side detail panel ═══════════ -->
@@ -271,10 +273,8 @@ export const routeMeta: RouteMeta = {
                             <ng-container matColumnDef="active"><th mat-header-cell *matHeaderCellDef>{{ 'admin.products.active' | transloco }}</th><td mat-cell *matCellDef="let p">{{ p.active ? 'Yes' : 'No' }}</td></ng-container>
                             <ng-container matColumnDef="actions">
                                 <th mat-header-cell *matHeaderCellDef></th>
-                                <td mat-cell *matCellDef="let p">
-                                    <button mat-icon-button [matTooltip]="'admin.products.view_details' | transloco" (click)="viewProduct(p)"><mat-icon>visibility</mat-icon></button>
-                                    <button mat-icon-button [matTooltip]="'common.actions.edit' | transloco" (click)="editProduct(p)"><mat-icon>edit</mat-icon></button>
-                                    <button mat-icon-button color="warn" [matTooltip]="'common.actions.delete' | transloco" (click)="remove(p)"><mat-icon>delete</mat-icon></button>
+                                <td mat-cell *matCellDef="let p" class="text-end">
+                                    <arc-row-actions [actions]="rowActions" [row]="p" [rows]="store.items()"></arc-row-actions>
                                 </td>
                             </ng-container>
                             <tr mat-header-row *matHeaderRowDef="columns"></tr>
@@ -330,6 +330,11 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
     @ViewChild('drawer') drawer!: MatDrawer;
 
     columns = ['name', 'type', 'premiumType', 'purchaseCount', 'active', 'actions'];
+    readonly rowActions: RowAction[] = [
+        { action: 'view', icon: 'fas fa-eye text-secondary', label: 'admin.products.view_details', onAction: (p) => this.viewProduct(p) },
+        { action: 'edit', icon: 'fas fa-pen text-primary', label: 'common.actions.edit', onAction: (p) => this.editProduct(p) },
+        { action: 'delete', icon: 'fas fa-trash text-danger', label: 'common.actions.delete', onAction: (p) => this.remove(p) },
+    ];
     showForm = signal(false);
     editingId = signal<string | null>(null);
     selected = signal<IProduct | null>(null);

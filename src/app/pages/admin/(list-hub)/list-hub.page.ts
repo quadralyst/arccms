@@ -158,11 +158,11 @@ export default class ListHubPageComponent implements OnInit {
             key: 'actions', header: 'Actions', type: 'actions',
             actions: [
                 {
-                    action: 'disable', icon: 'fas fa-ban text-danger', label: 'Disable emails', class: 'delete',
+                    action: 'disable', slot: 'emails', icon: 'fas fa-ban text-danger', label: 'Disable emails', class: 'delete',
                     hide: (row) => !!row.disabled, onAction: (row) => this.confirmDisable(row),
                 },
                 {
-                    action: 'enable', icon: 'fas fa-circle-check text-success', label: 'Re-enable emails', class: 'edit',
+                    action: 'enable', slot: 'emails', icon: 'fas fa-circle-check text-success', label: 'Re-enable emails', class: 'edit',
                     hide: (row) => !row.disabled, onAction: (row) => this.setDisabled(row, false),
                 },
                 {

@@ -1268,6 +1268,7 @@ export type TranslationKey =
     | 'common.actions.enable'
     | 'common.actions.hide'
     | 'common.actions.logout'
+    | 'common.actions.more'
     | 'common.actions.open'
     | 'common.actions.remove'
     | 'common.actions.reset'
@@ -2678,6 +2679,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.actions.enable',
     'common.actions.hide',
     'common.actions.logout',
+    'common.actions.more',
     'common.actions.open',
     'common.actions.remove',
     'common.actions.reset',

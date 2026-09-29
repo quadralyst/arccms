@@ -112,37 +112,6 @@ code {
     text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
-/* Actions */
-.action-btn {
-    margin-right: 20px;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    font-size: 1rem;
-    color: gray;
-    transition: color 0.2s;
-
-    &:last-child {
-        margin-right: 0;
-    }
-
-    &:hover {
-        color: #3b82f6;
-        /* Default hover color */
-    }
-}
-
-// Helper classes for specific action button colors if needed (can be passed via config)
-.text-danger:hover {
-    color: #ef4444 !important;
-}
-
-.text-primary:hover {
-    color: #3b82f6 !important;
-}
-
-
 /* Empty & Loading States */
 .empty-state,
 .loading-state {
