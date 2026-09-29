@@ -92,11 +92,16 @@ describe('users: update', () => {
         await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { status: 'Disable' }));
     });
 
-    it('lets emailVerified go to false (email change) but not to true', async () => {
+    it('lets emailVerified go to false but not to true', async () => {
         await env.withSecurityRulesDisabled((ctx) =>
             updateDoc(doc(ctx.firestore(), 'users', 'alice-doc'), { emailVerified: true }));
-        await assertSucceeds(updateDoc(doc(alice(), 'users', 'alice-doc'), { email: 'n@x.com', emailVerified: false }));
+        await assertSucceeds(updateDoc(doc(alice(), 'users', 'alice-doc'), { emailVerified: false }));
         await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { emailVerified: true }));
+    });
+
+    it('leaves email and phone to the server, which changes them after a code', async () => {
+        await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { email: 'n@x.com' }));
+        await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { phone: '+15550100' }));
     });
 
     it('still refuses premium fields', async () => {

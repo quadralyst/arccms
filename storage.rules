@@ -74,14 +74,16 @@ service firebase.storage {
     // note, in the sender's own folder. Create only; admins delete them with the
     // feedback, and deleting the account deletes the folder. Only the two files
     // the button makes, by name and type (review F): a JPEG screenshot and a
-    // recorded voice note, never an SVG or any other file to host.
+    // recorded voice note, never an SVG or any other file to host. `create`
+    // also covers writing over an existing file's content (only metadata
+    // changes are `update`), so a new file is required: `resource == null`.
     function isFeedbackUpload(fileName) {
-      return (fileName == 'screenshot.jpg'
+      return resource == null && ((fileName == 'screenshot.jpg'
           && request.resource.contentType == 'image/jpeg'
           && request.resource.size < 5 * 1024 * 1024)
         || (fileName.matches('voice[.](mp4|webm|ogg)')
           && request.resource.contentType.matches('audio/(mp4|webm|ogg|aac)')
-          && request.resource.size < 10 * 1024 * 1024);
+          && request.resource.size < 10 * 1024 * 1024));
     }
     match /users/{userDocId}/feedback/{feedbackId}/{fileName} {
       allow create: if ownsUserRecord(userDocId) && isFeedbackUpload(fileName);

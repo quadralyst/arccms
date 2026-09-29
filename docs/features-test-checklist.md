@@ -112,35 +112,42 @@ Mark each line `[x]` when it passes, or note what happened.
 - [x] 5.12 No function per write: in the Cloud Functions logs, sending a test email (an
       `EmailLogs` write) starts no search function. Checked on the deployed triggers instead: in
       the `arccms` database only `searchSync-Feedback` and `onSearchQueued` are search triggers.
-- [ ] 5.13 Clean up: take `'Feedback'` out of the file, full deploy (section 6 checks the
+- [x] 5.13 Clean up: take `'Feedback'` out of the file, full deploy (section 6 checks the
       prompt), then **Rebuild everything**: its entries and status go.
 
 ## 6. Deploying
 
-- [ ] 6.1 Full deploy after 5.13: `npm run deploy -- --only functions:arccms --project default`
+- [x] 6.1 Full deploy after 5.13: `npm run deploy -- --only functions:arccms --project default`
       lists exactly `arccms-searchSync-Feedback` for deletion and asks once (a single prompt).
-      Answer `y`: it is deleted.
-- [ ] 6.2 The same off a terminal without `--yes` (for example piped:
+      Answer `y`: it is deleted. (On the day one update, `sendTestSms`, failed with a Google error
+      page, so the Firebase CLI skipped the delete; the wrapper redeployed it after 65 seconds and
+      then deleted `arccms-searchSync-Feedback` itself.)
+- [x] 6.2 The same off a terminal without `--yes` (for example piped:
       `echo | npm run deploy -- --only functions:arccms --project default`): stops, "Not deleting
       without a yes", nothing deployed.
-- [ ] 6.3 A targeted deploy (`--only functions:arccms:arccms.search`) never asks and deletes
+- [x] 6.3 A targeted deploy (`--only functions:arccms:arccms.search`) never asks and deletes
       nothing.
-- [ ] 6.4 A feature off end to end: `off: ['data']` deletes nothing (it has no functions);
+- [x] 6.4 A feature off end to end: `off: ['data']` deletes nothing (it has no functions);
       `off: ['sms']` lists `sendTestSms` and the phone sign-in callables for deletion. Answer `n`
       to leave the project as it is, then put the file back.
-- [ ] 6.5 `--probe` after a deploy that creates a callable: every callable is reachable.
+- [x] 6.5 `--probe` after a deploy that creates a callable: every callable is reachable.
 
 ## 7. Security rules
 
-- [ ] 7.1 Install Java 21 (`brew install openjdk@21`), then `npm run test:rules`: all pass,
-      including the search queue rules.
+- [x] 7.1 Install Java 21 (`brew install openjdk@21`), then `npm run test:rules`: all pass,
+      including the search queue rules. (Java 21 need not be linked:
+      `PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH" npm run test:rules`.) The first run found two
+      older failures, both fixed: a users test still expected a member to change their own email
+      (server only since phone sign-in), and the feedback files rule let the owner write over a
+      file, since Storage's `create` covers overwrites; it now needs `resource == null`.
 - [x] 7.2 Checked live on 2026-09-29: the queue refuses an extra field, a collection that is
       not a drafts collection, and every read; an admin may write a draft's entry.
 
 ## 8. App plug points
 
-- [ ] 8.1 `src/custom/user-dashboard.ts` pointing at a page of the app: `/user/dashboard` shows it.
-- [ ] 8.2 A `CUSTOM_NAV` item with `feature: 'payments'`: it goes with `off: ['payments']`.
+- [x] 8.1 `src/custom/user-dashboard.ts` pointing at a page of the app: `/user/dashboard` shows it.
+- [x] 8.2 A `CUSTOM_NAV` item with `feature: 'payments'`: it goes with `off: ['payments']`.
+      (The item needs `allowRoles`, as the guide's example has; without it the menu hides it.)
 
 ## Results
 
@@ -149,5 +156,10 @@ Mark each line `[x]` when it passes, or note what happened.
 | 1 | 2026-09-29 | Pass | 1.3 read "Installable app (PWA) (pwa)"; the label is now "Installable app" |
 | 2 | 2026-09-29 | Pass | |
 | 4 | 2026-09-29 | Pass | The dev server aborted once mid-section (a DNS lookup during a network drop); restarted |
+| 7 | 2026-09-29 | Pass after fixes | 57 tests; storage rules need a deploy for the overwrite fix |
+| 6.5 | 2026-09-29 | Pass | Probe run on its own after the deploys: every callable reachable |
+| 6.1-6.4 | 2026-09-29 | Pass | `off: ['data']` builds the same 131 functions; `off: ['sms']` builds 123 |
+| 8 | 2026-09-29 | Pass | |
+| 5.13 | 2026-09-29 | Pass | Index and status hold no Feedback entries after Rebuild everything |
 | 5.1-5.12 | 2026-09-29 | Pass | Admin search's subtitle said content only; it now names the set-up collections |
 | 3 | 2026-09-29 | Pass after a fix | 3.4: after an in-app link, `/blog` showed not-found but kept the previous page's address; the content guard now keeps the requested one (`browserUrl`) |
