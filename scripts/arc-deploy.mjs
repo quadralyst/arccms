@@ -111,13 +111,34 @@ export function functionIds(group, prefix = 'arccms-') {
     });
 }
 
-/** Deployed functions of the arccms codebase that the build does not have, by id. */
-export function removedFunctions(deployed, builtIds) {
+/** Deployed functions of the arccms codebase that the build does not have. */
+export function removedDeployed(deployed, builtIds) {
     const built = new Set(builtIds);
     return deployed
         .filter((fn) => (fn.codebase || fn.labels?.['firebase-functions-codebase']) === 'arccms' && !built.has(fn.id))
-        .map((fn) => fn.id)
-        .sort();
+        .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/** The same, by id. */
+export function removedFunctions(deployed, builtIds) {
+    return removedDeployed(deployed, builtIds).map((fn) => fn.id);
+}
+
+/**
+ * Whether every error a deploy reported was a functions error. The CLI prints
+ * `Error: There was an error deploying functions:` for those; a rules or hosting
+ * failure prints its own `Error:` line, which a functions retry cannot fix.
+ */
+export function onlyFunctionErrors(output) {
+    const errors = output.replace(/\x1b\[[0-9;]*m/g, '').split('\n').filter((line) => /^Error:/.test(line));
+    return errors.length > 0 && errors.every((line) => /deploying functions/.test(line));
+}
+
+/** Confirmed deletions, by region, as `firebase functions:delete` takes them. */
+export function deletesByRegion(fns) {
+    const byRegion = {};
+    for (const fn of fns) (byRegion[fn.region] ??= []).push(fn.id);
+    return byRegion;
 }
 
 /**
@@ -335,15 +356,18 @@ export async function runDeploy(args, options = {}) {
             return { status: build.status ?? 1, created: [] };
         }
     }
+    // Functions the user agreed to delete, so they can be finished off if the CLI skips them.
+    let toDelete = [];
     if (deploysFunctions(args) && deploysWholeFunctions(args)) {
         const deployed = listDeployed(projectId);
         if (!deployed) {
             console.warn('Could not list the deployed functions; the Firebase CLI will ask before deleting any.');
         } else {
-            const arccms = await builtArccms();
-            const { proceed, force } = await confirmDeletes(removedFunctions(deployed, functionIds(arccms)), args, options);
+            const removed = removedDeployed(deployed, functionIds(await builtArccms()));
+            const { proceed, force } = await confirmDeletes(removed.map((fn) => fn.id), args, options);
             if (!proceed) return { status: 1, created: [] };
             if (force && !firebaseArgs.includes('--force')) firebaseArgs.push('--force');
+            toDelete = removed;
         }
     }
     console.log(`> firebase ${firebaseArgs.join(' ')}`);
@@ -363,7 +387,25 @@ export async function runDeploy(args, options = {}) {
         const retry = await run('firebase', again);
         for (const name of createdFunctions(retry.output)) created.add(name);
         missing = [...deletes, ...unconfirmed(retry.output)];
-        if (retry.status === 0 && !missing.length && (status === 0 || deploysOnlyFunctions(args))) status = 0;
+        // A clean retry clears the first run's failure when that failure was only functions.
+        if (retry.status === 0 && !missing.length && (status === 0 || deploysOnlyFunctions(args) || onlyFunctionErrors(deploy.output))) status = 0;
+    }
+    // When any function fails to create or update, the CLI skips every delete, and a
+    // targeted retry never deletes. Finish the deletes the user agreed to.
+    if (toDelete.length) {
+        const stillThere = (listDeployed(projectId) ?? []).filter((fn) => toDelete.some((d) => d.id === fn.id));
+        if (stillThere.length) {
+            console.log(`\nThe Firebase CLI skipped deleting ${stillThere.length} function(s); deleting them now.`);
+            for (const [region, ids] of Object.entries(deletesByRegion(stillThere))) {
+                const del = ['functions:delete', ...ids, '--region', region, '--project', projectId, '--force'];
+                console.log(`> firebase ${del.join(' ')}`);
+                const result = await run('firebase', del);
+                if (result.status !== 0) {
+                    console.error(`\nCould not delete ${ids.join(', ')}. Delete them with: firebase ${del.join(' ')}`);
+                    status = status || 1;
+                }
+            }
+        }
     }
     if (missing.length) {
         const names = missing.map((fn) => `${fn.name}(${fn.region})${fn.deleting ? ', a delete' : ''}`);

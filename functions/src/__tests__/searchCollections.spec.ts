@@ -88,7 +88,8 @@ describe('what is searchable', () => {
 describe('searchSetupProblems', () => {
     it('refuses logs, queues and the index', () => {
         expect(searchSetupProblems(['EmailLogs'], [])[0]).toContain('EmailLogs can never be searchable');
-        expect(searchSetupProblems(['_search_queue'], [])[0]).toContain('a queue');
+        expect(searchSetupProblems(['_search_queue'], [])[0]).toContain('internal to Arc CMS');
+        expect(searchSetupProblems(['form_otps', 'Settings'], []).join()).toContain('one-time codes');
         expect(searchSetupProblems([], [{ ...productsSource, collection: 'SearchIndex' }])[0]).toContain('the search index itself');
     });
 

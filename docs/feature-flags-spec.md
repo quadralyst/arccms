@@ -241,8 +241,9 @@ make products searchable.
 ### 6.3 High-volume collections are refused
 
 Never searchable: `EmailLogs`, `SmsLogs`, `AppEvents`, `Notifications`,
-`WebhookEvents`, `PwaStats`, `CreditLedger`, `SearchIndex`, and any collection whose
-name starts with `_` (queues). The functions build fails if `SEARCH_COLLECTIONS` or a
+`WebhookEvents`, `PwaStats`, `CreditLedger`, `SearchIndex`, the ones holding secrets or
+settings (`email_lookup`, `form_otps`, `phone_otps`, `Settings`), and any collection
+whose name starts with `_` (queues and Arc CMS's own state). The functions build fails if `SEARCH_COLLECTIONS` or a
 custom source names one, and Search settings shows them greyed out with the reason.
 
 ### 6.4 Search settings

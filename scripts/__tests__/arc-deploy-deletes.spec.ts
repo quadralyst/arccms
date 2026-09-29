@@ -4,7 +4,7 @@
  * (docs/feature-flags-spec.md, section 7).
  */
 import { describe, it, expect, vi } from 'vitest';
-import { confirmDeletes, deployArgs, deploysWholeFunctions, functionIds, removedFunctions } from '../arc-deploy.mjs';
+import { confirmDeletes, deletesByRegion, deployArgs, deploysWholeFunctions, functionIds, onlyFunctionErrors, removedDeployed, removedFunctions } from '../arc-deploy.mjs';
 
 const fn = (id: string, codebase = 'arccms') => ({ id, codebase, region: 'us-central1' });
 
@@ -64,5 +64,28 @@ describe('confirmDeletes', () => {
 
     it('never passes --yes on to the Firebase CLI', () => {
         expect(deployArgs(['--only', 'functions', '--yes'], false, 'p1')).toEqual(['deploy', '--only', 'functions', '--project', 'p1']);
+    });
+});
+
+describe('when a function update fails', () => {
+    // From the deploy of 2026-09-29: one update failed, so the CLI skipped every delete.
+    const output = [
+        '✔  firestore: released rules .arc-build/firestore.rules to cloud.firestore',
+        '⚠  functions: Deploys failed. Skipping deletes.',
+        'Error: There was an error deploying functions:',
+        '- Error Failed to update function arccms-onUserCreateWelcomeEmail in region us-central1',
+        '- Error Failed to delete function arccms-onAnyDocumentWritten in region us-central1',
+    ].join('\n');
+
+    it('knows the failure was only functions, so a clean retry settles it', () => {
+        expect(onlyFunctionErrors(output)).toBe(true);
+        expect(onlyFunctionErrors(`${output}\nError: HTTP Error: 400, the rules did not compile`)).toBe(false);
+        expect(onlyFunctionErrors('all good')).toBe(false);
+    });
+
+    it('finishes the agreed deletes region by region', () => {
+        const deployed = [fn('arccms-a'), { ...fn('arccms-b'), region: 'asia-south1' }, fn('arccms-keep')];
+        const removed = removedDeployed(deployed, ['arccms-keep']);
+        expect(deletesByRegion(removed)).toEqual({ 'us-central1': ['arccms-a'], 'asia-south1': ['arccms-b'] });
     });
 });
