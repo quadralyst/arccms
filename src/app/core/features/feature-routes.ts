@@ -43,11 +43,52 @@ export const FEATURE_URLS: Record<FeatureId, readonly string[]> = {
     pwa: [],
 };
 
+/**
+ * Routes whose URL cannot tell their feature (a parameter where a feature's
+ * prefix would be): app.routes.ts leaves them out with `whenOn`, and the content
+ * pages check `featureGuard`. Listed so the coverage test knows whose they are.
+ */
+export const FEATURE_PARAM_ROUTES: Readonly<Record<string, FeatureId>> = {
+    ':contentTypeSlug': 'content',
+    ':contentTypeSlug/:urlSlug': 'content',
+    ':lang/:contentTypeSlug': 'content',
+    ':lang/:contentTypeSlug/:urlSlug': 'content',
+    ':lang/search': 'search',
+    'user/:waitlistId/:userId': 'forms',
+};
+
+/**
+ * Every URL that belongs to no feature: core, always there. A new page must be
+ * in this list or a feature's; the coverage test fails on one in neither
+ * (src/app/core/features/feature-coverage.spec.ts).
+ */
+export const CORE_URLS: readonly string[] = [
+    '', '**', 'not-found', 'onboarding', 'signup', 'profile', 'auth-checker', 'hi', 'tiptap-test', 'notifications',
+    'unsubscribe/**', 'user/dashboard', 'user/profile/**',
+    'admin', 'admin/dashboard', 'admin/profile', 'admin/media', 'admin/users/**', 'admin/unauthorized', 'admin/notifications',
+    'admin/feedback', 'admin/email', 'admin/email/brand-kit', 'admin/email/composer', 'admin/email-logs',
+    'admin/settings', 'admin/settings/about', 'admin/settings/email', 'admin/settings/integrations',
+    'admin/settings/analytics', 'admin/settings/user', 'admin/settings/message', 'admin/settings/site-usage',
+    'admin/settings/localization', 'admin/settings/automations', 'admin/settings/misc',
+    // The file router's second URLs for core pages that have an explicit route.
+    'admin/brand-kit', 'admin/email-composer', 'admin/about/**', 'admin/analytics-setting/**', 'admin/email-setting/**',
+    'admin/integrations-setting/**', 'admin/localization/**', 'admin/message/**', 'admin/site-usage/**', 'admin/user-setting/**',
+];
+
 function matches(pattern: string, path: readonly string[]): boolean {
     const deep = pattern.endsWith('/**');
     const parts = (deep ? pattern.slice(0, -3) : pattern).split('/');
     if (deep ? path.length < parts.length : path.length !== parts.length) return false;
     return parts.every((part, i) => part === path[i]);
+}
+
+/** Whether a URL path is one of CORE_URLS. */
+export function isCorePath(path: readonly string[]): boolean {
+    return CORE_URLS.some((pattern) => {
+        if (pattern === '') return path.length === 0; // the home page
+        if (pattern === '**') return path.length === 1 && path[0] === '**'; // the not-found catch-all
+        return matches(pattern, path);
+    });
 }
 
 /** The feature that owns a URL path (its segments, without query or fragment), if any. */
