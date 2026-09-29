@@ -13,6 +13,7 @@ app: see docs/custom-code.md, and run `npm run check:core`.
 | `i18n/{lang}.json` | the app's translations (and rewording of core ones) |
 | `styles.css` | the app's global styles, loaded after everything else |
 | `pwa.ts`, `pwa-icon.svg` or `.png` | the installable app: on or off, name, colours, icon (docs/pwa.md) |
+| `features.ts` | the Arc CMS features the app turns off (every feature is on until listed) |
 
 The app's Cloud Functions go in `functions/src/custom/`, its security rules in
 `firestore.app.rules` and `storage.app.rules` (docs/app-rules.md).

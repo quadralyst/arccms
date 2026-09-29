@@ -8,9 +8,15 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { minimal2023Preset } from '@vite-pwa/assets-generator/config';
 import { DEFAULT_PWA_ICON, PWA_ICON_CANDIDATES, resolvePwaConfig } from './src/app/core/pwa/pwa-config';
 import { CUSTOM_PWA } from './src/custom/pwa';
+import { resolveFeatures } from './src/app/core/features/feature-registry';
+import { CUSTOM_FEATURES } from './src/custom/features';
+
+// The app's features (src/custom/features.ts, docs/feature-flags-spec.md). Resolved
+// here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
+const features = resolveFeatures(CUSTOM_FEATURES, resolvePwaConfig(CUSTOM_PWA).enabled);
 
 // The install's PWA settings (src/custom/pwa.ts over the core defaults, docs/pwa.md).
-const pwa = resolvePwaConfig(CUSTOM_PWA);
+const pwa = { ...resolvePwaConfig(CUSTOM_PWA), enabled: features.has('pwa') };
 const pwaIcon = PWA_ICON_CANDIDATES.find((path) => existsSync(resolve(path))) ?? DEFAULT_PWA_ICON;
 
 /**

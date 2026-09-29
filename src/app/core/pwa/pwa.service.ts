@@ -6,9 +6,10 @@ import { arcCallable } from '../config/arc-functions';
 import { CUSTOM_PWA } from '../../../custom/pwa';
 import { resolvePwaConfig } from './pwa-config';
 import { detectPlatform, type PwaPlatform } from './pwa-platform';
+import { isOn } from '../features/features';
 
 /** This install's PWA settings (src/custom/pwa.ts over the core defaults, docs/pwa.md). */
-export const PWA = resolvePwaConfig(CUSTOM_PWA);
+export const PWA = { ...resolvePwaConfig(CUSTOM_PWA), enabled: isOn('pwa') };
 
 export type PwaEvent = 'prompt_shown' | 'installed' | 'dismissed' | 'opened_installed';
 
