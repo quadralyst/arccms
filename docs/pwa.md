@@ -6,11 +6,18 @@ service worker at all. An app built on Arc CMS turns it on in its custom space.
 
 ## Turning it on
 
-In `src/custom/pwa.ts`:
+In `src/custom/features.ts`:
+
+```ts
+export const CUSTOM_FEATURES: FeatureChoice = {
+    on: ['pwa'],
+};
+```
+
+Then name it in `src/custom/pwa.ts`:
 
 ```ts
 export const CUSTOM_PWA: Partial<PwaConfig> = {
-    enabled: true,
     name: 'Sanskrit for Kids',   // under the icon when there is room, and in the install dialog
     shortName: 'Sanskrit',       // under the icon on a phone (about 12 characters)
     description: 'Learn Sanskrit through play.',
@@ -107,6 +114,6 @@ site and open it there.
 
 ## Turning it off again
 
-Set `enabled: false` and deploy. On each visitor's next visit the site removes the
+Remove `'pwa'` from `on` in `src/custom/features.ts` and deploy. On each visitor's next visit the site removes the
 service worker and its stored files, so everyone gets the plain website again. An
 icon already on a home screen still opens the site, now as a normal web page.

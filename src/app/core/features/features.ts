@@ -5,11 +5,9 @@
  */
 import type { CanMatchFn } from '@angular/router';
 import { CUSTOM_FEATURES } from '../../../custom/features';
-import { CUSTOM_PWA } from '../../../custom/pwa';
-import { resolvePwaConfig } from '../pwa/pwa-config';
 import { resolveFeatures, type FeatureId } from './feature-registry';
 
-export const FEATURES = resolveFeatures(CUSTOM_FEATURES, resolvePwaConfig(CUSTOM_PWA).enabled);
+export const FEATURES = resolveFeatures(CUSTOM_FEATURES);
 
 export function isOn(id: FeatureId): boolean {
     return FEATURES.has(id);

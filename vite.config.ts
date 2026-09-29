@@ -13,10 +13,11 @@ import { CUSTOM_FEATURES } from './src/custom/features';
 
 // The app's features (src/custom/features.ts, docs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
-const features = resolveFeatures(CUSTOM_FEATURES, resolvePwaConfig(CUSTOM_PWA).enabled);
+const features = resolveFeatures(CUSTOM_FEATURES);
 
-// The install's PWA settings (src/custom/pwa.ts over the core defaults, docs/pwa.md).
-const pwa = { ...resolvePwaConfig(CUSTOM_PWA), enabled: features.has('pwa') };
+// The install's PWA settings (src/custom/pwa.ts over the core defaults, docs/pwa.md),
+// on when the features ask for it.
+const pwa = resolvePwaConfig(CUSTOM_PWA, features.has('pwa'));
 const pwaIcon = PWA_ICON_CANDIDATES.find((path) => existsSync(resolve(path))) ?? DEFAULT_PWA_ICON;
 
 /**

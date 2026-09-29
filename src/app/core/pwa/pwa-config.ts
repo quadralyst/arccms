@@ -6,7 +6,10 @@
  */
 
 export interface PwaConfig {
-    /** Off: no manifest, no service worker, no install prompt (a plain website). */
+    /**
+     * Off: no manifest, no service worker, no install prompt (a plain website).
+     * Set by `on: ['pwa']` in src/custom/features.ts, not in pwa.ts.
+     */
     enabled: boolean;
     /** Full name, shown when installing and in the app switcher. */
     name: string;
@@ -35,7 +38,19 @@ export const DEFAULT_PWA_CONFIG: PwaConfig = {
 export const PWA_ICON_CANDIDATES = ['src/custom/pwa-icon.svg', 'src/custom/pwa-icon.png'];
 export const DEFAULT_PWA_ICON = 'src/app/core/pwa/default-icon.svg';
 
-export function resolvePwaConfig(custom: Partial<PwaConfig> | undefined): PwaConfig {
-    const merged = { ...DEFAULT_PWA_CONFIG, ...(custom ?? {}) };
+/**
+ * The PWA's settings. `enabled` comes from the features (`on: ['pwa']` in
+ * src/custom/features.ts), never from pwa.ts: an app that still switches it there
+ * gets an error saying where the switch went, rather than a PWA that silently
+ * changes state after an update.
+ */
+export function resolvePwaConfig(custom: Partial<PwaConfig> | undefined, enabled: boolean): PwaConfig {
+    if (custom && 'enabled' in custom) {
+        throw new Error(
+            "src/custom/pwa.ts: the PWA is now switched in src/custom/features.ts. " +
+            "Delete `enabled` from pwa.ts, and to keep the PWA add on: ['pwa'] to CUSTOM_FEATURES.",
+        );
+    }
+    const merged = { ...DEFAULT_PWA_CONFIG, ...(custom ?? {}), enabled };
     return { ...merged, shortName: merged.shortName || merged.name };
 }

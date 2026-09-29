@@ -9,7 +9,7 @@ import { detectPlatform, type PwaPlatform } from './pwa-platform';
 import { isOn } from '../features/features';
 
 /** This install's PWA settings (src/custom/pwa.ts over the core defaults, docs/pwa.md). */
-export const PWA = { ...resolvePwaConfig(CUSTOM_PWA), enabled: isOn('pwa') };
+export const PWA = resolvePwaConfig(CUSTOM_PWA, isOn('pwa'));
 
 export type PwaEvent = 'prompt_shown' | 'installed' | 'dismissed' | 'opened_installed';
 

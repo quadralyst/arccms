@@ -4,7 +4,7 @@ import { PLATFORM_ID } from '@angular/core';
 import { Auth } from '@angular/fire/auth';
 import { Functions } from '@angular/fire/functions';
 
-vi.mock('../../../custom/pwa', () => ({ CUSTOM_PWA: { enabled: true } }));
+vi.mock('../../../custom/features', () => ({ CUSTOM_FEATURES: { on: ['pwa'] } }));
 const callable = vi.hoisted(() => vi.fn(async () => ({ data: { ok: true } })));
 vi.mock('../config/arc-functions', () => ({ arcCallable: vi.fn(() => callable) }));
 

@@ -30,16 +30,26 @@ describe('custom space', () => {
         it('resolves the app choice at build start, so a bad one stops the build', () => {
             const vite = read('vite.config.ts');
             expect(vite).toContain("import { CUSTOM_FEATURES } from './src/custom/features';");
-            expect(vite).toContain('resolveFeatures(CUSTOM_FEATURES,');
+            expect(vite).toContain('resolveFeatures(CUSTOM_FEATURES);');
         });
 
-        it('turns off what the app lists', async () => {
+        it('turns off and on what the app lists', async () => {
             vi.resetModules();
-            vi.doMock('../custom/features', () => ({ CUSTOM_FEATURES: { off: ['payments'] } }));
+            vi.doMock('../custom/features', () => ({ CUSTOM_FEATURES: { on: ['pwa'], off: ['payments'] } }));
             const { isOn } = await import('./core/features/features');
             expect(isOn('payments')).toBe(false);
             expect(isOn('content')).toBe(true);
+            expect(isOn('pwa')).toBe(true);
             vi.doUnmock('../custom/features');
+        });
+
+        it('switches the PWA from the features, not pwa.ts', async () => {
+            vi.resetModules();
+            vi.doMock('../custom/features', () => ({ CUSTOM_FEATURES: { on: ['pwa'] } }));
+            const { PWA } = await import('./core/pwa/pwa.service');
+            expect(PWA.enabled).toBe(true);
+            vi.doUnmock('../custom/features');
+            expect(read('vite.config.ts')).toContain("resolvePwaConfig(CUSTOM_PWA, features.has('pwa'))");
         });
     });
 

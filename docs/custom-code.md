@@ -22,8 +22,8 @@ plug point), then pull it. `npm run check:core` catches accidental edits.
 | `src/custom/nav.ts` | the app's items in the admin menu (`CUSTOM_NAV`), shown before Profile |
 | `src/custom/i18n/{lang}.json` | the app's translations, laid over the core ones |
 | `src/custom/styles.css` | the app's global styles, loaded after every core stylesheet |
-| `src/custom/pwa.ts`, `src/custom/pwa-icon.svg` (or `.png`) | the installable app: on or off, name, colours, start page, icon ([pwa.md](pwa.md)) |
-| `src/custom/features.ts` | the Arc CMS features the app turns off, like `off: ['payments', 'sms']` ([feature-flags-spec.md](feature-flags-spec.md)) |
+| `src/custom/pwa.ts`, `src/custom/pwa-icon.svg` (or `.png`) | the installable app: name, colours, start page, icon ([pwa.md](pwa.md)); it is turned on in `features.ts` |
+| `src/custom/features.ts` | the Arc CMS features the app turns off, like `off: ['payments', 'sms']`, or on, like `on: ['pwa']` ([feature-flags-spec.md](feature-flags-spec.md)) |
 | `functions/src/custom/index.ts` | the app's Cloud Functions and triggers |
 | `functions/src/custom/public-callables.txt` | the app's callables, checked after every deploy |
 | `firestore.app.rules`, `storage.app.rules`, `firestore.app.indexes.json` | the app's security rules and indexes ([app-rules.md](app-rules.md)) |
@@ -42,7 +42,7 @@ install too; `check:core` accepts them.
 | Translations | `translation.loader.ts` | `src/custom/i18n/{lang}.json` merged over the core file, key by key: new keys, and rewording of core ones |
 | Styles | `index.html` | `src/custom/styles.css` is the last stylesheet |
 | PWA | `vite.config.ts`, `pwa.service.ts` | `CUSTOM_PWA` laid over the core defaults at build time; the icon file is found by name |
-| Features | `vite.config.ts`, `core/features/features.ts` | `CUSTOM_FEATURES` resolved at build start; a typo or a feature whose need is off stops the build. Every feature is on unless listed in `off` |
+| Features | `vite.config.ts`, `core/features/features.ts` | `CUSTOM_FEATURES` resolved at build start; a typo or a feature whose need is off stops the build. Every feature is on unless listed in `off`, except the PWA, which is off unless listed in `on` |
 | Functions | `functions/src/all.ts` | `export * as custom from './custom/index.js'` |
 
 ### Examples

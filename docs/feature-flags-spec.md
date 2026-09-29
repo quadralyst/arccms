@@ -23,11 +23,11 @@ example Broadcasts on and Drips off), removing a feature's security rules or ind
 | F-D2 | What can be switched | **Ten features** (section 2). Everything else is core and always on, including users, the media manager, multilingual, feedback, notifications and Google Analytics. |
 | F-D3 | Functions of a feature that is off | **Not exported, so the next full functions deploy deletes them.** This stops scheduled jobs and triggers costing money and closes their endpoints. |
 | F-D4 | Content | **Switchable.** A pure product app can have no CMS pages at all. Search can stay on for the app's own sources, with nothing of content to index. |
-| F-D5 | Where the choice lives | `src/custom/features.ts`, a new custom starter file that ships empty. **Empty means every feature on**, so every existing app pulls this change with nothing to do. The app lists what it does not want: `off: ['payments', 'sms']`. No presets. |
+| F-D5 | Where the choice lives | `src/custom/features.ts`, a new custom starter file that ships empty. **Empty means every feature on except the PWA**, so every existing app pulls this change with nothing to do. The app lists what it does not want, `off: ['payments', 'sms']`, and the off-by-default features it does want, `on: ['pwa']`. No presets. |
 | F-D6 | Dependencies | Two only: `forms` and `email-marketing` need `audience`. Turning off `audience` while either is on **stops the build** with a message naming both, rather than guessing which one you meant. |
 | F-D7 | Rules, indexes, data | **Untouched.** Rules and indexes for every feature stay deployed (harmless for empty collections). Turning a feature off hides its data; turning it back on shows it again. |
 | F-D8 | Shared code | A feature that is off loses its **entry points** (functions, routes, menu, tabs, widgets, listeners), not every file. Where core code calls into a feature (for example the email sender checking a contact's consent), the call checks the feature first (section 5.3). |
-| F-D9 | PWA | **One switch only:** `enabled` in `src/custom/pwa.ts`, beside the name, colours and icon. It is off by default where every other feature is on, so the features file cannot switch it: `off: ['pwa']` stops the build with a pointer to `pwa.ts`. Inside the code `pwa` behaves like any other feature (`isOn('pwa')`) in menus, widgets and functions. |
+| F-D9 | PWA | **Switched in the features file**, like everything else (decided 2026-09-29): it is the one feature that is off by default, turned on with `on: ['pwa']`. `src/custom/pwa.ts` keeps only the name, colours, start page and icon. An app whose `pwa.ts` still has `enabled` gets a build error saying where the switch went, so nobody's PWA changes state silently on update. |
 | F-D10 | Functions build | The functions cannot import from `src/`. A small generator writes a **gitignored** `functions/src/features.gen.ts` from the custom file before every functions build, test run and deploy. Gitignored, so no app ever has a merge conflict on it. |
 | F-D11 | What search indexes | **Only content, by default.** Core ships two sources, published content and content drafts, both on with `content`. Anything else (products, an app's own data, admin data) is indexed only when the developer lists its collection (F-D12). |
 | F-D12 | How a collection becomes searchable | **Split** (option C, decided 2026-09-29). *Which collections* is a build-time choice, because a trigger has to exist per collection: one line each in `functions/src/custom/search-sources.ts`. *Which fields, what a result shows and who may search it* is a runtime choice in Search settings, applied with Rebuild and no deploy, the way content types already choose their searchable fields. |
@@ -50,7 +50,7 @@ example Broadcasts on and Drips off), removing a feature's security rules or ind
 | `sms` | SMS settings, SMS logs, test SMS, **phone sign-in** (it cannot work without an SMS provider) | none |
 | `payments` | Products, Transactions, pricing, checkout, account billing, premium, credits, Payments settings | none |
 | `data` | The Data menu (import and export of data and files) | none |
-| `pwa` | Install prompt, app install stats (switched in `pwa.ts`, F-D9) | none |
+| `pwa` | Install prompt, app install stats. **Off by default**, turned on with `on: ['pwa']` (F-D9) | none |
 
 `seo` does not need `content`: the crawler rules, robots.txt and llms.txt matter for
 any public site, and the sitemap lists whatever pages exist.
@@ -76,13 +76,15 @@ export const CUSTOM_FEATURES: FeatureChoice = {};
 ```
 
 ```ts
-// a product app with no CMS, no SMS and no payments
+// an installable product app with no CMS, no SMS and no payments
 export const CUSTOM_FEATURES: FeatureChoice = {
+  on: ['pwa'],
   off: ['content', 'sms', 'payments'],
 };
 ```
 
-Unknown ids stop the build (a typo must not silently leave a feature on). The
+Unknown ids and a feature in both lists stop the build (a typo must not silently
+leave a feature on). The
 `import type` line is required so Node can load the file directly (section 5.2).
 
 ---
@@ -93,9 +95,9 @@ Unknown ids stop the build (a typo must not silently leave a feature on). The
 
 - `src/app/core/features/feature-registry.ts`: plain TypeScript, no Angular, so Vite,
   the generator and the app all import it (like `pwa-config.ts`). Holds the ids,
-  labels, `needs`, and `resolveFeatures(choice, pwaEnabled)`, which returns the
+  labels, default state, `needs`, and `resolveFeatures(choice)`, which returns the
   enabled set or throws with a readable message.
-- `src/app/core/features/features.ts`: `export const FEATURES = resolveFeatures(CUSTOM_FEATURES, PWA.enabled)`,
+- `src/app/core/features/features.ts`: `export const FEATURES = resolveFeatures(CUSTOM_FEATURES)`,
   plus `isOn(id)` and `featureGuard(id)` (a `canMatch` guard, so a route of a feature
   that is off is never matched and the visitor gets the normal not-found page).
 - `vite.config.ts` calls `resolveFeatures` once at build start, so a bad choice fails
@@ -154,8 +156,7 @@ list for F4 (from the inventory of 2026-09-29).
 
 ### 5.2 The generated file
 
-`scripts/arc-features.mjs` loads `src/custom/features.ts` and `src/custom/pwa.ts`
-with Node's built-in TypeScript loading (Node 22.18+), resolves them with the same
+`scripts/arc-features.mjs` loads `src/custom/features.ts` with Node's built-in TypeScript loading (Node 22.18+), resolves them with the same
 `feature-registry.ts`, and writes `functions/src/features.gen.ts`:
 
 ```ts
