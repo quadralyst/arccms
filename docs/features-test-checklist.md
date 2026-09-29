@@ -1,0 +1,144 @@
+# Features: test checklist
+
+The end-to-end checks for per-app features and the search rework
+([feature-flags-spec.md](feature-flags-spec.md), guide [features.md](features.md)).
+Unit tests cover the logic (`npm run test`); these cover what only a real build, the
+browser and the dev project show.
+
+**Where:** the dev project `xlm-project-864ff`, the frontend at localhost:5173
+(`npm run dev`), signed in as an admin. **Who:** Claude runs the browser and build
+checks; deploys are run by you, with the command given at that step.
+
+**Changing features for a test:** edit `src/custom/features.ts`, wait for the dev server
+to restart ("server restarted" in its log), then reload the page. Put the file back to
+`export const CUSTOM_FEATURES: FeatureChoice = {};` at the end of each section.
+
+Mark each line `[x]` when it passes, or note what happened.
+
+## 1. The features file
+
+- [ ] 1.1 `off: ['audience']` (forms and email marketing still on): `npm run dev` stops with
+      "Signup forms (forms) needs Audience (audience)" and the same for email marketing.
+- [ ] 1.2 `off: ['payment']` (a typo): stops with `unknown feature "payment"` and the list of
+      real names.
+- [ ] 1.3 `on: ['pwa'], off: ['pwa']`: stops, the PWA is in both lists.
+- [ ] 1.4 `enabled: true` left in `src/custom/pwa.ts`: stops with where the switch went
+      (`on: ['pwa']` in features.ts).
+- [ ] 1.5 Empty file: `npm run dev` starts; the app looks as before this work.
+
+## 2. Everything on (nothing changed for existing apps)
+
+- [ ] 2.1 Admin menu: every item as before, including Signup Forms and each form's group,
+      Content, Audience, "Email + SMS", Products, Transactions, Data.
+- [ ] 2.2 Settings: every tab, including Payments, SMS, Search, Discoverability, App audience.
+- [ ] 2.3 Dashboard: GA, Content & Media, Growth & Leads (now with a **Users** card first),
+      Recent signups, Recent activity.
+- [ ] 2.4 Header: search box present; the bell present.
+- [ ] 2.5 Member area (sign in as a member): Dashboard shows "Welcome back" and "Nothing here
+      yet"; the menu has Payments, Account & Billing, Premium, Profile, Plans; `/user/payments`
+      shows the credits and plans page.
+
+## 3. Several features off
+
+`off: ['content', 'search', 'forms', 'audience', 'email-marketing', 'payments', 'sms']`
+
+- [ ] 3.1 Admin menu: only Dashboard, Media Manager, Users, Email, Feedback, Data, Profile,
+      Settings, About, Logout. "Email + SMS" reads "Email", without Broadcasts, Drips,
+      Announcements or SMS Logs.
+- [ ] 3.2 Settings tabs: no Payments, SMS, Search, App audience. User Settings: no phone
+      sign-in switch. Integrations: Unsplash only (no geolocation).
+- [ ] 3.3 Dashboard: GA, Media, Growth & Leads with the Users card only; its "View all" goes
+      to Users. No recent signups or recent activity.
+- [ ] 3.4 Not found (address kept): `/admin/email/broadcasts`, `/admin/broadcasts`,
+      `/admin/waitlists`, `/admin/contacts`, `/admin/settings/sms`, `/admin/contents/content-types`,
+      `/pricing`, `/checkout/success`, `/user/payments`, `/search`, `/blog` (a content type).
+- [ ] 3.5 Still open: `/admin/users`, `/admin/settings/user`, `/admin/email/composer`,
+      `/admin/email-logs`, `/user/dashboard`, `/user/profile`.
+- [ ] 3.6 No reads for switched-off features: the sidebar's content-type and form stores stay
+      empty (the dev database has both).
+- [ ] 3.7 Automations: only "A user signs up"; no add/remove list fields.
+- [ ] 3.8 Email composer: no waitlist or payment templates.
+- [ ] 3.9 Data export: groups "Users", "Settings & Media", "Email" (with the Suppression list);
+      no "All Content" button.
+- [ ] 3.10 Member area: menu Dashboard and Profile only; no plan badge, no credits.
+- [ ] 3.11 Home page: the form's markup shows; the signup counts stay empty; no console errors;
+      the public header's search box is hidden.
+- [ ] 3.12 Sign-up page and Profile sign-in methods: no phone option, even with phone sign-in
+      switched on in User Settings.
+- [ ] 3.13 No console errors on any page visited.
+
+## 4. One feature at a time (spot checks)
+
+- [ ] 4.1 `off: ['email-marketing']`: a list's page (Audience, Lists, a list) has no Broadcasts
+      or Sequence tabs; the Email menu has no Broadcasts, Drips, Announcements.
+- [ ] 4.2 `off: ['search']`: no header search box; the content editor's Checks tab has no link
+      suggestions; a content page has no related items; Search settings tab gone.
+- [ ] 4.3 `off: ['payments']`: members land on the blank dashboard; `/account`, `/user/premium`,
+      `/pricing` are not found.
+- [ ] 4.4 `off: ['data']`: no Data menu; `/admin/data/export-data` not found.
+- [ ] 4.5 `on: ['pwa']`: the install prompt shows on the member dashboard (Chrome); the
+      dashboard shows App installs.
+
+## 5. Search
+
+- [ ] 5.1 Search settings lists every collection with its state. Never searchable, with a reason:
+      logs, events, notifications, `SearchIndex`, `email_lookup`, `form_otps`, `phone_otps`,
+      `Settings`, and `_` collections.
+- [ ] 5.2 "What is searchable" shows the fields each source tokenizes: per content type for
+      content, the most important in bold.
+- [ ] 5.3 **Set up** on a collection that is not named (for example `Feedback`): the panel lists
+      its text fields with examples; pick fields, title, snippet, link, who may search it; the
+      preview follows. Save: the collection shows **Waiting for deploy**, nothing is rebuilt.
+- [ ] 5.4 Known issue to fix: the panel pre-ticks the most common fields (for `Feedback`,
+      `device.language` and `device.platform`) and uses the first as the title. It should
+      prefer name-like fields (title, name, subject) and descriptive ones (summary, message).
+- [ ] 5.5 Name it: add `'Feedback'` to `SEARCH_COLLECTIONS` in
+      `functions/src/custom/search-sources.ts`, then deploy its trigger and the search callables:
+      `npm run deploy -- --only functions:arccms:arccms.searchSync,functions:arccms:arccms.search,functions:arccms:arccms.reindexSearch,functions:arccms:arccms.listSearchCollections,functions:arccms:arccms.sampleCollectionFields --project default`
+- [ ] 5.6 Search settings: `Feedback` is **Searchable**; press Rebuild; its entry count shows.
+- [ ] 5.7 Admin search finds a feedback item by a word in a ticked field, with the chosen title,
+      snippet and badge; a result without a link shows but does not open.
+- [ ] 5.8 Edit the setup (tick another field), save: it rebuilds with no deploy; the new field
+      is searchable.
+- [ ] 5.9 A new feedback document is found without a rebuild (its trigger indexed it).
+- [ ] 5.10 Draft queue: edit and save a content draft's title; admin search finds the new title
+      within a few seconds; the `arccms-onSearchQueued` log shows the run.
+- [ ] 5.11 Publishing a draft: the published copy is found by public search; the drafts index
+      shows it as Published.
+- [ ] 5.12 No function per write: in the Cloud Functions logs, sending a test email (an
+      `EmailLogs` write) starts no search function.
+- [ ] 5.13 Clean up: take `'Feedback'` out of the file, full deploy (section 6 checks the
+      prompt), then **Rebuild everything**: its entries and status go.
+
+## 6. Deploying
+
+- [ ] 6.1 Full deploy after 5.13: `npm run deploy -- --only functions:arccms --project default`
+      lists exactly `arccms-searchSync-Feedback` for deletion and asks once (a single prompt).
+      Answer `y`: it is deleted.
+- [ ] 6.2 The same off a terminal without `--yes` (for example piped:
+      `echo | npm run deploy -- --only functions:arccms --project default`): stops, "Not deleting
+      without a yes", nothing deployed.
+- [ ] 6.3 A targeted deploy (`--only functions:arccms:arccms.search`) never asks and deletes
+      nothing.
+- [ ] 6.4 A feature off end to end: `off: ['data']` deletes nothing (it has no functions);
+      `off: ['sms']` lists `sendTestSms` and the phone sign-in callables for deletion. Answer `n`
+      to leave the project as it is, then put the file back.
+- [ ] 6.5 `--probe` after a deploy that creates a callable: every callable is reachable.
+
+## 7. Security rules
+
+- [ ] 7.1 Install Java 21 (`brew install openjdk@21`), then `npm run test:rules`: all pass,
+      including the search queue rules.
+- [x] 7.2 Checked live on 2026-09-29: the queue refuses an extra field, a collection that is
+      not a drafts collection, and every read; an admin may write a draft's entry.
+
+## 8. App plug points
+
+- [ ] 8.1 `src/custom/user-dashboard.ts` pointing at a page of the app: `/user/dashboard` shows it.
+- [ ] 8.2 A `CUSTOM_NAV` item with `feature: 'payments'`: it goes with `off: ['payments']`.
+
+## Results
+
+| Section | Date | Result | Notes |
+|---|---|---|---|
+| | | | |
