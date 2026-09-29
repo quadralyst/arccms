@@ -97,11 +97,12 @@ List the row's actions; the table decides the layout, so pages rarely need more 
 
 How the table lays them out:
 
-- **Up to 3 actions on a row** (2 on a narrow screen): all show as icons.
+- **Up to 3 actions in the table** (2 on a narrow screen): all show as icons.
 - **More than that:** the top 2 (1 on a narrow screen) stay as icons; the rest go into a "more" menu with their labels.
 - **Danger actions come last:** after a small gap inline, or below a divider (in red) in the menu. `delete`, `remove`, `archive`, `cancel` and any action with `class: 'delete'` count as danger.
 - **Order:** `edit` first, then `view` / `open` / `preview`, then the rest in the order given, danger last.
-- **Every row gets the same layout:** the count is of actions visible (after `hide`) across the whole page, and a row that hides an action keeps an empty slot so icons line up.
+- **Every row gets the same layout:** the count is of actions some row on the page shows (after `hide`), and a row that hides an action keeps an empty slot so icons line up and the column never grows past 3.
+- **Menu icons are grey:** colour classes such as `text-primary` apply to the inline icons only; danger items in the menu are red.
 
 Optional settings for when the defaults are wrong:
 

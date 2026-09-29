@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
@@ -27,7 +27,9 @@ export const ROW_ACTIONS_COMPACT_QUERY = '(max-width: 767.98px)';
     selector: 'arc-row-actions',
     standalone: true,
     imports: [NgClass, MatMenuModule, TranslocoPipe, TranslatablePipe],
-    changeDetection: ChangeDetectionStrategy.OnPush,
+    // Default change detection on purpose: `hide`, `iconFn` and `labelFn` often
+    // read page state or a row changed in place, which OnPush would not notice
+    // (a Block icon still showing after the user is blocked).
     template: `
         <div class="row-actions">
             @for (slot of resolvedPlan().inline; track slot.key; let i = $index) {
@@ -45,7 +47,8 @@ export const ROW_ACTIONS_COMPACT_QUERY = '(max-width: 767.98px)';
                 }
             }
             @if (resolvedPlan().menu.length) {
-                @if (menuItems().safe.length || menuItems().danger.length) {
+                @let items = menuItems();
+                @if (items.safe.length || items.danger.length) {
                     <button type="button" class="action-btn more-btn" [matMenuTriggerFor]="moreMenu"
                         [attr.title]="'common.actions.more' | transloco"
                         [attr.aria-label]="'common.actions.more' | transloco"
@@ -53,18 +56,18 @@ export const ROW_ACTIONS_COMPACT_QUERY = '(max-width: 767.98px)';
                         <i class="fas fa-ellipsis-vertical" aria-hidden="true"></i>
                     </button>
                     <mat-menu #moreMenu="matMenu" xPosition="before" class="arc-row-actions-menu">
-                        @for (a of menuItems().safe; track a.action) {
+                        @for (a of items.safe; track a.action) {
                             <button mat-menu-item type="button" (click)="run(a)">
-                                <i class="menu-icon" [class]="iconOf(a)" aria-hidden="true"></i>
+                                <i [class]="'menu-icon ' + menuIconOf(a)" aria-hidden="true"></i>
                                 <span>{{ labelOf(a) | translatable }}</span>
                             </button>
                         }
-                        @if (menuItems().safe.length && menuItems().danger.length) {
+                        @if (items.safe.length && items.danger.length) {
                             <div class="menu-divider" role="separator"></div>
                         }
-                        @for (a of menuItems().danger; track a.action) {
+                        @for (a of items.danger; track a.action) {
                             <button mat-menu-item type="button" class="danger" (click)="run(a)">
-                                <i class="menu-icon" [class]="iconOf(a)" aria-hidden="true"></i>
+                                <i [class]="'menu-icon ' + menuIconOf(a)" aria-hidden="true"></i>
                                 <span>{{ labelOf(a) | translatable }}</span>
                             </button>
                         }
@@ -116,7 +119,8 @@ export const ROW_ACTIONS_COMPACT_QUERY = '(max-width: 767.98px)';
             margin: 4px 0;
             background: rgba(0, 0, 0, 0.08);
         }
-        button.danger span { color: #dc3545; }
+        .menu-icon { color: #6b7280; }
+        button.danger span, button.danger .menu-icon { color: #dc3545; }
     `],
 })
 export class RowActionsComponent {
@@ -142,13 +146,14 @@ export class RowActionsComponent {
         }),
     );
 
-    readonly menuItems = computed(() => {
+    /** A method, not a computed: `hide` can change without any signal changing. */
+    menuItems(): { safe: RowAction[]; danger: RowAction[] } {
         const row = this.row();
         const items = this.resolvedPlan().menu
             .map(s => slotAction(s, row))
             .filter((a): a is RowAction => !!a);
         return { safe: items.filter(a => !isDangerAction(a)), danger: items.filter(a => isDangerAction(a)) };
-    });
+    }
 
     actionFor(slot: RowActionSlot): RowAction | undefined {
         return slotAction(slot, this.row());
@@ -160,6 +165,15 @@ export class RowActionsComponent {
 
     iconOf(a: RowAction): string {
         return a.iconFn ? a.iconFn(this.row()) : a.icon;
+    }
+
+    /**
+     * Menu icons drop the colour classes (`text-primary`, `text-warning`) the
+     * inline icons use: a list of labelled items in six colours reads as noise.
+     * Danger items are red from the item itself.
+     */
+    menuIconOf(a: RowAction): string {
+        return this.iconOf(a).split(/\s+/).filter(c => !/^text-/.test(c)).join(' ');
     }
 
     run(a: RowAction, event?: Event): void {

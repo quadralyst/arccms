@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { RowAction, isDangerAction, planRowActions } from './row-actions';
@@ -32,6 +33,13 @@ describe('planRowActions', () => {
         const drafts = [a('preview'), a('edit'), a('unpublish', { hide: r => !r.pub }), a('history', { hide: r => !r.pub }), a('delete')];
         expect(planRowActions(drafts, [{ pub: false }, { pub: false }]).menu).toEqual([]);
         expect(keys(planRowActions(drafts, [{ pub: false }, { pub: true }]).menu)).toEqual(['unpublish', 'history', 'delete']);
+    });
+
+    it('counts positions in use, so rows showing different actions cannot widen the column', () => {
+        const actions = [a('edit'), a('one', { hide: r => r.k !== 1 }), a('two', { hide: r => r.k !== 2 }), a('three', { hide: r => r.k !== 3 })];
+        const plan = planRowActions(actions, [{ k: 1 }, { k: 2 }, { k: 3 }]);
+        expect(keys(plan.inline)).toEqual(['edit', 'one']);
+        expect(keys(plan.menu)).toEqual(['two', 'three']);
     });
 
     it('drops actions no row shows', () => {
@@ -99,6 +107,42 @@ describe('RowActionsComponent', () => {
         const el = render(actions, { isDefault: true }, [{ isDefault: true }, { isDefault: false }]).nativeElement as HTMLElement;
         expect(el.querySelectorAll('.action-btn').length).toBe(2);
         expect(el.querySelectorAll('.action-slot').length).toBe(1);
+    });
+
+    it('follows hide and iconFn when page state or the row changes in place', () => {
+        // The app is zoneless: a page re-renders its table and the table its
+        // rows, but an OnPush row-actions cell with unchanged inputs would keep
+        // showing a Block icon for a blocked user, or a hidden Remove.
+        @Component({
+            standalone: true,
+            imports: [RowActionsComponent],
+            template: `<arc-row-actions [actions]="actions" [row]="row"></arc-row-actions>`,
+        })
+        class HostComponent {
+            formFed = false;
+            row = { active: true };
+            actions: RowAction[] = [
+                a('toggle', { iconFn: r => r.active ? 'fas fa-ban' : 'fas fa-check' }),
+                a('remove', { hide: () => this.formFed }),
+            ];
+        }
+        TestBed.configureTestingModule({ imports: [HostComponent], providers: [provideNoopAnimations()] });
+        const fixture = TestBed.createComponent(HostComponent);
+        fixture.detectChanges();
+        const el = fixture.nativeElement as HTMLElement;
+        expect(el.querySelectorAll('.action-btn').length).toBe(2);
+
+        fixture.componentInstance.row.active = false;
+        fixture.componentInstance.formFed = true;
+        fixture.componentRef.changeDetectorRef.markForCheck();
+        fixture.detectChanges();
+        expect(el.querySelector('.action-btn i')?.className).toContain('fa-check');
+        expect(el.querySelectorAll('.action-btn').length).toBe(1);
+    });
+
+    it('drops colour classes from menu icons', () => {
+        const fixture = render([a('edit'), a('view'), a('tags', { icon: 'fas fa-tags text-warning' }), a('delete')], {});
+        expect(fixture.componentInstance.menuIconOf(a('tags', { icon: 'fas fa-tags text-warning' }))).toBe('fas fa-tags');
     });
 
     it('runs onAction, or emits when there is none, without reaching the row', () => {

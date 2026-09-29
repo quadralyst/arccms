@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { TranslatablePipe } from '../../../app/core/i18n/translatable.pipe';
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, DoCheck, EventEmitter, Input, Output, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { map } from 'rxjs';
@@ -74,7 +74,7 @@ export interface TableColumn {
     standalone: true,
     imports: [CommonModule, TranslocoPipe, TranslatablePipe, RowActionsComponent]
 })
-export class GlobalTableComponent {
+export class GlobalTableComponent implements DoCheck {
     /**
      * Truthiness behind a `badge` column.
      *
@@ -125,18 +125,26 @@ export class GlobalTableComponent {
         inject(BreakpointObserver).observe(ROW_ACTIONS_COMPACT_QUERY).pipe(map(s => s.matches)),
         { initialValue: false },
     );
-    private planCache = new WeakMap<TableColumn, { data: any[]; actions?: TableAction[]; compact: boolean; plan: RowActionsPlan }>();
+    private plans = new Map<TableColumn, RowActionsPlan>();
 
-    /** One layout for the whole actions column, so every row lines up. Recomputed only when its inputs change. */
-    actionsPlan(col: TableColumn): RowActionsPlan {
+    /**
+     * Work out each actions column's layout once per check, before the rows
+     * render. Not cached across checks: `hide` often reads page state (the list
+     * hub hides Remove on a form-fed list) or a row changed in place, and a plan
+     * keyed on the `data` array would keep showing actions that are gone.
+     * Once per check costs the same `hide` calls the old per-button template did.
+     */
+    ngDoCheck(): void {
         const compact = this.compact();
-        const cached = this.planCache.get(col);
-        if (cached && cached.data === this.data && cached.actions === col.actions && cached.compact === compact) {
-            return cached.plan;
-        }
-        const plan = planRowActions(col.actions, this.data, { compact, maxInline: col.maxInline });
-        this.planCache.set(col, { data: this.data, actions: col.actions, compact, plan });
-        return plan;
+        this.plans = new Map(this.columns
+            .filter(col => col.type === 'actions')
+            .map(col => [col, planRowActions(col.actions, this.data, { compact, maxInline: col.maxInline })]));
+    }
+
+    /** One layout for the whole actions column, so every row lines up. */
+    actionsPlan(col: TableColumn): RowActionsPlan {
+        return this.plans.get(col)
+            ?? planRowActions(col.actions, this.data, { compact: this.compact(), maxInline: col.maxInline });
     }
 
     onActionClick(action: TableAction, row: any) {
