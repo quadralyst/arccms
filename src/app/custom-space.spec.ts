@@ -9,7 +9,6 @@ import { mergeTranslations } from './core/i18n/translation.loader';
 import { insertCustomNav, type MenuItem } from '../shared/components/side-navbar/side-navbar.component';
 import { CUSTOM_ROUTES } from '../custom/routes';
 import { CUSTOM_NAV } from '../custom/nav';
-import { CUSTOM_FEATURES } from '../custom/features';
 import customEn from '../custom/i18n/en.json';
 import customHi from '../custom/i18n/hi.json';
 
@@ -20,7 +19,8 @@ describe('custom space', () => {
     it('ships every starter file empty', () => {
         expect(CUSTOM_ROUTES).toEqual([]);
         expect(CUSTOM_NAV).toEqual([]);
-        expect(CUSTOM_FEATURES).toEqual({});
+        // Specs always see every feature on (src/test/setup.ts), so read the file itself.
+        expect(read('src/custom/features.ts')).toMatch(/^export const CUSTOM_FEATURES: FeatureChoice = \{\};$/m);
         expect(customEn).toEqual({});
         expect(customHi).toEqual({});
         expect(read('functions/src/custom/index.ts')).toMatch(/^export \{\};$/m);
@@ -81,7 +81,7 @@ describe('custom space', () => {
         });
 
         it('is wired into the side menu', () => {
-            expect(read('src/shared/components/side-navbar/side-navbar.component.ts')).toContain('insertCustomNav(items, CUSTOM_NAV)');
+            expect(read('src/shared/components/side-navbar/side-navbar.component.ts')).toContain('insertCustomNav(items, withoutFeaturesOff(CUSTOM_NAV))');
         });
     });
 

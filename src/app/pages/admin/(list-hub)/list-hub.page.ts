@@ -18,6 +18,7 @@ import { AudienceService } from '../(audience)/audience.service';
 import { IContact, IList, ITag } from '../(audience)/audience.model';
 import { BroadcastService, BroadcastRow, audienceListIds } from '../(broadcasts)/broadcast.service';
 import { DripService, DripCampaign } from '../(drips)/drip.service';
+import { isOn } from '../../../core/features/features';
 import { Functions } from '@angular/fire/functions';
 import { arcCallable } from '../../../core/config/arc-functions';
 import { APP_LIST_OPERATORS, AppListPreview } from '../(lists)/(app-list-conditions)/app-list-conditions.component';
@@ -56,6 +57,7 @@ export default class ListHubPageComponent implements OnInit {
     private broadcasts = inject(BroadcastService);
     private drips = inject(DripService);
     private route = inject(ActivatedRoute);
+    readonly emailMarketingOn = isOn('email-marketing');
     private router = inject(Router);
     private toast = inject(ToastService);
     private dialog = inject(MatDialog);
@@ -213,6 +215,7 @@ export default class ListHubPageComponent implements OnInit {
         this.audience.getContactsInList(id).pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe((c) => this.members.set(c));
         this.audience.getTags().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((t) => this.tags.set(t));
+        if (!this.emailMarketingOn) return;
         this.broadcasts.watchRecent(100).pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe((b) => this.allBroadcasts.set(b));
         this.drips.watchCampaigns().pipe(takeUntilDestroyed(this.destroyRef))

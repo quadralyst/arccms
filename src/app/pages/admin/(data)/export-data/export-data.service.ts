@@ -11,6 +11,7 @@ import {
     startAfter,
     QueryDocumentSnapshot,
 } from '@angular/fire/firestore';
+import { isOn } from '../../../../core/features/features';
 import { ContentTypesStore } from '../../contents/content-types/content-types.store';
 import { getTagsCollectionName } from '../../contents/content-types/tags/tags.model';
 import {
@@ -19,8 +20,8 @@ import {
     ContentTypeBundle,
     ExportFormat,
     ExportProgress,
-    KNOWN_COLLECTIONS,
-    COLLECTION_GROUP_MAP,
+    exportableKnownCollections,
+    collectionGroupOf,
     COLLECTION_GROUP_DEFS,
     DYNAMIC_COLLECTION_PATTERNS,
 } from '../data-constants';
@@ -36,8 +37,8 @@ export class ExportDataService {
      * (known + dynamic Tags_ + dynamic arc_* collections).
      */
     getAvailableCollections(): CollectionConfig[] {
-        const collections = [...KNOWN_COLLECTIONS];
-        const contentTypes = this.contentTypesStore.items();
+        const collections = exportableKnownCollections();
+        const contentTypes = isOn('content') ? this.contentTypesStore.items() : [];
 
         for (const ct of contentTypes) {
             if (ct.slug) {
@@ -75,7 +76,7 @@ export class ExportDataService {
      * Each content type becomes a bundle (draft + published + tags).
      */
     getCollectionGroups(): CollectionGroup[] {
-        const contentTypes = this.contentTypesStore.items();
+        const contentTypes = isOn('content') ? this.contentTypesStore.items() : [];
 
         // Build content type bundles
         const bundles: ContentTypeBundle[] = contentTypes
@@ -110,10 +111,11 @@ export class ExportDataService {
                 };
             });
 
-        // Build groups from definitions
+        // Build groups from definitions; a group left empty by the features goes.
+        const known = exportableKnownCollections();
         return COLLECTION_GROUP_DEFS.map((def) => {
-            const staticCollections = KNOWN_COLLECTIONS.filter(
-                (c) => COLLECTION_GROUP_MAP[c.name] === def.id,
+            const staticCollections = known.filter(
+                (c) => collectionGroupOf(c.name) === def.id,
             );
 
             const group: CollectionGroup = {
@@ -128,7 +130,7 @@ export class ExportDataService {
             }
 
             return group;
-        });
+        }).filter((group) => group.collections.length > 0 || !!group.contentTypeBundles?.length);
     }
 
     /**

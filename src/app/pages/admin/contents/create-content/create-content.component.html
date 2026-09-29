@@ -1033,6 +1033,8 @@
                     </ul>
                     }
 
+                    <!-- Link suggestions come from search, so they go with it. -->
+                    @if (searchOn) {
                     <hr class="my-3">
                     <h6 class="meta-section-title mb-1"><i class="fa-solid fa-link me-1"></i> {{ 'admin.contents.checklist.links_heading' | transloco }}</h6>
                     <p class="text-muted small mb-2">{{ 'admin.contents.checklist.links_intro' | transloco }}</p>
@@ -1054,6 +1056,7 @@
                     </ul>
                     } @else {
                     <p class="text-muted small">{{ (linkSuggestionsKey ? 'admin.contents.checklist.links_all_linked' : 'admin.contents.checklist.links_none') | transloco }}</p>
+                    }
                     }
                 </div>
                 }

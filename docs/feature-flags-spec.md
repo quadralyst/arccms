@@ -120,7 +120,7 @@ leave a feature on). The
 | Home page | Starts the waitlist form code | Only with `forms`. |
 | Onboarding | Seeds content types and a default form | Seeds only what is on. |
 | Automations editor | Offers every event and action | Payment events with `payments`, form events with `forms`, `app_user.*` events and list actions with `audience`. |
-| Email composer | Every template category | Form and payment templates only with their feature; marketing templates with `email-marketing`. |
+| Email composer | Every template type | Form (`waitlist_*`) and payment templates only with their feature. Marketing templates stay without `email-marketing`: automations can send them. |
 | Data export | Hard-coded collections of every feature | Only collections of features that are on, plus the core ones. The whole page is `data`. |
 
 ### 4.3 Custom apps
@@ -329,6 +329,10 @@ A test fails when a new piece is not claimed by a feature or core:
 - every browser write to a drafts collection goes through the queue helper (6.5)
 
 Without it the next new page would ship outside the system.
+
+Core specs always run with every feature on: `src/test/setup.ts` mocks
+`src/custom/features.ts` as empty, so an app that turns features off can still run
+the whole suite. A spec about a particular choice mocks the file itself.
 
 ---
 

@@ -405,6 +405,8 @@ export type TranslationKey =
     | 'admin.dashboard.this_week'
     | 'admin.dashboard.title'
     | 'admin.dashboard.total_signups'
+    | 'admin.dashboard.total_users'
+    | 'admin.dashboard.total_users_note'
     | 'admin.dashboard.view_all'
     | 'admin.dashboard.view_full_analytics'
     | 'admin.data.export.bundle_badge'
@@ -435,6 +437,7 @@ export type TranslationKey =
     | 'admin.data.group_email'
     | 'admin.data.group_settings'
     | 'admin.data.group_users'
+    | 'admin.data.group_users_only'
     | 'admin.data.import.back'
     | 'admin.data.import.browse'
     | 'admin.data.import.complete'
@@ -569,6 +572,7 @@ export type TranslationKey =
     | 'admin.nav.drip_campaigns'
     | 'admin.nav.email'
     | 'admin.nav.email_logs'
+    | 'admin.nav.email_only'
     | 'admin.nav.email_templates'
     | 'admin.nav.export_data'
     | 'admin.nav.export_files'
@@ -1816,6 +1820,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.this_week',
     'admin.dashboard.title',
     'admin.dashboard.total_signups',
+    'admin.dashboard.total_users',
+    'admin.dashboard.total_users_note',
     'admin.dashboard.view_all',
     'admin.dashboard.view_full_analytics',
     'admin.data.export.bundle_badge',
@@ -1846,6 +1852,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.data.group_email',
     'admin.data.group_settings',
     'admin.data.group_users',
+    'admin.data.group_users_only',
     'admin.data.import.back',
     'admin.data.import.browse',
     'admin.data.import.complete',
@@ -1980,6 +1987,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.drip_campaigns',
     'admin.nav.email',
     'admin.nav.email_logs',
+    'admin.nav.email_only',
     'admin.nav.email_templates',
     'admin.nav.export_data',
     'admin.nav.export_files',

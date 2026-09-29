@@ -103,6 +103,8 @@
                 </div>
             </mat-tab>
 
+            <!-- Broadcasts and the sequence are email marketing's, so they go with it. -->
+            @if (emailMarketingOn) {
             <!-- ── Broadcasts ──────────────────────────────────────── -->
             <mat-tab label="Broadcasts">
                 <div class="tab-body">
@@ -146,6 +148,7 @@
                     </app-global-table>
                 </div>
             </mat-tab>
+            }
         </mat-tab-group>
     }
 </div>

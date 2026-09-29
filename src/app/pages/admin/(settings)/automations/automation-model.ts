@@ -6,6 +6,7 @@
  * older shape, one set of actions per event) are shown as a first rule without
  * conditions and saved back as rules, which the bus treats the same way.
  */
+import type { FeatureId } from '../../../../core/features/feature-registry';
 
 export type EmailCategory = 'transactional' | 'marketing';
 
@@ -51,6 +52,14 @@ export const APP_USER_CREATED = 'app_user.created';
 export const APP_USER_DELETED = 'app_user.deleted';
 export const APP_USER_CHANGED_PREFIX = 'app_user.changed.';
 
+/** The feature an event belongs to; it is not offered when that feature is off (docs/feature-flags-spec.md). */
+export function eventFeature(type: string): FeatureId | undefined {
+    if (type.startsWith('payment.')) return 'payments';
+    if (type.startsWith('waitlist.')) return 'forms';
+    if (type.startsWith('app_user.')) return 'audience';
+    return undefined;
+}
+
 export function eventInfo(type: string): EventInfo {
     if (type.startsWith(APP_USER_CHANGED_PREFIX)) return { type, appUser: true, field: type.slice(APP_USER_CHANGED_PREFIX.length) };
     return { type, appUser: type.startsWith('app_user.') };
@@ -59,15 +68,22 @@ export function eventInfo(type: string): EventInfo {
 /**
  * Every event worth offering: the built-in ones, the app-user ones when an app
  * is connected (one change event per watched field), and any event that already
- * has a mapping, so nothing saved is ever hidden.
+ * has a mapping, so nothing saved is ever hidden. Events of a feature that is off
+ * are left out: they never fire, and their mappings stay saved for when it is on.
  */
-export function availableEvents(opts: { appConnected: boolean; watchedFields: string[]; mapped: string[] }): EventInfo[] {
+export function availableEvents(opts: {
+    appConnected: boolean;
+    watchedFields: string[];
+    mapped: string[];
+    on?: (id: FeatureId) => boolean;
+}): EventInfo[] {
     const types = [...BUILT_IN_EVENTS];
     if (opts.appConnected) {
         types.push(APP_USER_CREATED, ...opts.watchedFields.map((f) => APP_USER_CHANGED_PREFIX + f), APP_USER_DELETED);
     }
     for (const t of opts.mapped) if (!types.includes(t)) types.push(t);
-    return types.map(eventInfo);
+    const on = opts.on ?? (() => true);
+    return types.filter((t) => { const f = eventFeature(t); return !f || on(f); }).map(eventInfo);
 }
 
 type Raw = Record<string, unknown>;

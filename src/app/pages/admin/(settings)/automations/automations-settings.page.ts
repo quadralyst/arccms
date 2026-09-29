@@ -19,6 +19,7 @@ import { arcCallable } from '../../../../core/config/arc-functions';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { AudienceService } from '../../(audience)/audience.service';
 import { IList, contactLists } from '../../(audience)/audience.model';
+import { isOn } from '../../../../core/features/features';
 import {
     ConditionKind,
     EventDraft,
@@ -187,6 +188,7 @@ export function isRuleEmailTemplate(type: string): boolean {
                       </div>
                     }
 
+                    @if (audienceOn) {
                     <div class="row g-2 mt-1 small">
                       @for (side of listSides; track side.id) {
                         <div class="col-md-6">
@@ -199,6 +201,7 @@ export function isRuleEmailTemplate(type: string): boolean {
                         </div>
                       }
                     </div>
+                    }
                   }
                 </div>
               } @empty {
@@ -248,6 +251,8 @@ export class AutomationsSettingsPage implements OnInit {
         { id: 'from' as const, labelKey: 'admin.settings.automations.when_from' },
         { id: 'to' as const, labelKey: 'admin.settings.automations.when_to' },
     ];
+    /** List actions and app-user events need the audience feature. */
+    readonly audienceOn = isOn('audience');
     readonly listSides = [
         { id: 'add' as const, labelKey: 'admin.settings.automations.add_to_lists' },
         { id: 'remove' as const, labelKey: 'admin.settings.automations.remove_from_lists' },
@@ -274,7 +279,7 @@ export class AutomationsSettingsPage implements OnInit {
     private rawMappings: Record<string, unknown> = {};
 
     ngOnInit(): void {
-        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
+        if (this.audienceOn) this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
         void this.load();
     }
 
@@ -287,9 +292,12 @@ export class AutomationsSettingsPage implements OnInit {
                 read(() => getDoc(doc(this.firestore, 'Settings', 'event_mappings'))),
                 read(() => getDocs(collection(this.firestore, 'EmailTemplate'))),
                 read(() => getDoc(doc(this.firestore, 'Settings', 'notification_types'))),
-                arcCallable<unknown, { location: { configured: boolean }; settings: { watchedFields?: string[] } }>(this.functions, 'appAudienceStatus')({})
-                    .then((r) => r.data)
-                    .catch(() => ({ location: { configured: false }, settings: { watchedFields: [] } })),
+                // An audience function: without the feature it is not deployed.
+                (this.audienceOn
+                    ? arcCallable<unknown, { location: { configured: boolean }; settings: { watchedFields?: string[] } }>(this.functions, 'appAudienceStatus')({})
+                        .then((r) => r.data)
+                    : Promise.reject())
+                    .catch(() => ({ location: { configured: false }, settings: { watchedFields: [] as string[] } })),
             ]);
 
             this.rawDoc = (mappingSnap.data() as Record<string, unknown>) ?? {};
@@ -311,6 +319,7 @@ export class AutomationsSettingsPage implements OnInit {
                 appConnected: !!status.location.configured,
                 watchedFields: status.settings?.watchedFields ?? [],
                 mapped: Object.keys(this.rawMappings),
+                on: isOn,
             });
             this.events.set(events);
             this.drafts.set(Object.fromEntries(events.map((e) => [e.type, mappingToDraft(e.type, this.rawMappings[e.type])])));

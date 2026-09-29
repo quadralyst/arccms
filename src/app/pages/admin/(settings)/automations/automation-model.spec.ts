@@ -14,6 +14,16 @@ describe('automation model (CO6.5d)', () => {
         expect(eventInfo('user.signed_up')).toEqual({ type: 'user.signed_up', appUser: false });
     });
 
+    it('leaves out the events of features that are off, even when mapped', () => {
+        const types = availableEvents({
+            appConnected: true,
+            watchedFields: ['isPro'],
+            mapped: ['payment.succeeded', 'custom.thing'],
+            on: (id) => id !== 'payments' && id !== 'audience',
+        }).map((e) => e.type);
+        expect(types).toEqual(['user.signed_up', 'waitlist.joined', 'custom.thing']);
+    });
+
     it('reads the older one-set-of-actions shape as a first rule without conditions', () => {
         const d = mappingToDraft('user.signed_up', { enabled: false, addToLists: ['all-users'] });
         expect(d.enabled).toBe(false);

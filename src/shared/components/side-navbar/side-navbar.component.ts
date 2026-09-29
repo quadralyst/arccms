@@ -16,13 +16,14 @@ import { filter } from 'rxjs';
 import logoSmall from '../../../assets/images/logo-small.png';
 import adminAvatar from '../../../assets/images/admin.png';
 import { AuthState } from '../../../app/pages/(auth)/auth.store';
-import MediaManagerComponent from '../../../app/pages/admin/(media)/media.page';
 import { BaseComponent } from '../base/base.component';
 import { ConfirmationPopupComponent } from '../confirmation-popup/confirmation-popup.component';
 import { ContentTypesStore } from '../../../app/pages/admin/contents/content-types/content-types.store';
 import { ContentType, contentTypeName } from '../../../app/pages/admin/contents/content-types/content-types.model';
 import { WaitlistAdminStore } from '../../../app/pages/admin/(waitlists)/waitlist.store';
 import { CUSTOM_NAV } from '../../../custom/nav';
+import { isOn } from '../../../app/core/features/features';
+import type { FeatureId } from '../../../app/core/features/feature-registry';
 
 export type MenuItem = {
     icon?: string;
@@ -45,7 +46,31 @@ export type MenuItem = {
     allowRoles?: string[];
     queryParams?: Record<string, string>;
     separator?: boolean;
+    /** The feature this item belongs to; it is left out when that feature is off. */
+    feature?: FeatureId;
 };
+
+/**
+ * The menu without the items of features that are off (docs/feature-flags-spec.md):
+ * a group whose sub-items all go goes too, and separators never lead, trail or
+ * double up. Returns new objects; `items` is left alone.
+ */
+export function withoutFeaturesOff(items: readonly MenuItem[], on: (id: FeatureId) => boolean = isOn): MenuItem[] {
+    const kept: MenuItem[] = [];
+    for (const item of items) {
+        if (item.feature && !on(item.feature)) continue;
+        if (item.subItems) {
+            const subItems = withoutFeaturesOff(item.subItems, on);
+            if (!subItems.length) continue;
+            kept.push({ ...item, subItems });
+            continue;
+        }
+        if (item.separator && (!kept.length || kept[kept.length - 1].separator)) continue;
+        kept.push({ ...item });
+    }
+    while (kept.length && kept[kept.length - 1].separator) kept.pop();
+    return kept;
+}
 
 /**
  * Put the app's menu items (src/custom/nav.ts, docs/custom-code.md) before
@@ -140,6 +165,7 @@ export default class NavbarComponent extends BaseComponent {
             labelKey: 'admin.nav.signup_forms',
             route: '/admin/waitlists',
             allowRoles: [this.constantVariables.ADMIN],
+            feature: 'forms',
         },
         {
             icon: 'fa-solid fa-images',
@@ -160,6 +186,7 @@ export default class NavbarComponent extends BaseComponent {
             label: 'Audience',
             labelKey: 'admin.nav.audience',
             allowRoles: [this.constantVariables.ADMIN],
+            feature: 'audience',
             subItems: [
                 { label: 'Contacts', labelKey: 'admin.nav.contacts', route: '/admin/contacts', icon: 'fa-solid fa-user-group' },
                 { label: 'Lists', labelKey: 'admin.nav.lists', route: '/admin/lists', icon: 'fa-solid fa-rectangle-list' },
@@ -171,16 +198,17 @@ export default class NavbarComponent extends BaseComponent {
         {
             icon: 'fa-solid fa-palette',
             label: 'Email + SMS',
-            labelKey: 'admin.nav.email',
+            // Without SMS the group is only email, and says so.
+            labelKey: isOn('sms') ? 'admin.nav.email' : 'admin.nav.email_only',
             allowRoles: [this.constantVariables.ADMIN],
             subItems: [
                 { label: 'Brand Kit', labelKey: 'admin.nav.brand_kit', route: '/admin/email/brand-kit', icon: 'fa-solid fa-palette' },
                 { label: 'Composer', labelKey: 'admin.nav.composer', route: '/admin/email/composer', icon: 'fa-solid fa-pen-ruler' },
-                { label: 'Broadcasts', labelKey: 'admin.nav.broadcasts', route: '/admin/email/broadcasts', icon: 'fa-solid fa-tower-broadcast' },
-                { label: 'Drip Campaigns', labelKey: 'admin.nav.drip_campaigns', route: '/admin/email/drip-campaigns', icon: 'fa-solid fa-droplet' },
-                { label: 'Announcements', labelKey: 'admin.nav.announcements', route: '/admin/email/announcements', icon: 'fa-solid fa-bullhorn' },
+                { label: 'Broadcasts', labelKey: 'admin.nav.broadcasts', route: '/admin/email/broadcasts', icon: 'fa-solid fa-tower-broadcast', feature: 'email-marketing' },
+                { label: 'Drip Campaigns', labelKey: 'admin.nav.drip_campaigns', route: '/admin/email/drip-campaigns', icon: 'fa-solid fa-droplet', feature: 'email-marketing' },
+                { label: 'Announcements', labelKey: 'admin.nav.announcements', route: '/admin/email/announcements', icon: 'fa-solid fa-bullhorn', feature: 'email-marketing' },
                 { label: 'Email Logs', labelKey: 'admin.nav.email_logs', route: '/admin/email-logs', icon: 'fa-solid fa-envelope-open-text' },
-                { label: 'SMS Logs', labelKey: 'admin.nav.sms_logs', route: '/admin/sms-logs', icon: 'fa-solid fa-comment-sms' },
+                { label: 'SMS Logs', labelKey: 'admin.nav.sms_logs', route: '/admin/sms-logs', icon: 'fa-solid fa-comment-sms', feature: 'sms' },
             ],
         },
         {
@@ -196,6 +224,7 @@ export default class NavbarComponent extends BaseComponent {
             labelKey: 'admin.nav.products',
             route: '/admin/products',
             allowRoles: [this.constantVariables.ADMIN],
+            feature: 'payments',
         },
         {
             icon: 'fa-solid fa-receipt',
@@ -203,12 +232,14 @@ export default class NavbarComponent extends BaseComponent {
             labelKey: 'admin.nav.transactions',
             route: '/admin/transactions',
             allowRoles: [this.constantVariables.ADMIN],
+            feature: 'payments',
         },
         {
             icon: 'fa-solid fa-database',
             label: 'Data',
             labelKey: 'admin.nav.data',
             allowRoles: [this.constantVariables.ADMIN],
+            feature: 'data',
             subItems: [
                 { label: 'Export Data', labelKey: 'admin.nav.export_data', route: '/admin/data/export-data', icon: 'fa-solid fa-file-export' },
                 { label: 'Import Data', labelKey: 'admin.nav.import_data', route: '/admin/data/import-data', icon: 'fa-solid fa-file-import' },
@@ -275,6 +306,7 @@ export default class NavbarComponent extends BaseComponent {
             label: 'Content',
             labelKey: 'admin.nav.content',
             allowRoles: [this.constantVariables.ADMIN],
+            feature: 'content',
             subItems: [
                 { label: 'Content types', labelKey: 'admin.nav.content_types', route: '/admin/contents/content-types', icon: 'fa-solid fa-newspaper' },
                 { label: 'Authors', labelKey: 'admin.nav.authors', route: '/admin/authors', icon: 'fa-solid fa-user-pen' },
@@ -288,31 +320,33 @@ export default class NavbarComponent extends BaseComponent {
             icon: 'fa-solid fa-clipboard-list',
             label: w.name,
             allowRoles: [this.constantVariables.ADMIN],
+            feature: 'forms' as const,
             subItems: [
                 { label: 'Dashboard', labelKey: 'admin.nav.dashboard', route: `/admin/waitlists/dashboard/${w.id}`, icon: 'fa-solid fa-gauge-high' } as MenuItem,
                 { label: 'Users', labelKey: 'admin.nav.users', route: `/admin/waitlists/users/${w.id}`, icon: 'fa-solid fa-users', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
                 // The form's list hub (U4): its audience, broadcast history and
                 // sequence. The list id mirrors the form id (`waitlistListId()`).
-                { label: 'Audience & emails', labelKey: 'admin.nav.audience_and_emails', route: `/admin/lists/waitlist-${w.id}`, icon: 'fa-solid fa-paper-plane' } as MenuItem,
+                { label: 'Audience & emails', labelKey: 'admin.nav.audience_and_emails', route: `/admin/lists/waitlist-${w.id}`, icon: 'fa-solid fa-paper-plane', feature: 'audience' } as MenuItem,
                 { label: 'Tags', labelKey: 'admin.nav.tags', route: `/admin/waitlists/tags`, icon: 'fa-solid fa-tags', queryParams: { waitlistId: w.id, waitlistName: w.name, returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
                 { label: 'Email Templates', labelKey: 'admin.nav.email_templates', route: `/admin/waitlists/templates/${w.id}`, icon: 'fa-solid fa-envelope', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
             ]
         })).sort((a: MenuItem, b: MenuItem) => (a.label || '').localeCompare(b.label || ''));
 
-        const items = [...this.baseMenuItems];
-        // Insert the per-form items after Waitlists (index 2). The legacy
-        // Subscribers link is gone (U6): it viewed the frozen `WaitlistedUsers`
-        // collection, and Audience → Contacts supersedes it.
-        items.splice(2, 0, ...dynamicWaitlistItems);
-        // Add separator after waitlist section
-        const waitlistSectionEnd = 3 + dynamicWaitlistItems.length;
-        items.splice(waitlistSectionEnd, 0, { label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
-        // Insert the Content group after the separator
-        items.splice(waitlistSectionEnd + 1, 0, contentGroup);
-        // Add separator after the Content group (before Media Manager)
-        items.splice(waitlistSectionEnd + 2, 0, { label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
+        // Dashboard, Signup Forms and each form's own group, Media Manager, then
+        // Content between separators, then the rest. The legacy Subscribers link
+        // is gone (U6): it viewed the frozen `WaitlistedUsers` collection, and
+        // Audience → Contacts supersedes it.
+        const separator = (): MenuItem => ({ label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
+        const [dashboard, signupForms, mediaManager, ...rest] = this.baseMenuItems;
+        // Items of features that are off go (docs/feature-flags-spec.md), and
+        // with them any separator left with nothing to separate.
+        const items = withoutFeaturesOff([
+            dashboard, signupForms, ...dynamicWaitlistItems, mediaManager,
+            separator(), contentGroup, separator(),
+            ...rest,
+        ]);
         // The app's own items (src/custom/nav.ts), before Profile.
-        insertCustomNav(items, CUSTOM_NAV);
+        insertCustomNav(items, withoutFeaturesOff(CUSTOM_NAV));
         // Add separator before Profile (find its index)
         const profileIndex = items.findIndex(i => i.label === 'Profile');
         if (profileIndex > -1) {
@@ -349,8 +383,9 @@ export default class NavbarComponent extends BaseComponent {
                 takeUntilDestroyed(this.destroyRef),
             )
             .subscribe(() => this.translationsLoaded.update((n) => n + 1));
-        this.contentTypesStore.getAll();
-        this.waitlistAdminStore.subscribe();
+        // Each read feeds only its feature's menu, so a feature that is off costs none.
+        if (isOn('content')) this.contentTypesStore.getAll();
+        if (isOn('forms')) this.waitlistAdminStore.subscribe();
         this.router.events
             .pipe(filter((event: any): event is NavigationEnd => event instanceof NavigationEnd))
             .subscribe((event: NavigationEnd) => {
@@ -409,20 +444,6 @@ export default class NavbarComponent extends BaseComponent {
                     }
                 });
             }
-        });
-    }
-
-    public openMediaManager(): void {
-        this.dialog.open(MediaManagerComponent, {
-            enterAnimationDuration: '450ms',
-            exitAnimationDuration: '300ms',
-            minWidth: '134vh',
-            maxHeight: '90vh',
-            panelClass: 'common-dialog-box',
-            disableClose: true,
-            data: {
-                isDialogOpen: true,
-            },
         });
     }
 

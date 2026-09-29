@@ -27,6 +27,21 @@ import { PageHeaderComponent } from '../../../../shared/components/page-header/p
 import { EmailPreviewDialogComponent } from './email-preview-dialog.component';
 import { getComposerTags } from '../../../../shared/constants/email-tags';
 import { arcCallable } from '../../../core/config/arc-functions';
+import { isOn } from '../../../core/features/features';
+import type { FeatureId } from '../../../core/features/feature-registry';
+
+/**
+ * The feature whose emails a template type is (docs/feature-flags-spec.md). The
+ * composer leaves those of a feature that is off out: nothing sends them. Marketing
+ * templates stay, since automations can send them without email marketing.
+ */
+export function templateFeature(type: string): FeatureId | undefined {
+    if (type.startsWith('waitlist_')) return 'forms';
+    if (type.startsWith('payment_') || ['subscription_lifecycle_email', 'trial_ending_email', 'updates_ending_email'].includes(type)) {
+        return 'payments';
+    }
+    return undefined;
+}
 
 export const routeMeta: RouteMeta = {
     title: 'Email Composer | Arc CMS',
@@ -97,7 +112,10 @@ export default class EmailComposerPageComponent implements OnInit {
                     return of([]);
                 }),
             ).subscribe((docs) => {
-                this.templates.set(dedupeTemplatesByType(docs as TemplateDoc[]));
+                this.templates.set(dedupeTemplatesByType(docs as TemplateDoc[]).filter((t) => {
+                    const feature = templateFeature(t.type || '');
+                    return !feature || isOn(feature);
+                }));
                 this.loading.set(false);
             });
         });

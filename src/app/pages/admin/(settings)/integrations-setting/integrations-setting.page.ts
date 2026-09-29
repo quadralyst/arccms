@@ -16,6 +16,7 @@ import { BaseComponent } from '../../../../../shared/components/base/base.compon
 import { roleGuard } from '../../../../guards/role.guard';
 import { IntegrationsSettingService } from './integrations-setting.service';
 import { DEFAULT_INTEGRATIONS_SETTINGS } from './integrations-setting.model';
+import { isOn } from '../../../../core/features/features';
 
 export const routeMeta: RouteMeta = {
     title: 'Integrations Settings | Arc CMS',
@@ -208,6 +209,8 @@ export const routeMeta: RouteMeta = {
                 </mat-card>
 
                 <!-- ═══════════════════ Geolocation Card ═══════════════════ -->
+                <!-- Only signup forms record a visitor's location, so it goes with them. -->
+                @if (formsOn) {
                 <mat-card class="mb-4 integration-card">
                     <mat-card-header>
                         <mat-card-title>
@@ -393,6 +396,7 @@ export const routeMeta: RouteMeta = {
                         </form>
                     </mat-card-content>
                 </mat-card>
+                }
 
             }
         </div>
@@ -588,6 +592,7 @@ export default class IntegrationsSettingPageComponent extends BaseComponent impl
 
     unsplashForm!: FormGroup;
     geoForm!: FormGroup;
+    readonly formsOn = isOn('forms');
 
     isLoading = signal(true);
     isSavingUnsplash = signal(false);

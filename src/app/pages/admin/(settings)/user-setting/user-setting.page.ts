@@ -14,6 +14,7 @@ import { BaseComponent } from '../../../../../shared/components/base/base.compon
 import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { UserSettingService } from './user-setting.service';
 import { AVAILABLE_ROLES, IUserSettings } from './user-setting.model';
+import { isOn } from '../../../../core/features/features';
 import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
 
@@ -47,6 +48,7 @@ export default class UserSettingPageComponent extends BaseComponent implements O
     isLoading = signal(true);
     isSaving = signal(false);
     availableRoles = AVAILABLE_ROLES;
+    readonly smsOn = isOn('sms');
     isUserSettingEnabled = signal(false);
     userSettings: IUserSettings | null = null;
 

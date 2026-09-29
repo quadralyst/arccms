@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 import { AdminLanguagePickerComponent } from '../admin-language-picker/admin-language-picker.component';
 import { AdminSearchComponent } from '../admin-search/admin-search.component';
+import { isOn } from '../../../app/core/features/features';
 
 /**
  * Unified page header used across the admin AND signed-in user areas.
@@ -37,7 +38,7 @@ import { AdminSearchComponent } from '../admin-search/admin-search.component';
             </div>
             <div class="actions">
                 <ng-content></ng-content>
-                @if (showSearch) {
+                @if (showSearch && searchOn) {
                 <arc-admin-search class="search-slot"></arc-admin-search>
                 }
                 @if (showLanguagePicker) {
@@ -143,6 +144,8 @@ export class PageHeaderComponent {
      * no admin, such as onboarding.
      */
     @Input() showSearch = true;
+    /** The admin search box needs the search feature (docs/feature-flags-spec.md). */
+    readonly searchOn = isOn('search');
     /** Show an inline back button before the title (for detail/sub pages). */
     @Input() showBack = false;
     @Output() back = new EventEmitter<void>();

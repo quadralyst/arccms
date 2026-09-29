@@ -56,6 +56,7 @@ import {
   translatableRepeaterKeys,
   isTranslationEmpty,
 } from '../draft-content-store/content-translation.model';
+import { isOn } from '../../../../core/features/features';
 
 /**
  * The subset of editor state that varies by language. Everything else on a
@@ -211,6 +212,8 @@ export class CreateContentComponent extends BaseComponent {
   private searchService = inject(SearchService);
   @ViewChild(TiptapEditorComponent) private bodyEditor?: TiptapEditorComponent;
   checklist = signal<ChecklistReport | null>(null);
+  /** Link suggestions come from search; without the feature they are not offered. */
+  readonly searchOn = isOn('search');
   linkSuggestions = signal<SearchResult[]>([]);
   linkSuggestionsLoading = signal(false);
   linkSuggestionsKey = '';
@@ -1584,7 +1587,7 @@ export class CreateContentComponent extends BaseComponent {
   openChecks(): void {
     this.activeTab = 'checks';
     this.runChecklist();
-    this.loadLinkSuggestions();
+    if (this.searchOn) this.loadLinkSuggestions();
   }
 
   runChecklist(): void {

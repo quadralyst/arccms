@@ -16,6 +16,7 @@ import {
     ExportProgress,
 } from '../data-constants';
 import { ExportDataService } from './export-data.service';
+import { isOn } from '../../../../core/features/features';
 
 export const routeMeta: RouteMeta = {
     title: 'Export Data | Arc CMS',
@@ -82,7 +83,8 @@ export default class ExportDataPageComponent extends BaseComponent implements On
 
     presets: ExportPreset[] = [
         { id: 'all', label: 'admin.data.preset_everything', icon: 'fa-solid fa-check-double' },
-        { id: 'all-content', label: 'admin.data.preset_all_content', icon: 'fa-solid fa-file-lines' },
+        // "All content" means nothing without the content feature.
+        ...(isOn('content') ? [{ id: 'all-content', label: 'admin.data.preset_all_content', icon: 'fa-solid fa-file-lines' }] : []),
         { id: 'all-settings', label: 'admin.data.preset_all_settings', icon: 'fa-solid fa-gear' },
     ];
 

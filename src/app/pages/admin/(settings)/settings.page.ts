@@ -9,6 +9,8 @@ import { BaseComponent } from '../../../../shared/components/base/base.component
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { roleGuard } from '../../../guards/role.guard';
+import { isOn } from '../../../core/features/features';
+import type { FeatureId } from '../../../core/features/feature-registry';
 
 export const routeMeta: RouteMeta = {
     title: 'Settings | Arc CMS',
@@ -22,6 +24,8 @@ interface SettingCategory {
     icon: string;
     route: string;
     description: string;
+    /** The feature this tab belongs to; it is left out when that feature is off. */
+    feature?: FeatureId;
 }
 
 @Component({
@@ -257,7 +261,7 @@ interface SettingCategory {
     `],
 })
 export default class SettingsPageComponent extends BaseComponent {
-    settingCategories = signal<SettingCategory[]>([
+    settingCategories = signal<SettingCategory[]>(([
         {
             id: 'about',
             label: 'About',
@@ -291,6 +295,7 @@ export default class SettingsPageComponent extends BaseComponent {
             label: 'Payments',
             icon: 'fa-solid fa-credit-card',
             route: '/admin/settings/payments',
+            feature: 'payments',
             description: 'Dodo integration & payment emails',
         },
         {
@@ -305,6 +310,7 @@ export default class SettingsPageComponent extends BaseComponent {
             label: 'SMS',
             icon: 'fa-solid fa-comment-sms',
             route: '/admin/settings/sms',
+            feature: 'sms',
             description: 'Text messages for phone sign-in',
         },
         {
@@ -333,6 +339,7 @@ export default class SettingsPageComponent extends BaseComponent {
             label: 'Search',
             icon: 'fa-solid fa-magnifying-glass',
             route: '/admin/settings/search',
+            feature: 'search',
             description: 'Search index and rebuild tools',
         },
         {
@@ -340,6 +347,7 @@ export default class SettingsPageComponent extends BaseComponent {
             label: 'Discoverability',
             icon: 'fa-solid fa-robot',
             route: '/admin/settings/discoverability',
+            feature: 'seo',
             description: 'AI crawlers, llms.txt & IndexNow',
         },
         {
@@ -347,6 +355,7 @@ export default class SettingsPageComponent extends BaseComponent {
             label: 'App audience',
             icon: 'fa-solid fa-users-viewfinder',
             route: '/admin/settings/app-audience',
+            feature: 'audience',
             description: "Your app's users, read live",
         },
         {
@@ -363,5 +372,5 @@ export default class SettingsPageComponent extends BaseComponent {
             route: '/admin/settings/misc',
             description: 'Branding and media upload',
         },
-    ]);
+    ] as SettingCategory[]).filter((category) => !category.feature || isOn(category.feature)));
 }

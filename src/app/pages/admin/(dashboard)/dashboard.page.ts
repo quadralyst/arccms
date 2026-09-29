@@ -20,6 +20,7 @@ import { AudienceService } from '../(audience)/audience.service';
 import { UserService } from '../users/user.service';
 import { roleGuard } from '../../../guards/role.guard';
 import { PWA } from '../../../core/pwa/pwa.service';
+import { isOn } from '../../../core/features/features';
 import { PwaStatsService } from '../../../core/pwa/pwa-stats.service';
 
 export const routeMeta: RouteMeta = {
@@ -85,6 +86,13 @@ export default class DashboardComponent extends BaseComponent {
 
   // App installs (docs/pwa.md), when this install's PWA is on
   readonly pwaEnabled = PWA.enabled;
+
+  // Sections follow the features this app has (docs/feature-flags-spec.md).
+  readonly contentOn = isOn('content');
+  readonly formsOn = isOn('forms');
+  readonly audienceOn = isOn('audience');
+  /** Where "View all" in Growth & Leads goes: the richest list this app has. */
+  readonly growthLink = this.formsOn ? '/admin/waitlists' : this.audienceOn ? '/admin/contacts' : '/admin/users';
   pwaStats = inject(PwaStatsService);
 
   // Content types list (need actual items for names/icons)
@@ -170,11 +178,12 @@ export default class DashboardComponent extends BaseComponent {
     // BaseComponent helper pages at ten, which silently dropped the oldest
     // types from the cards and the "Managing N content types" line on a
     // site with more than ten (the same bug the public pages had).
-    this.contentTypesStore.getAll();
-    this.waitlistAdminStore.subscribe();
+    // Each read feeds a section of its feature, so a feature that is off costs none.
+    if (this.contentOn) this.contentTypesStore.getAll();
+    if (this.formsOn) this.waitlistAdminStore.subscribe();
     this.loadMediaCount();
     this.loadGrowthAndLeadsCounts();
-    this.loadRecentWaitlistSignups();
+    if (this.audienceOn) this.loadRecentWaitlistSignups();
     if (this.pwaEnabled) void this.pwaStats.load();
     // Auto-refresh is handled reactively by the effect in the constructor
   }
@@ -193,7 +202,11 @@ export default class DashboardComponent extends BaseComponent {
   }
 
   navigateToWaitlists(): void {
-    this.appRouter.navigate(['/admin/waitlists']);
+    this.appRouter.navigate([this.formsOn ? '/admin/waitlists' : '/admin/contacts']);
+  }
+
+  navigateToUsers(): void {
+    this.appRouter.navigate(['/admin/users']);
   }
 
   /**
@@ -291,6 +304,16 @@ export default class DashboardComponent extends BaseComponent {
    * Load Growth & Leads counts using efficient server-side queries
    */
   private loadGrowthAndLeadsCounts(): void {
+    // Total users: every app has them.
+    this.userService.getCollectionTotalCount({
+      limitCount: 0,
+      currentPageNumber: 0,
+      previousPageNumber: 0
+    }).subscribe((count) => {
+      this.totalUsersCount.set(count);
+    });
+
+    if (!this.audienceOn) return;
     // U4: these read the unified `Contacts` audience rather than `WaitlistedUsers`,
     // which U6 retires. Contacts exist from the moment of signup (U2), so the
     // totals now include people mid-funnel who have not verified yet — which is
@@ -304,15 +327,6 @@ export default class DashboardComponent extends BaseComponent {
     // "Verified" is now "mailable": U2 promotes a contact to `subscribed` exactly
     // when they confirm their address.
     void this.audienceService.countContactsByConsent('subscribed').then((c) => this.verifiedUsersCount.set(c));
-
-    // Total admin users
-    this.userService.getCollectionTotalCount({
-      limitCount: 0,
-      currentPageNumber: 0,
-      previousPageNumber: 0
-    }).subscribe((count) => {
-      this.totalUsersCount.set(count);
-    });
   }
 
   /**

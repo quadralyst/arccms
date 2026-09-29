@@ -183,19 +183,21 @@
     </div>
     }
 
-    <!-- Content & Media Section -->
+    <!-- Content & Media Section (Media only, without the content feature) -->
     <div class="section-header">
         <div class="d-flex align-items-center gap-2">
-            <h2>{{ 'admin.dashboard.content_media' | transloco }}</h2>
+            <h2>{{ (contentOn ? 'admin.dashboard.content_media' : 'admin.dashboard.media') | transloco }}</h2>
         </div>
+        @if (contentOn) {
         <div class="alert alert-info py-1 px-3 mb-0" style="font-size: 0.9rem;">
             Managing {{ contentTypes().length + 1 }} content type{{ contentTypes().length + 1 > 1 ? 's' : '' }}
             ({{ contentTypeNames() ? contentTypeNames() + ', ' : '' }}Media).
         </div>
+        }
     </div>
 
     <div class="scrollable-row mb-4">
-        @for (contentType of contentTypes(); track contentType.id; let i = $index) {
+        @for (contentType of (contentOn ? contentTypes() : []); track contentType.id; let i = $index) {
         <div class="scrollable-card" (click)="navigateToContentType(contentType.slug)">
             <div class="metric-card clickable">
                 <div class="metric-card-header">
@@ -231,11 +233,27 @@
     <!-- Growth & Leads Section -->
     <div class="section-header">
         <h2>{{ 'admin.dashboard.growth_leads' | transloco }}</h2>
-        <a routerLink="/admin/waitlists">{{ 'admin.dashboard.view_all' | transloco }}</a>
+        <a [routerLink]="growthLink">{{ 'admin.dashboard.view_all' | transloco }}</a>
     </div>
 
     <div class="scrollable-row mb-4">
-        <!-- {{ 'admin.dashboard.total_signups' | transloco }} Summary Card -->
+        <!-- Users: every app has them -->
+        <div class="scrollable-card" (click)="navigateToUsers()">
+            <div class="metric-card clickable">
+                <div class="metric-card-header">
+                    <div class="metric-icon green">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                    <div class="metric-title">{{ 'admin.dashboard.total_users' | transloco }}</div>
+                </div>
+                <div class="metric-value">{{ totalUsersCount() | number }}</div>
+                <div class="metric-subtitle card-footer-row">
+                    <span class="text-muted">{{ 'admin.dashboard.total_users_note' | transloco }}</span>
+                </div>
+            </div>
+        </div>
+        <!-- Total signups: contacts, so only with the audience feature -->
+        @if (audienceOn) {
         <div class="scrollable-card" (click)="navigateToWaitlists()">
             <div class="metric-card clickable">
                 <div class="metric-card-header">
@@ -250,8 +268,9 @@
                 </div>
             </div>
         </div>
+        }
         <!-- Individual Waitlist Cards -->
-        @for (waitlist of waitlists(); track waitlist.id) {
+        @for (waitlist of (formsOn ? waitlists() : []); track waitlist.id) {
         <div class="scrollable-card" (click)="navigateToWaitlistDashboard(waitlist.id!)">
             <div class="metric-card clickable">
                 <div class="metric-card-header">
@@ -323,12 +342,14 @@
     </div>
     }
 
-    <!-- Waitlist Signups & {{ 'admin.dashboard.recent_activity' | transloco }} Section -->
+    <!-- Recent signups (audience) & recent activity (content): each takes the full width alone -->
+    @if (audienceOn || contentOn) {
     <div class="row g-3 mb-4">
-        <div class="col-md-8 d-flex flex-column">
+        @if (audienceOn) {
+        <div class="d-flex flex-column" [ngClass]="contentOn ? 'col-md-8' : 'col-12'">
             <div class="section-header mt-0">
                 <h2>{{ 'admin.dashboard.recent_signups' | transloco }}</h2>
-                <a routerLink="/admin/waitlists">{{ 'admin.dashboard.view_all' | transloco }}</a>
+                <a [routerLink]="formsOn ? '/admin/waitlists' : '/admin/contacts'">{{ 'admin.dashboard.view_all' | transloco }}</a>
             </div>
             <div class="activity-table flex-grow-1">
                 <table class="table">
@@ -357,7 +378,9 @@
                 </table>
             </div>
         </div>
-        <div class="col-md-4 d-flex flex-column">
+        }
+        @if (contentOn) {
+        <div class="d-flex flex-column" [ngClass]="audienceOn ? 'col-md-4' : 'col-12'">
             <div class="section-header mt-0">
                 <h2>{{ 'admin.dashboard.recent_activity' | transloco }}</h2>
             </div>
@@ -389,5 +412,7 @@
                 }
             </div>
         </div>
+        }
     </div>
+    }
 </div>

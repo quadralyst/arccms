@@ -4,12 +4,17 @@
  * Collection registry and export format types for data import/export.
  */
 
+import { isOn } from '../../../core/features/features';
+import type { FeatureId } from '../../../core/features/feature-registry';
+
 export interface CollectionConfig {
     name: string;
     displayName: string;
     isDynamic?: boolean;
     dynamicPattern?: string;
     subcollections?: SubcollectionConfig[];
+    /** The feature whose data this is; exports leave it out when that feature is off. */
+    feature?: FeatureId;
 }
 
 export interface SubcollectionConfig {
@@ -144,28 +149,34 @@ export type CollectionGroupId = 'content' | 'users-waitlists' | 'audience' | 'se
 // ---------------------------------------------------------------------------
 
 export const KNOWN_COLLECTIONS: CollectionConfig[] = [
-    { name: 'ContentTypes', displayName: 'Content Types' },
+    { name: 'ContentTypes', displayName: 'Content Types', feature: 'content' },
     { name: 'users', displayName: 'Users' },
     { name: 'Settings', displayName: 'Settings' },
     { name: 'media', displayName: 'Media Metadata' },
     { name: 'EmailTemplate', displayName: 'Email Templates' },
-    { name: 'BroadcastEmails', displayName: 'Broadcast Emails' },
+    { name: 'BroadcastEmails', displayName: 'Broadcast Emails', feature: 'email-marketing' },
     { name: 'EmailLogs', displayName: 'Email Logs' },
     {
-        name: 'Waitlists', displayName: 'Waitlists',
+        name: 'Waitlists', displayName: 'Waitlists', feature: 'forms',
         subcollections: [{ name: 'users', displayName: 'Waitlist Users' }],
     },
     {
-        name: 'WaitlistedUsers', displayName: 'Waitlisted Users',
+        name: 'WaitlistedUsers', displayName: 'Waitlisted Users', feature: 'forms',
         subcollections: [{ name: 'referrals', displayName: 'Referrals' }],
     },
     // Unified audience layer (U1/U2). Contacts carry consent, so exports of this
     // group contain marketing-permission state — treat as sensitive.
-    { name: 'Contacts', displayName: 'Contacts' },
-    { name: 'Lists', displayName: 'Lists' },
-    { name: 'ContactTags', displayName: 'Contact Tags' },
+    { name: 'Contacts', displayName: 'Contacts', feature: 'audience' },
+    { name: 'Lists', displayName: 'Lists', feature: 'audience' },
+    { name: 'ContactTags', displayName: 'Contact Tags', feature: 'audience' },
+    // Unsubscribes are the email engine's, so every app keeps them.
     { name: 'Suppression', displayName: 'Suppression List' },
 ];
+
+/** The known collections of the features this app has (docs/feature-flags-spec.md). */
+export function exportableKnownCollections(on: (id: FeatureId) => boolean = isOn): CollectionConfig[] {
+    return KNOWN_COLLECTIONS.filter((c) => !c.feature || on(c.feature));
+}
 
 // ---------------------------------------------------------------------------
 // Group definitions – maps each static collection to a UI group
@@ -188,10 +199,20 @@ export const COLLECTION_GROUP_MAP: Record<string, CollectionGroupId> = {
     EmailLogs:       'email',
 };
 
+/**
+ * The group a static collection shows in. Without the audience feature the
+ * unsubscribe list is all that is left of Audience, so it joins Email.
+ */
+export function collectionGroupOf(name: string, on: (id: FeatureId) => boolean = isOn): CollectionGroupId | undefined {
+    if (name === 'Suppression' && !on('audience')) return 'email';
+    return COLLECTION_GROUP_MAP[name];
+}
+
 /** Group display order and metadata */
 export const COLLECTION_GROUP_DEFS: { id: CollectionGroupId; label: string; icon: string }[] = [
     { id: 'content',          label: 'admin.data.group_content',            icon: 'fa-solid fa-file-lines' },
-    { id: 'users-waitlists',  label: 'admin.data.group_users',  icon: 'fa-solid fa-users' },
+    // Without signup forms the group holds users only, and says so.
+    { id: 'users-waitlists',  label: isOn('forms') ? 'admin.data.group_users' : 'admin.data.group_users_only',  icon: 'fa-solid fa-users' },
     { id: 'audience',         label: 'admin.data.group_audience',           icon: 'fa-solid fa-address-book' },
     { id: 'settings-media',   label: 'admin.data.group_settings',   icon: 'fa-solid fa-gear' },
     { id: 'email',            label: 'admin.data.group_email',              icon: 'fa-solid fa-envelope' },
