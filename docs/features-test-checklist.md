@@ -155,7 +155,7 @@ Mark each line `[x]` when it passes, or note what happened.
 |---|---|---|---|
 | 1 | 2026-09-29 | Pass | 1.3 read "Installable app (PWA) (pwa)"; the label is now "Installable app" |
 | 2 | 2026-09-29 | Pass | |
-| 4 | 2026-09-29 | Pass | The dev server aborted once mid-section (a DNS lookup during a network drop); restarted |
+| 4 | 2026-09-29 | Pass | The dev server aborted once mid-section; restarted. A second abort later showed the cause: out of memory (4 GB heap) after many restarts, one per change to the features file |
 | 7 | 2026-09-29 | Pass after fixes | 57 tests; storage rules need a deploy for the overwrite fix |
 | 6.5 | 2026-09-29 | Pass | Probe run on its own after the deploys: every callable reachable |
 | 6.1-6.4 | 2026-09-29 | Pass | `off: ['data']` builds the same 131 functions; `off: ['sms']` builds 123 |
