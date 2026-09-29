@@ -2,6 +2,7 @@ import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { computeEmailHash } from './unsubscribeToken.js';
 import { enrollInListCampaigns, exitListCampaignEnrollments } from './dripEnrollment.js';
+import { isFeatureOn } from '../feature-flags.js';
 
 /**
  * Unified audience layer (spec §3.5–3.6, D5).
@@ -200,8 +201,9 @@ export async function addContactToLists(emailHash: string, listIds: string[]): P
     }
     return toAdd;
   }).then(async (toAdd) => {
-    // Joining a list enrolls the contact in that list's active drip campaigns (D4).
-    if (toAdd.length) await enrollInListCampaigns(emailHash, toAdd);
+    // Joining a list enrolls the contact in that list's active drip campaigns (D4),
+    // which are email marketing's (docs/feature-flags-spec.md).
+    if (toAdd.length && isFeatureOn('email-marketing')) await enrollInListCampaigns(emailHash, toAdd);
     return toAdd;
   });
 }
@@ -233,7 +235,7 @@ export async function removeContactFromLists(emailHash: string, listIds: string[
     return toRemove;
   }).then(async (toRemove) => {
     // Leaving a list exits the contact from that list's drip campaigns (D4).
-    if (toRemove.length) await exitListCampaignEnrollments(emailHash, toRemove, 'left_list');
+    if (toRemove.length && isFeatureOn('email-marketing')) await exitListCampaignEnrollments(emailHash, toRemove, 'left_list');
     return toRemove;
   });
 }

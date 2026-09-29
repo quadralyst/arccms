@@ -29,6 +29,7 @@ import { readAppAudienceSettings } from './adminCallables.js';
 import { comparableValue, isSensitiveField, MASKED_VALUE, maskResolvedAppUser, resolveAppUser, safeDisplayValue, valueAt } from './fields.js';
 import { APP_AUDIENCE_STATE, appUserStateId } from './state.js';
 import { syncAppDrips } from './appDrips.js';
+import { isFeatureOn } from '../feature-flags.js';
 
 export const APP_USER_CREATED = 'app_user.created';
 export const APP_USER_DELETED = 'app_user.deleted';
@@ -182,7 +183,8 @@ export const onAppUserWritten = onDocumentWritten(
                 });
             }
             // Sequences on App users (live) lists: joining is starting to match (CO6.5c).
-            await syncAppDrips(docId, beforeData, afterData, settings);
+            // Sequences are email marketing's (docs/feature-flags-spec.md).
+            if (isFeatureOn('email-marketing')) await syncAppDrips(docId, beforeData, afterData, settings);
         } catch (err) {
             const retry = shouldRetryAppUserWrite(event.time);
             logger.error(

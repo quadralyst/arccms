@@ -7,6 +7,7 @@ import { verifyUnsubscribeToken } from './unsubscribeToken.js';
 import { setRecipientConsent } from './recipientConsent.js';
 import { exitAllEnrollments } from './dripEnrollment.js';
 import { getUnsubscribeSecret } from './unsubscribeSecret.js';
+import { isFeatureOn } from '../feature-flags.js';
 
 /**
  * One-click unsubscribe endpoint: `/unsubscribe?e={emailHash}&t={hmac}`.
@@ -94,24 +95,31 @@ export async function unsubscribeByEmailHash(emailHash: string): Promise<void> {
     { merge: true },
   );
 
+  // The rest keeps each feature's own records in step with the Suppression doc,
+  // which alone enforces the unsubscribe (docs/feature-flags-spec.md, 5.3).
+
   // Update the unified Contacts consent (Phase 3), or the app user's own record
   // when the address was mailed as an app user (CO6.5a), so the preference
   // center and marketing gate agree. Non-fatal.
-  try {
-    await setRecipientConsent(emailHash, 'unsubscribed', email || undefined);
-  } catch (err) {
-    logger.warn('handleUnsubscribe: could not update Contact consent', err);
+  if (isFeatureOn('audience')) {
+    try {
+      await setRecipientConsent(emailHash, 'unsubscribed', email || undefined);
+    } catch (err) {
+      logger.warn('handleUnsubscribe: could not update Contact consent', err);
+    }
   }
 
   // Unsubscribing exits all active drip enrollments (D4).
-  try {
-    await exitAllEnrollments(emailHash, 'unsubscribed');
-  } catch (err) {
-    logger.warn('handleUnsubscribe: could not exit drip enrollments', err);
+  if (isFeatureOn('email-marketing')) {
+    try {
+      await exitAllEnrollments(emailHash, 'unsubscribed');
+    } catch (err) {
+      logger.warn('handleUnsubscribe: could not exit drip enrollments', err);
+    }
   }
 
   // Best-effort: keep legacy waitlist readers in sync (isSubscribed:false).
-  if (email) {
+  if (email && isFeatureOn('forms')) {
     try {
       const snap = await db
         .collection('WaitlistedUsers')

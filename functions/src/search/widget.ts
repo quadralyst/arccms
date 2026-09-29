@@ -13,6 +13,7 @@
 
 import { langPrefix } from '../shared/content-translation.js';
 import { arcFunctionName } from '../function-names.js';
+import { isFeatureOn } from '../feature-flags.js';
 
 /** The region the `search` callable deploys to (the project default). */
 export const SEARCH_FUNCTION_REGION = 'us-central1';
@@ -64,6 +65,9 @@ export interface SearchWidgetOptions {
  */
 export function buildSearchWidget(options: SearchWidgetOptions): string {
     if (!options.projectId && !options.endpoint) return '';
+    // Without the search feature the header's <arc-search> becomes nothing
+    // (docs/feature-flags-spec.md).
+    if (!isFeatureOn('search')) return '';
 
     const text = (key: SearchWidgetStringKey) => options.strings?.[key]?.trim() || SEARCH_WIDGET_DEFAULT_STRINGS[key];
     const endpoint = options.endpoint || searchEndpoint(options.projectId);

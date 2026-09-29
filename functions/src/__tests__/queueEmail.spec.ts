@@ -28,6 +28,10 @@ vi.mock('../email-core/contacts', () => ({
   },
 }));
 
+// Every feature on unless a test turns some off (docs/feature-flags-spec.md).
+const featuresOff = vi.hoisted(() => new Set<string>());
+vi.mock('../feature-flags.js', () => ({ isFeatureOn: (id: string) => !featuresOff.has(id) }));
+
 vi.mock('../init', () => ({
   db: {
     collection: vi.fn((name: string) => {
@@ -97,6 +101,31 @@ describe('queueEmail', () => {
     mockSuppressionGet.mockResolvedValue({ exists: false, data: () => undefined });
     mockGetContactConsent.mockResolvedValue(null); // no contact → fall back to isSubscribed
     mockDisabled.value = false;
+    featuresOff.clear();
+  });
+
+  describe('without the audience feature', () => {
+    it('ignores a contact left from before: no contact gate nobody can unblock', async () => {
+      featuresOff.add('audience');
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      mockGetContactConsent.mockResolvedValue('unsubscribed');
+      mockDisabled.value = true;
+
+      const res = await queueEmail({ ...baseParams, category: 'marketing' });
+
+      expect(res.status).toBe('pending');
+      expect(mockGetContactConsent).not.toHaveBeenCalled();
+    });
+
+    it('still stops marketing to an address that unsubscribed, through Suppression', async () => {
+      featuresOff.add('audience');
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+      mockSuppressionGet.mockResolvedValue({ exists: true, data: () => ({ reason: 'unsubscribe' }) });
+
+      const res = await queueEmail({ ...baseParams, category: 'marketing' });
+
+      expect(res.status).toBe('suppressed');
+    });
   });
 
   describe('admin-disabled contacts (U4 / U-D12)', () => {

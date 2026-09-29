@@ -4,6 +4,7 @@ import { ensureDefaultTemplates } from './defaultTemplates.js';
 import { ensureNotificationTypes } from './notifications.js';
 import { ensureEventMappings } from './appEvents.js';
 import { ensureSystemLists } from './contacts.js';
+import { isFeatureOn } from '../feature-flags.js';
 import { isArcAdmin } from '../users/claims.js';
 
 /**
@@ -22,7 +23,8 @@ export const seedEmailTemplates = onCall(async (request) => {
     const result = await ensureDefaultTemplates();
     await ensureNotificationTypes();
     await ensureEventMappings();
-    await ensureSystemLists();
+    // System lists are the audience feature's (docs/feature-flags-spec.md).
+    if (isFeatureOn('audience')) await ensureSystemLists();
     logger.info(
       `seedEmailTemplates: created ${result.created.length}, skipped ${result.skipped.length}; seeded registries + system lists.`,
     );

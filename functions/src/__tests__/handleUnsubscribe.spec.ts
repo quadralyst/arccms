@@ -53,6 +53,16 @@ vi.mock('firebase-functions/v2/https', () => ({
   onRequest: vi.fn((handler: any) => handler),
 }));
 
+// Every feature on unless a test turns some off (docs/feature-flags-spec.md).
+const featuresOff = vi.hoisted(() => new Set<string>());
+vi.mock('../feature-flags.js', () => ({ isFeatureOn: (id: string) => !featuresOff.has(id) }));
+const { mockSetRecipientConsent, mockExitAllEnrollments } = vi.hoisted(() => ({
+  mockSetRecipientConsent: vi.fn().mockResolvedValue(undefined),
+  mockExitAllEnrollments: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../email-core/recipientConsent.js', () => ({ setRecipientConsent: mockSetRecipientConsent }));
+vi.mock('../email-core/dripEnrollment.js', () => ({ exitAllEnrollments: mockExitAllEnrollments }));
+
 import { handleUnsubscribe } from '../email-core/handleUnsubscribe.js';
 import { computeEmailHash, buildUnsubscribeToken } from '../email-core/unsubscribeToken.js';
 
@@ -79,6 +89,7 @@ describe('handleUnsubscribe', () => {
     delete process.env.ARC_APP_USERS_PATH;
     delete process.env.ARC_APP_USERS_DATABASE;
     vi.clearAllMocks();
+    featuresOff.clear();
     mockSettingsGet.mockResolvedValue({ data: () => ({ unsubscribeSecret: SECRET }) });
     mockEmailLogsGet.mockResolvedValue({ empty: false, docs: [{ data: () => ({ toEmail: EMAIL }) }] });
     mockWaitlistedGet.mockResolvedValue({ docs: [{ ref: { update: waitlistUpdate } }] });
@@ -100,6 +111,29 @@ describe('handleUnsubscribe', () => {
     );
     // Legacy waitlist flag flipped.
     expect(waitlistUpdate).toHaveBeenCalledWith({ isSubscribed: false });
+  });
+
+  it('updates contacts, sequences and form records when those features are on', async () => {
+    await handler({ method: 'GET', query: { e: HASH, t: TOKEN }, body: {} }, makeRes());
+    expect(mockSetRecipientConsent).toHaveBeenCalledWith(HASH, 'unsubscribed', EMAIL);
+    expect(mockExitAllEnrollments).toHaveBeenCalledWith(HASH, 'unsubscribed');
+    expect(waitlistUpdate).toHaveBeenCalled();
+  });
+
+  it('only suppresses when audience, email marketing and forms are off', async () => {
+    featuresOff.add('audience').add('email-marketing').add('forms');
+    const res = makeRes();
+    await handler({ method: 'GET', query: { e: HASH, t: TOKEN }, body: {} }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(mockSuppressionSet).toHaveBeenCalledWith(
+      expect.objectContaining({ email: EMAIL, emailHash: HASH, reason: 'unsubscribe' }),
+      { merge: true },
+    );
+    expect(mockSetRecipientConsent).not.toHaveBeenCalled();
+    expect(mockExitAllEnrollments).not.toHaveBeenCalled();
+    expect(mockWaitlistedGet).not.toHaveBeenCalled();
+    expect(mockCollectionGroupGet).not.toHaveBeenCalled();
   });
 
   it('GET with an invalid token returns 400 and does NOT suppress', async () => {

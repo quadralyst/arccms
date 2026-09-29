@@ -290,15 +290,15 @@ describe('Referral Decrement on User Delete', () => {
       expect(fileContent).toContain('if (deletedData.referredBy)');
     });
 
-    it('should be exported from all.ts', async () => {
+    it('should be exported with the signup forms feature', async () => {
       const fs = await import('fs');
       const path = await import('path');
       const fileContent = fs.readFileSync(
-        path.resolve(__dirname, '../all.ts'),
+        path.resolve(__dirname, '../features/forms.ts'),
         'utf-8'
       );
 
-      expect(fileContent).toContain("'./waitlists/waitlist-details/onWaitlistUserDelete.js'");
+      expect(fileContent).toContain("'../waitlists/waitlist-details/onWaitlistUserDelete.js'");
     });
 
     it('should handle errors gracefully with try-catch', async () => {

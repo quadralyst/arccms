@@ -17,6 +17,7 @@ import { computeEmailHash } from './unsubscribeToken.js';
 import { addTagsToContact } from './contactTags.js';
 import { setContactFields } from './contactFields.js';
 import { flushDueEnrollments } from './dripSend.js';
+import { isFeatureOn } from '../feature-flags.js';
 import type { WaitlistUserData } from '../types.js';
 import { emitAppEvent } from './appEvents.js';
 import { arcDocument } from '../arc-config.js';
@@ -240,7 +241,8 @@ export const onWaitlistVerifiedContact = onDocumentUpdated(
       // here is what makes the welcome arrive in seconds; without it the contact
       // would wait for the next 15-minute scheduler tick, and a "you're in!"
       // email that late reads as broken.
-      if (promoted) {
+      // Sequences are email marketing's (docs/feature-flags-spec.md).
+      if (promoted && isFeatureOn('email-marketing')) {
         try {
           await flushDueEnrollments(emailHash);
         } catch (err) {

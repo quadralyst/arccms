@@ -10,6 +10,7 @@
 import { parseRequest, runSearch, type SearchResult } from '../search/search.js';
 import { CONTENT_SOURCE_ID } from '../search/sources/content.js';
 import { tokenize } from '../search/tokenizer.js';
+import { isFeatureOn } from '../feature-flags.js';
 
 export interface RelatedItem {
     title: string;
@@ -47,7 +48,8 @@ export async function findRelated(input: {
     lang: string;
 }): Promise<RelatedItem[]> {
     const q = relatedQuery(input.title, input.tags);
-    if (!q) return [];
+    // Related items come from search; none without it (docs/feature-flags-spec.md).
+    if (!q || !isFeatureOn('search')) return [];
     try {
         const parsed = parseRequest({ q, lang: input.lang, scope: 'public', sources: [CONTENT_SOURCE_ID], limit: RELATED_LIMIT + 1 });
         const response = await runSearch(parsed);

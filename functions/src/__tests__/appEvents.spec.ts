@@ -40,6 +40,9 @@ vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
 vi.mock('../email-core/contacts', () => ({
   upsertContact: mockUpsert, addContactToLists: mockAddLists, removeContactFromLists: mockRemoveLists,
 }));
+// Every feature on unless a test turns some off (docs/feature-flags-spec.md).
+const featuresOff = vi.hoisted(() => new Set<string>());
+vi.mock('../feature-flags.js', () => ({ isFeatureOn: (id: string) => !featuresOff.has(id) }));
 vi.mock('../constant', () => ({ constant: { isProduction: false, live_url: 'https://x/', local_url: 'http://l/' } }));
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentCreated: vi.fn((_p: string, h: any) => h) }));
@@ -59,6 +62,7 @@ function mappings(obj: any) {
 describe('onAppEventCreate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    featuresOff.clear();
     mockUsersGet.mockResolvedValue({ empty: false, docs: [{ data: () => ({ email: 'u@x.com' }) }] });
     mockTemplateGet.mockResolvedValue({ empty: false, docs: [{ data: () => ({ senderEmail: 's', senderName: 'S', subject: 'x', template: 'y', isActive: true }) }] });
   });
@@ -94,6 +98,23 @@ describe('onAppEventCreate', () => {
     expect(mockCreateNotif).toHaveBeenCalledWith(expect.objectContaining({ title: 'Hi Ada', type: 'announcement' }));
     expect(mockAddLists).toHaveBeenCalledWith(computeEmailHash('u@x.com'), ['vip']);
     expect(lastResults()).toMatchObject({ status: 'ok', notification: 'n1' });
+  });
+
+  it('skips list actions without the audience feature, keeping the rest of the rule', async () => {
+    featuresOff.add('audience');
+    mappings({
+      'custom.thing': {
+        enabled: true,
+        createNotification: { typeKey: 'announcement', titleTemplate: 'Hi', bodyTemplate: 'Body' },
+        addToLists: ['vip'],
+      },
+    });
+    await handler(event({ type: 'custom.thing', userId: 'u1', contactEmail: 'u@x.com' }));
+
+    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(mockAddLists).not.toHaveBeenCalled();
+    expect(mockCreateNotif).toHaveBeenCalled();
+    expect(lastResults()).toMatchObject({ status: 'ok', lists: 'feature_off' });
   });
 
   it('enabled mapping can queue an email', async () => {

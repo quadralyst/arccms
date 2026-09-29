@@ -4,6 +4,15 @@
  */
 import { vi } from 'vitest';
 
+/**
+ * Core function specs run with every feature on (docs/feature-flags-spec.md),
+ * whatever an app built on Arc CMS turns off in src/custom/features.ts. A spec
+ * about a particular choice mocks '../feature-flags.js' itself.
+ */
+vi.mock('../enabled-features.gen.js', () => ({
+  ENABLED_FEATURES: ['content', 'search', 'seo', 'forms', 'audience', 'email-marketing', 'sms', 'payments', 'data', 'pwa'],
+}));
+
 // Mock firebase-admin/app
 vi.mock('firebase-admin/app', () => ({
   initializeApp: vi.fn(),

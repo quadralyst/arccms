@@ -6,6 +6,7 @@ import type { EmailSettings } from '../types.js';
 import { verifyUnsubscribeToken } from './unsubscribeToken.js';
 import { getRecipientConsent, setRecipientConsent } from './recipientConsent.js';
 import { getUnsubscribeSecret } from './unsubscribeSecret.js';
+import { isFeatureOn } from '../feature-flags.js';
 
 /**
  * Public preference center (spec §Phase-3.4): `/email-preferences?e={hash}&t={hmac}`.
@@ -32,16 +33,19 @@ export const handleEmailPreferences = onRequest(async (req, res) => {
   }
 
   const email = await recoverEmail(emailHash);
+  // Without the audience feature there are no contacts: the Suppression doc
+  // alone holds the choice (docs/feature-flags-spec.md, 5.3).
+  const audienceOn = isFeatureOn('audience');
 
   try {
     if (action === 'unsubscribe') {
-      await setRecipientConsent(emailHash, 'unsubscribed', email);
+      if (audienceOn) await setRecipientConsent(emailHash, 'unsubscribed', email);
       await db.collection('Suppression').doc(emailHash).set(
         { email, emailHash, reason: 'unsubscribe', at: Timestamp.now() },
         { merge: true },
       );
     } else if (action === 'subscribe') {
-      await setRecipientConsent(emailHash, 'subscribed', email);
+      if (audienceOn) await setRecipientConsent(emailHash, 'subscribed', email);
       // Only lift a self-service unsubscribe — never a hard bounce/complaint.
       const supp = await db.collection('Suppression').doc(emailHash).get();
       if (supp.exists && supp.data()?.['reason'] === 'unsubscribe') {
@@ -54,9 +58,17 @@ export const handleEmailPreferences = onRequest(async (req, res) => {
     return;
   }
 
-  const consent = (await getRecipientConsent(emailHash, email)) || 'subscribed';
+  const consent = audienceOn
+    ? (await getRecipientConsent(emailHash, email)) || 'subscribed'
+    : await suppressionConsent(emailHash);
   res.status(200).send(renderPage({ state: 'ok', subscribed: consent === 'subscribed', emailHash, token }));
 });
+
+/** A self-service unsubscribe on the Suppression list is the only record of consent without audience. */
+async function suppressionConsent(emailHash: string): Promise<'subscribed' | 'unsubscribed'> {
+  const supp = await db.collection('Suppression').doc(emailHash).get();
+  return supp.exists ? 'unsubscribed' : 'subscribed';
+}
 
 async function recoverEmail(emailHash: string): Promise<string> {
   try {

@@ -71,3 +71,6 @@ firebase.*.json
 
 # Remembered choices of the guided deploy (scripts/arc-deploy-menu.mjs), per checkout.
 .arc-deploy-state.json
+
+# Generated from src/custom/features.ts before every functions build (scripts/arc-features.mjs)
+functions/src/*.gen.ts

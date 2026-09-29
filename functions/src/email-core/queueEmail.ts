@@ -10,6 +10,7 @@ import { computeEmailHash } from './unsubscribeToken.js';
 import { getContactGateState } from './contacts.js';
 import { usedAppFields } from '../app-audience/mergeFields.js';
 import { appUserSubscribed } from './appUserConsent.js';
+import { isFeatureOn } from '../feature-flags.js';
 
 /** Default max delivery attempts before an email is marked `failed`. */
 export const DEFAULT_MAX_ATTEMPTS = 3;
@@ -160,7 +161,12 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
   }
 
   // Single read of the contact for the next two gates (consent + disabled).
-  const contact = await getContactGateState(emailHash);
+  // Without the audience feature there are no contacts to manage, so a contact
+  // left from before cannot block mail nobody can unblock; an unsubscribe still
+  // stops marketing through the Suppression gate below.
+  const contact = isFeatureOn('audience')
+    ? await getContactGateState(emailHash)
+    : { exists: false, consent: null, disabled: false };
 
   // 4. Admin disabled this contact (U-D12) — an absolute block, both categories.
   //    Deliberately stronger than consent: a disabled contact receives nothing,

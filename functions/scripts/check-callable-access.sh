@@ -26,25 +26,29 @@ PROJECT="${FIREBASE_PROJECT:-xlm-project-864ff}"
 REGION="${FIREBASE_REGION:-us-central1}"
 BASE="https://${REGION}-${PROJECT}.cloudfunctions.net"
 
-# Every onCall function the browser invokes, by plain name. Keep in sync with
-# functions/src/all.ts. They deploy as arccms-<name> (docs/coexistence-spec.md, CO-D5).
-CALLABLES=(
-  requestFormOtp verifyFormOtp
-  adminAddContact adminSetContactConsent adminUpdateContactLists adminSetContactDisabled
-  adminSetContactTags adminUpsertContactField adminDeleteContactField adminSetContactFields
-  backfillContacts backfillFormLists backfillPendingContacts stampFormTargetLists
-  migrateTagsToContacts migrateFormDataToContactFields migrateWelcomeToSequences
-  normalizeWaitlistTemplateIds dedupeEmailTemplates seedEmailTemplates
-  previewBroadcastAudience sendTestEmail sendAnnouncement unsubscribeLegacyLink
-  getOptimizedLeaderboard ensureWaitlistExists
-  joinForm finalizeFormSignup getPublicMemberView getPublicLeaderboard creditReferral
-  getMyNotificationPrefs updateMyNotificationPrefs claimFirstAdmin search adminCreateUser
-  appAudienceStatus sampleAppUsers testAppUser listAppUsers getAppUser previewAppList
-  checkEmailAccount checkPhoneAccount requestPhoneOtp verifyPhoneOtp completePhoneSignup
-  signInWithPin resetPin setPin ensureGoogleAccount checkIdentifierForLink
-  requestEmailLinkOtp linkEmail linkPhone sendTestSms verifySignupOtp requestSignupOtp
-  createAccountRecord refreshMyClaims deleteMyAccount trackPwaEvent
-)
+# Every onCall function in the build, by plain name (custom ones as custom-<name>).
+# Read from functions/lib, so the list always matches what was deployed: a feature
+# the app turned off (src/custom/features.ts) is not built, so it is not checked.
+# They deploy as arccms-<name> (docs/coexistence-spec.md, CO-D5).
+LIB="$(cd "$(dirname "$0")/.." && pwd)/lib/index.js"
+if [ ! -f "$LIB" ]; then
+  echo "No build at $LIB. Run: npm run build --prefix functions"
+  exit 1
+fi
+CALLABLES=()
+while IFS= read -r name; do
+  [ -n "$name" ] && CALLABLES+=("$name")
+done < <(node --input-type=module -e "
+  const m = await import('file://$LIB');
+  const walk = (o, p) => Object.entries(o).flatMap(([k, v]) =>
+    v && v.__endpoint ? (v.__endpoint.callableTrigger ? [p + k] : [])
+      : v && typeof v === 'object' ? walk(v, p + k + '-') : []);
+  console.log(walk(m.arccms ?? {}, '').join('\\n'));
+" 2>/dev/null)
+if [ ${#CALLABLES[@]} -eq 0 ]; then
+  echo "Could not read the callables from $LIB."
+  exit 1
+fi
 
 # The app's callables (functions/src/custom/public-callables.txt, docs/custom-code.md),
 # deployed as arccms-custom-<name>.
@@ -52,7 +56,8 @@ CUSTOM_LIST="$(dirname "$0")/../src/custom/public-callables.txt"
 if [ -f "$CUSTOM_LIST" ]; then
   while IFS= read -r line; do
     name="$(printf '%s' "$line" | sed 's/#.*//' | tr -d '[:space:]')"
-    [ -n "$name" ] && CALLABLES+=("custom-$name")
+    # Already listed when it is in the build; kept here so a missing one is reported.
+    if [ -n "$name" ] && [[ ! " ${CALLABLES[*]} " == *" custom-$name "* ]]; then CALLABLES+=("custom-$name"); fi
   done < "$CUSTOM_LIST"
 fi
 
@@ -83,7 +88,7 @@ done
 echo
 if [ ${#missing[@]} -gt 0 ]; then
   echo "Not deployed: ${missing[*]}"
-  echo "Every callable here is exported from functions/src/all.ts, so a missing one means the"
+  echo "Every callable here is in the build, so a missing one means the"
   echo "deploy used an old build or skipped it. Rebuild (npm run build --prefix functions) and redeploy."
 fi
 if [ ${#blocked[@]} -eq 0 ]; then

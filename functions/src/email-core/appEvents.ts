@@ -7,6 +7,7 @@ import { createNotification } from './notifications.js';
 import { queueEmail } from './queueEmail.js';
 import { computeEmailHash } from './unsubscribeToken.js';
 import { upsertContact, addContactToLists, removeContactFromLists } from './contacts.js';
+import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument } from '../arc-config.js';
 import { applicableRules, type EventMapping, type EventRule } from './eventRules.js';
 import { APP_AUDIENCE_STATE, stateFrom } from '../app-audience/state.js';
@@ -221,7 +222,11 @@ async function runActions(rule: EventRule, { type, userId, appUserId, email, eve
   // 3. List membership. App users are not contacts: adding them to a list
   //    would copy them into Contacts, so the App users (live) list covers them.
   if (rule.addToLists?.length || rule.removeFromLists?.length) {
-    if (appUserId) {
+    if (!isFeatureOn('audience')) {
+      // No contacts or lists without the audience feature (docs/feature-flags-spec.md);
+      // the rule stays saved for when it is on.
+      results['lists'] = 'feature_off';
+    } else if (appUserId) {
       results['lists'] = 'not_applicable';
     } else if (email) {
       try {

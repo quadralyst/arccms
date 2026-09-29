@@ -6,6 +6,7 @@ import { findUserRef, grantEntitlement, revokeEntitlement, markPastDue } from '.
 import { grantCredits, refundCredits, refundableCreditAmount } from './credits.js';
 import { sendPaymentEmail } from './paymentEmailHelper.js';
 import { upsertContact, ensureSystemLists, SYSTEM_LISTS } from '../email-core/contacts.js';
+import { isFeatureOn } from '../feature-flags.js';
 import { createNotification } from '../email-core/notifications.js';
 import { notifyAdmins } from '../email-core/adminAlerts.js';
 import { emitAppEvent } from '../email-core/appEvents.js';
@@ -343,8 +344,9 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
 
   // Mirror the buyer into the unified Contacts layer (source `customer`,
   // joins the `all-customers` system list). Idempotent — repeat charges no-op.
+  // Contacts are the audience feature's (docs/feature-flags-spec.md).
   const customerEmail = data.customer?.email || '';
-  if (customerEmail) {
+  if (customerEmail && isFeatureOn('audience')) {
     try {
       await ensureSystemLists();
       await upsertContact({

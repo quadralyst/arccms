@@ -16,6 +16,7 @@ import { CONTENT_DRAFTS_SOURCE_ID } from '../search/sources/content-drafts.js';
 import { buildSearchContext } from '../search/context.js';
 import { indexDocument, removeSearchEntries } from '../search/writer.js';
 import { runReindex } from '../search/reindexSearch.js';
+import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument, arcHostingSite } from '../arc-config.js';
 
 interface QueueItem {
@@ -148,6 +149,7 @@ async function stampLastPublishedAt(draftCollection: string, docId: string): Pro
  * smaller problem than one that was not deployed.
  */
 async function indexPublished(publishedCollection: string, docId: string): Promise<void> {
+    if (!isFeatureOn('search')) return; // docs/feature-flags-spec.md
     try {
         const snap = await db.collection(publishedCollection).doc(docId).get();
         const ctx = await buildSearchContext(publishedCollection, docId);
@@ -160,6 +162,7 @@ async function indexPublished(publishedCollection: string, docId: string): Promi
 
 /** Takes a document out of the published search index (and, on delete, the drafts index too). */
 async function unindexPublished(contentTypeSlug: string, docId: string, alsoDrafts = false): Promise<void> {
+    if (!isFeatureOn('search')) return; // docs/feature-flags-spec.md
     try {
         await removeSearchEntries(CONTENT_SOURCE_ID, getPublishedCollectionName(contentTypeSlug), docId);
         if (alsoDrafts) await removeSearchEntries(CONTENT_DRAFTS_SOURCE_ID, getDraftCollectionName(contentTypeSlug), docId);
@@ -235,12 +238,15 @@ export const processPublishQueue = onDocumentCreated({
     if (action === 'redeploy-all') {
         try {
             const pages = await collectAllPublishedPages(batch);
-            await generateAndDeploySitemap(batch);
-            await generateAndDeployRssFeeds(batch);
-            await addDiscoverabilityFiles(batch);
+            // Sitemap, feeds, robots/llms and IndexNow are the seo feature's.
+            if (isFeatureOn('seo')) {
+                await generateAndDeploySitemap(batch);
+                await generateAndDeployRssFeeds(batch);
+                await addDiscoverabilityFiles(batch);
+            }
             if (!batch.isEmpty) {
                 await deployBatchToHosting(arcHostingSite(), batch, '', '');
-                await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
+                if (isFeatureOn('seo')) await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
             }
             console.log(`Redeployed ${pages} page(s) in ${batch.size} file(s)`);
         } catch (error) {
@@ -248,7 +254,7 @@ export const processPublishQueue = onDocumentCreated({
         }
         // The published search index is rebuilt with the pages: a site-wide
         // repair should leave nothing behind that a search cannot find.
-        try {
+        if (isFeatureOn('search')) try {
             await runReindex({ source: CONTENT_SOURCE_ID });
         } catch (error) {
             console.error('Search reindex after redeploy-all failed:', error);
@@ -451,8 +457,8 @@ export const processPublishQueue = onDocumentCreated({
         }
 
         // Regenerate sitemap and RSS feeds after any content change
-        // so SEO files stay current with published content.
-        if (hasPublicUrl) {
+        // so SEO files stay current with published content (the seo feature).
+        if (hasPublicUrl && isFeatureOn('seo')) {
             try {
                 await generateAndDeploySitemap(batch);
             } catch (sitemapErr) {
@@ -486,7 +492,7 @@ export const processPublishQueue = onDocumentCreated({
             // answer has to come from its return value.
             if (released) {
                 console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
-                await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
+                if (isFeatureOn('seo')) await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
             }
         } catch (deployErr) {
             console.error(`Hosting release failed for ${action} ${contentTypeSlug}/${docId}:`, deployErr);

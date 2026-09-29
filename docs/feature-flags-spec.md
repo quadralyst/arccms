@@ -148,17 +148,20 @@ list for F4 (from the inventory of 2026-09-29).
 
 | Feature | Functions (scheduled jobs in bold) |
 |---------|-----------------------------------|
-| core | email engine, auth, users, AppEvents, email logs, notifications, feedback, analytics, Unsplash, about 70 in all (**retryPendingEmails**, **scheduledPurgeEmailLogs**, **sendAdminDigest**) |
-| search | search, reindexSearch, the collection callables for Search settings, one trigger per listed collection, and with `content` the draft queue trigger (section 6.5). onAnyDocumentWritten and onTranslationWritten are deleted. |
+| core (`all.ts`) | email engine, unsubscribe and preferences, email logs, auth (email, Google, linking), users, AppEvents, notifications, feedback, analytics, Unsplash: 44 functions (**retryPendingEmails**, **scheduledPurgeEmailLogs**, **sendAdminDigest**) |
+| search | onAnyDocumentWritten, onTranslationWritten, reindexSearch, search (F5 replaces the two triggers) |
 | content | processPublishQueue, onContentTypeDeleted, seedStaticPages |
 | seo | regenerateSeoFiles |
-| forms | waitlist and referral triggers, form OTP, joinForm, leaderboards, form template and migration callables, syncOtpEnabledFlag (about 25) |
-| audience | contact sync triggers, contact admin callables, tags, fields, app-audience callables, onAppUserWritten (about 25) |
-| email-marketing | broadcasts, drips, announcements (**processScheduledBroadcasts**, **processDripQueue**) |
-| sms | sendTestSms, and the phone sign-in callables |
+| forms | waitlist and referral triggers, form OTP, joinForm, leaderboards, form templates and their migrations, syncOtpEnabledFlag |
+| audience | contact sync triggers, contact callables, CSV import (used from Contacts), tags, fields, migrations onto contacts, the App audience |
+| email-marketing | broadcasts, drips, announcements, the welcome-to-sequence migration (**processScheduledBroadcasts**, **processDripQueue**) |
+| sms | sendTestSms and the phone sign-in callables |
 | payments | checkout, webhook, payment events, credits (**scanTrialEndings**, **scanUpdatesEnding**, **scanExpiredEntitlements**) |
-| data | previewContactImport, importContacts |
-| pwa | trackPwaEvent |
+| data | none: import and export run in the browser |
+| pwa | trackPwaEvent (off by default, so no longer deployed until an app turns the PWA on) |
+
+Built 2026-09-29: with every feature on the build has the same 131 functions as
+before less `trackPwaEvent`; with every optional feature off it has the 44 core ones.
 
 ### 5.2 The generated file
 
@@ -184,18 +187,20 @@ generated file:
 
 | Core code | Reaches into | When the feature is off |
 |---|---|---|
-| `queueEmail` consent gate, merge fields | audience | Skip the contact gate; suppression and unsubscribe tokens still apply |
-| `handleUnsubscribe`, `recipientConsent` | audience, email-marketing, forms | Always write suppression; contact, drip and form writes only when on |
-| `appEvents` rule actions | audience | Skip list actions (the editor hides them too) |
-| `seedEmailTemplates` | audience | Seed system lists only when on |
-| `linkIdentifiers` | audience | Skip the contact upsert |
-| `handlePaymentEvent` (payments) | audience | Skip the contact upsert |
-| `contactSync` (audience) | email-marketing | Skip the drip flush |
-| `processPublishQueue` (content) | seo | Skip sitemap, llms and IndexNow |
-| `processPublishQueue`, static page builders (content) | search | Skip indexing and the search widget in published pages |
-| search source registry (search) | content | Content sources and the draft queue trigger only with `content` (section 6) |
-| draft writers in the browser (content) | search | Add the queue entry only with `search` |
+| `queueEmail` contact gate (consent, admin-disabled) | audience | Skipped: a contact left from before cannot block mail nobody can unblock. Marketing to an address that unsubscribed is still stopped by the Suppression gate |
+| `handleUnsubscribe` | audience, email-marketing, forms | Always writes Suppression; contact consent, drip exits and form records only when their feature is on |
+| `handleEmailPreferences` | audience | Shows and changes the choice through Suppression alone |
+| `appEvents` rule list actions | audience | Skipped, recorded as `feature_off`; the rule stays saved |
+| `seedEmailTemplates` | audience | System lists seeded only with audience |
+| `linkEmail` contact sync | audience | Skipped |
+| `handlePaymentEvent` (payments) | audience | Customer contact upsert skipped |
+| `contacts.ts` list joins and leaves (audience) | email-marketing | No drip enrolment or exit |
+| `contactSync` day-0 flush, `onAppUserWritten` app drips (audience) | email-marketing | Skipped |
+| `processPublishQueue` (content) | search, seo | Indexing and reindex only with search; sitemap, RSS, robots/llms and IndexNow only with seo |
+| published pages' search widget, related items (content) | search | The header's `<arc-search>` becomes nothing; no related items |
 | `accountCallables.deleteMyAccount` | audience | **Always** erases contacts: erasure must reach old data even after a feature is switched off |
+
+Notifications are core, so the notification crossings of the first draft are gone.
 
 ---
 
@@ -313,7 +318,7 @@ starts one, whatever the app.
 | Tool | Problem | Change |
 |------|---------|--------|
 | `arc-deploy.mjs` | Removed functions trigger the Firebase CLI's delete prompt, which fails without a terminal | Before a full functions deploy, compare the built exports with the deployed `arccms-*` functions, list what will be deleted, ask once (the menu already words this), then pass `--force` |
-| `check-callable-access.sh` | Hard-codes 62 callables; a disabled one shows "NOT DEPLOYED" and fails the deploy | Read the callable list from the built `lib/index.js`, as `arc-deploy-menu` already does. This also picks up the 25 callables missing from the list today |
+| `check-callable-access.sh` | Hard-coded 62 callables; a disabled one showed "NOT DEPLOYED" and failed the deploy | **Done in F4:** reads every callable from the built `lib/index.js`, which also picks up the 25 the list had missed |
 | `arc-upgrade.mjs` | Deletes old unprefixed names only if still exported | Also delete old names of features that are off |
 | targeted deploys | `--only functions:arccms:arccms.<name>` never deletes | Unchanged; the guide says a full functions deploy is what removes a feature's functions |
 
@@ -349,7 +354,7 @@ the whole suite. A spec about a particular choice mocks the file itself.
 | **F1** Registry and file | `feature-registry.ts`, `features.ts`, `src/custom/features.ts` (empty), `resolveFeatures` with `off` and `needs`, Vite build check, custom-space test and `docs/custom-code.md` rows | Unit tests for resolve, needs, unknown ids; nothing visible changes |
 | **F2** Admin surfaces | Sidebar (and its listeners), settings tabs and fields, dashboard widgets, automations editor, composer categories, data export list | With `off: ['content', 'forms', 'audience', 'email-marketing', 'payments']` the admin shows only core; browser check at localhost:5173 |
 | **F3** Routes and public side | `FEATURE_URLS` and the feature-off route, `whenOn` for parameter routes, `featureGuard` on the content pages, member dashboard split (`/user/dashboard` blank, `/user/payments`) with the `user-dashboard.ts` plug point, form service, phone sign-in, public search, related items, onboarding seeding | A disabled feature's URLs give not-found (built 2026-09-29, checked in the browser) |
-| **F4** Functions | Split `all.ts`, `features/<id>.ts`, generator and prebuild, the crossings in 5.3 | `lib/index.js` with those features off has none of their functions; all tests pass with every feature on and with each one off |
+| **F4** Functions | Split `all.ts`, `features/<id>.ts`, generator and prebuild, the crossings in 5.3, callable probe from the build | `lib/index.js` with those features off has none of their functions; all tests pass (built 2026-09-29) |
 | **F5** Search | Section 6: `search-sources.ts` and per-collection triggers, the draft search queue and its writers, removal of the every-write and translations triggers, high-volume refusal, the new Search settings screen (collection list, field picker, preview, rebuild), `Settings/search_collections`, admin search from every readable source, search developer guide update | A collection added to the file and set up in Search settings is indexed and found in admin search; a write to EmailLogs starts no function (checked in the Cloud Functions logs on the dev project); a draft save updates the index; naming `EmailLogs` fails the build |
 | **F6** Deploy tooling | Section 7 | A full functions deploy on the dev project with features off deletes exactly the expected functions and the probe passes; turning them back on recreates them |
 | **F7** Coverage test and guide | Section 8 test; `docs/features.md` (how to choose, what each feature owns, what turning one off does to URLs and data) | Test fails on an unclaimed route, tab, nav item or function |

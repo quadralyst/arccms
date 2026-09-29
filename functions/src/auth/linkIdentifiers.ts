@@ -20,6 +20,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db, owner } from '../init.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { ensureSystemLists, SYSTEM_LISTS, unlinkUserContact, upsertContact } from '../email-core/contacts.js';
+import { isFeatureOn } from '../feature-flags.js';
 import { createNotification } from '../email-core/notifications.js';
 import { notifyAdmins } from '../email-core/adminAlerts.js';
 import { arccmsOwnsAuthAccount } from '../users/authOwner.js';
@@ -258,7 +259,8 @@ export const linkEmail = onCall(async (request) => {
     if (oldEmail) batch.delete(db.collection('email_lookup').doc(computeEmailHash(oldEmail)));
     await batch.commit();
 
-    try {
+    // Contacts are the audience feature's (docs/feature-flags-spec.md).
+    if (isFeatureOn('audience')) try {
         if (oldEmail) await unlinkUserContact(oldEmail);
         await ensureSystemLists();
         await upsertContact({
