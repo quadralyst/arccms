@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     EMAIL_TAG,
     filterEmailTags,
+    appFieldTags,
     findActiveHashToken,
     getComposerTags,
     getEmailTags,
@@ -83,6 +84,11 @@ describe('filterEmailTags', () => {
 });
 
 describe('findActiveHashToken', () => {
+    it('follows a dotted App audience tag, but not a dot after a finished tag', () => {
+        expect(findActiveHashToken('Hi ##APP.product.na', 19)).toEqual({ hashIndex: 3, query: 'APP.product.na' });
+        expect(findActiveHashToken('Hi ##NAME##.', 12)).toBeNull();
+    });
+
     it('detects a bare # at the caret', () => {
         expect(findActiveHashToken('Hi #', 4)).toEqual({ hashIndex: 3, query: '' });
     });
@@ -159,5 +165,14 @@ describe('insertTagMention', () => {
             ['insertContent', '##NAME## '],
             ['run'],
         ]);
+    });
+});
+
+describe('appFieldTags', () => {
+    it('offers each App audience field once, never one that looks like a credential', () => {
+        expect(appFieldTags([
+            { path: 'name' }, { path: 'product.name' }, { path: 'password', hidden: true }, { path: 'name' },
+        ])).toEqual(['##APP.name##', '##APP.product.name##']);
+        expect(filterEmailTags(appFieldTags([{ path: 'product.name' }]), 'APP.product.na')).toEqual(['##APP.product.name##']);
     });
 });

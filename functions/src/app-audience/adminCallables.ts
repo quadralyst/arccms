@@ -8,7 +8,7 @@ import { firestoreFor } from '../init.js';
 import { requireAdmin } from '../search/auth.js';
 import { appUsersLocation, normalizeAppAudienceSettings, type AppUsersLocation } from './config.js';
 import { readAppAudienceSettings } from './settings.js';
-import { flattenFields, maskResolvedAppUser, resolveAppUser, type ResolvedAppUser } from './fields.js';
+import { flattenFields, isSensitiveField, maskResolvedAppUser, resolveAppUser, type ResolvedAppUser } from './fields.js';
 
 const SAMPLE_SIZE = 20;
 
@@ -38,6 +38,8 @@ export interface SampledField {
     examples: string[];
     /** In how many of the sampled documents the field appears. */
     seenIn: number;
+    /** Looks like a credential: never shown or merged into an email, so never offered as a tag. */
+    hidden: boolean;
 }
 
 /** Every field found in a sample of host documents, for the admin's field pickers. */
@@ -49,7 +51,7 @@ export const sampleAppUsers = onCall(async (request): Promise<{ sampleSize: numb
     const byPath = new Map<string, SampledField>();
     for (const doc of snap.docs) {
         for (const [path, value] of Object.entries(flattenFields(doc.data()))) {
-            const entry = byPath.get(path) ?? { path, examples: [], seenIn: 0 };
+            const entry = byPath.get(path) ?? { path, examples: [], seenIn: 0, hidden: isSensitiveField(path) };
             entry.seenIn++;
             if (value && entry.examples.length < 3 && !entry.examples.includes(value)) entry.examples.push(value);
             byPath.set(path, entry);

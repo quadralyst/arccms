@@ -45,6 +45,20 @@ const EVENT_LABEL_KEYS: Record<string, string> = {
     'app_user.deleted': 'app_user_deleted',
 };
 
+/**
+ * Templates another feature sends with its own data: a sign-up or form code,
+ * the in-app notification's title and body, the admin digest. A rule has none
+ * of that, so its email would go out with a blank subject and body (or a code
+ * nobody asked for). They are not offered in rules.
+ */
+export const NOT_FOR_RULES: readonly string[] = [
+    'signup_otp_email', 'waitlist_verify_otp_email', 'notification_generic_email', 'admin_digest_email',
+];
+
+export function isRuleEmailTemplate(type: string): boolean {
+    return !!type && !NOT_FOR_RULES.includes(type);
+}
+
 @Component({
     selector: 'arc-automations-settings',
     standalone: true,
@@ -282,11 +296,13 @@ export class AutomationsSettingsPage implements OnInit {
             this.rawMappings = (this.rawDoc['mappings'] as Record<string, unknown>) ?? {};
 
             // One option per template type: the bus finds a template by its type.
+            // Templates another feature fills with its own data are left out.
             const byType = new Map<string, TemplateOption>();
             for (const t of templateSnap.docs) {
                 const data = t.data() as Record<string, unknown>;
                 const type = String(data['type'] ?? '');
-                if (type && !byType.has(type)) byType.set(type, { type, label: String(data['title'] || data['subject'] || type) });
+                if (!isRuleEmailTemplate(type) || byType.has(type)) continue;
+                byType.set(type, { type, label: String(data['title'] || data['subject'] || type) });
             }
             this.templates.set([...byType.values()].sort((a, b) => a.label.localeCompare(b.label)));
             this.notificationTypes.set(Object.keys((typesSnap.data()?.['types'] as Record<string, unknown>) ?? {}).sort());

@@ -28,7 +28,7 @@ import { TestSendDialogComponent } from '../../../../shared/components/test-send
 import { IEmailBrandKit, DEFAULT_BRAND_KIT, EmailDesign } from '../../../../shared/email-compiler/email-design.model';
 import { Functions } from '@angular/fire/functions';
 import { HashtagAutocompleteDirective } from '../../../../shared/directives/hashtag-autocomplete/hashtag-autocomplete.directive';
-import { EMAIL_TAG } from '../../../../shared/constants/email-tags';
+import { appFieldTags, EMAIL_TAG } from '../../../../shared/constants/email-tags';
 import { arcCallable } from '../../../core/config/arc-functions';
 import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
 import { escapeHtml } from '../../../../shared/utils/escape-html';
@@ -69,8 +69,15 @@ export default class BroadcastsPageComponent implements OnInit {
     loading = signal(true);
     brandKit = signal<IEmailBrandKit>({ ...DEFAULT_BRAND_KIT });
 
-    /** Merge tags offered by the `#` autocomplete in the subject + block body. */
-    broadcastTags = [EMAIL_TAG.NAME, EMAIL_TAG.EMAIL, EMAIL_TAG.UNSUBSCRIBE_LINK, EMAIL_TAG.PREFERENCES_LINK];
+    private readonly baseTags = [EMAIL_TAG.NAME, EMAIL_TAG.EMAIL, EMAIL_TAG.UNSUBSCRIBE_LINK, EMAIL_TAG.PREFERENCES_LINK];
+    /** `##APP.<field>##` for the App audience fields; null until first needed. */
+    private readonly appTags = signal<string[] | null>(null);
+    private loadingAppTags = false;
+    /**
+     * Merge tags offered by the `#` autocomplete in the subject + block body.
+     * With an App users (live) list in the audience, its fields are offered too.
+     */
+    readonly broadcastTags = signal<string[]>([...this.baseTags]);
 
     // Composer state
     subject = '';
@@ -120,7 +127,10 @@ export default class BroadcastsPageComponent implements OnInit {
     ];
 
     ngOnInit(): void {
-        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
+        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => {
+            this.lists.set(l);
+            void this.refreshTags();
+        });
         this.service.watchRecent().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((r) => {
             this.recent.set(r);
             this.loading.set(false);
@@ -141,6 +151,33 @@ export default class BroadcastsPageComponent implements OnInit {
         this.schedule = false; this.scheduledAt = '';
         this.content.set(null); this.eligible.set(null);
         this.mode.set('compose');
+        void this.refreshTags();
+    }
+
+    onIncludeChange(): void {
+        this.eligible.set(null);
+        void this.refreshTags();
+    }
+
+    private includesAppList(): boolean {
+        return this.lists().some((l) => l.type === 'app' && this.includeListIds.includes(l.id));
+    }
+
+    /** Offer the App audience fields as tags while an App users (live) list is in the audience. */
+    async refreshTags(): Promise<void> {
+        if (this.includesAppList() && this.appTags() === null && !this.loadingAppTags) {
+            this.loadingAppTags = true;
+            try {
+                const res = await arcCallable<void, { fields: Array<{ path: string; hidden?: boolean }> }>(this.functions, 'sampleAppUsers')();
+                this.appTags.set(appFieldTags(res.data.fields ?? []));
+            } catch (err) {
+                console.warn('Broadcasts: could not read the App audience fields for tags.', err);
+                this.appTags.set([]);
+            } finally {
+                this.loadingAppTags = false;
+            }
+        }
+        this.broadcastTags.set(this.includesAppList() ? [...this.baseTags, ...(this.appTags() ?? [])] : [...this.baseTags]);
     }
 
     backToList(): void {

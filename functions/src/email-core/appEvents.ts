@@ -13,6 +13,16 @@ import { APP_AUDIENCE_STATE, stateFrom } from '../app-audience/state.js';
 import { readAppMergeFields } from '../app-audience/mergeFields.js';
 
 /**
+ * Templates another feature fills with its own data (a code, a notification's
+ * title and body, the admin digest). A rule has none of it, so these are never
+ * sent from a rule; Settings, Automations does not offer them either
+ * (NOT_FOR_RULES, kept equal by a test).
+ */
+export const RULE_EMAIL_EXCLUDED_TEMPLATES: readonly string[] = [
+  'signup_otp_email', 'waitlist_verify_otp_email', 'notification_generic_email', 'admin_digest_email',
+];
+
+/**
  * Generic event bus (spec §3.11, D11). Product code calls {@link emitAppEvent};
  * admin-configurable mappings in `Settings/event_mappings` turn events into
  * notifications / emails / list changes. Mappings for the built-in moments ship
@@ -170,7 +180,10 @@ async function runActions(rule: EventRule, { type, userId, appUserId, email, eve
   }
 
   // 2. Queue an email.
-  if (rule.sendEmail && email) {
+  if (rule.sendEmail && email && RULE_EMAIL_EXCLUDED_TEMPLATES.includes(rule.sendEmail.templateType)) {
+    results['email'] = 'template_not_for_rules';
+  }
+  if (rule.sendEmail && email && !RULE_EMAIL_EXCLUDED_TEMPLATES.includes(rule.sendEmail.templateType)) {
     try {
       const tpl = await loadTemplate(rule.sendEmail.templateType);
       if (tpl) {

@@ -20,7 +20,7 @@ import { GlobalTableComponent, TableColumn } from '../../../../shared/components
 import { ToastService } from '../../../../shared/services/toast.service';
 
 import { EmailLogStore } from './email-log.store';
-import { IEmailLog } from './email-log.model';
+import { IEmailLog, sentSubject } from './email-log.model';
 import ViewEmailLogComponent from './(view-email-log)/view-email-log.component';
 import { EmailHealthCardComponent } from '../../../../shared/components/email-health-card/email-health-card.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
@@ -298,7 +298,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
                 key: 'processedSubject',
                 header: 'Subject',
                 type: 'text',
-                transformFn: (row: IEmailLog) => row.processedSubject || row.subject || '(no subject)',
+                transformFn: (row: IEmailLog) => sentSubject(row),
             },
             {
                 key: 'type',

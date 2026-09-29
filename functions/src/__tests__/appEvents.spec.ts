@@ -97,10 +97,17 @@ describe('onAppEventCreate', () => {
   });
 
   it('enabled mapping can queue an email', async () => {
-    mappings({ 'custom.mail': { enabled: true, sendEmail: { templateType: 'notification_generic_email', category: 'transactional' } } });
+    mappings({ 'custom.mail': { enabled: true, sendEmail: { templateType: 'app_user_upgraded', category: 'transactional' } } });
     await handler(event({ type: 'custom.mail', contactEmail: 'u@x.com', data: {} }));
     expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({ source: 'event' }));
     expect(lastResults()).toMatchObject({ status: 'ok', email: 'pending' });
+  });
+
+  it('never sends a template another feature fills (a notification, a code) from a rule', async () => {
+    mappings({ 'custom.mail': { enabled: true, sendEmail: { templateType: 'notification_generic_email', category: 'transactional' } } });
+    await handler(event({ type: 'custom.mail', contactEmail: 'u@x.com', data: {} }));
+    expect(mockQueueEmail).not.toHaveBeenCalled();
+    expect(lastResults()).toMatchObject({ status: 'ok', email: 'template_not_for_rules' });
   });
 
   describe('rules (CO6.4)', () => {

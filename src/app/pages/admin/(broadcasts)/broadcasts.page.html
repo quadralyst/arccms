@@ -58,14 +58,14 @@
                         <mat-form-field appearance="outline" class="grid-full">
                             <mat-label>Subject</mat-label>
                             <input matInput [(ngModel)]="subject" placeholder="Your subject line"
-                                [arcHashtagAutocomplete]="broadcastTags" />
+                                [arcHashtagAutocomplete]="broadcastTags()" />
                         </mat-form-field>
 
                         <div class="grid-full field-label">Audience</div>
 
                         <mat-form-field appearance="outline">
                             <mat-label>Send to lists</mat-label>
-                            <mat-select multiple [(ngModel)]="includeListIds" (ngModelChange)="eligible.set(null)">
+                            <mat-select multiple [(ngModel)]="includeListIds" (ngModelChange)="onIncludeChange()">
                                 @for (l of lists(); track l.id) {
                                 <mat-option [value]="l.id">{{ l.name }} ({{ l.type === 'app' ? 'App users, live' : (l.memberCount || 0) }})</mat-option>
                                 }
@@ -93,7 +93,7 @@
 
                         <div class="grid-full audience-actions">
                             <button mat-stroked-button [disabled]="previewing() || !includeListIds.length" (click)="preview()">
-                                <mat-icon>groups</mat-icon> Preview count
+                                <mat-icon>groups</mat-icon> {{ previewing() ? 'Counting…' : 'Preview count' }}
                             </button>
                             @if (eligible() !== null) {
                             <span class="status-badge is-info">{{ eligible() }} eligible (consented)</span>
@@ -134,7 +134,7 @@
                         [design]="starterDesign"
                         [brandKit]="brandKit()"
                         category="marketing"
-                        [placeholders]="broadcastTags"
+                        [placeholders]="broadcastTags()"
                         (saved)="onContentSaved($event)"
                         (testSend)="onTestSend($event)">
                     </arc-email-block-editor>

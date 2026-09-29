@@ -5,7 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { EmailLogStore } from '../email-log.store';
-import { IEmailLog } from '../email-log.model';
+import { IEmailLog, sentSubject } from '../email-log.model';
 
 @Component({
     selector: 'arc-view-email-log',
@@ -30,6 +30,7 @@ export default class ViewEmailLogComponent implements OnChanges {
         const html = item?.processedTemplate || item?.template || '';
         return this.sanitizer.bypassSecurityTrustHtml(html);
     });
+    readonly sentSubject = sentSubject;
     showRawTemplate = signal(false);
     showTags = signal(false);
 

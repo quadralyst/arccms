@@ -180,14 +180,16 @@ describe('Settings callables', () => {
     it('sample every field across documents, most common first, from the configured database', async () => {
         m.hostDocs.push(
             { id: 'u1', data: { email: 'a@x.com', plan: 'free' } },
-            { id: 'u2', data: { email: 'b@x.com', plan: 'paid', phone: '1' } },
+            { id: 'u2', data: { email: 'b@x.com', plan: 'paid', phone: '1', password: 'secret' } },
         );
         const res = await sample({});
         expect(m.requireAdmin).toHaveBeenCalled();
         expect(m.firestoreFor).toHaveBeenCalledWith('(default)');
         expect(res.sampleSize).toBe(2);
-        expect(res.fields.map((f: any) => f.path)).toEqual(['email', 'plan', 'phone']);
-        expect(res.fields[1]).toEqual({ path: 'plan', examples: ['free', 'paid'], seenIn: 2 });
+        expect(res.fields.map((f: any) => f.path)).toEqual(['email', 'plan', 'password', 'phone']);
+        expect(res.fields[1]).toEqual({ path: 'plan', examples: ['free', 'paid'], seenIn: 2, hidden: false });
+        // Marked, so pickers and `#` tags never offer it (its value is already masked).
+        expect(res.fields.find((f: any) => f.path === 'password')).toMatchObject({ hidden: true });
     });
 
     it('test one document with unsaved settings', async () => {

@@ -97,7 +97,7 @@
         <h6 class="section-title">Email Content</h6>
         <div class="subject-line mb-2">
             <strong>Subject:</strong>
-            {{ emailLog.processedSubject || emailLog.subject || '(no subject)' }}
+            {{ sentSubject(emailLog) }}
         </div>
         @if(!emailLog.processedTemplate && emailLog.template) {
         <div class="alert alert-info small mb-2">
