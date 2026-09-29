@@ -1,6 +1,6 @@
 # Arc CMS Features: Build Spec
 
-**Status:** spec, not built. Decisions agreed with Gunjan on 2026-09-29.
+**Status:** built 2026-09-29 (F1 to F7) on `feat/feature-flags`; functions and rules deployed to the dev project. The guide is [features.md](features.md). End-to-end tests with features off, and the search setup panel on the dev project, are the remaining checks.
 **Branch:** `feat/feature-flags`, cut from `dev` (4741339, which includes `feat/coexistence`).
 **Scope:** an app built on Arc CMS chooses which Arc CMS features it has. A feature
 that is off has no menu item, no page, no settings tab, no widget, no Firestore
@@ -373,7 +373,7 @@ the whole suite. A spec about a particular choice mocks the file itself.
 | **F4** Functions | Split `all.ts`, `features/<id>.ts`, generator and prebuild, the crossings in 5.3, callable probe from the build | `lib/index.js` with those features off has none of their functions; all tests pass (built 2026-09-29) |
 | **F5** Search | Section 6: `search-sources.ts` and per-collection triggers, the draft search queue and its writers, removal of the every-write and translations triggers, high-volume refusal, the new Search settings screen (collection list, field picker, preview, rebuild), `Settings/search_collections`, admin search from every readable source, search developer guide update | Built 2026-09-29 and unit tested. On the dev project after the F6 deploy: a collection added to the file and set up in Search settings is indexed and found in admin search; a write to EmailLogs starts no function; a draft save updates the index. The rules tests need Java 21 to run |
 | **F6** Deploy tooling | Section 7 | Built 2026-09-29 and unit tested. On the dev project: the first full deploy lists exactly `onAnyDocumentWritten`, `onTranslationWritten` and `trackPwaEvent` for deletion, and the probe passes |
-| **F7** Coverage test and guide | Section 8 test; `docs/features.md` (how to choose, what each feature owns, what turning one off does to URLs and data) | Test fails on an unclaimed route, tab, nav item or function |
+| **F7** Coverage test and guide | Section 8 tests (`feature-coverage.spec.ts`, the menu, settings tab and function checks), `CORE_URLS` and `FEATURE_PARAM_ROUTES`, `docs/features.md` | Built 2026-09-29: each test fails on an unclaimed URL, menu item, tab or function (checked by removing one) |
 
 F1 changes nothing visible. F2 and F3 are frontend only. F4 to F6 need a functions
 deploy on the dev project to check.

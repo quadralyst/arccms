@@ -37,6 +37,28 @@ describe('function features', () => {
         }
     });
 
+    it('export every file that defines a Cloud Function, from core or from one feature (docs/feature-flags-spec.md 8)', () => {
+        const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+            e.isDirectory() ? walk(resolve(dir, e.name)) : [resolve(dir, e.name)]);
+        const skip = /\/(__tests__|custom|features)\/|\.spec\.ts$|\.gen\.ts$/;
+        const defines = /export const \w+ = (onCall|onRequest|onSchedule|onDocument\w+|Object\.fromEntries)\(/;
+        const withFunctions = walk(SRC)
+            .filter((f) => f.endsWith('.ts') && !skip.test(f) && defines.test(readFileSync(f, 'utf8')))
+            .map((f) => f.slice(SRC.length + 1).replace(/\.ts$/, ''));
+        expect(withFunctions.length).toBeGreaterThan(80);
+
+        const exportedBy = new Map<string, string[]>();
+        const note = (file: string, from: string) => exportedBy.set(file, [...(exportedBy.get(file) ?? []), from]);
+        for (const m of exportedModules(read('all.ts'))) note(m, 'core');
+        for (const file of readdirSync(resolve(SRC, 'features'))) {
+            for (const m of exportedModules(read(`features/${file}`))) note(m, `feature ${file.replace(/\.ts$/, '')}`);
+        }
+        const problems = withFunctions
+            .filter((f) => (exportedBy.get(f) ?? []).length !== 1)
+            .map((f) => `${f}: ${exportedBy.get(f)?.join(' and ') ?? 'not exported. Add it to all.ts (core) or to a feature file'}`);
+        expect(problems).toEqual([]);
+    });
+
     it('export the features through the generated file, and the app functions last', () => {
         const all = read('all.ts');
         expect(all).toContain("export * from './feature-exports.gen.js';");

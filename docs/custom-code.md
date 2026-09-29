@@ -24,7 +24,7 @@ plug point), then pull it. `npm run check:core` catches accidental edits.
 | `src/custom/i18n/{lang}.json` | the app's translations, laid over the core ones |
 | `src/custom/styles.css` | the app's global styles, loaded after every core stylesheet |
 | `src/custom/pwa.ts`, `src/custom/pwa-icon.svg` (or `.png`) | the installable app: name, colours, start page, icon ([pwa.md](pwa.md)); it is turned on in `features.ts` |
-| `src/custom/features.ts` | the Arc CMS features the app turns off, like `off: ['payments', 'sms']`, or on, like `on: ['pwa']` ([feature-flags-spec.md](feature-flags-spec.md)) |
+| `src/custom/features.ts` | the Arc CMS features the app turns off, like `off: ['payments', 'sms']`, or on, like `on: ['pwa']` ([features.md](features.md)) |
 | `functions/src/custom/index.ts` | the app's Cloud Functions and triggers |
 | `functions/src/custom/public-callables.txt` | the app's callables, checked after every deploy |
 | `functions/src/custom/search-sources.ts` | the collections the app makes searchable (`SEARCH_COLLECTIONS`, set up in Admin, Settings, Search) and sources written in code (`CUSTOM_SEARCH_SOURCES`) ([search-developer-guide.md](search-developer-guide.md)) |

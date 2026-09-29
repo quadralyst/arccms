@@ -6,7 +6,9 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 
-import NavbarComponent from './side-navbar.component';
+import NavbarComponent, { type MenuItem } from './side-navbar.component';
+import { featureOfPath, isCorePath } from '../../../app/core/features/feature-routes';
+import type { FeatureId } from '../../../app/core/features/feature-registry';
 import { AuthState } from '../../../app/pages/(auth)/auth.store';
 import { ContentTypesStore } from '../../../app/pages/admin/contents/content-types/content-types.store';
 import { ContentType } from '../../../app/pages/admin/contents/content-types/content-types.model';
@@ -122,9 +124,11 @@ describe('NavbarComponent', () => {
     let component: NavbarComponent;
     let fixture: any;
     const contentTypesSignal = signal<Partial<ContentType>[]>([]);
+    const waitlistsSignal = signal<{ id: string; name: string }[]>([]);
 
     beforeEach(async () => {
         contentTypesSignal.set([]);
+        waitlistsSignal.set([]);
         const authStoreMock = {
             currentUser: signal({ name: 'Test User', role: 'admin', photo: '' }),
             logout: vi.fn(),
@@ -134,7 +138,7 @@ describe('NavbarComponent', () => {
             getAll: vi.fn(),
         };
         const waitlistAdminStoreMock = {
-            items: signal([]),
+            items: waitlistsSignal,
             subscribe: vi.fn(),
         };
         const dialogMock = {
@@ -164,6 +168,24 @@ describe('NavbarComponent', () => {
         fixture = TestBed.createComponent(NavbarComponent);
         component = fixture.componentInstance;
         fixture.detectChanges();
+    });
+
+    it("links every item to a page of its own feature, or of core (docs/feature-flags-spec.md 8)", () => {
+        contentTypesSignal.set([{ id: '1', name: 'Blog', slug: 'blog' }]);
+        waitlistsSignal.set([{ id: 'w1', name: 'Launch' }]);
+        const problems: string[] = [];
+        const check = (items: MenuItem[], inherited?: FeatureId) => {
+            for (const item of items) {
+                const feature = item.feature ?? inherited;
+                if (item.subItems) check(item.subItems, feature);
+                if (!item.route) continue;
+                const path = item.route.split('?')[0].split('/').filter(Boolean);
+                const owner = featureOfPath(path) ?? (isCorePath(path) ? undefined : 'nobody');
+                if (owner !== feature) problems.push(`${item.label} (${item.route}): menu says ${feature ?? 'core'}, the page is ${owner ?? 'core'}'s`);
+            }
+        };
+        check(component.menuItems());
+        expect(problems).toEqual([]);
     });
 
     it('should group content types under a single Content menu with Content types first', () => {

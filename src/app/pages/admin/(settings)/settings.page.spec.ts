@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import SettingsPageComponent from './settings.page';
+import { featureOfPath, isCorePath } from '../../../core/features/feature-routes';
 import { Firestore } from '@angular/fire/firestore';
 
 describe('SettingsPageComponent', () => {
@@ -102,5 +103,13 @@ describe('SettingsPageComponent', () => {
     it('should have localization as tenth category', () => {
         expect(component.settingCategories()[9].id).toBe('localization');
         expect(component.settingCategories()[9].label).toBe('Localization');
+    });
+
+    it('gives every tab the feature of its page, or none for core (docs/feature-flags-spec.md 8)', () => {
+        for (const tab of component.settingCategories()) {
+            const path = tab.route.split('/').filter(Boolean);
+            expect(tab.feature, tab.id).toBe(featureOfPath(path));
+            if (!tab.feature) expect(isCorePath(path), tab.id).toBe(true);
+        }
     });
 });
