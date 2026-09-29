@@ -20,6 +20,9 @@ const features = resolveFeatures(CUSTOM_FEATURES);
 const pwa = resolvePwaConfig(CUSTOM_PWA, features.has('pwa'));
 const pwaIcon = PWA_ICON_CANDIDATES.find((path) => existsSync(resolve(path))) ?? DEFAULT_PWA_ICON;
 
+// Nitro's own, set before Nitro does it from inside the dev server (releaseClosedServer).
+(globalThis as { defineNitroConfig?: (config: unknown) => unknown }).defineNitroConfig ??= (config) => config;
+
 /**
  * Limit plugins to the browser (client) build. Analog builds the browser and the
  * server bundles with the same plugin instances, and the PWA plugin keeps the last
@@ -58,8 +61,51 @@ function appleLinks(): Plugin {
   };
 }
 
+/**
+ * Let go of a dev server when Vite closes it. Every change to this file or to
+ * anything it imports (such as src/custom/features.ts) restarts the dev server,
+ * and upstream bugs kept each old one in memory, Angular compiler and all
+ * (about 500 MB), until `npm run dev` ran out of memory after a few restarts:
+ * - Analog starts a Nitro (the API server: a file watcher and a worker thread) in
+ *   `configureServer` and never closes it. The hook hands over each Nitro as it is
+ *   built, and it is closed with the server that started it.
+ * - Vite gives the new server the old server's environments and keeps them for
+ *   good, and through their plugins every server before. The list is emptied.
+ * - exsolve (Nitro's module resolver) keeps failed lookups as errors in a global
+ *   cache, and an error's stack holds the functions of the server that made it.
+ *   Those are dropped; a later lookup just tries again.
+ * - Nitro sets a global `defineNitroConfig` once, from inside the first server's
+ *   setup, which it then holds. It is set first, at the top of this file.
+ */
+function releaseClosedServer() {
+  let nitro: { close(): Promise<void> } | undefined;
+  const plugin: Plugin = {
+    name: 'arc-release-closed-server',
+    apply: 'serve',
+    configureServer(server) {
+      const environments: Record<string, unknown> = server.environments;
+      server.httpServer?.once('close', () => {
+        nitro?.close().catch((error) => server.config.logger.error(`Closing the API server failed: ${error}`));
+        nitro = undefined;
+        for (const name of Object.keys(environments)) delete environments[name];
+        const resolved = (globalThis as { __EXSOLVE_CACHE__?: Map<string, unknown> }).__EXSOLVE_CACHE__;
+        resolved?.forEach((value, key) => value instanceof Error && resolved.delete(key));
+      });
+    },
+  };
+  return {
+    plugin,
+    nitroHooks: {
+      'build:before': (built: { close(): Promise<void> }) => {
+        nitro = built;
+      },
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
+  const release = releaseClosedServer();
   return {
     build: {
       target: ['es2020'],
@@ -92,6 +138,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
+      // Frees a closed dev server (see releaseClosedServer).
+      release.plugin,
       // PWA (docs/pwa.md): manifest, icons and service worker, only when the install turns it on.
       // Browser build only: Analog also builds the server bundle with these plugins,
       // and the PWA plugin skips the service worker when it last saw a server build.
@@ -206,6 +254,7 @@ export default defineConfig(({ mode }) => {
           routes: ['/', '/hi'],
         },
         nitro: {
+          hooks: release.nitroHooks,
           preset: 'firebase',
           firebase: {
             gen: 2,

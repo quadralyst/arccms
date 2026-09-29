@@ -9,7 +9,7 @@ import { inject, Injector, runInInjectionContext } from '@angular/core';
 import { Auth, onAuthStateChanged, User } from '@angular/fire/auth';
 import { Router } from '@angular/router';
 import { patchState, signalStore, withHooks, withMethods, withState } from '@ngrx/signals';
-import { catchError, finalize, firstValueFrom, from, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { catchError, finalize, firstValueFrom, from, map, Observable, of, Subscription, switchMap, tap, throwError } from 'rxjs';
 import { ConstantVariables } from '../../../shared/constants';
 import { OmitCommonFields } from '../../../shared/models/base-model';
 import { QueryParams, WhereCondition } from '../../../shared/models';
@@ -494,10 +494,16 @@ export const AuthState = signalStore(
         },
     ),
 
-    withHooks({
-        onInit(store) {
-            const subscription = store.initAuthStateListener().subscribe();
-            return () => subscription.unsubscribe();
-        },
+    withHooks((store) => {
+        // Ended in onDestroy: what onInit returns is ignored. On the server each
+        // render has its own store but shares one Auth, so a listener left behind
+        // kept every rendered page (and, in dev, every old dev server) in memory.
+        let listener: Subscription | undefined;
+        return {
+            onInit: () => {
+                listener = store.initAuthStateListener().subscribe();
+            },
+            onDestroy: () => listener?.unsubscribe(),
+        };
     }),
 );
