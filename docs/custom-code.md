@@ -135,7 +135,93 @@ Firebase runs every function watching a path, so an app trigger on, say,
 A second trigger cannot change or stop what core's trigger does (for example, "no
 welcome email in this app"). That needs a core setting or plug point.
 
-## 4. Pulling Arc CMS updates
+## 4. Core building blocks
+
+The one rule forbids **editing** core files, not using them. App pages import core
+components the same way core pages do, and get their look, behaviour, translations
+and later fixes for free. These are the ones meant for apps:
+
+| Building block | Import from | For |
+|---|---|---|
+| `app-global-table` (`GlobalTableComponent`, `TableColumn`) | `src/shared/components/global-table/global-table.component` | any list: columns, sorting, empty and loading states, row actions ([README](../src/shared/components/global-table/README.md)) |
+| `arc-row-actions` (`RowActionsComponent`) and `RowAction` | `src/shared/components/row-actions/row-actions.component` and `.../row-actions/row-actions` | the actions of a row in a table or card the app builds itself |
+| `arc-page-header` (`PageHeaderComponent`) | `src/shared/components/page-header/page-header.component` | the title row of every admin and user page, with search, language and notifications |
+
+### A list page
+
+`app-global-table` takes the rows and a list of columns. An `actions` column lists
+the row's actions and the table lays them out: up to three show as icons; with more,
+the first two stay as icons and the rest go into a "more" menu with their labels,
+with danger actions (delete, remove, archive, cancel) last. Edit comes first, then
+view, open or preview, then the rest in the order given.
+
+```ts
+// src/custom/pages/lessons.page.ts
+import { Component, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { GlobalTableComponent, TableColumn } from '../../shared/components/global-table/global-table.component';
+
+@Component({
+  standalone: true,
+  imports: [PageHeaderComponent, GlobalTableComponent, TranslocoPipe],
+  template: `
+    <arc-page-header [title]="'custom.lessons.title' | transloco"></arc-page-header>
+    <app-global-table [data]="lessons()" [columns]="columns"></app-global-table>
+  `,
+})
+export default class LessonsPage {
+  lessons = signal<Lesson[]>([]);
+  columns: TableColumn[] = [
+    { key: 'title', header: 'custom.lessons.name' },
+    {
+      key: 'actions', header: 'common.table.actions', type: 'actions',
+      actions: [
+        { action: 'edit', icon: 'fas fa-pen text-primary', label: 'common.actions.edit', onAction: (l) => this.edit(l) },
+        { action: 'preview', icon: 'fas fa-eye', label: 'custom.lessons.preview', onAction: (l) => this.preview(l) },
+        { action: 'publish', icon: 'fas fa-upload', label: 'custom.lessons.publish', hide: (l) => l.published, onAction: (l) => this.publish(l) },
+        { action: 'delete', icon: 'fas fa-trash text-danger', label: 'common.actions.delete', onAction: (l) => this.remove(l) },
+      ],
+    },
+  ];
+  // edit(), preview(), publish(), remove() ...
+}
+```
+
+Four actions, so Edit and Preview show as icons and Publish and Delete go into the
+menu. Headers and labels are translation keys: core ones (`common.actions.*`,
+`common.table.*`) work as they are, and the app's own go in
+`src/custom/i18n/{lang}.json`. Settings for the rare case the defaults are wrong
+(`slot` for actions that never show together, `priority`, `danger`, `placement`,
+and `maxInline` on the column) are in the table's README.
+
+### Row actions outside the table
+
+A table or card layout the app builds itself uses `arc-row-actions` for the same
+layout. Pass every row on the page as `rows`, so all rows line up:
+
+```html
+<arc-row-actions [actions]="rowActions" [row]="lesson" [rows]="lessons()"></arc-row-actions>
+```
+
+An action with `onAction` runs it; one without emits `(actionClick)` with
+`{ action, row }`.
+
+### When a building block falls short
+
+If the app needs something one of these does not do, it becomes a new option on
+the component in Arc CMS, then the app pulls it. Copying the component into the
+custom space loses every later fix; editing it in place breaks the next update.
+
+### For Arc CMS: these are a public API
+
+Apps import these components, types and paths directly, so a change to them in Arc
+CMS must keep existing apps working: keep the file paths, selectors, exported names
+and existing options; add new options as optional ones with defaults that keep
+today's behaviour. A change that cannot do that is a breaking change and goes in the
+release notes with the steps an app needs to take.
+
+## 5. Pulling Arc CMS updates
 
 Once, in the app's repository:
 
