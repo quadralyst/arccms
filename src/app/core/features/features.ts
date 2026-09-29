@@ -21,5 +21,7 @@ export function isOn(id: FeatureId): boolean {
  * itself refused to.
  */
 export function featureGuard(id: FeatureId): CanActivateFn {
-    return () => isOn(id) || new RedirectCommand(inject(Router).parseUrl('/not-found'), { skipLocationChange: true });
+    // browserUrl keeps the address the visitor asked for, on a first load and after
+    // an in-app link alike (skipLocationChange kept the previous page's address).
+    return (_route, state) => isOn(id) || new RedirectCommand(inject(Router).parseUrl('/not-found'), { browserUrl: state.url });
 }

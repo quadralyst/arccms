@@ -42,7 +42,7 @@ export const FEATURE_INFO: Record<FeatureId, FeatureInfo> = {
     payments: { label: 'Payments', defaultOn: true, needs: [] },
     data: { label: 'Data import and export', defaultOn: true, needs: [] },
     // A plain website should get no service worker, so the PWA waits to be asked for.
-    pwa: { label: 'Installable app (PWA)', defaultOn: false, needs: [] },
+    pwa: { label: 'Installable app', defaultOn: false, needs: [] },
 };
 
 /** What `src/custom/features.ts` exports. Empty: every feature on except the PWA. */

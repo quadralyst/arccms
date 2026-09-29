@@ -17,24 +17,24 @@ Mark each line `[x]` when it passes, or note what happened.
 
 ## 1. The features file
 
-- [ ] 1.1 `off: ['audience']` (forms and email marketing still on): `npm run dev` stops with
+- [x] 1.1 `off: ['audience']` (forms and email marketing still on): `npm run dev` stops with
       "Signup forms (forms) needs Audience (audience)" and the same for email marketing.
-- [ ] 1.2 `off: ['payment']` (a typo): stops with `unknown feature "payment"` and the list of
+- [x] 1.2 `off: ['payment']` (a typo): stops with `unknown feature "payment"` and the list of
       real names.
-- [ ] 1.3 `on: ['pwa'], off: ['pwa']`: stops, the PWA is in both lists.
-- [ ] 1.4 `enabled: true` left in `src/custom/pwa.ts`: stops with where the switch went
+- [x] 1.3 `on: ['pwa'], off: ['pwa']`: stops, the PWA is in both lists.
+- [x] 1.4 `enabled: true` left in `src/custom/pwa.ts`: stops with where the switch went
       (`on: ['pwa']` in features.ts).
-- [ ] 1.5 Empty file: `npm run dev` starts; the app looks as before this work.
+- [x] 1.5 Empty file: `npm run dev` starts; the app looks as before this work.
 
 ## 2. Everything on (nothing changed for existing apps)
 
-- [ ] 2.1 Admin menu: every item as before, including Signup Forms and each form's group,
+- [x] 2.1 Admin menu: every item as before, including Signup Forms and each form's group,
       Content, Audience, "Email + SMS", Products, Transactions, Data.
-- [ ] 2.2 Settings: every tab, including Payments, SMS, Search, Discoverability, App audience.
-- [ ] 2.3 Dashboard: GA, Content & Media, Growth & Leads (now with a **Users** card first),
+- [x] 2.2 Settings: every tab, including Payments, SMS, Search, Discoverability, App audience.
+- [x] 2.3 Dashboard: GA, Content & Media, Growth & Leads (now with a **Users** card first),
       Recent signups, Recent activity.
-- [ ] 2.4 Header: search box present; the bell present.
-- [ ] 2.5 Member area (sign in as a member): Dashboard shows "Welcome back" and "Nothing here
+- [x] 2.4 Header: search box present; the bell present.
+- [x] 2.5 Member area (sign in as a member): Dashboard shows "Welcome back" and "Nothing here
       yet"; the menu has Payments, Account & Billing, Premium, Profile, Plans; `/user/payments`
       shows the credits and plans page.
 
@@ -42,30 +42,30 @@ Mark each line `[x]` when it passes, or note what happened.
 
 `off: ['content', 'search', 'forms', 'audience', 'email-marketing', 'payments', 'sms']`
 
-- [ ] 3.1 Admin menu: only Dashboard, Media Manager, Users, Email, Feedback, Data, Profile,
+- [x] 3.1 Admin menu: only Dashboard, Media Manager, Users, Email, Feedback, Data, Profile,
       Settings, About, Logout. "Email + SMS" reads "Email", without Broadcasts, Drips,
       Announcements or SMS Logs.
-- [ ] 3.2 Settings tabs: no Payments, SMS, Search, App audience. User Settings: no phone
+- [x] 3.2 Settings tabs: no Payments, SMS, Search, App audience. User Settings: no phone
       sign-in switch. Integrations: Unsplash only (no geolocation).
-- [ ] 3.3 Dashboard: GA, Media, Growth & Leads with the Users card only; its "View all" goes
+- [x] 3.3 Dashboard: GA, Media, Growth & Leads with the Users card only; its "View all" goes
       to Users. No recent signups or recent activity.
-- [ ] 3.4 Not found (address kept): `/admin/email/broadcasts`, `/admin/broadcasts`,
+- [x] 3.4 Not found (address kept): `/admin/email/broadcasts`, `/admin/broadcasts`,
       `/admin/waitlists`, `/admin/contacts`, `/admin/settings/sms`, `/admin/contents/content-types`,
       `/pricing`, `/checkout/success`, `/user/payments`, `/search`, `/blog` (a content type).
-- [ ] 3.5 Still open: `/admin/users`, `/admin/settings/user`, `/admin/email/composer`,
+- [x] 3.5 Still open: `/admin/users`, `/admin/settings/user`, `/admin/email/composer`,
       `/admin/email-logs`, `/user/dashboard`, `/user/profile`.
-- [ ] 3.6 No reads for switched-off features: the sidebar's content-type and form stores stay
+- [x] 3.6 No reads for switched-off features: the sidebar's content-type and form stores stay
       empty (the dev database has both).
-- [ ] 3.7 Automations: only "A user signs up"; no add/remove list fields.
-- [ ] 3.8 Email composer: no waitlist or payment templates.
-- [ ] 3.9 Data export: groups "Users", "Settings & Media", "Email" (with the Suppression list);
+- [x] 3.7 Automations: only "A user signs up"; no add/remove list fields.
+- [x] 3.8 Email composer: no waitlist or payment templates.
+- [x] 3.9 Data export: groups "Users", "Settings & Media", "Email" (with the Suppression list);
       no "All Content" button.
-- [ ] 3.10 Member area: menu Dashboard and Profile only; no plan badge, no credits.
-- [ ] 3.11 Home page: the form's markup shows; the signup counts stay empty; no console errors;
+- [x] 3.10 Member area: menu Dashboard and Profile only; no plan badge, no credits.
+- [x] 3.11 Home page: the form's markup shows; the signup counts stay empty; no console errors;
       the public header's search box is hidden.
-- [ ] 3.12 Sign-up page and Profile sign-in methods: no phone option, even with phone sign-in
+- [x] 3.12 Sign-up page and Profile sign-in methods: no phone option, even with phone sign-in
       switched on in User Settings.
-- [ ] 3.13 No console errors on any page visited.
+- [x] 3.13 No console errors on any page visited (the buffer held only earlier errors: a hot-reload mid-change, sampler calls before its redeploy, a network drop).
 
 ## 4. One feature at a time (spot checks)
 
@@ -141,4 +141,6 @@ Mark each line `[x]` when it passes, or note what happened.
 
 | Section | Date | Result | Notes |
 |---|---|---|---|
-| | | | |
+| 1 | 2026-09-29 | Pass | 1.3 read "Installable app (PWA) (pwa)"; the label is now "Installable app" |
+| 2 | 2026-09-29 | Pass | |
+| 3 | 2026-09-29 | Pass after a fix | 3.4: after an in-app link, `/blog` showed not-found but kept the previous page's address; the content guard now keeps the requested one (`browserUrl`) |

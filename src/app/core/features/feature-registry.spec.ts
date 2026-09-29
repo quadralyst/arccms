@@ -75,7 +75,7 @@ describe('resolveFeatures', () => {
     });
 
     it('stops on a feature in both lists', () => {
-        expect(problem({ on: ['pwa'], off: ['pwa'] })).toContain('Installable app (PWA) (pwa) is in both "on" and "off"');
+        expect(problem({ on: ['pwa'], off: ['pwa'] })).toContain('Installable app (pwa) is in both "on" and "off"');
     });
 
     it('stops when a list is not a list', () => {
