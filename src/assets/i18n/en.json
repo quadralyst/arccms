@@ -1518,10 +1518,10 @@
     },
     "search": {
       "title": "Search",
-      "subtitle": "Drafts and published content, every language, matched on titles, summaries and searchable fields.",
+      "subtitle": "Drafts, published content and every collection set up in Search settings, in every language.",
       "results_for": "Results for \"{{query}}\"",
       "count": "{{count}} result(s) in {{ms}} ms",
-      "no_query": "Type in the search box above to find content.",
+      "no_query": "Type in the search box above to search.",
       "empty": "Nothing matched \"{{query}}\".",
       "open": "Open"
     },

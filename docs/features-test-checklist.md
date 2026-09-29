@@ -94,21 +94,24 @@ Mark each line `[x]` when it passes, or note what happened.
       subject, heading, label) and descriptive ones normal (summary, description, message, text,
       body, comment, content, details, note), and nothing else; `Feedback` gets `page.title` and
       `sender.name`.
-- [ ] 5.5 Name it: add `'Feedback'` to `SEARCH_COLLECTIONS` in
+- [x] 5.5 Name it: add `'Feedback'` to `SEARCH_COLLECTIONS` in
       `functions/src/custom/search-sources.ts`, then deploy its trigger and the search callables:
       `npm run deploy -- --only functions:arccms:arccms.searchSync,functions:arccms:arccms.search,functions:arccms:arccms.reindexSearch,functions:arccms:arccms.listSearchCollections,functions:arccms:arccms.sampleCollectionFields --project default`
-- [ ] 5.6 Search settings: `Feedback` is **Searchable**; press Rebuild; its entry count shows.
-- [ ] 5.7 Admin search finds a feedback item by a word in a ticked field, with the chosen title,
+- [x] 5.6 Search settings: `Feedback` is **Searchable**; press Rebuild; its entry count shows.
+      (Seen once: the first rebuild's row kept "Never" until a reload; the next rebuilds updated
+      it at once. Not reproduced.)
+- [x] 5.7 Admin search finds a feedback item by a word in a ticked field, with the chosen title,
       snippet and badge; a result without a link shows but does not open.
-- [ ] 5.8 Edit the setup (tick another field), save: it rebuilds with no deploy; the new field
+- [x] 5.8 Edit the setup (tick another field), save: it rebuilds with no deploy; the new field
       is searchable.
-- [ ] 5.9 A new feedback document is found without a rebuild (its trigger indexed it).
-- [ ] 5.10 Draft queue: edit and save a content draft's title; admin search finds the new title
+- [x] 5.9 A new feedback document is found without a rebuild (its trigger indexed it).
+- [x] 5.10 Draft queue: edit and save a content draft's title; admin search finds the new title
       within a few seconds; the `arccms-onSearchQueued` log shows the run.
-- [ ] 5.11 Publishing a draft: the published copy is found by public search; the drafts index
+- [x] 5.11 Publishing a draft: the published copy is found by public search; the drafts index
       shows it as Published.
-- [ ] 5.12 No function per write: in the Cloud Functions logs, sending a test email (an
-      `EmailLogs` write) starts no search function.
+- [x] 5.12 No function per write: in the Cloud Functions logs, sending a test email (an
+      `EmailLogs` write) starts no search function. Checked on the deployed triggers instead: in
+      the `arccms` database only `searchSync-Feedback` and `onSearchQueued` are search triggers.
 - [ ] 5.13 Clean up: take `'Feedback'` out of the file, full deploy (section 6 checks the
       prompt), then **Rebuild everything**: its entries and status go.
 
@@ -146,4 +149,5 @@ Mark each line `[x]` when it passes, or note what happened.
 | 1 | 2026-09-29 | Pass | 1.3 read "Installable app (PWA) (pwa)"; the label is now "Installable app" |
 | 2 | 2026-09-29 | Pass | |
 | 4 | 2026-09-29 | Pass | The dev server aborted once mid-section (a DNS lookup during a network drop); restarted |
+| 5.1-5.12 | 2026-09-29 | Pass | Admin search's subtitle said content only; it now names the set-up collections |
 | 3 | 2026-09-29 | Pass after a fix | 3.4: after an in-app link, `/blog` showed not-found but kept the previous page's address; the content guard now keeps the requested one (`browserUrl`) |
