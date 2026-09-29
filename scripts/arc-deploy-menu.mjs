@@ -522,8 +522,12 @@ async function menu(rl) {
             return build.status ?? 1;
         }
     }
-    // The functions were built above, to see what changed.
-    const result = await runDeploy(args, { built: true, record: false });
+    // The functions were built above, to see what changed. A deploy of all the
+    // functions lists any it would delete and asks here, on the menu's prompt.
+    const result = await runDeploy(args, {
+        built: true, record: false, isTTY: true,
+        ask: async () => ((await yes(rl, 'Delete them?', false)) ? 'y' : 'n'),
+    });
     // Only a newly created callable can be left unreachable: check just those.
     const newCallables = result.created.filter((name) => callableNames().has(name));
     if (result.status === 0 && newCallables.length) {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error: plain ESM script without type declarations
-import { planUpgrade, codebaseOf } from '../arc-upgrade.mjs';
+import { planUpgrade, codebaseOf, RETIRED_FUNCTIONS } from '../arc-upgrade.mjs';
 
 describe('arc-upgrade plan (CO4)', () => {
     const arcNames = ['onUserCreated', 'search', 'dodoWebhook'];
@@ -29,5 +29,12 @@ describe('arc-upgrade plan (CO4)', () => {
         ], arcNames);
         expect(plan.count).toBe(0);
         expect(codebaseOf({})).toBe('default');
+    });
+    it('also deletes old copies of the retired every-write search triggers', () => {
+        const plan = planUpgrade(
+            [{ id: 'onAnyDocumentWritten', region: 'us-central1', codebase: 'default' }],
+            ['search', ...RETIRED_FUNCTIONS],
+        );
+        expect(plan.byRegion).toEqual({ 'us-central1': ['onAnyDocumentWritten'] });
     });
 });

@@ -22,11 +22,19 @@
  * calls the old callable names, which no longer exist once this has run.
  */
 import { spawnSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NEW_CODEBASE = 'arccms';
+
+/**
+ * ArcCMS functions removed from the code since installs started upgrading, whose
+ * old-name copies must still be deleted: the search triggers that fired on every
+ * write (docs/feature-flags-spec.md 6.5).
+ */
+export const RETIRED_FUNCTIONS = ['onAnyDocumentWritten', 'onTranslationWritten'];
 
 /** Codebase label of a deployed function, as `firebase functions:list --json` reports it. */
 export function codebaseOf(fn) {
@@ -62,12 +70,20 @@ function run(cmd, args, { capture = false, cwd = ROOT } = {}) {
     return result.stdout;
 }
 
-/** The function names ArcCMS exports, read from the built functions. */
+/**
+ * Every function name ArcCMS has, read from the built functions: the exported
+ * ones and those of features this app turned off (docs/feature-flags-spec.md),
+ * whose old-name copies must go too although nothing replaces them.
+ */
 async function arcFunctionNames() {
     run('npm', ['run', 'build', '--prefix', 'functions']);
-    const entry = pathToFileURL(resolve(ROOT, 'functions/lib/index.js')).href;
-    const { arccms } = await import(entry);
-    return Object.entries(arccms).filter(([, v]) => v && v.__endpoint).map(([k]) => k);
+    const lib = resolve(ROOT, 'functions/lib');
+    const modules = [await import(pathToFileURL(resolve(lib, 'index.js')).href).then((m) => m.arccms)];
+    for (const file of readdirSync(resolve(lib, 'features')).filter((f) => f.endsWith('.js'))) {
+        modules.push(await import(pathToFileURL(resolve(lib, 'features', file)).href));
+    }
+    const names = modules.flatMap((m) => Object.entries(m).filter(([, v]) => v && v.__endpoint).map(([k]) => k));
+    return [...new Set([...names, ...RETIRED_FUNCTIONS])];
 }
 
 function parseArgs(argv) {
@@ -104,8 +120,9 @@ export async function main(argv = process.argv.slice(2)) {
     for (const [region, ids] of Object.entries(plan.byRegion)) {
         run('firebase', ['functions:delete', ...ids, '--region', region, '--project', opts.project, '--force']);
     }
-    // --force: first creation of functions with a retry policy needs it when non-interactive.
-    // It only manages the codebases in the config, so nothing outside ArcCMS is affected.
+    // --force: first creation of functions with a retry policy needs it when non-interactive,
+    // and it accepts the deletions arc-deploy lists. It only manages the codebases in the
+    // config, so nothing outside ArcCMS is affected.
     run('node', ['scripts/arc-deploy.mjs', '--only', 'functions', '--project', opts.project, '--non-interactive', '--force']);
 
     console.log(`

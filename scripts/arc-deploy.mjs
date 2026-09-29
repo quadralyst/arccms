@@ -26,6 +26,12 @@
  * - fails a functions deploy in which a function still never reported success
  *   after that. The CLI can exit 0 after a rate limit quietly skipped an
  *   update, leaving the old code live (found 2026-09-24);
+ * - before a deploy of the whole functions codebase, lists the deployed functions
+ *   the build no longer has (a feature turned off in src/custom/features.ts, a
+ *   search collection removed) and asks once before letting Firebase delete them;
+ *   off a terminal it needs --yes, and stops rather than delete unasked. A
+ *   targeted deploy (functions:arccms:arccms.<name>) never deletes anything
+ *   (docs/feature-flags-spec.md, section 7);
  * - with --probe, after a deploy that included functions, runs the callable
  *   access check. A callable whose creation timed out is left without public
  *   access, and every browser call to it then fails with 403 (found 2026-09-23).
@@ -36,11 +42,13 @@
  *   node scripts/arc-deploy.mjs --only functions --project default
  */
 import { spawn, spawnSync } from 'node:child_process';
+import { createInterface } from 'node:readline/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, readFirebaseAliases, resolveProjectId } from './arc-install-config.mjs';
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
+import { builtArccms } from './arc-built-functions.mjs';
 
 /** Retry rounds for functions that never reported success, and the wait before each. */
 export const RETRY_ROUNDS = 2;
@@ -83,6 +91,78 @@ export function deploysFunctions(args) {
 }
 
 /**
+ * Whether a deploy covers a whole functions codebase: no --only, or
+ * `functions` / `functions:<codebase>`. Only then does the Firebase CLI delete
+ * the deployed functions the build no longer has.
+ */
+export function deploysWholeFunctions(args) {
+    const i = args.findIndex((a) => a === '--only' || a.startsWith('--only='));
+    if (i === -1) return true;
+    const only = args[i].startsWith('--only=') ? args[i].slice('--only='.length) : args[i + 1] || '';
+    return only.split(',').map((t) => t.trim()).some((t) => t === 'functions' || /^functions:[\w-]+$/.test(t));
+}
+
+/** The deployed ids (`arccms-<name>`) of the functions in a build, nested groups joined with `-`. */
+export function functionIds(group, prefix = 'arccms-') {
+    return Object.entries(group ?? {}).flatMap(([key, value]) => {
+        if (value && value.__endpoint) return [prefix + key];
+        if (value && typeof value === 'object' && !Array.isArray(value)) return functionIds(value, `${prefix}${key}-`);
+        return [];
+    });
+}
+
+/** Deployed functions of the arccms codebase that the build does not have, by id. */
+export function removedFunctions(deployed, builtIds) {
+    const built = new Set(builtIds);
+    return deployed
+        .filter((fn) => (fn.codebase || fn.labels?.['firebase-functions-codebase']) === 'arccms' && !built.has(fn.id))
+        .map((fn) => fn.id)
+        .sort();
+}
+
+/**
+ * Whether the listed deletions may go ahead: --yes or an explicit --force says
+ * so, a terminal asks once, and anything else stops the deploy.
+ */
+export async function confirmDeletes(removed, args, { isTTY = !!process.stdin.isTTY, ask } = {}) {
+    if (!removed.length) return { proceed: true, force: false };
+    console.log(`\nThis deploy deletes ${removed.length} function(s) the build no longer has: a feature turned off in `
+        + `src/custom/features.ts, a search collection removed, or code renamed.\n  ${removed.join('\n  ')}`);
+    if (args.includes('--yes') || args.includes('--force')) return { proceed: true, force: true };
+    if (!isTTY) {
+        console.error('\nNot deleting without a yes. Run again with --yes to delete them, or deploy only the functions '
+            + 'you changed (--only functions:arccms:arccms.<name>), which deletes nothing. Nothing was deployed.');
+        return { proceed: false, force: false };
+    }
+    const answer = await (ask ?? askOnce)('Delete them? [y/N] ');
+    if (/^y(es)?$/i.test(answer.trim())) return { proceed: true, force: true };
+    console.log('Nothing was deployed.');
+    return { proceed: false, force: false };
+}
+
+async function askOnce(question) {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+        return await rl.question(question);
+    } finally {
+        rl.close();
+    }
+}
+
+/** The functions deployed in a project, or null when the CLI cannot list them. */
+function listDeployed(projectId) {
+    const result = spawnSync('firebase', ['functions:list', '--json', '--project', projectId], {
+        encoding: 'utf8', shell: process.platform === 'win32', maxBuffer: 64 * 1024 * 1024,
+    });
+    try {
+        const parsed = JSON.parse(String(result.stdout || ''));
+        return parsed.status === 'success' && Array.isArray(parsed.result) ? parsed.result : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Whether a deploy deploys functions and nothing else. Only then can a clean
  * retry clear the first run's failure: in a mixed deploy the failure may have
  * come from rules or hosting, which the retry does not touch.
@@ -101,7 +181,7 @@ export function deploysOnlyFunctions(args) {
  * always named, so the CLI deploys to the project whose config this is.
  */
 export function deployArgs(args, generatedExists, projectId, cwd = process.cwd()) {
-    const passthrough = args.filter((a) => a !== '--no-probe' && a !== '--probe');
+    const passthrough = args.filter((a) => a !== '--no-probe' && a !== '--probe' && a !== '--yes');
     const withProject = projectArg(passthrough) || !projectId ? passthrough : [...passthrough, '--project', projectId];
     const hasConfig = passthrough.some((a) => a === '--config' || a === '-c' || a.startsWith('--config='));
     if (hasConfig || !generatedExists || !projectId) return ['deploy', ...withProject];
@@ -252,6 +332,17 @@ export async function runDeploy(args, options = {}) {
         if (build.status !== 0) {
             console.error('\nThe functions build failed, so nothing was deployed.');
             return { status: build.status ?? 1, created: [] };
+        }
+    }
+    if (deploysFunctions(args) && deploysWholeFunctions(args)) {
+        const deployed = listDeployed(projectId);
+        if (!deployed) {
+            console.warn('Could not list the deployed functions; the Firebase CLI will ask before deleting any.');
+        } else {
+            const arccms = await builtArccms();
+            const { proceed, force } = await confirmDeletes(removedFunctions(deployed, functionIds(arccms)), args, options);
+            if (!proceed) return { status: 1, created: [] };
+            if (force && !firebaseArgs.includes('--force')) firebaseArgs.push('--force');
         }
     }
     console.log(`> firebase ${firebaseArgs.join(' ')}`);

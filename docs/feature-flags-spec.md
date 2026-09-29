@@ -325,10 +325,10 @@ starts one, whatever the app.
 
 | Tool | Problem | Change |
 |------|---------|--------|
-| `arc-deploy.mjs` | Removed functions trigger the Firebase CLI's delete prompt, which fails without a terminal | Before a full functions deploy, compare the built exports with the deployed `arccms-*` functions, list what will be deleted, ask once (the menu already words this), then pass `--force` |
+| `arc-deploy.mjs` | Removed functions trigger the Firebase CLI's delete prompt, which fails without a terminal | **Done in F6:** before a deploy of the whole functions codebase, compares the built exports with the deployed `arccms` codebase, lists what will be deleted, asks once (on the menu's own prompt in the guided deploy), then passes `--force`. Off a terminal it needs `--yes` (or an explicit `--force`) and otherwise stops. `--yes` is not passed to the CLI |
 | `check-callable-access.sh` | Hard-coded 62 callables; a disabled one showed "NOT DEPLOYED" and failed the deploy | **Done in F4:** reads every callable from the built `lib/index.js`, which also picks up the 25 the list had missed |
-| `arc-upgrade.mjs` | Deletes old unprefixed names only if still exported | Also delete old names of features that are off |
-| targeted deploys | `--only functions:arccms:arccms.<name>` never deletes | Unchanged; the guide says a full functions deploy is what removes a feature's functions |
+| `arc-upgrade.mjs` | Deletes old unprefixed names only if still exported | **Done in F6:** also counts the functions of features that are off (read from `lib/features/*.js`) and the retired `onAnyDocumentWritten` and `onTranslationWritten` |
+| targeted deploys | `--only functions:arccms:arccms.<name>` never deletes | Unchanged; docs/deploy.md ("Functions that are deleted") says a full functions deploy is what removes a feature's functions |
 
 URLs already out in the world (webhooks registered with Dodo, links in sent emails)
 stop working when their feature is turned off. That is the intent; the guide says so
@@ -364,7 +364,7 @@ the whole suite. A spec about a particular choice mocks the file itself.
 | **F3** Routes and public side | `FEATURE_URLS` and the feature-off route, `whenOn` for parameter routes, `featureGuard` on the content pages, member dashboard split (`/user/dashboard` blank, `/user/payments`) with the `user-dashboard.ts` plug point, form service, phone sign-in, public search, related items, onboarding seeding | A disabled feature's URLs give not-found (built 2026-09-29, checked in the browser) |
 | **F4** Functions | Split `all.ts`, `features/<id>.ts`, generator and prebuild, the crossings in 5.3, callable probe from the build | `lib/index.js` with those features off has none of their functions; all tests pass (built 2026-09-29) |
 | **F5** Search | Section 6: `search-sources.ts` and per-collection triggers, the draft search queue and its writers, removal of the every-write and translations triggers, high-volume refusal, the new Search settings screen (collection list, field picker, preview, rebuild), `Settings/search_collections`, admin search from every readable source, search developer guide update | Built 2026-09-29 and unit tested. On the dev project after the F6 deploy: a collection added to the file and set up in Search settings is indexed and found in admin search; a write to EmailLogs starts no function; a draft save updates the index. The rules tests need Java 21 to run |
-| **F6** Deploy tooling | Section 7 | A full functions deploy on the dev project with features off deletes exactly the expected functions and the probe passes; turning them back on recreates them |
+| **F6** Deploy tooling | Section 7 | Built 2026-09-29 and unit tested. On the dev project: the first full deploy lists exactly `onAnyDocumentWritten`, `onTranslationWritten` and `trackPwaEvent` for deletion, and the probe passes |
 | **F7** Coverage test and guide | Section 8 test; `docs/features.md` (how to choose, what each feature owns, what turning one off does to URLs and data) | Test fails on an unclaimed route, tab, nav item or function |
 
 F1 changes nothing visible. F2 and F3 are frontend only. F4 to F6 need a functions

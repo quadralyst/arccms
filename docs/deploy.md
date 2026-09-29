@@ -84,10 +84,13 @@ Files already uploaded stay where they are; their links keep working.
 - **"Hosting is off for ..."**: the project publishes no website (`--site=none`).
 - **"Storage rules are not deployed for ..."**: Arc CMS shares the default bucket with another
   app (see Storage next to another app).
+- **"Not deleting without a yes"**: a deploy of all the functions would delete some the build no
+  longer has (see Functions that are deleted). Add `--yes`, or deploy only the functions you changed.
 
 ## Deploying with options
 
-With options, `npm run deploy` asks nothing, which is what scripts and CI use:
+With options, `npm run deploy` asks nothing (except before deleting functions, below), which is
+what scripts and CI use:
 
 ```bash
 npm run deploy -- --only functions:arccms --project default
@@ -102,3 +105,22 @@ check every callable is reachable.
 
 Always deploy through `npm run deploy`, never plain `firebase deploy`: only the former uses the
 project's settings (its database, website and bucket).
+
+## Functions that are deleted
+
+A deploy of all the functions (`--only functions`, `--only functions:arccms`, or no `--only`)
+makes the project match the build, so it deletes the Arc CMS functions the build no longer has:
+those of a feature turned off in `src/custom/features.ts` (docs/feature-flags-spec.md), a search
+collection taken out of `functions/src/custom/search-sources.ts`, or code that was renamed.
+Before that, `npm run deploy` lists them and asks once; the guided deploy asks on its own prompt.
+Off a terminal it needs `--yes` and otherwise stops without deploying:
+
+```bash
+npm run deploy -- --only functions:arccms --project default --yes
+```
+
+A deploy of named functions (`--only functions:arccms:arccms.<name>`) never deletes anything.
+Another app's functions are never touched: only the `arccms` codebase is compared.
+
+A deleted function's URL stops working: a payment webhook registered with Dodo, links in emails
+already sent. That is the point of turning the feature off.
