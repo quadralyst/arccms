@@ -69,15 +69,15 @@ Mark each line `[x]` when it passes, or note what happened.
 
 ## 4. One feature at a time (spot checks)
 
-- [ ] 4.1 `off: ['email-marketing']`: a list's page (Audience, Lists, a list) has no Broadcasts
+- [x] 4.1 `off: ['email-marketing']`: a list's page (Audience, Lists, a list) has no Broadcasts
       or Sequence tabs; the Email menu has no Broadcasts, Drips, Announcements.
-- [ ] 4.2 `off: ['search']`: no header search box; the content editor's Checks tab has no link
+- [x] 4.2 `off: ['search']`: no header search box; the content editor's Checks tab has no link
       suggestions; a content page has no related items; Search settings tab gone.
-- [ ] 4.3 `off: ['payments']`: members land on the blank dashboard; `/account`, `/user/premium`,
+- [x] 4.3 `off: ['payments']`: members land on the blank dashboard; `/account`, `/user/premium`,
       `/pricing` are not found.
-- [ ] 4.4 `off: ['data']`: no Data menu; `/admin/data/export-data` not found.
-- [ ] 4.5 `on: ['pwa']`: the install prompt shows on the member dashboard (Chrome); the
-      dashboard shows App installs.
+- [x] 4.4 `off: ['data']`: no Data menu; `/admin/data/export-data` not found.
+- [x] 4.5 `on: ['pwa']`: the dashboard shows App installs. The install prompt needs a production
+      build (docs/pwa.md, preview on port 5190); the build config switches with the file (F1 check).
 
 ## 5. Search
 
@@ -143,4 +143,5 @@ Mark each line `[x]` when it passes, or note what happened.
 |---|---|---|---|
 | 1 | 2026-09-29 | Pass | 1.3 read "Installable app (PWA) (pwa)"; the label is now "Installable app" |
 | 2 | 2026-09-29 | Pass | |
+| 4 | 2026-09-29 | Pass | The dev server aborted once mid-section (a DNS lookup during a network drop); restarted |
 | 3 | 2026-09-29 | Pass after a fix | 3.4: after an in-app link, `/blog` showed not-found but kept the previous page's address; the content guard now keeps the requested one (`browserUrl`) |
