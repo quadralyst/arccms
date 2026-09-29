@@ -56,6 +56,17 @@ what to change for:
 - a feature whose need is off, such as `off: ['audience']` while `forms` is on:
   turn off `forms` and `email-marketing` too, or keep `audience`.
 
+Saving the file restarts a running `npm run dev` (Vite reads it with `vite.config.ts`).
+Each restart used to keep the old server in memory, about 500 MB, until the dev server
+stopped with "JavaScript heap out of memory" after a few changes. `vite.config.ts`
+now frees it (`releaseClosedServer`). Vite still keeps the very first server, so the
+dev server grows once, on the first restart, and then stays level. If it ever stops
+out of memory anyway, start it again, or give it more room:
+
+```bash
+NODE_OPTIONS=--max-old-space-size=8192 npm run dev
+```
+
 ## What turning a feature off does
 
 **In the browser**, straight away (a new build, or `npm run dev`):
