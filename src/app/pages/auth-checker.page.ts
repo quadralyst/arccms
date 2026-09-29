@@ -7,6 +7,7 @@ import { ConstantVariables } from '../../shared/constants';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { AuthState } from './(auth)/auth.store';
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
+import { homeFor } from '../core/home/home';
 
 export const routeMeta: RouteMeta = {
     title: 'Authenticating... | Arc CMS',
@@ -45,8 +46,9 @@ export default class AuthCheckerComponent implements OnInit {
             }
 
             this.authStore.initAuthStateListener().subscribe((res: any) => {
-                if (res?.role === this.constantVariables.ADMIN) {
-                    this.router.navigate(['/admin/dashboard']);
+                if (res) {
+                    // Their role's home page (src/custom/home.ts over Arc CMS's defaults).
+                    this.router.navigateByUrl(homeFor(res.role));
                 } else {
                     this.router.navigate(['/signup']);
                 }

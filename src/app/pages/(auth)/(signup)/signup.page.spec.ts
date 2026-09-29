@@ -585,13 +585,17 @@ describe('SignupComponent', () => {
         // (they are 'user' role → isAuthenticated()/isSuccess() are false).
         const handleLoginSuccess = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => void>)['handleLoginSuccess'];
 
-        function ctx(isAdmin: boolean, inProgress = false) {
+        function ctx(isAdmin: boolean, inProgress = false, url = '/signup', role = 'user') {
             const navigate = vi.fn();
             return {
                 navigationInProgress: inProgress,
-                authStore: { currentUser: () => ({ uid: 'u1' }), isAdmin: () => isAdmin },
+                authStore: { currentUser: () => ({ uid: 'u1', role }), isAdmin: () => isAdmin },
                 toastService: { success: vi.fn() },
-                router: { navigate },
+                router: {
+                    url,
+                    parseUrl: (u: string) => ({ queryParams: Object.fromEntries(new URL(u, 'http://site.test').searchParams) }),
+                    navigateByUrl: navigate,
+                },
                 _navigate: navigate,
             };
         }
@@ -599,14 +603,26 @@ describe('SignupComponent', () => {
         it('routes a regular user to /user/dashboard', () => {
             const c = ctx(false);
             handleLoginSuccess.call(c);
-            expect(c._navigate).toHaveBeenCalledWith(['/user/dashboard'], { replaceUrl: true });
+            expect(c._navigate).toHaveBeenCalledWith('/user/dashboard', { replaceUrl: true });
             expect(c.navigationInProgress).toBe(true);
         });
 
         it('routes an admin to /admin/dashboard', () => {
             const c = ctx(true);
             handleLoginSuccess.call(c);
-            expect(c._navigate).toHaveBeenCalledWith(['/admin/dashboard'], { replaceUrl: true });
+            expect(c._navigate).toHaveBeenCalledWith('/admin/dashboard', { replaceUrl: true });
+        });
+
+        it('goes back to the page that asked for a sign-in', () => {
+            const c = ctx(false, false, '/signup?redirect=%2Flearn%3Fchild%3D2');
+            handleLoginSuccess.call(c);
+            expect(c._navigate).toHaveBeenCalledWith('/learn?child=2', { replaceUrl: true });
+        });
+
+        it('ignores a redirect to another site', () => {
+            const c = ctx(false, false, '/signup?redirect=https%3A%2F%2Fevil.example');
+            handleLoginSuccess.call(c);
+            expect(c._navigate).toHaveBeenCalledWith('/user/dashboard', { replaceUrl: true });
         });
 
         it('does not double-navigate when one is already in progress', () => {

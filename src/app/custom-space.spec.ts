@@ -10,6 +10,7 @@ import { insertCustomNav, type MenuItem } from '../shared/components/side-navbar
 import { CUSTOM_ROUTES } from '../custom/routes';
 import { CUSTOM_NAV } from '../custom/nav';
 import { CUSTOM_USER_DASHBOARD } from '../custom/user-dashboard';
+import { CUSTOM_HOME } from '../custom/home';
 import customEn from '../custom/i18n/en.json';
 import customHi from '../custom/i18n/hi.json';
 
@@ -21,6 +22,7 @@ describe('custom space', () => {
         expect(CUSTOM_ROUTES).toEqual([]);
         expect(CUSTOM_NAV).toEqual([]);
         expect(CUSTOM_USER_DASHBOARD).toBeNull();
+        expect(CUSTOM_HOME).toEqual({});
         // Specs always see every feature on (src/test/setup.ts), so read the file itself.
         expect(read('src/custom/features.ts')).toMatch(/^export const CUSTOM_FEATURES: FeatureChoice = \{\};$/m);
         expect(customEn).toEqual({});

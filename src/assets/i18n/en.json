@@ -1563,6 +1563,7 @@
   },
   "user": {
     "nav": {
+      "home": "Home",
       "dashboard": "Dashboard",
       "payments": "Payments",
       "account": "Account & Billing",

@@ -1,11 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, computed, inject, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthState } from '../(auth)/auth.store';
 import { EntitlementService } from './entitlement.service';
 import { isOn } from '../../core/features/features';
+import { homeFor, USER_DASHBOARD } from '../../core/home/home';
 
 /**
  * Sidebar layout for the signed-in member area (dashboard, profile, and with the
@@ -39,6 +40,9 @@ import { isOn } from '../../core/features/features';
                 </div>
 
                 <nav class="menu">
+                    @if (appHome(); as home) {
+                        <a [routerLink]="home"><i class="fa-solid fa-house"></i> {{ 'user.nav.home' | transloco }}</a>
+                    }
                     <a routerLink="/user/dashboard" routerLinkActive="active"><i class="fa-solid fa-gauge"></i> {{ 'user.nav.dashboard' | transloco }}</a>
                     @if (paymentsOn) {
                     <a routerLink="/user/payments" routerLinkActive="active"><i class="fa-solid fa-coins"></i> {{ 'user.nav.payments' | transloco }}</a>
@@ -94,6 +98,12 @@ export class UserShellComponent implements OnInit {
     entitlements = inject(EntitlementService);
     private router = inject(Router);
     readonly paymentsOn = isOn('payments');
+
+    /** The app's own home page for this person (src/custom/home.ts), when it is not this area's dashboard. */
+    readonly appHome = computed(() => {
+        const home = homeFor(this.authState.currentUser()?.role);
+        return home === USER_DASHBOARD || home.startsWith('/admin') ? null : home;
+    });
 
     displayName(): string {
         const u = this.authState.currentUser();

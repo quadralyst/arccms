@@ -1446,6 +1446,7 @@ export type TranslationKey =
     | 'user.free'
     | 'user.nav.account'
     | 'user.nav.dashboard'
+    | 'user.nav.home'
     | 'user.nav.payments'
     | 'user.nav.plans'
     | 'user.nav.premium'
@@ -2900,6 +2901,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'user.free',
     'user.nav.account',
     'user.nav.dashboard',
+    'user.nav.home',
     'user.nav.payments',
     'user.nav.plans',
     'user.nav.premium',
