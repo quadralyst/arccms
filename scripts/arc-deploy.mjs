@@ -141,7 +141,8 @@ export async function confirmDeletes(removed, args, { isTTY = !!process.stdin.is
 }
 
 async function askOnce(question) {
-    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    // Line mode: terminal mode redraws the question as you type, so it showed twice.
+    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
     try {
         return await rl.question(question);
     } finally {
