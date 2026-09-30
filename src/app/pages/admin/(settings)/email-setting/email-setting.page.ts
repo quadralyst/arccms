@@ -66,6 +66,13 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
     emailEnabled = signal(false);
     /** True while the admin is configuring a provider but email is not yet enabled. */
     configuring = signal(false);
+    /**
+     * Set when the admin starts configuring, or picks a provider, while email is
+     * off. The next Save then also turns email on, so choosing a provider and
+     * saving is enough. Switching email off by hand clears it, so a later Save
+     * does not turn it back on.
+     */
+    private enableOnSave = signal(false);
     showProviderList = signal(false);
     isLoading = signal(true);
     /** The settings could not be read: show the error, never an editable form of defaults. */
@@ -269,6 +276,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
         this.emailForm.patchValue({ activeProvider: providerId });
         this.emailForm.markAsDirty();
         this.testPassed.set(false);
+        if (!this.emailEnabled()) this.enableOnSave.set(true);
         this.activeProviderComponent.set(null);
 
         // Handle Gmail sender email lock
@@ -284,6 +292,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
      */
     startConfiguring(): void {
         this.configuring.set(true);
+        this.enableOnSave.set(true);
     }
 
     toggleEmail(enabled: boolean): void {
@@ -299,6 +308,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
             this.configuring.set(true); // keep the form open so they can finish configuring
             return;
         }
+        this.enableOnSave.set(false);
         this.emailEnabled.set(enabled);
         this.emailForm.patchValue({ isEnabled: enabled });
         this.emailForm.markAsDirty();
@@ -355,14 +365,34 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
             return;
         }
 
+        // Save with a provider chosen turns email on (never for the toggle and
+        // feature-switch saves, which pass `type`). Only reached once the test gate
+        // above has passed and the provider is valid, so a save that returns early
+        // never leaves the page showing email on.
+        const turnsOn = !type && this.enableOnSave() && !this.emailForm.get('isEnabled')?.value
+            && this.isProviderConfigValid();
+        if (turnsOn) {
+            this.emailForm.patchValue({ isEnabled: true });
+            this.emailEnabled.set(true);
+        }
+
         this.isSaving.set(true);
         try {
             const settings: IEmailSettings = this.buildSettings();
             await this.emailSettingService.saveEmailSettings(settings);
-            this.toastService.openCustomSnackbar('Email settings saved successfully', 'success', 'check_circle');
+            this.enableOnSave.set(false);
+            this.toastService.openCustomSnackbar(
+                turnsOn ? 'Email settings saved and email is on' : 'Email settings saved successfully',
+                'success',
+                'check_circle',
+            );
             this.emailForm.markAsPristine();
         } catch (error) {
             console.error('Failed to save email settings:', error);
+            if (turnsOn) {
+                this.emailForm.patchValue({ isEnabled: false });
+                this.emailEnabled.set(false);
+            }
             this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
         } finally {
             this.isSaving.set(false);

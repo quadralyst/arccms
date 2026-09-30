@@ -69,7 +69,7 @@
         <p><strong>Fill in the sender.</strong> Sender name and email are copied into the default templates when they are created, and used for test sends. Reply-to applies to every send; BCC (a copy of every email) applies with SMTP and Gmail. Change the per-second, per-hour and per-day limits if your plan allows more. A send over the limit waits and is tried again later.</p>
       </li>
       <li>
-        <p><strong>Turn email on</strong> with the master switch, and save.</p>
+        <p><strong>Save.</strong> Choosing a provider (or clicking <strong>Configure Email</strong>) and then saving also turns email on, so the master switch needs no separate click. Switch it off with the toggle at the top of the page; saving after that leaves it off.</p>
       </li>
       <li>
         <p><strong>Set the public address for email links, if you use your own domain.</strong> Unsubscribe and preference links are built on <code>liveUrl</code> in the <code>Settings/email</code> document, or, when that is empty, on <code>live_url</code> in <code>functions/src/constant.ts</code>, or, when that is empty too, on the install's Hosting address, <code>https://&lt;hosting site&gt;.web.app/</code>. So a new install needs nothing here until it has a custom domain. The admin page has no field for it: add <code>liveUrl</code> (for example <code>https://example.com/</code>) to the document in the Firebase console. Saving the page keeps it. With Hosting turned off and nothing set, the links come out relative and do not work.</p>

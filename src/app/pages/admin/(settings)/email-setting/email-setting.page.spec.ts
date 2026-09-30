@@ -175,6 +175,84 @@ describe('EmailSettingPageComponent', () => {
         expect(component.emailEnabled()).toBe(false);
     });
 
+    describe('saving with a provider turns email on', () => {
+        const validProvider = (): IEmailProviderComponent => ({
+            formGroup: new FormGroup({ test: new FormControl('') }),
+            isConfigValid: vi.fn().mockReturnValue(true),
+            getSenderEmailConstraint: vi.fn().mockReturnValue(null),
+        });
+        const lastSaved = () => mockEmailSettingService.saveEmailSettings.mock.calls.at(-1)?.[0];
+
+        beforeEach(() => {
+            component.emailForm.patchValue({ activeProvider: 'debug_log', isEnabled: false });
+            component.emailEnabled.set(false);
+            component.onProviderComponentReady(validProvider());
+        });
+
+        it('turns email on when Save follows Configure Email', async () => {
+            component.startConfiguring();
+            await component.onSubmit();
+            expect(lastSaved().isEnabled).toBe(true);
+            expect(component.emailEnabled()).toBe(true);
+        });
+
+        it('turns email on when Save follows choosing a provider', async () => {
+            component.selectProvider('debug_log');
+            component.onProviderComponentReady(validProvider());
+            await component.onSubmit();
+            expect(lastSaved().isEnabled).toBe(true);
+            expect(component.emailEnabled()).toBe(true);
+        });
+
+        it('does not turn email on for a save nobody started from configuring', async () => {
+            await component.onSubmit();
+            expect(lastSaved().isEnabled).toBe(false);
+            expect(component.emailEnabled()).toBe(false);
+        });
+
+        it('does not turn email on for a feature-switch save', async () => {
+            component.startConfiguring();
+            await component.onSubmit(true);
+            expect(lastSaved().isEnabled).toBe(false);
+            expect(component.emailEnabled()).toBe(false);
+        });
+
+        it('does not turn email back on after the admin switched it off', async () => {
+            component.startConfiguring();
+            component.emailEnabled.set(true);
+            component.toggleEmail(false);
+            await component.onSubmit();
+            expect(lastSaved().isEnabled).toBe(false);
+            expect(component.emailEnabled()).toBe(false);
+        });
+
+        it('leaves email off when the provider is not valid', async () => {
+            component.onProviderComponentReady({ ...validProvider(), isConfigValid: vi.fn().mockReturnValue(false) });
+            component.startConfiguring();
+            component.testPassed.set(true);
+            await component.onSubmit();
+            expect(lastSaved().isEnabled).toBe(false);
+            expect(component.emailEnabled()).toBe(false);
+        });
+
+        it('shows email off again when the save fails', async () => {
+            mockEmailSettingService.saveEmailSettings.mockRejectedValueOnce(new Error('denied'));
+            component.startConfiguring();
+            await component.onSubmit();
+            expect(component.emailEnabled()).toBe(false);
+            expect(component.emailForm.get('isEnabled')?.value).toBe(false);
+        });
+
+        it('saves once and only the first save turns it on', async () => {
+            component.startConfiguring();
+            await component.onSubmit();
+            component.emailForm.patchValue({ isEnabled: false });
+            component.emailEnabled.set(false);
+            await component.onSubmit();
+            expect(lastSaved().isEnabled).toBe(false);
+        });
+    });
+
     it('should get selected provider info', () => {
         const provider = component.getSelectedProvider();
         expect(provider.id).toBe('smtp');
