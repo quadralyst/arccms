@@ -2,17 +2,20 @@
  * Tests for the HMAC unsubscribe-token helpers
  * (functions/src/email-core/unsubscribeToken.ts).
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 
-vi.mock('../constant', () => ({
-  constant: { isProduction: false, live_url: 'https://app.example.com/', local_url: 'http://localhost:5173/' },
+const constantMock = vi.hoisted(() => ({
+  isProduction: false, live_url: 'https://app.example.com/', local_url: 'http://localhost:5173/',
 }));
+vi.mock('../constant', () => ({ constant: constantMock }));
 
 import {
   computeEmailHash,
   buildUnsubscribeToken,
   verifyUnsubscribeToken,
   buildUnsubscribeUrl,
+  buildPreferencesUrl,
+  getPublicBaseUrl,
 } from '../email-core/unsubscribeToken.js';
 
 describe('unsubscribeToken', () => {
@@ -80,6 +83,54 @@ describe('unsubscribeToken', () => {
     it('returns empty string when no secret is configured', () => {
       expect(buildUnsubscribeUrl('user@example.com', undefined)).toBe('');
       expect(buildUnsubscribeUrl('user@example.com', '')).toBe('');
+    });
+  });
+
+  describe('getPublicBaseUrl', () => {
+    const saved = { ...constantMock };
+    const env = { site: process.env['ARC_HOSTING_SITE'], project: process.env['GCLOUD_PROJECT'] };
+    const restore = (key: string, value: string | undefined) => {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    };
+    afterEach(() => {
+      Object.assign(constantMock, saved);
+      restore('ARC_HOSTING_SITE', env.site);
+      restore('GCLOUD_PROJECT', env.project);
+    });
+
+    it('prefers the liveUrl override and adds one trailing slash', () => {
+      constantMock.isProduction = true;
+      expect(getPublicBaseUrl('https://shop.example.com')).toBe('https://shop.example.com/');
+      expect(getPublicBaseUrl('https://shop.example.com/')).toBe('https://shop.example.com/');
+    });
+
+    it('uses constant.live_url in production when no override is set', () => {
+      constantMock.isProduction = true;
+      expect(getPublicBaseUrl()).toBe('https://app.example.com/');
+    });
+
+    it('falls back to the hosting site when neither is set, so a fresh install has working links', () => {
+      constantMock.isProduction = true;
+      constantMock.live_url = '';
+      process.env['GCLOUD_PROJECT'] = 'acme-project';
+      delete process.env['ARC_HOSTING_SITE'];
+      expect(getPublicBaseUrl()).toBe('https://acme-project.web.app/');
+      process.env['ARC_HOSTING_SITE'] = 'acme-arccms';
+      expect(getPublicBaseUrl()).toBe('https://acme-arccms.web.app/');
+      expect(buildUnsubscribeUrl('user@example.com', 's')).toMatch(/^https:\/\/acme-arccms\.web\.app\/unsubscribe\?e=/);
+      expect(buildPreferencesUrl('user@example.com', 's')).toMatch(/^https:\/\/acme-arccms\.web\.app\/email-preferences\?e=/);
+    });
+
+    it('stays relative when hosting is off and nothing is set', () => {
+      constantMock.isProduction = true;
+      constantMock.live_url = '';
+      process.env['ARC_HOSTING_SITE'] = 'none';
+      expect(getPublicBaseUrl()).toBe('/');
+    });
+
+    it('uses the local URL outside production', () => {
+      constantMock.isProduction = false;
+      expect(getPublicBaseUrl()).toBe('http://localhost:5173/');
     });
   });
 });

@@ -1,5 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { constant } from '../constant.js';
+import { arcHostingOrigin } from '../arc-config.js';
 
 /**
  * Stable recipient key: sha256(lowercase(trim(email))).
@@ -41,11 +42,15 @@ export function verifyUnsubscribeToken(
 
 /**
  * Base URL for public email links (unsubscribe / preferences).
- * Prefers an explicit override (e.g. `Settings/email.liveUrl`) so per-product
- * deploys don't edit source; falls back to the constant.
+ * In order: an explicit override (`Settings/email.liveUrl`, so per-product deploys
+ * don't edit source), then `constant.live_url`, then the install's own hosting
+ * site (`https://{site}.web.app`) so a fresh install gets working links with no
+ * setup. A custom domain still needs `liveUrl`. Outside production the local URL.
+ * With hosting off and nothing set the base is `/`, and the link is left relative.
  */
 export function getPublicBaseUrl(override?: string): string {
-  const base = override || (constant.isProduction ? constant.live_url : constant.local_url);
+  const base = override
+    || (constant.isProduction ? constant.live_url || arcHostingOrigin() : constant.local_url);
   // Guarantee a single trailing slash.
   if (!base) return '/';
   return base.endsWith('/') ? base : `${base}/`;

@@ -41,6 +41,18 @@
         ],
         "rewrites": [
             {
+                "source": "/unsubscribe",
+                "function": {
+                    "functionId": "arccms-handleUnsubscribe"
+                }
+            },
+            {
+                "source": "/email-preferences",
+                "function": {
+                    "functionId": "arccms-handleEmailPreferences"
+                }
+            },
+            {
                 "source": "**",
                 "destination": "/__shell.html"
             }
