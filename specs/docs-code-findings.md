@@ -55,7 +55,7 @@ not written into the docs; they are listed here only.
 
 ## Behavior that is wrong or broken
 
-14. **Email links:** unsubscribe and preference links are built as `{liveUrl}unsubscribe?...` and
+14. **Email links (fixed on fix/unsubscribe-hosting-rewrite: Hosting rewrites added, and the base falls back to the hosting site):** unsubscribe and preference links are built as `{liveUrl}unsubscribe?...` and
     `{liveUrl}email-preferences?...`, but firebase.json has no rewrite to `arccms-handleUnsubscribe` or
     `arccms-handleEmailPreferences`, so they reach the not-found page. `liveUrl` cannot be set in the admin
     UI (the control exists, no input) and `constant.live_url` is empty, so links come out relative.
