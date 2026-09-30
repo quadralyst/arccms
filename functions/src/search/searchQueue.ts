@@ -1,5 +1,5 @@
 /**
- * The draft search queue (docs/feature-flags-spec.md, section 6.5).
+ * The draft search queue (specs/feature-flags-spec.md, section 6.5).
  *
  * Drafts live in one collection per content type, created at runtime, so no
  * trigger can name them. Instead every draft save in the browser writes

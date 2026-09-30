@@ -1,6 +1,6 @@
 /**
  * HTML to Markdown, for the Markdown twin of every published page
- * (docs/discoverability-spec.md, D-D8).
+ * (specs/discoverability-spec.md, D-D8).
  *
  * Covers what the Tiptap editor produces: headings, paragraphs, emphasis,
  * links, images, nested lists, task lists, blockquotes, code, tables,

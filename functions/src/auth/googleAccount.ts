@@ -15,7 +15,7 @@ import { applyNewAccountClaims, findUserByEmail, findUserByUid, readSignInSettin
 /**
  * A sign-in account older than this was not made by the Google sign-in that
  * just happened: in a project shared with another app it is that app's user
- * (docs/coexistence-spec.md, CO-D16), so ArcCMS must never delete it.
+ * (specs/coexistence-spec.md, CO-D16), so ArcCMS must never delete it.
  */
 export const FRESH_ACCOUNT_MS = 10 * 60 * 1000;
 

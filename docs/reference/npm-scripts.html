@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>npm scripts | Arc CMS docs</title>
+  <meta name="description" content="Every npm script in package.json: the command, what it does, and when to run it.">
+  <meta name="docs:sources" content="package.json, scripts, functions/scripts/call-seed.cjs, vite.config.ts, vitest.rules.config.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="reference/npm-scripts.html">
+  <main>
+    <h1>npm scripts</h1>
+    <p class="lead">Every script in <code>package.json</code>, grouped by what you are doing. Run them from the repository root. Pass extra options after <code>--</code>, for example <code>npm run docs -- --port 5190</code>.</p>
+
+    <h2>Develop and test</h2>
+    <table>
+      <thead><tr><th>Command</th><th>What it does</th><th>When to use it</th></tr></thead>
+      <tbody>
+        <tr><td><code>npm run dev</code></td><td>Starts the Vite dev server for the site and admin (port 5173 unless <code>PORT</code> is set). It talks to the real Firebase project in <code>src/environments/environment.ts</code>: there is no emulator.</td><td>Day-to-day work. See <a href="../getting-started/run-locally.html">Run it locally</a>.</td></tr>
+        <tr><td><code>npm run start</code></td><td>Runs <code>npm run dev</code>.</td><td>Same as <code>dev</code>.</td></tr>
+        <tr><td><code>npm run build</code></td><td>Builds the site for production with <code>vite build</code> and copies <code>dist/client/index.html</code> to <code>dist/analog/public/__shell.html</code>. A production build uses <code>src/environments/environment.prod.ts</code> unless <code>USE_DEV_ENV=true</code>.</td><td>Before deploying Hosting. The deploy scripts run it for you.</td></tr>
+        <tr><td><code>npm run test</code></td><td>Runs the whole Vitest suite: frontend, Cloud Functions, scripts and the docs checks. In a terminal Vitest keeps watching; add <code>-- --run</code> to run once.</td><td>Before every commit. See <a href="../operations/testing.html">Testing</a>.</td></tr>
+        <tr><td><code>npm run test:rules</code></td><td>Builds the combined rules (<code>rules:build</code>), then runs the security rules tests against the Firestore and Storage emulators with <code>vitest.rules.config.ts</code>. Needs the Firebase CLI.</td><td>After any change to <code>firestore.rules</code>, <code>storage.rules</code> or the app's rules files.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Configure and deploy</h2>
+    <table>
+      <thead><tr><th>Command</th><th>What it does</th><th>When to use it</th></tr></thead>
+      <tbody>
+        <tr><td><code>npm run arc:configure</code></td><td>Reads <code>arccms.config.json</code> for one Firebase project and writes the files that need its values: <code>src/environments/arc-install.ts</code>, <code>functions/.env.&lt;projectId&gt;</code> and, when needed, <code>firebase.&lt;projectId&gt;.json</code>. Flags such as <code>--project</code>, <code>--database</code>, <code>--site</code>, <code>--bucket</code>, <code>--prefix</code> update the config first; <code>--dry-run</code> writes nothing. It never creates cloud resources.</td><td>When you set up a project or change its install settings. See <a href="config-keys.html">Configuration keys</a> and <a href="../getting-started/configure.html">Configure a project</a>.</td></tr>
+        <tr><td><code>npm run deploy</code></td><td>With no options, the guided deploy: it asks for the project, rebuilds its install settings, asks what to deploy (including only the functions changed since the last deploy), shows the command and, for production, asks you to type the project id. With options, it passes them to <code>firebase deploy</code>, adds the project's generated config, builds the functions first, retries functions that hit Google's rate limit, and asks before deleting deployed functions the build no longer has.</td><td>Every deploy. See <a href="../operations/deploy.html">Deploy</a> and <a href="../operations/targeted-deploys.html">Deploy only what changed</a>.</td></tr>
+        <tr><td><code>npm run deploy:dev</code></td><td>Builds the site with the dev environment, builds the functions, deploys everything to the <code>default</code> alias without questions (<code>--non-interactive --force</code>), then runs <code>seed:dev</code>.</td><td>A full deploy to the dev project when you are sure nothing should be kept.</td></tr>
+        <tr><td><code>npm run deploy:prod</code></td><td>The same for the <code>production</code> alias with the production environment, then <code>seed:prod</code>.</td><td>A full production release.</td></tr>
+        <tr><td><code>npm run seed:dev</code></td><td>Runs the static page seeder (<code>functions/scripts/call-seed.cjs</code>) against the <code>default</code> alias: it builds the static pages and publishes them to the project's Hosting site. Uses your <code>firebase login</code> credentials and the compiled functions, so build the functions first. Does nothing when hosting is off (<code>ARC_HOSTING_SITE=none</code>).</td><td>After a Hosting deploy, to publish the static pages again. <code>deploy:dev</code> runs it.</td></tr>
+        <tr><td><code>npm run seed:prod</code></td><td>The same for the <code>production</code> alias.</td><td>After a production Hosting deploy. <code>deploy:prod</code> runs it.</td></tr>
+        <tr><td><code>npm run arc:upgrade</code></td><td>For an install whose functions are deployed without the <code>arccms-</code> prefix: deletes those Arc CMS functions, then deploys the <code>arccms</code> codebase. It never touches another app's functions. Takes <code>--project</code> and <code>--dry-run</code>. It does not deploy Hosting.</td><td>Once, when moving such an install. Deploy Hosting straight after. See <a href="../getting-started/upgrading.html">Upgrade Arc CMS</a>.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="trap"><p><code>deploy:dev</code> and <code>deploy:prod</code> pass <code>--force</code>, so the question "delete the deployed functions this build no longer has?" is answered yes for you. After you turn a feature off in <code>src/custom/features.ts</code>, its functions are deleted without a prompt. Use <code>npm run deploy</code> when you want to be asked.</p></div>
+
+    <h2>Rules and indexes</h2>
+    <table>
+      <thead><tr><th>Command</th><th>What it does</th><th>When to use it</th></tr></thead>
+      <tbody>
+        <tr><td><code>npm run rules:build</code></td><td>Combines the core rules and indexes with the app's own (<code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code>) into <code>.arc-build/</code>. App rules go in at the <code>// @arc-app-rules</code> line of the core file. Every Firestore and Storage deploy runs it first.</td><td>To inspect the combined rules by hand. See <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>.</td></tr>
+        <tr><td><code>npm run export-indexes</code></td><td>Exports the live Firestore indexes of the install's database and writes them to <code>firestore.indexes.json</code>, leaving out the app's own indexes.</td><td>After creating indexes in the Firebase console, to bring them into the repository.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Checks and generated files</h2>
+    <table>
+      <thead><tr><th>Command</th><th>What it does</th><th>When to use it</th></tr></thead>
+      <tbody>
+        <tr><td><code>npm run check:core</code></td><td>In an app built on Arc CMS, compares the working copy with the Arc CMS version it is based on (<code>upstream/main</code>, or <code>-- --against upstream/dev</code>) and lists every changed file as custom, install, review or core. Fails when a core file changed, or when there is no <code>upstream</code> remote to compare with. Passes in Arc CMS itself.</td><td>Before every commit in an app. See <a href="../app/check-core-and-upgrade.html">Keep core untouched</a>.</td></tr>
+        <tr><td><code>npm run i18n:keys</code></td><td>Writes the <code>TranslationKey</code> type from <code>src/assets/i18n/en.json</code>, so a mistyped key is a compile error. A test fails when it is out of step.</td><td>After adding or renaming a key in <code>en.json</code>. See <a href="../features/languages.html">Languages</a>.</td></tr>
+        <tr><td><code>npm run icons:index</code></td><td>Writes the icon picker's Font Awesome index to <code>public/assets/icons/</code> from the installed <code>@fortawesome/fontawesome-free</code> package. A test fails when it is out of step.</td><td>After upgrading the Font Awesome package.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Docs</h2>
+    <table>
+      <thead><tr><th>Command</th><th>What it does</th><th>When to use it</th></tr></thead>
+      <tbody>
+        <tr><td><code>npm run docs</code></td><td>Serves <code>docs/</code> at <code>http://localhost:5180</code> (<code>-- --port 5190</code> for another port). The pages also open straight from disk.</td><td>To browse the docs at a real address, such as from a phone.</td></tr>
+        <tr><td><code>npm run docs:index</code></td><td>Rewrites <code>docs/assets/search-index.js</code> from the pages' titles, descriptions and headings.</td><td>After adding, renaming or retitling a page or a heading.</td></tr>
+        <tr><td><code>npm run docs:affected</code></td><td>Lists the docs pages whose <code>docs:sources</code> overlap the files you changed since <code>dev</code> (or <code>-- --base main</code>).</td><td>Before finishing any change. See <a href="../contributing/docs-and-tests-are-part-of-done.html">Docs and tests are part of done</a>.</td></tr>
+        <tr><td><code>npm run docs:lint</code></td><td>Runs the page checks (shape, links, paths, writing rules, feature sections, reference lists) on the pages you name, without the navigation and index checks.</td><td>While writing a page: <code>npm run docs:lint -- docs/reference/npm-scripts.html</code>.</td></tr>
+        <tr><td><code>npm run check:docs</code></td><td>Runs every docs check (<code>scripts/__tests__/docs</code>). They also run with <code>npm run test</code>.</td><td>Before committing docs changes. See <a href="../contributing/writing-docs.html">Writing docs</a>.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

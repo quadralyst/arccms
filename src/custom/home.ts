@@ -1,5 +1,5 @@
 /**
- * Where people land after signing in, by role (docs/custom-code.md), laid over
+ * Where people land after signing in, by role (docs/app/custom-space.html), laid over
  * Arc CMS's defaults (admins: /admin/dashboard, everyone else: /user/dashboard).
  * Arc CMS ships this empty and never edits it again.
  *

@@ -1,5 +1,5 @@
 /**
- * The content feature's Cloud Functions (docs/feature-flags-spec.md). Exported only
+ * The content feature's Cloud Functions (specs/feature-flags-spec.md). Exported only
  * when the app has the feature: functions/src/feature-exports.gen.ts lists this file.
  */
 

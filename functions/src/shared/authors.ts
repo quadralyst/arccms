@@ -1,5 +1,5 @@
 /**
- * Authors for the publish pipeline (docs/discoverability-spec.md, D2).
+ * Authors for the publish pipeline (specs/discoverability-spec.md, D2).
  *
  * Reads `Authors/{id}` once per deploy and shapes it for two consumers: the
  * template data (`author.*` bindings, `authorName`) and the Article's

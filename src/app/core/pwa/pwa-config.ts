@@ -1,5 +1,5 @@
 /**
- * The install's PWA settings (docs/pwa.md): Arc CMS defaults, with the app's own
+ * The install's PWA settings (docs/features/pwa.html): Arc CMS defaults, with the app's own
  * `src/custom/pwa.ts` laid over them. Plain TypeScript with no Angular imports,
  * because vite.config.ts reads it at build time to write the manifest and the
  * service worker.

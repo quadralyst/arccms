@@ -1,4 +1,4 @@
-/** App users (live) lists (docs/coexistence-spec.md 5b, CO6.5b). */
+/** App users (live) lists (specs/coexistence-spec.md 5b, CO6.5b). */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const m = vi.hoisted(() => {

@@ -42,7 +42,7 @@ export function describeContext(installed: boolean) {
 }
 
 /**
- * The feedback button (docs/feedback.md): whether it shows, the screenshot taken
+ * The feedback button (docs/features/feedback.html): whether it shows, the screenshot taken
  * as it is pressed, and sending. Signed-in people only; an admin turns it on
  * (Settings/feedback). Apps can open it from their own button with `openPanel()`.
  */

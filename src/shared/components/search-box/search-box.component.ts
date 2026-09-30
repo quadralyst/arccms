@@ -11,7 +11,7 @@
  * translate differently: the admin through Transloco, the public site
  * through the per-language strings JSON. English defaults cover the rest.
  *
- * Spec: docs/search-spec.md, phase S4 item 2.
+ * Spec: specs/search-spec.md, phase S4 item 2.
  */
 
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email marketing | Arc CMS docs</title>
+  <meta name="description" content="Send broadcasts to lists now or later, run drip sequences when people join a list, and post announcements to your users.">
+  <meta name="docs:sources" content="functions/src/features/email-marketing.ts, functions/src/email-log/processBroadcast.ts, functions/src/email-log/continueBroadcast.ts, functions/src/email-log/processScheduledBroadcasts.ts, functions/src/email-log/previewBroadcastAudience.ts, functions/src/email-log/broadcastAudience.ts, functions/src/email-core/dripCampaigns.ts, functions/src/email-core/dripEnrollment.ts, functions/src/email-core/dripSend.ts, functions/src/email-core/dripContext.ts, functions/src/email-core/processDripQueue.ts, functions/src/email-core/migrateWelcomeToSequences.ts, functions/src/email-core/announcements.ts, src/app/pages/admin/(broadcasts), src/app/pages/admin/(drips), src/app/pages/admin/(announcements), src/app/pages/admin/(list-hub), firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/email-marketing.html">
+  <main>
+    <h1>Email marketing</h1>
+    <p class="lead">Send one email to one or more lists, now or at a set time; run a sequence of emails for everyone who joins a list; and post announcements to your users. Every send respects consent and unsubscribes.</p>
+
+    <h2>What it is</h2>
+    <table>
+      <thead><tr><th>Tool</th><th>What it does</th><th>Admin screen</th></tr></thead>
+      <tbody>
+        <tr><td>Broadcasts</td><td>One email to the people on chosen lists, now or scheduled</td><td>Email, Broadcasts (<code>/admin/email/broadcasts</code>)</td></tr>
+        <tr><td>Drip campaigns</td><td>A sequence of emails, each a set number of hours after the one before, for everyone who joins a list</td><td>Email, Drip Campaigns (<code>/admin/email/drip-campaigns</code>)</td></tr>
+        <tr><td>Announcements</td><td>An in-app notification to users, with an optional email copy</td><td>Email, Announcements (<code>/admin/email/announcements</code>)</td></tr>
+      </tbody>
+    </table>
+    <p>All three send to <a href="audience.html">Audience</a> lists, including App users (live) lists for broadcasts and sequences (<a href="app-audience.html">App audience</a>). Each list's page also shows its broadcasts and its sequence. The email underneath, such as the provider, templates, the composer, the brand kit, the logs and the unsubscribe link, is the <a href="email.html">Email engine</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>The feature id is <code>email-marketing</code>. It is on by default and needs <code>audience</code>. To turn it off, in <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    off: ['email-marketing'],
+};</code></pre>
+    <p>When it is off:</p>
+    <ul>
+      <li>Broadcasts, Drip Campaigns and Announcements leave the Email menu, their addresses show the not-found page, and list pages lose their Broadcasts and Sequence tabs.</li>
+      <li>The functions in <code>functions/src/features/email-marketing.ts</code> are not built, so the next deploy of all functions removes them, the scheduled jobs included.</li>
+      <li>Joining or leaving a list does not start or end a sequence, and an unsubscribe does not touch sequences.</li>
+      <li>Campaigns, enrollments and past broadcasts stay in Firestore.</li>
+    </ul>
+    <p>A lighter switch exists too: Settings, Email Settings has a <strong>Broadcasts</strong> and a <strong>Drip campaigns</strong> switch that pause those sends without removing anything (see <a href="email.html">Email engine</a>). See <a href="../reference/feature-ids.html">Feature ids</a> for every feature.</p>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li><p>Set up an email provider and turn email on in Settings, Email Settings (<a href="email.html">Email engine</a>). Until then every send is logged as skipped with <code>email_disabled</code>.</p></li>
+      <li><p>Set the brand kit, so every email carries your logo, colors and footer with the unsubscribe link.</p></li>
+      <li><p>Have at least one list with subscribed people (<a href="audience.html">Audience</a>).</p></li>
+      <li><p>Open Email, Announcements once. It seeds the default templates, notification types, event mappings and the system lists. Seeding only adds what is missing.</p></li>
+    </ol>
+
+    <h2>Use it</h2>
+
+    <h3>Send a broadcast</h3>
+    <ol class="steps">
+      <li><p>Open Email, Broadcasts (or a list's page, Broadcasts tab). Write the subject.</p></li>
+      <li><p>Pick <strong>Send to lists</strong>. Optionally pick <strong>Exclude lists</strong> (anyone on them is skipped) and a <strong>premiumType</strong> filter (only contacts whose user account has that plan).</p></li>
+      <li><p>Click <strong>Preview count</strong> for the number of subscribed people it will reach.</p></li>
+      <li><p>Build the email from blocks and send yourself a test.</p></li>
+      <li><p>Click <strong>Send broadcast</strong>, or turn on <strong>Schedule for later</strong>, pick a time and click <strong>Schedule broadcast</strong>. A scheduled broadcast can be cancelled until it starts.</p></li>
+    </ol>
+    <p>How it sends:</p>
+    <ul>
+      <li>Recipients are read from the lists when the send runs, not when you click, so consent and membership are always current.</li>
+      <li>Someone on several of the chosen lists gets it once. An address that is both a contact and an app user gets it once.</li>
+      <li>Every email is marketing: <code>pending</code>, <code>unsubscribed</code>, disabled and suppressed people are skipped and counted as skipped.</li>
+      <li>It sends at the provider's rate limit. When the run reaches its time limit or the daily or hourly quota, the broadcast is <code>paused</code> and carries on in a new run from where it stopped.</li>
+      <li>A scheduled broadcast starts within 5 minutes of its time. One more than 24 hours overdue (for example because email was off) is marked <code>failed</code> instead of sent late.</li>
+    </ul>
+    <p>Broadcast states: <code>scheduled</code>, <code>queued</code>, <code>processing</code>, <code>paused</code>, <code>completed</code>, <code>failed</code>, <code>cancelled</code>. Each email is also in Email Logs.</p>
+
+    <h3>Run a drip sequence</h3>
+    <ol class="steps">
+      <li><p>Open Email, Drip Campaigns and create a campaign: a name and the list it runs on. The list cannot change afterwards.</p></li>
+      <li><p>Add steps. Each step is a template and a <strong>Delay (h)</strong>: the hours after the previous step (for the first step, after joining). Pick an existing template, or create a new email for the step and refine it later in the Composer.</p></li>
+      <li><p>Choose <strong>Enroll existing members on activate</strong> if people already on the list should get it too. Otherwise only people who join after activation do.</p></li>
+      <li><p>Click <strong>Activate</strong>. A campaign needs at least one step.</p></li>
+    </ol>
+    <p>How it runs:</p>
+    <ul>
+      <li>Joining the list enrolls the person. A step at 0 hours goes out at once; later steps are sent by a job that runs every 15 minutes.</li>
+      <li>Before every step the person is checked again. Leaving the list, unsubscribing, being suppressed or being erased ends their sequence. An archived campaign ends everyone's.</li>
+      <li>A person never enters the same campaign twice, even after leaving and rejoining the list.</li>
+      <li>A step that cannot go out yet is held, not skipped: a paused campaign, email or the Drip campaigns switch turned off, an inactive template, or a contact still <code>pending</code>. When a form sign-up confirms, their held step goes out at once.</li>
+      <li>On a form's list, steps can use the form's tags, such as the queue position and referral link (<a href="../reference/email-tags.html">Email merge tags</a>).</li>
+    </ul>
+    <div class="trap"><p>A template made with <strong>New email</strong> (in the Composer or from a step) has no sender of its own, and a step sends with its template's sender. Give each such template a sender before activating: see <a href="email.html#edit-templates-in-the-composer">Email engine</a>.</p></div>
+    <p>Pause and Resume stop and restart sending without losing anyone's place, but people who join the list while it is paused are not enrolled. Archive ends the campaign for good.</p>
+    <p>To make each signup form's welcome email the first step of a sequence on its list, run the <code>migrateWelcomeToSequences</code> admin callable once. It creates the campaign per form and marks the form so the welcome is not also sent directly (<a href="forms.html">Signup forms</a>).</p>
+
+    <h3>Post an announcement</h3>
+    <ol class="steps">
+      <li><p>Open Email, Announcements, tab <strong>Send announcement</strong>. Write a title, a body and an optional link.</p></li>
+      <li><p>Choose the audience: All users, By role (type the role, such as <code>user</code>), or By list. Optionally pick <strong>Exclude lists</strong>: anyone on them is skipped.</p></li>
+      <li><p>Turn on <strong>Also send email</strong> for an email copy, then click <strong>Publish announcement</strong>.</p></li>
+    </ol>
+    <p>An announcement is an in-app notification, so only people with an account get it: a contact on a list without an account is skipped. The email copy is marketing, so it respects unsubscribes. One announcement reads at most 2,000 people from each list, or 2,000 users for All users or a role. The other two tabs, Notification types and Event mappings, belong to <a href="notifications.html">Notifications</a> and <a href="automations.html">Automations</a>.</p>
+
+    <h2>Extend it</h2>
+    <ul>
+      <li><strong>Start a sequence from your code:</strong> add the person to the campaign's list with <code>addContactToLists</code> (see <a href="audience.html">Audience</a>). Joining a list enrolls them in its active campaigns.</li>
+      <li><strong>Start one from an event without code:</strong> an automation rule can add people to a list (<a href="automations.html">Automations</a>).</li>
+      <li><strong>Start one from your app's data:</strong> put the campaign on an App users (live) list; people join when a change makes them match (<a href="app-audience.html">App audience</a>).</li>
+      <li><strong>Send one email from your code:</strong> use the email engine's queue, not a broadcast (<a href="email.html">Email engine</a>).</li>
+    </ul>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Firestore</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>BroadcastEmails/{id}</code></td><td>One broadcast: subject, HTML, sender, <code>audience</code> (<code>include</code>, <code>exclude</code>, <code>filters</code>), <code>scheduledAt</code>, <code>status</code>, and sent, skipped and failed counts</td></tr>
+        <tr><td><code>_broadcast_continue/{id}</code></td><td>A request to carry on a paused broadcast (Cloud Functions only)</td></tr>
+        <tr><td><code>DripCampaigns/{id}</code></td><td>A campaign: <code>name</code>, <code>listId</code>, <code>status</code> (<code>draft</code>, <code>active</code>, <code>paused</code>, <code>archived</code>), <code>steps</code> (template id and delay in hours), <code>enrollExistingOnActivate</code>, and enrolled, completed and exited counts</td></tr>
+        <tr><td><code>DripEnrollments/{campaignId}_{contactId}</code></td><td>One person in one campaign: <code>currentStep</code>, <code>nextSendAt</code>, <code>status</code> (<code>active</code>, <code>completed</code>, <code>exited</code>) and why they left. For an app user the contact id is <code>app_</code> followed by their App audience id</td></tr>
+        <tr><td><code>Announcements/{id}</code></td><td>One announcement, its audience and its counts</td></tr>
+      </tbody>
+    </table>
+    <p>Every collection is also in <a href="../reference/data-model.html">Data model</a>. The notifications an announcement creates are in <code>Notifications</code> (<a href="notifications.html">Notifications</a>); every email is in <code>EmailLogs</code> (<a href="email.html">Email engine</a>). No Storage paths.</p>
+    <p>Cloud Functions (each deploys as <code>arccms-</code> followed by its name):</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>processBroadcast</code></td><td>Trigger on <code>BroadcastEmails</code></td><td>Starts a broadcast created as <code>queued</code></td></tr>
+        <tr><td><code>continueBroadcast</code></td><td>Trigger on <code>_broadcast_continue</code></td><td>Carries on a paused broadcast, and starts a scheduled one that is due</td></tr>
+        <tr><td><code>processScheduledBroadcasts</code></td><td>Every 5 minutes</td><td>Queues due scheduled broadcasts</td></tr>
+        <tr><td><code>previewBroadcastAudience</code></td><td>Admin callable</td><td>The eligible count</td></tr>
+        <tr><td><code>processDripQueue</code></td><td>Every 15 minutes</td><td>Sends up to 100 due steps per run</td></tr>
+        <tr><td><code>activateDripCampaign</code>, <code>archiveDripCampaign</code></td><td>Admin callables</td><td>Activate (and enroll existing members); archive (and end every enrollment)</td></tr>
+        <tr><td><code>migrateWelcomeToSequences</code></td><td>Admin callable</td><td>Turns each form's welcome into a sequence step</td></tr>
+        <tr><td><code>sendAnnouncement</code></td><td>Admin callable</td><td>Creates the announcement and its notifications</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Data</th><th>Admins</th><th>Everyone else</th></tr></thead>
+      <tbody>
+        <tr><td><code>BroadcastEmails</code>, <code>DripCampaigns</code></td><td>Read and write</td><td>Nothing</td></tr>
+        <tr><td><code>DripEnrollments</code>, <code>Announcements</code></td><td>Read; Cloud Functions write</td><td>Nothing</td></tr>
+        <tr><td><code>_broadcast_continue</code></td><td>Nothing (Cloud Functions only)</td><td>Nothing</td></tr>
+      </tbody>
+    </table>
+    <p>The callables refuse anyone without the admin role (<a href="../concepts/roles-and-claims.html">Roles and claims</a>). A member only ever sees the notifications addressed to them.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>Preview count is lower than the list's member count</td><td>Only subscribed people count. Pending and unsubscribed contacts, and people on an excluded list, are left out.</td></tr>
+        <tr><td>A broadcast completed with everyone skipped</td><td>Email is off or the Broadcasts switch is off: open Email Logs for the skip reason.</td></tr>
+        <tr><td>A scheduled broadcast shows <code>failed</code>, "overdue by more than 24h"</td><td>It could not start within a day of its time. Create it again.</td></tr>
+        <tr><td>A broadcast fails with "Exceeded maximum processing chunks (200)"</td><td>It paused and carried on 200 times without finishing, usually a very low rate limit or an exhausted quota. Raise the provider limits in Settings, Email Settings and send it again.</td></tr>
+        <tr><td>People on the list got nothing after activation</td><td>Only people who join after activation are enrolled, unless <strong>Enroll existing members on activate</strong> was on when the campaign was activated. Activate is offered only once, on a draft.</td></tr>
+        <tr><td>People who joined the list got nothing</td><td>They joined while the campaign was paused or a draft: only an active campaign enrolls people.</td></tr>
+        <tr><td>An announcement reached fewer people than the list</td><td>Contacts without an account are skipped.</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>A step whose template was deleted holds every enrollment at that step, and they retry every 15 minutes without end. Before deleting a template, archive the campaigns that use it or give their steps another template.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

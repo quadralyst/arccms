@@ -126,7 +126,7 @@ describe('AboutSettingsPage', () => {
         });
     });
 
-    // ─── Identity fields (docs/discoverability-spec.md, D-D4) ──────────────
+    // ─── Identity fields (specs/discoverability-spec.md, D-D4) ──────────────
 
     describe('identity fields', () => {
         it('renders the identity inputs', () => {

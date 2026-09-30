@@ -1,5 +1,5 @@
 /**
- * Cited sources on a content item (docs/discoverability-spec.md, D-D11).
+ * Cited sources on a content item (specs/discoverability-spec.md, D-D11).
  * Mirrors functions/src/shared/references.ts.
  */
 export interface IReference {

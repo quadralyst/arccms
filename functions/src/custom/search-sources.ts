@@ -1,6 +1,6 @@
 /**
- * What this app makes searchable besides content (docs/custom-code.md, search in
- * docs/feature-flags-spec.md section 6). Arc CMS ships this empty and never
+ * What this app makes searchable besides content (docs/app/custom-space.html, search in
+ * specs/feature-flags-spec.md section 6). Arc CMS ships this empty and never
  * edits it again.
  *
  * SEARCH_COLLECTIONS names collections. Each gets its own trigger, so adding or
@@ -10,7 +10,7 @@
  *   export const SEARCH_COLLECTIONS: string[] = ['Lessons'];
  *
  * CUSTOM_SEARCH_SOURCES is for what the settings cannot express, written in code
- * (docs/search-developer-guide.md). Arc CMS ships one ready-made, for products:
+ * (docs/features/search.html). Arc CMS ships one ready-made, for products:
  *
  *   import { productsSource } from '../search/sources/products.js';
  *   export const CUSTOM_SEARCH_SOURCES: SearchSource[] = [productsSource];

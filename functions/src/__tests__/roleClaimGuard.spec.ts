@@ -1,5 +1,5 @@
 /**
- * CO-D7 guard (docs/coexistence-spec.md): the ArcCMS role is the `arccms_role`
+ * CO-D7 guard (specs/coexistence-spec.md): the ArcCMS role is the `arccms_role`
  * claim. A plain `role` claim may belong to an app sharing the sign-in pool, so
  * reading it would make that app's admins ArcCMS admins, and writing it would
  * overwrite theirs. Checks go through isArcAdmin() / arcRoleOf() in

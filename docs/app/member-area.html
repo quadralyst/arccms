@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build the member area | Arc CMS docs</title>
+  <meta name="description" content="Choose where each role lands after sign-in, put your own page at /user/dashboard, keep the member menu, and gate content for paying members.">
+  <meta name="docs:sources" content="src/custom/user-dashboard.ts, src/custom/home.ts, src/app/core/home/home.ts, src/app/pages/user, src/app/app.routes.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/member-area.html">
+  <main>
+    <h1>Build the member area</h1>
+    <p class="lead">Signed-in people who are not admins use the member area: a side menu with Dashboard and Profile, plus payment pages when payments is on. Your app decides what the dashboard shows and where each role lands after signing in.</p>
+
+    <h2>What is there</h2>
+    <p>The member area is in <code>src/app/pages/user/</code>. Its layout, <code>app-user-shell</code>, shows the member menu:</p>
+    <table>
+      <thead><tr><th>Item</th><th>Address</th><th>Shown</th></tr></thead>
+      <tbody>
+        <tr><td>Home</td><td>The role's home page from <code>src/custom/home.ts</code></td><td>When that home is not <code>/user/dashboard</code> and not an admin page</td></tr>
+        <tr><td>Dashboard</td><td><code>/user/dashboard</code></td><td>Always</td></tr>
+        <tr><td>Payments, Account, Premium</td><td><code>/user/payments</code>, <code>/account</code>, <code>/user/premium</code></td><td>With the <code>payments</code> feature</td></tr>
+        <tr><td>Profile</td><td><code>/user/profile</code></td><td>Always</td></tr>
+        <tr><td>Plans</td><td><code>/pricing</code></td><td>With the <code>payments</code> feature</td></tr>
+      </tbody>
+    </table>
+    <p>What members see on these pages is described in <a href="../members/overview.html">What members see</a>.</p>
+
+    <h2>Show your own dashboard</h2>
+    <p>As shipped, <code>/user/dashboard</code> shows a greeting and an empty card. To show your own page there:</p>
+    <ol class="steps">
+      <li>
+        <p>Create the page, such as <code class="new">src/custom/pages/my-dashboard.ts</code>, and wrap it in <code>&lt;app-user-shell&gt;</code> to keep the member menu:</p>
+        <pre><code>import { Component } from '@angular/core';
+import { UserShellComponent } from '../../app/pages/user/user-shell.component';
+import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+
+@Component({
+  standalone: true,
+  imports: [UserShellComponent, PageHeaderComponent],
+  template: `
+    &lt;app-user-shell&gt;
+      &lt;arc-page-header title="Your lessons"&gt;&lt;/arc-page-header&gt;
+      &lt;!-- the app's own content --&gt;
+    &lt;/app-user-shell&gt;
+  `,
+})
+export default class MyDashboard {}</code></pre>
+      </li>
+      <li>
+        <p>Name it in <code>src/custom/user-dashboard.ts</code>:</p>
+        <pre><code>import type { Type } from '@angular/core';
+
+export type UserDashboardLoader = () =&gt; Promise&lt;Type&lt;unknown&gt;&gt;;
+
+export const CUSTOM_USER_DASHBOARD: UserDashboardLoader | null = () =&gt;
+  import('./pages/my-dashboard').then((m) =&gt; m.default);</code></pre>
+      </li>
+    </ol>
+    <p>The route keeps its guard: signed-out visitors go to sign-up and come back after signing in.</p>
+    <div class="note"><p>The file name <code class="new">my-dashboard.ts</code> has no <code>.page</code> in it, so the page has no second address of its own (<a href="pages-and-routes.html#pages-found-by-file-name">Pages found by file name</a>).</p></div>
+
+    <h2>Add more member pages</h2>
+    <p>Give each page a route with <code>userGuard</code> (<a href="pages-and-routes.html#who-may-open-a-page">Who may open a page</a>) and wrap its template in <code>&lt;app-user-shell&gt;</code>. To link it from the member menu, make it the role's home page (below): the menu has no other plug point for app links.</p>
+
+    <h2>Choose where people land after signing in</h2>
+    <p>By default, admins land on <code>/admin/dashboard</code> and everyone else on <code>/user/dashboard</code>. To send members to one of your pages instead, set their home in <code>src/custom/home.ts</code>:</p>
+    <pre><code>import type { HomePages } from '../app/core/home/home';
+
+export const CUSTOM_HOME: HomePages = { user: '/learn' };</code></pre>
+    <p>When a role's home is not <code>/user/dashboard</code> (and not an admin page), the member menu gets a <strong>Home</strong> item that leads there. A sign-in that started from a guarded page returns to that page instead. The keys, the <code>'*'</code> fallback and the return-to-page rules are in <a href="sign-in.html#set-each-role-s-home-page">Set up sign-in</a>.</p>
+
+    <h2>Content for paying members</h2>
+    <p>With the <code>payments</code> feature, guard a whole page with <code>entitledGuard</code>, or show part of a page to paying members with <code>*appIfEntitled</code>, both from <code>src/app/pages/user/</code>. See <a href="payments.html">Add payments and premium features</a>.</p>
+    <div class="note"><p>Hiding content in the browser does not protect it. Keep paid data behind security rules or a Cloud Function that checks the entitlement.</p></div>
+
+    <h2>Where a member's data lives</h2>
+    <p>Store each person's app data under their user record, <code>users/{userDocId}/...</code>, so it is protected by one rule and deleted with the account. See <a href="account-contract.html">Follow the account contract</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

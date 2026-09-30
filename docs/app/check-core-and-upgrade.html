@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keep core untouched | Arc CMS docs</title>
+  <meta name="description" content="Run npm run check:core before every commit, move a change out of core into the custom space or into Arc CMS itself, and keep taking Arc CMS updates cleanly.">
+  <meta name="docs:sources" content="scripts/check-core.mjs, scripts/arc-upgrade.mjs, src/custom, functions/src/custom">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/check-core-and-upgrade.html">
+  <main>
+    <h1>Keep core untouched</h1>
+    <p class="lead">Your app never edits an Arc CMS (core) file, so every Arc CMS update merges cleanly. One command tells you whether that still holds; run it before every commit.</p>
+
+    <h2>Before every commit</h2>
+    <pre><code>npm run check:core</code></pre>
+    <p>It compares your working copy, committed or not, new files included, with the Arc CMS version your app is based on, and sorts every difference:</p>
+    <table>
+      <thead><tr><th>Kind</th><th>Files</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>custom</td><td><code>src/custom/</code>, <code>functions/src/custom/</code>, <code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code>, <code class="new">tests/rules/custom/</code>, <code>docs/custom/</code></td><td>Fine: counted, not listed</td></tr>
+        <tr><td>install</td><td><code>src/environments/environment.ts</code>, <code>src/environments/environment.prod.ts</code>, <code>src/environments/arc-install.ts</code></td><td>Fine: this install's own settings</td></tr>
+        <tr><td>review</td><td><code>package.json</code>, <code>package-lock.json</code>, <code>functions/package.json</code>, <code>functions/package-lock.json</code></td><td>Allowed, but listed: worth a look before the next update</td></tr>
+        <tr><td>core</td><td>Everything else</td><td>Listed, and the check fails</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th>Exit code</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>No core file changed. Also in the Arc CMS repository itself, which has no core to protect.</td></tr>
+        <tr><td>1</td><td>A core file changed, or there is no Arc CMS version to compare with</td></tr>
+      </tbody>
+    </table>
+    <p>Because a failure exits with 1, the same command works as a CI step.</p>
+
+    <h3>The upstream remote</h3>
+    <p>The check compares with <code>upstream/main</code>, so your repository needs Arc CMS as a remote named <code>upstream</code>. Without it the check checks nothing and fails, so it can never pass by accident. Add it once:</p>
+    <pre><code>git remote add upstream git@github.com:quadralyst/arccms.git</code></pre>
+    <pre><code>git fetch upstream</code></pre>
+    <p>To compare with another Arc CMS branch, name it:</p>
+    <pre><code>npm run check:core -- --against upstream/dev</code></pre>
+    <div class="trap"><p>Moving a core file into the custom space still counts as a core change: the check looks at the old path too. Copying a core component into <code>src/custom/</code> and editing the copy passes the check, but your app then misses every later fix to it. Use the component as it is, and ask for an option instead (below).</p></div>
+
+    <h2>When the check lists a core file</h2>
+    <p>Undo the edit to the core file, then put the change where it belongs:</p>
+    <table>
+      <thead><tr><th>You changed</th><th>Put it in</th></tr></thead>
+      <tbody>
+        <tr><td>A page or a route</td><td><code>src/custom/pages/</code> or <code>src/custom/routes.ts</code>: <a href="pages-and-routes.html">Add pages and routes</a></td></tr>
+        <tr><td>The admin menu</td><td><code>src/custom/nav.ts</code>: <a href="admin-menu.html">Add admin menu items</a></td></tr>
+        <tr><td>Where people land, or the member dashboard</td><td><code>src/custom/home.ts</code>, <code>src/custom/user-dashboard.ts</code>: <a href="member-area.html">Build the member area</a></td></tr>
+        <tr><td>Wording or translations</td><td><code>src/custom/i18n/</code>, which can also reword core text</td></tr>
+        <tr><td>Styles</td><td><code>src/custom/styles.css</code>, loaded after every core stylesheet</td></tr>
+        <tr><td>Features on or off</td><td><code>src/custom/features.ts</code>: <a href="choose-features.html">Choose your app's features</a></td></tr>
+        <tr><td>A Cloud Function or trigger</td><td><code>functions/src/custom/index.ts</code>: <a href="functions.html">Write your own Cloud Functions</a></td></tr>
+        <tr><td>Security rules or indexes</td><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code>: <a href="rules-and-indexes.html">Set security rules and indexes</a></td></tr>
+      </tbody>
+    </table>
+    <p>The full list of places your app owns is in <a href="custom-space.html">Use the custom space</a>.</p>
+    <p><strong>If none of them can do it</strong>, the custom space is missing a plug point or a component is missing an option. That change belongs in Arc CMS as a general feature that any app can use: make it there (see <a href="../contributing/keep-core-generic.html">Keep core generic</a>), then pull it into your app with the next update. Until then, keep the app's version out of core.</p>
+
+    <h2>Take Arc CMS updates</h2>
+    <p>With the check passing, an update is a merge of the newer Arc CMS into your repository, followed by installs, tests and a deploy. The steps, and what to do when the merge conflicts, are in <a href="../getting-started/upgrading.html">Upgrade Arc CMS</a>. Your custom files never conflict: Arc CMS ships them once, empty, and never changes them again.</p>
+    <p><code>npm run arc:upgrade</code> is not part of a routine update. It moves a project whose Arc CMS functions are still deployed under their plain names to the <code>arccms-</code> names, once; <a href="../getting-started/upgrading.html#functions-deployed-without-the-arccms-prefix">Upgrade Arc CMS</a> covers when and how.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

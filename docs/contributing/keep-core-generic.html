@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keep core generic | Arc CMS docs</title>
+  <meta name="description" content="Rules for changing Arc CMS itself: keep core free of any one app, turn app needs into features or plug points, leave the custom space empty, and add a switchable feature.">
+  <meta name="docs:sources" content="CLAUDE.md, CONTRIBUTING.md, src/custom, functions/src/custom, scripts/check-core.mjs, src/app/core/features, functions/src/features, functions/src/feature-flags.ts, functions/src/all.ts, scripts/arc-features.mjs, src/shared/components/side-navbar/side-navbar.component.ts, src/app/pages/admin/(settings)/settings.page.ts, functions/src/__tests__/featureFlags.spec.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="contributing/keep-core-generic.html">
+  <main>
+    <h1>Keep core generic</h1>
+    <p class="lead">Arc CMS is the core that many websites and apps share. When you change Arc CMS itself, keep it free of anything that only one of them needs, so every copy can take the update.</p>
+
+    <p>This page is for work on Arc CMS. If you are building an app on a copy of it, you work the other way round: see <a href="../concepts/core-and-custom.html">Core and custom</a> and <a href="../app/check-core-and-upgrade.html">Keep core untouched</a>.</p>
+
+    <h2>The rules</h2>
+    <ol class="steps">
+      <li><p><strong>Nothing specific to one app.</strong> No app's names, roles, collections, pages or wording in core code, rules, tests or docs.</p></li>
+      <li><p><strong>An app's need becomes a general feature or a plug point.</strong> When an app needs something core does not offer, build the general version in core: a feature any site could switch on, or a plug point the app fills in from its custom space. Document the plug point where apps look for it (<a href="../app/custom-space.html">Use the custom space</a>).</p></li>
+      <li><p><strong>Leave the custom space empty.</strong> Core ships only the empty starter files there and never changes them (see below).</p></li>
+      <li><p><strong>Docs and tests are part of the change.</strong> See <a href="#docs-and-tests">Docs and tests</a>.</p></li>
+    </ol>
+
+    <h2>The custom space stays empty</h2>
+    <p>These paths belong to the app built on a copy of Arc CMS. <code>npm run check:core</code> counts them as the app's own, and pulling an Arc CMS update never touches them:</p>
+    <table>
+      <thead><tr><th>Path</th><th>What core ships</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/custom/</code></td><td>Empty starter files: <code>features.ts</code>, <code>routes.ts</code>, <code>nav.ts</code>, <code>home.ts</code>, <code>user-dashboard.ts</code>, <code>pwa.ts</code>, <code>styles.css</code>, the <code>i18n/</code> files, an empty <code>pages/</code> folder and a README</td></tr>
+        <tr><td><code>functions/src/custom/</code></td><td>Empty <code>index.ts</code>, <code>search-sources.ts</code> and <code>public-callables.txt</code></td></tr>
+        <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code></td><td>Nothing: the rules build treats them as optional</td></tr>
+        <tr><td>A <code>custom</code> folder in <code>tests/rules/</code>, and <code>docs/custom/</code></td><td>Nothing beyond the docs folder's README</td></tr>
+      </tbody>
+    </table>
+    <p>Each starter file exports an empty value (an empty list, an empty object, or <code>null</code>) that core reads as "nothing added". Put nothing else in them in core, not even an example: every app has its own version of these files, so any change there conflicts with every app on its next update. Examples go in the file's comment, or in the docs.</p>
+
+    <h3>Add a plug point</h3>
+    <ol class="steps">
+      <li><p>Pick the file in the custom space the app will fill in, or add a new starter file that exports an empty value.</p></li>
+      <li><p>Make core read it and behave exactly as before when it is empty.</p></li>
+      <li><p>Explain it in the file's own comment, and in the app docs.</p></li>
+    </ol>
+    <p>For example, <code>functions/src/custom/search-sources.ts</code> exports empty <code>SEARCH_COLLECTIONS</code> and <code>CUSTOM_SEARCH_SOURCES</code> lists, and core search indexes whatever an app adds to them.</p>
+
+    <h2>Features and their needs</h2>
+    <p>A feature is a part of Arc CMS an app can switch off (or, for the installable app, on) in <code>src/custom/features.ts</code>. Everything that is not a feature is core and always on. The list is in <code>src/app/core/features/feature-registry.ts</code>:</p>
+    <ul>
+      <li><code>FEATURE_IDS</code>: the ids.</li>
+      <li><code>FEATURE_INFO</code>: for each id, a <code>label</code> for build messages, <code>defaultOn</code>, and <code>needs</code>, the features that must be on for it to work (signup forms and email marketing need audience).</li>
+      <li><code>resolveFeatures()</code>: turns the app's choice into the set of features that are on, and stops the build with a plain message for an unknown id, an id in both lists, or a feature whose need is off.</li>
+    </ul>
+    <p>The file has no imports, because <code>vite.config.ts</code> and <code>scripts/arc-features.mjs</code> read it with Node as well as the app. What each feature covers is in <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+
+    <h2 id="add-a-feature">Add a feature</h2>
+    <p>Make something a feature when a site or app could reasonably do without it. Then every part of it must follow the switch:</p>
+    <ol class="steps">
+      <li><p><strong>Register it.</strong> Add the id to <code>FEATURE_IDS</code> and to <code>FEATURE_INFO</code> in <code>src/app/core/features/feature-registry.ts</code>, with its label, default and needs. Add the same id, in the same place, to <code>FEATURE_IDS</code> in <code>functions/src/feature-flags.ts</code>.</p></li>
+      <li><p><strong>Claim its pages.</strong> Add its URLs to <code>FEATURE_URLS</code> in <code>src/app/core/features/feature-routes.ts</code> (<code>a/**</code> for <code>a</code> and everything below it). A route whose URL starts with a parameter cannot be told apart by URL: wrap it in <code>whenOn('your-id', [...])</code> in <code>src/app/app.routes.ts</code> and list it in <code>FEATURE_PARAM_ROUTES</code>, or give a file-based page <code>canActivate: [featureGuard('your-id')]</code> in its <code>routeMeta</code>.</p></li>
+      <li><p><strong>Tag its menu items and settings tabs.</strong> Set <code>feature</code> on its items in <code>src/shared/components/side-navbar/side-navbar.component.ts</code> and on its tabs in <code>src/app/pages/admin/(settings)/settings.page.ts</code>. Items of a feature that is off are left out.</p></li>
+      <li><p><strong>Move its Cloud Functions.</strong> Export them from <code>functions/src/features/&lt;id&gt;.ts</code>, a file that only re-exports, and not from <code>functions/src/all.ts</code>. Functions that need two features go in a file named after both, such as <code>functions/src/features/search+content.ts</code>. Before every functions build, <code>scripts/arc-features.mjs</code> writes <code>feature-exports.gen.ts</code>, which exports only the files whose features are all on.</p></li>
+      <li><p><strong>Guard the crossings.</strong> Where core code calls into the feature, check it first: <code>isOn(id)</code> from <code>src/app/core/features/features.ts</code> in the browser, <code>isFeatureOn(id)</code> from <code>functions/src/feature-flags.ts</code> in functions. Decide what core does when it is off, and make that safe: code that erases a person's data, for example, still reaches data a feature left behind.</p></li>
+      <li><p><strong>Document it.</strong> Write <code class="new">docs/features/&lt;id&gt;.html</code> with the feature page sections, and add the id to <a href="../reference/feature-ids.html">Feature ids</a>. The docs checks fail until both exist.</p></li>
+    </ol>
+
+    <h3>The tests that keep features complete</h3>
+    <p>These fail when a new piece is not claimed by a feature or by core, so nothing ships outside the switch:</p>
+    <table>
+      <thead><tr><th>Test</th><th>Fails when</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/app/core/features/feature-registry.spec.ts</code></td><td>An id has no info, a need is not a feature, needs form a cycle, or a feature other than the PWA is off by default</td></tr>
+        <tr><td><code>src/app/core/features/feature-coverage.spec.ts</code></td><td>A page URL (explicit or file-based) belongs to no feature and is not in <code>CORE_URLS</code>, or to two; or a listed URL no longer exists</td></tr>
+        <tr><td><code>src/shared/components/side-navbar/side-navbar.component.spec.ts</code></td><td>A menu item's feature differs from its page's</td></tr>
+        <tr><td><code>src/app/pages/admin/(settings)/settings.page.spec.ts</code></td><td>A settings tab's feature differs from its page's</td></tr>
+        <tr><td><code>functions/src/__tests__/featureFlags.spec.ts</code></td><td>The functions' ids differ from the browser's, a feature file is misnamed, a module is exported from both core and a feature, or a file that defines a function is exported from neither or from two</td></tr>
+      </tbody>
+    </table>
+    <p>A new core page goes in <code>CORE_URLS</code> in the same file as <code>FEATURE_URLS</code>.</p>
+
+    <h2 id="docs-and-tests">Docs and tests</h2>
+    <p>A change to Arc CMS is finished when the docs, the tests and the whole suite agree with it: find the pages your change affects, fix them, add the tests that would have caught a break, and run everything. The steps are in <a href="docs-and-tests-are-part-of-done.html">Docs and tests are part of done</a>, and how to write a page is in <a href="writing-docs.html">Writing docs</a>. Keep the docs generic too: they describe Arc CMS for every site and app, and an app's own pages go in <code>docs/custom/</code>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

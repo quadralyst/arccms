@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Launch checklist | Arc CMS docs</title>
+  <meta name="description" content="Everything to check before your Arc CMS website goes live: accounts, email, forms, legal pages, search engines, analytics, rules and the domain.">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings), src/app/pages/admin/users, src/app/pages/admin/(email-brand), src/shared/constants/legal-notice.ts, public/pages, public/_partials, public/index.html, functions/src/email-core/handleUnsubscribe.ts, functions/src/email-core/handleEmailPreferences.ts, functions/src/pages/generateSitemap.ts, functions/src/pages/generateRobotsTxt.ts, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, index.html, src/app/app.config.ts, functions/src/shared/html-document.ts, firestore.rules, storage.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/launch-checklist.html">
+  <main>
+    <h1>Launch checklist</h1>
+    <p class="lead">Go through this list on the production project, in order, before you point your domain at the site. Every item is something Arc CMS provides; the second column says where to check it.</p>
+
+    <h2>Accounts</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>[ ] Only the people who run the site have the admin role. There are two roles, admin and user, and an admin can do everything.</td><td><strong>Users</strong>; see <a href="../features/users-and-roles.html">Users and roles</a></td></tr>
+        <tr><td>[ ] Visitors can create accounts only if your site needs them. Signing up to a form needs no account.</td><td>Settings, <strong>User Settings</strong>, <strong>Enable User Signups</strong></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Email</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>[ ] A real provider is active (not the Debug Provider, which only logs), the connection test passed, and the sender name and address are yours.</td><td>Settings, <strong>Email Settings</strong></td></tr>
+        <tr><td>[ ] Logo, colors, footer text and physical address are set for Composer and broadcast emails, and each signup form's two emails carry your logo and address too.</td><td><strong>Brand Kit</strong>, under Email + SMS (or Email); each form's <strong>Email Templates</strong></td></tr>
+        <tr><td>[ ] A test email arrives in an inbox, not in spam.</td><td>Settings, Email Settings, <strong>Send a Test Email</strong>; then <strong>Email Logs</strong></td></tr>
+        <tr><td>[ ] The unsubscribe and preferences links in a list email open a working page, and unsubscribing stops further marketing email.</td><td>Send a broadcast to a list with only yourself on it; see <a href="../features/email.html">Email engine</a></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Sign-ups</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>[ ] Signing up on the live home page with your own address sends the code and the welcome email, and you then appear in the form's Users and in Contacts.</td><td>Your home page; <a href="forms.html">Collect sign-ups</a></td></tr>
+        <tr><td>[ ] The terms notice on every signup form links to your terms and privacy policy. Its links are empty as shipped, so the words show as plain text.</td><td><code>termsUrl</code> and <code>privacyUrl</code> in <code>src/shared/constants/legal-notice.ts</code> (a core file you edit in place)</td></tr>
+        <tr><td>[ ] The home page, its browser title, the header and the footer show your brand and links, not the Arc CMS sample text and sections.</td><td><code>public/index.html</code>, the <code>&lt;title&gt;</code> in <code>index.html</code>, <code>public/_partials/_header.html</code>, <code>public/_partials/_footer.html</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Legal pages and banners</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>[ ] The privacy and cookie policies are yours, not the shipped Arc CMS text.</td><td><code>public/pages/privacy-policy.html</code>, <code>public/pages/cookie-policy.html</code>; <a href="static-pages.html">Write static pages</a></td></tr>
+        <tr><td>[ ] Terms, About and Contact exist as published content items.</td><td>A content type; <a href="static-pages.html#other-fixed-pages-use-a-content-type">Other fixed pages</a></td></tr>
+        <tr><td>[ ] The cookie banner has your wording and links to your cookie policy.</td><td>Settings, <strong>Site Usage</strong></td></tr>
+        <tr><td>[ ] You have chosen whether to show "Powered by Arc CMS" on pages and emails.</td><td>Settings, <strong>Miscellaneous</strong>, <strong>Branding</strong></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Search engines and AI</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>[ ] Site Name, Production URL (your real domain) and the publisher identity are filled in.</td><td>Settings, <strong>About</strong>; <a href="seo.html">Get found by search engines and AI</a></td></tr>
+        <tr><td>[ ] Crawler choices are saved and applied.</td><td>Settings, <strong>Discoverability</strong>, <strong>Save and apply to site</strong></td></tr>
+        <tr><td>[ ] <code>/robots.txt</code> and <code>/sitemap.xml</code> open on the live site and list addresses on your domain.</td><td>Your browser</td></tr>
+        <tr><td>[ ] Each published page has a meta description, and the main pages score 80 or more in the Checks tab.</td><td>The editor's SEO and Checks tabs</td></tr>
+        <tr><td>[ ] The site is added to Google Search Console and Bing Webmaster Tools, with the sitemap submitted.</td><td>Links on the Discoverability screen</td></tr>
+        <tr><td>[ ] The search index is complete and a search on the live site finds your pages.</td><td>Settings, <strong>Search</strong>, <strong>Rebuild everything</strong></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Analytics</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>[ ] Your Firebase web configuration has your own Google Analytics measurement id, so visits to the pages the app draws (the home page, form pages, search) are counted. Published content pages and static pages carry no tracking code.</td><td><a href="../features/analytics.html">Analytics</a>; <a href="../getting-started/configure.html">Configure a project</a></td></tr>
+        <tr><td>[ ] Google Analytics is connected, so the admin dashboard shows traffic.</td><td>Settings, <strong>Analytics</strong>; <a href="../features/analytics.html">Analytics</a></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Deploy and domain</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>[ ] Your feature choice is final before the full deploy.</td><td><code>src/custom/features.ts</code>; <a href="choose-features.html">Choose your website's features</a></td></tr>
+        <tr><td>[ ] Everything is deployed to the production project: functions, database rules and indexes, storage rules, and the website.</td><td><code>npm run deploy</code>, then Everything; <a href="../operations/deploy.html">Deploy</a></td></tr>
+        <tr><td>[ ] The security rules on the project are the ones in the repository.</td><td><a href="../operations/security-rules.html">Security rules</a></td></tr>
+        <tr><td>[ ] Your domain is connected to the project's Firebase Hosting site. Arc CMS has no command for this: add the domain in the Firebase console, under Hosting.</td><td>Firebase console</td></tr>
+        <tr><td>[ ] After the domain works, the Production URL is set to it and the website is deployed once more, so every page, the sitemap and the feeds use the domain.</td><td>Settings, About; <code>npm run deploy</code>, then Website</td></tr>
+      </tbody>
+    </table>
+
+    <h2>After launch</h2>
+    <p>You are done with this path. For day-to-day work in the admin area, see <a href="../admin/overview.html">Use the admin area</a>; when something goes wrong, see <a href="../operations/troubleshooting.html">Troubleshooting</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

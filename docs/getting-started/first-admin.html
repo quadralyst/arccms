@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create the first admin | Arc CMS docs</title>
+  <meta name="description" content="Run the setup wizard on a fresh install to create the first admin account, and know what to do after you sign in.">
+  <meta name="docs:sources" content="src/app/pages/(onboarding), src/app/pages/(auth), src/app/pages/auth-checker.page.ts, src/app/pages/page.parts/home-base.component.ts, functions/src/users/syncUserRole.ts, functions/src/users/claims.ts, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, firestore.rules, src/app/core/home/home.ts, src/custom/home.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="getting-started/first-admin.html">
+  <main>
+    <h1>Create the first admin</h1>
+    <p class="lead">On a fresh install, the setup wizard creates the first account and makes it the admin. It works once per install: after that, admins are made from the admin area.</p>
+
+    <h2>Before you start</h2>
+    <ul>
+      <li>The Cloud Functions and the Firestore rules are deployed to the project (see <a href="first-deploy.html">Deploy for the first time</a>). The wizard creates the account and the admin role through Cloud Functions, and decides whether setup is needed by reading the database.</li>
+      <li>The <strong>Email/Password</strong> sign-in provider is on in Firebase Authentication (see <a href="configure.html">Configure a project</a>).</li>
+    </ul>
+
+    <h2>Run the setup wizard</h2>
+    <ol class="steps">
+      <li><p>Open the site, locally at <code>http://localhost:5173</code> or at its live address. A fresh install sends you to <code>/onboarding</code>.</p></li>
+      <li><p><strong>Create Admin Account:</strong> enter your name and your email, twice, then <strong>Continue</strong>. Use an address you read: it is how you sign in and reset your password.</p></li>
+      <li><p><strong>Set Your Password:</strong> at least 8 characters, twice, then <strong>Create Admin Account</strong>. The wizard creates the account, makes it the admin and waits until your session carries the admin role. This can take a few seconds.</p></li>
+      <li><p><strong>About Your Site:</strong> <strong>Site Name</strong> and <strong>Final Site URL</strong>, then <strong>Continue</strong>. This also saves the starting settings: sign-ups open with the <code>user</code> role, uploads converted to WebP, and visitor location lookup on.</p></li>
+      <li><p><strong>Set Up Email:</strong> pick a provider (Gmail, SMTP or Resend), fill in its details, click <strong>Send a Test Email</strong> and give the address to send it to. <strong>Continue</strong> is enabled once the test passes. Or click <strong>Skip for now</strong> and set email up later from Settings (see <a href="../features/email.html">Email engine</a>).</p></li>
+      <li><p><strong>Setup Complete:</strong> click <strong>Go to Dashboard</strong>. The wizard creates an Articles content type and a default signup form (when those features are on), marks setup as finished and opens <code>/admin/dashboard</code>.</p></li>
+    </ol>
+    <div class="trap"><p>Run locally, <strong>Final Site URL</strong> is filled in with <code>http://localhost:5173</code>. Replace it with the site's real address: the sitemap, <code>llms.txt</code>, canonical links and structured data are built from it. You can change it later as <strong>Production URL</strong> in Settings, About.</p></div>
+
+    <h2>How the first account becomes the admin</h2>
+    <p>Nobody can give themselves a role: the security rules never let a person change their own <code>role</code>, and sign-ups create their user record on the server. So the wizard works in two server calls:</p>
+    <ol>
+      <li>The <code>createAccountRecord</code> function creates your record in <code>users</code> with the site's default role, <code>user</code>.</li>
+      <li>The <code>claimFirstAdmin</code> function makes you the admin. In one transaction it checks that no admin was ever created (no <code>_system/first_admin</code> document and no user with the <code>admin</code> role), then records you in <code>_system/first_admin</code>, sets your role to <code>admin</code> and marks setup as started in <code>Settings/onboarding_status</code>. It then puts <code>arccms_role: admin</code> on your sign-in account as a custom claim, which is what the rules check.</li>
+    </ol>
+    <p>From then on <code>claimFirstAdmin</code> refuses everyone with "This site already has an administrator", so revisiting the wizard cannot take over a finished site. Calling it again as the first admin changes nothing, which lets the wizard retry safely. How roles and claims work in general is on <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+    <p>Setup counts as finished when <code>Settings/onboarding_status</code> has <code>completed: true</code>. After that, <code>/onboarding</code> sends everyone to the home page.</p>
+
+    <h2>If you stop halfway</h2>
+    <p>Close the wizard after the account step and the install remembers who started it:</p>
+    <ul>
+      <li>You, signed in: the home page sends you back to the wizard at the site step.</li>
+      <li>You, signed out: sign in at <code>/signup</code> with the admin account, then open the home page, which sends you back to the wizard. Opening <code>/onboarding</code> while signed out shows <strong>Finish setting up</strong>, with a link to sign in.</li>
+      <li>Anyone else: the site as usual. Only the person who started setup can finish it.</li>
+    </ul>
+
+    <h2>After you sign in</h2>
+    <p>An admin lands on <code>/admin/dashboard</code> after signing in (an app can change this in <code>src/custom/home.ts</code>). Good first steps:</p>
+    <ul>
+      <li>Set up email if you skipped it, so sign-up codes and notifications go out.</li>
+      <li>Add your content types and templates: <a href="../website/overview.html">Build a website</a>, or <a href="../app/overview.html">Build a custom app</a>.</li>
+      <li>Give other people admin access from Users (see <a href="../features/users-and-roles.html">Users and roles</a>).</li>
+      <li>Find your way around: <a href="../admin/overview.html">Use the admin area</a>.</li>
+    </ul>
+    <div class="note"><p>On an install with <code>adminOnlySignIn</code> on (the default for the <code>backend</code> profile), the wizard closes sign-ups when it finishes, so nobody else can create an account from the sign-in page. See <a href="configure.html#install-profiles">Install profiles</a>.</p></div>
+
+    <h2>When it goes wrong</h2>
+    <table>
+      <thead><tr><th>You see</th><th>Do this</th></tr></thead>
+      <tbody>
+        <tr><td>No wizard on a fresh project</td><td>The Firestore rules are not deployed, so the check cannot read the database and assumes setup is done. Deploy them and reload.</td></tr>
+        <tr><td>"Authentication Disabled"</td><td>Turn on the Email/Password provider; the message links to the right console page.</td></tr>
+        <tr><td>Creating the account fails or never finishes</td><td>The Cloud Functions are not deployed to this project. Deploy them, then try again.</td></tr>
+        <tr><td>"Your administrator permissions have not finished propagating"</td><td>Wait a few seconds and try again. If it stays, check that <code>claimFirstAdmin</code> is deployed.</td></tr>
+        <tr><td>"This site already has an administrator" in the browser console</td><td>An admin exists. Sign in at <code>/signup</code> with that account, or ask that admin for access.</td></tr>
+        <tr><td>Setup fails on the last step</td><td>Click <strong>Retry</strong>, or <strong>Skip &amp; Go to Dashboard</strong>, which still tries to create the defaults and finishes setup.</td></tr>
+      </tbody>
+    </table>
+    <p>More in <a href="../operations/troubleshooting.html">Troubleshooting</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign-in methods | Arc CMS docs</title>
+  <meta name="description" content="Let people sign in with an email and password, a phone number and PIN, or Google, and move an email or number between accounts.">
+  <meta name="docs:sources" content="functions/src/auth, functions/src/features/sms.ts, functions/src/users/onUserCreate.ts, functions/src/users/accountCallables.ts, src/app/pages/(auth), src/app/pages/admin/(settings)/user-setting, src/shared/services/global-auth.service.ts, src/custom/home.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/sign-in.html">
+  <main>
+    <h1>Sign-in methods</h1>
+    <p class="lead">People sign in on one page with an email, a phone number or Google. You choose which of the three are offered; each account can use any of them it has set up.</p>
+
+    <h2>What it is</h2>
+    <p>The sign-in page is <code>/signup</code>. It asks one question, "Email" (or "Phone number or email" when phone sign-in is on), and shows <strong>Continue with Google</strong> when Google is on. What happens next depends on what was typed and whether it is registered:</p>
+    <table>
+      <thead><tr><th>Method</th><th>Registered</th><th>New</th></tr></thead>
+      <tbody>
+        <tr><td>Email</td><td>Password</td><td>A code by email, then name and password</td></tr>
+        <tr><td>Phone number</td><td>A 6-digit PIN</td><td>A code by SMS, then name and a 6-digit PIN</td></tr>
+        <tr><td>Google</td><td>One tap</td><td>One tap; name, email and photo come from Google</td></tr>
+      </tbody>
+    </table>
+    <p>Whatever the method, a person is one Firebase Auth account plus one <code>users</code> record (see <a href="users-and-roles.html">Users and roles</a>). The record is always created by the server, with the site's default role and the <code>arccms_uid</code> claim already in the first ID token.</p>
+    <ul>
+      <li><strong>Email</strong> uses Firebase's password sign-in. The sign-up code is Arc CMS's own: it proves the address before the account exists. <strong>Forgot password</strong> sends Firebase's reset email.</li>
+      <li><strong>Phone number</strong> is Arc CMS's own sign-in. The number is kept on the <code>users</code> record, never on the Firebase Auth account. After the right PIN or code the server returns a custom token and the browser signs in with it.</li>
+      <li><strong>Google</strong> is Firebase's Google provider. Firebase keeps one account per email, so a Google sign-in with the address of an existing account lands on that account.</li>
+    </ul>
+    <p>After signing in, people go back to the page that sent them to sign in (<code>/signup?redirect=/learn</code>), else to their role's home page, which an app sets in <code>src/custom/home.ts</code> (see <a href="../app/sign-in.html">Set up sign-in</a>).</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Sign-in is core and always on. Email sign-in is always offered. The other two have switches under Settings, User Settings, Sign-in methods:</p>
+    <table>
+      <thead><tr><th>Switch</th><th>Default</th><th>Also needs</th></tr></thead>
+      <tbody>
+        <tr><td>Enable User Signups</td><td>On</td><td>Nothing. Off: only admins can add people (Users, Add User), and existing accounts still sign in.</td></tr>
+        <tr><td>Phone number</td><td>Off</td><td>The <code>sms</code> feature (on by default) and SMS settings. With <code>sms</code> off in <code>src/custom/features.ts</code>, the switch is hidden, phone sign-in is off whatever it says, and the phone functions are not built.</td></tr>
+        <tr><td>Google</td><td>Off</td><td>The Google provider turned on in the Firebase console.</td></tr>
+      </tbody>
+    </table>
+    <p>The Default Role for New Users is set on the same page. The switches take effect at once, with no deploy.</p>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li><p><strong>Firebase console, Authentication, Sign-in method:</strong> Email/Password must be on (email sign-in uses it). Turn on Google if you want Google sign-in. See <a href="../getting-started/configure.html">Configure a project</a>.</p></li>
+      <li><p><strong>Deploy the functions, Firestore rules and indexes</strong> (see <a href="../operations/deploy.html">Deploy</a>).</p></li>
+      <li><p><strong>Phone numbers only:</strong> set up SMS under Settings, SMS: the provider, the default country code and the allowed country codes. Keep the Test provider while trying it. See <a href="sms.html">SMS</a>.</p></li>
+      <li><p><strong>Settings, User Settings:</strong> leave sign-ups on, and turn on Phone number and Google as wanted.</p></li>
+      <li><p><strong>Try each method</strong> on <code>/signup</code> in a private window.</p></li>
+    </ol>
+
+    <h2>Use it</h2>
+    <h3>Email</h3>
+    <p>A new address gets a 6-digit code by email (template <code>signup_otp_email</code>), valid for 10 minutes, with 5 tries and at least 60 seconds between codes; an address gets at most 5 codes an hour. The new account is marked email-verified only when it is created from the browser that entered the code. Passwords need at least 8 characters.</p>
+
+    <h3>Phone number</h3>
+    <ul>
+      <li>Numbers can be typed or pasted in any common format; a number without a country code gets the default one. Numbers outside the allowed country codes are refused (by default only <code>91</code>).</li>
+      <li>SMS codes are 6 digits, valid for 10 minutes, with 5 tries, 60 seconds between codes and at most 5 codes an hour per number.</li>
+      <li>PINs are 6 digits. One digit repeated, a straight run (123456, 987654) or a common pattern (121212) is refused. The 5th wrong PIN in a row locks it.</li>
+      <li><strong>Forgot PIN</strong>, a locked PIN, or a number that never had one: an SMS code, then a new PIN. A reset signs out every other session.</li>
+      <li>With the Test SMS provider no SMS is sent: the sign-up page shows the sign-up code, and reset and link codes appear only in SMS Logs, for admins.</li>
+    </ul>
+
+    <h3>Google</h3>
+    <p>A first-time Google user gets a record straight from their verified Google profile, with no form. If the address already has a password account, the person is asked for the password once and Google is then connected to that account.</p>
+
+    <h3>Profile, Sign-in methods</h3>
+    <p>On the profile page (<code>/profile</code>, or <code>/user/profile</code> in the member area) a signed-in person can add or change their email or, with phone sign-in on, their phone number (each with a code), change their PIN, and connect Google. A password or PIN is asked for only when the account has none yet.</p>
+
+    <h3>Moving an email or number to another account</h3>
+    <p>When the email or number someone adds is already on another account, the page says so, and verifying the code moves it. The other account keeps all its data:</p>
+    <ul>
+      <li>If it still has a way to sign in, its owner gets an in-app notification that the email or number moved.</li>
+      <li>If it has none left, it is <strong>detached</strong>: kept, blocked from signing in, listed under Users, Detached accounts, and the admins are alerted.</li>
+      <li>An email that moves is also freed on the old Firebase Auth account, together with its password and Google sign-in, so they cannot reopen the old account.</li>
+      <li>Every move is recorded in <code>account_transfers</code>.</li>
+      <li>A sign-in that belongs to another app sharing the Firebase project is never changed (see <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>).</li>
+    </ul>
+
+    <h2>Extend it</h2>
+    <ul>
+      <li><strong>Send people to sign in and back:</strong> link to <code>/signup?redirect=/your-page</code>.</li>
+      <li><strong>Where people land</strong> by role: <code>src/custom/home.ts</code>, described in <a href="../app/sign-in.html">Set up sign-in</a>.</li>
+      <li><strong>The sign-up code email</strong> is the <code>signup_otp_email</code> template (see <a href="email.html">Email engine</a>).</li>
+    </ul>
+    <p>A new sign-in method (another provider) is a change to core, not something an app adds.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>users/{docId}</code></td><td><code>email</code>, <code>emailVerified</code>, <code>phone</code> (E.164) and <code>phoneVerified</code>, and <code>by</code> (how the account was made).</td></tr>
+        <tr><td><code>email_lookup/{sha256(email)}</code></td><td>Whether an address is registered.</td></tr>
+        <tr><td><code>phone_index/{sha256(number)}</code></td><td>Which record a number belongs to.</td></tr>
+        <tr><td><code>signup_otps</code>, <code>phone_otps</code></td><td>Email and SMS codes, hashed, with their purpose (<code>signup</code>, <code>reset</code>, <code>link</code>).</td></tr>
+        <tr><td><code>auth_pins/{uid}</code></td><td>PIN hashes (scrypt with a salt and a server secret kept in <code>_system/pin_pepper</code>), and the lock.</td></tr>
+        <tr><td><code>_rate_limits</code></td><td>Counters for the limits above, per caller, address and number.</td></tr>
+        <tr><td><code>account_transfers</code></td><td>Every email or number moved between accounts.</td></tr>
+        <tr><td><code>Settings/users</code></td><td><code>isSignupEnabled</code>, <code>defaultRole</code>, <code>phoneSignIn</code>, <code>googleSignIn</code>.</td></tr>
+      </tbody>
+    </table>
+    <p>Cloud Functions (callables, deployed as <code>arccms-&lt;name&gt;</code>):</p>
+    <table>
+      <thead><tr><th>Function</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>checkEmailAccount</code></td><td>Is this email registered, new, or a sign-in with no access to this site?</td></tr>
+        <tr><td><code>requestSignupOtp</code>, <code>verifySignupOtp</code></td><td>The email sign-up code.</td></tr>
+        <tr><td><code>createAccountRecord</code></td><td>Creates the record after an email sign-up.</td></tr>
+        <tr><td><code>ensureGoogleAccount</code></td><td>Creates the record for a first Google sign-in.</td></tr>
+        <tr><td><code>checkPhoneAccount</code>, <code>requestPhoneOtp</code>, <code>verifyPhoneOtp</code>, <code>completePhoneSignup</code>, <code>signInWithPin</code>, <code>resetPin</code>, <code>setPin</code></td><td>Phone sign-in. Built only with the <code>sms</code> feature.</td></tr>
+        <tr><td><code>checkIdentifierForLink</code>, <code>requestEmailLinkOtp</code>, <code>linkEmail</code>, <code>linkPhone</code></td><td>Adding or moving an email or number on the profile page.</td></tr>
+        <tr><td><code>refreshMyClaims</code></td><td>Puts the Arc CMS claims back on the caller's token when they are missing.</td></tr>
+      </tbody>
+    </table>
+    <p>The <code>onUserCreated</code> trigger fills <code>email_lookup</code> and tells Firebase Auth the email is verified when the sign-up code proved it, so a later Google sign-in keeps the password. See <a href="../reference/cloud-functions.html">Cloud Functions</a>.</p>
+
+    <h2>Who can do what</h2>
+    <ul>
+      <li>The sign-in functions need no account, since people call them to sign in. Codes, PINs and requests have the limits under <a href="#use-it">Use it</a>.</li>
+      <li>A person cannot create their own <code>users</code> record, and cannot change their own <code>email</code>, <code>phone</code> or <code>phoneVerified</code>; only the server does, after a code. They may only clear <code>emailVerified</code>.</li>
+      <li><code>signup_otps</code>, <code>phone_otps</code>, <code>phone_index</code>, <code>auth_pins</code> and <code>_rate_limits</code> are closed to every browser.</li>
+      <li>Admins can read <code>account_transfers</code> and SMS Logs, and are the only ones who read or write <code>Settings/sms</code>. <code>Settings/users</code> is public to read and admin only to write.</li>
+    </ul>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>"This way of signing in is not turned on for this site."</td><td>The Firebase provider is off. Turn on Email/Password or Google in the Firebase console.</td></tr>
+        <tr><td>"Phone sign-in is not turned on for this site."</td><td>Turn on Phone number under Settings, User Settings (it needs the <code>sms</code> feature).</td></tr>
+        <tr><td>"Google sign-in is not turned on for this site."</td><td>Turn on Google under Settings, User Settings, as well as in the Firebase console.</td></tr>
+        <tr><td>"New accounts can't be created on this site right now."</td><td>Sign-ups are off. Turn them on, or add the person under Users.</td></tr>
+        <tr><td>"This account doesn't have access to this site."</td><td>The address has a Firebase sign-in but no Arc CMS record, such as another app's user in a shared project. An admin adds them under Users.</td></tr>
+        <tr><td>A number is refused as not allowed</td><td>Its country code is not in the allowed list under Settings, SMS.</td></tr>
+        <tr><td>No SMS arrives</td><td>The SMS provider is Test, which sends nothing. Look in SMS Logs, or switch the provider (see <a href="sms.html">SMS</a>).</td></tr>
+        <tr><td>"Too many tries. Reset your PIN with a code."</td><td>The PIN is locked after 5 wrong tries. Use Forgot PIN.</td></tr>
+        <tr><td>Phone sign-in accepts the code or PIN, then fails to sign in</td><td>The last step creates a custom token, which Firebase signs with the service account the functions run as. Check the function's log in the Firebase console: if it mentions <code>iam.serviceAccounts.signBlob</code>, give that service account the IAM role <strong>Service Account Token Creator</strong> and turn on the IAM Service Account Credentials API, both in the Google Cloud console.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set security rules and indexes | Arc CMS docs</title>
+  <meta name="description" content="Write your app's Firestore and Storage rules and indexes in files of their own, combined with the core ones before every deploy, and test them.">
+  <meta name="docs:sources" content="scripts/arc-rules-build.mjs, firestore.rules, storage.rules, firestore.indexes.json, firebase.json, vitest.rules.config.ts, tests/rules, package.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/rules-and-indexes.html">
+  <main>
+    <h1>Set security rules and indexes</h1>
+    <p class="lead">Your app's data shares the Firestore database and Storage bucket with Arc CMS, and Firebase takes one rules file for each. So you keep your rules and indexes in files of your own, and every deploy combines them with the core files.</p>
+
+    <h2>The files</h2>
+    <table>
+      <thead><tr><th>Core (never edited in an app)</th><th>Yours (create when needed)</th><th>Combined into</th></tr></thead>
+      <tbody>
+        <tr><td><code>firestore.rules</code></td><td><code class="new">firestore.app.rules</code></td><td><code>.arc-build/firestore.rules</code></td></tr>
+        <tr><td><code>storage.rules</code></td><td><code class="new">storage.app.rules</code></td><td><code>.arc-build/storage.rules</code></td></tr>
+        <tr><td><code>firestore.indexes.json</code></td><td><code class="new">firestore.app.indexes.json</code></td><td><code>.arc-build/firestore.indexes.json</code></td></tr>
+      </tbody>
+    </table>
+    <p><code>scripts/arc-rules-build.mjs</code> writes the combined files, and <code>firebase.json</code> deploys those. It runs by itself before every Firestore and Storage deploy (a Firebase <code>predeploy</code>), so a plain deploy always ships your rules. <code>.arc-build/</code> is ignored by git. To build the files by hand and look at them:</p>
+    <pre><code>npm run rules:build</code></pre>
+
+    <h2>Write Firestore rules</h2>
+    <p>Create <code class="new">firestore.app.rules</code> at the root of the repository. It holds <code>match</code> blocks, and functions of your own if you need them, with <strong>no</strong> <code>rules_version</code> line and no <code>service</code> or <code>match /databases/...</code> wrapper:</p>
+    <pre><code>match /users/{userDocId}/children/{childId} {
+  allow read, write: if ownsUserRecord(userDocId);
+  allow read: if isAdmin();
+
+  match /progress/{lessonId} {
+    allow read, write: if ownsUserRecord(userDocId);
+  }
+}
+
+match /Lessons/{lessonId} {
+  allow read: if isSignedIn();
+  allow write: if isAdmin();
+}</code></pre>
+    <p>The build puts your file where the core file has the line <code>// @arc-app-rules</code>, inside <code>match /databases/{database}/documents</code>, so your rules can call the core helpers.</p>
+
+    <h2>Write Storage rules</h2>
+    <p>Create <code class="new">storage.app.rules</code> the same way. It goes inside <code>match /b/{bucket}/o</code>. The core rules let the owner and admins read the per-user folder, <code>users/{userDocId}/</code>, but grant no writes there; your app grants them with its own limits:</p>
+    <pre><code>match /users/{userDocId}/recordings/{fileName} {
+  allow write: if ownsUserRecord(userDocId)
+    &amp;&amp; (request.resource == null
+        || (request.resource.size &lt; 10 * 1024 * 1024
+            &amp;&amp; request.resource.contentType.matches('audio/.*')));
+}</code></pre>
+    <p>Every other path in the bucket is public for reading, except folders named <code>users</code> in the first two levels. Put private files under <code>users/{userDocId}/</code>.</p>
+    <div class="trap"><p>An install that keeps its uploads in a folder (an upload prefix set with <code>npm run arc:configure</code>) stores the per-user folders at <code>{prefix}/users/{userDocId}/</code>. A rule for <code>/users/...</code> alone never matches there. Add the same rule for <code>/{prefix}/users/{userDocId}/...</code>, as the core rules do.</p></div>
+
+    <h2>The helpers you can call</h2>
+    <p>Both core files define these for app rules, with the same names and meaning:</p>
+    <table>
+      <thead><tr><th>Helper</th><th>True when</th></tr></thead>
+      <tbody>
+        <tr><td><code>isSignedIn()</code></td><td>Anyone is signed in</td></tr>
+        <tr><td><code>isAdmin()</code></td><td>The person is an Arc CMS admin: the <code>arccms_role</code> claim is <code>admin</code>. A plain <code>role</code> claim does not count</td></tr>
+        <tr><td><code>isEditor()</code></td><td>An admin, or the <code>arccms_role</code> claim is <code>editor</code></td></tr>
+        <tr><td><code>ownsUserRecord(userDocId)</code></td><td>The person owns <code>users/{userDocId}</code>: the <code>arccms_uid</code> claim equals it. No document is read</td></tr>
+      </tbody>
+    </table>
+    <p>The claims are explained in <a href="../concepts/roles-and-claims.html">Roles and claims</a>, and where per-person data belongs in <a href="account-contract.html">Follow the account contract</a>.</p>
+
+    <h2>What an app rule can and cannot do</h2>
+    <ul>
+      <li><strong>It can only add access.</strong> Firebase allows a request when any matching rule allows it. Your rule can grant more; it can never take away what a core rule grants.</li>
+      <li><strong>Keep it to your own paths.</strong> A rule on a core collection can only widen access to it. If core's access is wrong for your app, that is a change to Arc CMS.</li>
+      <li><strong>Name your functions differently from core's.</strong> Besides the helpers above, the core Firestore file defines functions such as <code>isAuthenticated</code>, <code>isOwnUserDoc</code>, <code>hasNoPassword</code> and <code>arcRole</code>. Prefix your own, for example <code>appIsTeacher()</code>.</li>
+      <li><strong>No wrapper.</strong> A <code>rules_version</code> line or a <code>service</code> block in your file breaks the combined file.</li>
+    </ul>
+    <p>Firestore denies every path no rule matches, so a collection of yours without a rule is closed to the browser. Cloud Functions are not bound by rules.</p>
+
+    <h2>Add indexes</h2>
+    <p>Create <code class="new">firestore.app.indexes.json</code> with the same shape as <code>firestore.indexes.json</code>:</p>
+    <pre><code>{
+  "indexes": [
+    {
+      "collectionGroup": "progress",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "done", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}</code></pre>
+    <p>The build merges it with the core indexes and drops duplicates. A field override that both files define differently stops the build with a message: keep it in one file.</p>
+    <div class="trap"><p><code>npm run export-indexes</code> copies the live indexes into the core file, <code>firestore.indexes.json</code>, leaving out those listed in your app file. An index you created in the Firebase console and did not add to <code class="new">firestore.app.indexes.json</code> first lands in the core file, and <code>npm run check:core</code> reports it. Add app indexes to your own file by hand.</p></div>
+
+    <h2>Deploy</h2>
+    <p>Deploy rules and indexes like any other part; the combined files are built first. See <a href="../operations/deploy.html">Deploy</a> and <a href="../operations/security-rules.html">Security rules</a>.</p>
+
+    <h2>Test your rules</h2>
+    <ol class="steps">
+      <li>
+        <p>Create a spec in <code class="new">tests/rules/custom/</code>, such as <code class="new">tests/rules/custom/children.spec.ts</code>. Load the combined rules, as the core specs in <code>tests/rules/</code> do, so your rules are tested together with the core ones:</p>
+        <pre><code>import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { afterAll, beforeAll, it } from 'vitest';
+import { assertFails, assertSucceeds, initializeTestEnvironment, RulesTestEnvironment } from '@firebase/rules-unit-testing';
+import { doc, getDoc } from 'firebase/firestore';
+
+let env: RulesTestEnvironment;
+
+beforeAll(async () =&gt; {
+  env = await initializeTestEnvironment({
+    projectId: 'demo-arccms-rules',
+    firestore: { rules: readFileSync(resolve(__dirname, '../../../.arc-build/firestore.rules'), 'utf8') },
+  });
+});
+afterAll(async () =&gt; { await env?.cleanup(); });
+
+it('lets a parent read their own child', async () =&gt; {
+  const parent = env.authenticatedContext('parent-uid', { arccms_uid: 'parent-doc' }).firestore();
+  await assertSucceeds(getDoc(doc(parent, 'users/parent-doc/children/c1')));
+});
+
+it('refuses another parent', async () =&gt; {
+  const other = env.authenticatedContext('other-uid', { arccms_uid: 'other-doc' }).firestore();
+  await assertFails(getDoc(doc(other, 'users/parent-doc/children/c1')));
+});</code></pre>
+      </li>
+      <li>
+        <p>Run every rules spec, core and yours, against the Firestore and Storage emulators:</p>
+        <pre><code>npm run test:rules</code></pre>
+        <p>It builds the combined files first. It needs Java and the Firebase CLI, and it is not part of <code>npm run test</code>.</p>
+      </li>
+    </ol>
+    <p>Run it whenever you change a rules file. See <a href="../operations/testing.html">Testing</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

@@ -19,7 +19,7 @@ export interface MiscSettings {
 /**
  * Site identity from Settings/about. The first three fields predate the
  * discoverability work; the rest feed the Organization node every public page
- * carries (docs/discoverability-spec.md, D-D4). Mirrors IAboutSettings in
+ * carries (specs/discoverability-spec.md, D-D4). Mirrors IAboutSettings in
  * src/app/pages/admin/(settings)/about/about-settings.model.ts.
  */
 export interface AboutConfig {

@@ -1,5 +1,5 @@
 /**
- * What Admin, Settings, Search shows (docs/feature-flags-spec.md, section 6.4):
+ * What Admin, Settings, Search shows (specs/feature-flags-spec.md, section 6.4):
  * every top-level collection with whether it is searchable, and the text fields
  * found in a sample of a collection's documents for its setup.
  */

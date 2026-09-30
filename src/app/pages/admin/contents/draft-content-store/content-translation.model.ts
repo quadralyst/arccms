@@ -9,7 +9,7 @@
  * Rendering a language is therefore `mergeTranslation(base, translation)`, and
  * any field the translator left blank falls back to the default language.
  *
- * Spec: docs/multilingual-spec.md — Phase M2, decisions M-D1 and M-D5.
+ * Spec: specs/multilingual-spec.md — Phase M2, decisions M-D1 and M-D5.
  */
 
 import { ContentTypeField } from '../content-types/content-types.model';

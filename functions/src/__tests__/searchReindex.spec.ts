@@ -19,7 +19,7 @@ const state = {
     settingsWrites: [] as unknown[],
 };
 
-// Search settings: no collection set up (docs/feature-flags-spec.md 6.4).
+// Search settings: no collection set up (specs/feature-flags-spec.md 6.4).
 vi.mock('../search/collections.js', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../search/collections.js')>()),
     readCollectionSetups: vi.fn(async () => ({})),
@@ -134,7 +134,7 @@ describe('reindexSource', () => {
 describe('runReindex', () => {
     it('records per-source status in Settings/search_status', async () => {
         const results = await runReindex();
-        // Products is not searchable until the app adds it (docs/feature-flags-spec.md 6.1).
+        // Products is not searchable until the app adds it (specs/feature-flags-spec.md 6.1).
         expect(results.map(r => r.source)).toEqual(['content', 'content-drafts']);
         const write = state.settingsWrites[0] as { sources: Record<string, unknown> };
         expect(write.sources['content']).toMatchObject({ documents: 1, entries: 1, scope: 'public' });

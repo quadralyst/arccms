@@ -96,7 +96,7 @@ export async function unsubscribeByEmailHash(emailHash: string): Promise<void> {
   );
 
   // The rest keeps each feature's own records in step with the Suppression doc,
-  // which alone enforces the unsubscribe (docs/feature-flags-spec.md, 5.3).
+  // which alone enforces the unsubscribe (specs/feature-flags-spec.md, 5.3).
 
   // Update the unified Contacts consent (Phase 3), or the app user's own record
   // when the address was mailed as an app user (CO6.5a), so the preference

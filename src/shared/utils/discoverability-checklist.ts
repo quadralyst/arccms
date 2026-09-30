@@ -1,5 +1,5 @@
 /**
- * The editor's discoverability checklist (docs/discoverability-spec.md, D-D13):
+ * The editor's discoverability checklist (specs/discoverability-spec.md, D-D13):
  * pure rules over a draft, scored, never blocking. Each rule says what it
  * checked and, when it fails, the one thing to do about it.
  *

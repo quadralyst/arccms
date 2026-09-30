@@ -1,5 +1,5 @@
 /**
- * Product + Offer JSON-LD for the pricing page (docs/discoverability-spec.md, D5):
+ * Product + Offer JSON-LD for the pricing page (specs/discoverability-spec.md, D5):
  * built from the real product records, not a mapping, because products have
  * a fixed shape. Display price rules live in pricing-utils; this reads the
  * resolved price so the markup never claims a price the page does not show.

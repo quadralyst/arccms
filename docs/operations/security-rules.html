@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security rules | Arc CMS docs</title>
+  <meta name="description" content="How the Firestore and Storage security rules of Arc CMS are organized, who may read and write what, and how to change a rule safely and test it.">
+  <meta name="docs:sources" content="firestore.rules, storage.rules, firestore.indexes.json, scripts/arc-rules-build.mjs, tests/rules, vitest.rules.config.ts, functions/src/__tests__/securityRulesRoles.spec.ts, functions/src/__tests__/roleClaimGuard.spec.ts, functions/src/users/claims.ts, functions/src/users/syncUserRole.ts, firebase.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="operations/security-rules.html">
+  <main>
+    <h1>Security rules</h1>
+    <p class="lead">The security rules decide what a browser may read and write in Firestore and Storage. Cloud Functions use the Admin SDK and are not bound by them. This page shows how the rules are organized, the access model, and how to change a rule without opening a hole.</p>
+
+    <p>An app built on Arc CMS writes its own rules in its own files: see <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>. Roles and the claims the rules read are explained in <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+
+    <h2>Where the rules live</h2>
+    <table>
+      <thead><tr><th>File</th><th>Holds</th><th>Owned by</th></tr></thead>
+      <tbody>
+        <tr><td><code>firestore.rules</code></td><td>The Firestore rules of Arc CMS</td><td>Core</td></tr>
+        <tr><td><code>storage.rules</code></td><td>The Storage rules of Arc CMS</td><td>Core</td></tr>
+        <tr><td><code>firestore.indexes.json</code></td><td>The Firestore indexes of Arc CMS</td><td>Core</td></tr>
+        <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code></td><td>An app's own rules and indexes. Optional: core ships none</td><td>The app</td></tr>
+        <tr><td><code>.arc-build/</code></td><td>The combined files Firebase deploys. Generated, not committed</td><td><code>scripts/arc-rules-build.mjs</code></td></tr>
+      </tbody>
+    </table>
+    <p>Firebase takes one rules file per database and one per bucket, so <code>scripts/arc-rules-build.mjs</code> combines the core and app files into <code>.arc-build/</code>. It puts each app rules file where the core file has the line <code>// @arc-app-rules</code>, inside the same scope, so app rules can call the core helper functions. It merges the app's indexes into the core ones and removes duplicates; a field override that both files set differently stops the build.</p>
+    <p><code>firebase.json</code> runs the combine step before every Firestore and Storage deploy. To run it by hand, for example to read the combined result:</p>
+    <pre><code>npm run rules:build</code></pre>
+    <div class="trap"><p>Keep the <code>// @arc-app-rules</code> line in both core rules files, on a line of its own. Without it the combine step stops, and no rules can be deployed.</p></div>
+
+    <h2>The access model</h2>
+    <p>Every rule answers one question: who is asking? The answers come from the ID token.</p>
+    <table>
+      <thead><tr><th>Who</th><th>How the rules know</th></tr></thead>
+      <tbody>
+        <tr><td>Anyone, signed in or not</td><td>No check. Static pages and server rendering read published content without signing in</td></tr>
+        <tr><td>A signed-in person</td><td><code>request.auth != null</code></td></tr>
+        <tr><td>The owner of a <code>users</code> record</td><td>The <code>arccms_uid</code> claim equals the record id, or the record's <code>uid</code> field equals the Auth uid</td></tr>
+        <tr><td>Staff (an admin or an editor)</td><td>The <code>arccms_role</code> claim is <code>admin</code> or <code>editor</code></td></tr>
+        <tr><td>An admin</td><td>The <code>arccms_role</code> claim is <code>admin</code></td></tr>
+        <tr><td>Only Cloud Functions</td><td>Every client is refused (<code>allow read, write: if false</code>)</td></tr>
+      </tbody>
+    </table>
+    <p>The <code>onUserRoleChange</code> function copies the <code>role</code> field of a <code>users</code> record into the <code>arccms_role</code> claim, and only admins or the Admin SDK may change that field, so nobody can make themselves staff.</p>
+
+    <h3>Firestore, by kind of data</h3>
+    <table>
+      <thead><tr><th>Kind</th><th>Read</th><th>Write</th><th>Examples</th></tr></thead>
+      <tbody>
+        <tr><td>Published content</td><td>Anyone</td><td>Staff</td><td><code>ContentTypes</code>, <code>arc_{slug}</code>, <code>Tags_{slug}</code>, <code>media</code>. The <code>translations</code> of published content are read by anyone and written by Cloud Functions only</td></tr>
+        <tr><td>Public site data</td><td>Anyone</td><td>Admin</td><td><code>Authors</code>, <code>Products</code>, <code>Waitlists</code>, the public <code>Settings</code> documents (below)</td></tr>
+        <tr><td>Drafts</td><td>Staff</td><td>Staff</td><td><code>arc_{slug}_drafts</code> and its <code>translations</code></td></tr>
+        <tr><td>Admin data</td><td>Admin</td><td>Admin</td><td>Every other <code>Settings</code> document, <code>EmailTemplate</code>, <code>BroadcastEmails</code>, <code>EmailLogs</code>, <code>Lists</code>, <code>ContactTags</code>, <code>DripCampaigns</code>, <code>AnalyticsDashboards</code></td></tr>
+        <tr><td>Records the server keeps</td><td>Admin</td><td>Cloud Functions only</td><td><code>Contacts</code>, <code>Suppression</code>, <code>AppEvents</code>, <code>Announcements</code>, <code>DripEnrollments</code>, <code>WebhookEvents</code>, <code>SmsLogs</code>, <code>PwaStats</code>, <code>ErasureLog</code>, <code>account_transfers</code></td></tr>
+        <tr><td>A person's own records</td><td>The owner or an admin</td><td>Cloud Functions only</td><td><code>Transactions</code>, <code>CreditLedger</code>. <code>Notifications</code>: the owner may only mark one read</td></tr>
+        <tr><td>Server only</td><td>Nobody</td><td>Cloud Functions only</td><td><code>_system</code>, <code>SearchIndex</code>, <code>signup_otps</code>, <code>phone_otps</code>, <code>phone_index</code>, <code>auth_pins</code>, <code>_rate_limits</code>, <code>_broadcast_continue</code>, <code>_email_counters</code></td></tr>
+        <tr><td>Queues</td><td>Nobody</td><td>Staff</td><td><code>_publish_queue</code>, <code>_search_queue</code> (only its own fields)</td></tr>
+        <tr><td>Checked writes from visitors</td><td>Admin</td><td>Created by the form or button, with the fields checked; verification, queue position and referral counts by Cloud Functions only</td><td>Form sign-ups in <code>Waitlists/{id}/users</code>; <code>Feedback</code> from a signed-in person while the button is on</td></tr>
+      </tbody>
+    </table>
+    <p>The <code>Settings</code> documents anyone may read are <code>email_status</code>, <code>site-usage</code>, <code>misc</code>, <code>cache</code>, <code>global-message</code>, <code>users</code>, <code>localization</code>, <code>onboarding_status</code>, <code>about</code> and <code>feedback</code>. Every <code>Settings</code> write is admin only. <code>analytics_status</code> is readable by any signed-in person, <code>search_status</code> by admins; functions write both. Every collection with its fields is listed in <a href="../reference/data-model.html">Data model</a>.</p>
+
+    <h3>Users</h3>
+    <ul>
+      <li><strong>Read:</strong> your own record, or any as an admin. A browser query on <code>users</code> must filter on <code>uid == request.auth.uid</code>, or the rules refuse the whole query.</li>
+      <li><strong>Create:</strong> admins only. Every sign-up creates its record on the server, which checks the email, sets the site's default role and refuses when sign-ups are closed.</li>
+      <li><strong>Update:</strong> your own record, but never <code>role</code>, <code>uid</code>, <code>isActive</code>, <code>status</code>, <code>authOwner</code>, <code>email</code>, <code>phone</code>, <code>phoneVerified</code>, the detach fields, the premium and credit fields, and <code>emailVerified</code> only to <code>false</code>. Admins may update any record. No record may hold a <code>password</code>.</li>
+      <li><strong>Delete:</strong> admins only.</li>
+    </ul>
+
+    <h3>Storage</h3>
+    <table>
+      <thead><tr><th>Path</th><th>Read</th><th>Write</th></tr></thead>
+      <tbody>
+        <tr><td>Everything not listed below (the media library, imports, exports)</td><td>Anyone</td><td>Staff</td></tr>
+        <tr><td><code>users/{userDocId}/...</code>, at the bucket root or under the upload folder</td><td>The owner (<code>arccms_uid</code>) or an admin. Never public</td><td>Staff, and whatever the app's <code class="new">storage.app.rules</code> allows the owner</td></tr>
+        <tr><td><code>users/{userDocId}/feedback/{feedbackId}/...</code></td><td>The owner or an admin</td><td>The owner may create <code>screenshot.jpg</code> (JPEG, under 5 MB) or a voice note (<code>voice.mp4</code>, <code>.webm</code> or <code>.ogg</code>, under 10 MB), never overwrite</td></tr>
+        <tr><td><code>avatars/{uid}/...</code></td><td>Anyone</td><td>That signed-in person: images under 5 MB</td></tr>
+      </tbody>
+    </table>
+    <p>Any folder named <code>users</code> in the first two levels of a path is never public.</p>
+
+    <h2>The helper functions</h2>
+    <p>The top of <code>firestore.rules</code> defines these, and <code>storage.rules</code> the same names with the same meaning. App rules may call the four marked stable; keep their names and meaning when you change core.</p>
+    <table>
+      <thead><tr><th>Function</th><th>True when</th><th>Stable for apps</th></tr></thead>
+      <tbody>
+        <tr><td><code>isSignedIn()</code></td><td>Someone is signed in</td><td>Yes</td></tr>
+        <tr><td><code>ownsUserRecord(userDocId)</code></td><td>The signed-in person's <code>arccms_uid</code> claim is that record id. No claim means no</td><td>Yes</td></tr>
+        <tr><td><code>isAdmin()</code></td><td>The <code>arccms_role</code> claim is <code>admin</code></td><td>Yes</td></tr>
+        <tr><td><code>isEditor()</code></td><td>An admin, or the <code>arccms_role</code> claim is <code>editor</code> (content staff)</td><td>Yes</td></tr>
+        <tr><td><code>isAuthenticated()</code></td><td>The same as <code>isSignedIn()</code>, used by core</td><td></td></tr>
+        <tr><td><code>arcRole()</code></td><td>Returns the <code>arccms_role</code> claim, or an empty string</td><td></td></tr>
+      </tbody>
+    </table>
+    <p>Two more live with the <code>users</code> rules: <code>isOwnUserDoc()</code> (the record's <code>uid</code> field is the caller) and <code>hasNoPassword(data)</code>. Storage adds <code>isSmallImage()</code> (an image under 5 MB).</p>
+    <div class="trap"><p>Never check a plain <code>role</code> claim. An app sharing the sign-in accounts may give its own admins <code>role: 'admin'</code>, and they are not Arc CMS admins. Use <code>isAdmin()</code> or <code>isEditor()</code>, which read <code>arccms_role</code>. A test in the default suite fails if a plain <code>role</code> check comes back.</p></div>
+
+    <h2>Change a rule safely</h2>
+    <ol class="steps">
+      <li><p>Edit <code>firestore.rules</code> or <code>storage.rules</code> in Arc CMS itself (an app edits its own <code>*.app.rules</code> file instead).</p></li>
+      <li><p>Add a test to <code>tests/rules/firestore.rules.spec.ts</code> or <code>tests/rules/storage.rules.spec.ts</code> that shows the new rule allows what it should and refuses what it should not, for each kind of caller.</p></li>
+      <li>
+        <p>Run the rules tests and the whole suite:</p>
+        <pre><code>npm run test:rules</code></pre>
+        <pre><code>npm run test</code></pre>
+      </li>
+      <li><p>Deploy the code the rule depends on first, and the rules last (see <a href="deploy.html#when-the-order-matters">When the order matters</a>):</p>
+        <pre><code>npm run deploy -- --only firestore:rules --project default</code></pre>
+      </li>
+    </ol>
+
+    <div class="trap"><p>Rules only ever add access: if any <code>allow</code> that matches a request is true, the request is allowed. A narrower rule with <code>if false</code> does not take away what a broader one grants. To close something, change the rule that grants it.</p></div>
+    <div class="trap"><p>The rule for published content is one catch-all, <code>match /{collection}/{docId}</code>, that tests the collection name: Firestore has no prefix matching. Any collection named <code>arc_...</code> (and not ending in <code>_drafts</code>) or <code>Tags_...</code> is therefore public to read. Never give private data a name like that.</p></div>
+
+    <h2>The rules tests</h2>
+    <p><code>npm run test:rules</code> combines the rules, starts the Firestore and Storage emulators with the Firebase CLI under a demo project, and runs every spec in <code>tests/rules/</code> against the combined files with <code>@firebase/rules-unit-testing</code>. It needs the Firebase CLI and Java, which the emulators run on. The files run one at a time (<code>vitest.rules.config.ts</code>).</p>
+    <p>They are not part of <code>npm run test</code>, because that needs no emulator. The default suite has its own guard instead: <code>functions/src/__tests__/securityRulesRoles.spec.ts</code> reads the rules files and fails if a known hole comes back, such as a signed-in person writing their own <code>role</code>, content writable by any signed-in person, or a path writable by everyone signed in. More on the test setup is in <a href="testing.html">Testing</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

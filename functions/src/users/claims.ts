@@ -4,14 +4,14 @@
  * - `arccms_role`: the ArcCMS role, the gate `isAdmin()` / `isEditor()` read in the
  *   rules and `isArcAdmin()` reads in functions (syncUserRole.ts sets it). Never the
  *   plain `role`: an app sharing the sign-in pool may give its own admins
- *   `role: 'admin'` (docs/coexistence-spec.md, CO-D7). ArcCMS no longer writes
+ *   `role: 'admin'` (specs/coexistence-spec.md, CO-D7). ArcCMS no longer writes
  *   `role` and leaves any existing `role` claim alone, since in a shared pool it
  *   cannot tell who set it.
  * - `arccms_uid`: the id of the person's `users` record. The record id is not the
  *   Auth uid, so without this apps query `where('uid', '==', auth.uid)` and rules
  *   `get()` the record. With it, rules check `request.auth.token.arccms_uid`
  *   (`ownsUserRecord()` in firestore.rules) and apps read it from the ID token.
- *   Named with the `arccms_` prefix (docs/coexistence-spec.md, CO-D7) so an app
+ *   Named with the `arccms_` prefix (specs/coexistence-spec.md, CO-D7) so an app
  *   sharing the sign-in pool cannot collide with it.
  *
  * Claims are always merged, never replaced, so claims set by anything else survive.

@@ -1,5 +1,5 @@
 /**
- * Contacts are never put on an App users (live) list (docs/coexistence-spec.md
+ * Contacts are never put on an App users (live) list (specs/coexistence-spec.md
  * 5b): its members are whoever matches its conditions at each use, so a
  * contact stored on it would be counted nowhere and mailed by nothing. The
  * admin pages do not offer live lists there (contactLists()); this refuses

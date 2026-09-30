@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glossary | Arc CMS docs</title>
+  <meta name="description" content="The terms you meet in Arc CMS and its docs, each in a sentence or two, with a link to the page that explains it.">
+  <meta name="docs:sources" content="none">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="reference/glossary.html">
+  <main>
+    <h1>Glossary</h1>
+    <p class="lead">The words Arc CMS and these docs use, each explained in a line or two. Follow the link for the whole story.</p>
+
+    <table>
+      <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>Admin-only sign-in</td><td>An install setting under which onboarding turns sign-ups off once the first admin exists, so only people an admin adds can sign in. On by default for the backend profile. See <a href="config-keys.html">Configuration keys</a>.</td></tr>
+        <tr><td>Announcement</td><td>An in-app notification an admin sends to chosen users, optionally also as an email. Part of email marketing. See <a href="../features/email-marketing.html">Email marketing</a>.</td></tr>
+        <tr><td>App audience</td><td>The users of the app Arc CMS serves, read from a collection of that app (or from Arc CMS's own <code>users</code>), so emails and lists can reach them without copying them into contacts by hand. See <a href="../features/app-audience.html">App audience</a>.</td></tr>
+        <tr><td><code>arccms-</code> prefix</td><td>Every Arc CMS Cloud Function is deployed as <code>arccms-&lt;name&gt;</code>, and an app's own as <code>arccms-custom-&lt;name&gt;</code>, so they never clash with another app's functions in the same project. See <a href="cloud-functions.html">Cloud Functions</a>.</td></tr>
+        <tr><td>Audience</td><td>The people you can email: contacts, grouped in lists, with tags and custom fields. A switchable feature. See <a href="../features/audience.html">Audience</a>.</td></tr>
+        <tr><td>Automations</td><td>Rules, set under Settings, Automations, that turn events in the app into notifications, emails or list changes. See <a href="../features/automations.html">Automations</a>.</td></tr>
+        <tr><td>Brand kit</td><td>The shared look of every branded email: logo, colors, font, footer text, postal address and social links. See <a href="../features/email.html">Email engine</a>.</td></tr>
+        <tr><td>Broadcast</td><td>One email sent to the contacts of chosen lists, now or at a set time. See <a href="../features/email-marketing.html">Email marketing</a>.</td></tr>
+        <tr><td>Claim</td><td>A value Firebase Auth carries in a person's sign-in token. Arc CMS sets <code>arccms_role</code> (their role) and <code>arccms_uid</code> (the id of their <code>users</code> record); the security rules and functions read them. See <a href="../concepts/roles-and-claims.html">Roles and claims</a> and <a href="../app/account-contract.html">Follow the account contract</a>.</td></tr>
+        <tr><td>Composer</td><td>The block editor for email templates in the admin. See <a href="../features/email.html">Email engine</a>.</td></tr>
+        <tr><td>Contact</td><td>One person in the audience, known by email address, with consent, tags, list memberships and custom fields. See <a href="../features/audience.html">Audience</a>.</td></tr>
+        <tr><td>Content type</td><td>A kind of content, such as a blog post, with its fields and template. Each type keeps its drafts and its published items in collections of its own. See <a href="../website/content-types.html">Define content types</a>.</td></tr>
+        <tr><td>Core</td><td>Arc CMS's own files: everything outside the custom space. An app built on Arc CMS never edits them, so updates merge cleanly. See <a href="../concepts/core-and-custom.html">Core and custom</a>.</td></tr>
+        <tr><td>Custom space</td><td>The files that belong to the app built on Arc CMS: <code>src/custom/</code>, <code>functions/src/custom/</code>, <code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code> and <code class="new">firestore.app.indexes.json</code>. See <a href="../app/custom-space.html">Use the custom space</a>.</td></tr>
+        <tr><td>Drip campaign</td><td>A sequence of emails sent to each member of a list, step by step, starting when they join. See <a href="../features/email-marketing.html">Email marketing</a>.</td></tr>
+        <tr><td>Email log</td><td>The record of one email: every send is queued as a document in <code>EmailLogs</code>, then sent, retried or skipped. See <a href="../features/email.html">Email engine</a>.</td></tr>
+        <tr><td>Entitlement</td><td>The premium access a purchase gives a person, written on their user record: a tier and, for a subscription, when it ends. See <a href="../features/entitlements.html">Premium entitlements</a>.</td></tr>
+        <tr><td>Feature</td><td>One of the ten parts of Arc CMS an app can turn on or off by id in <code>src/custom/features.ts</code>. Everything else is always on. See <a href="feature-ids.html">Feature ids</a>.</td></tr>
+        <tr><td>IndexNow</td><td>A service Arc CMS notifies after each publish, so search engines that use it pick up changed pages quickly. Part of <code>seo</code>. See <a href="../features/seo.html">SEO and discoverability</a>.</td></tr>
+        <tr><td>Install config</td><td>The optional file <code>arccms.config.json</code> that says, per Firebase project, which database, hosting site and bucket Arc CMS uses. See <a href="config-keys.html">Configuration keys</a>.</td></tr>
+        <tr><td>Install profile</td><td><code>standalone</code> when Arc CMS has its Firebase project to itself, <code>backend</code> when it shares the project with another app and so needs its own database, site and bucket. See <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>.</td></tr>
+        <tr><td>List</td><td>A group of contacts that emails are sent to. Each signup form has its own list. See <a href="../features/audience.html">Audience</a>.</td></tr>
+        <tr><td>llms.txt</td><td>A file at the site root that lists the site's pages, linking their Markdown twins, for AI tools to read. Published by <code>seo</code>. See <a href="../features/seo.html">SEO and discoverability</a>.</td></tr>
+        <tr><td>Markdown twin</td><td>A Markdown copy of each published content page, next to the HTML page, for AI tools. See <a href="../features/seo.html">SEO and discoverability</a>.</td></tr>
+        <tr><td>Merge tag</td><td>A placeholder such as <code>##NAME##</code> in an email, replaced for each recipient when it is sent. See <a href="email-tags.html">Email merge tags</a>.</td></tr>
+        <tr><td>Named database</td><td>A Firestore database other than the project's <code>(default)</code> one, such as <code>arccms</code>. Arc CMS uses one when it shares a project with another app. See <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>.</td></tr>
+        <tr><td>Publish</td><td>Turning content into static HTML files on Firebase Hosting. A Cloud Function does it from a queue of publish jobs. See <a href="../features/content.html">Content</a>.</td></tr>
+        <tr><td>PWA</td><td>Progressive web app: a site people can install on their phone or computer like an app. The <code>pwa</code> feature, off by default. See <a href="../features/pwa.html">Installable app (PWA)</a>.</td></tr>
+        <tr><td>Role</td><td>What a person may do: <code>admin</code>, or <code>user</code> for everyone else. The rules also know <code>editor</code> (content staff), which nothing in the admin area grants. See <a href="../features/users-and-roles.html">Users and roles</a>.</td></tr>
+        <tr><td>Signup form</td><td>A form that collects sign-ups, with a verification code, a welcome email, referrals and a leaderboard. The code and the database call it a waitlist (<code>Waitlists</code>). See <a href="../features/forms.html">Signup forms</a>.</td></tr>
+        <tr><td>Static pages</td><td>HTML pages kept as files in <code>public/pages/</code> and served at <code>/p/{name}</code>, such as the privacy policy. <code>npm run seed:dev</code> and <code>seed:prod</code> publish them to Hosting again, with every published content page. See <a href="../website/static-pages.html">Write static pages</a>.</td></tr>
+        <tr><td>Switchable feature</td><td>See Feature.</td></tr>
+        <tr><td>Targeted deploy</td><td>A deploy of only the functions that changed, named one by one, instead of the whole codebase. See <a href="../operations/targeted-deploys.html">Deploy only what changed</a>.</td></tr>
+        <tr><td>Upstream</td><td>The Arc CMS repository an app was copied from, added as the git remote <code>upstream</code>. <code>npm run check:core</code> compares with it, and updates are pulled from it. See <a href="../app/check-core-and-upgrade.html">Keep core untouched</a>.</td></tr>
+        <tr><td>Waitlist</td><td>The code's name for a signup form. See Signup form.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

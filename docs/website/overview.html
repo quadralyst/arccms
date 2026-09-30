@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build a website | Arc CMS docs</title>
+  <meta name="description" content="The steps, in order, to build a content website with sign-up forms on Arc CMS, and what to prepare before you start.">
+  <meta name="docs:sources" content="src/shared/components/side-navbar/side-navbar.component.ts, src/app/pages/(onboarding)/onboarding-defaults.ts, src/custom/features.ts, public/templates, public/pages, public/_partials, public/index.html, index.html, src/shared/constants/legal-notice.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/index.page.ts, scripts/check-core.mjs">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/overview.html">
+  <main>
+    <h1>Build a website</h1>
+    <p class="lead">This path takes you from an installed Arc CMS to a live content website that collects sign-ups. Follow the pages in order; each one says what to do in the admin area or the files, and links to the feature page for the detail.</p>
+
+    <h2>What you will have at the end</h2>
+    <ul>
+      <li>Content types (articles, guides, case studies) that editors write and publish from the admin area, each published as a static page at <code>/{type}/{item}</code>.</li>
+      <li>Your own HTML templates for the list and detail pages, with your header and footer.</li>
+      <li>Static pages such as the privacy and cookie policies.</li>
+      <li>Structured data, a sitemap, <code>robots.txt</code>, <code>llms.txt</code> and RSS feeds, written on every publish.</li>
+      <li>A search box in the header and a <code>/search</code> results page.</li>
+      <li>A signup form on the home page, with a verification code, a welcome email, referrals and a leaderboard. Every sign-up becomes a contact you can email.</li>
+    </ul>
+
+    <h2>Before you start</h2>
+    <p>You need an installed Arc CMS with its first admin. If you have not done that yet, follow <a href="../getting-started/install.html">Install</a>, <a href="../getting-started/configure.html">Configure a project</a> and <a href="../getting-started/first-admin.html">Create the first admin</a>. The first-run wizard creates an Articles content type and a default signup form, so you do not start from nothing.</p>
+    <p>Have these ready:</p>
+    <table>
+      <thead><tr><th>What</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>A list of your pages and their fields</td><td>You turn it into content types in the next two pages.</td></tr>
+        <tr><td>Your design as HTML and CSS</td><td>Templates are plain HTML fragments; you add Arc CMS attributes to them.</td></tr>
+        <tr><td>A logo at an absolute URL, at least 112 by 112 pixels</td><td>Settings, About publishes it to search engines as your publisher logo.</td></tr>
+        <tr><td>An email provider: Gmail, an SMTP server or Resend</td><td>Signup forms send a verification code and a welcome email.</td></tr>
+        <tr><td>Your postal address</td><td>Anti-spam laws require it in the footer of your emails: it goes in the email Brand Kit and in your form emails.</td></tr>
+        <tr><td>Your privacy policy, cookie policy and terms</td><td>They become your legal pages and the links in the terms notice on every signup form.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>The steps</h2>
+    <ol class="steps">
+      <li><p><a href="plan-content.html">Plan your content</a>: decide what is a content type, a static page or a form, and what each URL looks like.</p></li>
+      <li><p><a href="content-types.html">Define content types</a>: create them in the admin area with their fields.</p></li>
+      <li><p><a href="templates.html">Design templates</a>: give each content type its list and detail layout.</p></li>
+      <li><p><a href="static-pages.html">Write static pages</a>: the legal pages and anything else that rarely changes.</p></li>
+      <li><p><a href="media.html">Manage media</a>: set image sizes and upload images.</p></li>
+      <li><p><a href="authors-and-tags.html">Add authors and tags</a>: bylines and topics.</p></li>
+      <li><p><a href="seo.html">Get found by search engines and AI</a>: fill in your site identity and write pages that get quoted.</p></li>
+      <li><p><a href="languages.html">Publish in more than one language</a>: only if you need it.</p></li>
+      <li><p><a href="search.html">Add search</a>: choose what visitors can search.</p></li>
+      <li><p><a href="forms.html">Collect sign-ups</a>: set up the form, its emails and where sign-ups land.</p></li>
+      <li><p><a href="choose-features.html">Choose your website's features</a>: switch off what a website does not use.</p></li>
+      <li><p><a href="launch-checklist.html">Launch checklist</a>: check everything before you point your domain at it.</p></li>
+    </ol>
+
+    <h2>Recommended features</h2>
+    <p>A content website with lead generation uses content, templates, media, authors and tags, SEO, search, signup forms, audience and email. Keep them all on. Switch off payments and SMS unless you sell or use phone sign-in; <a href="choose-features.html">Choose your website's features</a> shows how. The full list is in <a href="../features/overview.html">All features</a>.</p>
+
+    <h2>How you work</h2>
+    <p>Most of the work happens in the admin area at <code>/admin</code>. The rest is editing files that ship with Arc CMS:</p>
+    <table>
+      <thead><tr><th>File or folder</th><th>What you change there</th></tr></thead>
+      <tbody>
+        <tr><td><code>public/templates/</code></td><td>The list and detail layouts of your content types</td></tr>
+        <tr><td><code>public/pages/</code></td><td>The privacy and cookie policies</td></tr>
+        <tr><td><code>public/_partials/_header.html</code>, <code>public/_partials/_footer.html</code></td><td>The site header (menu, search box, language switcher) and footer</td></tr>
+        <tr><td><code>public/index.html</code></td><td>The home page, with its signup form</td></tr>
+        <tr><td><code>index.html</code></td><td>The home page's browser title</td></tr>
+        <tr><td><code>src/shared/constants/legal-notice.ts</code></td><td>The terms and privacy links in the notice on signup forms</td></tr>
+        <tr><td><code>src/custom/features.ts</code></td><td>The features you switch off</td></tr>
+      </tbody>
+    </table>
+    <p>Except <code>src/custom/features.ts</code>, these are core files: a website edits them in place, <code>npm run check:core</code> lists them as core changes, and an upgrade can conflict where Arc CMS changed the same file (see <a href="../getting-started/upgrading.html">Upgrade Arc CMS</a>).</p>
+    <div class="trap"><p>The home page and the header and footer are compiled into the app as Angular templates, so a literal <code>{</code>, <code>}</code> or <code>@</code> in their text stops the build. Write <code>&amp;#123;</code>, <code>&amp;#125;</code> and <code>&amp;#64;</code> instead.</p></div>
+    <p>Run the site locally with <code>npm run dev</code> while you build; it reads and writes your real Firebase project (see <a href="../getting-started/run-locally.html">Run it locally</a>). Publishing an item puts its page on the live site straight away. Changes to files reach the live site when you deploy the website (see <a href="../operations/deploy.html">Deploy</a>).</p>
+
+    <h2>Next</h2>
+    <p>Start with <a href="plan-content.html">Plan your content</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

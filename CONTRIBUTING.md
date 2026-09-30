@@ -17,7 +17,7 @@ Thank you for your interest in contributing to Arc CMS! This document provides g
    npm install
    cd functions && npm install && cd ..
    ```
-4. **Set up your environment** — See [INSTALL.md](INSTALL.md) for detailed setup instructions
+4. **Set up your environment**: see [Get started](docs/getting-started/what-is-arc-cms.html) for the setup, and [Docs and tests are part of done](docs/contributing/docs-and-tests-are-part-of-done.html) for what every change must include
 
 ---
 
@@ -31,7 +31,7 @@ Create a branch from `main` using this naming convention:
 |--------|----------|---------|
 | `feat/` | New features | `feat/dark-mode` |
 | `fix/` | Bug fixes | `fix/login-redirect` |
-| `docs/` | Documentation changes | `docs/api-guide` |
+| `docs/` | Documentation changes | `docs/getting-started-page` |
 | `refactor/` | Code refactoring | `refactor/auth-service` |
 | `test/` | Adding or updating tests | `test/waitlist-service` |
 
@@ -74,11 +74,11 @@ npm run dev
    - A clear description of the changes
    - Related issue numbers (if any)
    - Screenshots for UI changes
-4. **Wait for review** — maintainers will review your PR and may request changes
+4. **Wait for review**: maintainers will review your PR and may request changes
 
 ### PR Guidelines
 
-- Keep PRs focused — one feature or fix per PR
+- Keep PRs focused: one feature or fix per PR
 - Write a clear PR title and description
 - Reference related issues with `Fixes #123` or `Closes #123`
 - Ensure CI checks pass

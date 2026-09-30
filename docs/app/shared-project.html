@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Share a Firebase project | Arc CMS docs</title>
+  <meta name="description" content="Install Arc CMS next to an existing app in the same Firebase project, with its own database, functions, hosting site and bucket, and check that nothing collides.">
+  <meta name="docs:sources" content="scripts/arc-configure.mjs, scripts/arc-install-config.mjs, arccms.config.example.json, src/environments/arc-install.ts, src/app/core/config/arc-config.ts, functions/src/arc-config.ts, functions/src/index.ts, functions/.env, firebase.json, functions/src/users/claims.ts, functions/src/users/authOwner.ts, functions/src/users/adminCreateUser.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/shared-project.html">
+  <main>
+    <h1>Share a Firebase project</h1>
+    <p class="lead">Install Arc CMS in a Firebase project that another app already uses, as that app's admin, email and marketing backend, without touching the other app's data, rules, functions or website.</p>
+    <p>Why it is built this way is in <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>. A project of its own needs none of this: see <a href="../getting-started/configure.html">Configure a project</a>.</p>
+
+    <h2>What must not collide</h2>
+    <table>
+      <thead><tr><th>Shared by the project</th><th>How Arc CMS keeps apart</th><th>How to check</th></tr></thead>
+      <tbody>
+        <tr><td>Firestore</td><td>Its own named database, usually <code>arccms</code>, with its own rules, indexes and triggers</td><td><code>ARC_DATABASE_ID</code> in <code class="new">functions/.env.{projectId}</code>, and <code>"database"</code> in <code class="new">firebase.{projectId}.json</code></td></tr>
+        <tr><td>Cloud Functions</td><td>Every function is named <code>arccms-</code> plus its name, in the <code>arccms</code> codebase, so an Arc CMS deploy never deletes the other app's functions, and theirs never delete Arc CMS's</td><td><code>firebase functions:list</code>: every Arc CMS function starts with <code>arccms-</code></td></tr>
+        <tr><td>Hosting</td><td>A hosting site of its own, or none (<code>--site=none</code>) when Arc CMS is only an admin backend</td><td><code>"hosting"</code> in the generated config names your site, or is absent</td></tr>
+        <tr><td>Storage</td><td>A bucket of its own: a bucket has one rules file, and deploying Arc CMS's would replace the other app's</td><td><code>"storage"</code> in the generated config names your bucket</td></tr>
+        <tr><td>Sign-in accounts</td><td>Shared. Sign-ups are off once the first admin exists, so the other app's users cannot sign in to Arc CMS</td><td>Signing in with one of the other app's users ends in "no access"</td></tr>
+        <tr><td>Custom claims</td><td>Arc CMS uses only <code>arccms_role</code> and <code>arccms_uid</code>, and merges them with other claims</td><td>The other app merges its own claims too (below)</td></tr>
+        <tr><td>Deploy settings</td><td>Arc CMS's settings all start with <code>ARC_</code></td><td>Nothing to do</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Install next to the other app</h2>
+    <ol class="steps">
+      <li>
+        <p><strong>Find the other app's database location</strong>, in the Firebase console under Firestore, or with:</p>
+        <pre><code>firebase firestore:databases:list</code></pre>
+        <p>Arc CMS's database goes in the same location.</p>
+      </li>
+      <li>
+        <p><strong>Answer the setup questions.</strong> Run the guided deploy in a terminal:</p>
+        <pre><code>npm run deploy</code></pre>
+        <p>The first time it meets a project with no Arc CMS settings, it asks how the project is used. Choose "Shared with another app", then accept or change the suggested names: the database (<code>arccms</code>), a website of its own or none, the bucket and the upload folder in it, and where the other app keeps its users (or <code>none</code>). It writes the settings, prints the commands that create the resources, and stops.</p>
+        <p><strong>Without the questions:</strong> pass the same choices as flags, and check them first with <code>--dry-run</code>:</p>
+        <pre><code>npm run arc:configure -- --project=default --profile=backend --database=arccms --site=YOUR_SITE --bucket=YOUR_BUCKET --prefix=arccms/ --region=YOUR_LOCATION --dry-run</code></pre>
+      </li>
+      <li>
+        <p><strong>Create the resources</strong> with the printed commands, if the database, site or bucket does not exist yet. Nothing creates them for you:</p>
+        <pre><code>firebase firestore:databases:create arccms --location=YOUR_LOCATION
+firebase hosting:sites:create YOUR_SITE
+gcloud storage buckets create gs://YOUR_BUCKET --location=YOUR_LOCATION</code></pre>
+        <p>Then link the bucket to Firebase: in the console, Storage, the bucket menu, "Import existing Google Cloud Storage buckets".</p>
+      </li>
+      <li>
+        <p><strong>Commit <code>src/environments/arc-install.ts</code>.</strong> The website reads its database, bucket and upload folder from it.</p>
+      </li>
+      <li>
+        <p><strong>Deploy</strong> with <code>npm run deploy</code> again, and pick what to deploy. It uses the generated <code class="new">firebase.{projectId}.json</code>; a plain <code>firebase deploy</code> does not, and would deploy Arc CMS's rules and website over the other app's. See <a href="../operations/deploy.html">Deploy</a>.</p>
+      </li>
+      <li>
+        <p><strong>Create the first admin</strong> in the onboarding wizard (<a href="../getting-started/first-admin.html">Create the first admin</a>). When it finishes, sign-ups turn off: Settings, User Settings, "Enable User Signups" is off, and every sign-up path refuses new accounts.</p>
+      </li>
+      <li>
+        <p><strong>Add more admins</strong> under Users, Add User. If the address already has a login in the other app, that login is reused and keeps its own password; the record is marked as shared, so deleting the person from Arc CMS never deletes their login to the other app.</p>
+      </li>
+    </ol>
+    <div class="trap"><p>Do not run <code>firebase deploy --dry-run</code> to "check" the configuration. With a named database in the config, even a dry run creates the missing database, in the project's default location, which cannot be changed afterwards. Create the database yourself first, with the location you chose.</p></div>
+
+    <h2>The configuration files</h2>
+    <p>One checkout can deploy to several projects (development, production), each set up differently. <code class="new">arccms.config.json</code> holds the choices: keys at the top apply to every project, and <code>projects.&lt;projectId&gt;</code> overrides them for one project. <code>arccms.config.example.json</code> shows the shape:</p>
+    <pre><code>{
+  "profile": "standalone",
+  "projects": {
+    "your-project-id": {
+      "profile": "backend",
+      "databaseId": "arccms",
+      "hostingSite": "your-project-arccms",
+      "storageBucket": "your-project-arccms",
+      "storagePrefix": ""
+    }
+  }
+}</code></pre>
+    <p><code>npm run arc:configure</code> reads it, with its flags written into the entry for <code>--project</code> first, and writes:</p>
+    <table>
+      <thead><tr><th>File</th><th>Commit it?</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code class="new">arccms.config.json</code></td><td>No</td><td>Your choices, per project</td></tr>
+        <tr><td><code>src/environments/arc-install.ts</code></td><td>Yes</td><td>Each project's database, bucket, upload folder and admin-only sign-in, for the website. The build uses the entry for its own Firebase project.</td></tr>
+        <tr><td><code class="new">functions/.env.{projectId}</code></td><td>No</td><td><code>ARC_DATABASE_ID</code>, <code>ARC_HOSTING_SITE</code>, <code>ARC_STORAGE_BUCKET</code>, <code>ARC_STORAGE_PREFIX</code> and the app audience settings, for the functions</td></tr>
+        <tr><td><code class="new">firebase.{projectId}.json</code></td><td>No</td><td>The Firebase CLI config with the named database, bucket and site. Removed again when a project uses none of them.</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th>Flag</th><th>Sets</th></tr></thead>
+      <tbody>
+        <tr><td><code>--profile=standalone|backend</code></td><td>A project of its own, or a backend in a shared project. A backend refuses to run without its own database (not <code>(default)</code>), a hosting site (or <code>none</code>) and a bucket, and turns on admin-only sign-in.</td></tr>
+        <tr><td><code>--database=</code></td><td>The Firestore database id</td></tr>
+        <tr><td><code>--site=</code></td><td>The hosting site, or <code>none</code></td></tr>
+        <tr><td><code>--bucket=</code></td><td>The Storage bucket</td></tr>
+        <tr><td><code>--prefix=</code></td><td>An upload folder for every Arc CMS file, such as <code>arccms/</code>: one folder, ending in a slash</td></tr>
+        <tr><td><code>--region=</code></td><td>The location used in the printed create commands</td></tr>
+        <tr><td><code>--admin-only-sign-in=yes|no</code></td><td>Whether onboarding turns sign-ups off (yes by default for a backend)</td></tr>
+        <tr><td><code>--app-users-database=</code>, <code>--app-users-path=</code>, <code>--app-users=own</code></td><td>The other app's users as an audience: <a href="app-audience.html">Connect your app's users</a></td></tr>
+        <tr><td><code>--dry-run</code></td><td>Print the changes, write nothing</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>An install with its own database but no bucket of its own shares the project's default bucket with the other app. Its storage rules are then not deployed at all, so the other app's are not replaced, and <code>arc:configure</code> says so. Give Arc CMS its own bucket with <code>--bucket</code> to deploy them.</p></div>
+
+    <h2>What the other app must know</h2>
+    <ul>
+      <li><strong>Merge custom claims, never replace them.</strong> Setting claims with only its own keys removes <code>arccms_role</code> and <code>arccms_uid</code>, and an Arc CMS admin loses access until the Arc CMS app puts them back. See <a href="account-contract.html">Follow the account contract</a>.</li>
+      <li><strong>Do not use a claim named <code>arccms_</code> anything.</strong> Its own <code>role</code> claim is fine: Arc CMS never reads it.</li>
+      <li><strong>Never write to the Arc CMS database.</strong> To read Arc CMS data from the other app, open the named database, such as <code>getFirestore(app, 'arccms')</code>.</li>
+      <li><strong>Its users stay its own.</strong> To email or segment them from Arc CMS, see <a href="app-audience.html">Connect your app's users</a>.</li>
+    </ul>
+
+    <p>More traps, such as a database that was deleted and created again, are in <a href="../concepts/shared-firebase-project.html#traps">Sharing a Firebase project</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

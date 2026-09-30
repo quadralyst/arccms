@@ -1,5 +1,5 @@
 /**
- * The admin surfaces that follow the features (docs/feature-flags-spec.md, F2):
+ * The admin surfaces that follow the features (specs/feature-flags-spec.md, F2):
  * what each one leaves out when a feature is off.
  */
 import { describe, expect, it } from 'vitest';

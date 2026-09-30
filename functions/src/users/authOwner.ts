@@ -1,5 +1,5 @@
 /**
- * Who owns a user's Firebase Auth account (docs/coexistence-spec.md, CO-D16).
+ * Who owns a user's Firebase Auth account (specs/coexistence-spec.md, CO-D16).
  *
  * In a project shared with a host app, one sign-in pool serves both. A `users`
  * record may belong to someone whose login the host app also uses (`shared`) or

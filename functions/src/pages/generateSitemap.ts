@@ -113,7 +113,7 @@ export async function generateAndDeploySitemap(batch?: HostingBatch): Promise<vo
                     buildUrlEntry(
                         alternate.url,
                         // updatedOn when the author marked a revision, else the
-                        // publish date (docs/discoverability-spec.md, D-D3).
+                        // publish date (specs/discoverability-spec.md, D-D3).
                         lastmodDate(data),
                         'weekly',
                         '0.8',

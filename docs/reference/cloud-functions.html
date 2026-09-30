@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cloud Functions | Arc CMS docs</title>
+  <meta name="description" content="Every Cloud Function Arc CMS deploys: its kind, who may call it or what starts it, what it does, and which feature it belongs to.">
+  <meta name="docs:sources" content="functions/src, functions/src/index.ts, functions/src/all.ts, functions/src/function-names.ts, functions/src/features, functions/src/feature-flags.ts, functions/src/arc-config.ts, functions/src/users/claims.ts, functions/src/search/auth.ts, functions/src/auth/accounts.ts, scripts/arc-features.mjs, src/app/core/config/arc-functions.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="reference/cloud-functions.html">
+  <main>
+    <h1>Cloud Functions</h1>
+    <p class="lead">Every Cloud Function Arc CMS deploys, grouped by area: what kind it is, who may call it or what starts it, and what it does. Use it to find the function behind a screen, or the one to deploy after a change.</p>
+
+    <h2>How a function is named</h2>
+    <p><code>functions/src/index.ts</code> exports every function in one group, <code>arccms</code>. A function exported as <code>sendTestEmail</code> therefore deploys as <code>arccms-sendTestEmail</code>. The rule is <code>arcFunctionName()</code> in <code>functions/src/function-names.ts</code>, and the functions belong to the <code>arccms</code> codebase in <code>firebase.json</code>.</p>
+    <ul>
+      <li>The browser calls a function by its plain name through <code>arcCallable()</code> in <code>src/app/core/config/arc-functions.ts</code>, which adds the prefix.</li>
+      <li>An HTTP function is reached at its <code>arccms-</code> name, for example <code>arccms-handleUnsubscribe</code>.</li>
+      <li>An app's own functions in <code>functions/src/custom/</code> deploy as <code>arccms-custom-&lt;name&gt;</code> and are not listed here. See <a href="../app/functions.html">Write your own Cloud Functions</a>.</li>
+    </ul>
+    <p>To deploy one function instead of all of them, see <a href="../operations/targeted-deploys.html">Deploy only what changed</a>.</p>
+
+    <h2>Which functions are deployed</h2>
+    <p>Core functions are listed in <code>functions/src/all.ts</code> and always deploy. A switchable feature's functions are listed in <code>functions/src/features/</code>, one file per feature. Before every functions build, <code>scripts/arc-features.mjs</code> reads <code>src/custom/features.ts</code> and writes a generated list of the feature files whose features are on, which <code>functions/src/all.ts</code> exports.</p>
+    <ul>
+      <li>A full functions deploy with a feature off deletes that feature's functions.</li>
+      <li><code>functions/src/features/search+content.ts</code> deploys only when both search and content are on.</li>
+      <li>The <code>data</code> feature has no functions.</li>
+    </ul>
+    <p>The feature ids are in <a href="feature-ids.html">Feature ids</a>.</p>
+
+    <h2>Who may call a function</h2>
+    <p>Each callable checks its caller at the top of its handler. The tables below use these words:</p>
+    <table>
+      <thead><tr><th>Word</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>Admin</td><td>The caller's <code>arccms_role</code> claim is <code>admin</code> (<code>functions/src/users/claims.ts</code>). Some functions also read the claim from the account itself (<code>functions/src/search/auth.ts</code>), so a fresh claim works before the token refreshes.</td></tr>
+        <tr><td>Signed in</td><td>Any signed-in account, whatever its role.</td></tr>
+        <tr><td>Own record</td><td>Signed in, with a <code>users</code> record of their own (<code>requireOwnRecord()</code> in <code>functions/src/auth/accounts.ts</code>).</td></tr>
+        <tr><td>Public</td><td>No sign-in needed. Where a limit is given, it counts per caller (a hash of the IP address) or per address, in a fixed hour.</td></tr>
+      </tbody>
+    </table>
+    <p>Roles and claims are explained in <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+    <p>Every Firestore trigger listens on the install's own database, <code>ARC_DATABASE_ID</code> (<code>arcDocument()</code> in <code>functions/src/arc-config.ts</code>). Every schedule runs in UTC.</p>
+    <p>A trigger's database is fixed when it is deployed: after changing the database, deploy the functions again (see <a href="config-keys.html#environment-variables">Configuration keys</a>).</p>
+
+    <h2>Content</h2>
+    <p>Owned by <a href="../features/content.html">Content</a>. Deployed only when the <code>content</code> feature is on.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>processPublishQueue</code></td><td>Firestore trigger: <code>_publish_queue/{queueId}</code> created</td><td>The admin app, on publish, unpublish, update or delete</td><td>Copies the draft to its published collection and releases the static pages to Firebase Hosting; with <code>seo</code> on, also the sitemap, feeds and discoverability files, and tells IndexNow.</td></tr>
+        <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger: <code>ContentTypes/{contentTypeId}</code> deleted</td><td>Deleting a content type</td><td>Deletes the type's published, draft and <code>Tags_{slug}</code> collections, and their search entries when search is on.</td></tr>
+        <tr><td><code>seedStaticPages</code></td><td>Callable</td><td>Intended for deploy tooling; <code>npm run seed:dev</code> and <code>seed:prod</code> run the same code directly</td><td>Publishes every published content page, and the static pages, to Firebase Hosting as static HTML.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Search</h2>
+    <p>Owned by <a href="../features/search.html">Search</a>. Deployed only when the <code>search</code> feature is on; <code>onSearchQueued</code> also needs <code>content</code>.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>search</code></td><td>Callable</td><td>Public for the public scope; signed in for the <code>authenticated</code> scope; admin for the <code>admin</code> scope</td><td>Runs a search and returns the results. Every search box uses it.</td></tr>
+        <tr><td><code>reindexSearch</code></td><td>Callable</td><td>Admin</td><td>Rebuilds the index for every source, one source or one collection.</td></tr>
+        <tr><td><code>listSearchCollections</code></td><td>Callable</td><td>Admin</td><td>Lists the database's collections and their search setup, for Search settings.</td></tr>
+        <tr><td><code>sampleCollectionFields</code></td><td>Callable</td><td>Admin</td><td>Samples up to 20 documents of a collection and returns their text fields, for setting it up.</td></tr>
+        <tr><td><code>onSearchQueued</code></td><td>Firestore trigger: <code>_search_queue/{id}</code> written</td><td>The browser, on each draft save</td><td>Indexes the named draft, then deletes the queue entry.</td></tr>
+      </tbody>
+    </table>
+    <p>Search also deploys one trigger per collection made searchable in <code>functions/src/custom/search-sources.ts</code>, as the group <code>searchSync</code>: a collection <code>Products</code> deploys as <code>arccms-searchSync-Products</code> (<code>functions/src/search/collectionTriggers.ts</code>). Each keeps its collection's search entries in step with its documents.</p>
+
+    <h2>SEO</h2>
+    <p>Owned by <a href="../features/seo.html">SEO and discoverability</a>. Deployed only when the <code>seo</code> feature is on.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>regenerateSeoFiles</code></td><td>Callable</td><td>Admin</td><td>Releases robots.txt, llms.txt and the IndexNow key file to Firebase Hosting right away.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Signup forms</h2>
+    <p>Owned by <a href="../features/forms.html">Signup forms</a>. Deployed only when the <code>forms</code> feature is on (which needs <code>audience</code>). In the code a form is a <code>Waitlists</code> document and its members are <code>Waitlists/{id}/users</code>.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>ensureWaitlistExists</code></td><td>Callable</td><td>The public signup form</td><td>Creates the form document with defaults when no form has that id or slug.</td></tr>
+        <tr><td><code>joinForm</code></td><td>Callable</td><td>Public</td><td>Finds or creates the member for an email and returns the member id, referral code and links.</td></tr>
+        <tr><td><code>requestFormOtp</code></td><td>Callable</td><td>Public, one code a minute per form and address</td><td>Emails the form's verification code.</td></tr>
+        <tr><td><code>verifyFormOtp</code></td><td>Callable</td><td>Public</td><td>Checks a form's code against its expiry and attempt limit.</td></tr>
+        <tr><td><code>finalizeFormSignup</code></td><td>Callable</td><td>Public; needs a verified code when the form sends one</td><td>Completes the signup: marks the member verified and confirmed and sets the queue position.</td></tr>
+        <tr><td><code>creditReferral</code></td><td>Callable</td><td>Public</td><td>Records a referral for a referral code, refusing self-referrals and duplicates.</td></tr>
+        <tr><td><code>getPublicLeaderboard</code></td><td>Callable</td><td>Public</td><td>Returns a form's top 50 confirmed members, with masked emails, and its counts.</td></tr>
+        <tr><td><code>getPublicMemberView</code></td><td>Callable</td><td>Public</td><td>Returns one member's own record, referrals (masked) and stats.</td></tr>
+        <tr><td><code>onWaitlistsCreate</code></td><td>Firestore trigger: <code>Waitlists/{waitlistsId}</code> created</td><td>A new form</td><td>Creates the form's audience list and its default code and welcome emails.</td></tr>
+        <tr><td><code>onWaitlistsUpdate</code></td><td>Firestore trigger: <code>Waitlists/{waitlistsId}</code> updated</td><td>A form change</td><td>Renames the form's audience list when the form's name changes.</td></tr>
+        <tr><td><code>onWaitlistsDelete</code></td><td>Firestore trigger: <code>Waitlists/{WaitlistsId}</code> deleted</td><td>Deleting a form</td><td>Deletes the form's subcollections and its audience list.</td></tr>
+        <tr><td><code>onWaitlistUserCreate</code></td><td>Firestore trigger: <code>Waitlists/{WaitlistsId}/users/{usersId}</code> created</td><td>A new member</td><td>Sends the welcome email to a member who joined directly and is already verified.</td></tr>
+        <tr><td><code>onWaitlistUserUpdate</code></td><td>Firestore trigger: <code>Waitlists/{WaitlistsId}/users/{usersId}</code> updated</td><td>A member change</td><td>Sends the welcome email when the member's email becomes verified, unless a sequence sends it.</td></tr>
+        <tr><td><code>onWaitlistUserDelete</code></td><td>Firestore trigger: <code>Waitlists/{WaitlistsId}/users/{usersId}</code> deleted</td><td>Deleting a member</td><td>Lowers the referrer's count and removes the referral record.</td></tr>
+        <tr><td><code>onReferralCreate</code></td><td>Firestore trigger: <code>Waitlists/{waitlistId}/users/{memberId}/referrals/{referralsId}</code> created</td><td>A new referral</td><td>Credits the member when the referral is already completed.</td></tr>
+        <tr><td><code>onReferralUpdate</code></td><td>Firestore trigger: <code>Waitlists/{waitlistId}/users/{memberId}/referrals/{referralsId}</code> updated</td><td>A referral change</td><td>Credits the member when a pending referral becomes completed.</td></tr>
+        <tr><td><code>syncOtpEnabledFlag</code></td><td>Firestore trigger: <code>EmailTemplate/{templateId}</code> written</td><td>A template change</td><td>Copies whether a form's code email is active to the form's <code>otpEnabled</code>.</td></tr>
+        <tr><td><code>getWaitlistTemplateDefaults</code></td><td>Callable</td><td>Admin</td><td>Returns the default code and welcome emails, without writing.</td></tr>
+        <tr><td><code>backfillWaitlistTemplates</code></td><td>Callable</td><td>Admin</td><td>Creates missing default emails for existing forms. <code>dryRun</code> only reports.</td></tr>
+        <tr><td><code>normalizeWaitlistTemplateIds</code></td><td>Callable</td><td>Admin</td><td>Merges duplicate form emails onto one document per form and type. <code>dryRun</code> only reports.</td></tr>
+        <tr><td><code>stampFormTargetLists</code></td><td>Callable</td><td>Admin</td><td>Sets <code>targetListIds</code> on existing forms that lack it. <code>dryRun</code> only reports.</td></tr>
+        <tr><td><code>migrateWaitlistedUsers</code></td><td>Callable</td><td>Admin</td><td>Copies older referral records from <code>WaitlistedUsers</code> to the member who earned them. <code>dryRun</code> only reports.</td></tr>
+        <tr><td><code>getOptimizedLeaderboard</code></td><td>Callable</td><td>Signed in</td><td>Returns a leaderboard from <code>WaitlistedUsers</code> or from one form's members (<code>functions/src/waitlists/leaderboard/getLeaderBoardData.ts</code>).</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Audience</h2>
+    <p>Owned by <a href="../features/audience.html">Audience</a>. Deployed only when the <code>audience</code> feature is on. Contacts are written only by functions, so every admin change to a contact goes through a callable.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>onUserCreateContact</code></td><td>Firestore trigger: <code>users/{docId}</code> created</td><td>A new user</td><td>Creates or updates the person's contact and adds it to the all-users list.</td></tr>
+        <tr><td><code>onUserDeleteContact</code></td><td>Firestore trigger: <code>users/{docId}</code> deleted</td><td>Deleting a user</td><td>Unlinks the contact from the user and drops it from the system lists.</td></tr>
+        <tr><td><code>onWaitlistUserCreateContact</code></td><td>Firestore trigger: <code>Waitlists/{waitlistId}/users/{userId}</code> created</td><td>A form signup</td><td>Creates the member's contact, usually as pending, and adds it to the form's lists.</td></tr>
+        <tr><td><code>onWaitlistVerifiedContact</code></td><td>Firestore trigger: <code>Waitlists/{waitlistId}/users/{userId}</code> updated</td><td>A member verifying or being confirmed</td><td>Makes the pending contact subscribed.</td></tr>
+        <tr><td><code>onWaitlistUserDeleted</code></td><td>Firestore trigger: <code>Waitlists/{waitlistId}/users/{userId}</code> deleted</td><td>Deleting a member</td><td>Removes the contact from the form's own list. The contact itself stays.</td></tr>
+        <tr><td><code>onContactTagDelete</code></td><td>Firestore trigger: <code>ContactTags/{tagId}</code> deleted</td><td>Deleting a tag</td><td>Removes the tag from every contact.</td></tr>
+        <tr><td><code>adminAddContact</code></td><td>Callable</td><td>Admin</td><td>Adds or updates one contact and its lists.</td></tr>
+        <tr><td><code>adminUpdateContactLists</code></td><td>Callable</td><td>Admin</td><td>Adds a contact to lists or removes it from them.</td></tr>
+        <tr><td><code>adminSetContactConsent</code></td><td>Callable</td><td>Admin</td><td>Sets a contact's marketing consent and keeps the <code>Suppression</code> list in step.</td></tr>
+        <tr><td><code>adminSetContactDisabled</code></td><td>Callable</td><td>Admin</td><td>Turns every email to a contact off, or back on.</td></tr>
+        <tr><td><code>adminDeleteContact</code></td><td>Callable</td><td>Admin, with <code>confirm: true</code></td><td>Erases a contact everywhere and keeps a record with only its hash in <code>ErasureLog</code>.</td></tr>
+        <tr><td><code>adminSetContactTags</code></td><td>Callable</td><td>Admin</td><td>Sets a contact's tags.</td></tr>
+        <tr><td><code>adminUpsertContactField</code></td><td>Callable</td><td>Admin</td><td>Creates or updates a custom contact field.</td></tr>
+        <tr><td><code>adminDeleteContactField</code></td><td>Callable</td><td>Admin</td><td>Deletes a field definition. Values on contacts stay.</td></tr>
+        <tr><td><code>adminSetContactFields</code></td><td>Callable</td><td>Admin</td><td>Sets field values on one contact.</td></tr>
+        <tr><td><code>previewContactImport</code></td><td>Callable</td><td>Admin</td><td>Parses a CSV and returns its valid, invalid and duplicate rows, without writing.</td></tr>
+        <tr><td><code>importContacts</code></td><td>Callable</td><td>Admin</td><td>Imports parsed rows into a list, as subscribed only when the admin confirms consent.</td></tr>
+        <tr><td><code>backfillContacts</code></td><td>Callable</td><td>Admin</td><td>Builds contacts from existing users and verified form members. <code>dryRun</code> only reports.</td></tr>
+        <tr><td><code>backfillPendingContacts</code></td><td>Callable</td><td>Admin</td><td>Gives unverified form signups a pending contact. <code>dryRun</code> only reports.</td></tr>
+        <tr><td><code>backfillFormLists</code></td><td>Callable</td><td>Admin</td><td>Creates or repairs each form's audience list. <code>dryRun</code> only reports.</td></tr>
+        <tr><td><code>migrateTagsToContacts</code></td><td>Callable</td><td>Admin</td><td>Copies per-form member tags onto contacts as shared tags. <code>dryRun</code> only reports.</td></tr>
+        <tr><td><code>migrateFormDataToContactFields</code></td><td>Callable</td><td>Admin</td><td>Copies stored form answers onto contact fields through each form's field map. <code>dryRun</code> only reports.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>App audience</h3>
+    <p>Owned by <a href="../features/app-audience.html">App audience</a>, part of the <code>audience</code> feature and deployed with it. The host app's users are where <code>ARC_APP_USERS_PATH</code> and <code>ARC_APP_USERS_DATABASE</code> point (<code>functions/src/app-audience/config.ts</code>).</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>appAudienceStatus</code></td><td>Callable</td><td>Admin</td><td>Returns where the host app's users are and the saved App audience settings.</td></tr>
+        <tr><td><code>sampleAppUsers</code></td><td>Callable</td><td>Admin</td><td>Lists the fields found in a sample of host user documents.</td></tr>
+        <tr><td><code>testAppUser</code></td><td>Callable</td><td>Admin</td><td>Reads one host user with the given settings, before they are saved.</td></tr>
+        <tr><td><code>listAppUsers</code></td><td>Callable</td><td>Admin</td><td>Lists the app users, with an optional search.</td></tr>
+        <tr><td><code>getAppUser</code></td><td>Callable</td><td>Admin</td><td>Returns one app user's fields, state and recent events.</td></tr>
+        <tr><td><code>previewAppList</code></td><td>Callable</td><td>Admin</td><td>Returns who a live App users list matches now: counts and the first 200.</td></tr>
+        <tr><td><code>onAppUserWritten</code></td><td>Firestore trigger: the host app's user documents, written; retried</td><td>The host app changing a user</td><td>Emits app events and joins or leaves sequences as the user changes. It does nothing until the path is set.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Email engine</h2>
+    <p>Owned by <a href="../features/email.html">Email engine</a>. Always deployed.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>onEmailLogCreate</code></td><td>Firestore trigger: <code>EmailLogs/{EmailLogsId}</code> created</td><td>Every queued email</td><td>Sends a pending email through the active mail provider.</td></tr>
+        <tr><td><code>retryPendingEmails</code></td><td>Scheduled: every 5 minutes</td><td>The schedule</td><td>Sends again the emails in <code>retrying</code> or <code>deferred</code> whose next attempt is due.</td></tr>
+        <tr><td><code>handleUnsubscribe</code></td><td>HTTP, GET and POST</td><td>Public, with a signed link</td><td>Unsubscribes the recipient. GET shows a page; POST is one-click unsubscribe.</td></tr>
+        <tr><td><code>handleEmailPreferences</code></td><td>HTTP</td><td>Public, with a signed link</td><td>Shows the recipient's preferences page and subscribes or unsubscribes them.</td></tr>
+        <tr><td><code>unsubscribeLegacyLink</code></td><td>Callable</td><td>The unsubscribe page, for an older link</td><td>Unsubscribes the recipient of an older unsubscribe link, one that carries a member id instead of a signed token.</td></tr>
+        <tr><td><code>handleEmailWebhook</code></td><td>HTTP</td><td>The mail provider</td><td>Records sent, delivered, bounce, complaint and reject events on the email log.</td></tr>
+        <tr><td><code>trackEmailOpen</code></td><td>HTTP</td><td>An email client loading the tracking pixel</td><td>Records an open and returns a 1x1 GIF.</td></tr>
+        <tr><td><code>sendTestEmail</code></td><td>Callable</td><td>Admin</td><td>Sends composed content as a test email.</td></tr>
+        <tr><td><code>seedEmailTemplates</code></td><td>Callable</td><td>Admin</td><td>Creates missing default templates, notification types and event mappings, and the system lists when audience is on.</td></tr>
+        <tr><td><code>dedupeEmailTemplates</code></td><td>Callable</td><td>Admin</td><td>Deletes duplicate templates of the same type and form.</td></tr>
+        <tr><td><code>purgeEmailLogs</code></td><td>Callable</td><td>Admin</td><td>Deletes email logs older than a number of days (60 by default).</td></tr>
+        <tr><td><code>scheduledPurgeEmailLogs</code></td><td>Scheduled: every day 02:00 UTC</td><td>The schedule</td><td>Deletes email logs older than the retention in the email settings (60 days by default).</td></tr>
+        <tr><td><code>testProviderConnection</code></td><td>Callable</td><td>The Email settings page</td><td>Tests a mail provider configuration.</td></tr>
+        <tr><td><code>testSmtpConfigConnection</code></td><td>Callable</td><td>The Email settings page</td><td>Tests a mail provider configuration and sends a test email with it.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Email marketing</h2>
+    <p>Owned by <a href="../features/email-marketing.html">Email marketing</a>. Deployed only when the <code>email-marketing</code> feature is on (which needs <code>audience</code>).</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>processBroadcast</code></td><td>Firestore trigger: <code>BroadcastEmails/{broadcastId}</code> created</td><td>A new broadcast</td><td>Queues one email per recipient of a queued broadcast.</td></tr>
+        <tr><td><code>continueBroadcast</code></td><td>Firestore trigger: <code>_broadcast_continue/{docId}</code> created</td><td>A broadcast that ran out of time, or a scheduled one starting</td><td>Resumes the broadcast where it stopped.</td></tr>
+        <tr><td><code>processScheduledBroadcasts</code></td><td>Scheduled: every 5 minutes</td><td>The schedule</td><td>Starts scheduled broadcasts that are due, and marks those more than a day late as failed.</td></tr>
+        <tr><td><code>previewBroadcastAudience</code></td><td>Callable</td><td>Admin</td><td>Counts who a broadcast would reach, respecting consent.</td></tr>
+        <tr><td><code>processDripQueue</code></td><td>Scheduled: every 15 minutes</td><td>The schedule</td><td>Sends the due step of each active sequence enrollment.</td></tr>
+        <tr><td><code>activateDripCampaign</code></td><td>Callable</td><td>Admin</td><td>Activates a sequence, and enrolls the list's current members when it is set to.</td></tr>
+        <tr><td><code>archiveDripCampaign</code></td><td>Callable</td><td>Admin</td><td>Archives a sequence and ends its enrollments.</td></tr>
+        <tr><td><code>migrateWelcomeToSequences</code></td><td>Callable</td><td>Admin</td><td>Turns each form's welcome email into the first step of a sequence. <code>dryRun</code> only reports.</td></tr>
+        <tr><td><code>sendAnnouncement</code></td><td>Callable</td><td>Admin</td><td>Sends an announcement to an audience as in-app notifications, and by email when asked.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Automations</h2>
+    <p>Owned by <a href="../features/automations.html">Automations</a>. Always deployed.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>onAppEventCreate</code></td><td>Firestore trigger: <code>AppEvents/{id}</code> created</td><td>Any code that emits an app event</td><td>Runs the event's mapping from <code>Settings/event_mappings</code>: a notification, an email or a list change.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Notifications</h2>
+    <p>Owned by <a href="../features/notifications.html">Notifications</a>. Always deployed.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>onNotificationCreate</code></td><td>Firestore trigger: <code>Notifications/{id}</code> created</td><td>A new notification</td><td>Decides whether the notification is also emailed, and records why when it is not.</td></tr>
+        <tr><td><code>sendAdminDigest</code></td><td>Scheduled: every hour</td><td>The schedule; sends only in the configured hour</td><td>Emails every admin a 24-hour summary when the digest is on.</td></tr>
+        <tr><td><code>getMyNotificationPrefs</code></td><td>Callable</td><td>Signed in</td><td>Returns the notification types a person can choose and their email choices.</td></tr>
+        <tr><td><code>updateMyNotificationPrefs</code></td><td>Callable</td><td>Signed in</td><td>Saves the person's email choice for each notification type.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Sign-in</h2>
+    <p>Owned by <a href="../features/sign-in.html">Sign-in methods</a>. Email and Google sign-in, and adding an email or number to an account, are always deployed.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>checkEmailAccount</code></td><td>Callable</td><td>Public, 100 an hour per caller</td><td>Says whether an email is registered, new, an unfinished sign-up, or has no access.</td></tr>
+        <tr><td><code>requestSignupOtp</code></td><td>Callable</td><td>Public, 20 an hour per caller and 5 an hour per address</td><td>Emails a sign-up code.</td></tr>
+        <tr><td><code>verifySignupOtp</code></td><td>Callable</td><td>Public</td><td>Checks a sign-up or link code and returns a ticket.</td></tr>
+        <tr><td><code>createAccountRecord</code></td><td>Callable</td><td>Signed in with email and password</td><td>Creates the person's <code>users</code> record with the default role and sets the claims.</td></tr>
+        <tr><td><code>ensureGoogleAccount</code></td><td>Callable</td><td>Signed in with Google</td><td>Creates a <code>users</code> record for a new Google sign-in, when Google sign-in and sign-ups are on.</td></tr>
+        <tr><td><code>checkIdentifierForLink</code></td><td>Callable</td><td>Own record</td><td>Says whether an email or number is free, already theirs, or on another account.</td></tr>
+        <tr><td><code>requestEmailLinkOtp</code></td><td>Callable</td><td>Own record, 10 an hour</td><td>Emails a code to an address being added.</td></tr>
+        <tr><td><code>linkEmail</code></td><td>Callable</td><td>Own record</td><td>Adds the verified address to the account, moving it from another account if needed.</td></tr>
+        <tr><td><code>linkPhone</code></td><td>Callable</td><td>Own record; phone sign-in on</td><td>Adds the verified number to the account, moving it from another account if needed.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Phone sign-in</h3>
+    <p>Phone sign-in cannot work without an SMS provider, so these belong to the <a href="../features/sms.html">SMS</a> feature and deploy only when <code>sms</code> is on. Each also refuses to run unless phone sign-in is turned on in the sign-in settings.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>checkPhoneAccount</code></td><td>Callable</td><td>Public, 100 an hour per caller</td><td>Says whether a number has an account and a PIN.</td></tr>
+        <tr><td><code>requestPhoneOtp</code></td><td>Callable</td><td>Public, 20 an hour per caller; own record to add a number</td><td>Texts a code for sign-up, a PIN reset, or adding the number to an account.</td></tr>
+        <tr><td><code>verifyPhoneOtp</code></td><td>Callable</td><td>Public</td><td>Checks a text code and returns a ticket.</td></tr>
+        <tr><td><code>completePhoneSignup</code></td><td>Callable</td><td>Public, with a verified ticket</td><td>Creates the sign-in account and <code>users</code> record for a number, with its PIN.</td></tr>
+        <tr><td><code>signInWithPin</code></td><td>Callable</td><td>Public, 30 an hour per caller</td><td>Checks the PIN and returns a sign-in token.</td></tr>
+        <tr><td><code>resetPin</code></td><td>Callable</td><td>Public, with a verified ticket</td><td>Sets a new PIN, signs out every other session and returns a sign-in token.</td></tr>
+        <tr><td><code>setPin</code></td><td>Callable</td><td>Own record with a phone number</td><td>Sets the account's PIN.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>SMS</h2>
+    <p>Owned by <a href="../features/sms.html">SMS</a>. Deployed only when the <code>sms</code> feature is on.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>sendTestSms</code></td><td>Callable</td><td>Admin</td><td>Texts a test code to a number through the configured provider.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Users and roles</h2>
+    <p>Owned by <a href="../features/users-and-roles.html">Users and roles</a>. Always deployed. What deleting an account removes is set out in <a href="../app/account-contract.html">Follow the account contract</a>.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>onUserCreated</code></td><td>Firestore trigger: <code>users/{docId}</code> created</td><td>A new user</td><td>Adds the hashed email to <code>email_lookup</code>, emits <code>user.signed_up</code> and tells the admins.</td></tr>
+        <tr><td><code>onUserCreateWelcomeEmail</code></td><td>Firestore trigger: <code>users/{docId}</code> created</td><td>A new user with an email</td><td>Queues the sign-up welcome email.</td></tr>
+        <tr><td><code>onUserRoleChange</code></td><td>Firestore trigger: <code>users/{docId}</code> written</td><td>A user record created or changed</td><td>Sets the <code>arccms_role</code> and <code>arccms_uid</code> claims from the record. A blocked or detached record loses them and its sessions end.</td></tr>
+        <tr><td><code>onUserDeleted</code></td><td>Firestore trigger: <code>users/{docId}</code> deleted; retried for up to an hour</td><td>Deleting a user</td><td>Ends access, deletes the sign-in (unless another app owns it), the lookups, PIN, subcollections, Storage folders, feedback and notifications, then emits <code>user.deleted</code>.</td></tr>
+        <tr><td><code>claimFirstAdmin</code></td><td>Callable</td><td>Signed in with a <code>users</code> record, only while no admin has ever existed</td><td>Makes the caller the site's first admin.</td></tr>
+        <tr><td><code>syncAllUserRoles</code></td><td>Callable</td><td>Admin, by the <code>role</code> on their <code>users</code> record</td><td>Applies every user's claims again from their records.</td></tr>
+        <tr><td><code>adminCreateUser</code></td><td>Callable</td><td>Admin</td><td>Creates a sign-in account and <code>users</code> record with a role, or reuses an existing sign-in.</td></tr>
+        <tr><td><code>refreshMyClaims</code></td><td>Callable</td><td>Own record</td><td>Applies the caller's claims again. A blocked account loses them instead.</td></tr>
+        <tr><td><code>deleteMyAccount</code></td><td>Callable</td><td>Own record, signed in within the last 10 minutes, not an admin</td><td>Erases the person's contact and deletes their record; <code>onUserDeleted</code> does the rest.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Payments</h2>
+    <p>Owned by <a href="../features/payments.html">Payments</a>. Deployed only when the <code>payments</code> feature is on. The provider is Dodo Payments.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>createCheckoutSession</code></td><td>Callable</td><td>Signed in</td><td>Creates a checkout for a product at its current price tier and returns the checkout URL.</td></tr>
+        <tr><td><code>createTestCheckoutLink</code></td><td>Callable</td><td>Admin</td><td>Creates a test checkout URL for one tier's discount code.</td></tr>
+        <tr><td><code>dodoWebhook</code></td><td>HTTP</td><td>Dodo Payments, with a verified webhook signature</td><td>Saves the raw event to <code>WebhookEvents</code>, once per webhook id.</td></tr>
+        <tr><td><code>handlePaymentEvent</code></td><td>Firestore trigger: <code>WebhookEvents/{eventId}</code> created; retried</td><td>A saved webhook event</td><td>Updates the transaction, the purchase count and the user's entitlement, and sends the payment email.</td></tr>
+        <tr><td><code>testDodoConnection</code></td><td>Callable</td><td>Admin</td><td>Checks that the stored Dodo Payments keys work.</td></tr>
+        <tr><td><code>consumeCredits</code></td><td>Callable</td><td>Signed in</td><td>Spends the caller's prepaid credits and records it in <code>CreditLedger</code>.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Entitlement reminders and expiry</h3>
+    <p>Part of the <code>payments</code> feature and deployed with it. See <a href="../features/entitlements.html">Premium entitlements</a>.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>scanExpiredEntitlements</code></td><td>Scheduled: every day 08:00 UTC</td><td>The schedule</td><td>Ends subscriptions past their expiry plus a grace period, in case a webhook was missed.</td></tr>
+        <tr><td><code>scanTrialEndings</code></td><td>Scheduled: every day 09:00 UTC</td><td>The schedule</td><td>Emails, once, each user whose trial ends soon.</td></tr>
+        <tr><td><code>scanUpdatesEnding</code></td><td>Scheduled: every day 09:30 UTC</td><td>The schedule</td><td>Emails, once, each user whose free updates end soon.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Feedback</h2>
+    <p>Owned by <a href="../features/feedback.html">Feedback button</a>. Always deployed.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>onFeedbackCreated</code></td><td>Firestore trigger: <code>Feedback/{id}</code> created</td><td>A person sending feedback</td><td>Adds the sender's name, email and phone from their record, and notifies the admins, up to 10 alerts an hour per sender.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Analytics</h2>
+    <p>Owned by <a href="../features/analytics.html">Analytics</a>. Always deployed.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>connectGoogleAnalytics</code></td><td>Callable</td><td>Admin</td><td>Exchanges a Google authorization code and saves the connection.</td></tr>
+        <tr><td><code>selectAnalyticsProperty</code></td><td>Callable</td><td>Admin</td><td>Saves the chosen Google Analytics property.</td></tr>
+        <tr><td><code>refreshAnalyticsData</code></td><td>Callable</td><td>Admin</td><td>Fetches fresh data from Google Analytics and stores it.</td></tr>
+        <tr><td><code>disconnectGoogleAnalytics</code></td><td>Callable</td><td>Admin</td><td>Revokes the Google token and removes the connection.</td></tr>
+        <tr><td><code>testAnalyticsConnection</code></td><td>Callable</td><td>Not used by the admin screens</td><td>Checks the service account settings and returns the property's details.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Media</h2>
+    <p>Owned by <a href="../features/media.html">Media</a>. Always deployed.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>searchUnsplash</code></td><td>Callable</td><td>The media manager, signed in</td><td>Searches Unsplash images with the key kept on the server.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Installable app</h2>
+    <p>Owned by <a href="../features/pwa.html">Installable app (PWA)</a>. Deployed only when the <code>pwa</code> feature is on, which it is not by default.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>trackPwaEvent</code></td><td>Callable</td><td>Public, 30 an hour per caller</td><td>Counts an install prompt, install, dismissal or installed open per day and platform, and marks a signed-in person's record as installed.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

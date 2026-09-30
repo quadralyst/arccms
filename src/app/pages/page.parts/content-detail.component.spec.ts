@@ -768,7 +768,7 @@ describe('ContentDetailComponent', () => {
         });
     });
 
-    // ─── Author (docs/discoverability-spec.md, D2) ─────────────────────────
+    // ─── Author (specs/discoverability-spec.md, D2) ─────────────────────────
 
     describe('author', () => {
         function showDraft(draft: Record<string, unknown>): void {
@@ -817,7 +817,7 @@ describe('ContentDetailComponent', () => {
         });
     });
 
-    // ─── Blocks and sources (docs/discoverability-spec.md, D-D10, D-D11) ───
+    // ─── Blocks and sources (specs/discoverability-spec.md, D-D10, D-D11) ───
 
     describe('blocks and sources', () => {
         function showDraft(draft: Record<string, unknown>): void {
@@ -859,7 +859,7 @@ describe('ContentDetailComponent', () => {
         });
     });
 
-    // ─── Mapped schema type (docs/discoverability-spec.md, D-D12) ──────────
+    // ─── Mapped schema type (specs/discoverability-spec.md, D-D12) ──────────
 
     describe('mapped schema type', () => {
         it('publishes the item as the content type\'s mapped type in the head', async () => {
@@ -883,7 +883,7 @@ describe('ContentDetailComponent', () => {
         });
     });
 
-    // ─── Updated line (docs/discoverability-spec.md, D-D3) ─────────────────
+    // ─── Updated line (specs/discoverability-spec.md, D-D3) ─────────────────
 
     describe('updatedOnDisplay', () => {
         // currentContent is computed from the preview draft, so seed it that way.

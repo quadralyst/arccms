@@ -175,7 +175,7 @@ export class WaitlistFormService {
     async initWaitlistForms(container: HTMLElement, htmlFileName?: string): Promise<void> {
         if (!isPlatformBrowser(this.platformId)) return;
         // Without signup forms the page's markup stays as the site wrote it, but
-        // nothing reads, counts or submits it (docs/feature-flags-spec.md).
+        // nothing reads, counts or submits it (specs/feature-flags-spec.md).
         if (!isOn('forms')) return;
 
         // Start behavioral tracking for Phase 2 metadata

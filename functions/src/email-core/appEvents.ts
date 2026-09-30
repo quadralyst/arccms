@@ -223,7 +223,7 @@ async function runActions(rule: EventRule, { type, userId, appUserId, email, eve
   //    would copy them into Contacts, so the App users (live) list covers them.
   if (rule.addToLists?.length || rule.removeFromLists?.length) {
     if (!isFeatureOn('audience')) {
-      // No contacts or lists without the audience feature (docs/feature-flags-spec.md);
+      // No contacts or lists without the audience feature (specs/feature-flags-spec.md);
       // the rule stays saved for when it is on.
       results['lists'] = 'feature_off';
     } else if (appUserId) {

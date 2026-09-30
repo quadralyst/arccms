@@ -1,7 +1,7 @@
 /**
  * Author Model
  *
- * A person who writes for the site (docs/discoverability-spec.md, D-D5).
+ * A person who writes for the site (specs/discoverability-spec.md, D-D5).
  * Stored in the `Authors` collection: public-read (nothing private lives
  * here), admin-write. Not a user, because guest and past authors are not
  * users and user documents carry private fields; not a content type, because

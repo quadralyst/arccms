@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choose your app's features | Arc CMS docs</title>
+  <meta name="description" content="Turn off the Arc CMS features your app does not need, and turn on the installable app, in one file checked at build time.">
+  <meta name="docs:sources" content="src/custom/features.ts, src/app/core/features, scripts/arc-features.mjs, functions/src/features, functions/src/feature-flags.ts, functions/src/all.ts, vite.config.ts, scripts/arc-deploy.mjs">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/choose-features.html">
+  <main>
+    <h1>Choose your app's features</h1>
+    <p class="lead">Pick the Arc CMS features your app has in <code>src/custom/features.ts</code>. A feature that is off has no menu item, no page, no settings tab and no Cloud Function. Its data stays, and turning it back on brings everything back.</p>
+
+    <h2>Choose</h2>
+    <ol class="steps">
+      <li>
+        <p>Open <code>src/custom/features.ts</code>. As shipped, it is empty, which means every feature is on except the installable app:</p>
+        <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {};</code></pre>
+      </li>
+      <li>
+        <p>List what the app does not have in <code>off</code>, and the installable app in <code>on</code> if you want it:</p>
+        <pre><code>import type { FeatureChoice } from '../app/core/features/feature-registry';
+
+export const CUSTOM_FEATURES: FeatureChoice = {
+    on: ['pwa'],
+    off: ['content', 'sms', 'payments'],
+};</code></pre>
+      </li>
+      <li>
+        <p>Save. A running <code>npm run dev</code> restarts by itself and checks the choice; <code>npm run build</code> checks it first too.</p>
+      </li>
+      <li>
+        <p>Deploy all the functions once, so the functions of the features you turned off are removed from the project (see <a href="#cloud-functions-follow-the-features">Cloud Functions follow the features</a>).</p>
+      </li>
+    </ol>
+
+    <h2>The features</h2>
+    <p>Everything not in this table is core and always on: sign-in with email and Google, users and profiles, the media manager, languages, the feedback button, notifications, analytics, the email engine, automations, banners, and the admin and member dashboards.</p>
+    <table>
+      <thead><tr><th>Id</th><th>Default</th><th>Needs</th><th>What goes when it is off</th></tr></thead>
+      <tbody>
+        <tr><td><code>content</code></td><td>On</td><td></td><td>Content types, entries, authors, static pages (<code>/p/</code>), public content pages and publishing</td></tr>
+        <tr><td><code>search</code></td><td>On</td><td></td><td>Search settings, the admin search box and its results page, the public <code>/search</code> page and every search function</td></tr>
+        <tr><td><code>seo</code></td><td>On</td><td></td><td>Discoverability settings, the sitemap, RSS feeds, <code>robots.txt</code>, <code>llms.txt</code> and IndexNow</td></tr>
+        <tr><td><code>forms</code></td><td>On</td><td><code>audience</code></td><td>Signup forms, their pages, leaderboards, referrals and emails</td></tr>
+        <tr><td><code>audience</code></td><td>On</td><td></td><td>Contacts, lists, contact tags and fields, app users and the App audience settings</td></tr>
+        <tr><td><code>email-marketing</code></td><td>On</td><td><code>audience</code></td><td>Broadcasts, drip campaigns and announcements</td></tr>
+        <tr><td><code>sms</code></td><td>On</td><td></td><td>SMS settings, SMS logs, test SMS and phone sign-in</td></tr>
+        <tr><td><code>payments</code></td><td>On</td><td></td><td>Products, transactions, payment settings, pricing, checkout, credits, and the member's Payments, Account and Premium pages</td></tr>
+        <tr><td><code>data</code></td><td>On</td><td></td><td>The Data menu: import and export</td></tr>
+        <tr><td><code>pwa</code></td><td>Off</td><td></td><td>The installable app: manifest, service worker, install prompt and install stats</td></tr>
+      </tbody>
+    </table>
+    <p>Each feature has its own page under <a href="../features/overview.html">All features</a>, and <a href="../reference/feature-ids.html">Feature ids</a> lists the ids alone.</p>
+
+    <h2>When the build refuses a choice</h2>
+    <p><code>npm run dev</code> and <code>npm run build</code> resolve the choice before anything else, so a choice that cannot work never reaches the browser. They stop with a message that starts with <code>src/custom/features.ts:</code> and says what to change:</p>
+    <table>
+      <thead><tr><th>You wrote</th><th>The message</th></tr></thead>
+      <tbody>
+        <tr><td>A name that is not a feature, such as <code>off: ['payment']</code></td><td>unknown feature "payment" in "off". Features: content, search, seo, ...</td></tr>
+        <tr><td>The same feature in both lists</td><td>Installable app (pwa) is in both "on" and "off". Keep it in one.</td></tr>
+        <tr><td>A feature off while another one needs it, such as <code>off: ['audience']</code></td><td>Signup forms (forms) needs Audience (audience), which is off. Turn off forms as well, or keep audience.</td></tr>
+        <tr><td>Something other than a list</td><td>"off" must be a list, like off: ['payments']</td></tr>
+      </tbody>
+    </table>
+    <p>A typo stops the build on purpose: it must never leave a feature on that you meant to turn off.</p>
+
+    <h2>What turning a feature off does</h2>
+    <h3>In the browser</h3>
+    <p>At the next build, or straight away with <code>npm run dev</code>:</p>
+    <ul>
+      <li>Its menu items, settings tabs, dashboard cards and member-area links go.</li>
+      <li>Every one of its addresses shows the not-found page and keeps the address, bookmarks and old links included.</li>
+      <li>Core screens adjust. For example, without <code>sms</code> the "Email + SMS" menu is "Email" and phone sign-in is not offered.</li>
+    </ul>
+
+    <h3>Cloud Functions follow the features</h3>
+    <p>A feature's functions are exported from their own file in <code>functions/src/features/</code>, such as <code>functions/src/features/payments.ts</code>. A function that needs two features sits in a file named after both, such as <code>functions/src/features/search+content.ts</code>.</p>
+    <p>Before every functions build and every test run, <code>scripts/arc-features.mjs</code> reads <code>src/custom/features.ts</code> and writes two generated files in <code>functions/src/</code>: the list of features that are on, and the exports of every feature file whose features are all on. <code>functions/src/all.ts</code> re-exports that list, so a feature that is off is not in the build at all. Both files are ignored by git.</p>
+    <p>At the next deploy of all the functions, the functions that are no longer in the build are deleted from the project:</p>
+    <ul>
+      <li><code>npm run deploy</code> lists them and asks first. Run from a script, it needs <code>--yes</code> to delete them and stops otherwise.</li>
+      <li><code>npm run deploy:dev</code> and <code>npm run deploy:prod</code> pass <code>--force</code>, so they delete them without asking.</li>
+      <li>A deploy of named functions never deletes anything (<a href="../operations/targeted-deploys.html">Deploy only what changed</a>).</li>
+      <li>Addresses the outside world holds stop working, such as a payment webhook registered with the payment provider.</li>
+    </ul>
+    <p>See <a href="../operations/deploy.html">Deploy</a>.</p>
+    <div class="note"><p><code>scripts/arc-features.mjs</code> loads the TypeScript files directly, which needs Node 22.18 or later.</p></div>
+
+    <h3>Data, rules and indexes</h3>
+    <p>They stay as they are. Turn the feature back on, build and deploy, and everything is there again.</p>
+
+    <h2>Make your own code follow the features</h2>
+    <table>
+      <thead><tr><th>Your code</th><th>How it checks a feature</th></tr></thead>
+      <tbody>
+        <tr><td>An admin menu item in <code>src/custom/nav.ts</code></td><td>Set <code>feature: 'payments'</code> on the item (<a href="admin-menu.html">Add admin menu items</a>)</td></tr>
+        <tr><td>Routes in <code>src/custom/routes.ts</code></td><td>Wrap them: <code>...whenOn('payments', [ ... ])</code>, from <code>src/app/core/features/feature-routes.ts</code> (<a href="pages-and-routes.html">Add pages and routes</a>)</td></tr>
+        <tr><td>A component or service</td><td><code>isOn('payments')</code>, from <code>src/app/core/features/features.ts</code></td></tr>
+        <tr><td>A Cloud Function in <code>functions/src/custom/</code></td><td><code>isFeatureOn('payments')</code>, from <code>functions/src/feature-flags.ts</code></td></tr>
+      </tbody>
+    </table>
+    <p>The test suite always runs with every feature on, whatever <code>src/custom/features.ts</code> says, so an app that turns features off can still run all of it. A test about one particular choice mocks <code>src/custom/features.ts</code> itself, or, for a Cloud Function, <code>functions/src/feature-flags.ts</code>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

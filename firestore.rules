@@ -12,7 +12,7 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------
-    // Helpers for app rules (firestore.app.rules, docs/app-rules.md).
+    // Helpers for app rules (firestore.app.rules, docs/app/rules-and-indexes.html).
     // Apps call these, plus isAdmin() and isEditor() below; keep their
     // names and meaning stable.
     // ------------------------------------------------------------
@@ -32,7 +32,7 @@ service cloud.firestore {
 
     // The ArcCMS role is the `arccms_role` claim (functions/src/users/claims.ts),
     // never a plain `role`: an app sharing the sign-in pool may give its own
-    // admins `role: 'admin'` (docs/coexistence-spec.md, CO-D7).
+    // admins `role: 'admin'` (specs/coexistence-spec.md, CO-D7).
     function arcRole() {
       return request.auth.token.get('arccms_role', '');
     }
@@ -43,7 +43,7 @@ service cloud.firestore {
 
     // Content staff: may write content types, content, tags, media and the
     // publish queue. Admins, plus an `editor` role that CO1 reserves
-    // (docs/coexistence-spec.md). Nothing in the app grants `editor` today and
+    // (specs/coexistence-spec.md). Nothing in the app grants `editor` today and
     // every admin route is admin-only, so in practice this is admins. The claim
     // comes from onUserRoleChange, and only admins or the Admin SDK can set a
     // user's `role` (see the users rules below), so nobody can self-assign it.
@@ -64,7 +64,7 @@ service cloud.firestore {
       allow write: if isEditor();
     }
 
-    // Authors - who writes for the site (docs/discoverability-spec.md, D-D5).
+    // Authors - who writes for the site (specs/discoverability-spec.md, D-D5).
     // Public read: the static pages print the same name, bio, photo and
     // profile links on every byline and in the Article JSON-LD, and the SPA
     // fallback needs them to render the same box. Nothing private is stored
@@ -156,13 +156,13 @@ service cloud.firestore {
       // holds only `completed` and two timestamps — it says whether the site
       // finished its setup, which any visitor to an unfinished site can see
       // anyway. Writes are admin only, via the catch-all below.
-      // `feedback` holds only whether the feedback button is on (docs/feedback.md);
+      // `feedback` holds only whether the feedback button is on (docs/features/feedback.html);
       // admins switch it on the Feedback page.
       // `about` is public-read as well: it is the site's published identity
       // (name, URL, address, logo, description, profile links, public contact
       // email), the same data every static page already carries as schema.org
       // JSON-LD. The SPA fallback pages need it to emit the same nodes
-      // (docs/discoverability-spec.md, D1). Nothing secret lives there.
+      // (specs/discoverability-spec.md, D1). Nothing secret lives there.
       allow read: if settingId in ['email_status', 'site-usage', 'misc', 'cache', 'global-message', 'users', 'localization', 'onboarding_status', 'about', 'feedback'];
       // Every write below is admin only, including the public-read documents
       // above (review S5, 2026-09-28). `about`, `site`, `email_status`,
@@ -304,7 +304,7 @@ service cloud.firestore {
 
     // Search index — written by Cloud Functions only, read by the `search`
     // callable only. Closed to clients on purpose: the callable is where
-    // scope is enforced (docs/search-spec.md, S-D1 and S-D8).
+    // scope is enforced (specs/search-spec.md, S-D1 and S-D8).
     match /SearchIndex/{entryId} {
       allow read, write: if false;
     }
@@ -315,7 +315,7 @@ service cloud.firestore {
       allow write: if isEditor();
     }
 
-    // Draft search queue (docs/feature-flags-spec.md 6.5): the editor writes an
+    // Draft search queue (specs/feature-flags-spec.md 6.5): the editor writes an
     // entry with each draft save, onSearchQueued indexes the draft and deletes it.
     // Only its two fields, so it cannot be used to store anything else.
     match /_search_queue/{docId} {
@@ -419,13 +419,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // App install counters by day (trackPwaEvent, docs/pwa.md). Admin read.
+    // App install counters by day (trackPwaEvent, docs/features/pwa.html). Admin read.
     match /PwaStats/{day} {
       allow read: if isAdmin();
       allow write: if false;
     }
 
-    // Feedback button (docs/feedback.md). A signed-in person creates their own,
+    // Feedback button (docs/features/feedback.html). A signed-in person creates their own,
     // new, with files only from their own folder; the onFeedbackCreated function
     // adds `sender`. Admins read, mark done, and delete.
     match /Feedback/{feedbackId} {

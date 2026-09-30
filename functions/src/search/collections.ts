@@ -1,5 +1,5 @@
 /**
- * Collections made searchable from Admin, Settings, Search (docs/feature-flags-spec.md,
+ * Collections made searchable from Admin, Settings, Search (specs/feature-flags-spec.md,
  * section 6). The collection is named in functions/src/custom/search-sources.ts,
  * which gives it a trigger; its setup (fields, result, scope) lives in
  * `Settings/search_collections` and applies on Rebuild, with no deploy.

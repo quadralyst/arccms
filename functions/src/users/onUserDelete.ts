@@ -2,7 +2,7 @@
  * Cloud Function trigger: fires when a user document is deleted from the `users` collection,
  * by an admin (Users, Delete) or by the person (Profile, Delete account: deleteMyAccount).
  *
- * Responsibilities (docs/account-contract.md, "Deleting an account"):
+ * Responsibilities (docs/app/account-contract.html, "Deleting an account"):
  * 0. End ArcCMS access first: remove the ArcCMS claims and sign out every session,
  *    whoever owns the sign-in, so a later failure cannot leave a removed admin an admin.
  * 1. Delete the corresponding Firebase Auth account (so the user can't sign in again).
@@ -135,7 +135,7 @@ export const onUserDeleted = onDocumentDeleted(
 
         // 4. Everything stored under the record: subcollections, and the Storage folders.
         tasks.push(step(`data under users/${docId}`, () => db.recursiveDelete(db.collection('users').doc(docId))));
-        // Their feedback (docs/feedback.md); its files are in the Storage folder below.
+        // Their feedback (docs/features/feedback.html); its files are in the Storage folder below.
         tasks.push(step('feedback', async () => {
             const snap = await db.collection('Feedback').where('userDocId', '==', docId).get();
             await Promise.all(snap.docs.map((d) => d.ref.delete()));

@@ -202,7 +202,7 @@ export async function addContactToLists(emailHash: string, listIds: string[]): P
     return toAdd;
   }).then(async (toAdd) => {
     // Joining a list enrolls the contact in that list's active drip campaigns (D4),
-    // which are email marketing's (docs/feature-flags-spec.md).
+    // which are email marketing's (specs/feature-flags-spec.md).
     if (toAdd.length && isFeatureOn('email-marketing')) await enrollInListCampaigns(emailHash, toAdd);
     return toAdd;
   });

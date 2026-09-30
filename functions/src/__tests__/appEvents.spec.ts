@@ -40,7 +40,7 @@ vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
 vi.mock('../email-core/contacts', () => ({
   upsertContact: mockUpsert, addContactToLists: mockAddLists, removeContactFromLists: mockRemoveLists,
 }));
-// Every feature on unless a test turns some off (docs/feature-flags-spec.md).
+// Every feature on unless a test turns some off (specs/feature-flags-spec.md).
 const featuresOff = vi.hoisted(() => new Set<string>());
 vi.mock('../feature-flags.js', () => ({ isFeatureOn: (id: string) => !featuresOff.has(id) }));
 vi.mock('../constant', () => ({ constant: { isProduction: false, live_url: 'https://x/', local_url: 'http://l/' } }));

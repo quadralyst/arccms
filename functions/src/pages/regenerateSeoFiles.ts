@@ -9,7 +9,7 @@ import { arcHostingSite } from '../arc-config.js';
 
 /**
  * Applies Settings > Discoverability to Hosting right away
- * (docs/discoverability-spec.md, D3): robots.txt, llms.txt and the IndexNow
+ * (specs/discoverability-spec.md, D3): robots.txt, llms.txt and the IndexNow
  * key file in one release. The same files also ride in every publish, so
  * this exists for the admin who wants to see the change now.
  */

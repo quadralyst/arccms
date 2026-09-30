@@ -6,7 +6,7 @@
  * entry whose document no longer exists is deleted, so the result is exactly
  * what the sources say it should be.
  *
- * Spec: docs/search-spec.md, phase S1 item 7.
+ * Spec: specs/search-spec.md, phase S1 item 7.
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
@@ -135,7 +135,7 @@ export async function reindexSource(
 async function recordStatus(results: SourceReindexResult[]): Promise<void> {
     // A nested object with merge, not dotted keys: set() would store those as
     // literal field names. The label and scope let Search settings show sources
-    // it has no code for (an app's own, docs/feature-flags-spec.md 6.4).
+    // it has no code for (an app's own, specs/feature-flags-spec.md 6.4).
     const sources: Record<string, unknown> = {};
     for (const result of results) {
         const source = findSource(result.source);

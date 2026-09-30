@@ -173,7 +173,7 @@ export const KNOWN_COLLECTIONS: CollectionConfig[] = [
     { name: 'Suppression', displayName: 'Suppression List' },
 ];
 
-/** The known collections of the features this app has (docs/feature-flags-spec.md). */
+/** The known collections of the features this app has (specs/feature-flags-spec.md). */
 export function exportableKnownCollections(on: (id: FeatureId) => boolean = isOn): CollectionConfig[] {
     return KNOWN_COLLECTIONS.filter((c) => !c.feature || on(c.feature));
 }

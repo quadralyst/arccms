@@ -344,7 +344,7 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
 
   // Mirror the buyer into the unified Contacts layer (source `customer`,
   // joins the `all-customers` system list). Idempotent — repeat charges no-op.
-  // Contacts are the audience feature's (docs/feature-flags-spec.md).
+  // Contacts are the audience feature's (specs/feature-flags-spec.md).
   const customerEmail = data.customer?.email || '';
   if (customerEmail && isFeatureOn('audience')) {
     try {

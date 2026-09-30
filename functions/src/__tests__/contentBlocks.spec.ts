@@ -23,7 +23,7 @@ const TAKEAWAYS = `<section data-arc-block="takeaways"><h3>Key takeaways</h3><ul
 
 const DEFINITION = `<section data-arc-block="definition"><h3>What is a headless CMS?</h3><p>A headless CMS stores content without a front end.</p><p>More.</p></section>`;
 
-describe('extractBlocks (docs/discoverability-spec.md, D-D10)', () => {
+describe('extractBlocks (specs/discoverability-spec.md, D-D10)', () => {
     it('returns empty shapes for plain content and for no content', () => {
         expect(extractBlocks('')).toEqual({ faqs: [], howTos: [], takeaways: [], definitions: [] });
         expect(extractBlocks('<h3>Question?</h3><p>Not in a block.</p>').faqs).toEqual([]);

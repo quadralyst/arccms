@@ -1,5 +1,5 @@
 /**
- * The Arc CMS features this app turns on or off (docs/custom-code.md). Arc CMS
+ * The Arc CMS features this app turns on or off (docs/app/custom-space.html). Arc CMS
  * ships this empty and never edits it again. Empty means every feature is on
  * except the installable app (PWA), which a plain website does not want.
  *

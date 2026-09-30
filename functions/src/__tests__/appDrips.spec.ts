@@ -1,4 +1,4 @@
-/** Sequences on App users (live) lists: joining and leaving (docs/coexistence-spec.md 5b, CO6.5c). */
+/** Sequences on App users (live) lists: joining and leaving (specs/coexistence-spec.md 5b, CO6.5c). */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const m = vi.hoisted(() => {

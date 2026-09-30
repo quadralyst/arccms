@@ -6,7 +6,7 @@
  * pipeline), and the reindex callable. All three end up here, so an entry is
  * built one way only.
  *
- * Spec: docs/search-spec.md, decision S-D12 and phase S1.
+ * Spec: specs/search-spec.md, decision S-D12 and phase S1.
  */
 
 import { Timestamp } from 'firebase-admin/firestore';

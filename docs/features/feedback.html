@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Feedback button | Arc CMS docs</title>
+  <meta name="description" content="Let signed-in people send a message, a voice note and a screenshot from any page, and read it all in one admin inbox.">
+  <meta name="docs:sources" content="src/app/core/feedback, src/shared/components/feedback, src/app/pages/admin/(feedback), functions/src/feedback, firestore.rules, storage.rules, firestore.indexes.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/feedback.html">
+  <main>
+    <h1>Feedback button</h1>
+    <p class="lead">A Feedback button on every page lets signed-in people send a message, a voice note, or both, with a screenshot of what they see. Admins read everything in one inbox.</p>
+
+    <h2>What it is</h2>
+    <p>The button sits in the bottom right corner. Pressing it opens a panel and takes a screenshot behind it (the panel is not in the picture). The person types what happened or records a voice note, can remove the screenshot, and presses <strong>Send</strong>.</p>
+    <p>Sent with it, without asking: the page path (not the full address, which can carry codes) and title, the browser and system, screen and window size, whether the app is installed, and the language. The sender's name, email and phone are added on the server from their record.</p>
+    <p>The button shows only to signed-in people with an Arc CMS record, and never on admin pages.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>The feedback button is core and belongs to no switchable feature. It has its own switch: Admin, <strong>Feedback</strong>, the switch at the top. It is <strong>off</strong> by default. A change takes effect on each person's next page load, with no deploy.</p>
+    <p>When it is off, the button is hidden and the security rules refuse new feedback too, so a script cannot keep sending it. The inbox and what was already sent stay.</p>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li><p>Deploy the functions, Firestore rules, Storage rules and indexes (see <a href="../operations/deploy.html">Deploy</a>).</p></li>
+      <li><p>Open Admin, Feedback and turn the switch on.</p></li>
+      <li><p>Sign in as a normal user, send a test, and check that it appears in the inbox and rings the admin bell.</p></li>
+    </ol>
+    <div class="trap"><p>Voice notes need <code>https</code> (or <code>localhost</code>). On a plain <code>http</code> address the record button is not shown and people can only type.</p></div>
+
+    <h2>Use it</h2>
+    <h3>Voice notes</h3>
+    <p>A voice note can be up to 2 minutes; recording stops by itself. The browser asks for the microphone the first time. Where the microphone is blocked, the panel says how to allow it, or to type instead. Where a browser cannot record at all, there is no record button.</p>
+    <table>
+      <thead><tr><th>Browser</th><th>Records as</th></tr></thead>
+      <tbody>
+        <tr><td>Safari (Mac, iPhone, iPad), recent Chrome and Edge</td><td>MP4, which plays everywhere</td></tr>
+        <tr><td>Firefox, older Chrome</td><td>WebM or Ogg</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The screenshot</h3>
+    <p>It is drawn from the page itself, since a browser cannot capture the real screen without asking each time. It shows the visible part of the page, taken a moment after the tap, as a JPEG. Images still loading are left out, and so is any image or font that takes more than 2 seconds. If it cannot be made, the feedback is sent without it.</p>
+    <div class="trap"><p>A game canvas (Phaser, WebGL) comes out blank unless the game keeps its drawing: set <code>preserveDrawingBuffer: true</code> in the renderer settings (in Phaser, <code>render: { preserveDrawingBuffer: true }</code>).</p></div>
+
+    <h3>The inbox</h3>
+    <p>Admin, <strong>Feedback</strong> (<code>/admin/feedback</code>) lists feedback newest first, filtered <strong>New</strong>, <strong>Done</strong> or <strong>All</strong>. Each item shows who sent it and when, the message, the voice note, the screenshot (open it full size), the page and the device. <strong>Mark done</strong> moves it out of New, <strong>Mark as new</strong> moves it back, and <strong>Delete</strong> removes it with its files.</p>
+    <p>Each new item rings the admin bell (notification type <code>admin_new_feedback</code>), for up to 10 items an hour from one person. Past that the feedback is still saved, without a notification. See <a href="notifications.html">Notifications</a>.</p>
+
+    <h2>Extend it</h2>
+    <ul>
+      <li>
+        <p><strong>Hide the button on a page</strong>, for example during a game, with route data. Any route on the way to the page can say it:</p>
+        <pre><code>{ path: 'play', loadComponent: ..., data: { feedbackButton: false } }</code></pre>
+      </li>
+      <li>
+        <p><strong>Open the panel from your own button</strong>, which works on pages that hide the floating button too:</p>
+        <pre><code>import { FeedbackService } from '../../app/core/feedback/feedback.service';
+
+inject(FeedbackService).openPanel();</code></pre>
+        <p><code>FeedbackService</code> is in <code>src/app/core/feedback/feedback.service.ts</code>; the import above is from a file one folder inside <code>src/custom/</code>. Check <code>available()</code> first: it is true only when the button is on and the person is signed in with an Arc CMS record.</p>
+      </li>
+      <li><p><strong>Keep something private out of screenshots:</strong> give the element the attribute <code>data-feedback-ignore</code>.</p></li>
+    </ul>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>Feedback/{id}</code></td><td><code>uid</code>, <code>userDocId</code>, <code>message</code> (up to 5,000 characters), <code>screenshotPath</code>, <code>voicePath</code>, <code>voiceSeconds</code>, <code>page</code>, <code>device</code>, <code>status</code> (<code>new</code> or <code>done</code>), <code>createdAt</code>, and <code>sender</code> (name, email, phone), which only the server adds.</td></tr>
+        <tr><td>Storage <code>users/{userDocId}/feedback/{id}/</code></td><td><code>screenshot.jpg</code> (JPEG, under 5 MB) and <code>voice.mp4</code>, <code>voice.webm</code> or <code>voice.ogg</code> (audio, under 10 MB), in the sender's own folder, under the install's upload folder if it has one.</td></tr>
+        <tr><td><code>Settings/feedback</code></td><td><code>{ enabled }</code>: the switch.</td></tr>
+      </tbody>
+    </table>
+    <p>Cloud Function: <code>onFeedbackCreated</code> runs on each new <code>Feedback</code> document. It adds <code>sender</code> from the sender's record and notifies the admins. See <a href="../reference/cloud-functions.html">Cloud Functions</a>.</p>
+    <p>Deleting an account deletes the person's feedback and its files (see <a href="users-and-roles.html#what-deleting-an-account-removes">Users and roles</a>).</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Action</th><th>Who</th></tr></thead>
+      <tbody>
+        <tr><td>Send feedback</td><td>A signed-in person with an Arc CMS record, while the switch is on. The rules check that it is theirs, new, points only at those two files in their own folder, and describes the page and device with the known fields only.</td></tr>
+        <tr><td>Upload the screenshot and voice note</td><td>The sender, into their own folder, as new files only (never over an existing file).</td></tr>
+        <tr><td>Read, mark done, delete feedback</td><td>Admins</td></tr>
+        <tr><td>Read the files</td><td>The sender and admins</td></tr>
+        <tr><td>Turn the button on or off</td><td>Admins. Anyone can read <code>Settings/feedback</code>.</td></tr>
+      </tbody>
+    </table>
+    <p>The inbox links only to pages on this site, and opens or deletes only the item's own files, whatever the stored paths say.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>No button anywhere</td><td>The switch is off, the person is not signed in, or it is an admin page. After turning it on, reload the page.</td></tr>
+        <tr><td>No button for one signed-in person</td><td>Their token has no <code>arccms_uid</code> claim, such as another app's user with no Arc CMS record. Signing out and in again refreshes the claim for a person who has a record.</td></tr>
+        <tr><td>No record button</td><td>The page is not on <code>https</code>, or the browser cannot record.</td></tr>
+        <tr><td>"Could not send."</td><td>The connection dropped, or the switch was turned off after the page loaded.</td></tr>
+        <tr><td>The inbox shows no sender name</td><td>It shows "Someone": the <code>onFeedbackCreated</code> function is not deployed, or the sender's record has no name, email or phone.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

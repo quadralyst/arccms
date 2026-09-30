@@ -10,7 +10,7 @@
  * read happens (S-D8). The index itself is closed to clients by rules, so
  * this function is the only way in.
  *
- * Spec: docs/search-spec.md, phase S3.
+ * Spec: specs/search-spec.md, phase S3.
  */
 
 import { onCall, HttpsError, type CallableRequest } from 'firebase-functions/v2/https';

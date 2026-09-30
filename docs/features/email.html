@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email engine | Arc CMS docs</title>
+  <meta name="description" content="Connect an email provider, brand and compose templates, send transactional email, read the email log, and handle unsubscribes and retries.">
+  <meta name="docs:sources" content="functions/src/email-core/queueEmail.ts, functions/src/email-core/retryPendingEmails.ts, functions/src/email-core/defaultTemplates.ts, functions/src/email-core/seedEmailTemplates.ts, functions/src/email-core/sendTestEmail.ts, functions/src/email-core/handleUnsubscribe.ts, functions/src/email-core/handleEmailPreferences.ts, functions/src/email-core/unsubscribeToken.ts, functions/src/email-core/unsubscribeSecret.ts, functions/src/email-core/unsubscribeLegacyLink.ts, functions/src/email-core/sendAdminDigest.ts, functions/src/email-core/adminAlerts.ts, functions/src/mail-config, functions/src/email-log/createEmailLog.ts, functions/src/email-log/handleEmailWebhook.ts, functions/src/email-log/trackEmailOpen.ts, functions/src/email-log/purgeEmailLogs.ts, functions/src/email-log/scheduledPurgeEmailLogs.ts, functions/src/users/onUserWelcomeEmail.ts, functions/src/constant.ts, functions/src/types.ts, src/app/pages/admin/(settings)/email-setting, src/app/pages/admin/(email-brand), src/app/pages/admin/(email-composer), src/app/pages/admin/(email-logs), src/shared/email-compiler, src/shared/components/email-block-editor, src/shared/directives/hashtag-autocomplete, src/shared/constants/email-tags.ts, src/shared/services/email-config-status.service.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/email.html">
+  <main>
+    <h1>Email engine</h1>
+    <p class="lead">Every email Arc CMS sends goes through one engine: pick a provider, set a brand kit, edit templates in a block editor, and read what happened to each message in the email log.</p>
+
+    <h2>What it is</h2>
+    <p>The engine is the part every other email feature sends through. It has these pieces:</p>
+    <table>
+      <thead><tr><th>Piece</th><th>Where</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>Provider settings</td><td>Admin, Settings, Email Settings (<code>/admin/settings/email</code>)</td><td>Which service sends the mail, the sender identity, rate limits, log retention, and a switch per kind of email</td></tr>
+        <tr><td>Brand kit</td><td>Admin, Email, Brand Kit</td><td>Logo, colors, font, footer and social links wrapped around every block-built email</td></tr>
+        <tr><td>Composer</td><td>Admin, Email, Composer</td><td>A block editor for every email template, with a test send</td></tr>
+        <tr><td>Transactional emails</td><td>Cloud Functions</td><td>Sign-up codes, the welcome email, payment receipts, notification emails, the admin digest</td></tr>
+        <tr><td>Queue and retries</td><td>Cloud Functions</td><td>Checks each send against the switches, consent and suppression, sends it, and retries failures</td></tr>
+        <tr><td>Email log</td><td>Admin, Email, Email Logs (<code>/admin/email-logs</code>)</td><td>One record per email, including the ones that were blocked</td></tr>
+        <tr><td>Unsubscribe and preferences</td><td>Public links in each email</td><td>One-click unsubscribe and a page to turn marketing email off or back on</td></tr>
+      </tbody>
+    </table>
+    <p>The Email menu is named Email + SMS while the <a href="sms.html">SMS</a> feature is on.</p>
+    <p>Every email has a <strong>category</strong>. <code>transactional</code> email (codes, receipts) ignores marketing consent. <code>marketing</code> email needs the recipient to be subscribed and must contain an unsubscribe link. Broadcasts, drip sequences and announcements are <a href="email-marketing.html">Email marketing</a>; form emails are <a href="forms.html">Signup forms</a>. Both send through this engine.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>The engine is always on: it is core, not a switchable feature, and every app has it. What you control is at run time, on Admin, Settings, Email Settings:</p>
+    <ul>
+      <li><strong>The master switch</strong> (<strong>Email Enabled</strong>) turns all sending on or off. It cannot be turned on until a provider is set up. While it is off, every send is written to the email log as <code>skipped</code> with the reason <code>email_disabled</code>.</li>
+      <li><strong>Email Features</strong> turns one kind of email off and leaves the rest alone. A blocked send is logged as <code>skipped</code>, reason <code>feature_disabled</code>. Admin alerts is the exception: while it is off, the alerts are not created at all, in the app or by email.</li>
+    </ul>
+    <table>
+      <thead><tr><th>Switch</th><th>Stops</th></tr></thead>
+      <tbody>
+        <tr><td>Waitlist emails</td><td>Signup form codes and welcome emails</td></tr>
+        <tr><td>Account emails</td><td>The sign-up code and the welcome email for new accounts</td></tr>
+        <tr><td>Payment emails</td><td>Receipts, failed payments, subscription changes, trial and updates reminders</td></tr>
+        <tr><td>Notification emails</td><td>The email copy of in-app notifications, and the admin digest</td></tr>
+        <tr><td>Broadcasts</td><td>Broadcast sends</td></tr>
+        <tr><td>Drip campaigns</td><td>Drip sequence steps</td></tr>
+        <tr><td>Admin alerts</td><td>The notifications sent to every admin on events such as a new sign-up, a payment or new feedback</td></tr>
+      </tbody>
+    </table>
+    <p>Test sends and emails sent by <a href="automations.html">Automations</a> have no switch of their own under Email Features; the master switch still stops them.</p>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li>
+        <p><strong>Choose a provider.</strong> Open Admin, Settings, Email Settings and pick one:</p>
+        <table>
+          <thead><tr><th>Provider</th><th>What it needs</th><th>Default limits</th></tr></thead>
+          <tbody>
+            <tr><td>SMTP</td><td>Host, port (587 by default), secure on or off, user, password</td><td>1 per second</td></tr>
+            <tr><td>Gmail</td><td>A Gmail address and a Google app password</td><td>1 per second, 500 a day</td></tr>
+            <tr><td>Resend</td><td>An API key</td><td>2 per second, 100 a day</td></tr>
+            <tr><td>Debug Provider (Log Only)</td><td>Nothing</td><td>None</td></tr>
+          </tbody>
+        </table>
+        <p>For a real provider, click <strong>Send a Test Email</strong> and give an address: the test sends a real message through the provider, and <strong>Save Settings</strong> stays disabled until it passes. The Debug Provider needs no test.</p>
+      </li>
+      <li>
+        <p><strong>Fill in the sender.</strong> Sender name and email are copied into the default templates when they are created, and used for test sends. Reply-to applies to every send; BCC (a copy of every email) applies with SMTP and Gmail. Change the per-second, per-hour and per-day limits if your plan allows more. A send over the limit waits and is tried again later.</p>
+      </li>
+      <li>
+        <p><strong>Turn email on</strong> with the master switch, and save.</p>
+      </li>
+      <li>
+        <p><strong>Set the public address for email links.</strong> Unsubscribe and preference links are built on <code>liveUrl</code> in the <code>Settings/email</code> document, or, when that is empty, on <code>live_url</code> in <code>functions/src/constant.ts</code>. The admin page has no field for it: add <code>liveUrl</code> (for example <code>https://example.com/</code>) to the document in the Firebase console. Saving the page keeps it.</p>
+      </li>
+      <li>
+        <p><strong>Set the brand kit</strong> on Admin, Email, Brand Kit: logo URL and width, colors, font, footer text, postal address and social links. The preview updates as you type.</p>
+      </li>
+    </ol>
+    <p>Templates need no setup step. The default templates are created the first time something needs one (the first sign-up, the first notification email, the first digest), and opening Email, Announcements creates any that are missing. Creating them never overwrites a template that exists.</p>
+    <div class="note"><p>Provider secrets (the SMTP or Gmail password, the Resend API key) are stored in the <code>Settings/email</code> document, which only admins can read. The secret that signs unsubscribe links is created on first use in <code>_system/unsubscribe_secret</code>, which no browser can read.</p></div>
+    <div class="note"><p>Use the Debug Provider (Log Only) while you build and test: every email is composed in full and recorded in the email log, and nothing is sent. The admin dashboard shows a banner while it is active. Switch to a real provider, and test the connection, before real people sign up.</p></div>
+
+    <h2>Use it</h2>
+    <h3>Edit templates in the composer</h3>
+    <ol class="steps">
+      <li><p>Open Admin, Email, Composer. It lists one template per type. Templates of a feature that is off (form or payment emails) are not listed.</p></li>
+      <li><p>Pick a template, or click <strong>New email</strong>. A new email gets a unique type such as <code>custom_1759200000000</code>; the Type column shows it as "Custom 1759200000000".</p></li>
+      <li><p>Set the title, subject and category, then build the body from blocks: heading, paragraph, image, button, divider, spacer, columns, social links and raw HTML.</p></li>
+      <li><p>Type <code>#</code> in a text field to pick a merge tag such as <code>##NAME##</code>. The tags offered depend on the template type; the full list is in <a href="../reference/email-tags.html">Email merge tags</a>.</p></li>
+      <li><p>Save. The composer stores the block design and the finished HTML, wrapped in the brand kit.</p></li>
+      <li><p>Click <strong>Send test</strong> to send the compiled email to an address. Its subject starts with <code>[TEST]</code>, and it is logged like any other email.</p></li>
+    </ol>
+    <p>A marketing template cannot be saved without <code>##UNSUBSCRIBE_LINK##</code>. The brand kit footer carries it by default.</p>
+    <div class="trap"><p>A template made with <strong>New email</strong>, here or from a drip step, has no sender of its own (only the default templates carry one), and drip steps and <a href="automations.html">Automations</a> send with the template's sender. The composer has no sender field: before using such a template there, add <code>senderName</code> and <code>senderEmail</code> to its <code>EmailTemplate</code> document in the Firebase console.</p></div>
+    <div class="trap"><p>The brand kit is applied when a template is saved, not when it is sent. After changing the brand kit, open each block template in the composer and save it again, or its emails keep the old look.</p></div>
+    <div class="trap"><p>The default templates are plain HTML and open read-only in the composer. <strong>Upgrade to blocks</strong> starts a new starter block design (a heading and a paragraph); it does not convert the old content. Copy the text you want to keep before you upgrade.</p></div>
+
+    <h3>Transactional emails</h3>
+    <table>
+      <thead><tr><th>Template type</th><th>Sent when</th><th>Category</th></tr></thead>
+      <tbody>
+        <tr><td><code>signup_otp_email</code></td><td>Someone asks for a sign-up or email change code</td><td>transactional</td></tr>
+        <tr><td><code>signup_welcome_email</code></td><td>A user record is created</td><td>marketing</td></tr>
+        <tr><td><code>notification_generic_email</code></td><td>An in-app notification is also sent by email (see <a href="notifications.html">Notifications</a>)</td><td>the notification type's</td></tr>
+        <tr><td><code>admin_digest_email</code></td><td>The daily admin digest, when turned on</td><td>transactional</td></tr>
+        <tr><td><code>payment_succeeded_email</code>, <code>payment_failed_email</code>, <code>subscription_lifecycle_email</code>, <code>trial_ending_email</code>, <code>updates_ending_email</code></td><td>Payment events and reminders (see <a href="payments.html">Payments</a>)</td><td>transactional</td></tr>
+        <tr><td><code>waitlist_verify_otp_email</code>, <code>waitlist_welcome_email</code></td><td>Signup form codes and welcomes, one pair per form (see <a href="forms.html">Signup forms</a>)</td><td>transactional, marketing</td></tr>
+      </tbody>
+    </table>
+    <p>To stop one of these emails without touching code, turn its template off: payment emails have a switch each on Settings, Payments, and form emails on the form's Email Templates page. For the others, set the template's <code>isActive</code> field to <code>false</code> in the Firebase console. Its sends are then logged as <code>skipped</code>, reason <code>template_inactive</code>.</p>
+    <p>The admin digest emails every admin a count of new sign-ups, successful payments and failed emails from the last 24 hours. It has no switch on the admin page: set <code>adminDigest</code> to <code>{ enabled: true, hourUtc: 8 }</code> in the <code>Settings/email</code> document. The job runs every hour and sends in that hour (UTC).</p>
+
+    <h3>How a send works</h3>
+    <p>Every email is queued by one function, <code>queueEmail()</code> in <code>functions/src/email-core/queueEmail.ts</code>. It checks, in order: the master switch, the email's feature switch, whether the template is active, whether an admin disabled the contact (with Audience on), marketing consent (marketing only), and the suppression list. A send that fails a check is still written to the log, with the reason. A send that passes is written as <code>pending</code>, and a trigger sends it.</p>
+    <p>A failed send is retried with growing delays (10, then 20 minutes) up to 3 attempts, then marked <code>failed</code>. A send over the rate limit is marked <code>deferred</code> and tried again after 15 minutes. The <code>retryPendingEmails</code> job picks both up every 5 minutes.</p>
+
+    <h3>Read the email log</h3>
+    <p>Admin, Email, Email Logs lists every email with its status. Open one to see the exact subject and HTML that were sent, the merge tags used, and any tag that had no value.</p>
+    <table>
+      <thead><tr><th>Status</th><th>Means</th></tr></thead>
+      <tbody>
+        <tr><td><code>pending</code></td><td>Queued, about to be sent</td></tr>
+        <tr><td><code>success</code></td><td>The provider accepted it (with the Debug Provider: recorded, not sent)</td></tr>
+        <tr><td><code>retrying</code></td><td>A send failed; another attempt is scheduled</td></tr>
+        <tr><td><code>deferred</code></td><td>Over the rate limit; waiting</td></tr>
+        <tr><td><code>failed</code></td><td>Every attempt failed; the error is on the record</td></tr>
+        <tr><td><code>skipped</code></td><td>Blocked before sending: <code>email_disabled</code>, <code>feature_disabled</code>, <code>template_inactive</code>, <code>contact_disabled</code> or <code>unsubscribed</code></td></tr>
+        <tr><td><code>suppressed</code></td><td>The address is on the suppression list</td></tr>
+        <tr><td><code>delivered</code>, <code>bounced</code>, <code>complained</code></td><td>Set later by the provider webhook, when one is connected</td></tr>
+      </tbody>
+    </table>
+    <p>Logs older than 60 days are deleted every night at 02:00 UTC. Change the number of days, or turn this off, under <strong>Auto-Purge Email Logs</strong> on the Email Settings page. <strong>Purge Old Logs</strong> on the log page deletes them now.</p>
+
+    <h3>Unsubscribe and preferences</h3>
+    <p>The brand kit footer carries two links by default: <code>##UNSUBSCRIBE_LINK##</code> and <code>##PREFERENCES_LINK##</code>. Each carries a token signed with the site's secret, so nobody can build one for someone else's address.</p>
+    <ul>
+      <li><strong>Unsubscribe</strong> (<code>/unsubscribe?e=...&amp;t=...</code>) adds the address to the suppression list and shows a confirmation page. Marketing emails also carry the <code>List-Unsubscribe</code> headers, so mail apps can offer their own one-click button.</li>
+      <li><strong>Preferences</strong> (<code>/email-preferences?e=...&amp;t=...</code>) shows whether the person gets marketing email and lets them turn it off or back on.</li>
+    </ul>
+    <p>A suppressed address gets no marketing email and still gets transactional email, such as codes and receipts. With <a href="audience.html">Audience</a> on, the contact's consent changes as well, and with <a href="email-marketing.html">Email marketing</a> on, an unsubscribe ends their drip sequences. A bounce or complaint reported by the provider webhook is recorded on the email log only; to stop mailing an address that bounces, suppress its contact in Audience.</p>
+    <div class="warn"><p>The links point to <code>/unsubscribe</code> and <code>/email-preferences</code> on the public address from step 4, and those paths must reach the <code>arccms-handleUnsubscribe</code> and <code>arccms-handleEmailPreferences</code> functions. The <code>firebase.json</code> that Arc CMS ships sends every path to the site, where these two open the not-found page. Before launch, route both paths to their functions (for example with Firebase Hosting rewrites placed before the <code>**</code> rewrite), then click both links in a real email.</p></div>
+
+    <h2>Extend it</h2>
+    <p>Send email from your own Cloud Functions (in <code>functions/src/custom/</code>) through <code>queueEmail()</code>, never by writing to <code>EmailLogs</code>: a test fails if any file outside <code>functions/src/email-core/</code> creates an email log. Create the template in the composer, copy its type, and load it by that type:</p>
+    <pre><code>import { db } from '../init.js';
+import { queueEmail } from '../email-core/queueEmail.js';
+
+export async function sendShippedEmail(toEmail: string, tracking: string) {
+  const snap = await db.collection('EmailTemplate').where('type', '==', 'custom_1759200000000').limit(1).get();
+  if (snap.empty) return;
+  const t = snap.docs[0].data();
+  const settings = (await db.collection('Settings').doc('email').get()).data() ?? {};
+  await queueEmail({
+    source: 'event',
+    category: 'transactional',
+    toEmail,
+    senderEmail: t.senderEmail || settings.senderEmail,
+    senderName: t.senderName || settings.senderName,
+    subject: t.subject,
+    template: t.template,
+    type: t.type,
+    templateIsActive: t.isActive !== false,
+    data: { TRACKING: tracking },   // fills ##TRACKING##
+  });
+}</code></pre>
+    <p>A template created with <strong>New email</strong> has no sender of its own, and <code>queueEmail()</code> sends with exactly the sender you pass: fall back to the sender on Email Settings, as above.</p>
+    <ul>
+      <li>The result says what happened: <code>{ status: 'pending' | 'skipped' | 'suppressed', skipReason }</code>.</li>
+      <li>Pass <code>dedupeKey</code> from a trigger that may run twice: the same type and key never queue a second email.</li>
+      <li>To let admins decide which email goes out when something happens in your app, emit an event instead and let them map it in <a href="automations.html">Automations</a>.</li>
+      <li>To reach a signed-in user in the app and by email, create a notification (see <a href="notifications.html#extend-it">Notifications</a>).</li>
+    </ul>
+    <p>Where your functions go and how they deploy: <a href="../app/functions.html">Write your own Cloud Functions</a>.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>Settings/email</code></td><td>Provider and its secrets, sender, limits, retention, feature switches, <code>liveUrl</code>, <code>adminDigest</code></td></tr>
+        <tr><td><code>Settings/email_status</code></td><td>A public copy of the master switch, the sign-up verification switch and whether the Debug Provider is active (no secrets)</td></tr>
+        <tr><td><code>Settings/email_brand</code></td><td>The brand kit</td></tr>
+        <tr><td><code>EmailTemplate</code></td><td>Templates: type, category, subject, HTML, block design, <code>isActive</code></td></tr>
+        <tr><td><code>EmailLogs</code></td><td>One record per email, sent or blocked</td></tr>
+        <tr><td><code>Suppression</code></td><td>Addresses that get no marketing email, keyed by a hash of the address, with the reason</td></tr>
+        <tr><td><code>_email_counters</code></td><td>Hourly and daily send counts per provider, for the rate limits</td></tr>
+        <tr><td><code>_system/unsubscribe_secret</code></td><td>The secret that signs unsubscribe and preference links</td></tr>
+      </tbody>
+    </table>
+    <p>Nothing is kept in Storage. The Cloud Functions, each deployed as <code>arccms-&lt;name&gt;</code>:</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>onEmailLogCreate</code></td><td>Firestore trigger</td><td>Sends each new <code>pending</code> log</td></tr>
+        <tr><td><code>retryPendingEmails</code></td><td>Every 5 minutes</td><td>Retries <code>retrying</code> and <code>deferred</code> logs</td></tr>
+        <tr><td><code>scheduledPurgeEmailLogs</code></td><td>Daily, 02:00 UTC</td><td>Deletes old logs</td></tr>
+        <tr><td><code>purgeEmailLogs</code></td><td>Callable, admin</td><td>Deletes logs older than a number of days</td></tr>
+        <tr><td><code>sendTestEmail</code></td><td>Callable, admin</td><td>The composer's test send</td></tr>
+        <tr><td><code>seedEmailTemplates</code></td><td>Callable, admin</td><td>Creates missing default templates, notification types, event mappings and system lists</td></tr>
+        <tr><td><code>dedupeEmailTemplates</code></td><td>Callable, admin</td><td>Removes duplicate templates of the same type</td></tr>
+        <tr><td><code>testSmtpConfigConnection</code>, <code>testProviderConnection</code></td><td>Callable</td><td>The provider connection test</td></tr>
+        <tr><td><code>onUserCreateWelcomeEmail</code></td><td>Firestore trigger</td><td>Queues the welcome email for a new user</td></tr>
+        <tr><td><code>sendAdminDigest</code></td><td>Every hour</td><td>Sends the daily digest in its hour</td></tr>
+        <tr><td><code>handleUnsubscribe</code>, <code>handleEmailPreferences</code></td><td>HTTP</td><td>The unsubscribe and preference pages</td></tr>
+        <tr><td><code>unsubscribeLegacyLink</code></td><td>Callable</td><td>Unsubscribes from older form links of the shape <code>/unsubscribe/:waitlistId/:userId</code></td></tr>
+        <tr><td><code>handleEmailWebhook</code></td><td>HTTP</td><td>Records delivery, bounce and complaint events from a provider on the log</td></tr>
+        <tr><td><code>trackEmailOpen</code></td><td>HTTP</td><td>The open-tracking image endpoint. Emails carry no tracking image unless <code>trackingPixelUrl</code> is set in <code>Settings/email</code></td></tr>
+      </tbody>
+    </table>
+    <p>All collections: <a href="../reference/data-model.html">Data model</a>. All functions: <a href="../reference/cloud-functions.html">Cloud Functions</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Who</th><th>Can</th></tr></thead>
+      <tbody>
+        <tr><td>Admin</td><td>Read and write <code>Settings/email</code>, <code>Settings/email_brand</code>, <code>EmailTemplate</code> and <code>EmailLogs</code>; read <code>Suppression</code>; call the admin functions above</td></tr>
+        <tr><td>Anyone, signed in or not</td><td>Read <code>Settings/email_status</code>; open an unsubscribe or preference link with a valid token</td></tr>
+        <tr><td>Nobody from a browser</td><td>Write <code>Suppression</code>; read or write <code>_email_counters</code> or <code>_system</code>. Only Cloud Functions do.</td></tr>
+      </tbody>
+    </table>
+    <p>Roles and how they are checked: <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>You see</th><th>Why, and what to do</th></tr></thead>
+      <tbody>
+        <tr><td>Log says <code>success</code> but nothing arrives</td><td>The Debug Provider is active (the log has <code>logOnly</code>). Pick a real provider.</td></tr>
+        <tr><td><code>skipped</code>, <code>email_disabled</code></td><td>The master switch is off, or no provider is set.</td></tr>
+        <tr><td><code>skipped</code>, <code>feature_disabled</code></td><td>That kind of email is off under Email Features.</td></tr>
+        <tr><td><code>skipped</code>, <code>template_inactive</code></td><td>The template is turned off.</td></tr>
+        <tr><td><code>skipped</code>, <code>contact_disabled</code></td><td>An admin disabled the contact in Audience. A disabled contact gets no email at all, not even a sign-up code.</td></tr>
+        <tr><td><code>skipped</code> with <code>unsubscribed</code>, or <code>suppressed</code></td><td>The person opted out of marketing, or the address is on the suppression list.</td></tr>
+        <tr><td>Many <code>deferred</code> logs</td><td>The provider's daily or hourly limit is used up. They go out when it resets, or raise the limit on Email Settings.</td></tr>
+        <tr><td><code>failed</code></td><td>Read <code>errorMessage</code> on the log, fix the provider settings, and test the connection again.</td></tr>
+        <tr><td>An empty gap where a merge tag should be</td><td>The tag had no value. The log lists it under unmapped tags.</td></tr>
+        <tr><td>Unsubscribe link opens the not-found page, or links are missing</td><td>See the warning under <a href="#unsubscribe-and-preferences">Unsubscribe and preferences</a>, and check <code>liveUrl</code>.</td></tr>
+        <tr><td>New brand colors do not show</td><td>Save each block template again in the composer.</td></tr>
+        <tr><td>Nothing happens after a code change to a function</td><td>Functions run in your Firebase project, not locally: deploy the changed function (see <a href="../operations/targeted-deploys.html">Deploy only what changed</a>).</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

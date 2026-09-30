@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docs and tests are part of done | Arc CMS docs</title>
+  <meta name="description" content="What every change to Arc CMS does about the docs, the screenshots, the tests and the full suite before it counts as finished.">
+  <meta name="docs:sources" content="CLAUDE.md, scripts/docs-affected.mjs, package.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="contributing/docs-and-tests-are-part-of-done.html">
+  <main>
+    <h1>Docs and tests are part of done</h1>
+    <p class="lead">A change is finished when the docs, the tests and the whole suite agree with it. A change that leaves any of them behind is not finished.</p>
+
+    <h2>Every change</h2>
+    <ol class="steps">
+      <li>
+        <p><strong>Find the pages you affect.</strong> List the docs pages that describe the files you changed:</p>
+        <pre><code>npm run docs:affected</code></pre>
+        <p>It compares your work with <code>dev</code> (or the base you name with <code>--base</code>) and prints each page whose <code>docs:sources</code> overlaps a changed file.</p>
+      </li>
+      <li>
+        <p><strong>Read those pages and fix what is now wrong</strong>, in the same change. If a screen changed, retake its screenshots. If the change adds something a developer or an admin will meet, add it to the page where they would look for it, or write a new page.</p>
+      </li>
+      <li>
+        <p><strong>Say what happened in your report:</strong> which pages and screenshots changed, or why none needed to.</p>
+      </li>
+      <li>
+        <p><strong>Add tests that would have caught the break.</strong> A change to behavior gets a test of that behavior. A change to something the docs list (a script, a feature, a config key, a function) gets, or already has, a docs check that fails when the list and the code disagree.</p>
+      </li>
+      <li>
+        <p><strong>Run the whole suite:</strong></p>
+        <pre><code>npm run test</code></pre>
+        <p>When security rules changed, run the rules tests as well:</p>
+        <pre><code>npm run test:rules</code></pre>
+        <p>If anything fails, the change is not done. Fix it, or report it as unfinished with the failing output.</p>
+      </li>
+    </ol>
+
+    <div class="trap"><p><code>docs:affected</code> only knows the pages that name a file in <code>docs:sources</code>. A change that no page names can still matter to a reader. When you add a file, a folder, a script or a setting, also check the page for the area it belongs to, and add the path to that page's <code>docs:sources</code>.</p></div>
+
+    <h2>Running only the docs checks</h2>
+    <p>While you write a page, the docs checks are quick and run on their own:</p>
+    <pre><code>npm run check:docs</code></pre>
+    <p>See <a href="writing-docs.html">Writing docs</a> for what they check and how to add a page.</p>
+
+    <h2>In an app built on Arc CMS</h2>
+    <p>The same rule applies to the app's own work. The app's pages live in <code>docs/custom/</code>, and the rest of <code>docs/</code> is core and is not edited in an app. A change that the core docs do not cover is a sign the app needs something core does not offer yet: say so, so it can become a general feature.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

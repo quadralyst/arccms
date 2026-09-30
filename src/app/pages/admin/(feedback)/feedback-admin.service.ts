@@ -104,7 +104,7 @@ function toItem(snap: QueryDocumentSnapshot): FeedbackItem {
     return toFeedbackItem(snap.id, snap.data() as Record<string, any>);
 }
 
-/** The admin Feedback inbox (docs/feedback.md). */
+/** The admin Feedback inbox (docs/features/feedback.html). */
 @Injectable({ providedIn: 'root' })
 export class FeedbackAdminService {
     private firestore = inject(Firestore);

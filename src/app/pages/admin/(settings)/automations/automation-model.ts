@@ -1,5 +1,5 @@
 /**
- * The Automations editor's model (docs/coexistence-spec.md 5b, CO6.5d): how an
+ * The Automations editor's model (specs/coexistence-spec.md 5b, CO6.5d): how an
  * event mapping in `Settings/event_mappings` becomes an editable form and back.
  *
  * Mirrors functions/src/email-core/eventRules.ts. A mapping's own actions (the
@@ -52,7 +52,7 @@ export const APP_USER_CREATED = 'app_user.created';
 export const APP_USER_DELETED = 'app_user.deleted';
 export const APP_USER_CHANGED_PREFIX = 'app_user.changed.';
 
-/** The feature an event belongs to; it is not offered when that feature is off (docs/feature-flags-spec.md). */
+/** The feature an event belongs to; it is not offered when that feature is off (specs/feature-flags-spec.md). */
 export function eventFeature(type: string): FeatureId | undefined {
     if (type.startsWith('payment.')) return 'payments';
     if (type.startsWith('waitlist.')) return 'forms';

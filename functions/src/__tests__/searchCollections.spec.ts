@@ -1,5 +1,5 @@
 /**
- * Search indexes only what is named (docs/feature-flags-spec.md, section 6):
+ * Search indexes only what is named (specs/feature-flags-spec.md, section 6):
  * content through the draft queue and the publish pipeline, and each collection
  * the app lists through its own trigger. Nothing watches every write.
  */

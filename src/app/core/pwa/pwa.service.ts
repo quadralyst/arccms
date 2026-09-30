@@ -8,7 +8,7 @@ import { resolvePwaConfig } from './pwa-config';
 import { detectPlatform, type PwaPlatform } from './pwa-platform';
 import { isOn } from '../features/features';
 
-/** This install's PWA settings (src/custom/pwa.ts over the core defaults, docs/pwa.md). */
+/** This install's PWA settings (src/custom/pwa.ts over the core defaults, docs/features/pwa.html). */
 export const PWA = resolvePwaConfig(CUSTOM_PWA, isOn('pwa'));
 
 export type PwaEvent = 'prompt_shown' | 'installed' | 'dismissed' | 'opened_installed';
@@ -33,7 +33,7 @@ const KEY = {
 };
 
 /**
- * The installable app (docs/pwa.md): registers the service worker, offers the
+ * The installable app (docs/features/pwa.html): registers the service worker, offers the
  * update, knows how this browser installs, and counts installs.
  *
  * Does nothing unless the install turned the PWA on, and nothing on the server.

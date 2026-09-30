@@ -1,6 +1,6 @@
 /**
  * Firestore and Storage handles for the install's database and bucket
- * (docs/coexistence-spec.md, CO2). Used by both `app.config.ts` and
+ * (specs/coexistence-spec.md, CO2). Used by both `app.config.ts` and
  * `app.config.server.ts` so the browser and SSR always agree.
  *
  * With the default config these are exactly `getFirestore()` and `getStorage()`,

@@ -5,7 +5,7 @@
  * form on static pages submits. No static file exists at this path, so
  * Hosting falls through to the Angular shell (S-D18).
  *
- * Spec: docs/search-spec.md, phase S5 item 5.
+ * Spec: specs/search-spec.md, phase S5 item 5.
  */
 
 import { RouteMeta } from '@analogjs/router';

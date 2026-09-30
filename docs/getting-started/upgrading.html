@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upgrade Arc CMS | Arc CMS docs</title>
+  <meta name="description" content="Take a newer Arc CMS version into your copy: add the upstream remote once, check for core edits, merge, test and redeploy.">
+  <meta name="docs:sources" content="scripts/check-core.mjs, scripts/arc-upgrade.mjs, scripts/arc-deploy.mjs, CHANGELOG.md, package.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="getting-started/upgrading.html">
+  <main>
+    <h1>Upgrade Arc CMS</h1>
+    <p class="lead">Your site or app is a copy of the Arc CMS repository, so an upgrade is a git merge of the newer Arc CMS into it. When your copy has not edited any core file, the merge is clean.</p>
+
+    <h2>Once: add Arc CMS as the upstream remote</h2>
+    <pre><code>git remote add upstream https://github.com/quadralyst/arccms.git</code></pre>
+    <pre><code>git fetch upstream</code></pre>
+    <p>A copy made as on <a href="install.html">Install</a> has it already. <code>npm run check:core</code> needs this remote: without it, it checks nothing and fails, so it never passes by accident.</p>
+
+    <h2>Every upgrade</h2>
+    <ol class="steps">
+      <li>
+        <p><strong>Check that no core file changed</strong>, with your work committed:</p>
+        <pre><code>npm run check:core</code></pre>
+        <p>It must report that no Arc CMS core file changed. If it lists core files, move those changes into the custom space first (<a href="../app/check-core-and-upgrade.html">Keep core untouched</a>), or the merge will conflict with them. A website's own templates, static pages and partials in <code>public/</code> are listed as core too: keep them, and expect a conflict only where the new version changed the same file.</p>
+      </li>
+      <li>
+        <p><strong>Read what changed</strong> in <code>CHANGELOG.md</code> of the new version, and look for any step it asks of an app.</p>
+      </li>
+      <li>
+        <p><strong>Merge the new version:</strong></p>
+        <pre><code>git fetch upstream</code></pre>
+        <pre><code>git merge upstream/main</code></pre>
+      </li>
+      <li>
+        <p><strong>Install the dependencies</strong> of the app and of the functions:</p>
+        <pre><code>npm install</code></pre>
+        <pre><code>npm install --prefix functions</code></pre>
+      </li>
+      <li>
+        <p><strong>Run the tests:</strong></p>
+        <pre><code>npm run test -- --run</code></pre>
+        <p>If your app has rules of its own, or the new version changed the rules, run the rules tests too:</p>
+        <pre><code>npm run test:rules</code></pre>
+      </li>
+      <li>
+        <p><strong>Redeploy everything.</strong> A new version can add or change functions, rules, indexes and the website, so pick "Everything" in the guided deploy:</p>
+        <pre><code>npm run deploy</code></pre>
+        <p>A deploy of all the functions also deletes those the new version no longer has. It lists them and asks first. See <a href="../operations/deploy.html">Deploy</a>.</p>
+      </li>
+    </ol>
+
+    <h2>What a clean upgrade looks like</h2>
+    <ul>
+      <li>The merge has no conflicts, and none of your custom files changed: Arc CMS ships them once, empty, and never changes them again.</li>
+      <li><code>npm run check:core</code> still reports no core file changed (for a website, none beyond your own files in <code>public/</code>). Your custom and install files are counted, not flagged.</li>
+      <li>The tests pass, and the deploy ends with <code>Done:</code>.</li>
+    </ul>
+
+    <h2>When the merge conflicts</h2>
+    <ul>
+      <li><strong>In a core file:</strong> your copy edited it. Take the new version's file, then make your change in the custom space. If the custom space cannot do it, the change belongs in Arc CMS as a general feature: see <a href="../concepts/core-and-custom.html">Core and custom</a>.</li>
+      <li><strong>In <code>package.json</code> or <code>functions/package.json</code>:</strong> your app added a dependency. Keep both sides' entries, then run the two installs above to rewrite the lock files.</li>
+    </ul>
+
+    <h2>Functions deployed without the arccms- prefix</h2>
+    <p>Every Arc CMS function deploys as <code>arccms-</code> followed by its name. A project that still has Arc CMS functions under their plain names moves over once with <code>npm run arc:upgrade</code>. It deletes every deployed function that has an Arc CMS function name and is not in the <code>arccms</code> codebase, then deploys the <code>arccms</code> functions. See what it would delete first, and check that the list holds no function of another app with the same name:</p>
+    <pre><code>npm run arc:upgrade -- --project=default --dry-run</code></pre>
+    <p>Then run it without <code>--dry-run</code> at a quiet time: for a few minutes, database events are not handled. Straight afterwards:</p>
+    <ol class="steps">
+      <li><p>Deploy the website. The previous website calls the old function names, which no longer exist.</p></li>
+      <li><p>Register the webhooks again at their new addresses, <code>arccms-dodoWebhook</code> and <code>arccms-handleEmailWebhook</code>. Until then, the payment and email providers' events are lost.</p></li>
+      <li><p>Republish the static pages, so their search box calls <code>arccms-search</code>: <code>npm run seed:dev</code>, or <code>npm run seed:prod</code> for the <code>production</code> alias.</p></li>
+      <li><p>Send one test email and make one test checkout.</p></li>
+    </ol>
+    <div class="warn"><p>Links in emails sent before the move (open tracking, links that go through the old functions) stop working.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

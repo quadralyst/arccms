@@ -23,7 +23,7 @@ export const seedEmailTemplates = onCall(async (request) => {
     const result = await ensureDefaultTemplates();
     await ensureNotificationTypes();
     await ensureEventMappings();
-    // System lists are the audience feature's (docs/feature-flags-spec.md).
+    // System lists are the audience feature's (specs/feature-flags-spec.md).
     if (isFeatureOn('audience')) await ensureSystemLists();
     logger.info(
       `seedEmailTemplates: created ${result.created.length}, skipped ${result.skipped.length}; seeded registries + system lists.`,

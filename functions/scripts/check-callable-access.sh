@@ -29,7 +29,7 @@ BASE="https://${REGION}-${PROJECT}.cloudfunctions.net"
 # Every onCall function in the build, by plain name (custom ones as custom-<name>).
 # Read from functions/lib, so the list always matches what was deployed: a feature
 # the app turned off (src/custom/features.ts) is not built, so it is not checked.
-# They deploy as arccms-<name> (docs/coexistence-spec.md, CO-D5).
+# They deploy as arccms-<name> (specs/coexistence-spec.md, CO-D5).
 LIB="$(cd "$(dirname "$0")/.." && pwd)/lib/index.js"
 if [ ! -f "$LIB" ]; then
   echo "No build at $LIB. Run: npm run build --prefix functions"
@@ -50,7 +50,7 @@ if [ ${#CALLABLES[@]} -eq 0 ]; then
   exit 1
 fi
 
-# The app's callables (functions/src/custom/public-callables.txt, docs/custom-code.md),
+# The app's callables (functions/src/custom/public-callables.txt, docs/app/custom-space.html),
 # deployed as arccms-custom-<name>.
 CUSTOM_LIST="$(dirname "$0")/../src/custom/public-callables.txt"
 if [ -f "$CUSTOM_LIST" ]; then

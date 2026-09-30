@@ -2,7 +2,7 @@
  * What the two content sources share: which fields of a content document
  * are indexed, and the per-language variants built from its translations.
  *
- * Spec: docs/search-spec.md, phase S2 item 1 and decision S-D15.
+ * Spec: specs/search-spec.md, phase S2 item 1 and decision S-D15.
  */
 
 import { db } from '../../init.js';
@@ -19,7 +19,7 @@ import {
 export const CONTENT_TITLE_WEIGHT = 3;
 export const CONTENT_SUMMARY_WEIGHT = 2;
 export const CONTENT_CUSTOM_WEIGHT = 1;
-/** The credited author's name (docs/discoverability-spec.md, D2): "posts by Jane". */
+/** The credited author's name (specs/discoverability-spec.md, D2): "posts by Jane". */
 export const CONTENT_AUTHOR_WEIGHT = 1;
 
 /** Custom field types whose values are short prose worth indexing. */

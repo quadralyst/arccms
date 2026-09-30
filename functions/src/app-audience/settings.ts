@@ -12,7 +12,7 @@ import {
  * The settings for an audience of this install's own users (CO6.8), until an
  * admin saves others: their fields are known, so the App audience works from
  * the start without anyone filling in Settings, App audience. A standalone
- * setup turns this audience on by itself (docs/deploy.md).
+ * setup turns this audience on by itself (docs/operations/deploy.html).
  */
 export const OWN_USERS_SETTINGS: AppAudienceSettings = {
     key: { source: 'docId' },

@@ -11,7 +11,7 @@
  * until then, and on a first visit (a fresh install arriving from the
  * onboarding wizard) the paginator can render before the file is in.
  *
- * Spec: docs/multilingual-spec.md — Phase M6.
+ * Spec: specs/multilingual-spec.md — Phase M6.
  */
 
 import { DestroyRef, Injectable, inject } from '@angular/core';

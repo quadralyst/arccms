@@ -1,6 +1,6 @@
 /**
  * `Settings/discoverability` for the publish pipeline
- * (docs/discoverability-spec.md, D2 default author; D3 crawler policy,
+ * (specs/discoverability-spec.md, D2 default author; D3 crawler policy,
  * llms.txt and IndexNow). Mirrors IDiscoverabilitySettings in
  * src/shared/models/discoverability.model.ts. Cached like site-settings.
  */

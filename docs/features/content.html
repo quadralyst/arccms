@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content | Arc CMS docs</title>
+  <meta name="description" content="Define content types, write and publish entries, and understand how a published entry becomes a static page on Firebase Hosting.">
+  <meta name="docs:sources" content="functions/src/features/content.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/content.html">
+  <main>
+    <h1>Content</h1>
+    <p class="lead">Define content types (Articles, Events, Products), write entries in a rich editor, and publish them. Publishing turns each entry into a static HTML page on Firebase Hosting, with a list page per type.</p>
+
+    <h2>What it is</h2>
+    <p>Content has three layers:</p>
+    <table>
+      <thead><tr><th>Layer</th><th>What it is</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td>Content type</td><td>A kind of content: its name, URL slug, custom fields and template folder</td><td>Articles at <code>/articles</code></td></tr>
+        <tr><td>Entry</td><td>One item of a type: title, body, cover image, tags, author, SEO fields and the type's custom fields</td><td><code>/articles/getting-started</code></td></tr>
+        <tr><td>Page</td><td>The static HTML that publishing writes to Hosting for an entry, plus one list page per type</td><td><code>/articles/getting-started.html</code>, <code>/articles/index.html</code></td></tr>
+      </tbody>
+    </table>
+    <p>Every entry has a draft and, once published, a published copy. You edit the draft; publishing copies it to the published copy and rebuilds the pages. The admin list shows each entry as <strong>Draft</strong>, <strong>Published</strong> or <strong>Edited</strong> (published, with changes since).</p>
+    <p>Static pages are a separate, simpler thing: hand-written HTML files in <code>public/pages/</code> (the privacy and cookie policies ship there). See <a href="#static-pages">Static pages</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Content is a switchable feature with the id <code>content</code>. It is on by default and needs no other feature. To turn it off, list it in <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    off: ['content'],
+};</code></pre>
+    <p>When it is off:</p>
+    <ul>
+      <li>The <strong>Content</strong> admin menu (content types, entries, authors) goes, and <code>/admin/contents/...</code>, <code>/admin/authors</code> and <code>/p/...</code> show the not-found page.</li>
+      <li>The public content routes (<code>/{type}</code>, <code>/{type}/{slug}</code> and their language-prefixed twins) are not registered.</li>
+      <li>The Cloud Functions in <code>functions/src/features/content.ts</code> are not exported, so a full functions deploy deletes them: <code>processPublishQueue</code>, <code>onContentTypeDeleted</code> and <code>seedStaticPages</code>. The draft search queue, which needs both content and search, goes too.</li>
+      <li>The setup wizard does not create the Articles type, and data export offers no content collections.</li>
+    </ul>
+    <p>Firestore data is not deleted. See <a href="../reference/feature-ids.html">Feature ids</a> for every id.</p>
+
+    <h2>Set it up</h2>
+    <p>The setup wizard creates one content type, <strong>Articles</strong> (slug <code>articles</code>, default template). To add your own:</p>
+    <ol class="steps">
+      <li><p>Open <strong>Content &gt; Content types</strong> and choose <strong>Add Content Type</strong>.</p></li>
+      <li><p>Give it a plural name, a singular name and a slug. The slug is the URL (<code>/events</code>) and the Firestore collection names (<code>arc_events</code>, <code>arc_events_drafts</code>), so pick it once.</p></li>
+      <li><p>Pick a <strong>Content Template</strong> (or keep <strong>Default Template</strong>). See <a href="templates.html">Templates</a>.</p></li>
+      <li><p>Add custom fields (below) and save.</p></li>
+    </ol>
+    <p>For planning types and fields for a website, see <a href="../website/content-types.html">Define content types</a>.</p>
+
+    <h3>Content type settings</h3>
+    <table>
+      <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>Name, singular name, description</td><td>Shown in the admin and on the public list page (heading and subtitle). Each can be translated per language.</td></tr>
+        <tr><td>Slug</td><td>The URL segment and the collection names</td></tr>
+        <tr><td>Content Template</td><td>The folder in <code>public/templates/</code> whose <code>list.html</code> and <code>detail.html</code> render this type</td></tr>
+        <tr><td>Generate public pages</td><td>Off: entries are stored and published in Firestore, but no HTML page, list page, sitemap entry or feed is generated. Use it for data an app reads, or for items only shown inside other pages.</td></tr>
+        <tr><td>Searchable custom fields</td><td>Plain text custom fields that search also indexes (see <a href="search.html">Search</a>). Shown when you edit the type.</td></tr>
+        <tr><td>Structured data</td><td>Which schema.org type the page's structured data uses, and which fields fill it (see <a href="seo.html">SEO and discoverability</a>). Shown when you edit the type.</td></tr>
+      </tbody>
+    </table>
+    <p>Which columns the entry list shows is chosen with <strong>Columns</strong> on the entry list itself, and saved on the type for every admin.</p>
+
+    <h3>Custom field types</h3>
+    <p>You type a field's name; its key is derived and fixed once the type is saved. The key is the slug, a hyphen, then the name in lowercase with hyphens: "Card Icon" on <code>events</code> is <code>events-card-icon</code>. A detail template can use the full key or the bare name (<code>card-icon</code>); list and partial templates use the full key. The content type's view page lists every key under <strong>Template Reference</strong>, click to copy.</p>
+    <table>
+      <thead><tr><th>Type</th><th>Stores</th></tr></thead>
+      <tbody>
+        <tr><td><code>text</code>, <code>number</code></td><td>A single value</td></tr>
+        <tr><td><code>richtext</code></td><td>HTML from the rich editor</td></tr>
+        <tr><td><code>date</code>, <code>datetime</code></td><td>A date, or a date and time</td></tr>
+        <tr><td><code>boolean</code></td><td>Yes or no</td></tr>
+        <tr><td><code>dropdown</code>, <code>radio</code>, <code>checkbox</code></td><td>One or several options. Options are a comma-separated list, or come from entries of another content type (a collection reference, with chosen fields copied onto this entry).</td></tr>
+        <tr><td><code>image</code></td><td>An image URL picked from the media library</td></tr>
+        <tr><td><code>icon</code></td><td>A Font Awesome icon (class list, inline SVG, label, name)</td></tr>
+        <tr><td><code>color</code></td><td>A hex color</td></tr>
+        <tr><td><code>infocard</code></td><td>Repeating rows: icon or image, headline, text</td></tr>
+        <tr><td><code>gallery</code></td><td>Repeating rows: photo or YouTube video, caption</td></tr>
+        <tr><td><code>labelvalue</code></td><td>Repeating label and value pairs, with a heading</td></tr>
+        <tr><td><code>maplocation</code></td><td>Repeating places: name, address, coordinates</td></tr>
+      </tbody>
+    </table>
+    <p>How each type renders in a template (bindings, loops, image sizes) is on the <a href="templates.html">Templates</a> page.</p>
+
+    <h2>Use it</h2>
+
+    <h3>Write and publish an entry</h3>
+    <ol class="steps">
+      <li><p>Open <strong>Content &gt; {your type}</strong> and choose <strong>Add {type}</strong>, such as <strong>Add Article</strong>.</p></li>
+      <li><p>Write the title and body in the rich editor (TipTap: headings, lists, tables, task lists, links, images from the media library, YouTube embeds, text color and alignment). Fill in the cover image, summary, tags, author, SEO fields and custom fields.</p></li>
+      <li><p>The editor saves the draft as you work. Use <strong>Preview</strong> to see the draft rendered on the site.</p></li>
+      <li><p>Choose <strong>Publish</strong>. The editor shows the deploy status of the page (<strong>Deploying to hosting...</strong>, then <strong>Deployed to hosting</strong>) and offers a retry if the release failed.</p></li>
+    </ol>
+    <p>Other actions:</p>
+    <table>
+      <thead><tr><th>Action</th><th>Where</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>Publish again</td><td>Editor</td><td>The published copy and pages are rebuilt from the current draft</td></tr>
+        <tr><td>Unpublish</td><td>Entry list</td><td>The published copy and its pages are removed; the draft stays</td></tr>
+        <tr><td>Delete</td><td>Entry list</td><td>The draft, the published copy with its translations, and its pages are removed</td></tr>
+        <tr><td>Version history</td><td>Editor, <strong>History</strong> tab</td><td>Every publish is kept. Preview an old version and restore it into the editor, then publish.</td></tr>
+        <tr><td>Bulk Import</td><td>Entry list</td><td>Create many entries from an Excel or CSV file (below)</td></tr>
+      </tbody>
+    </table>
+    <p>There is no scheduled publishing: an entry goes live when you publish it.</p>
+
+    <h3>How publishing works</h3>
+    <ol class="steps">
+      <li><p>The editor saves the draft to <code>arc_{slug}_drafts</code> and writes a queue item (<code>publish</code>, <code>unpublish</code> or <code>delete</code>) to <code>_publish_queue</code>.</p></li>
+      <li><p>The <code>processPublishQueue</code> function (<code>functions/src/publishQueue/processPublishQueue.ts</code>) copies the draft to <code>arc_{slug}</code> with <code>publishedOn</code> set to the time of publishing, adds a version to <code>PublishedHistory</code>, copies translations and updates the search index.</p></li>
+      <li><p>It renders the detail page in every language the entry has, the Markdown twin, and the type's list page, from the type's template (see <a href="templates.html">Templates</a>). With the <code>seo</code> feature on, it also rebuilds the sitemap, feeds, <code>robots.txt</code> and <code>llms.txt</code>.</p></li>
+      <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows.</p></li>
+    </ol>
+    <table>
+      <thead><tr><th>Page</th><th>File on Hosting</th></tr></thead>
+      <tbody>
+        <tr><td>Entry, default language</td><td><code>/{type}/{slug}.html</code> and <code>/{type}/{slug}.md</code></td></tr>
+        <tr><td>Entry, other language</td><td><code>/{lang}/{type}/{slug}.html</code> and <code>/{lang}/{type}/{slug}.md</code></td></tr>
+        <tr><td>List page</td><td><code>/{type}/index.html</code> (and <code>/{lang}/{type}/index.html</code> per enabled language)</td></tr>
+      </tbody>
+    </table>
+    <p>Hosting serves these files directly. The app's routes <code>/{type}</code> and <code>/{type}/{slug}</code> (<code>src/app/pages/[contentTypeSlug]/</code>) are the fallback: they render the same template in the browser for anything not yet on Hosting, for previews, and when you run the app locally.</p>
+    <p>To rebuild every published page, the static pages and the SEO files at once, run the seed (it also runs at the end of <code>npm run deploy:dev</code> and <code>npm run deploy:prod</code>):</p>
+    <pre><code>npm run seed:dev</code></pre>
+    <p>For production: <code>npm run seed:prod</code>.</p>
+    <div class="trap"><p>A <code>firebase deploy --only hosting</code> replaces the Hosting release with only the files it uploaded, so every page publishing wrote disappears, and the app's fallback still answers those addresses, so nothing looks broken at first. After a hosting-only deploy, run <code>npm run seed:dev</code> (or <code>seed:prod</code>) to put the pages back. See <a href="../operations/deploy.html">Deploy</a>.</p></div>
+
+    <h3>Bulk import entries</h3>
+    <p>On a type's entry list, <strong>Bulk Import</strong> reads the first sheet of an <code>.xlsx</code> or <code>.csv</code> file. It maps columns by header to Title (required), Content, Summary, URL Slug, Tags, Cover Image URL, SEO Title, Meta Description, Canonical URL, Featured, Author and the type's custom fields, and offers a sample file to download. You import as drafts or publish straight away. An author named in the Author column is matched by name, or created. Repeating fields (info cards, gallery, label and value, map location) cannot be imported.</p>
+    <p>For moving whole collections between projects, see <a href="data.html">Data import and export</a>.</p>
+
+    <h3 id="static-pages">Static pages</h3>
+    <p>A static page is an HTML file in <code>public/pages/</code>, such as <code>public/pages/privacy-policy.html</code>. It can carry <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code>, a <code>&lt;title&gt;</code> and meta tags.</p>
+    <ul>
+      <li>In the app, <code>/p/{name}</code> fetches <code>/pages/{name}.html</code>, adds the site header and footer, and applies the title and meta tags.</li>
+      <li>On Hosting, <code>/p/{name}</code> redirects (301) to <code>/pages/{name}</code>.</li>
+      <li>The seed builds a finished copy, with header, footer and site stylesheets, at <code>/pages/{name}/index.html</code> for <code>privacy-policy</code> and <code>cookie-policy</code>. That list is fixed in <code>functions/src/pages/seedStaticPages.ts</code>.</li>
+    </ul>
+    <p>The walkthrough is <a href="../website/static-pages.html">Write static pages</a>.</p>
+
+    <h2>Extend it</h2>
+    <ul>
+      <li><strong>Change how pages look:</strong> give the type its own template folder. See <a href="templates.html">Templates</a>.</li>
+      <li><strong>Read content in your own app code:</strong> published entries are in <code>arc_{slug}</code> and readable by anyone, so a page in <code>src/custom/</code> can query them directly. A type with <strong>Generate public pages</strong> off is the way to keep structured data for an app without generating pages. See <a href="../app/pages-and-routes.html">Add pages and routes</a>.</li>
+      <li><strong>React to publishing in your own function:</strong> put a trigger on <code>arc_{slug}/{id}</code> in <code>functions/src/custom/</code>. See <a href="../app/functions.html">Write your own Cloud Functions</a>.</li>
+      <li>New field types and changes to the publish pipeline are core changes. See <a href="../contributing/keep-core-generic.html">Keep core generic</a>.</li>
+    </ul>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>ContentTypes/{id}</code></td><td>Type definitions: name, slug, fields, template folder, settings, translations of names and field labels</td></tr>
+        <tr><td><code>arc_{slug}_drafts/{id}</code></td><td>Drafts, with <code>lastPublishedAt</code> once published. Subcollection <code>translations/{lang}</code>.</td></tr>
+        <tr><td><code>arc_{slug}/{id}</code></td><td>Published copies, with <code>publishedOn</code> and the deploy status fields. Subcollections <code>translations/{lang}</code>, <code>PublishedHistory</code> (one document per publish) and <code>DeploymentLogs</code>.</td></tr>
+        <tr><td><code>Tags_{slug}/{id}</code></td><td>The type's tags (see <a href="authors-and-tags.html">Authors and tags</a>)</td></tr>
+        <tr><td><code>_publish_queue/{id}</code></td><td>Queue items, deleted once processed</td></tr>
+        <tr><td>Hosting</td><td>The generated pages listed under <a href="#how-publishing-works">How publishing works</a></td></tr>
+      </tbody>
+    </table>
+    <p>An entry stores its custom field values in the <code>customFields</code> map, keyed by field key. Full field lists are in <a href="../reference/data-model.html">Data model</a>.</p>
+    <table>
+      <thead><tr><th>Cloud Function</th><th>Kind</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages</td></tr>
+        <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections and their search entries</td></tr>
+        <tr><td><code>seedStaticPages</code></td><td>Callable, also run by the seed script</td><td>Rebuilds every published page, the static pages and the SEO files</td></tr>
+      </tbody>
+    </table>
+    <p>All deploy with the <code>arccms-</code> prefix. See <a href="../reference/cloud-functions.html">Cloud Functions</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Data</th><th>Read</th><th>Write</th></tr></thead>
+      <tbody>
+        <tr><td><code>ContentTypes</code>, <code>arc_{slug}</code>, <code>Tags_{slug}</code></td><td>Anyone</td><td>Admins (and the reserved <code>editor</code> role)</td></tr>
+        <tr><td><code>arc_{slug}_drafts</code> and their translations</td><td>Admins and editors</td><td>Admins and editors</td></tr>
+        <tr><td><code>PublishedHistory</code></td><td>Admins</td><td>Cloud Functions only</td></tr>
+        <tr><td><code>_publish_queue</code></td><td>Nobody (functions only)</td><td>Admins and editors</td></tr>
+      </tbody>
+    </table>
+    <p>The Content admin screens are admin only. See <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>Published, but the page is not on the site</td><td>Check the deploy status in the editor. <strong>Website publishing off</strong> means the install publishes nothing to Hosting (<code>ARC_HOSTING_SITE=none</code>). On <strong>Deploy failed</strong>, hover it for the error and read the <code>processPublishQueue</code> logs; the retry button beside it re-queues the publish. If <code>processPublishQueue</code> is not deployed, nothing happens at all.</td></tr>
+        <tr><td>All generated pages vanished after a deploy</td><td>A hosting-only deploy dropped them. Run <code>npm run seed:dev</code> or <code>npm run seed:prod</code>.</td></tr>
+        <tr><td>Preview on the live site shows the published version</td><td>Hosting serves the static file for a published address before the app loads, whatever the query string. Preview edits to a published entry from a local run (<a href="../getting-started/run-locally.html">Run it locally</a>).</td></tr>
+        <tr><td>An older entry is missing from the list page</td><td>The generated list page holds the 100 newest published entries.</td></tr>
+        <tr><td>A deleted content type's pages are still online</td><td>Deleting a type deletes its Firestore data, not its files on Hosting. Unpublish its entries first, then delete the type.</td></tr>
+        <tr><td>"URL slug already exists"</td><td>Slugs are unique within a type. Change the slug in the editor.</td></tr>
+      </tbody>
+    </table>
+    <div class="warn"><p>Deleting a content type deletes every entry of that type, draft and published, and its tags. It cannot be undone. Export the type first (<a href="data.html">Data import and export</a>).</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

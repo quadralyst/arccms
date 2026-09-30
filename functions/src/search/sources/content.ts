@@ -5,7 +5,7 @@
  * failed index write shows up in the publish log next to the publish it
  * belongs to (S-D12). The reindex tool walks the collections directly.
  *
- * Spec: docs/search-spec.md, decision S-D14 and phase S2 item 2.
+ * Spec: specs/search-spec.md, decision S-D14 and phase S2 item 2.
  */
 
 import { getPublishedCollectionName } from '../../draftContent/collectionHelpers.js';

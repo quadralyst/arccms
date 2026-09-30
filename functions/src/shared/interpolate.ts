@@ -8,7 +8,7 @@
  *
  * Mirrored in src/app/core/i18n/interpolate.ts.
  *
- * Spec: docs/i18n-guide.md — §1.4.
+ * Spec: docs/features/languages.html — §1.4.
  */
 
 /** Replaces `{{ name }}` tokens; an unknown token is left exactly as authored. */

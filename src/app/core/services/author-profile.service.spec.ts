@@ -1,5 +1,5 @@
 /**
- * Tests for AuthorProfileService (docs/discoverability-spec.md, D2)
+ * Tests for AuthorProfileService (specs/discoverability-spec.md, D2)
  */
 import { TestBed } from '@angular/core/testing';
 import { Firestore, getDoc } from '@angular/fire/firestore';

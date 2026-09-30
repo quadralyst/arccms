@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Authors and tags | Arc CMS docs</title>
+  <meta name="description" content="Credit content to authors (byline, author box, structured data) and label entries with per-type colored tags.">
+  <meta name="docs:sources" content="src/app/pages/admin/(authors), src/shared/models/author.model.ts, functions/src/shared/authors.ts, src/app/pages/admin/contents/content-types/tags, src/app/pages/admin/contents/create-content/create-content.component.ts, src/app/pages/admin/contents/bulk-import, functions/src/content-types/onContentTypeDelete.ts, public/templates/default/detail.html, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/authors-and-tags.html">
+  <main>
+    <h1>Authors and tags</h1>
+    <p class="lead">Credit each entry to an author, who then appears in the byline, in an author box and in the page's structured data. Label entries with tags, which each content type keeps as its own colored list.</p>
+
+    <h2>What it is</h2>
+    <table>
+      <thead><tr><th></th><th>Authors</th><th>Content tags</th></tr></thead>
+      <tbody>
+        <tr><td>Scope</td><td>One list for the whole site</td><td>One list per content type</td></tr>
+        <tr><td>Managed in</td><td><strong>Content &gt; Authors</strong> (<code>/admin/authors</code>)</td><td><strong>Content &gt; Content types</strong>, a type's <strong>Manage Tags</strong> action, and inline in the editor</td></tr>
+        <tr><td>An entry holds</td><td>One author (<code>authorId</code>, with the name copied to <code>authorName</code>)</td><td>Any number of tags (<code>tags</code>, and <code>tagsWithColors</code>)</td></tr>
+        <tr><td>On the page</td><td>Byline, author box, the Article's schema.org <code>author</code></td><td>Tag pills, the schema.org <code>keywords</code>, related entries</td></tr>
+      </tbody>
+    </table>
+    <p>An author is not a user account: guest and past writers need no sign-in, and the author record holds only public details.</p>
+    <div class="note"><p>Content tags are not contact tags. Contact tags label people in your audience (<a href="audience.html#tags">Audience</a>), and signup form tags label people who joined a form (<a href="forms.html">Signup forms</a>). The three lists are separate.</p></div>
+
+    <h2>Turn it on or off</h2>
+    <p>Authors and content tags are part of the <a href="content.html">Content</a> feature (<code>content</code>). With content off, <strong>Content &gt; Authors</strong> and the tag screens go, and <code>/admin/authors</code> shows the not-found page. The <code>Authors</code> and <code>Tags_{slug}</code> data stays.</p>
+
+    <h2>Set it up</h2>
+    <p>Nothing is required. The first time an admin opens the content editor or the Authors page on a site with no authors, that admin becomes the first author and the default. To add others:</p>
+    <ol class="steps">
+      <li><p>Open <strong>Content &gt; Authors</strong> and choose <strong>New author</strong>.</p></li>
+      <li><p>Fill in the name (the only required field), job title, a short bio, a photo URL, the author's own site, and profile links (one URL per line).</p></li>
+      <li><p>Use the star (<strong>Use as default for new content</strong>) to make an author the <strong>default</strong>: new entries start with that author selected. The first author you add on an empty site becomes the default.</p></li>
+    </ol>
+    <p>For a website's author and tag plan, see <a href="../website/authors-and-tags.html">Add authors and tags</a>.</p>
+
+    <h2>Use it</h2>
+
+    <h3>Credit an author</h3>
+    <p>In the editor, pick the author on the <strong>Basic</strong> tab, then publish. The published page gets:</p>
+    <ul>
+      <li>the byline (<code>{{ authorName }}</code>) at the top and on list cards;</li>
+      <li>the author box at the end, with photo, job title, bio and a link to the author's URL, shown only when the entry has an author;</li>
+      <li>a schema.org <code>Person</code> as the Article's <code>author</code>, with the profile links as <code>sameAs</code> (see <a href="seo.html">SEO and discoverability</a>).</li>
+    </ul>
+    <p>The default detail template already has the author box. In your own template, use the <code>author.*</code> bindings listed on <a href="templates.html#detail-page-bindings">Templates</a> and hide the box with <code>data-arc-if="author.name"</code>.</p>
+    <p>A bulk import can name authors in an Author column: each name is matched to an existing author, ignoring case and extra spaces, or a new author is created.</p>
+
+    <h3>Tag an entry</h3>
+    <p>In the editor, type in the tags box and pick a tag, or type a new one to create it with a color chosen for you. Tags show as colored pills: a template loops them with <code>data-arc-loop="tags"</code> (<code>{{ name }}</code>, <code>{{ color }}</code>), or uses <code>tagsHtml</code> and <code>tagsDisplay</code> on list cards. Tags also feed the search for related entries.</p>
+    <p>To manage a type's tags (rename, recolor, delete, see usage), open <strong>Content &gt; Content types</strong> and choose <strong>Manage Tags</strong> on the type.</p>
+    <div class="trap"><p>An entry keeps its own copy of each tag's name and color. Renaming, recoloring or deleting a tag changes the tag list only: entries tagged earlier keep the old name and color until you edit and publish them again.</p></div>
+
+    <h3>Edit or delete an author</h3>
+    <p>Edits reach a page the next time it is published. Deleting an author removes the byline and author box from detail pages published after that; list cards keep the name stored on the entry (<code>authorName</code>). Deleting the default author clears the default.</p>
+
+    <h2>Extend it</h2>
+    <ul>
+      <li>Author and tag data is public to read, so pages in <code>src/custom/</code> can list authors from <code>Authors</code>, or a type's tags from <code>Tags_{slug}</code>. See <a href="../app/pages-and-routes.html">Add pages and routes</a>.</li>
+      <li>New author fields are a core change: the admin form, <code>src/shared/models/author.model.ts</code> and <code>functions/src/shared/authors.ts</code> must agree.</li>
+    </ul>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>Authors/{id}</code></td><td><code>name</code>, <code>slug</code> (derived from the name), <code>bio</code>, <code>photoUrl</code>, <code>jobTitle</code>, <code>url</code>, <code>sameAs</code> (list of http and https URLs)</td></tr>
+        <tr><td><code>Settings/discoverability</code>, field <code>defaultAuthorId</code></td><td>The default author</td></tr>
+        <tr><td><code>Tags_{slug}/{id}</code></td><td><code>label</code>, <code>color</code>, <code>contentTypeSlug</code>, <code>usageCount</code></td></tr>
+        <tr><td>Each entry</td><td><code>authorId</code>, <code>authorName</code>; <code>tags</code> (names) and <code>tagsWithColors</code> (<code>{ name, color }</code>)</td></tr>
+      </tbody>
+    </table>
+    <p>Deleting a content type deletes its <code>Tags_{slug}</code> collection. Authors and tags have no Cloud Functions of their own; publishing reads them (<code>functions/src/shared/authors.ts</code>).</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Data</th><th>Read</th><th>Write</th></tr></thead>
+      <tbody>
+        <tr><td><code>Authors</code></td><td>Anyone</td><td>Admins</td></tr>
+        <tr><td><code>Tags_{slug}</code></td><td>Anyone</td><td>Admins (and the reserved <code>editor</code> role)</td></tr>
+        <tr><td><code>Settings/discoverability</code></td><td>Admins</td><td>Admins</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>No author box on a published page</td><td>The entry has no author, the author was deleted, or the page was published before the author was set. Pick an author and publish again. A custom template needs the author box markup.</td></tr>
+        <tr><td>An author's new photo or bio is not on the site</td><td>Published pages keep what they were built with. Publish the entries again, or rebuild all pages with <code>npm run seed:dev</code> (<code>seed:prod</code> for production). Publishing may take up to five minutes to see an author change.</td></tr>
+        <tr><td>The Authors page shows an error and an empty list</td><td>The Firestore rules for <code>Authors</code> are not deployed.</td></tr>
+        <tr><td>A renamed tag still shows its old name</td><td>See the trap under <a href="#tag-an-entry">Tag an entry</a>.</td></tr>
+        <tr><td>An author's profile link is missing</td><td>Only URLs that start with <code>http://</code> or <code>https://</code> are kept.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

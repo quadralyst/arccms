@@ -6,7 +6,7 @@
  * translation tabs, the per-language publish loop, the public language
  * switcher) reads its language list from here.
  *
- * Spec: docs/multilingual-spec.md — Phase M1, decision M-D3.
+ * Spec: specs/multilingual-spec.md — Phase M1, decision M-D3.
  */
 
 /** A language the site can publish in. `code` is a BCP-47 primary subtag. */

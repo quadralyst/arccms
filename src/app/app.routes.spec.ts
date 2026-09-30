@@ -33,7 +33,7 @@ describe('App Routes', () => {
         it('should have valid route configurations', () => {
             routes.forEach(route => {
                 // Every route has a path, except the one that matches by function
-                // (a feature that is off, docs/feature-flags-spec.md).
+                // (a feature that is off, specs/feature-flags-spec.md).
                 expect(route.path !== undefined || route.matcher !== undefined).toBe(true);
                 // Each route should have either component, loadComponent, or redirectTo
                 const hasComponent = route.component !== undefined;

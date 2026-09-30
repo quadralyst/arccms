@@ -69,7 +69,7 @@ import { AboutSettingsService } from './about-settings.service';
                 </small>
             </div>
 
-            <!-- Publisher identity for structured data (docs/discoverability-spec.md, D-D4) -->
+            <!-- Publisher identity for structured data (specs/discoverability-spec.md, D-D4) -->
             <hr class="my-4">
             <h4 class="identity-heading">{{ 'admin.settings.about.identity_heading' | transloco }}</h4>
             <p class="text-muted mb-4">{{ 'admin.settings.about.identity_intro' | transloco }}</p>

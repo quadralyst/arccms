@@ -32,7 +32,7 @@ import { exitAllEnrollments } from './dripEnrollment.js';
  *   not shorten that window — run the purge if a request requires it.
  *
  * Operator-facing guidance, including how this differs from suppressing and
- * disabling, is in `docs/email-system.md` §9.
+ * disabling, is in `docs/features/email.html` §9.
  */
 
 export interface EraseContactResult {

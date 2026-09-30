@@ -12,7 +12,7 @@
  *
  * Impure, like Transloco's own pipe, so a language switch re-renders.
  *
- * Spec: docs/i18n-guide.md — §2.4.
+ * Spec: docs/features/languages.html — §2.4.
  */
 
 import { Pipe, PipeTransform, inject } from '@angular/core';

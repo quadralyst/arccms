@@ -1,5 +1,5 @@
 /**
- * IndexNow (docs/discoverability-spec.md, D-D9): after a publish, tell Bing
+ * IndexNow (specs/discoverability-spec.md, D-D9): after a publish, tell Bing
  * (which feeds ChatGPT search and Copilot) and the other IndexNow engines
  * which URLs changed. One POST per publish batch; fire-and-forget, logged,
  * never thrown into the publish path.

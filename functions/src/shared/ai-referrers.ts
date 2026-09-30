@@ -1,6 +1,6 @@
 /**
  * Referrer domains that mean "a visitor arrived from an AI assistant"
- * (docs/discoverability-spec.md, D-D14). Crawler hits cannot be counted on
+ * (specs/discoverability-spec.md, D-D14). Crawler hits cannot be counted on
  * static Hosting, but arrivals can: GA4's `sessionSource` carries the
  * referring host, and these are the hosts assistants send people from.
  * Add one line per new assistant.

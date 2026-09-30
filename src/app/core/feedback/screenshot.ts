@@ -22,7 +22,7 @@ export function inScreenshot(node: Node, width: number, height: number): boolean
  * time). Returns null when it cannot be made; feedback then goes without one.
  *
  * The drawing library loads only here, the first time someone opens feedback.
- * A game canvas shows only if the game keeps its drawing (docs/feedback.md).
+ * A game canvas shows only if the game keeps its drawing (docs/features/feedback.html).
  */
 export async function captureScreen(): Promise<Blob | null> {
     try {

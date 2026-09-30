@@ -1,6 +1,6 @@
 /**
  * The AI-related crawlers a site owner can allow or deny in robots.txt
- * (docs/discoverability-spec.md, D-D6).
+ * (specs/discoverability-spec.md, D-D6).
  *
  * Two groups with different consequences:
  *  - `search`: bots that fetch pages to answer a question right now and cite

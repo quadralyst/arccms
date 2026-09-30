@@ -2,7 +2,7 @@
  * Authors Service
  *
  * CRUD for the `Authors` collection plus the default-author setting in
- * `Settings/discoverability` (docs/discoverability-spec.md, D2).
+ * `Settings/discoverability` (specs/discoverability-spec.md, D2).
  */
 import { Injectable, inject, runInInjectionContext } from '@angular/core';
 import { collection, doc, getDoc, getDocs, limit, query, setDoc } from '@angular/fire/firestore';

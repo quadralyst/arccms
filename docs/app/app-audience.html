@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connect your app's users | Arc CMS docs</title>
+  <meta name="description" content="Step by step: point Arc CMS at the collection where your app keeps its users, so it can email them, group them in live lists and run sequences on their changes.">
+  <meta name="docs:sources" content="functions/src/app-audience, functions/src/email-core/appEvents.ts, functions/src/email-core/eventRules.ts, functions/src/features/audience.ts, scripts/arc-configure.mjs, src/app/pages/admin/(app-users), src/app/pages/admin/(lists)">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/app-audience.html">
+  <main>
+    <h1>Connect your app's users</h1>
+    <p class="lead">Your app keeps its users in a Firestore collection of its own. Point Arc CMS at it, and Arc CMS can email those people, group them in live lists and start sequences when their data changes, while the data stays where it is.</p>
+    <p>This page is the walk-through. What each screen does, what is stored and who can use it are in <a href="../features/app-audience.html">App audience</a>.</p>
+
+    <h2>Which case is yours</h2>
+    <table>
+      <thead><tr><th>Your users are</th><th>Configure with</th></tr></thead>
+      <tbody>
+        <tr><td>In another app's collection, in the same Firebase project (the usual case)</td><td><code>--app-users-database</code> and <code>--app-users-path</code>. Arc CMS then runs in its own database: set that up first with <a href="shared-project.html">Share a Firebase project</a>.</td></tr>
+        <tr><td>This install's own <code>users</code> (people who sign up to your Arc CMS app)</td><td><code>--app-users=own</code>. See <a href="#your-own-arc-cms-users">Your own Arc CMS users</a>.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>What Arc CMS keeps.</strong> The people in your collection are not Arc CMS users: they get no <code>users</code> record and never sign in to Arc CMS. Arc CMS stores only its own facts about each of them (email consent and sequence progress) in <code>AppAudience</code>, under a hash of their unique key. No profile data is copied.</p>
+
+    <h2>Check that your collection fits</h2>
+    <ul>
+      <li><strong>One top-level collection</strong>, one document per person, such as <code>users/{id}</code>. Not a subcollection or a collection group.</li>
+      <li><strong>A unique key per person:</strong> the document id, or a field such as <code>uid</code>, <code>email</code> or <code>phone</code> that no two people share. An app with phone sign-in may have no email, so do not assume it.</li>
+      <li><strong>An email field</strong>, for anyone Arc CMS should email. People without one are listed but never emailed.</li>
+      <li><strong>At most 2000 people.</strong> Lists, counts and broadcasts read the whole collection, up to 2000 documents, and the admin is told when it is cut short.</li>
+      <li><strong>The features:</strong> <code>audience</code> on for all of this, and <code>email-marketing</code> on for broadcasts and sequences. Both are on unless <code>src/custom/features.ts</code> turns them off.</li>
+    </ul>
+
+    <h2>Connect it</h2>
+    <ol class="steps">
+      <li>
+        <p><strong>Point Arc CMS at the collection.</strong> The database is almost always <code>(default)</code>; the path is the collection and a wildcard, exactly <code>&lt;collection&gt;/{id}</code>:</p>
+        <pre><code>npm run arc:configure -- --project=default --app-users-database='(default)' --app-users-path='users/{id}'</code></pre>
+        <p>This writes <code>ARC_APP_USERS_DATABASE</code> and <code>ARC_APP_USERS_PATH</code> into <code class="new">functions/.env.{projectId}</code>. Add <code>--dry-run</code> to see the changes first. If you set the project up with the guided <code>npm run deploy</code> and named the other app's collection there, this is already done.</p>
+      </li>
+      <li>
+        <p><strong>Deploy the functions.</strong> The trigger that watches your collection is bound when it is deployed, so a changed path always needs a deploy:</p>
+        <pre><code>npm run deploy -- --only functions --project default</code></pre>
+      </li>
+      <li>
+        <p><strong>Tell Arc CMS how to read a person</strong> in Settings, App audience. The top shows the database and collection you deployed. Then choose:</p>
+        <table>
+          <thead><tr><th>Setting</th><th>Choose</th></tr></thead>
+          <tbody>
+            <tr><td>Unique key</td><td>The document id, or the field that identifies one person</td></tr>
+            <tr><td>Email field, Phone field, Name field</td><td>The fields that hold them. Fields are offered from a sample of real documents; nested ones are written as dot paths such as <code>profile.name</code>.</td></tr>
+            <tr><td>Watch for changes</td><td>The fields whose changes should start something, such as <code>isPro</code> or <code>plan.tier</code>. Leave out counters and timestamps: they change all the time and mean nothing.</td></tr>
+          </tbody>
+        </table>
+        <p>Use "Test with a document" to see one person as Arc CMS reads them, then Save. This needs no deploy and can change at any time.</p>
+      </li>
+      <li>
+        <p><strong>Check the connection.</strong> Audience, App users lists your people with their names and addresses. Open one, change a watched field in your app (or in the Firebase console), and the change appears under their recent activity.</p>
+      </li>
+    </ol>
+    <div class="note"><p>Fields whose names look like credentials (password, token, secret, otp, pin and the like) show as <code>(hidden)</code> and never reach an email or an event. If your app keeps a secret under an ordinary name, rename it in your app.</p></div>
+
+    <h2>Email people when something changes</h2>
+    <p>Settings, Automations lists the events your collection produces:</p>
+    <table>
+      <thead><tr><th>Event</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td><code>app_user.created</code></td><td>A new document appears (not those that existed before the deploy)</td></tr>
+        <tr><td><code>app_user.changed.&lt;field&gt;</code></td><td>A watched field changes, with its old and new value</td></tr>
+        <tr><td><code>app_user.deleted</code></td><td>A document is deleted</td></tr>
+      </tbody>
+    </table>
+    <ol class="steps">
+      <li><p>Create the email template first. It can use the person's own fields as <code>##APP.&lt;field&gt;##</code>, with a fallback after a bar: <code>##APP.plan.tier|free##</code>. All tags are in <a href="../reference/email-tags.html">Email merge tags</a>.</p></li>
+      <li><p>In Settings, Automations, switch the event on and add a rule: a name, for a field change an optional condition on the old and the new value, and the email to send (transactional reaches everyone; marketing respects unsubscribes).</p></li>
+      <li><p>Change the field in your app and check the person's recent activity and Email Logs.</p></li>
+    </ol>
+    <p>Values compare as text, ignoring case, and a missing field counts as empty: <code>isPro</code> becoming <code>true</code> is "becomes exactly <code>true</code>". These rules only send emails; the people are not contacts, so rules never add them to ordinary lists.</p>
+
+    <h2>Group them and send to them</h2>
+    <ul>
+      <li><strong>Live list:</strong> Audience, Lists, create a list and choose "App users (live)". Add conditions on your fields (is, is not, is any of, contains, is greater than, is less than, is empty, is not empty); a person must match them all. Nobody is stored: the list is worked out from your collection each time.</li>
+      <li><strong>Broadcast:</strong> pick the live list in Broadcasts. Each person gets the email with their own <code>##APP.*##</code> values, and an address that is on two lists gets it once.</li>
+      <li><strong>Sequence:</strong> a drip campaign on a live list. A person joins when a change makes them start matching, and leaves when they stop matching, are deleted, or unsubscribe. Switch on "Enroll existing members on activate" to include everyone who matches when you activate it.</li>
+    </ul>
+    <div class="trap"><p>"isPro is false" does not match a person who has no <code>isPro</code> field at all. For everyone who is not on the plan, use "isPro is not true".</p></div>
+    <p><strong>Unsubscribing:</strong> everyone starts subscribed. The unsubscribe link and the preferences page record the choice in <code>AppAudience</code> and end their sequences; it shows in Audience, App users.</p>
+
+    <h2 id="your-own-arc-cms-users">Your own Arc CMS users</h2>
+    <p>An app built on Arc CMS, with people signing up to it, can use the same live lists, automations and sequences over its own <code>users</code>. A project set up with the guided <code>npm run deploy</code> as "Only by Arc CMS" already has this; otherwise run:</p>
+    <pre><code>npm run arc:configure -- --project=default --app-users=own</code></pre>
+    <pre><code>npm run deploy -- --only functions --project default</code></pre>
+    <ul>
+      <li>Settings, App audience starts with the fields filled in: the document id as the key, and <code>email</code>, <code>phone</code> and <code>name</code>. Add the fields to watch.</li>
+      <li>These people are also contacts, on the "All Users" list. An address on an ordinary list and a live list gets a broadcast once, and a contact's unsubscribe applies to both.</li>
+      <li>One sign-up fires two events, <code>user.signed_up</code> and <code>app_user.created</code>. Put a welcome email on one of them, not both.</li>
+    </ul>
+
+    <h2>What the other app does</h2>
+    <p>Nothing changes in it. Tell its developers:</p>
+    <ul>
+      <li>Keep writing user documents as you do. Keep the email field current: Arc CMS reads it at every send.</li>
+      <li>Deleting a user document ends their sequences; their unsubscribe is kept in case the address comes back.</li>
+      <li>Never write to the Arc CMS database, and never store a secret under a name that does not look like one.</li>
+    </ul>
+
+    <h2>Changing things later</h2>
+    <table>
+      <thead><tr><th>Change</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td>Unique key, email, phone or name field, watched fields</td><td>Settings, App audience. No deploy.</td></tr>
+        <tr><td>The collection or its database</td><td>Run <code>npm run arc:configure</code> with the new <code>--app-users-path</code> or <code>--app-users-database</code>, then deploy the functions.</td></tr>
+        <tr><td>Your app's database was deleted and created again</td><td>The trigger stays bound to the old one and never fires. Delete <code>arccms-onAppUserWritten</code>, then deploy it again: an update does not rebind it. For the Arc CMS database, see <a href="shared-project.html">Share a Firebase project</a>.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Add pages and routes | Arc CMS docs</title>
+  <meta name="description" content="Add your app's public, member and admin pages with CUSTOM_ROUTES and page files, protect them with guards, and avoid the admin page trap.">
+  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, vite.config.ts, firebase.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/pages-and-routes.html">
+  <main>
+    <h1>Add pages and routes</h1>
+    <p class="lead">Each page of your app is an Angular component with a route in <code>src/custom/routes.ts</code>. Give every page an explicit route there, and protect member and admin pages with the core guards.</p>
+
+    <h2>Add a page</h2>
+    <ol class="steps">
+      <li>
+        <p>Create the component, such as <code class="new">src/custom/learn/learn.component.ts</code>, with a default export:</p>
+        <pre><code>import { Component } from '@angular/core';
+
+@Component({
+  standalone: true,
+  template: `&lt;h1&gt;Learn&lt;/h1&gt;`,
+})
+export default class LearnComponent {}</code></pre>
+      </li>
+      <li>
+        <p>Add its route to <code>CUSTOM_ROUTES</code> in <code>src/custom/routes.ts</code>:</p>
+        <pre><code>import type { Routes } from '@angular/router';
+
+export const CUSTOM_ROUTES: Routes = [
+  { path: 'learn', loadComponent: () =&gt; import('./learn/learn.component').then((m) =&gt; m.default) },
+];</code></pre>
+      </li>
+      <li>
+        <p>Start the app with <code>npm run dev</code> and open <code>/learn</code>.</p>
+      </li>
+    </ol>
+
+    <h2>The shape of a route</h2>
+    <p><code>CUSTOM_ROUTES</code> is a plain Angular <code>Routes</code> list. The fields you use most:</p>
+    <table>
+      <thead><tr><th>Field</th><th>For</th></tr></thead>
+      <tbody>
+        <tr><td><code>path</code></td><td>The address without the leading slash, such as <code>'learn'</code> or <code>'learn/:lessonId'</code></td></tr>
+        <tr><td><code>loadComponent</code></td><td>The page, loaded only when someone opens it</td></tr>
+        <tr><td><code>title</code></td><td>The browser tab title</td></tr>
+        <tr><td><code>canActivate</code></td><td>Guards that decide who may open the page (below)</td></tr>
+        <tr><td><code>data</code></td><td>Values a guard reads, such as <code>allowedRoles</code></td></tr>
+        <tr><td><code>children</code></td><td>Pages shown inside a layout, such as the admin shell</td></tr>
+      </tbody>
+    </table>
+    <p>Core adds your routes after its own explicit routes, such as <code>pricing</code> and <code>account</code>, so those always win over yours and an app page cannot replace them by accident. Pick addresses no core page uses.</p>
+
+    <h2>Who may open a page</h2>
+    <table>
+      <thead><tr><th>Page for</th><th>Guard</th><th>Import from</th><th>Someone not allowed goes to</th></tr></thead>
+      <tbody>
+        <tr><td>Anyone</td><td>None</td><td></td><td></td></tr>
+        <tr><td>Any signed-in person</td><td><code>userGuard</code></td><td><code>src/app/pages/user/user.guards.ts</code></td><td><code>/signup?redirect=</code> and the page, then back to the page after signing in</td></tr>
+        <tr><td>Paying members</td><td><code>userGuard</code>, <code>entitledGuard</code></td><td><code>src/app/pages/user/user.guards.ts</code></td><td>Sign-up if signed out, <code>/pricing</code> if not a paying member (<a href="payments.html">Add payments and premium features</a>)</td></tr>
+        <tr><td>Some roles</td><td><code>roleGuard</code> with <code>data: { allowedRoles: [...] }</code></td><td><code>src/app/guards/role.guard.ts</code></td><td><code>/admin/unauthorized</code></td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>Always give <code>roleGuard</code> a <code>data.allowedRoles</code> list. Without one, the guard lets every visitor open the page and only shows a warning.</p></div>
+    <p>A member page:</p>
+    <pre><code>import { userGuard } from '../app/pages/user/user.guards';
+
+export const CUSTOM_ROUTES: Routes = [
+  {
+    path: 'learn',
+    canActivate: [userGuard],
+    loadComponent: () =&gt; import('./learn/learn.component').then((m) =&gt; m.default),
+  },
+];</code></pre>
+    <p>To keep the member menu around a member page, see <a href="member-area.html">Build the member area</a>.</p>
+    <div class="note"><p>A guard only decides what the browser shows. The data a page reads is protected by security rules (<a href="rules-and-indexes.html">Set security rules and indexes</a>).</p></div>
+
+    <h2>Add an admin page</h2>
+    <p>An admin page needs the admin shell (the side menu and layout) and the admin guard. Give it the same route shape core uses for its own admin pages:</p>
+    <ol class="steps">
+      <li>
+        <p>Create the component, such as <code class="new">src/custom/admin/lessons.component.ts</code>:</p>
+        <pre><code>import { Component } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+
+@Component({
+  standalone: true,
+  imports: [PageHeaderComponent, TranslocoPipe],
+  template: `&lt;arc-page-header [title]="'custom.lessons.title' | transloco"&gt;&lt;/arc-page-header&gt;`,
+})
+export default class LessonsComponent {}</code></pre>
+      </li>
+      <li>
+        <p>Add the route, with the admin shell as the parent and your page as its child:</p>
+        <pre><code>import type { Routes } from '@angular/router';
+import { roleGuard } from '../app/guards/role.guard';
+
+export const CUSTOM_ROUTES: Routes = [
+  {
+    path: 'admin/lessons',
+    loadComponent: () =&gt; import('../app/pages/admin.page').then((m) =&gt; m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      { path: '', loadComponent: () =&gt; import('./admin/lessons.component').then((m) =&gt; m.default) },
+    ],
+  },
+];</code></pre>
+      </li>
+      <li>
+        <p>Add the title to <code>src/custom/i18n/en.json</code> (<code>"custom": { "lessons": { "title": "Lessons" } }</code>) and link the page from the admin menu (<a href="admin-menu.html">Add admin menu items</a>).</p>
+      </li>
+    </ol>
+    <div class="trap"><p>An admin page that has only a page file and no explicit route does not reliably reach the browser's route table. The address then falls through to the public content route and shows "Content Not Found" in the public layout. Firebase Hosting answers every address with the app shell and HTTP 200, so a status check does not catch it: open the page in a browser. Give every admin page an explicit route as above.</p></div>
+    <p>Keep components that have an explicit route outside <code>src/custom/pages/</code>, as above, or name them without <code>.page</code>. Every <code>.page.ts</code> file in that folder also gets an address of its own from its file name, without the admin shell, the guards of the explicit route, or a <code>whenOn</code> around it.</p>
+
+    <h2>Pages found by file name</h2>
+    <p>Files in <code>src/custom/pages/</code> become routes by name, like the core pages in <code>src/app/pages/</code>:</p>
+    <table>
+      <thead><tr><th>File</th><th>Address</th></tr></thead>
+      <tbody>
+        <tr><td><code class="new">src/custom/pages/learn.page.ts</code></td><td><code>/learn</code></td></tr>
+        <tr><td><code class="new">src/custom/pages/learn/index.page.ts</code></td><td><code>/learn</code></td></tr>
+        <tr><td><code class="new">src/custom/pages/learn/[lessonId].page.ts</code></td><td><code>/learn/:lessonId</code></td></tr>
+        <tr><td>A folder in parentheses, such as <code class="new">src/custom/pages/(learning)/</code></td><td>Groups files and adds nothing to the address</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>Two folders in parentheses side by side, such as <code class="new">src/custom/pages/(learning)/</code> and <code class="new">src/custom/pages/(practice)/</code>, each become an empty-path route, and after a fresh start of <code>npm run dev</code> only one of them survives: the other page's address falls through to a later route. Give the second page a plain folder or an explicit route, and check new page files again after restarting the dev server.</p></div>
+    <p>A page file sets its title and guards with a <code>routeMeta</code> export:</p>
+    <pre><code>import { RouteMeta } from '@analogjs/router';
+import { userGuard } from '../../app/pages/user/user.guards';
+
+export const routeMeta: RouteMeta = {
+  title: 'Learn',
+  canActivate: [userGuard],
+};</code></pre>
+    <p>A page file needs no entry in <code>src/custom/routes.ts</code>. Your explicit routes come before the file-based pages, so when both give the same address, the explicit route is used. Explicit routes remain the recommended way, and the only one for admin pages.</p>
+
+    <h2>Routes that belong to a feature</h2>
+    <p>If a page only makes sense while a feature is on, wrap its routes so they go when the feature is off (<a href="choose-features.html">Choose your app's features</a>):</p>
+    <pre><code>import { whenOn } from '../app/core/features/feature-routes';
+
+export const CUSTOM_ROUTES: Routes = [
+  ...whenOn('payments', [
+    { path: 'learn/premium', loadComponent: () =&gt; import('./learn/premium.component').then((m) =&gt; m.default) },
+  ]),
+];</code></pre>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

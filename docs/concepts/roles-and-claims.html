@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roles and claims | Arc CMS docs</title>
+  <meta name="description" content="The roles in Arc CMS, the arccms_role and arccms_uid claims that carry them, what each role can reach, and why nobody can promote themselves.">
+  <meta name="docs:sources" content="firestore.rules, storage.rules, functions/src/users/claims.ts, functions/src/users/syncUserRole.ts, functions/src/users/accountCallables.ts, functions/src/users/adminCreateUser.ts, functions/src/search/auth.ts, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, src/app/core/home/home.ts, src/app/pages/(auth)/sign-in.service.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="concepts/roles-and-claims.html">
+  <main>
+    <h1>Roles and claims</h1>
+    <p class="lead">Every person has one role, stored on their <code>users</code> record and copied onto their sign-in account as a custom claim. The security rules and the Cloud Functions read the claim, and only an admin or the server can change it.</p>
+
+    <h2>The roles</h2>
+    <table>
+      <thead><tr><th>Role</th><th>Who</th><th>What they can reach</th></tr></thead>
+      <tbody>
+        <tr><td>(signed out)</td><td>Visitors</td><td>The public site: published content, tags, media, the public settings, signup forms.</td></tr>
+        <tr><td><code>user</code></td><td>Everyone who signs up, unless the site sets another default</td><td>The member area; their own <code>users</code> record, except the fields listed below; reading their own storage folder and uploading their profile photo; whatever your app's rules grant on their own data.</td></tr>
+        <tr><td><code>editor</code></td><td>Content staff</td><td>Writing content types, content and drafts, tags, media and the publish queue, and uploading files. Nothing in the admin area grants this role, and every admin page is for admins only, so in practice content staff are admins.</td></tr>
+        <tr><td><code>admin</code></td><td>The people who run the site</td><td>Everything: the admin area, every <code>users</code> record, the settings, the admin callables and the whole storage bucket.</td></tr>
+      </tbody>
+    </table>
+    <p>Where each role lands after signing in (admins on <code>/admin/dashboard</code>, everyone else on <code>/user/dashboard</code>) is set in <code>src/custom/home.ts</code>: see <a href="../app/member-area.html">Build the member area</a>.</p>
+
+    <h2>The two claims</h2>
+    <table>
+      <thead><tr><th>Claim</th><th>Holds</th><th>Read by</th></tr></thead>
+      <tbody>
+        <tr><td><code>arccms_role</code></td><td>The role from the <code>users</code> record</td><td><code>isAdmin()</code> and <code>isEditor()</code> in the rules; <code>isArcAdmin()</code> and <code>requireAdmin()</code> in the functions</td></tr>
+        <tr><td><code>arccms_uid</code></td><td>The id of the person's <code>users</code> record, which is not their Auth uid</td><td><code>ownsUserRecord(userDocId)</code> in the rules; your app, from the ID token</td></tr>
+      </tbody>
+    </table>
+    <p>Arc CMS never reads or writes a plain <code>role</code> claim, and always merges its claims into the account's existing ones. So an app sharing the sign-in pool can use <code>role</code> for its own roles without giving anyone Arc CMS access, and claims it sets survive. Do not name an app claim <code>arccms_</code> anything. How an app reads the claims is in <a href="../app/account-contract.html">Follow the account contract</a>.</p>
+
+    <h2>How a role is granted and changed</h2>
+    <ul>
+      <li><strong>The first admin</strong> of a fresh install comes from the setup wizard, which calls <code>claimFirstAdmin</code>. It grants admin once, and only while no admin exists. See <a href="../getting-started/first-admin.html">Create the first admin</a>.</li>
+      <li><strong>A sign-up</strong> gets <code>user</code>, or the site's default role if an admin set one (Settings, User Settings, Default Role for New Users).</li>
+      <li><strong>An admin adds a person</strong> with a role, under Users. The <code>adminCreateUser</code> callable creates the account and the record and sets the claims at once.</li>
+      <li><strong>An admin or the server changes</strong> <code>role</code> on a <code>users</code> record. The Firebase console writes as the server, so it can repair a lost admin.</li>
+    </ul>
+    <p>Whenever a record is created or its role changes, the <code>onUserRoleChange</code> function copies the role and the record id onto the account as claims. A blocked record gets no claims, and its sessions are ended. The admin screens are described in <a href="../features/users-and-roles.html">Users and roles</a>.</p>
+    <p>At every sign-in the browser compares the token's claims with the record and, when they differ, asks the server to set them again (<code>refreshMyClaims</code>) before it lets the person in. Someone already signed in gets a new role when their ID token refreshes, within the hour, or at their next sign-in. An admin can re-apply every account's claims with the <code>syncAllUserRoles</code> callable.</p>
+
+    <h2>Why nobody can promote themselves</h2>
+    <ol class="steps">
+      <li><p><strong>The rules.</strong> Only admins create <code>users</code> records from the browser; every sign-up creates its record on the server. A person may update their own record, but never <code>role</code>, <code>uid</code>, the block switches (<code>isActive</code>, <code>status</code>), their email or phone, or the premium fields, and <code>emailVerified</code> may only go to false. <code>Settings/users</code>, which holds the default role for sign-ups, is admin write only.</p></li>
+      <li><p><strong>The role trigger.</strong> If a role other than <code>user</code> is ever written by someone who is not an admin (by the claim) and not the server, <code>onUserRoleChange</code> refuses it, logs an error and puts the old role back. The claim does not follow.</p></li>
+      <li><p><strong>The first admin, once.</strong> <code>claimFirstAdmin</code> checks, in one transaction, that no admin has ever been made, and leaves a marker that no browser can read or write.</p></li>
+    </ol>
+    <p>The browser's route guards (<code>src/app/guards/role.guard.ts</code>) read the role from the record, but they only decide which pages show. The rules and the functions decide what data anyone can touch. See <a href="../operations/security-rules.html">Security rules</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

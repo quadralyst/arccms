@@ -1,6 +1,6 @@
 /**
  * Marketing consent for whoever an email hash belongs to: a contact, an app
- * user (docs/coexistence-spec.md 5b, CO6.5a), or both.
+ * user (specs/coexistence-spec.md 5b, CO6.5a), or both.
  *
  * App users are not contacts, and unsubscribing must not make them one, so a
  * change of consent is written to each app user behind the address and to the

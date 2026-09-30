@@ -1,5 +1,5 @@
 /**
- * Tests for AuthorsService (docs/discoverability-spec.md, D2): the smart
+ * Tests for AuthorsService (specs/discoverability-spec.md, D2): the smart
  * default that seeds the admin as the first author, and default-author settings.
  */
 import { TestBed } from '@angular/core/testing';

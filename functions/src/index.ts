@@ -1,5 +1,5 @@
 /**
- * Functions entry point (docs/coexistence-spec.md, CO-D4, CO-D5).
+ * Functions entry point (specs/coexistence-spec.md, CO-D4, CO-D5).
  *
  * Everything is exported as one group, so every ArcCMS function deploys as
  * `arccms-<name>` (for example `arccms-sendTestEmail`). A Firebase project that

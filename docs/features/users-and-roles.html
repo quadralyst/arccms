@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Users and roles | Arc CMS docs</title>
+  <meta name="description" content="Add, block and delete people, give them roles, and know exactly what deleting an account removes.">
+  <meta name="docs:sources" content="functions/src/users, src/app/pages/admin/users, src/app/pages/(auth)/(profile), src/app/pages/user/profile, src/app/pages/admin/(settings)/user-setting, src/app/guards/role.guard.ts, functions/src/email-core/eraseContact.ts, firestore.rules, storage.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/users-and-roles.html">
+  <main>
+    <h1>Users and roles</h1>
+    <p class="lead">Admins add, block and delete people under Users; people edit their own profile and can delete their own account. A role on each record decides what someone may do.</p>
+
+    <h2>What it is</h2>
+    <p>A person is one Firebase Auth account plus one record in the <code>users</code> collection. The record id is not the Auth uid: the record carries the uid in its <code>uid</code> field, and the account carries the record id in its <code>arccms_uid</code> claim.</p>
+    <p>The record's <code>role</code> is copied onto the account as the <code>arccms_role</code> claim, which the security rules and functions check. The roles are:</p>
+    <table>
+      <thead><tr><th>Role</th><th>May</th></tr></thead>
+      <tbody>
+        <tr><td><code>admin</code></td><td>Everything, including the whole admin area (<code>/admin/...</code>).</td></tr>
+        <tr><td><code>user</code></td><td>Their own record, profile and member area (<code>/user/...</code>), and what your app grants.</td></tr>
+      </tbody>
+    </table>
+    <p>How claims are set, refreshed and checked, and how an app adds its own roles, is in <a href="../concepts/roles-and-claims.html">Roles and claims</a>. How people sign in is in <a href="sign-in.html">Sign-in methods</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Users and roles are core and always on. They belong to no switchable feature.</p>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li><p><strong>The first admin</strong> comes from the setup wizard on a fresh install: see <a href="../getting-started/first-admin.html">Create the first admin</a>.</p></li>
+      <li><p><strong>Settings, User Settings:</strong> choose whether people may sign up on their own (Enable User Signups, on by default) and the Default Role for New Users (<code>user</code> unless you change it).</p></li>
+    </ol>
+    <div class="warn"><p>The default role applies to every self sign-up. Setting it to Admin makes everyone who signs up an admin.</p></div>
+
+    <h2>Use it</h2>
+    <h3>Users (admin)</h3>
+    <p>Admin, <strong>Users</strong> (<code>/admin/users</code>) lists every record with name, email, phone, role and status.</p>
+    <ul>
+      <li><strong>Add User</strong> creates the sign-in account and the record together, with a temporary password you share with the person (at least 8 characters). Sign-ups do not have to be on. If the address already has a sign-in account (another app's user in a shared Firebase project), that account is reused unchanged, the person keeps their existing password, and the record is marked <code>authOwner: 'shared'</code>.</li>
+      <li><strong>Add an admin:</strong> open <code>/admin/users/admin</code>, which lists the admins, and press <strong>Add Admin</strong>. People added from <code>/admin/users</code> get the <code>user</code> role. The admin screens do not change the role of someone who already has a record.</li>
+      <li><strong>View</strong> opens the record in a side panel, and <strong>Edit</strong> changes the person's name there. People change their own email or phone number on their profile, with a code (see <a href="sign-in.html#profile-sign-in-methods">Sign-in methods</a>).</li>
+      <li><strong>Block</strong> sets <code>isActive</code> to <code>false</code>. The person's Arc CMS claims are removed and every session is ended within the hour, and they cannot sign in until an admin presses <strong>Unblock</strong>, which puts the claims back.</li>
+      <li><strong>Detached accounts</strong> shows records whose only email or phone number moved to another account (see <a href="sign-in.html#moving-an-email-or-number-to-another-account">Sign-in methods</a>). They are kept and cannot sign in; an admin can delete them.</li>
+      <li><strong>Delete</strong> removes the record, and the server then removes everything listed below.</li>
+    </ul>
+
+    <h3>Profile (the person)</h3>
+    <p>The profile page is <code>/profile</code>, and <code>/user/profile</code> in the member area. People change their name and photo, manage their sign-in methods and password, and, unless they are an admin, delete their own account under <strong>Delete account</strong>.</p>
+    <p>Deleting your own account needs a sign-in within the last 10 minutes; otherwise the page asks the person to sign in again. Admins cannot delete themselves: another admin removes them under Users.</p>
+
+    <h3>What deleting an account removes</h3>
+    <p>Whoever deletes it, the <code>users</code> record goes first, and then the <code>onUserDeleted</code> function, in this order:</p>
+    <ol class="steps">
+      <li><p><strong>Access:</strong> removes the Arc CMS claims and ends every session, before anything else, so a failure later never leaves a removed admin an admin.</p></li>
+      <li><p><strong>Firestore:</strong> every subcollection under <code>users/{docId}</code> at any depth, the person's <code>Feedback</code>, and their in-app <code>Notifications</code>.</p></li>
+      <li><p><strong>Storage:</strong> the per-user folder <code>users/{docId}/</code> (under the install's upload folder, if it has one) and the profile photos in <code>avatars/{uid}/</code>.</p></li>
+      <li><p><strong>Sign-in:</strong> the Firebase Auth account, unless another app owns or shares it (<code>authOwner</code> is <code>host</code> or <code>shared</code>), plus the <code>email_lookup</code> entry, the phone number index and the PIN.</p></li>
+      <li><p><strong>Event:</strong> <code>user.deleted</code> on the event bus, with <code>userId</code> (the Auth uid) and <code>data.userDocId</code>, once every step above has worked.</p></li>
+    </ol>
+    <p>A step that fails makes the whole cleanup run again (each step is safe to repeat) for up to an hour after the delete.</p>
+    <p><strong>The person's contact</strong> (their address in the audience): a person deleting their own account also erases it, with its lists, consent and form sign-ups, and an erasure receipt is kept in <code>ErasureLog</code>. An admin deleting a user only unlinks the contact from the account (with the <code>audience</code> feature), since the address may have been on a list before the account existed.</p>
+    <p><strong>Kept:</strong> payment records (<code>Transactions</code>, <code>CreditLedger</code>) are not deleted. Data your app keeps outside <code>users/{docId}</code> is your app's to delete: see <a href="../app/account-contract.html">Follow the account contract</a>.</p>
+
+    <h2>Extend it</h2>
+    <ul>
+      <li><strong>Per-person app data</strong> belongs under <code>users/{docId}/...</code> in Firestore and in the per-user Storage folder, so deleting the account removes it with no extra code. See <a href="../app/account-contract.html">Follow the account contract</a>.</li>
+      <li><strong>Clean up data kept elsewhere</strong> with a trigger on <code>users/{docId}</code> deletes in <code>functions/src/custom/</code>, or by reacting to <code>user.deleted</code> (see <a href="automations.html">Automations</a>).</li>
+      <li><strong>Your own roles:</strong> Arc CMS never reads or writes a plain <code>role</code> claim, so an app may use it for its own roles. Never name an app claim <code>arccms_*</code>. See <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</li>
+      <li><strong>Where each role lands</strong> after signing in: <code>src/custom/home.ts</code>.</li>
+    </ul>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>users/{docId}</code></td><td><code>uid</code>, <code>name</code>, <code>email</code>, <code>phone</code>, <code>photo</code>, <code>role</code>, <code>status</code>, <code>isActive</code>, <code>authOwner</code>, <code>by</code> (how it was made), and the fields of other features (plan, credits, app install).</td></tr>
+        <tr><td><code>Settings/users</code></td><td>Sign-ups on or off, the default role, the sign-in method switches.</td></tr>
+        <tr><td><code>_system/first_admin</code></td><td>Marks that the first admin was claimed.</td></tr>
+        <tr><td><code>ErasureLog/{emailHash}</code></td><td>A receipt for each erased contact, with no address in it.</td></tr>
+        <tr><td>Storage <code>avatars/{uid}/</code></td><td>Profile photos.</td></tr>
+        <tr><td>Storage <code>users/{docId}/</code></td><td>The person's private files, such as feedback screenshots and your app's files.</td></tr>
+      </tbody>
+    </table>
+    <p>Cloud Functions:</p>
+    <table>
+      <thead><tr><th>Function</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>adminCreateUser</code></td><td>Callable, admins: Add User.</td></tr>
+        <tr><td><code>deleteMyAccount</code></td><td>Callable: the person deletes their own account.</td></tr>
+        <tr><td><code>refreshMyClaims</code></td><td>Callable: puts the claims back on the caller's token at sign-in.</td></tr>
+        <tr><td><code>claimFirstAdmin</code></td><td>Callable: the setup wizard's first admin, once.</td></tr>
+        <tr><td><code>syncAllUserRoles</code></td><td>Callable, admins: re-applies every account's claims from its record.</td></tr>
+        <tr><td><code>onUserRoleChange</code></td><td>On every record write: applies the default role to a sign-up, and keeps the claims in step with the role and the block.</td></tr>
+        <tr><td><code>onUserCreated</code>, <code>onUserCreateWelcomeEmail</code></td><td>On a new record: the email lookup, the admin alert and <code>user.signed_up</code> event, and the welcome email.</td></tr>
+        <tr><td><code>onUserDeleted</code></td><td>On a deleted record: the cleanup above.</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="../reference/cloud-functions.html">Cloud Functions</a> and <a href="../reference/data-model.html">Data model</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Action</th><th>Who</th></tr></thead>
+      <tbody>
+        <tr><td>Read a <code>users</code> record</td><td>The person themselves, and admins</td></tr>
+        <tr><td>Create a record</td><td>Admins and the server. Every sign-up creates its record on the server.</td></tr>
+        <tr><td>Edit own record</td><td>The person, except <code>role</code>, <code>uid</code>, <code>isActive</code>, <code>status</code>, <code>authOwner</code>, <code>email</code>, <code>phone</code>, <code>phoneVerified</code>, the detach fields and the plan and credit fields</td></tr>
+        <tr><td>Edit any record, delete a record</td><td>Admins</td></tr>
+        <tr><td>Give a role above <code>user</code></td><td>Admins and the server only. A role written by anyone else is reverted by <code>onUserRoleChange</code>.</td></tr>
+        <tr><td>Read a per-user Storage folder</td><td>The person and admins. The person's own uploads there are allowed by the app, in <code class="new">storage.app.rules</code>.</td></tr>
+        <tr><td>Write <code>avatars/{uid}/</code></td><td>The person, images under 5 MB</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>A new admin still sees "unauthorized"</td><td>Their token has the old claims. Signing out and in again refreshes it.</td></tr>
+        <tr><td>Claims look wrong on many accounts</td><td>Each person's claims are set again from their record the next time they open the site signed in. To re-apply every account at once, call the <code>syncAllUserRoles</code> callable while signed in as an admin; there is no button for it.</td></tr>
+        <tr><td>"For your security, sign in again, then delete your account."</td><td>The last sign-in is more than 10 minutes old. Press Sign in again, then delete.</td></tr>
+        <tr><td>An admin has no Delete account section</td><td>Admins cannot delete themselves. Another admin deletes them under Users.</td></tr>
+        <tr><td>Deleted a user, but their sign-in still exists</td><td>The record was marked <code>host</code> or <code>shared</code>: the sign-in belongs to another app and is kept, without Arc CMS claims.</td></tr>
+        <tr><td>Add User says "An ArcCMS user with this email already exists."</td><td>A record already has that address. Edit that record instead.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

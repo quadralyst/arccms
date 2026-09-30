@@ -5,7 +5,7 @@
  * share no build, and the client only ever renders what the function
  * returns, so drift shows up as a missing field rather than a crash.
  *
- * Spec: docs/search-spec.md, phase S3 item 1.
+ * Spec: specs/search-spec.md, phase S3 item 1.
  */
 
 export type SearchScope = 'public' | 'authenticated' | 'admin';
@@ -62,7 +62,7 @@ export interface SourceReindexResult {
 
 /** One source's block in `Settings/search_status`. */
 export interface SearchSourceStatus {
-    /** Written by every rebuild since F5 (docs/feature-flags-spec.md 6.4). */
+    /** Written by every rebuild since F5 (specs/feature-flags-spec.md 6.4). */
     label?: string;
     scope?: SearchScope | null;
     collections: string[];

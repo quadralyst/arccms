@@ -1,5 +1,5 @@
 /**
- * Feedback from the feedback button (docs/feedback.md).
+ * Feedback from the feedback button (docs/features/feedback.html).
  *
  * The browser writes `Feedback/{id}` itself (the rules check it is the sender's
  * own, and new). This trigger then:

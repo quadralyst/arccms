@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run it locally | Arc CMS docs</title>
+  <meta name="description" content="Start the Arc CMS dev server, know that it talks to your real Firebase project, and fix it when it runs out of memory.">
+  <meta name="docs:sources" content="vite.config.ts, package.json, src/environments, src/app/app.config.ts, src/app/app.config.server.ts, src/custom/features.ts, src/custom/pwa.ts, src/app/pages/(onboarding)/onboarding-setup.service.ts, src/app/pages/page.parts/home-base.component.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="getting-started/run-locally.html">
+  <main>
+    <h1>Run it locally</h1>
+    <p class="lead">One command starts the site, the admin area and the member area on your computer. They work against the real Firebase project you configured, so deploy the functions and rules once before you start.</p>
+
+    <h2>Start the dev server</h2>
+    <pre><code>npm run dev</code></pre>
+    <p>Open <code>http://localhost:5173</code>. Changes to the app's code show in the browser as you save.</p>
+    <p>To use another port, for example to run a second copy next to the first:</p>
+    <pre><code>PORT=5174 npm run dev</code></pre>
+
+    <h2 id="it-talks-to-your-real-firebase-project">It talks to your real Firebase project</h2>
+    <p>The local app connects to the project in <code>src/environments/environment.ts</code>. There is no emulator: the app never connects to one, so everything you do locally reads and writes the real Firestore, Authentication and Storage of that project, and calls the Cloud Functions deployed there.</p>
+    <table>
+      <thead><tr><th>You change</th><th>Shows locally</th></tr></thead>
+      <tbody>
+        <tr><td>Pages, components, styles (<code>src/</code>)</td><td>At once</td></tr>
+        <tr><td>Templates and static pages (<code>public/</code>)</td><td>On the next page load</td></tr>
+        <tr><td>Cloud Functions (<code>functions/src/</code>)</td><td>Only after you deploy them (see <a href="../operations/targeted-deploys.html">Deploy only what changed</a>)</td></tr>
+        <tr><td>Security rules and indexes</td><td>Only after you deploy them</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>A fix in <code>functions/src/</code> that "does not work" in the browser is usually a fix that is not deployed: the local app still calls the old function. Deploy the changed function, then test. Starting the Firebase emulators does not help, because the app does not use them.</p></div>
+    <div class="note"><p>Use a development Firebase project for this. Sign-ups, content and emails you create locally are real, in whichever project <code>environment.ts</code> names.</p></div>
+
+    <h2>What you see on first load</h2>
+    <ul>
+      <li><strong>A fresh project, functions and rules deployed:</strong> the home page sends you to <code>/onboarding</code>, the setup wizard that creates the first admin. Go on with <a href="first-admin.html">Create the first admin</a>.</li>
+      <li><strong>A fresh project, rules not deployed yet:</strong> the home page loads and no wizard appears. The check that decides whether setup is needed cannot read the database, so it assumes setup is done. Deploy first (see <a href="first-deploy.html">Deploy for the first time</a>), then reload.</li>
+      <li><strong>A project that is already set up:</strong> the site's home page.</li>
+    </ul>
+    <p>To see the home page of a fresh project without being sent to the wizard, add <code>?debug</code> to the address.</p>
+
+    <h2>When the dev server restarts</h2>
+    <p>Saving <code>vite.config.ts</code> or a file it reads restarts the dev server. That includes <code>src/custom/features.ts</code> and <code>src/custom/pwa.ts</code>. When <code>src/custom/features.ts</code> names an unknown feature, lists one in both <code>on</code> and <code>off</code>, or turns off a feature another needs, <code>npm run dev</code> does not start and prints a message saying what to change (see <a href="../reference/feature-ids.html">Feature ids</a>). A running dev server prints the message followed by "server restart failed" and keeps serving the previous choice until you fix the file.</p>
+
+    <h2 id="when-it-runs-out-of-memory">When it runs out of memory</h2>
+    <p>Each restart builds a new server with its own Angular compiler. <code>vite.config.ts</code> frees each old server when it closes, so memory grows once, on the first restart, and then stays level instead of climbing with every change.</p>
+    <p>If the dev server still stops with "JavaScript heap out of memory", start it again. If it happens often, give Node more memory:</p>
+    <pre><code>NODE_OPTIONS=--max-old-space-size=8192 npm run dev</code></pre>
+
+    <p>Other problems are on <a href="../operations/troubleshooting.html">Troubleshooting</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

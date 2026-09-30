@@ -1,5 +1,5 @@
 /**
- * App install tracking (docs/pwa.md).
+ * App install tracking (docs/features/pwa.html).
  *
  * The browser reports four events, each at most once per device (opened from the
  * home screen: once a day):

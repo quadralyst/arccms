@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Media | Arc CMS docs</title>
+  <meta name="description" content="Upload and pick images in the media manager: the four stored sizes, WebP conversion, Unsplash, Storage paths, limits and rules.">
+  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/services/file-upload.service.ts, src/shared/utils/image-sizes.ts, functions/src/shared/image-sizes.ts, functions/src/integrations/searchUnsplash.ts, src/app/pages/admin/(settings)/misc/misc-settings.model.ts, src/app/core/config/arc-config.ts, storage.rules, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/media.html">
+  <main>
+    <h1>Media</h1>
+    <p class="lead">Upload images once and use them everywhere: the media manager stores each upload at four sizes, converts it to WebP, and lets editors pick an image and a size wherever a field wants one.</p>
+
+    <h2>What it is</h2>
+    <p>The media manager is at <strong>Media Manager</strong> in the admin menu (<code>/admin/media</code>) and opens as a picker from every image field. It has these tabs:</p>
+    <table>
+      <thead><tr><th>Tab</th><th>Gives</th></tr></thead>
+      <tbody>
+        <tr><td>My Uploads</td><td>Every upload in the library, newest first, 20 per page. Drop or choose several files at once.</td></tr>
+        <tr><td>Free Images</td><td>Search Unsplash photos, once an Unsplash key is set in <strong>Settings &gt; Integrations</strong>. A chosen photo is used from Unsplash by its URL; it is not copied into your storage.</td></tr>
+        <tr><td>Icons</td><td>The Font Awesome icon picker. Shown only when an <code>icon</code> field opens the picker.</td></tr>
+      </tbody>
+    </table>
+    <p>Where the picker opens:</p>
+    <ul>
+      <li>The content editor: cover image, <code>image</code> fields, images in the body, and rows of gallery and info card fields (a gallery can take several images in one pick).</li>
+      <li>The signup form editor.</li>
+      <li>An admin's profile photo. Members upload their photo to their own folder instead (<code>avatars/{uid}/</code>); they never see the library.</li>
+    </ul>
+
+    <h2>Turn it on or off</h2>
+    <p>Media is always on. It is core and belongs to no switchable feature.</p>
+
+    <h2>Set it up</h2>
+    <p>Nothing is needed: uploads work on a new install. To change the limits, open <strong>Settings &gt; Misc</strong>, <strong>Media Upload</strong>:</p>
+    <table>
+      <thead><tr><th>Setting</th><th>Default</th><th>Stored as</th></tr></thead>
+      <tbody>
+        <tr><td>Max File Size (MB)</td><td>5</td><td><code>Settings/misc.mediaMaxFileSize</code></td></tr>
+        <tr><td>Max image size (px, longest side)</td><td>1200</td><td><code>Settings/misc.mediaMaxSize</code></td></tr>
+        <tr><td>Convert all images to WebP</td><td>On</td><td><code>Settings/misc.mediaConvertToWebp</code></td></tr>
+      </tbody>
+    </table>
+    <p>To offer Unsplash, add an Unsplash access key under <strong>Settings &gt; Integrations</strong>; the page has a setup guide. For choosing and organizing a website's images, see <a href="../website/media.html">Manage media</a>.</p>
+
+    <h2>Use it</h2>
+
+    <h3>Upload</h3>
+    <p>The manager accepts JPEG, PNG, WebP and GIF. Each file is processed in the browser, then uploaded:</p>
+    <ol class="steps">
+      <li><p>It is resized to four sizes, each a limit on the <strong>longest side</strong>, so a size means the same box for landscape and portrait photos.</p></li>
+      <li><p>It is encoded as WebP (unless conversion is off). A size the image is too small for is not enlarged; sizes with the same pixel size share one file.</p></li>
+      <li><p>The largest file is checked against the file size limit. Too large, and the upload stops with a message.</p></li>
+      <li><p>The files go to Storage and one <code>media</code> document records them.</p></li>
+    </ol>
+    <table>
+      <thead><tr><th>Size</th><th>Longest side</th><th>Default</th><th>Typical use</th></tr></thead>
+      <tbody>
+        <tr><td>S</td><td>A quarter of the maximum</td><td>300px</td><td>Thumbnails, list cards</td></tr>
+        <tr><td>M</td><td>Half</td><td>600px</td><td>The size an editor gets unless they choose</td></tr>
+        <tr><td>L</td><td>Three quarters</td><td>900px</td><td>Article bodies</td></tr>
+        <tr><td>XL</td><td>The maximum</td><td>1200px</td><td>Covers, heroes, the social share image (the cover picker opens at XL)</td></tr>
+      </tbody>
+    </table>
+    <p>GIFs are stored once, as they are, so animation survives: they have no sizes.</p>
+
+    <h3>Pick an image</h3>
+    <p>In the picker, choose an image and a size (S, M, L or XL), then confirm. The field stores that size's URL. Templates can still use any other size of the same image through <code>{{ key_s }}</code> to <code>{{ key_xl }}</code>; see <a href="templates.html#image-sizes">Templates</a>.</p>
+
+    <h3>Delete</h3>
+    <p>Deleting an item in the media manager removes every stored size from Storage and the <code>media</code> document.</p>
+    <div class="warn"><p>Delete does not check whether content uses the image. Pages that show it break, including published pages. Search your content before deleting an image.</p></div>
+
+    <h3>Move media to another project</h3>
+    <p><strong>Data &gt; Export Files</strong> and <strong>Import Files</strong> copy media files; see <a href="data.html">Data import and export</a>.</p>
+
+    <h2>Extend it</h2>
+    <ul>
+      <li>Open the picker from your own admin page by opening <code>MediaManagerComponent</code> (in <code>src/app/pages/admin/(media)/media.page.ts</code>) as a dialog with <code>{ isDialogOpen: true }</code>. Options: <code>multiple</code> (several images), <code>size</code> (the preselected size), <code>allowIcons</code> and <code>allowImages</code> (which tabs show). It returns <code>mediaUrl</code>, <code>mediaUrls</code> and <code>size</code>.</li>
+      <li>Files your app lets members upload belong in their own folders under rules you write in <code class="new">storage.app.rules</code>. See <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>.</li>
+    </ul>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td>Storage <code>mediaImages/{name}-{random}-{size}.webp</code></td><td>The sized files (<code>-s</code>, <code>-m</code>, <code>-l</code>, <code>-xl</code>); the original extension instead of <code>.webp</code> when conversion is off. GIFs: <code>mediaImages/{name}-{random}.gif</code>. The name comes from the file name, lowercased and hyphenated. With an upload folder configured for the install, every path starts with it (see <a href="../getting-started/configure.html">Configure a project</a>).</td></tr>
+        <tr><td><code>media/{id}</code></td><td><code>downloadURL</code> (the XL file), <code>name</code>, <code>uploadTime</code>, <code>width</code>, <code>height</code>, and <code>variants</code>: for each size its <code>url</code>, Storage <code>path</code>, <code>width</code> and <code>height</code>. GIFs have no <code>variants</code>.</td></tr>
+        <tr><td><code>Settings/misc</code></td><td>The upload settings above</td></tr>
+        <tr><td><code>Settings/integrations</code></td><td>The Unsplash keys (admin only)</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th>Cloud Function</th><th>Kind</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>searchUnsplash</code></td><td>Callable</td><td>Searches Unsplash with the key kept server-side, 20 results per page</td></tr>
+      </tbody>
+    </table>
+    <p>Resizing happens in the browser; no function processes uploads.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Resource</th><th>Read</th><th>Write</th></tr></thead>
+      <tbody>
+        <tr><td>Storage files (outside <code>users</code> folders)</td><td>Anyone</td><td>Admins (and the reserved <code>editor</code> role)</td></tr>
+        <tr><td><code>media</code> documents</td><td>Anyone</td><td>Admins and editors</td></tr>
+        <tr><td><code>avatars/{uid}/</code></td><td>Anyone</td><td>That signed-in user, images under 5 MB</td></tr>
+          </tbody>
+    </table>
+    <p>Storage is public to read because published pages show the images. See <a href="../operations/security-rules.html">Security rules</a>.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>"... exceeds the maximum allowed size"</td><td>The XL file is over the limit. Raise <strong>Max File Size</strong>, or lower <strong>Max image size</strong>.</td></tr>
+        <tr><td>"Invalid file type"</td><td>Only JPEG, PNG, WebP and GIF are accepted. Convert SVG, HEIC or other files first.</td></tr>
+        <tr><td>Free Images asks for setup</td><td>No Unsplash access key in <strong>Settings &gt; Integrations</strong>.</td></tr>
+        <tr><td>Upload fails with a permission error</td><td>The account is not an admin, or the Storage rules are not deployed.</td></tr>
+        <tr><td>A size binding such as <code>{{ coverImage_l }}</code> shows a broken image</td><td>The upload was smaller than that size's limit, so that size shares a larger size's file and the derived address has no file. Upload images at least as large as <strong>Max image size</strong>.</td></tr>
+        <tr><td>Size bindings are empty</td><td>They are derived only for uploads under <code>mediaImages/</code> at the bucket root, and for Unsplash photos. An install with an upload folder, or an image pasted from elsewhere, gets none: bind the stored URL.</td></tr>
+        <tr><td>Changing Max image size did nothing to old images</td><td>Settings apply to new uploads only.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

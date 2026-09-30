@@ -8,7 +8,7 @@
  * results page, so search works with JavaScript disabled; arc-search.js
  * adds the type-ahead.
  *
- * Spec: docs/search-spec.md, decision S-D16 and phase S5 item 2.
+ * Spec: specs/search-spec.md, decision S-D16 and phase S5 item 2.
  */
 
 import { langPrefix } from '../shared/content-translation.js';
@@ -66,7 +66,7 @@ export interface SearchWidgetOptions {
 export function buildSearchWidget(options: SearchWidgetOptions): string {
     if (!options.projectId && !options.endpoint) return '';
     // Without the search feature the header's <arc-search> becomes nothing
-    // (docs/feature-flags-spec.md).
+    // (specs/feature-flags-spec.md).
     if (!isFeatureOn('search')) return '';
 
     const text = (key: SearchWidgetStringKey) => options.strings?.[key]?.trim() || SEARCH_WIDGET_DEFAULT_STRINGS[key];

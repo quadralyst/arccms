@@ -3,7 +3,7 @@
  *
  * Site identity configuration: name, production URL, physical address, and
  * the publisher identity that every public page carries as schema.org
- * structured data (docs/discoverability-spec.md, D-D4).
+ * structured data (specs/discoverability-spec.md, D-D4).
  * Used by cloud functions for canonical URLs, SEO meta, JSON-LD and email footers.
  * Stored in Firestore at Settings/about. Mirrored server-side as AboutConfig
  * in functions/src/shared/site-settings.ts.

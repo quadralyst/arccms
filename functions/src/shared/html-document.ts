@@ -53,7 +53,7 @@ export interface PageMeta {
      */
     defaultLang?: string;
     /**
-     * schema.org nodes for this page (docs/discoverability-spec.md, D-D1).
+     * schema.org nodes for this page (specs/discoverability-spec.md, D-D1).
      * Each becomes its own <script type="application/ld+json">. Built by
      * functions/src/shared/structured-data.ts; nulls are skipped.
      */

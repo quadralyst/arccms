@@ -1,4 +1,4 @@
-/** Admin: add an ArcCMS user (docs/coexistence-spec.md, CO6.6). */
+/** Admin: add an ArcCMS user (specs/coexistence-spec.md, CO6.6). */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const m = vi.hoisted(() => {

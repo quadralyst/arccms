@@ -1,6 +1,6 @@
 /**
  * The features this app has: `src/custom/features.ts` resolved against the core
- * list (docs/feature-flags-spec.md). vite.config.ts resolves the same choice at
+ * list (specs/feature-flags-spec.md). vite.config.ts resolves the same choice at
  * build start, so a choice that cannot be built never reaches the browser.
  */
 import { inject } from '@angular/core';

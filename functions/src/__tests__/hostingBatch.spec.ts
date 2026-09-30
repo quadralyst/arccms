@@ -4,7 +4,7 @@
  * The batch exists because per-file deploys raced: each builds its version
  * from the *latest release's* manifest, so a deploy seconds after another can
  * read a stale release and silently drop the earlier file. A publish of a
- * two-language article lost its Hindi page that way (docs/_todo.md item 3c).
+ * two-language article lost its Hindi page that way (specs/_todo.md item 3c).
  * Collecting a publish into one batch is what makes that impossible.
  */
 import { describe, it, expect } from 'vitest';

@@ -3,7 +3,7 @@
  * npm run arc:configure -- [--project=<alias or id>] [flags]
  *
  * Turns `arccms.config.json` into the files that need its values, for one
- * Firebase project at a time (docs/coexistence-spec.md, CO-D3, CO3.2):
+ * Firebase project at a time (specs/coexistence-spec.md, CO-D3, CO3.2):
  *
  *   src/environments/arc-install.ts   every project's database, bucket and upload
  *                                     folder, keyed by project id; the app picks
@@ -192,7 +192,7 @@ export function renderArcInstall(byProject = {}) {
             `    ${JSON.stringify(projectId)}: {\n${Object.entries(values).map(([k, v]) => `        ${k}: ${JSON.stringify(v)},`).join('\n')}\n    },`).join('\n')}\n}`;
     return `/**
  * Install configuration for the browser app and SSR, per Firebase project
- * (docs/coexistence-spec.md, CO-D3, CO3.2).
+ * (specs/coexistence-spec.md, CO-D3, CO3.2).
  *
  * Written by \`npm run arc:configure\` from \`arccms.config.json\`; do not edit by hand.
  * The app uses the entry for its own \`firebaseConfig.projectId\`. A project with
@@ -356,7 +356,7 @@ export function main(argv = process.argv.slice(2), paths = PATHS, log = console.
     log(changes.length ? `${dryRun ? 'Would ' : ''}${changes.join('\n')}` : 'Nothing to change.');
     if (sharesDefaultBucket(config)) {
         log(`\nStorage rules are not deployed for ${projectId}: Arc CMS keeps its files in the default bucket, which the other app uses,`
-            + ' and a bucket has one rules file. Give Arc CMS its own bucket (--bucket=<name>) to deploy them (docs/deploy.md).');
+            + ' and a bucket has one rules file. Give Arc CMS its own bucket (--bucket=<name>) to deploy them (docs/operations/deploy.html).');
     }
 
     const commands = setupCommands(config);

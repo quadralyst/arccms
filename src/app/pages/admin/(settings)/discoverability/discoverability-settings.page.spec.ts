@@ -1,5 +1,5 @@
 /**
- * Tests for DiscoverabilitySettingsPage (docs/discoverability-spec.md, D3)
+ * Tests for DiscoverabilitySettingsPage (specs/discoverability-spec.md, D3)
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';

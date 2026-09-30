@@ -8,7 +8,7 @@
  * its pages keep their current URLs. Every other language is authored as a
  * translation and published under a `/{code}/` prefix.
  *
- * Spec: docs/multilingual-spec.md — Phase M1.
+ * Spec: specs/multilingual-spec.md — Phase M1.
  */
 
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';

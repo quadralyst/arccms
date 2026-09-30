@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Testing | Arc CMS docs</title>
+  <meta name="description" content="Run the Arc CMS test suite, run one file, and write component, Cloud Function, security rules and feature-aware specs the way the existing ones do.">
+  <meta name="docs:sources" content="vitest.config.ts, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="operations/testing.html">
+  <main>
+    <h1>Testing</h1>
+    <p class="lead">One command runs every test of the website, the Cloud Functions, the scripts and the docs. The security rules have a second command, because they need the Firebase emulators.</p>
+
+    <h2>Run the tests</h2>
+    <p>From the repository root:</p>
+    <pre><code>npm run test</code></pre>
+    <p>In a terminal, Vitest keeps watching and reruns the tests you touch; press <kbd>q</kbd> to stop. To run everything once and stop, for example in a script:</p>
+    <pre><code>npx vitest run</code></pre>
+    <p>The functions folder has no test script of its own: its specs run from the root with everything else.</p>
+
+    <h3>Run one file or one test</h3>
+    <pre><code>npx vitest run functions/src/__tests__/adminCreateUser.spec.ts</code></pre>
+    <p>A path that contains brackets or parentheses, such as a page in a <code>(group)</code> folder, needs quotes in the shell. To run only the tests whose name contains some words, add <code>-t</code>:</p>
+    <pre><code>npx vitest run src/app/core/features -t "resolveFeatures"</code></pre>
+
+    <h2>What runs</h2>
+    <p><code>vitest.config.ts</code> sets up one run for everything:</p>
+    <table>
+      <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Specs</td><td><code>src/**/*.spec.ts</code>, <code>functions/src/**/*.spec.ts</code>, <code>scripts/**/*.spec.ts</code></td></tr>
+        <tr><td>Environment</td><td>jsdom, with Vitest globals</td></tr>
+        <tr><td>Setup for every spec</td><td><code>src/test/setup.ts</code> (Angular) and <code>functions/src/__tests__/setup.ts</code> (Cloud Functions)</td></tr>
+        <tr><td>Once before the run</td><td><code>scripts/vitest-global-setup.ts</code> writes the functions' generated feature files, which a fresh clone does not have</td></tr>
+      </tbody>
+    </table>
+    <p>The rules tests in <code>tests/rules/</code> are left out of this run (see <a href="#rules-tests">Rules tests</a>).</p>
+
+    <h2>Write a component spec</h2>
+    <p>Component specs use Angular's <code>TestBed</code> with Vitest (<code>vi.fn()</code>, <code>vi.mock()</code>). <code>src/test/setup.ts</code> already starts the Angular test environment and gives every spec Transloco with the real English strings, so a rendered template shows the text a person sees.</p>
+    <p>The part to plan for is Firebase. Many services reach it indirectly, and a spec must mock whatever would:</p>
+    <table>
+      <thead><tr><th>Your component uses</th><th>It pulls in</th><th>Do this</th></tr></thead>
+      <tbody>
+        <tr><td><code>&lt;arc-page-header&gt;</code> (every admin and member page)</td><td>The notification bell, the admin search box and <code>AuthState</code></td><td>Spread <code>...headerTestProviders()</code> first in <code>providers</code></td></tr>
+        <tr><td><code>AuthService</code></td><td><code>DbService</code>, which injects Firestore</td><td>Provide a mock with the methods the component calls</td></tr>
+        <tr><td><code>AuthState</code> (the auth store)</td><td>Firebase Auth and <code>AuthService</code></td><td>Provide a mock</td></tr>
+        <tr><td>A signal store</td><td>Its data service and Firestore</td><td><code>.overrideProvider(TheStore, { useValue: mockStore })</code>, with signals for its state</td></tr>
+      </tbody>
+    </table>
+    <p><code>headerTestProviders()</code> is in <code>src/test/header-test-providers.ts</code>. Put it first, so a provider your spec declares for the same token wins. A page spec, following <code>src/app/pages/admin/(transactions)/transactions.page.spec.ts</code>:</p>
+    <pre><code>import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import TransactionsPageComponent from './transactions.page';
+import { TransactionsStore } from './transactions.store';
+import { headerTestProviders } from '../../../../test/header-test-providers';
+
+describe('TransactionsPageComponent', () =&gt; {
+    const mockStore = { items: signal([]), isLoading: signal(false), getAll: vi.fn() };
+
+    beforeEach(async () =&gt; {
+        await TestBed.configureTestingModule({
+            imports: [TransactionsPageComponent, NoopAnimationsModule],
+            providers: [...headerTestProviders(), provideRouter([])],
+        })
+            .overrideProvider(TransactionsStore, { useValue: mockStore })
+            .compileComponents();
+    });
+
+    it('loads the transactions', () =&gt; {
+        const fixture = TestBed.createComponent(TransactionsPageComponent);
+        fixture.detectChanges();
+        expect(mockStore.getAll).toHaveBeenCalled();
+    });
+});</code></pre>
+    <p>A page that extends <code>BaseComponent</code> also needs an <code>ActivatedRoute</code> mock, as that spec shows. To render in another admin language, import <code>translocoTestingModule({ lang: 'hi' })</code> from <code>src/test/transloco-test-providers.ts</code>.</p>
+
+    <h2>Write a Cloud Function spec</h2>
+    <p>Function specs live in <code>functions/src/__tests__/</code> or beside the code. <code>functions/src/__tests__/setup.ts</code> mocks the Firebase Admin SDK for every spec. In your spec:</p>
+    <ol class="steps">
+      <li><p>Mock <code>../init</code>, the module that hands out <code>db</code> and <code>owner</code> (the Admin SDK Auth), with fakes that record what the function writes. Build the fakes in <code>vi.hoisted()</code>, because <code>vi.mock()</code> runs before the imports.</p></li>
+      <li><p>Mock the <code>firebase-functions</code> module the function registers with, so the export is the handler itself. For a callable, <code>onCall: (...args) =&gt; args[args.length - 1]</code>.</p></li>
+      <li><p>Import the function after the mocks and call it with a request (<code>{ auth, data }</code>) or an event.</p></li>
+    </ol>
+    <pre><code>vi.mock('../init', () =&gt; ({ db: m.db, owner: m.owner }));
+vi.mock('firebase-functions/v2/https', () =&gt; ({
+    onCall: (...args: any[]) =&gt; args[args.length - 1],
+    HttpsError: class HttpsError extends Error { constructor(public code: string, msg: string) { super(msg); } },
+}));
+
+import { adminCreateUser } from '../users/adminCreateUser.js';</code></pre>
+    <p>For a Firestore trigger, mock <code>firebase-functions/v2/firestore</code> so the trigger records its handler, and take the handler once, at the top of the file: <code>vi.mocked(onDocumentDeleted).mock.calls.at(-1)?.[1]</code>. <code>functions/src/__tests__/onUserDelete.spec.ts</code> shows the whole pattern.</p>
+    <div class="trap"><p>Take a trigger's handler at the top of the file, not inside a test. <code>vi.clearAllMocks()</code> in a <code>beforeEach</code> empties the mock's call list, so a handler read inside a test is missing, and a test that returns early when it is missing passes without checking anything.</p></div>
+
+    <h2>Feature switches in specs</h2>
+    <p>Core specs test Arc CMS with its features on, whatever an app turns off in <code>src/custom/features.ts</code>, so an app that turns features off can still run the whole suite:</p>
+    <ul>
+      <li><code>src/test/setup.ts</code> mocks <code>src/custom/features.ts</code> as empty: every feature is on except the installable app (PWA), which is off unless asked for.</li>
+      <li><code>functions/src/__tests__/setup.ts</code> mocks the functions' list of features with all of them on.</li>
+    </ul>
+    <p>A spec about a particular choice mocks the file itself, and its mock wins:</p>
+    <pre><code>vi.mock('../../../custom/features', () =&gt; ({ CUSTOM_FEATURES: { on: ['pwa'] } }));</code></pre>
+    <pre><code>const featuresOff = new Set&lt;string&gt;();
+vi.mock('../feature-flags.js', () =&gt; ({ isFeatureOn: (id: string) =&gt; !featuresOff.has(id) }));</code></pre>
+    <p>The feature ids are listed in <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+
+    <h2>Rules tests</h2>
+    <p>The security rules are tested against the Firestore and Storage emulators:</p>
+    <pre><code>npm run test:rules</code></pre>
+    <p>It combines the core and app rules, starts the emulators with the Firebase CLI, and runs <code>tests/rules/</code> with <code>vitest.rules.config.ts</code>. It needs the Firebase CLI and Java. Run it whenever a rules file changed. How to write a rules test is in <a href="security-rules.html#change-a-rule-safely">Security rules</a>.</p>
+
+    <h2>Docs checks</h2>
+    <p>The docs have tests too. They run with <code>npm run test</code>, and on their own with:</p>
+    <pre><code>npm run check:docs</code></pre>
+    <p>They fail on a broken link, a path or npm script that does not exist, a missing feature page, or a writing rule broken. See <a href="../contributing/writing-docs.html">Writing docs</a>.</p>
+
+    <h2>Before you finish</h2>
+    <p>A change is done when the whole suite passes, with the rules tests when rules changed, and the docs agree with the code: see <a href="../contributing/docs-and-tests-are-part-of-done.html">Docs and tests are part of done</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

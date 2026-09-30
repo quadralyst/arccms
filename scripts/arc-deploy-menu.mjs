@@ -1,5 +1,5 @@
 /**
- * The guided deploy: `npm run deploy` with no options (docs/deploy.md).
+ * The guided deploy: `npm run deploy` with no options (docs/operations/deploy.html).
  *
  * It asks, one step at a time with a default each, and then deploys:
  *   1. the project (the `.firebaserc` aliases; the `firebase use` one first);
@@ -485,7 +485,7 @@ async function menu(rl) {
     const websiteBuild = WEBSITE_BUILDS[alias];
     if (websiteOn && !websiteBuild) console.log(`The website is deployed with npm run deploy:dev or deploy:prod; ${alias || projectId} has no website build set up.`);
     const storageOn = !sharesDefaultBucket(config);
-    if (!storageOn) console.log('Storage rules are not offered: Arc CMS shares the default bucket with the other app, and a bucket has one rules file (docs/deploy.md).');
+    if (!storageOn) console.log('Storage rules are not offered: Arc CMS shares the default bucket with the other app, and a bucket has one rules file (docs/operations/deploy.html).');
     const choices = deployChoices({ websiteOn, websiteBuild, changed, dirty, storageOn });
     const lastKey = state.choice?.[projectId];
     const preferred = Math.max(0, choices.findIndex((c) => c.key === lastKey));

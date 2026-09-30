@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Audience | Arc CMS docs</title>
+  <meta name="description" content="Keep one list of everyone you can email: contacts, lists, tags, custom fields and consent, fed by sign-ups, forms, payments and imports.">
+  <meta name="docs:sources" content="functions/src/features/audience.ts, functions/src/email-core/contacts.ts, functions/src/email-core/contactSync.ts, functions/src/email-core/adminContacts.ts, functions/src/email-core/csvImport.ts, functions/src/email-core/contactTags.ts, functions/src/email-core/contactTagSync.ts, functions/src/email-core/migrateTagsToContacts.ts, functions/src/email-core/contactFields.ts, functions/src/email-core/adminContactFields.ts, functions/src/email-core/eraseContact.ts, functions/src/email-core/liveListGuard.ts, functions/src/email-core/backfillContacts.ts, functions/src/email-core/backfillPendingContacts.ts, functions/src/email-core/backfillFormLists.ts, functions/src/email-core/queueEmail.ts, src/app/pages/admin/(audience), src/app/pages/admin/(contacts), src/app/pages/admin/(lists), src/app/pages/admin/(list-hub), src/app/pages/admin/(contact-tags), src/app/pages/admin/(contact-fields), src/app/pages/admin/(app-users), src/app/core/features/feature-routes.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/audience.html">
+  <main>
+    <h1>Audience</h1>
+    <p class="lead">Audience is the one list of everyone Arc CMS can email: each person is a contact, grouped into lists, labelled with tags and carrying custom fields and their marketing consent. Sign-ups, signup forms, payments and imports feed it on their own.</p>
+
+    <h2>What it is</h2>
+    <p>A <strong>contact</strong> is one email address. The same address is always the same contact, however many forms, lists or imports it came through. Everything else hangs off the contact:</p>
+    <table>
+      <thead><tr><th>Part</th><th>What it does</th><th>Admin screen</th></tr></thead>
+      <tbody>
+        <tr><td>Contacts</td><td>Every address, its sources, lists, tags, fields and consent</td><td>Audience, Contacts (<code>/admin/contacts</code>)</td></tr>
+        <tr><td>Lists</td><td>Groups that broadcasts, sequences and announcements send to</td><td>Audience, Lists (<code>/admin/lists</code>), and one page per list</td></tr>
+        <tr><td>Tags</td><td>Labels on a contact that cross every list and form, such as <code>vip</code></td><td>Audience, Tags (<code>/admin/contact-tags</code>)</td></tr>
+        <tr><td>Fields</td><td>Custom data on a contact, such as company or role, usable in any email</td><td>Audience, Fields (<code>/admin/contact-fields</code>)</td></tr>
+        <tr><td>App users</td><td>Another app's users, read live, when an app is connected</td><td>Audience, App users (<code>/admin/app-users</code>), see <a href="app-audience.html">App audience</a></td></tr>
+      </tbody>
+    </table>
+    <p>Contacts decide who may get marketing email. Sending itself (providers, templates, logs, the unsubscribe link) is the <a href="email.html">Email engine</a>. Broadcasts and sequences are <a href="email-marketing.html">Email marketing</a>. Forms that collect contacts are <a href="forms.html">Signup forms</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>The feature id is <code>audience</code>. It is on by default. Signup forms (<code>forms</code>) and email marketing (<code>email-marketing</code>) need it, so turning it off means turning those off too, in <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    off: ['audience', 'forms', 'email-marketing'],
+};</code></pre>
+    <p>Leaving <code>forms</code> or <code>email-marketing</code> on without <code>audience</code> stops <code>npm run dev</code> and <code>npm run build</code> with a message saying what to change.</p>
+    <p>When it is off:</p>
+    <ul>
+      <li>The Audience menu, its pages and the Settings, App audience tab are gone. Their addresses show the not-found page.</li>
+      <li>The functions in <code>functions/src/features/audience.ts</code> are not built, so the next deploy of all functions removes them. New users, form sign-ups and payments do not create contacts.</li>
+      <li>Email ignores contacts: a contact's consent or disabled switch does not block a send. An unsubscribe still stops marketing email through the Suppression list.</li>
+      <li>The data stays. Turn the feature back on, build and deploy, and it all comes back.</li>
+    </ul>
+    <p>See <a href="../reference/feature-ids.html">Feature ids</a> for every feature, and <a href="../app/choose-features.html">Choose your app's features</a> for choosing them in an app.</p>
+
+    <h2>Set it up</h2>
+    <p>A fresh install needs nothing: the first sign-up creates the first contact and the All Users list. On an install that already has users or form sign-ups from before the audience existed, build the audience from them once:</p>
+    <ol class="steps">
+      <li><p>Open Audience, Contacts and click <strong>Backfill</strong>. It makes a contact for every user (and joins paying ones to All Customers), for every verified form member, and a <code>pending</code> contact for every unverified form member. It is safe to run again.</p></li>
+      <li><p>Open Audience, Lists and click <strong>Sync form lists</strong>. It creates the list of any signup form that has none.</p></li>
+      <li><p>If your forms carried their own tags, open Audience, Tags and click <strong>Import waitlist tags</strong>. If forms collected extra answers, open Audience, Fields and click <strong>Import past form data</strong> after creating the fields.</p></li>
+    </ol>
+    <p>To send email at all, set up a provider first: see <a href="email.html">Email engine</a>.</p>
+
+    <h2>Use it</h2>
+
+    <h3>How people become contacts</h3>
+    <table>
+      <thead><tr><th>Source</th><th>When</th><th>Lists joined</th><th>Starting consent</th></tr></thead>
+      <tbody>
+        <tr><td><code>signup</code></td><td>A user record is created (any sign-in method)</td><td>All Users</td><td><code>subscribed</code></td></tr>
+        <tr><td><code>customer</code></td><td>A payment succeeds (the <a href="payments.html">Payments</a> feature)</td><td>All Customers</td><td><code>subscribed</code></td></tr>
+        <tr><td><code>waitlist</code></td><td>Someone submits a signup form</td><td>The form's own list, plus every list the form feeds</td><td><code>pending</code> until they verify or the form confirms them, then <code>subscribed</code></td></tr>
+        <tr><td><code>import</code></td><td>An admin imports a CSV</td><td>The list chosen for the import</td><td><code>subscribed</code> only if the admin ticks "These contacts have consented to marketing", else <code>pending</code></td></tr>
+        <tr><td><code>manual</code></td><td>An admin clicks <strong>Add contact</strong></td><td>None</td><td><code>subscribed</code> only if the admin ticks "I have consent to email them", else <code>pending</code></td></tr>
+        <tr><td><code>manual</code></td><td>An <a href="automations.html">automation</a> rule adds someone to a list</td><td>The rule's lists</td><td><code>subscribed</code></td></tr>
+      </tbody>
+    </table>
+    <p>Consent is set only when a contact is first created. A returning address keeps the consent it has: someone who unsubscribed stays unsubscribed when they join a second form. Deleting a user takes their contact off All Users and All Customers but keeps the contact.</p>
+
+    <h3>Consent</h3>
+    <table>
+      <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>subscribed</code></td><td>Gets marketing email (broadcasts, sequences, announcements by email)</td></tr>
+        <tr><td><code>pending</code></td><td>Signed up but not confirmed, or added without affirmed consent. Never gets marketing email</td></tr>
+        <tr><td><code>unsubscribed</code></td><td>Opted out. Never gets marketing email</td></tr>
+      </tbody>
+    </table>
+    <p>Transactional email (a sign-in code, a receipt) ignores consent. The counts at the top of the Contacts page filter the table by consent when clicked.</p>
+
+    <h3>Import contacts from a CSV</h3>
+    <ol class="steps">
+      <li><p>On Audience, Contacts click <strong>Import CSV</strong> and paste the file. Each row is <code>email</code> or <code>email,name</code>. A header row is optional.</p></li>
+      <li><p>Click <strong>Preview</strong>. It counts valid rows, rows with a bad address and addresses repeated in the file. Nothing is written yet.</p></li>
+      <li><p>Choose the list to add them to. Tick the consent box only if these people agreed to marketing email, then import.</p></li>
+    </ol>
+
+    <h3>Lists</h3>
+    <table>
+      <thead><tr><th>Type</th><th>Who is in it</th><th>Can you edit it</th></tr></thead>
+      <tbody>
+        <tr><td>Manual (Contacts)</td><td>People you import into it, collect with a form that feeds it, or add with an automation rule or your own code</td><td>Yes: rename, delete, and remove members</td></tr>
+        <tr><td>System</td><td>All Users (<code>all-users</code>), All Customers (<code>all-customers</code>), and one list per signup form, named after the form (<code>waitlist-</code> followed by the form id)</td><td>No: they follow users, payments and form members on their own</td></tr>
+        <tr><td>App users (live)</td><td>Whoever in a connected app matches its conditions, each time it is used</td><td>Only its conditions: see <a href="app-audience.html">App audience</a></td></tr>
+      </tbody>
+    </table>
+    <p>Click a list to open its page. It has three tabs: <strong>Members</strong>, <strong>Broadcasts</strong> sent to it, and its <strong>Sequence</strong> (the last two need <a href="email-marketing.html">Email marketing</a>). On a form's list, members cannot be removed, because the form decides who is in it. Use <strong>Disable emails</strong> on a member instead.</p>
+
+    <h3>Tags</h3>
+    <p>Create a tag on Audience, Tags with a label and a color. Its id is the label in lowercase with dashes (<code>VIP Customer</code> becomes <code>vip-customer</code>), so two admins adding "VIP" get one tag. Put tags on a contact in the contact's panel; changes save at once. Filter the Contacts table by tag to see everyone carrying it. Deleting a tag takes it off every contact. A signup form can give every new member a default tag: see <a href="forms.html">Signup forms</a>.</p>
+    <p>Sends target lists, not tags. To email everyone with a tag, add them to a list.</p>
+
+    <h3>Custom fields</h3>
+    <p>Create a field on Audience, Fields:</p>
+    <table>
+      <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>Label</td><td>The name. Its key is the label in lowercase with underscores, at most 40 characters (<code>Company Name</code> becomes <code>company_name</code>). Keys the contact already uses, such as <code>email</code>, <code>name</code>, <code>tags</code> or <code>consent</code>, are refused.</td></tr>
+        <tr><td>Type</td><td>Text, Number, Date, Yes / no, or Choice (with comma-separated choices)</td></tr>
+        <tr><td>On re-submit</td><td>"Keep the existing value" (the default) or "Overwrite with the newer value", for when a second form sends the same field</td></tr>
+        <tr><td>Fallback for emails</td><td>Shown in an email when a contact has no value</td></tr>
+      </tbody>
+    </table>
+    <p>Use a field in any email as <code>##FIELD:company##</code>, or with an inline fallback as <code>##FIELD:company|your company##</code>. Values arrive from form answers mapped to the field (see <a href="forms.html">Signup forms</a>) or from an admin editing the contact's panel, which always overwrites. Deleting a field keeps the values already on contacts; creating it again shows them again. All merge tags are listed in <a href="../reference/email-tags.html">Email merge tags</a>.</p>
+
+    <h3>Stop emailing someone</h3>
+    <p>Three actions look alike and are not interchangeable. Suppress and Erase are in the contact's panel on the Contacts page; Disable is on a list's page:</p>
+    <table>
+      <thead><tr><th>Action</th><th>What happens</th><th>Use when</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Suppress</strong></td><td>Consent becomes <code>unsubscribed</code> and the address goes on the Suppression list, so no later import or form can make it mailable again. <strong>Subscribe</strong> reverses it.</td><td>They opted out of marketing</td></tr>
+        <tr><td><strong>Disable emails</strong></td><td>Blocks every email to them, transactional included, and keeps them visible and counted. Reversible.</td><td>You must stop all mail, for example to someone on a form's list</td></tr>
+        <tr><td><strong>Erase contact</strong></td><td>Removes them from every list and sequence, deletes their form member records and any open verification code, removes their Suppression entry, then deletes the contact. Leaves a receipt in <code>ErasureLog</code> keyed by the address's hash, with no address in it. Irreversible.</td><td>They asked to be deleted</td></tr>
+      </tbody>
+    </table>
+    <div class="note"><p>Erasing does not touch the email logs, which keep the address until they are purged (see <a href="email.html">Email engine</a>), and does not delete a user account. For "delete my account", delete the user as well.</p></div>
+
+    <h2>Extend it</h2>
+    <p>Your own Cloud Functions in <code>functions/src/custom/</code> can add people to the audience with the same helpers core uses, from <code>functions/src/email-core/contacts.ts</code>. Check that the feature is on first:</p>
+    <pre><code>import { isFeatureOn } from '../feature-flags.js';
+import { upsertContact, removeContactFromLists } from '../email-core/contacts.js';
+
+if (isFeatureOn('audience')) {
+    // Creates the contact if new, then joins the lists (and their active sequences).
+    // A list's id is the last part of its page address, /admin/lists/{listId}.
+    await upsertContact({ email, name, source: 'manual', addLists: [BETA_LIST_ID] });
+}</code></pre>
+    <p>Always join and leave lists through <code>upsertContact</code>, <code>addContactToLists</code> and <code>removeContactFromLists</code>. They keep each list's member count right and start or end that list's sequences. Writing a contact's <code>listIds</code> yourself skips both.</p>
+    <p>Without code, an automation rule can add or remove people on lists when an event happens: see <a href="automations.html">Automations</a>. To use your own app's users without copying them, see <a href="app-audience.html">App audience</a>.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Firestore</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>Contacts/{emailHash}</code></td><td>One document per address (id: SHA-256 of the lowercased address): <code>email</code>, <code>name</code>, <code>sources</code>, <code>listIds</code>, <code>tags</code>, <code>fields</code>, <code>consent.marketing</code>, <code>disabled</code>, <code>userId</code> when they have an account</td></tr>
+        <tr><td><code>Lists/{listId}</code></td><td>Name, description, <code>type</code> (<code>manual</code>, <code>system</code> or <code>app</code>), <code>memberCount</code>, <code>formId</code> on a form's list, <code>conditions</code> on a live list</td></tr>
+        <tr><td><code>ContactTags/{tagId}</code></td><td>Label, color and <code>usageCount</code></td></tr>
+        <tr><td><code>Settings/contact_fields</code></td><td>The field definitions</td></tr>
+        <tr><td><code>Suppression/{emailHash}</code></td><td>Addresses never to send marketing email to, with a <code>reason</code> (<code>unsubscribe</code>, <code>manual</code>)</td></tr>
+        <tr><td><code>ErasureLog/{emailHash}</code></td><td>The receipt of an erasure: who, when, and counts of what was removed</td></tr>
+      </tbody>
+    </table>
+    <p>Every collection is also in <a href="../reference/data-model.html">Data model</a>. App audience state (<code>AppAudience</code>) is described in <a href="app-audience.html">App audience</a>. The feature uses no Storage paths.</p>
+    <p>Cloud Functions (each deploys as <code>arccms-</code> followed by its name; see <a href="../reference/cloud-functions.html">Cloud Functions</a>):</p>
+    <table>
+      <thead><tr><th>Kind</th><th>Functions</th></tr></thead>
+      <tbody>
+        <tr><td>Triggers</td><td><code>onUserCreateContact</code>, <code>onUserDeleteContact</code> (on <code>users</code>); <code>onWaitlistUserCreateContact</code>, <code>onWaitlistVerifiedContact</code>, <code>onWaitlistUserDeleted</code> (on form members); <code>onContactTagDelete</code></td></tr>
+        <tr><td>Contact callables</td><td><code>adminAddContact</code>, <code>adminSetContactConsent</code>, <code>adminSetContactDisabled</code>, <code>adminDeleteContact</code>, <code>adminUpdateContactLists</code>, <code>adminSetContactTags</code>, <code>adminSetContactFields</code></td></tr>
+        <tr><td>Import and fields</td><td><code>previewContactImport</code>, <code>importContacts</code>, <code>adminUpsertContactField</code>, <code>adminDeleteContactField</code></td></tr>
+        <tr><td>One-time builders</td><td><code>backfillContacts</code>, <code>backfillPendingContacts</code>, <code>backfillFormLists</code>, <code>migrateTagsToContacts</code>, <code>migrateFormDataToContactFields</code></td></tr>
+        <tr><td>App audience</td><td>Listed in <a href="app-audience.html">App audience</a></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Data</th><th>Admins</th><th>Everyone else</th></tr></thead>
+      <tbody>
+        <tr><td><code>Contacts</code>, <code>Suppression</code>, <code>ErasureLog</code></td><td>Read. Changes go through the admin callables</td><td>Nothing</td></tr>
+        <tr><td><code>Lists</code>, <code>ContactTags</code>, <code>Settings/contact_fields</code></td><td>Read and write</td><td>Nothing</td></tr>
+      </tbody>
+    </table>
+    <p>Only Cloud Functions write contacts. Every callable above refuses anyone without the admin role (the <code>arccms_role</code> claim); see <a href="../concepts/roles-and-claims.html">Roles and claims</a>. Visitors and members never read the audience.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>A contact stays <code>pending</code> and gets no broadcasts</td><td>They signed up on a form and never entered the code, or were added without affirmed consent. Pending contacts never get marketing email. If you do have their consent, click <strong>Subscribe</strong> in their panel.</td></tr>
+        <tr><td>A signup form has no list under Lists</td><td>Click <strong>Sync form lists</strong> on the Lists page.</td></tr>
+        <tr><td>"Remove from list" is missing on a list page</td><td>It is a form's list: the form decides who is in it. Use <strong>Disable emails</strong>, or delete the person from the form's members.</td></tr>
+        <tr><td>Adding a contact or importing fails with "is an App users (live) list"</td><td>A live list has no stored members, so contacts cannot be put on it. Choose a Contacts list.</td></tr>
+        <tr><td>A contact gets no email at all, not even a sign-in code</td><td>Their emails are disabled. The email log shows <code>contact_disabled</code>. Re-enable them on the list page.</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>The Contacts table loads the 500 most recently updated contacts, and its search, consent and tag filters work on those 500 only. On a larger audience a search can miss someone who exists. Open the list they are on instead, or look them up in the Firebase console by the hash of their address.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

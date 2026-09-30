@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choose your website's features | Arc CMS docs</title>
+  <meta name="description" content="Decide which Arc CMS features your website keeps, switch off the rest in one file, and know what switching a feature off removes.">
+  <meta name="docs:sources" content="src/custom/features.ts, src/app/core/features, functions/src/features, functions/src/feature-flags.ts, src/shared/components/side-navbar/side-navbar.component.ts, scripts/arc-deploy.mjs, vite.config.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/choose-features.html">
+  <main>
+    <h1>Choose your website's features</h1>
+    <p class="lead">Arc CMS ships with every feature on except the installable app. A content website with sign-ups uses almost all of them; switch off only what you will never use, so the admin menu stays short and no unused Cloud Functions run.</p>
+
+    <h2>The recommended choice</h2>
+    <table>
+      <thead><tr><th>Feature id</th><th>For a website</th></tr></thead>
+      <tbody>
+        <tr><td><code>content</code>, <code>search</code>, <code>seo</code></td><td>Keep: they are the website</td></tr>
+        <tr><td><code>forms</code>, <code>audience</code></td><td>Keep: sign-ups and contacts</td></tr>
+        <tr><td><code>email-marketing</code></td><td>Keep if you will send newsletters, broadcasts or drip emails to your sign-ups</td></tr>
+        <tr><td><code>payments</code></td><td>Switch off unless you sell</td></tr>
+        <tr><td><code>sms</code></td><td>Switch off unless you want phone number sign-in</td></tr>
+        <tr><td><code>data</code></td><td>Optional: bulk import and export of your data from the admin</td></tr>
+        <tr><td><code>pwa</code></td><td>Off by default; a website rarely wants to be installable</td></tr>
+      </tbody>
+    </table>
+    <p>What each feature contains is in <a href="../features/overview.html">All features</a>; the exact ids are in <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+
+    <h2>Switch features off</h2>
+    <ol class="steps">
+      <li><p>Open <code>src/custom/features.ts</code>. As shipped it is empty, which means every feature except <code>pwa</code> is on.</p></li>
+      <li>
+        <p>List the features your site does not have under <code>off</code>:</p>
+        <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    off: ['payments', 'sms'],
+};</code></pre>
+      </li>
+      <li><p>Save. A running <code>npm run dev</code> restarts on its own. Check the admin: the Products and Transactions menu items are gone, and the Email + SMS menu is now called Email.</p></li>
+      <li><p>Deploy everything (see <a href="../operations/deploy.html">Deploy</a>). The functions of the features you switched off are deleted from the project; <code>npm run deploy</code> lists them and asks before deleting.</p></li>
+    </ol>
+    <p><code>npm run dev</code> and <code>npm run build</code> check the file first and stop with a message for a misspelled id, a feature in both lists, or a feature whose need is off: <code>forms</code> and <code>email-marketing</code> need <code>audience</code>.</p>
+
+    <h2>What switching a feature off removes</h2>
+    <ul>
+      <li><strong>In the admin and on the site:</strong> its menu items, settings tabs and dashboard cards, and every one of its pages in the app, which then show the not-found page. For example, switching off <code>content</code> also removes the app's <code>/p/</code> route for static pages.</li>
+      <li><strong>In Firebase:</strong> its Cloud Functions, at the next deploy of all functions. Links that point at them, such as a payment webhook, stop working.</li>
+      <li><strong>Nothing else:</strong> its data, security rules and indexes stay. Take the id out of <code>off</code>, build and deploy, and everything is back.</li>
+    </ul>
+    <div class="trap"><p>Switching off <code>forms</code> does not remove a form's markup from your home page; the form stays on the page but nothing submits it. Take the form out of <code>public/index.html</code> as well.</p></div>
+
+    <h2>Next</h2>
+    <p>Check everything before you go live: <a href="launch-checklist.html">Launch checklist</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

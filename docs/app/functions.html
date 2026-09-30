@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Write your own Cloud Functions | Arc CMS docs</title>
+  <meta name="description" content="Add your app's callables and Firestore triggers in functions/src/custom, call them from the browser, read the right database, and test and deploy them.">
+  <meta name="docs:sources" content="functions/src/custom, functions/src/all.ts, functions/src/index.ts, functions/src/function-names.ts, functions/src/init.ts, functions/src/arc-config.ts, functions/src/users/claims.ts, functions/src/email-core/appEvents.ts, functions/scripts/check-callable-access.sh, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, src/app/core/config/arc-functions.ts, functions/src/__tests__/arcConfigGuard.spec.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/functions.html">
+  <main>
+    <h1>Write your own Cloud Functions</h1>
+    <p class="lead">Put your app's Cloud Functions in <code>functions/src/custom/</code> and export them from <code>functions/src/custom/index.ts</code>. They deploy next to the core functions under their own names, so they can never collide with one.</p>
+
+    <h2>Add a function</h2>
+    <ol class="steps">
+      <li>
+        <p>Write the function in its own file, such as <code class="new">functions/src/custom/lessons.ts</code>:</p>
+        <pre><code>import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { db } from '../init.js';
+
+export const completeLesson = onCall(async (request) =&gt; {
+  const userDocId = request.auth?.token['arccms_uid'];
+  if (!userDocId) throw new HttpsError('unauthenticated', 'Please sign in.');
+  const lessonId = String(request.data?.lessonId ?? '');
+  if (!lessonId) throw new HttpsError('invalid-argument', 'lessonId is required.');
+  await db.doc(`users/${userDocId}/progress/${lessonId}`).set({ done: true }, { merge: true });
+  return { ok: true };
+});</code></pre>
+      </li>
+      <li>
+        <p>Export it from <code>functions/src/custom/index.ts</code>. The functions use ES modules, so imports end in <code>.js</code>:</p>
+        <pre><code>export * from './lessons.js';</code></pre>
+      </li>
+      <li>
+        <p>If it is a callable, add its name to <code>functions/src/custom/public-callables.txt</code>, one per line:</p>
+        <pre><code>completeLesson</code></pre>
+      </li>
+      <li>
+        <p>Deploy just that function (<a href="../operations/targeted-deploys.html">Deploy only what changed</a>). The first time, add <code>--probe</code> to check that the new callable is reachable (<a href="#what-public-callables-txt-is-for">What public-callables.txt is for</a>):</p>
+        <pre><code>npm run deploy -- --only functions:arccms:arccms.custom.completeLesson --probe</code></pre>
+      </li>
+    </ol>
+    <div class="warn"><p><code>npm run dev</code> talks to your real Firebase project; there is no emulator for functions. A function you changed is not live until it is deployed, so browser tests of it before the deploy use the old version.</p></div>
+
+    <h2>How functions are named</h2>
+    <p><code>functions/src/index.ts</code> exports every Arc CMS function as one group, <code>arccms</code>, and <code>functions/src/all.ts</code> exports your file as a group inside it, <code>custom</code>. So a function you export as <code>completeLesson</code> deploys as <code>arccms-custom-completeLesson</code>.</p>
+    <table>
+      <thead><tr><th>Where</th><th>The name you use</th></tr></thead>
+      <tbody>
+        <tr><td>Deployed function</td><td><code>arccms-custom-completeLesson</code></td></tr>
+        <tr><td>Browser, with <code>arcCallable</code></td><td><code>custom-completeLesson</code></td></tr>
+        <tr><td>Deploy target</td><td><code>functions:arccms:arccms.custom.completeLesson</code></td></tr>
+        <tr><td><code>public-callables.txt</code></td><td><code>completeLesson</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Call it from the browser</h2>
+    <p>Use <code>arcCallable</code> from <code>src/app/core/config/arc-functions.ts</code>. It adds the <code>arccms-</code> prefix, so you pass <code>custom-</code> and the name:</p>
+    <pre><code>import { inject } from '@angular/core';
+import { Functions } from '@angular/fire/functions';
+import { arcCallable } from '../../app/core/config/arc-functions';
+
+private functions = inject(Functions);
+
+complete(lessonId: string) {
+  return arcCallable&lt;{ lessonId: string }, { ok: boolean }&gt;(this.functions, 'custom-completeLesson')({ lessonId });
+}</code></pre>
+
+    <h2>Who is calling</h2>
+    <p>A callable reads the caller from <code>request.auth</code>. Two claims on the token matter:</p>
+    <table>
+      <thead><tr><th>Claim</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>arccms_uid</code></td><td>The id of the person's user record, <code>users/{userDocId}</code>. It is not the Auth uid</td></tr>
+        <tr><td><code>arccms_role</code></td><td>The Arc CMS role, such as <code>admin</code></td></tr>
+      </tbody>
+    </table>
+    <p>For an admin-only callable, check the role with <code>isArcAdmin</code> from <code>functions/src/users/claims.ts</code>:</p>
+    <pre><code>import { isArcAdmin } from '../users/claims.js';
+
+if (!isArcAdmin(request.auth?.token)) throw new HttpsError('permission-denied', 'Admin access required.');</code></pre>
+    <p>See <a href="../concepts/roles-and-claims.html">Roles and claims</a> and <a href="account-contract.html">Follow the account contract</a>.</p>
+
+    <h2>Use the right database</h2>
+    <p>An install can use a named Firestore database instead of <code>(default)</code>. Two rules keep your code on the right one:</p>
+    <ul>
+      <li><strong>Reads and writes</strong> go through <code>db</code> from <code>functions/src/init.ts</code>. Never call <code>getFirestore()</code> yourself.</li>
+      <li><strong>Firestore triggers</strong> pass their path through <code>arcDocument()</code> from <code>functions/src/arc-config.ts</code>, which binds the trigger to the install's database at deploy time.</li>
+    </ul>
+    <pre><code>import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { db } from '../init.js';
+import { arcDocument } from '../arc-config.js';
+
+export const onLessonDone = onDocumentCreated(
+  arcDocument('users/{userDocId}/progress/{lessonId}'),
+  async (event) =&gt; {
+    const { userDocId } = event.params;
+    // update the person's totals with db ...
+  },
+);</code></pre>
+    <p>Trigger options go next to it: <code>{ ...arcDocument('Lessons/{id}'), timeoutSeconds: 540 }</code>. A test fails when any function file calls <code>getFirestore()</code> outside <code>functions/src/init.ts</code>, or declares a Firestore trigger without <code>arcDocument()</code>; it covers your files too.</p>
+    <p><code>functions/src/init.ts</code> also exports <code>owner</code> (Firebase Auth) and <code>storage</code>.</p>
+
+    <h2>React to what happens to a person</h2>
+    <p>When core finishes its own work on a person, it writes a document to <code>AppEvents</code> with a <code>type</code>, such as <code>user.signed_up</code>, <code>user.deleted</code>, <code>payment.succeeded</code>, <code>payment.failed</code> or <code>waitlist.joined</code>. React with your own trigger and return at once for other types:</p>
+    <pre><code>export const onSignedUp = onDocumentCreated(arcDocument('AppEvents/{id}'), async (event) =&gt; {
+  const e = event.data?.data();
+  if (e?.['type'] !== 'user.signed_up') return;
+  // e.userId is the Auth uid: create the person's starter data
+});</code></pre>
+    <p>This is safer than a second trigger on a core collection such as <code>users</code>. If you do add one, it must not rely on core's trigger having run, must write only its own fields or subcollections, must be safe to run twice, and must return at once when the change does not concern it.</p>
+
+    <h2>Follow the app's features</h2>
+    <p>If your function calls into a feature, check it first with <code>isFeatureOn('payments')</code> from <code>functions/src/feature-flags.ts</code> (<a href="choose-features.html">Choose your app's features</a>).</p>
+
+    <h2>Settings for your functions</h2>
+    <p>Read a setting with Firebase's <code>defineString</code> from <code>firebase-functions/params</code>, as core does in <code>functions/src/arc-config.ts</code>. Put the value in the per-project file <code class="new">functions/.env.YOUR_PROJECT</code>: <code>npm run arc:configure</code> writes its own keys there and keeps every other line. For a secret, use Firebase's <code>defineSecret</code> so the value stays out of the repository.</p>
+    <div class="trap"><p>Do not add your keys to <code>functions/.env</code>. It is a core file, so <code>npm run check:core</code> reports your change, and an Arc CMS update can conflict with it.</p></div>
+
+    <h2>What public-callables.txt is for</h2>
+    <p>Firebase makes a callable publicly invocable when it creates it. If that step fails, for example in a deploy that timed out, every browser call to the function fails with HTTP 403, and a later deploy does not fix it. <code>functions/scripts/check-callable-access.sh</code> calls each callable and reports the blocked ones with the command that fixes them.</p>
+    <ul>
+      <li>The guided <code>npm run deploy</code> checks every callable the deploy created. It recognizes your callables by the names in <code>public-callables.txt</code>, so a callable missing from the file is not checked.</li>
+      <li><code>--probe</code> added to a deploy that includes functions checks every callable in the build afterwards, and reports a listed callable that was not deployed.</li>
+    </ul>
+    <p>Lines starting with <code>#</code> are comments.</p>
+
+    <h2>Test your functions</h2>
+    <p>Put a spec next to your code, such as <code class="new">functions/src/custom/__tests__/lessons.spec.ts</code>, and run the whole suite from the repository root:</p>
+    <pre><code>npm run test</code></pre>
+    <p>The functions have no test script of their own. Mock <code>init</code> and the Firebase trigger module, then call the handler directly:</p>
+    <pre><code>import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../init', () =&gt; ({ db: { doc: vi.fn(() =&gt; ({ set: vi.fn() })) } }));
+vi.mock('firebase-functions/v2/https', () =&gt; ({
+  onCall: vi.fn((handler: unknown) =&gt; handler),
+  HttpsError: class extends Error {
+    constructor(public code: string, message: string) { super(message); }
+  },
+}));
+
+import { completeLesson } from '../lessons.js';
+
+describe('completeLesson', () =&gt; {
+  it('refuses a caller who is not signed in', async () =&gt; {
+    await expect((completeLesson as any)({ data: {} })).rejects.toMatchObject({ code: 'unauthenticated' });
+  });
+});</code></pre>
+    <p>Core specs in <code>functions/src/__tests__/</code> show more patterns, including an in-memory Firestore in <code>functions/src/__tests__/helpers/memoryFirestore.ts</code>. See <a href="../operations/testing.html">Testing</a>.</p>
+
+    <h2>Deploy</h2>
+    <p>Deploy only the functions you changed while you work (<a href="../operations/targeted-deploys.html">Deploy only what changed</a>). A deploy of every function also removes the functions of features you turned off; <code>npm run deploy</code> asks first (<a href="../operations/deploy.html">Deploy</a>). The full list of core functions is in <a href="../reference/cloud-functions.html">Cloud Functions</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

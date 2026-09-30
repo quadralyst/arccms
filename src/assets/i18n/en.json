@@ -677,7 +677,7 @@
         "save_rebuild": "Save and rebuild",
         "needs_title": "Tick at least one field and pick a title.",
         "load_failed": "Could not read the collections.",
-        "developer_note": "Developers can also write a search source in code, for what these settings cannot express. See docs/search-developer-guide.md."
+        "developer_note": "Developers can also write a search source in code, for what these settings cannot express. See docs/features/search.html."
       },
       "discoverability": {
         "title": "Discoverability",

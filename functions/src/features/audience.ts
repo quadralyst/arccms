@@ -1,10 +1,10 @@
 /**
- * The audience feature's Cloud Functions (docs/feature-flags-spec.md). Exported only
+ * The audience feature's Cloud Functions (specs/feature-flags-spec.md). Exported only
  * when the app has the feature: functions/src/feature-exports.gen.ts lists this file.
  */
 
 // Audience: contacts and their sync, lists, tags, fields, CSV import, the
-// one-time migrations onto contacts, and the App audience (docs/coexistence-spec.md 5b).
+// one-time migrations onto contacts, and the App audience (specs/coexistence-spec.md 5b).
 export * from '../email-core/contactSync.js';
 export * from '../email-core/backfillContacts.js';
 export * from '../email-core/csvImport.js';

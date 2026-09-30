@@ -43,7 +43,7 @@ interface Row {
 const PREVIEW_DELAY_MS = 600;
 
 /**
- * Conditions of an App users (live) list (docs/coexistence-spec.md 5b, CO6.5b):
+ * Conditions of an App users (live) list (specs/coexistence-spec.md 5b, CO6.5b):
  * rows of field, operator and value, all of which must match. Fields come from
  * a sample of the host app's documents, so the admin picks paths instead of
  * typing them. Every change re-counts who matches, after a short pause.

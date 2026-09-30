@@ -127,7 +127,7 @@ describe('only the functions changed since the last deploy', () => {
     it('a shared file reaches every function that uses it; a doc change reaches none', () => {
         expect(affectedFunctions({ graph, changed: ['functions/src/init.ts'], deployable, previous: deployable }).names)
             .toEqual(['onAppEventCreate', 'processDripQueue', 'search']);
-        expect(affectedFunctions({ graph, changed: ['docs/x.md'], deployable, previous: deployable }).names).toEqual([]);
+        expect(affectedFunctions({ graph, changed: ['docs/index.html'], deployable, previous: deployable }).names).toEqual([]);
     });
 
     it('deploys the app\'s custom group as one, and new functions as well', () => {

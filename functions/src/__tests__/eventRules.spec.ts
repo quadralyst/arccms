@@ -1,4 +1,4 @@
-/** Rules within an event mapping (docs/coexistence-spec.md 5b, CO6.4). */
+/** Rules within an event mapping (specs/coexistence-spec.md 5b, CO6.4). */
 import { describe, it, expect } from 'vitest';
 import { applicableRules, conditionText, matchesCondition } from '../email-core/eventRules.js';
 

@@ -8,7 +8,7 @@
  * in the same scope and language is answered from memory for the session,
  * and a response that arrives after a newer request was sent is dropped.
  *
- * Spec: docs/search-spec.md, phase S4 item 1.
+ * Spec: specs/search-spec.md, phase S4 item 1.
  */
 
 import { inject, Injectable } from '@angular/core';

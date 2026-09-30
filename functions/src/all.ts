@@ -1,11 +1,11 @@
 /**
  * Every ArcCMS function. `index.ts` exports this module as one group, `arccms`,
- * so each deploys as `arccms-<name>` (docs/coexistence-spec.md, CO-D5). Add new
+ * so each deploys as `arccms-<name>` (specs/coexistence-spec.md, CO-D5). Add new
  * functions here, never to index.ts.
  *
  * Core functions are listed below. A feature's own functions live in
  * `features/<id>.ts` and are exported only when the app has the feature
- * (src/custom/features.ts, docs/feature-flags-spec.md): the generated
+ * (src/custom/features.ts, specs/feature-flags-spec.md): the generated
  * `feature-exports.gen.ts` lists the files of the features that are on, so a
  * full functions deploy deletes the functions of a feature that is off.
  */
@@ -47,9 +47,9 @@ export * from './email-core/notificationPrefs.js';
 // User role sync to Firebase Auth custom claims
 export * from './users/syncUserRole.js';
 export * from './users/adminCreateUser.js';
-// The account's own: claim refresh and deleting it (docs/account-contract.md).
+// The account's own: claim refresh and deleting it (docs/app/account-contract.html).
 export * from './users/accountCallables.js';
-// Feedback button: sender details and the admins' alert (docs/feedback.md).
+// Feedback button: sender details and the admins' alert (docs/features/feedback.html).
 export * from './feedback/onFeedbackCreated.js';
 
 // Add email_lookup entry when a user document is created
@@ -77,6 +77,6 @@ export * from './integrations/searchUnsplash.js';
 // The features this app has (generated from src/custom/features.ts).
 export * from './feature-exports.gen.js';
 
-// The app's own functions (functions/src/custom, docs/custom-code.md), deployed
+// The app's own functions (functions/src/custom, docs/app/custom-space.html), deployed
 // as arccms-custom-<name>, so they can never collide with a core function.
 export * as custom from './custom/index.js';

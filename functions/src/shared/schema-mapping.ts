@@ -1,6 +1,6 @@
 /**
  * Turns a content type's schema mapping plus one item into the page's main
- * schema.org node (docs/discoverability-spec.md, D-D12).
+ * schema.org node (specs/discoverability-spec.md, D-D12).
  *
  * The Article family is built by `buildArticle` with the chosen subtype.
  * Every other type reads its properties from the custom fields the admin

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set up sign-in | Arc CMS docs</title>
+  <meta name="description" content="Choose your app's sign-in methods, send people back to the page that asked them to sign in, set each role's home page, and sign in from another app.">
+  <meta name="docs:sources" content="src/custom/home.ts, src/app/core/home/home.ts, src/app/pages/user/user.guards.ts, src/app/pages/(auth)/sign-in.service.ts, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/admin/(settings)/user-setting, src/app/core/config/arc-functions.ts, functions/src/auth, functions/src/users/accountCallables.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/sign-in.html">
+  <main>
+    <h1>Set up sign-in</h1>
+    <p class="lead">Pick the ways people sign in to your app, send them back to the page that asked them to sign in, and choose where each role lands. Other apps in the same Firebase project can sign people in to the same accounts.</p>
+    <p>How each method works, what it stores and its limits are in <a href="../features/sign-in.html">Sign-in methods</a>. This page is the app developer's setup.</p>
+
+    <h2>Choose the methods</h2>
+    <p>Everyone signs in on <code>/signup</code>, with one field for a phone number or an email address, and a Google button when Google is on.</p>
+    <table>
+      <thead><tr><th>Method</th><th>Default</th><th>Needs</th></tr></thead>
+      <tbody>
+        <tr><td>Email and password</td><td>On</td><td>The Email/Password provider on in the Firebase console. New accounts confirm their address with an emailed code.</td></tr>
+        <tr><td>Phone number (SMS code the first time, then a 6-digit PIN)</td><td>Off</td><td>The <code>sms</code> feature on (it is unless <code>src/custom/features.ts</code> turns it off), and an SMS provider in Settings, SMS</td></tr>
+        <tr><td>Google</td><td>Off</td><td>The Google provider turned on in the Firebase console</td></tr>
+      </tbody>
+    </table>
+
+    <ol class="steps">
+      <li><p><strong>In the Firebase console</strong>, Authentication, Sign-in method: make sure Email/Password is on, and enable Google if you want it.</p></li>
+      <li><p><strong>For phone:</strong> in the admin, open Settings, SMS. Keep the Test provider while you build: no SMS is sent, and the sign-up page shows the code. Switch to a real provider before launch. See <a href="../features/sms.html">SMS</a>.</p></li>
+      <li><p><strong>Turn the methods on:</strong> Settings, User Settings, under Sign-in methods, switch on Phone number and Google as you want them. The Phone number switch only appears while the <code>sms</code> feature is on.</p></li>
+      <li><p><strong>Decide on sign-ups:</strong> "Enable User Signups" on the same page lets people create their own accounts. Turn it off for an invite-only app: admins then add people under Users, Add User.</p></li>
+    </ol>
+    <div class="trap"><p>Phone sign-in needs one Google Cloud permission on the functions' service account, or every phone sign-in fails after the code is accepted. See the trap in <a href="../features/sign-in.html#set-it-up">Sign-in methods</a>.</p></div>
+
+    <h2>Send people back where they were</h2>
+    <p>A sign-in link can carry the page to return to: <code>/signup?redirect=/learn</code>. After signing in, the person goes to that page instead of their home page. Only a path on your own site is accepted: a full address, <code>//host</code>, or a sign-in page such as <code>/signup</code> is ignored, so a crafted link cannot send people elsewhere.</p>
+    <p>You rarely write the link yourself. Protect a page with <code>userGuard</code> and a signed-out visitor is sent to <code>/signup?redirect=</code> that page:</p>
+    <pre><code>// src/custom/routes.ts
+import type { Routes } from '@angular/router';
+import { userGuard } from '../app/pages/user/user.guards';
+
+export const CUSTOM_ROUTES: Routes = [
+    { path: 'learn', canActivate: [userGuard], loadComponent: () =&gt; import('./pages/learn.page').then((m) =&gt; m.default) },
+];</code></pre>
+    <p><code>entitledGuard</code>, from the same file, does the same for signed-out visitors and also sends signed-in people without a paid plan to <code>/pricing</code>. More on routes in <a href="pages-and-routes.html">Add pages and routes</a>.</p>
+
+    <h2>Set each role's home page</h2>
+    <p>Without a <code>redirect</code>, people land on their role's home page: admins on <code>/admin/dashboard</code>, everyone else on <code>/user/dashboard</code>. Change it in <code>src/custom/home.ts</code>:</p>
+    <pre><code>// src/custom/home.ts
+import type { HomePages } from '../app/core/home/home';
+
+export const CUSTOM_HOME: HomePages = {
+    user: '/learn',
+    '*': '/learn',
+};</code></pre>
+    <p>Keys are roles (<code>admin</code>, <code>user</code>, or your own); <code>'*'</code> is every role not listed. A role you list wins, then Arc CMS's default for that role, then your <code>'*'</code>.</p>
+    <div class="trap"><p><code>'*'</code> does not move admins: Arc CMS has its own home for <code>admin</code>, which comes before your <code>'*'</code>. To send admins elsewhere too, add an <code>admin</code> key.</p></div>
+    <p>To keep people on <code>/user/dashboard</code> but show your own page there, use <code>src/custom/user-dashboard.ts</code> instead: see <a href="member-area.html">Build the member area</a>.</p>
+
+    <h2 id="sign-in-from-another-app">Sign in from another app</h2>
+    <p>A mobile app, browser extension or second web app in the same Firebase project uses the same accounts. It signs in with the Firebase Auth SDK and calls Arc CMS's callables, which are all named <code>arccms-</code> followed by the function name. Every account must end with a token that carries <code>arccms_uid</code> (see <a href="account-contract.html">Follow the account contract</a>).</p>
+
+    <h3>An existing account</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Steps</th></tr></thead>
+      <tbody>
+        <tr><td>Email</td><td>Firebase <code>signInWithEmailAndPassword</code>. If the token has no <code>arccms_uid</code>, call <code>arccms-refreshMyClaims</code> with <code>{}</code> and refresh the token.</td></tr>
+        <tr><td>Google</td><td>Firebase Google sign-in, then <code>arccms-ensureGoogleAccount</code> with <code>{}</code> (it creates the record on a first sign-in, when Google sign-in is on and sign-ups are open), then refresh the token. If the token still has no <code>arccms_uid</code>, call <code>arccms-refreshMyClaims</code> as for email.</td></tr>
+        <tr><td>Phone</td><td><code>arccms-signInWithPin</code> with <code>{ phone, pin }</code> returns <code>{ token }</code>; sign in with Firebase <code>signInWithCustomToken</code>.</td></tr>
+      </tbody>
+    </table>
+    <pre><code>import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+
+const auth = getAuth(app);
+const functions = getFunctions(app);
+
+await signInWithEmailAndPassword(auth, email, password);
+const { claims } = await auth.currentUser!.getIdTokenResult();
+if (!claims['arccms_uid']) {
+    await httpsCallable(functions, 'arccms-refreshMyClaims')({});
+    await auth.currentUser!.getIdToken(true);
+}</code></pre>
+    <p>A login with no Arc CMS record gets an error from <code>arccms-refreshMyClaims</code>: treat it as "no access".</p>
+
+    <h3>A new account by email</h3>
+    <ol class="steps">
+      <li><p><code>arccms-requestSignupOtp</code> with <code>{ email, name }</code> emails a code.</p></li>
+      <li><p><code>arccms-verifySignupOtp</code> with <code>{ email, code }</code> returns <code>{ verified, ticket }</code>. Keep the ticket.</p></li>
+      <li><p>Create the password login with Firebase <code>createUserWithEmailAndPassword</code>.</p></li>
+      <li><p><code>arccms-createAccountRecord</code> with <code>{ name, ticket }</code> creates the record with the site's default role and sets the claims. It returns <code>{ id, created }</code>. Refresh the token.</p></li>
+    </ol>
+    <p>Send the ticket back from the same client that entered the code: it is what marks the address as verified on the record. New phone accounts go through <code>arccms-requestPhoneOtp</code>, <code>arccms-verifyPhoneOtp</code> and <code>arccms-completePhoneSignup</code> in the same way; the browser code in <code>src/app/pages/(auth)/sign-in.service.ts</code> shows every call and its input.</p>
+    <div class="note"><p>Every sign-up path refuses new accounts while "Enable User Signups" is off. An outside app then only signs in people who already have an account, such as those an admin adds under Users.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

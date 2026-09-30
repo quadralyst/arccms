@@ -1,5 +1,5 @@
 /**
- * JSON-LD builders for the SPA fallback pages (docs/discoverability-spec.md, D1).
+ * JSON-LD builders for the SPA fallback pages (specs/discoverability-spec.md, D1).
  *
  * Mirrors functions/src/shared/structured-data.ts, which is the source of
  * truth for the statically published pages. The two must stay in step: same

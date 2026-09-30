@@ -1,5 +1,5 @@
 /**
- * The functions' side of the features (docs/feature-flags-spec.md, section 5):
+ * The functions' side of the features (specs/feature-flags-spec.md, section 5):
  * the ids agree with the frontend's, each feature's functions live in its own
  * file, and the generator writes the files all.ts builds from.
  */
@@ -37,7 +37,7 @@ describe('function features', () => {
         }
     });
 
-    it('export every file that defines a Cloud Function, from core or from one feature (docs/feature-flags-spec.md 8)', () => {
+    it('export every file that defines a Cloud Function, from core or from one feature (specs/feature-flags-spec.md 8)', () => {
         const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
             e.isDirectory() ? walk(resolve(dir, e.name)) : [resolve(dir, e.name)]);
         const skip = /\/(__tests__|custom|features)\/|\.spec\.ts$|\.gen\.ts$/;

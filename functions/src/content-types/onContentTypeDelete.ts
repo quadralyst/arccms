@@ -19,7 +19,7 @@ export const onContentTypeDeleted = onDocumentDeleted(
             deleteCollection(getDraftCollectionName(slug)),
             deleteCollection(`Tags_${slug}`),
         ]);
-        // Nothing watches these collections' writes (docs/feature-flags-spec.md 6.5),
+        // Nothing watches these collections' writes (specs/feature-flags-spec.md 6.5),
         // so their search entries go here.
         if (isFeatureOn('search')) {
             await Promise.all([

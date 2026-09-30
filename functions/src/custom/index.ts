@@ -1,5 +1,5 @@
 /**
- * The app's own Cloud Functions and triggers (docs/custom-code.md). Arc CMS ships
+ * The app's own Cloud Functions and triggers (docs/app/custom-space.html). Arc CMS ships
  * this empty and never edits it again. Everything exported here deploys as
  * `arccms-custom-<name>` (deploy one with `functions:arccms:arccms.custom.<name>`),
  * so it can never collide with a core function.

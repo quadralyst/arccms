@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Follow the account contract | Arc CMS docs</title>
+  <meta name="description" content="The rules an app follows to share Arc CMS accounts: the arccms_uid claim, where per-person data lives, what deleting an account removes, and what the app may write.">
+  <meta name="docs:sources" content="functions/src/users, functions/src/auth/accounts.ts, functions/src/auth/emailAccount.ts, functions/src/auth/googleAccount.ts, functions/src/email-core/eraseContact.ts, functions/src/email-core/contactSync.ts, functions/src/email-core/appEvents.ts, functions/src/arc-config.ts, firestore.rules, storage.rules, src/app/pages/(auth)/sign-in.service.ts, src/app/pages/(auth)/auth.store.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/account-contract.html">
+  <main>
+    <h1>Follow the account contract</h1>
+    <p class="lead">Arc CMS owns accounts, sign-in, roles and payments. Your app, built on a copy of Arc CMS or running elsewhere against the same Firebase project, relies on the few rules on this page and keeps to its side of them.</p>
+
+    <h2>One person, one account</h2>
+    <p>A person is one Firebase Auth account plus one document in the <code>users</code> collection. The document id is <strong>not</strong> the Auth uid: the document holds the uid in its <code>uid</code> field. Roles and the admin screens for them are in <a href="../features/users-and-roles.html">Users and roles</a>; how the role reaches the token is in <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+
+    <table>
+      <thead><tr><th>You need</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td>The signed-in person's record id</td><td>The <code>arccms_uid</code> claim in their ID token</td></tr>
+        <tr><td>Their record</td><td><code>users/{arccms_uid}</code>, readable by its owner and by admins</td></tr>
+        <tr><td>Their Arc CMS role</td><td>The <code>arccms_role</code> claim (<code>isAdmin()</code> and <code>isEditor()</code> in rules)</td></tr>
+        <tr><td>Their plan</td><td>The premium fields on the record: <a href="payments.html">Add payments and premium features</a></td></tr>
+        <tr><td>Their private data</td><td><code>users/{userDocId}/...</code> in Firestore and in Storage</td></tr>
+        <tr><td>Clean up data kept elsewhere</td><td>A trigger on <code>users/{docId}</code> deletes, or the <code>user.deleted</code> event</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Read the record id from the token</h2>
+    <p>Every account carries the custom claim <code>arccms_uid</code>, whose value is its <code>users</code> document id. Read it from the ID token instead of querying:</p>
+    <pre><code>const token = await auth.currentUser.getIdTokenResult();
+const userDocId = token.claims['arccms_uid'] as string; // users/{userDocId}</code></pre>
+    <p>In security rules, <code>ownsUserRecord(userDocId)</code> compares the claim with no document read.</p>
+
+    <h3>When the claim is set</h3>
+    <ul>
+      <li><strong>At sign-up</strong>, on every path: email, phone, Google, and an admin adding a user. The server sets it before the browser gets its first ID token.</li>
+      <li><strong>At sign-in</strong>, the browser compares the token with the record. If <code>arccms_uid</code> or <code>arccms_role</code> is missing or differs, it calls the <code>refreshMyClaims</code> callable and refreshes the token before the app is told the person is signed in.</li>
+      <li><strong>When a record moves</strong> to another sign-in account, the claims follow it and the old account loses its Arc CMS claims.</li>
+      <li><strong>When a record is blocked</strong> (<code>isActive: false</code>) or detached, it has no Arc CMS claims and its sessions are ended, so access stops within the hour. Unblocking puts the claims back.</li>
+      <li><strong>An admin can re-apply</strong> every account's claims from the records with the <code>syncAllUserRoles</code> callable.</li>
+    </ul>
+    <p><strong>A token without the claim owns nothing.</strong> <code>ownsUserRecord()</code> is false, so rules deny. Treat a missing claim the same way in app code.</p>
+
+    <h2>Keep per-person data under the record</h2>
+    <table>
+      <thead><tr><th>Where</th><th>Path</th><th>Who can use it</th></tr></thead>
+      <tbody>
+        <tr><td>Firestore</td><td><code>users/{userDocId}/{collection}/...</code>, at any depth</td><td>Nobody but the Admin SDK until your app grants access in <code class="new">firestore.app.rules</code></td></tr>
+        <tr><td>Storage</td><td><code>users/{userDocId}/...</code>, or under the install's upload folder, such as <code>arccms/users/{userDocId}/...</code></td><td>The owner and admins can read; your app grants writes, with its own size and type limits, in <code class="new">storage.app.rules</code>. Never public.</td></tr>
+      </tbody>
+    </table>
+    <p>A minimal Firestore grant:</p>
+    <pre><code>// firestore.app.rules
+match /users/{userDocId}/progress/{lessonId} {
+  allow read, write: if ownsUserRecord(userDocId);
+  allow read: if isAdmin();
+}</code></pre>
+    <p>Writing and testing these files is in <a href="rules-and-indexes.html">Set security rules and indexes</a>.</p>
+
+    <h2>What deleting an account removes</h2>
+    <p>An admin deletes an account under Users, or the person deletes their own under Profile. Deleting your own account needs a sign-in within the last 10 minutes, and an admin's account can only be removed by another admin. Either way the <code>users</code> document is deleted, and then the server:</p>
+    <ol class="steps">
+      <li><p><strong>Ends access first:</strong> removes the Arc CMS claims and ends every session, so a failure later never leaves a removed admin an admin.</p></li>
+      <li><p><strong>Firestore:</strong> deletes every subcollection under <code>users/{userDocId}</code> at any depth, the person's in-app notifications (<code>Notifications</code>) and their feedback (<code>Feedback</code>).</p></li>
+      <li><p><strong>Storage:</strong> deletes the folder <code>users/{userDocId}/</code> (under the upload folder, if the install has one) and the profile photos in <code>avatars/{uid}/</code>.</p></li>
+      <li><p><strong>Sign-in:</strong> deletes the Firebase Auth account, the email lookup entry, the phone number index entry and the PIN. The Auth account is kept when the record's <code>authOwner</code> is <code>host</code> or <code>shared</code> (another app owns or shares that login); it then only loses the Arc CMS claims.</p></li>
+      <li><p><strong>Event:</strong> emits <code>user.deleted</code> on the event bus (<code>AppEvents</code>), with <code>userId</code> (the Auth uid) and <code>data.userDocId</code>, once every step above has worked.</p></li>
+    </ol>
+    <p>A failed step makes the whole cleanup run again, for up to an hour after the delete. Every step is safe to repeat.</p>
+    <p><strong>The person's contact:</strong> deleting your own account also erases the contact for your address (its lists, consent and form sign-ups), with a receipt in <code>ErasureLog</code> that holds no address. An admin deleting a user only unlinks the contact, since the address may have been on a list before the account existed.</p>
+
+    <h3>Data your app keeps elsewhere</h3>
+    <p>Anything outside the record (another collection, another service) is yours to delete. The simplest way is a trigger of your own on the same delete, in <code>functions/src/custom/index.ts</code>:</p>
+    <pre><code>import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
+import { db } from '../init.js';
+import { arcDocument } from '../arc-config.js';
+
+export const onUserRecordDeleted = onDocumentDeleted(arcDocument('users/{docId}'), async (event) =&gt; {
+    const snap = await db.collection('Orders').where('userDocId', '==', event.params.docId).get();
+    await Promise.all(snap.docs.map((d) =&gt; d.ref.delete()));
+});</code></pre>
+    <p>It deploys as <code>arccms-custom-onUserRecordDeleted</code> and may run more than once, so keep it safe to repeat. See <a href="functions.html">Write your own Cloud Functions</a>. To act only after Arc CMS's own cleanup has finished, react to the <code>user.deleted</code> event instead.</p>
+
+    <h2>What your app may and may not write</h2>
+    <table>
+      <thead><tr><th>Your app may</th><th>Your app must not</th></tr></thead>
+      <tbody>
+        <tr><td>Write its own data under <code>users/{userDocId}/</code>, with its own rules</td><td>Create <code>users</code> documents from the browser. Only admins may; every sign-up creates its record on the server.</td></tr>
+        <tr><td>Let the person edit their own record's other fields</td><td>Write <code>role</code>, <code>uid</code>, <code>isActive</code>, <code>status</code>, <code>authOwner</code>, <code>email</code>, <code>phone</code>, <code>phoneVerified</code>, or any premium or credit field. The rules refuse these from the owner; the server writes them.</td></tr>
+        <tr><td>Give its own users a plain <code>role</code> claim. Arc CMS never reads or writes <code>role</code>, so it grants no Arc CMS access.</td><td>Name a claim <code>arccms_</code> anything</td></tr>
+        <tr><td>Set claims of its own, merged with the existing ones</td><td>Replace all claims. Arc CMS always merges; <code>setCustomUserClaims</code> with only your keys wipes <code>arccms_role</code> and <code>arccms_uid</code>.</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>An app that sets claims with <code>setCustomUserClaims(uid, { plan: 'pro' })</code> removes the Arc CMS claims from that account: its rules then deny the person their own record, and an admin loses the admin area until the Arc CMS app next loads and puts the claims back. Read the current claims, add yours, and write them all back.</p></div>
+
+    <h2>An app outside this repository</h2>
+    <p>An app or mobile client in the same Firebase project signs people in with the same Firebase Auth, then reads <code>arccms_uid</code> as above. If the claim is missing, it calls <code>arccms-refreshMyClaims</code> with no input and refreshes the token; the reply is <code>{ arccms_uid }</code>, or an error when the login has no Arc CMS record or is blocked. When Arc CMS runs in its own named database, read the record from that database. Sign-in from an outside client is in <a href="sign-in.html#sign-in-from-another-app">Set up sign-in</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

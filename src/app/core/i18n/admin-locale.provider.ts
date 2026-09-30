@@ -12,7 +12,7 @@
  * the next page load — which is why the choice is cached locally rather than
  * only on the user document, so that load already has the answer.
  *
- * Spec: docs/multilingual-spec.md — Phase M6.
+ * Spec: specs/multilingual-spec.md — Phase M6.
  */
 
 import { LOCALE_ID, Provider } from '@angular/core';

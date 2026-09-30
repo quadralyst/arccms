@@ -4,7 +4,7 @@
  * `Settings/discoverability` (admin only): the default author (D2), the
  * AI-crawler policy rendered into robots.txt, the llms.txt switch and the
  * IndexNow key (D3). Mirrors functions/src/shared/discoverability-settings.ts.
- * Spec: docs/discoverability-spec.md, D-D6 to D-D9.
+ * Spec: specs/discoverability-spec.md, D-D6 to D-D9.
  */
 import { CRAWLERS, DEFAULT_CRAWLER_POLICY } from '../constants/crawlers';
 

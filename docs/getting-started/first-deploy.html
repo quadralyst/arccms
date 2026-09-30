@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deploy for the first time | Arc CMS docs</title>
+  <meta name="description" content="Put Arc CMS on a Firebase project for the first time with the guided deploy: what it asks, what it deploys, in which order, and what to check.">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-configure.mjs, scripts/arc-rules-build.mjs, functions/scripts/call-seed.cjs, functions/scripts/check-callable-access.sh, firebase.json, package.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="getting-started/first-deploy.html">
+  <main>
+    <h1>Deploy for the first time</h1>
+    <p class="lead">One command puts everything on your Firebase project: the Cloud Functions, the security rules and indexes, and the website. It asks a few questions, each with a default.</p>
+
+    <h2>Before you start</h2>
+    <ul>
+      <li>The dependencies are installed (<a href="install.html">Install</a>) and the Firebase web config is in the environment files (<a href="configure.html">Configure a project</a>).</li>
+      <li>You are signed in to the Firebase CLI (<code>firebase login</code>) and the project has an alias in <code>.firebaserc</code> (<code>firebase use --add</code>). Name it <code>default</code> for your development project and <code>production</code> for the live one: the website can only be built and deployed from the deploy for those two aliases.</li>
+      <li>You run the deploy in a terminal. Anywhere else (a script, CI) it prints the options instead of asking.</li>
+    </ul>
+
+    <h2>Run the guided deploy</h2>
+    <pre><code>npm run deploy</code></pre>
+    <p>Press Enter to take the default shown in brackets.</p>
+    <ol class="steps">
+      <li>
+        <p><strong>Which Firebase project?</strong> Your <code>.firebaserc</code> aliases. The first time, the default is the project chosen with <code>firebase use</code>, else the <code>default</code> alias.</p>
+      </li>
+      <li>
+        <p><strong>Set it up now?</strong> A project with no Arc CMS settings yet is offered a short setup. Answer yes, then:</p>
+        <ul>
+          <li><strong>Only by Arc CMS</strong> (its own website or app): it asks whether to publish the website on the project's main site, and carries on.</li>
+          <li><strong>Shared with another app</strong>: it sets up a database, website, bucket and folder of Arc CMS's own, prints the commands that create them, and stops. Create them, then run <code>npm run deploy</code> again. See <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>.</li>
+        </ul>
+        <p>It then shows the settings it will use: the database, the website, the storage bucket and the app users.</p>
+      </li>
+      <li>
+        <p><strong>What to deploy?</strong> It builds the functions first, then lists the choices. Pick <strong>Everything: functions, database rules and indexes, storage rules, website</strong>. The other choices, including "only the functions changed since the last deploy", are for later deploys: see <a href="../operations/deploy.html">Deploy</a>.</p>
+      </li>
+      <li>
+        <p><strong>Deploy?</strong> A summary shows the project, the config file, what is deployed and the exact command. For a production project (the alias <code>production</code>, or an id with a part <code>prod</code>, <code>production</code> or <code>live</code>, such as <code>my-site-prod</code>) you type the project id instead of pressing Enter.</p>
+      </li>
+    </ol>
+    <p><strong>Without questions:</strong> <code>npm run deploy:dev</code> builds and deploys everything to the <code>default</code> project and publishes the pages, and <code>npm run deploy:prod</code> does the same for <code>production</code>.</p>
+
+    <h2>What it deploys, in order</h2>
+    <ol class="steps">
+      <li><p><strong>The website build.</strong> <code>npm run build</code>, with the development settings for <code>default</code> and the production settings for <code>production</code>.</p></li>
+      <li><p><strong>One Firebase deploy</strong> of the <code>arccms</code> functions, the Firestore rules and indexes, the storage rules and the hosting files. Before the rules go out, <code>scripts/arc-rules-build.mjs</code> combines the core rules and indexes with your app's own into <code>.arc-build/</code>. When the project has generated settings (<code>firebase.{projectId}.json</code>), the deploy uses them.</p></li>
+      <li><p><strong>A retry</strong> of any function Google's per-minute limit on changes held back. A first deploy creates every function at once, so this is common: it waits about a minute and deploys just those, twice at most.</p></li>
+      <li><p><strong>A reachability check</strong> of every callable function it created.</p></li>
+      <li><p><strong>The generated pages.</strong> It publishes the static pages, the content pages, the sitemap and the feeds to the site.</p></li>
+    </ol>
+    <p>Storage rules are skipped when Arc CMS shares the default bucket with another app, and the website is skipped when hosting is off for the project.</p>
+
+    <div class="trap"><p>Plain <code>firebase deploy</code> skips your install settings (its database, website and bucket), the functions build and the retries. Always deploy through <code>npm run deploy</code>.</p></div>
+
+    <h2>Check that it worked</h2>
+    <ol class="steps">
+      <li><p>The deploy ends with <code>Done:</code>, the choice and the project. Any other ending says what failed.</p></li>
+      <li><p>No line says a new callable is blocked. If one does, delete that function in the Firebase console and deploy again: a fresh create grants the access. See <a href="../operations/troubleshooting.html">Troubleshooting</a>.</p></li>
+      <li><p>In the Firebase console, Functions lists functions named <code>arccms-</code> followed by the function name.</p></li>
+      <li><p>Your site opens at <code>https://YOUR_PROJECT.web.app</code>. Then create the first admin: <a href="first-admin.html">Create the first admin</a>.</p></li>
+    </ol>
+    <p>Next time, deploy only what changed: <a href="../operations/targeted-deploys.html">Deploy only what changed</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

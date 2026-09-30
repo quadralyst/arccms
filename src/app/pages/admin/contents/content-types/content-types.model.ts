@@ -45,13 +45,13 @@ export interface ContentType extends IBaseModel {
      * Custom field keys (prefixed, as stored in `fields[].key`) whose values
      * are searchable alongside title and summary. Plain `text` fields only;
      * the indexer ignores any other type listed here.
-     * Spec: docs/search-spec.md, decision S-D15.
+     * Spec: specs/search-spec.md, decision S-D15.
      */
     searchFields?: string[];
     hasPublicUrl?: boolean; // When false, no static HTML pages are generated for this content type
     /**
      * Which schema.org type this content publishes as, and which custom
-     * fields fill its properties (docs/discoverability-spec.md, D-D12), e.g.
+     * fields fill its properties (specs/discoverability-spec.md, D-D12), e.g.
      * `{ type: 'Product', fields: { price: 'products_price', priceCurrency: 'products_currency' } }`.
      * Absent means Article. Unmapped properties are omitted from the JSON-LD.
      */

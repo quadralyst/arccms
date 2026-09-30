@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Combine Arc CMS's security rules and indexes with an app's own (docs/app-rules.md).
+ * Combine Arc CMS's security rules and indexes with an app's own (docs/app/rules-and-indexes.html).
  *
  * An app built on Arc CMS shares its database and bucket, and Firebase takes one
  * rules file per database and per bucket. So the app keeps its rules in files of

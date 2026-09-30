@@ -229,7 +229,7 @@ function buildTemplateData(
 /**
  * The structured data for one language variant of a detail page: the site
  * owner, the WebSite, the breadcrumb trail and the Article itself
- * (docs/discoverability-spec.md, D1). Exported for the tests; pure.
+ * (specs/discoverability-spec.md, D1). Exported for the tests; pure.
  */
 export function buildDetailJsonLd(input: {
     content: Record<string, any>;

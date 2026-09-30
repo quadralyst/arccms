@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email merge tags | Arc CMS docs</title>
+  <meta name="description" content="Every ##TAG## merge tag an email can use: what it becomes when the email is sent and which editors offer it.">
+  <meta name="docs:sources" content="src/shared/constants/email-tags.ts, src/shared/directives/hashtag-autocomplete, functions/src/mail-config/mailConfig.ts, functions/src/app-audience/mergeFields.ts, functions/src/email-core/queueEmail.ts, functions/src/email-core/unsubscribeToken.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="reference/email-tags.html">
+  <main>
+    <h1>Email merge tags</h1>
+    <p class="lead">A merge tag such as <code>##NAME##</code> in an email's subject or body is replaced with a value for each recipient when the email is sent. This page lists the tags the editors offer and what each becomes.</p>
+
+    <h2>Insert a tag</h2>
+    <p>In any email editor, type <code>#</code>: a list of the tags that email can use opens, and it narrows as you type (<code>#na</code> finds <code>##NAME##</code>). Pick one and the typed text becomes the whole tag. This works in the rich body editor and in plain fields such as the subject and preview line. The editors are described in <a href="../features/email.html">Email engine</a>.</p>
+
+    <h2>The tags</h2>
+    <p>"Offered in" names the editors whose <code>#</code> list shows the tag: a signup form's verification and welcome email templates, email marketing broadcasts, the composer, and the brand kit footer.</p>
+    <table>
+      <thead><tr><th>Tag</th><th>Becomes</th><th>Offered in</th></tr></thead>
+      <tbody>
+        <tr><td><code>##NAME##</code></td><td>The recipient's name, or the part of their email address before the <code>@</code>.</td><td>Every editor except the brand kit footer.</td></tr>
+        <tr><td><code>##EMAIL##</code></td><td>An <code>email</code> value in the email's data. Arc CMS's own senders do not add one, so it comes out empty unless an app event's data has an <code>email</code> field.</td><td>Form verification and welcome templates, broadcasts, the composer.</td></tr>
+        <tr><td><code>##OTP##</code></td><td>The one-time sign-in or verification code.</td><td>The form verification email template; composer templates whose type contains <code>otp</code>.</td></tr>
+        <tr><td><code>##COMPANY_NAME##</code></td><td>The company name in the email settings.</td><td>The brand kit footer, the composer.</td></tr>
+        <tr><td><code>##UNSUBSCRIBE_LINK##</code></td><td>A signed one-click unsubscribe link for the recipient, on the site's address.</td><td>The brand kit footer, broadcasts, the composer.</td></tr>
+        <tr><td><code>##PREFERENCES_LINK##</code></td><td>A signed link to the recipient's email preferences page.</td><td>The brand kit footer, broadcasts, the composer.</td></tr>
+        <tr><td><code>##POSITION##</code></td><td>The member's place in the signup form's queue.</td><td>The form welcome email template.</td></tr>
+        <tr><td><code>##REFERRAL_CODE##</code></td><td>A <code>referralCode</code> value in the email's data. The welcome email does not carry one, so it comes out empty: use <code>##REFERRAL_LINK##</code>.</td><td>The form welcome email template.</td></tr>
+        <tr><td><code>##REFERRAL_LINK##</code></td><td>The member's personal referral link.</td><td>The form welcome email template.</td></tr>
+        <tr><td><code>##SUBJECT##</code></td><td>The email's own subject line.</td><td>No editor.</td></tr>
+        <tr><td><code>##CONTENT##</code></td><td>A <code>content</code> value in the email's data. No core sender adds one.</td><td>No editor.</td></tr>
+        <tr><td><code>##PAYMENT_AMOUNT##</code></td><td>The currency and amount of the payment, such as <code>USD 29</code>.</td><td>Composer templates whose type contains <code>payment</code>.</td></tr>
+        <tr><td><code>##SUBSCRIPTION_PLAN##</code></td><td>The plan the payment is for.</td><td>Composer templates whose type contains <code>payment</code>.</td></tr>
+        <tr><td><code>##RENEWAL_DATE##</code></td><td>The subscription's next renewal date.</td><td>Composer templates whose type contains <code>payment</code>.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Tags you type yourself</h2>
+    <p>These forms are not in the list above but are filled in the same way:</p>
+    <ul>
+      <li><code>##FIELD:key##</code>, or <code>##FIELD:key|fallback##</code>: a custom contact field. The fallback is used when the recipient has no value. The contact fields page copies the tag for each field. See <a href="../features/audience.html">Audience</a>.</li>
+      <li><code>##APP.path##</code>, or <code>##APP.path|fallback##</code>: a field of the host app's user, for emails to an App users list. The broadcast editor offers these when such a list is chosen; fields that look like credentials are never offered or merged. See <a href="../features/app-audience.html">App audience</a>.</li>
+      <li>Any other <code>##UPPER_SNAKE##</code> tag is looked up by name in the email's data (<code>##TRIAL_ENDS_AT##</code> reads <code>trialEndsAt</code>), then in five email settings: <code>##COMPANY_NAME##</code>, <code>##SENDER_NAME##</code>, <code>##SENDER_EMAIL##</code>, <code>##REPLY_TO_EMAIL##</code>, <code>##LIVE_URL##</code>. Form emails also fill <code>##WAITLIST##</code> (the form's name) and <code>##LEADERBOARD_LINK##</code>.</li>
+    </ul>
+
+    <h2>How tags are filled</h2>
+    <p>The send happens in the Cloud Functions: each queued email is written to <code>EmailLogs</code> with its data, and the sender replaces every tag in the subject and the body in one pass. Values are escaped, so markup in a name shows as text, and a value that itself looks like a tag is not replaced again.</p>
+    <div class="trap"><p>A tag with no value becomes empty text, not the tag itself. A subject such as <code>Welcome, ##NAME##</code> is safe, but a tag the email does not carry leaves a gap. Send yourself a test from the editor before a real send.</p></div>
+    <p>To add a tag to the list an editor offers, add it to <code>EMAIL_TAG</code> and the right context in <code>src/shared/constants/email-tags.ts</code>, and make sure the sender puts a value for it in the email's data.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

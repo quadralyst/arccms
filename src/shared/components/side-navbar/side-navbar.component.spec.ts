@@ -170,7 +170,7 @@ describe('NavbarComponent', () => {
         fixture.detectChanges();
     });
 
-    it("links every item to a page of its own feature, or of core (docs/feature-flags-spec.md 8)", () => {
+    it("links every item to a page of its own feature, or of core (specs/feature-flags-spec.md 8)", () => {
         contentTypesSignal.set([{ id: '1', name: 'Blog', slug: 'blog' }]);
         waitlistsSignal.set([{ id: 'w1', name: 'Launch' }]);
         const problems: string[] = [];

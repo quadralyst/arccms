@@ -3,7 +3,7 @@
 This folder belongs to the app built on this copy of Arc CMS. Arc CMS ships these
 files once, empty, and never changes them again, so pulling Arc CMS updates never
 conflicts with what the app puts here. Never edit Arc CMS's own (core) files in an
-app: see docs/custom-code.md, and run `npm run check:core`.
+app: see docs/app/custom-space.html, and run `npm run check:core`.
 
 | File | For |
 |------|-----|
@@ -14,8 +14,8 @@ app: see docs/custom-code.md, and run `npm run check:core`.
 | `home.ts` | where each role lands after signing in |
 | `i18n/{lang}.json` | the app's translations (and rewording of core ones) |
 | `styles.css` | the app's global styles, loaded after everything else |
-| `pwa.ts`, `pwa-icon.svg` or `.png` | the installable app: name, colours, icon (docs/pwa.md) |
+| `pwa.ts`, `pwa-icon.svg` or `.png` | the installable app: name, colours, icon (docs/features/pwa.html) |
 | `features.ts` | the Arc CMS features the app turns off, and the PWA on |
 
 The app's Cloud Functions go in `functions/src/custom/`, its security rules in
-`firestore.app.rules` and `storage.app.rules` (docs/app-rules.md).
+`firestore.app.rules` and `storage.app.rules` (docs/app/rules-and-indexes.html).

@@ -11,7 +11,7 @@
  * Angular compiling `<arc-content-partials>` and break the article cards, so
  * the extra class per language is the cheaper trade.
  *
- * Spec: docs/multilingual-spec.md — Phase M5.3.
+ * Spec: specs/multilingual-spec.md — Phase M5.3.
  */
 
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
@@ -90,7 +90,7 @@ export abstract class HomeBaseComponent extends BaseComponent implements OnInit,
 
   /**
    * WebSite + Organization JSON-LD for the home page
-   * (docs/discoverability-spec.md, D1). The home page is prerendered from the
+   * (specs/discoverability-spec.md, D1). The home page is prerendered from the
    * shell, so unlike content pages nothing bakes this in server-side: the
    * nodes are written in the browser from `Settings/about`. Crawlers that
    * render JavaScript (Googlebot) see them; the content pages carry the same

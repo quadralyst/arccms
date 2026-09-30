@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>All features | Arc CMS docs</title>
+  <meta name="description" content="Every Arc CMS feature in one table: which can be switched off, what each needs, and the page that explains it.">
+  <meta name="docs:sources" content="src/app/core/features/feature-registry.ts, src/custom/features.ts, functions/src/features">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/overview.html">
+  <main>
+    <h1>All features</h1>
+    <p class="lead">An app built on Arc CMS chooses which features it has. A feature that is off has no menu item, no page, no settings tab, no dashboard card and no Cloud Function. Its data stays, and turning it back on brings everything back.</p>
+
+    <h2>Features you can switch</h2>
+    <p>Ten features can be switched. Nine are on unless the app lists them in <code>off</code>. The installable app (<code>pwa</code>) is off unless the app lists it in <code>on</code>. The choice is made in <code>src/custom/features.ts</code>: see <a href="../app/choose-features.html">Choose your app's features</a> and <a href="../website/choose-features.html">Choose your website's features</a>.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Feature</th><th>Id</th><th>What it gives you</th><th>Needs</th></tr></thead>
+        <tbody>
+          <tr><td><a href="content.html">Content</a></td><td><code>content</code></td><td>Content types, entries, authors, the templates that draw public pages, public content pages and static pages. Pages: <a href="templates.html">Templates</a>, <a href="authors-and-tags.html">Authors and tags</a>.</td><td></td></tr>
+          <tr><td><a href="search.html">Search</a></td><td><code>search</code></td><td>The search box, the search page, the search index and link suggestions in the editor.</td><td></td></tr>
+          <tr><td><a href="seo.html">SEO and discoverability</a></td><td><code>seo</code></td><td>The sitemap, robots.txt, llms.txt, RSS, IndexNow and the Discoverability settings. Structured data, Markdown twins and the editor's Checks tab are built whether or not this feature is on.</td><td></td></tr>
+          <tr><td><a href="forms.html">Signup forms</a></td><td><code>forms</code></td><td>Waitlists and signup forms, leaderboards, referrals and their emails.</td><td>audience</td></tr>
+          <tr><td><a href="audience.html">Audience</a></td><td><code>audience</code></td><td>Contacts, lists, tags, fields, app users and the App audience. Page: <a href="app-audience.html">App audience</a>.</td><td></td></tr>
+          <tr><td><a href="email-marketing.html">Email marketing</a></td><td><code>email-marketing</code></td><td>Broadcasts, drip sequences and announcements.</td><td>audience</td></tr>
+          <tr><td><a href="sms.html">SMS</a></td><td><code>sms</code></td><td>SMS settings and logs, and phone number sign-in.</td><td></td></tr>
+          <tr><td><a href="payments.html">Payments</a></td><td><code>payments</code></td><td>Products, transactions, pricing, checkout, credits, and the member's payment pages. Page: <a href="entitlements.html">Premium entitlements</a>.</td><td></td></tr>
+          <tr><td><a href="data.html">Data import and export</a></td><td><code>data</code></td><td>The Data menu.</td><td></td></tr>
+          <tr><td><a href="pwa.html">Installable app (PWA)</a></td><td><code>pwa</code></td><td>An install prompt and install statistics. Off by default.</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The exact list of ids, their defaults and what each one removes is in <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+
+    <h2>Always there</h2>
+    <p>These are part of every install and cannot be switched off.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Feature</th><th>What it gives you</th></tr></thead>
+        <tbody>
+          <tr><td><a href="sign-in.html">Sign-in methods</a></td><td>Sign in and sign up with email and Google. Phone number sign-in belongs to SMS.</td></tr>
+          <tr><td><a href="users-and-roles.html">Users and roles</a></td><td>The users list, roles, profiles and account deletion.</td></tr>
+          <tr><td><a href="media.html">Media</a></td><td>The media manager.</td></tr>
+          <tr><td><a href="languages.html">Languages</a></td><td>Translated pages and the admin interface in more than one language.</td></tr>
+          <tr><td><a href="email.html">Email engine</a></td><td>The provider, brand kit, composer, transactional emails, logs, unsubscribe and preferences.</td></tr>
+          <tr><td><a href="automations.html">Automations</a></td><td>Emails and actions when something happens.</td></tr>
+          <tr><td><a href="feedback.html">Feedback button</a></td><td>Feedback with a screenshot and a voice note. It has its own switch on the Feedback page.</td></tr>
+          <tr><td><a href="notifications.html">Notifications</a></td><td>The notification bell and its list.</td></tr>
+          <tr><td><a href="analytics.html">Analytics</a></td><td>Google Analytics and the dashboard.</td></tr>
+          <tr><td><a href="banners.html">Banners</a></td><td>The global message and site usage banners.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

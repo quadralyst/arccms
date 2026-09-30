@@ -6,7 +6,7 @@
  * Indexed by the wildcard trigger: drafts are written by the browser, so
  * nothing server-side sees the write otherwise.
  *
- * Spec: docs/search-spec.md, decision S-D14 and phase S2 item 3.
+ * Spec: specs/search-spec.md, decision S-D14 and phase S2 item 3.
  */
 
 import { getDraftCollectionName, extractContentTypeSlug } from '../../draftContent/collectionHelpers.js';

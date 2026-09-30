@@ -4,7 +4,7 @@
  * reference the owner by `@id` as their publisher rather than repeating it.
  *
  * Pure: takes the already-loaded settings so page generators (and tests)
- * decide where the data comes from. docs/discoverability-spec.md, D-D1/D-D2.
+ * decide where the data comes from. specs/discoverability-spec.md, D-D1/D-D2.
  */
 import {
     buildOrganization,
@@ -30,7 +30,7 @@ export interface SiteNodes {
 
 /**
  * Public search results live at `/search?q=` (language-prefixed like every
- * public route, docs/search-spec.md S-D18). The widget is on every page, so
+ * public route, specs/search-spec.md S-D18). The widget is on every page, so
  * the SearchAction is always emitted.
  */
 export function searchUrlTemplate(baseUrl: string, lang: string, defaultLang: string): string {

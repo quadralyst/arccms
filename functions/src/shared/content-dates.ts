@@ -5,7 +5,7 @@
  * `updatedOn` is an editorial field the author sets from the SEO panel
  * ("Mark as updated today"). It is deliberately not `modifiedAt`, which moves
  * on every save including a typo fix and would overstate freshness
- * (docs/discoverability-spec.md, D-D3).
+ * (specs/discoverability-spec.md, D-D3).
  */
 import { toIsoDate } from './structured-data.js';
 

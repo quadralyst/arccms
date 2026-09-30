@@ -1,5 +1,5 @@
 /**
- * The Markdown twin of a published page (docs/discoverability-spec.md, D-D8):
+ * The Markdown twin of a published page (specs/discoverability-spec.md, D-D8):
  * the same content as the HTML, at a fraction of the tokens, at
  * `/{lang}/{type}/{slug}.md`. Advertised from the HTML head with
  * `<link rel="alternate" type="text/markdown">` and concatenated into

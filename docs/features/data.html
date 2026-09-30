@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data import and export | Arc CMS docs</title>
+  <meta name="description" content="Back up Firestore collections and media files, and restore them into the same or another Arc CMS install, from the Data menu.">
+  <meta name="docs:sources" content="src/app/pages/admin/(data), src/app/core/features/feature-routes.ts, src/app/core/features/feature-registry.ts, src/shared/components/side-navbar/side-navbar.component.ts, firestore.rules, storage.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/data.html">
+  <main>
+    <h1>Data import and export</h1>
+    <p class="lead">Download a JSON copy of your content, users, audience, settings and email data, and a ZIP of your media files, then load them back into the same install or a new one.</p>
+
+    <h2>What it is</h2>
+    <p>The <strong>Data</strong> admin menu has four screens:</p>
+    <table>
+      <thead><tr><th>Screen</th><th>Address</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td>Export Data</td><td><code>/admin/data/export-data</code></td><td>Downloads chosen Firestore collections as one JSON file</td></tr>
+        <tr><td>Import Data</td><td><code>/admin/data/import-data</code></td><td>Writes the collections of such a file back into Firestore</td></tr>
+        <tr><td>Export Files</td><td><code>/admin/data/export-files</code></td><td>Downloads media library files as a ZIP with a manifest</td></tr>
+        <tr><td>Import Files</td><td><code>/admin/data/import-files</code></td><td>Uploads files to Storage and adds them to the media library</td></tr>
+      </tbody>
+    </table>
+    <p>Everything runs in the admin's browser, with the admin's own permissions. There are no Cloud Functions involved.</p>
+    <p>For creating content entries from a spreadsheet, use the content type's <strong>Bulk Import</strong> instead (<a href="content.html#bulk-import-entries">Content</a>). For contacts from a CSV, see <a href="audience.html">Audience</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Data import and export is a switchable feature with the id <code>data</code>. It is on by default and needs no other feature. To turn it off, list it in <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    off: ['data'],
+};</code></pre>
+    <p>When it is off, the Data menu goes and its addresses show the not-found page. Nothing is stored by this feature, so nothing is left behind. See <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+
+    <h2>Set it up</h2>
+    <p>Nothing to set up. The screens need an admin account and the deployed security rules.</p>
+
+    <h2>Use it</h2>
+
+    <h3>Export data</h3>
+    <ol class="steps">
+      <li><p>Open <strong>Data &gt; Export Data</strong>.</p></li>
+      <li><p>Pick a preset (<strong>Everything</strong>, <strong>All Content</strong>, <strong>All Settings</strong>) or tick collections by group. Picking a content type takes its drafts, its published entries and its tags together.</p></li>
+      <li><p>Export. The browser downloads <code>arccms-export-{date}.json</code>.</p></li>
+    </ol>
+    <table>
+      <thead><tr><th>Group</th><th>Collections</th></tr></thead>
+      <tbody>
+        <tr><td>Content</td><td><code>ContentTypes</code>, and per type <code>arc_{slug}_drafts</code>, <code>arc_{slug}</code>, <code>Tags_{slug}</code></td></tr>
+        <tr><td>Users and waitlists</td><td><code>users</code>, <code>Waitlists</code> with each form's <code>users</code>, <code>WaitlistedUsers</code> with <code>referrals</code></td></tr>
+        <tr><td>Audience</td><td><code>Contacts</code>, <code>Lists</code>, <code>ContactTags</code>, <code>Suppression</code></td></tr>
+        <tr><td>Settings and media</td><td><code>Settings</code>, <code>media</code> (the records, not the files)</td></tr>
+        <tr><td>Email</td><td><code>EmailTemplate</code>, <code>BroadcastEmails</code>, <code>EmailLogs</code></td></tr>
+      </tbody>
+    </table>
+    <p>Collections of a feature that is off are not offered. Nothing else is exported: not <code>Authors</code>, not content translations or version history, not payments, feedback or notification data.</p>
+    <div class="warn"><p>An export holds personal data (users, contacts with their consent state) and secrets (the <code>Settings</code> documents carry email provider passwords and API keys). Store the file as you would a database backup.</p></div>
+
+    <h3>The file format</h3>
+    <pre><code>{
+  "version": "1.0",
+  "exportedAt": "2026-09-30T10:00:00.000Z",
+  "collections": {
+    "ContentTypes": { "articles": { "name": "Articles", "slug": "articles" } },
+    "Waitlists/waitlist/users": { "abc123": { "email": "a@example.com" } }
+  },
+  "metadata": { "totalDocuments": 2, "collectionSummary": [ { "name": "ContentTypes", "count": 1 } ] }
+}</code></pre>
+    <p>Keys under <code>collections</code> are collection paths, then document ids. Firestore timestamps, document references and geo points are written as objects with a <code>__type</code> of <code>timestamp</code>, <code>ref</code> or <code>geopoint</code>, and turned back into those types on import.</p>
+
+    <h3>Import data</h3>
+    <ol class="steps">
+      <li><p>Open <strong>Data &gt; Import Data</strong> and choose an export file. It is checked for a <code>version</code> and a <code>collections</code> object; unknown collections are flagged but can still be imported.</p></li>
+      <li><p>Tick the collections to import.</p></li>
+      <li><p>Choose what happens to a document that already exists:</p>
+        <table>
+          <thead><tr><th>Mode</th><th>Existing document</th></tr></thead>
+          <tbody>
+            <tr><td>Skip existing (default)</td><td>Left as it is</td></tr>
+            <tr><td>Overwrite</td><td>Replaced by the file's version</td></tr>
+            <tr><td>Merge</td><td>The file's fields are written over it; other fields stay</td></tr>
+          </tbody>
+        </table></li>
+      <li><p>Import. Document ids are kept. Collections go in a fixed order so that what others refer to comes first: content types and settings, then tags, users, drafts and published entries, media records and email templates, then signup forms, audience, broadcasts and email logs. Writes go in batches of 500.</p></li>
+    </ol>
+    <div class="trap"><p>Importing published entries restores the data, not the pages. Rebuild the pages on Hosting after an import with <code>npm run seed:dev</code> (or <code>npm run seed:prod</code>); see <a href="content.html#how-publishing-works">How publishing works</a>.</p></div>
+    <div class="trap"><p><code>Contacts</code> and <code>Suppression</code> can only be written by Cloud Functions, so importing them fails with a permission error even for an admin. Rebuild an audience with the contact CSV import on the <a href="audience.html">Audience</a> page.</p></div>
+    <div class="trap"><p>Importing <code>users</code> into another Firebase project creates the records but not the sign-in accounts, so those people cannot sign in until their accounts exist again. See <a href="users-and-roles.html">Users and roles</a>.</p></div>
+
+    <h3>Export files</h3>
+    <p><strong>Data &gt; Export Files</strong> lists the media library. Select items and download <code>arccms-media-{date}.zip</code>: one file per item (the largest stored size) and <code>media-manifest.json</code> with each item's name, URL, Storage path and upload time.</p>
+
+    <h3>Import files</h3>
+    <p><strong>Data &gt; Import Files</strong> has two modes:</p>
+    <table>
+      <thead><tr><th>Mode</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td>Upload new files (recommended)</td><td>Choose files and a <strong>Storage path prefix</strong> (default <code>mediaImages/</code>). Each file is uploaded under it.</td></tr>
+        <tr><td>Restore from manifest</td><td>Choose a <code>media-manifest.json</code> and the files. Files are matched by the <code>name</code> in the manifest and uploaded to the path it records.</td></tr>
+      </tbody>
+    </table>
+    <p>With <strong>Update media collection metadata</strong> ticked (the default), each uploaded file also gets a new media record, with a new id. Unzip the export first: the screen takes files, not the ZIP. Imported files are stored as they are, at one size.</p>
+    <div class="trap"><p>Content stores full image URLs. After moving to another project, entries still point at the old project's Storage, so images keep working only while the old files exist. Re-pick the images in the editor if the old project goes away.</p></div>
+
+    <h2>Extend it</h2>
+    <p>The exported collections are listed in <code>KNOWN_COLLECTIONS</code> in <code>src/app/pages/admin/(data)/data-constants.ts</code>, a core file. An app's own collections are not exported; back them up with your own tooling, or say so as a core feature request (<a href="../contributing/keep-core-generic.html">Keep core generic</a>).</p>
+
+    <h2>What it stores</h2>
+    <p>Nothing of its own. Export reads the collections above; import writes them, plus Storage files and <code>media</code> records (<code>downloadURL</code>, <code>name</code>, <code>storagePath</code>, <code>uploadTime</code>) for imported files. There are no Cloud Functions. Collection details are in <a href="../reference/data-model.html">Data model</a>.</p>
+
+    <h2>Who can do what</h2>
+    <p>The Data screens are admin only. Every read and write is the admin's own, so each collection's security rules apply as usual: an admin can read and write everything offered except <code>Contacts</code> and <code>Suppression</code>, which admins can read but only Cloud Functions write. Storage uploads need an admin (or the reserved <code>editor</code> role). See <a href="../operations/security-rules.html">Security rules</a>.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>Invalid JSON file</code> or <code>Missing "version" field</code></td><td>The file is not an Arc CMS export. Use a file from Export Data, unedited.</td></tr>
+        <tr><td>Some documents report "Missing or insufficient permissions"</td><td>The collection is written only by Cloud Functions (<code>Contacts</code>, <code>Suppression</code>), or the rules are not deployed. A failure fails its whole batch of up to 500 documents.</td></tr>
+        <tr><td>Imported entries are not on the site</td><td>Run the seed to rebuild the pages.</td></tr>
+        <tr><td>Nothing is skipped although documents exist</td><td>Merge or Overwrite was chosen. Skip existing is the only mode that leaves them alone.</td></tr>
+        <tr><td>Restore from manifest uploads nothing</td><td>No chosen file has the exact <code>name</code> the manifest records; files in the export ZIP can carry an extra extension (<code>photo-xl.webp.webp</code>). Use Upload mode instead.</td></tr>
+        <tr><td>A large export stalls</td><td>The whole file is built in the browser's memory. Export one group at a time.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

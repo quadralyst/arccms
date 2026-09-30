@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Search | Arc CMS docs</title>
+  <meta name="description" content="How search works in Arc CMS, how to make your own collections searchable, and how to put a search box on any page.">
+  <meta name="docs:sources" content="functions/src/search, functions/src/features/search.ts, functions/src/features/search+content.ts, functions/src/custom/search-sources.ts, functions/src/shared/related-content.ts, src/app/core/services/search.service.ts, src/shared/models/search.model.ts, src/shared/components/search-box, src/shared/components/admin-search, src/shared/components/search-results, src/shared/services/search-queue.ts, src/app/pages/search.page.ts, src/app/pages/page.parts/public-search.component.ts, src/app/pages/admin/(search), src/app/pages/admin/(settings)/search, public/assets/js/arc-search.js, firestore.rules, firestore.indexes.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/search.html">
+  <main>
+    <h1>Search</h1>
+    <p class="lead">One search index and one callable serve every search box: the public header, the <code>/search</code> page, the admin header and any box you add. Content is searchable out of the box; you make any other collection searchable by naming it in one file.</p>
+
+    <h2>What it is</h2>
+    <p>Search is a type-ahead engine built on Firestore. It is good at short fields: names, titles, summaries, cities, product names. Typing "kar" finds "Karun", words match in any order, accents and case are ignored, and a typo fallback retries a query that finds nothing. It is not full-text search over long prose: there is no stemming, no synonyms and no match in the middle of a word.</p>
+    <table>
+      <thead><tr><th>Part</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>Sources</td><td>A source tells the engine which collection to read, which fields to index, who may search it and what a result shows. Arc CMS has two: <code>content</code> (published content, anyone) and <code>content-drafts</code> (drafts, admins). You add more.</td></tr>
+        <tr><td>The index</td><td>The <code>SearchIndex</code> collection: one small document per document per language. Clients cannot read it.</td></tr>
+        <tr><td>The <code>search</code> callable</td><td>The only way into the index. It checks the caller may search every source asked for, queries the index and ranks the results.</td></tr>
+        <tr><td>Search boxes</td><td>The public header box and the <code>/search</code> page, the admin header box (Cmd+K or Ctrl+K) and the <code>/admin/search</code> page, and <code>&lt;arc-search-box&gt;</code> for your own pages.</td></tr>
+        <tr><td>Built on search</td><td>Link suggestions in the content editor's Checks tab, and the Related items on content pages.</td></tr>
+      </tbody>
+    </table>
+    <p>For a website walkthrough, see <a href="../website/search.html">Add search</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Search is the switchable feature <code>search</code>. It is on by default and needs no other feature. To turn it off, list it in <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    off: ['search'],
+};</code></pre>
+    <p>When it is off:</p>
+    <ul>
+      <li>Admin, Settings, Search, the admin header box and <code>/admin/search</code> go.</li>
+      <li>The public header box shows nothing, and <code>/search</code> and <code>/{lang}/search</code> show the not-found page.</li>
+      <li>The editor's Checks tab offers no link suggestions, and content pages have no Related items.</li>
+      <li>Every search function goes at the next deploy of the whole functions codebase.</li>
+      <li>The <code>SearchIndex</code> collection stays. Turn search back on, deploy, and press <strong>Rebuild everything</strong>.</li>
+    </ul>
+    <p>The public header box also needs <code>content</code>: without content there is nothing public to find, so an app without content places its own box. See <a href="../reference/feature-ids.html">Feature ids</a> for every feature.</p>
+
+    <h2>Set it up</h2>
+    <p>Content needs no setup. Published content and drafts are indexed as they are saved and published, in every language the item has. Each content entry indexes its title, summary and author name.</p>
+    <ol class="steps">
+      <li><p><strong>Choose extra content fields (optional).</strong> In Content, Content types, edit a type and tick fields under <strong>Searchable custom fields</strong>. Only plain text fields can be ticked; rich text is never indexed. Saving the type rebuilds its part of the index.</p></li>
+      <li><p><strong>Build the index once.</strong> On a site that has content from before search was deployed, open Admin, Settings, Search and press <strong>Rebuild everything</strong>. Do the same whenever results look wrong: a rebuild rewrites every entry and deletes entries whose document is gone.</p></li>
+    </ol>
+    <p>To make another collection searchable, see <a href="#extend-it">Extend it</a>.</p>
+
+    <h2>Use it</h2>
+    <h3>Public search</h3>
+    <p>The header partial carries <code>&lt;arc-search&gt;</code>. On a published page it becomes a plain form that submits to <code>/search?q=</code> (or <code>/{lang}/search?q=</code>), so it works without JavaScript, and <code>public/assets/js/arc-search.js</code> adds the type-ahead. In the Angular app it is the <code>arc-search-box</code> component. Both search the language being viewed. The box text comes from <code>public/i18n/{lang}/strings.json</code> (keys starting with <code>search_</code>); see <a href="languages.html">Languages</a>.</p>
+
+    <h3>Admin search</h3>
+    <p>Admins get a search box in the page header. Cmd+K or Ctrl+K focuses it. It searches drafts (not published content, which would show each item twice) and every source admins may read, in every language at once, showing each document once. Enter opens <code>/admin/search</code> with up to 20 results. Without content, the box appears once some source has been rebuilt.</p>
+
+    <h3>Search settings</h3>
+    <p>Admin, Settings, Search lists what is searchable (with the fields each source indexes, its document and entry counts and a <strong>Rebuild</strong> button) and every collection in the database with its state:</p>
+    <table>
+      <thead><tr><th>State</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>Searchable</td><td>Named in code and set up here.</td></tr>
+        <tr><td>Needs setup</td><td>Named in code, not set up yet. Press <strong>Set up</strong>.</td></tr>
+        <tr><td>Waiting for deploy</td><td>Set up here, not named in code yet, so nothing indexes it.</td></tr>
+        <tr><td>Set up in code</td><td>A source written in code.</td></tr>
+        <tr><td>Not searchable</td><td>Neither. <strong>Copy the line to add</strong> copies its name for the developer.</td></tr>
+        <tr><td>Never searchable</td><td>Logs, events, one-time codes, settings, queues and the index itself. See <a href="#troubleshooting">Troubleshooting</a>.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>How results are ranked</h3>
+    <p>For each word of the query, the best match in any indexed field counts: a whole word scores the field's weight, the start of a word scores 0.6 times the weight. Then:</p>
+    <ol>
+      <li>A bonus of 4 when every word matched.</li>
+      <li>A bonus of twice the highest field weight when the whole query appears in the title.</li>
+      <li>A small bonus for short titles fully matched, so they beat long titles partly matched.</li>
+      <li>The total is multiplied by the source's <code>boost</code>. Ties go to the newest document.</li>
+    </ol>
+    <p>When nothing matches, the shortest query word of four or more letters loses its last letter and the search runs again, at most twice and never below three letters. The box then says "Showing results for" the shortened word.</p>
+    <p>Text is lowercased, Latin accents are removed (other scripts keep their marks, so Hindi works), apostrophes are dropped ("karun's" becomes "karuns"), other punctuation becomes a space, and a short list of English stop words is ignored. The same code tokenizes documents and queries, in <code>functions/src/search/tokenizer.ts</code>.</p>
+
+    <h3>Limits</h3>
+    <table>
+      <thead><tr><th>Limit</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Shortest query the box sends</td><td>2 characters, after a 250 ms pause</td></tr>
+        <tr><td>Query length</td><td>120 characters, 10 words (the longest are kept)</td></tr>
+        <tr><td>Results per call</td><td>8 by default, 20 at most</td></tr>
+        <tr><td>Sources named per call</td><td>5</td></tr>
+        <tr><td>Candidates read per query</td><td>50, newest first, before ranking</td></tr>
+        <tr><td>Tokens per index entry</td><td>600 (fields are tokenized in order, so the last fields are cut first)</td></tr>
+        <tr><td>Words indexed per field</td><td>80</td></tr>
+        <tr><td>Type-ahead prefixes</td><td>2 to 12 characters</td></tr>
+        <tr><td>Snippet</td><td>200 characters</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Extend it</h2>
+    <p>An app makes its own collections searchable in <code>functions/src/custom/search-sources.ts</code>. It exports two lists:</p>
+    <table>
+      <thead><tr><th>Export</th><th>Use it for</th></tr></thead>
+      <tbody>
+        <tr><td><code>SEARCH_COLLECTIONS</code></td><td>Collection names. You choose the fields, the result and who may search in Admin, Settings, Search. Most collections need only this.</td></tr>
+        <tr><td><code>CUSTOM_SEARCH_SOURCES</code></td><td>Sources written in code, for what the settings cannot express: leaving some documents out, several languages, a computed badge, custom ranking.</td></tr>
+      </tbody>
+    </table>
+    <p>Each named collection, and each code source on one collection, gets its own trigger, <code>arccms-searchSync-{Collection}</code>, which keeps the index in step with every write. A write to any other collection starts no search function. Adding or removing a collection therefore needs a functions deploy; changing its setup in the admin does not.</p>
+
+    <h3>Name a collection</h3>
+    <ol class="steps">
+      <li>
+        <p>Add its name to <code>functions/src/custom/search-sources.ts</code>:</p>
+        <pre><code>export const SEARCH_COLLECTIONS: string[] = ['Directory'];</code></pre>
+      </li>
+      <li>
+        <p>Deploy the functions:</p>
+        <pre><code>npm run deploy -- --only functions:arccms</code></pre>
+        <p>To deploy less, see <a href="../operations/targeted-deploys.html">Deploy only what changed</a>.</p>
+      </li>
+      <li><p>In Admin, Settings, Search, press <strong>Set up</strong> on the collection. It reads up to 20 documents and lists their text fields (strings and lists of strings, at the top level and one level into maps, such as <code>address.city</code>). It ticks a first guess: fields named like <code>title</code>, <code>name</code>, <code>subject</code>, <code>heading</code> or <code>label</code> at High, fields named like <code>summary</code>, <code>description</code>, <code>text</code>, <code>body</code> or <code>notes</code> at Normal, the first of each as the result's title and snippet. Nothing else is ticked.</p></li>
+      <li><p>Check the fields (High counts three times as much as Normal and matches as you type), the title and snippet, the link, and <strong>Who can search it</strong> (Admins by default). The link is a pattern such as <code>/directory/{slug}</code>: <code>{id}</code> is the document id and <code>{field}</code> a field's value. Leave it empty for results that do not open. Look at the preview, then press <strong>Save and rebuild</strong>.</p></li>
+    </ol>
+    <p>An admin can also set a collection up before the developer names it: it then waits, and is indexed after the name is added and the functions are deployed.</p>
+
+    <h3>Write a source in code</h3>
+    <p>Copy <code>functions/src/search/sources/_template.ts</code> into <code>functions/src/custom/</code>. For a <code>Directory</code> collection whose documents look like <code>{ name, tagline, city, slug, status, createdAt }</code>:</p>
+    <pre><code>// functions/src/custom/directory-source.ts
+import type { SearchSource } from '../search/source.js';
+
+export const directorySource: SearchSource = {
+    id: 'directory',
+    label: 'Directory',
+    collection: 'Directory',
+    scope: 'public',
+    fields: [
+        { path: 'name', weight: 3, prefix: true },
+        { path: 'tagline', weight: 2, prefix: true },
+        { path: 'city', weight: 1 },
+    ],
+    display: (doc) =&gt; ({
+        title: String(doc['name'] ?? ''),
+        snippet: String(doc['tagline'] ?? ''),
+        badge: 'Directory',
+        link: `/directory/${String(doc['slug'] ?? '')}`,
+        sortAt: doc['createdAt'],
+    }),
+    include: (doc) =&gt; doc['status'] === 'active',
+};</code></pre>
+    <p>List it in <code>functions/src/custom/search-sources.ts</code>, deploy the functions, then press <strong>Rebuild</strong> on it in Admin, Settings, Search, where it shows as Set up in code:</p>
+    <pre><code>import type { SearchSource } from '../search/source.js';
+import { directorySource } from './directory-source.js';
+
+export const SEARCH_COLLECTIONS: string[] = [];
+export const CUSTOM_SEARCH_SOURCES: SearchSource[] = [directorySource];</code></pre>
+    <p>Arc CMS ships one ready-made source you can list the same way: <code>productsSource</code> in <code>functions/src/search/sources/products.ts</code> makes plans on the pricing page searchable.</p>
+
+    <h3>The source fields</h3>
+    <p>The contract is <code>SearchSource</code> in <code>functions/src/search/source.ts</code>.</p>
+    <table>
+      <thead><tr><th>Field</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>Required. Part of every index entry id: after renaming it, rebuild.</td></tr>
+        <tr><td><code>collection</code></td><td>Required. A top-level collection name, or a <code>RegExp</code> for a family of collections (then set <code>trigger: false</code>).</td></tr>
+        <tr><td><code>scope</code></td><td>Required. <code>public</code> (anyone), <code>authenticated</code> (anyone signed in) or <code>admin</code>.</td></tr>
+        <tr><td><code>fields</code></td><td>Required. <code>{ path, weight, prefix? }</code> per field, or a function of the document. Dotted paths reach into maps; lists of strings are joined. <code>prefix: true</code> makes type-ahead work; keep it to short fields. Names and titles: weight 3; a one-line description: 2; the rest: 1.</td></tr>
+        <tr><td><code>display</code></td><td>Required. <code>(doc, ctx, lang) =&gt; { title, snippet?, badge?, link, meta?, sortAt? }</code>. <code>link</code> is root-relative. <code>sortAt</code> breaks ties and falls back to the time of indexing.</td></tr>
+        <tr><td><code>include</code></td><td>Return false to leave a document out, such as one with no page to link to.</td></tr>
+        <tr><td><code>lang</code></td><td>The document's language, when each document carries one. Default: every language.</td></tr>
+        <tr><td><code>variants</code></td><td>One <code>{ lang, doc }</code> per language, for a document with translations. The content sources use it.</td></tr>
+        <tr><td><code>boost</code></td><td>Multiplies the score. Default 1.</td></tr>
+        <tr><td><code>label</code></td><td>The name in Search settings and on admin results. Default: the id.</td></tr>
+        <tr><td><code>trigger</code></td><td>Set <code>false</code> when your own function indexes the collection (below). Default true.</td></tr>
+        <tr><td><code>expandCollections</code></td><td>For a <code>RegExp</code> source: the collections a rebuild walks.</td></tr>
+      </tbody>
+    </table>
+    <div class="warn"><p>Everything <code>display</code> returns is sent to whoever searched, <code>meta</code> included. A public source's result must be safe to show a stranger.</p></div>
+
+    <h3>Index from your own function</h3>
+    <p>When your Cloud Function writes the data, you can index in the same operation and set <code>trigger: false</code> on the source:</p>
+    <pre><code>import { buildSearchContext } from '../search/context.js';
+import { indexDocument, removeSearchEntries } from '../search/writer.js';
+import { directorySource } from './directory-source.js';
+
+const ctx = await buildSearchContext('Directory', docId);
+await indexDocument(directorySource, data, ctx);            // write or update
+await removeSearchEntries('directory', 'Directory', docId); // on delete</code></pre>
+
+    <h3>Put a search box on a page</h3>
+    <p>Import <code>SearchBoxComponent</code> from <code>src/shared/components/search-box/search-box.component.ts</code>:</p>
+    <pre><code>&lt;arc-search-box
+    scope="public"
+    [sources]="['directory']"
+    resultsUrl="/directory/search"
+    navigation="router"
+    placeholder="Search the directory"
+    (picked)="onPicked($event)"&gt;&lt;/arc-search-box&gt;</code></pre>
+    <table>
+      <thead><tr><th>Input</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>scope</code></td><td>Who is asking: <code>public</code>, <code>authenticated</code> or <code>admin</code>. It must reach every source named.</td></tr>
+        <tr><td><code>sources</code></td><td>Only these source ids. Omit for every source the scope may read.</td></tr>
+        <tr><td><code>except</code></td><td>With no <code>sources</code>: every source but these.</td></tr>
+        <tr><td><code>lang</code></td><td>The language being viewed, or <code>all</code> for every language with each document once.</td></tr>
+        <tr><td><code>limit</code></td><td>Results in the dropdown. Default 8.</td></tr>
+        <tr><td><code>resultsUrl</code></td><td>Where Enter goes, with <code>?q=</code> added. Omit to turn Enter off.</td></tr>
+        <tr><td><code>navigation</code></td><td><code>router</code> for app routes, <code>location</code> for static pages, <code>none</code> to handle <code>(picked)</code> yourself.</td></tr>
+        <tr><td><code>hotkey</code></td><td>Cmd+K or Ctrl+K focuses the box.</td></tr>
+      </tbody>
+    </table>
+    <p>Without the component, inject <code>SearchService</code> from <code>src/app/core/services/search.service.ts</code> and call <code>search({ q, lang, scope, sources, limit })</code>. It returns <code>{ results, tookMs, fallbackUsed? }</code>, or null when a newer search overtook it. Each result has <code>title</code>, <code>snippet</code>, <code>badge</code>, <code>link</code>, <code>meta</code>, <code>score</code> and <code>highlights</code> (character ranges to bold). The types are in <code>src/shared/models/search.model.ts</code>.</p>
+
+    <h3>Test a source</h3>
+    <p>A source is plain data. A spec can call <code>buildEntries</code> from <code>functions/src/search/writer.ts</code> with a fixture document and check the tokens and the display.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>SearchIndex/{source}:{collection}:{docId}:{lang}</code></td><td>One entry per document per language: tokens, field text, weights, and the title, snippet, badge, link and meta a result shows. Language-neutral entries have <code>lang</code> <code>*</code> and appear in every language. Its four composite indexes ship in <code>firestore.indexes.json</code>; a new source needs no index.</td></tr>
+        <tr><td><code>Settings/search_collections</code></td><td>The setups made in Admin, Settings, Search, keyed by collection.</td></tr>
+        <tr><td><code>Settings/search_status</code></td><td>Per source: label, scope, collections, counts and when it was last rebuilt.</td></tr>
+        <tr><td><code>_search_queue</code></td><td>One short-lived entry per draft save. Drafts live in collections created at run time, so the editor queues each save and a function indexes it.</td></tr>
+      </tbody>
+    </table>
+    <p>Search uses no Storage. Its Cloud Functions:</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>search</code></td><td>Callable</td><td>Answers every search box.</td></tr>
+        <tr><td><code>reindexSearch</code></td><td>Callable</td><td>Rebuilds one source, one collection of it (<code>{ source, collection }</code>), or everything. A full rebuild also removes sources that no longer exist.</td></tr>
+        <tr><td><code>listSearchCollections</code></td><td>Callable</td><td>What Search settings lists.</td></tr>
+        <tr><td><code>sampleCollectionFields</code></td><td>Callable</td><td>The text fields and preview rows for <strong>Set up</strong>.</td></tr>
+        <tr><td><code>searchSync-{Collection}</code></td><td>Trigger</td><td>One per searchable collection.</td></tr>
+        <tr><td><code>onSearchQueued</code></td><td>Trigger</td><td>Indexes a queued draft. Only with content on.</td></tr>
+      </tbody>
+    </table>
+    <p>Each deploys with the <code>arccms-</code> prefix. Publishing, unpublishing and deleting a content type update the content entries themselves. See <a href="../reference/cloud-functions.html">Cloud Functions</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Action</th><th>Who</th></tr></thead>
+      <tbody>
+        <tr><td>Search a <code>public</code> source</td><td>Anyone, signed in or not.</td></tr>
+        <tr><td>Search an <code>authenticated</code> source</td><td>Anyone signed in, with <code>scope: 'authenticated'</code> or higher.</td></tr>
+        <tr><td>Search an <code>admin</code> source, open <code>/admin/search</code></td><td>Admins.</td></tr>
+        <tr><td>Rebuild, list collections, set a collection up</td><td>Admins. The callables check the admin claim; <code>Settings/search_collections</code> is admin only.</td></tr>
+        <tr><td>Read <code>Settings/search_status</code></td><td>Admins. The rebuild writes it.</td></tr>
+        <tr><td>Read or write <code>SearchIndex</code></td><td>No client. Only functions, so the callable is where scope is enforced.</td></tr>
+        <tr><td>Write <code>_search_queue</code></td><td>Content staff, and only a draft collection name and a document id. No client reads it.</td></tr>
+      </tbody>
+    </table>
+    <p>A request that names a source its scope cannot reach is refused with <code>permission-denied</code>, not quietly trimmed. See <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+
+    <h2>Troubleshooting</h2>
+    <div class="trap"><p>A collection is set up in Search settings but finds nothing. It says Waiting for deploy: no trigger watches it until its name is in <code>SEARCH_COLLECTIONS</code> and the functions are deployed. Add the name, deploy, then press <strong>Rebuild</strong>.</p></div>
+    <div class="trap"><p>The functions deploy fails with a message from <code>functions/src/custom/search-sources.ts</code>. The functions refuse to load when a named collection can never be searchable (a name starting with <code>_</code>, or one listed in <code>functions/src/search/refused.ts</code> such as <code>EmailLogs</code> or <code>Settings</code>), is not a plain name, shares a trigger name with another (<code>my-list</code> and <code>my_list</code>), or when a code source on a <code>RegExp</code> does not set <code>trigger: false</code>. The message names the problem.</p></div>
+    <div class="trap"><p>A removed collection still has a trigger. A targeted deploy never deletes functions. Deploy the whole functions codebase (<code>npm run deploy -- --only functions:arccms</code> lists what it will delete and asks first), then press <strong>Rebuild everything</strong> to delete its entries.</p></div>
+    <table>
+      <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>New source finds nothing</td><td>Press <strong>Rebuild</strong> on it. Existing documents are indexed only by a rebuild or when they are next written.</td></tr>
+        <tr><td>Results look stale or wrong</td><td>Press <strong>Rebuild everything</strong>. Setups are cached for a minute, so a change can take that long to apply to new writes.</td></tr>
+        <tr><td><code>permission-denied</code>: "Source ... is not searchable in scope ..."</td><td>The box's <code>scope</code> is lower than the source's. Raise the box's scope or lower the source's.</td></tr>
+        <tr><td><code>not-found</code>: "Unknown search source"</td><td>The id is not a source: a named collection that is not set up yet, or a typo. Set-up collections have the id <code>collection-{Collection}</code>.</td></tr>
+        <tr><td>A document is missing from results</td><td>Its <code>include</code> rejects it, it has no title, or none of its indexed fields has text.</td></tr>
+        <tr><td>A word in a long field is not found</td><td>Only the first 80 words of a field are indexed, and an entry holds 600 tokens. Index short fields.</td></tr>
+        <tr><td>The admin header has no search box</td><td>With content off, it appears after some source has been rebuilt.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

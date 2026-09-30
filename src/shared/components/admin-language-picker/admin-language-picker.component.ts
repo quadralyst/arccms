@@ -9,7 +9,7 @@
  * Renders nothing when only one admin language ships, the same way the public
  * switcher does on a single-language site.
  *
- * Spec: docs/multilingual-spec.md — Phase M6.
+ * Spec: specs/multilingual-spec.md — Phase M6.
  */
 
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';

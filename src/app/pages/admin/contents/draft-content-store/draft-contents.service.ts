@@ -82,7 +82,7 @@ export class DraftContentsService extends DbService<IDraftContents> {
         );
         // Not a merge write: pruned-away fields must actually disappear so that
         // clearing a field in the editor restores the default-language value.
-        // The draft is queued for search with it (docs/feature-flags-spec.md 6.5).
+        // The draft is queued for search with it (specs/feature-flags-spec.md 6.5).
         await runInInjectionContext(this.injector, () => {
             const batch = writeBatch(this.firestore);
             batch.set(ref, { ...pruned, lang: translation.lang });

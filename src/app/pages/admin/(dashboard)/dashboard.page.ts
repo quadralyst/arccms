@@ -84,10 +84,10 @@ export default class DashboardComponent extends BaseComponent {
   // Email configuration status
   emailConfigService = inject(EmailConfigStatusService);
 
-  // App installs (docs/pwa.md), when this install's PWA is on
+  // App installs (docs/features/pwa.html), when this install's PWA is on
   readonly pwaEnabled = PWA.enabled;
 
-  // Sections follow the features this app has (docs/feature-flags-spec.md).
+  // Sections follow the features this app has (specs/feature-flags-spec.md).
   readonly contentOn = isOn('content');
   readonly formsOn = isOn('forms');
   readonly audienceOn = isOn('audience');

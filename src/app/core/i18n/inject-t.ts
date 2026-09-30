@@ -12,7 +12,7 @@
  * Call `transloco.translate()` directly only for a key computed at runtime,
  * where a type cannot help.
  *
- * Spec: docs/i18n-guide.md — §2.3.
+ * Spec: docs/features/languages.html — §2.3.
  */
 
 import { inject } from '@angular/core';

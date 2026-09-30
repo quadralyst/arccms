@@ -8,7 +8,7 @@ service firebase.storage {
     }
 
     // ------------------------------------------------------------
-    // Helpers for app rules (storage.app.rules, docs/app-rules.md).
+    // Helpers for app rules (storage.app.rules, docs/app/rules-and-indexes.html).
     // The same names and meaning as in firestore.rules.
     // ------------------------------------------------------------
 
@@ -60,7 +60,7 @@ service firebase.storage {
       allow write: if isEditor();
     }
 
-    // Per-user folders (docs/account-contract.md): the owner and admins may
+    // Per-user folders (docs/app/account-contract.html): the owner and admins may
     // read. Apps grant writes in storage.app.rules, with their own size and
     // type limits. Deleting the account deletes the folder.
     match /users/{userDocId}/{rest=**} {
@@ -70,7 +70,7 @@ service firebase.storage {
       allow read: if ownsUserRecord(userDocId) || isAdmin();
     }
 
-    // Feedback button files (docs/feedback.md): the screenshot and the voice
+    // Feedback button files (docs/features/feedback.html): the screenshot and the voice
     // note, in the sender's own folder. Create only; admins delete them with the
     // feedback, and deleting the account deletes the folder. Only the two files
     // the button makes, by name and type (review F): a JPEG screenshot and a

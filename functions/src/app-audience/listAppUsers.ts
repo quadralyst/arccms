@@ -1,5 +1,5 @@
 /**
- * Audience, App users (docs/coexistence-spec.md 5b, CO6.3): the host app's users,
+ * Audience, App users (specs/coexistence-spec.md 5b, CO6.3): the host app's users,
  * read live from their own collection with the admin's settings, plus ArcCMS's
  * own state for each. Nothing read here is stored.
  */

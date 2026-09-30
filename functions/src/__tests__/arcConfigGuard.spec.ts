@@ -1,5 +1,5 @@
 /**
- * CO2 guard (docs/coexistence-spec.md): the install's database and hosting site
+ * CO2 guard (specs/coexistence-spec.md): the install's database and hosting site
  * come from arc-config. Code that opens Firestore itself, or builds hosting URLs
  * from the project id, silently ignores that config on a shared-project install.
  */

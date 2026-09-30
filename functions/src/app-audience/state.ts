@@ -1,5 +1,5 @@
 /**
- * ArcCMS's own records about app users (docs/coexistence-spec.md 5b): consent,
+ * ArcCMS's own records about app users (specs/coexistence-spec.md 5b): consent,
  * drip progress, watched-field values. `AppAudience/{stateId}`, where the id is a
  * hash of the person's unique key, so no identifier from the host app is stored
  * in the clear. A person with no record has the defaults: subscribed, no drips.

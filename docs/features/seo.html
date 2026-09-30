@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SEO and discoverability | Arc CMS docs</title>
+  <meta name="description" content="What Arc CMS gives search engines and AI assistants: structured data, sitemap, robots.txt, llms.txt, Markdown twins, RSS, IndexNow and the editor's Checks tab.">
+  <meta name="docs:sources" content="functions/src/features/seo.ts, functions/src/pages/regenerateSeoFiles.ts, functions/src/pages/generateSitemap.ts, functions/src/pages/generateRobotsTxt.ts, functions/src/pages/generateLlmsTxt.ts, functions/src/pages/generateRssFeed.ts, functions/src/pages/indexNow.ts, functions/src/pages/deploySeoFile.ts, functions/src/pages/deployContentPage.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/shared/discoverability-settings.ts, functions/src/shared/crawlers.ts, functions/src/shared/structured-data.ts, functions/src/shared/site-jsonld.ts, functions/src/shared/schema-types.ts, functions/src/shared/schema-mapping.ts, functions/src/shared/content-blocks.ts, functions/src/shared/markdown-twin.ts, functions/src/shared/html-to-markdown.ts, functions/src/shared/html-document.ts, functions/src/shared/authors.ts, functions/src/shared/references.ts, functions/src/shared/related-content.ts, functions/src/shared/ai-referrers.ts, src/app/pages/admin/(settings)/discoverability, src/shared/utils/discoverability-checklist.ts, src/shared/constants/crawlers.ts, src/shared/constants/schema-types.ts, src/shared/utils/schema-mapping.ts, src/shared/utils/content-blocks.ts, src/shared/models/discoverability.model.ts, src/shared/components/tiptap-editor/service/arc-block-extension.ts, src/app/pages/admin/contents/create-content/create-content.component.ts, public/templates/default/detail.html, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/seo.html">
+  <main>
+    <h1>SEO and discoverability</h1>
+    <p class="lead">Every published page tells search engines and AI assistants what it is, who wrote it and where its sources are, and the site publishes the files crawlers look for. Authors get a Checks tab that scores each draft for being found and quoted.</p>
+
+    <h2>What it is</h2>
+    <p>The publish pipeline writes these with every published page. Nothing has to be switched on.</p>
+    <table>
+      <thead><tr><th>Part</th><th>What it gives</th></tr></thead>
+      <tbody>
+        <tr><td>Head tags</td><td>Title, meta description, canonical URL, Open Graph and Twitter card tags, and <code>hreflang</code> links when the page exists in more than one language.</td></tr>
+        <tr><td>Structured data</td><td>schema.org JSON-LD: the site owner (Organization or Person), the WebSite with a search action, a breadcrumb trail, and the page itself as an Article or the type its content type is mapped to. FAQ, How-to and Definition blocks in the body become their own nodes.</td></tr>
+        <tr><td>Authors and sources</td><td>A byline with the author's box, a Sources list at the end, both sent to search engines as the author and citations.</td></tr>
+        <tr><td>Markdown twins</td><td>The same page as Markdown, at the same address with <code>.md</code> (<code>/articles/my-post.md</code>), linked from the HTML head. AI tools read it at a fraction of the tokens.</td></tr>
+        <tr><td>Related items</td><td>Up to four related pages at the end of each page, chosen from the search index by title and tags. Needs <a href="search.html">Search</a>.</td></tr>
+        <tr><td>Checks tab</td><td>A score out of 100 for each draft, with the one thing to fix per failing check. Advice only: it never blocks publishing.</td></tr>
+      </tbody>
+    </table>
+    <p>The <code>seo</code> feature adds the site-wide files and the settings for them:</p>
+    <table>
+      <thead><tr><th>File</th><th>What it holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>/sitemap.xml</code></td><td>The home page, each content type's list page, every published page in every language it exists in (with <code>hreflang</code> alternates), and the privacy and cookie policy pages. <code>lastmod</code> is the updated date, else the publish date.</td></tr>
+        <tr><td><code>/robots.txt</code></td><td>Everything allowed, a <code>Disallow: /</code> group for each AI crawler switched off, and the sitemap address.</td></tr>
+        <tr><td><code>/llms.txt</code></td><td>A Markdown index of the site (llmstxt.org): the site name and description, then a section per content type linking its pages' Markdown twins in the default language, newest first, up to 500 pages in all.</td></tr>
+        <tr><td><code>/llms-full.txt</code></td><td>Every default-language Markdown twin in one file, newest first, up to 2 MB.</td></tr>
+        <tr><td><code>/{type}/feed.xml</code></td><td>An RSS 2.0 feed per content type with its 20 newest items.</td></tr>
+        <tr><td><code>/{key}.txt</code></td><td>The IndexNow key file, which proves the site to the engines.</td></tr>
+      </tbody>
+    </table>
+    <p>After each publish, IndexNow tells Bing (which feeds ChatGPT search and Copilot), Yandex, Seznam and Naver which pages changed. Google does not take part; the sitemap covers it. For a website walkthrough, see <a href="../website/seo.html">Get found by search engines and AI</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>The site-wide files are the switchable feature <code>seo</code>. It is on by default and needs no other feature. To turn it off, list it in <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    off: ['seo'],
+};</code></pre>
+    <p>When it is off, Admin, Settings, Discoverability goes, the <code>regenerateSeoFiles</code> function goes at the next deploy of the whole functions codebase, and publishing no longer writes the sitemap, robots.txt, llms.txt, feeds or IndexNow key, and pings nothing. Files already on Hosting stay until you remove them. Head tags, structured data, Markdown twins, authors, sources and the Checks tab are part of <a href="content.html">Content</a> and stay. See <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li><p><strong>Say who owns the site.</strong> In Admin, Settings, About, fill in the site name, the production URL, whether the site is an organization or a person, the logo, a description, profile links and a contact email. They become the Organization or Person node on every page, and the production URL is the base of every absolute link in the files above. Empty fields are left out, never guessed.</p></li>
+      <li><p><strong>Add authors.</strong> Content, Authors. Mark one as the default and new content gets that author. See <a href="authors-and-tags.html">Authors and tags</a>.</p></li>
+      <li><p><strong>Map content types (optional).</strong> Edit a content type and choose its <strong>Structured data</strong> type: Article (the default), Blog post, News article, Product, Service, Event, Person, Recipe or How-to guide. Map the type's properties to your custom fields; anything unmapped is left out.</p></li>
+      <li><p><strong>Choose the crawler policy.</strong> Admin, Settings, Discoverability. Every crawler is allowed until you switch it off. Choose whether to publish <code>/llms.txt</code> and <code>/llms-full.txt</code> and whether to use IndexNow (both on by default). Press <strong>Save and apply to site</strong> to write the files now, or <strong>Save</strong> to let the next publish write them.</p></li>
+      <li><p><strong>Verify from the outside.</strong> Arc CMS keeps no crawler log, so register the site in Google Search Console and Bing Webmaster Tools (which also shows IndexNow submissions).</p></li>
+    </ol>
+    <p>The crawlers on the settings page come in two groups:</p>
+    <table>
+      <thead><tr><th>Group</th><th>Crawlers</th><th>Switching one off</th></tr></thead>
+      <tbody>
+        <tr><td>Search and answer bots</td><td>OAI-SearchBot, ChatGPT-User, Claude-SearchBot, Claude-User, PerplexityBot, Perplexity-User, Bingbot, Googlebot, DuckAssistBot</td><td>Removes the site from those answers and results.</td></tr>
+        <tr><td>Training bots</td><td>GPTBot, ClaudeBot, Google-Extended, Applebot-Extended, CCBot, meta-externalagent, Bytespider, Amazonbot</td><td>A policy choice. It does not change whether assistants cite the site.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Use it</h2>
+    <h3>When the files change</h3>
+    <p>Each publish or unpublish of a content type with public pages rewrites the sitemap, the feeds, robots.txt, llms.txt and (with IndexNow on) the IndexNow key file, and releases them to Hosting together with the pages. IndexNow is pinged only after that release succeeds. <strong>Save and apply to site</strong> rewrites robots.txt, llms.txt and the key file at once, without a publish.</p>
+
+    <h3>In the editor</h3>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td>Basic tab</td><td><strong>Author</strong>: the byline and the schema.org author. Cover image: the social and search thumbnail.</td></tr>
+        <tr><td>SEO tab</td><td>SEO title, meta description, <strong>Sources</strong> (the pages this piece draws on), and <strong>Mark as updated today</strong>, which sets the "Last updated" date shown on the page and sent as the modified date.</td></tr>
+        <tr><td>Body toolbar</td><td>The block menu inserts an FAQ, Key takeaways, How-to steps or Definition block; typing <code>/</code> offers them too. Each becomes structured data. Key takeaways become the page's abstract.</td></tr>
+        <tr><td>Checks tab</td><td>The score, each check, and pages on this site the body does not link to yet, each with <strong>Insert link</strong>.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>What the Checks tab scores</h3>
+    <p>High checks weigh 3, medium 2, low 1. The score is the weight passed out of the weight checked. It reads the default language.</p>
+    <table>
+      <thead><tr><th>Check</th><th>Passes when</th><th>Weight</th></tr></thead>
+      <tbody>
+        <tr><td>Answer first</td><td>The first paragraph has 15 to 70 words.</td><td>High</td></tr>
+        <tr><td>Question heading</td><td>At least one h2, h3 or h4 ends with a question mark.</td><td>High</td></tr>
+        <tr><td>Blocks</td><td>The body has an FAQ or Key takeaways block.</td><td>High</td></tr>
+        <tr><td>Title length</td><td>The title has 1 to 70 characters.</td><td>Medium</td></tr>
+        <tr><td>Meta description</td><td>50 to 160 characters.</td><td>Medium</td></tr>
+        <tr><td>List or table</td><td>The body has one.</td><td>Medium</td></tr>
+        <tr><td>Internal links</td><td>Three or more links to this site.</td><td>Medium</td></tr>
+        <tr><td>Author</td><td>An author is picked.</td><td>Medium</td></tr>
+        <tr><td>Sources</td><td>At least one source with an <code>http</code> or <code>https</code> address.</td><td>Medium</td></tr>
+        <tr><td>Length</td><td>300 words or more.</td><td>Low</td></tr>
+        <tr><td>Cover image</td><td>One is set.</td><td>Low</td></tr>
+        <tr><td>Tags</td><td>Two or more.</td><td>Low</td></tr>
+        <tr><td>Freshness</td><td>Published or marked updated in the last 12 months.</td><td>Low</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Write for Google and AI assistants</h3>
+    <p>Assistants quote passages, not pages. A passage gets quoted when it answers a question on its own, sits under a heading that matches how people ask, holds something checkable, and comes from a page with a named author, a date and sources. Google rewards the same things. Share this with the people who write:</p>
+    <ol>
+      <li><strong>Answer first.</strong> The first paragraph under the title, and under each heading, answers in 15 to 70 words. Detail comes after.</li>
+      <li><strong>Write headings as questions.</strong> "How much does it cost in India?" beats "Pricing".</li>
+      <li><strong>Use facts, not adjectives.</strong> "Supports 12 languages including Hindi and Tamil" can be quoted; "world-class support" cannot.</li>
+      <li><strong>Give it structure.</strong> A list for steps, a table for comparisons, an FAQ block for the questions you keep getting.</li>
+      <li><strong>Say who wrote it and when.</strong> Pick an author. Press <strong>Mark as updated today</strong> only after a real revision, never for a typo fix.</li>
+      <li><strong>Cite sources.</strong> Add the pages you drew on under Sources.</li>
+      <li><strong>Link to your own pages.</strong> Three or more; use the suggestions in the Checks tab.</li>
+    </ol>
+    <p>Do not stuff keywords, rewrite what is already everywhere on the web, mark a page updated without changing it, or write an FAQ of questions nobody asks. Aim for a score above 80, then publish. A day later, test the page with Google's Rich Results Test, and ask an assistant your heading's question to see whether it quotes you. If it does not, sharpen the opening paragraph.</p>
+
+    <h3>AI assistant visits</h3>
+    <p>When Google Analytics is connected, the dashboard counts visits referred by AI assistants such as ChatGPT and Perplexity. See <a href="analytics.html">Analytics</a>.</p>
+
+    <h2>Extend it</h2>
+    <p>An app extends discoverability through its own content and templates:</p>
+    <ul>
+      <li><strong>Structured data for your content:</strong> map a content type to a schema.org type and its custom fields in the type editor (above). No code.</li>
+      <li><strong>Templates:</strong> a custom detail template can show the author box, the "Last updated" date, the Sources list and Related items with the same bindings as <code>public/templates/default/detail.html</code>. See <a href="templates.html#detail-page-bindings">Detail page bindings</a>.</li>
+    </ul>
+    <p>New schema.org types, content blocks, crawlers, AI referrers and checks are changes to Arc CMS itself, not to an app (see <a href="../contributing/keep-core-generic.html">Keep core generic</a>). Types, blocks and crawlers live in a functions file with a browser copy; change both, since a static page and its in-app twin must agree (a test compares the two lists for types and crawlers):</p>
+    <table>
+      <thead><tr><th>To add</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td>A schema.org type</td><td><code>functions/src/shared/schema-types.ts</code> and its copy <code>src/shared/constants/schema-types.ts</code>; build the node in <code>functions/src/shared/schema-mapping.ts</code> and <code>src/shared/utils/schema-mapping.ts</code>. The type editor lists it by itself.</td></tr>
+        <tr><td>A content block</td><td><code>ARC_BLOCKS</code> in <code>src/shared/components/tiptap-editor/service/arc-block-extension.ts</code>; read it in <code>functions/src/shared/content-blocks.ts</code> and <code>src/shared/utils/content-blocks.ts</code>; style it in the default template.</td></tr>
+        <tr><td>A crawler</td><td><code>CRAWLERS</code> in <code>functions/src/shared/crawlers.ts</code> and <code>src/shared/constants/crawlers.ts</code>, in the <code>search</code> or <code>training</code> group. Existing sites get it allowed.</td></tr>
+        <tr><td>An AI referrer</td><td><code>AI_REFERRERS</code> in <code>functions/src/shared/ai-referrers.ts</code>.</td></tr>
+        <tr><td>A check</td><td>A <code>rule()</code> in <code>src/shared/utils/discoverability-checklist.ts</code>, and the keys <code>admin.contents.checklist.{id}</code> and <code>admin.contents.checklist.{id}_fix</code> in every admin translation file, then <code>npm run i18n:keys</code>.</td></tr>
+      </tbody>
+    </table>
+    <div class="note"><p>The pipeline never invents a value: a property that cannot be filled truthfully is left out. Keep new types and blocks that way.</p></div>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>Settings/discoverability</code></td><td>The default author id, the crawler policy (allowed or not, by crawler id), whether llms.txt is on, and IndexNow on or off with its key (made on first use).</td></tr>
+        <tr><td><code>Settings/about</code></td><td>The site's identity for the Organization or Person node.</td></tr>
+        <tr><td><code>Authors</code></td><td>Name, bio, photo, job title and profile links. Nothing private.</td></tr>
+        <tr><td>Each content document</td><td><code>authorId</code>, <code>references</code>, <code>updatedOn</code>, <code>seoTitle</code>, <code>metaDescription</code>; the content type's <code>schema</code> mapping.</td></tr>
+        <tr><td>Firebase Hosting</td><td>The files in <a href="#what-it-is">What it is</a> and each page's <code>.md</code> twin, written by the functions. Nothing is kept in Storage.</td></tr>
+      </tbody>
+    </table>
+    <p>Cloud Functions: the <code>regenerateSeoFiles</code> callable (the <code>seo</code> feature). The rest runs inside the publish queue. See <a href="../reference/cloud-functions.html">Cloud Functions</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Action</th><th>Who</th></tr></thead>
+      <tbody>
+        <tr><td>Read and change Discoverability settings, run <code>regenerateSeoFiles</code></td><td>Admins.</td></tr>
+        <tr><td>Change About settings, add and edit authors</td><td>Admins.</td></tr>
+        <tr><td>Read authors and About</td><td>Anyone: the same details are printed on every public page.</td></tr>
+        <tr><td>Set author, sources and dates on content; see the Checks tab</td><td>Admins: the content screens are admin only (see <a href="users-and-roles.html">Users and roles</a>).</td></tr>
+        <tr><td>Read the sitemap, robots.txt, llms.txt, feeds and twins</td><td>Anyone: they are public files on Hosting.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Troubleshooting</h2>
+    <div class="trap"><p>Settings changed but robots.txt did not. <strong>Save</strong> applies on the next publish; the functions also cache the settings for five minutes. Press <strong>Save and apply to site</strong>.</p></div>
+    <div class="trap"><p>Pages and files vanish after <code>firebase deploy --only hosting</code>. A hosting deploy releases only what the CLI uploaded, dropping every file the functions wrote. Rebuild them afterwards with <code>npm run seed:dev</code> (or <code>npm run seed:prod</code>). See <a href="../operations/deploy.html">Deploy</a>.</p></div>
+    <table>
+      <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>Absolute links point at the wrong host</td><td>Without a production URL in Admin, Settings, About, the Hosting default address is used. Set it, then publish.</td></tr>
+        <tr><td>IndexNow sends nothing</td><td>Check it is on in Discoverability. Each submission, and each refusal with its status, is in the function log under "IndexNow". A 4xx means the key file is not served at the production URL: press <strong>Save and apply to site</strong>.</td></tr>
+        <tr><td>A structured data property is missing</td><td>Its source field is empty or unmapped. Nothing is invented.</td></tr>
+        <tr><td>No Related items or link suggestions</td><td>Search is off, or the index is empty: rebuild it in Admin, Settings, Search.</td></tr>
+        <tr><td>A page is missing from llms.txt</td><td>It has no URL slug or title, its type has no public pages, or the 500-page limit was reached before it.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

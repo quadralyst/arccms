@@ -1,5 +1,5 @@
 /**
- * Settings, Automations (docs/coexistence-spec.md section 5b, CO6.5d).
+ * Settings, Automations (specs/coexistence-spec.md section 5b, CO6.5d).
  *
  * An editor for `Settings/event_mappings`: for each event (built-in ones, and
  * the app-user ones when an app is connected, one per watched field), an on/off

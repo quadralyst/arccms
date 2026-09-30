@@ -1,5 +1,5 @@
 /**
- * Source-level guards for the CO1 security baseline (docs/coexistence-spec.md).
+ * Source-level guards for the CO1 security baseline (specs/coexistence-spec.md).
  *
  * The behavioural tests run against the emulators (`npm run test:rules`,
  * tests/rules/). These run in the default `npm run test` so the two holes

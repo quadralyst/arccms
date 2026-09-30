@@ -10,7 +10,7 @@
  * available on both sides, split into its own chunk per language and loaded
  * only when that language is activated.
  *
- * Spec: docs/multilingual-spec.md — Phase M6.
+ * Spec: specs/multilingual-spec.md — Phase M6.
  */
 
 import { Injectable } from '@angular/core';
@@ -28,7 +28,7 @@ const TRANSLATIONS: Record<string, () => Promise<{ default: Translation }>> = {
 };
 
 /**
- * The app's own translations (src/custom/i18n, docs/custom-code.md), laid over
+ * The app's own translations (src/custom/i18n, docs/app/custom-space.html), laid over
  * the core ones: its own keys, and rewording of core keys. A language with no
  * custom file uses the core file alone.
  */

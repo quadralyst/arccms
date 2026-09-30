@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data model | Arc CMS docs</title>
+  <meta name="description" content="Every Firestore collection and Storage path Arc CMS uses: what it holds, who can read and write it, and which feature owns it.">
+  <meta name="docs:sources" content="firestore.rules, storage.rules, src/shared/models, functions/src/init.ts, functions/src/arc-config.ts, src/app/core/config/arc-config.ts, src/app/core/config/arc-firebase.ts, scripts/arc-install-config.mjs, scripts/arc-rules-build.mjs, functions/src/draftContent/collectionHelpers.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/search/source.ts, functions/src/users/onUserDelete.ts, src/shared/services/file-upload.service.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="reference/data-model.html">
+  <main>
+    <h1>Data model</h1>
+    <p class="lead">This page lists every Firestore collection and Storage path Arc CMS uses, who can read and write each one, and which feature owns it.</p>
+
+    <h2>Where the data lives</h2>
+    <p>Arc CMS keeps all its data in one Firestore database and one Storage bucket per install.</p>
+    <ul>
+      <li><strong>Database.</strong> <code>(default)</code>, unless the install config (<code>arccms.config.json</code>, see <code>arccms.config.example.json</code>) names another with <code>databaseId</code>, such as <code>arccms</code>. The <code>backend</code> profile, for an install that shares its Firebase project with another app, requires a named database. See <a href="../getting-started/configure.html">Configure a project</a> and <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>.</li>
+      <li><strong>How the code picks it.</strong> <code>npm run arc:configure</code> writes the value to <code>src/environments/arc-install.ts</code> for the browser and SSR, and to <code>functions/.env.{projectId}</code> as <code>ARC_DATABASE_ID</code> for the Cloud Functions. The browser opens the database in <code>src/app/core/config/arc-firebase.ts</code>. Every function uses the <code>db</code> handle from <code>functions/src/init.ts</code>, and the Firestore triggers listen on the same database. The one exception is <code>onAppUserWritten</code>, which watches the host app's users for the <a href="../features/app-audience.html">App audience</a>.</li>
+      <li><strong>Bucket and upload folder.</strong> <code>storageBucket</code> names the bucket (default: the one in the Firebase config). <code>storagePrefix</code> is one folder ending in a slash, such as <code>arccms/</code>, put in front of new uploads. With no prefix, uploads go to the bucket root.</li>
+    </ul>
+
+    <h3>How content is stored</h3>
+    <p>Content has no single collection. Each content type gets three, named from the type's <code>slug</code>: <code>arc_{slug}_drafts</code> for what the editor saves, <code>arc_{slug}</code> for the published copy (same document id as the draft), and <code>Tags_{slug}</code> for its tags. Deleting a content type deletes all three. See <a href="#content">Content</a> below.</p>
+    <p>Firestore rules cannot match a prefix, so <code>firestore.rules</code> has one wildcard rule, <code>match /{collection}/{docId}</code>, that checks the collection name with a regular expression.</p>
+    <div class="trap"><p>The wildcard rule applies to any collection whose name starts with <code>arc_</code>, <code>Tags_</code> or <code>WaitlistUserTags_</code>. An app collection named <code>arc_orders</code> becomes public to read. Give app collections names without these prefixes.</p></div>
+
+    <h3>Your app's collections</h3>
+    <p>An app keeps its own rules in <code class="new">firestore.app.rules</code> and <code class="new">storage.app.rules</code>. <code>npm run rules:build</code> puts them into the core rules at the <code>// @arc-app-rules</code> line, so they can call the core helpers. See <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>. For how the rules are built and tested, see <a href="../operations/security-rules.html">Security rules</a>.</p>
+
+    <h2>Who can read and write</h2>
+    <p>The rules use a few helpers. The role comes from the <code>arccms_role</code> claim, never a plain <code>role</code>; see <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+    <ul>
+      <li><code>isAuthenticated()</code> and <code>isSignedIn()</code>: the caller is signed in.</li>
+      <li><code>isAdmin()</code>: the <code>arccms_role</code> claim is <code>admin</code>.</li>
+      <li><code>isEditor()</code>, "staff" below: an admin, or the <code>arccms_role</code> claim is <code>editor</code>.</li>
+      <li><code>ownsUserRecord(userDocId)</code>: the <code>arccms_uid</code> claim equals that <code>users</code> document id.</li>
+      <li><code>isOwnUserDoc()</code>: the <code>users</code> document's <code>uid</code> field equals the signed-in Auth uid.</li>
+    </ul>
+    <p>In the tables below, "Server only" means no browser can read or write it: only Cloud Functions do, through the Admin SDK, which bypasses the rules. Every collection with no rule is server only too, because Firestore denies what no rule allows.</p>
+
+    <h2>Content</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Collection</th><th>Holds</th><th>Read</th><th>Write</th><th>Feature</th><th>Key fields</th></tr></thead>
+        <tbody>
+          <tr><td><code>ContentTypes</code></td><td>One content type definition per document. Deleting one deletes its <code>arc_{slug}</code>, <code>arc_{slug}_drafts</code> and <code>Tags_{slug}</code> collections.</td><td>Public (SSR routes with it)</td><td>Staff</td><td><a href="../features/content.html">Content</a></td><td><code>name</code>, <code>singularName</code>, <code>slug</code>, <code>fields</code>, <code>templateFolder</code>, <code>hasPublicUrl</code>, <code>searchFields</code>, <code>nameTranslations</code></td></tr>
+          <tr><td><code>arc_{slug}_drafts</code></td><td>The type's items as the editor saves them. Subcollection <code>translations/{lang}</code> holds only the fields that differ in that language.</td><td>Staff</td><td>Staff</td><td><a href="../features/content.html">Content</a></td><td><code>title</code>, <code>content</code>, <code>urlSlug</code>, <code>status</code>, <code>summary</code>, <code>tags</code>, <code>seoTitle</code>, <code>metaDescription</code>, <code>authorId</code>, <code>customFields</code>, <code>lastPublishedAt</code></td></tr>
+          <tr><td><code>arc_{slug}</code></td><td>Published items, same id as the draft. Subcollections: <code>translations/{lang}</code> (public read, written by the publish pipeline) and <code>PublishedHistory</code> (a copy per publish, admin read, server write).</td><td>Public</td><td>Staff; in practice the publish pipeline</td><td><a href="../features/content.html">Content</a></td><td>The draft's fields, plus <code>publishedOn</code>, <code>deployStatus</code>, <code>deployedAt</code>, <code>deployedUrl</code>, <code>deployError</code></td></tr>
+          <tr><td><code>Tags_{slug}</code></td><td>The tags of one content type.</td><td>Public</td><td>Staff</td><td><a href="../features/authors-and-tags.html">Authors and tags</a></td><td><code>label</code>, <code>color</code>, <code>contentTypeSlug</code>, <code>usageCount</code></td></tr>
+          <tr><td><code>Authors</code></td><td>Bylines. No email and no user id, since it is public.</td><td>Public</td><td>Admin</td><td><a href="../features/authors-and-tags.html">Authors and tags</a></td><td><code>name</code>, <code>slug</code>, <code>bio</code>, <code>photoUrl</code>, <code>jobTitle</code>, <code>url</code>, <code>sameAs</code></td></tr>
+          <tr><td><code>media</code></td><td>One document per image in the media library. The files are in Storage.</td><td>Public</td><td>Staff</td><td><a href="../features/media.html">Media</a></td><td><code>downloadURL</code>, <code>name</code>, <code>uploadTime</code>, <code>width</code>, <code>height</code>, <code>variants</code></td></tr>
+          <tr><td><code>_publish_queue</code></td><td>A request to publish, unpublish, update, delete or redeploy. <code>processPublishQueue</code> runs it and deletes the document.</td><td>Nobody</td><td>Staff</td><td><a href="../features/content.html">Content</a></td><td><code>action</code>, <code>contentTypeSlug</code>, <code>docId</code>, <code>timestamp</code></td></tr>
+          <tr><td><code>_search_queue</code></td><td>One entry per draft save, id <code>{collection}~{docId}</code>. <code>onSearchQueued</code> indexes the draft and deletes the entry.</td><td>Nobody</td><td>Staff, only these fields, and <code>collection</code> must be a drafts collection</td><td><a href="../features/search.html">Search</a></td><td><code>collection</code>, <code>docId</code>, <code>at</code></td></tr>
+          <tr><td><code>SearchIndex</code></td><td>One entry per document and language, id <code>{source}:{collection}:{docId}:{lang}</code>. Read only through the <code>search</code> callable, which enforces scope.</td><td>Server only</td><td>Server only</td><td><a href="../features/search.html">Search</a></td><td><code>source</code>, <code>scope</code>, <code>lang</code>, <code>collection</code>, <code>docId</code>, <code>tokens</code>, <code>fields</code>, <code>title</code>, <code>snippet</code>, <code>link</code>, <code>indexedAt</code></td></tr>
+          <tr><td><code>DraftContents</code></td><td>Legacy. Content lives in <code>arc_{slug}_drafts</code>.</td><td>Admin</td><td>Admin</td><td><a href="../features/content.html">Content</a></td><td></td></tr>
+          <tr><td><code>Contents</code></td><td>Legacy. Content lives in <code>arc_{slug}</code>.</td><td>Admin</td><td>Admin</td><td><a href="../features/content.html">Content</a></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Settings</h2>
+    <p>All site settings are documents in one collection. Most are admin only because several hold secrets.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Collection</th><th>Holds</th><th>Read</th><th>Write</th><th>Feature</th><th>Key documents</th></tr></thead>
+        <tbody>
+          <tr><td><code>Settings</code></td><td>One document per settings area.</td><td>Public: <code>email_status</code>, <code>site-usage</code>, <code>misc</code>, <code>cache</code>, <code>global-message</code>, <code>users</code>, <code>localization</code>, <code>onboarding_status</code>, <code>about</code>, <code>feedback</code>. Signed in: <code>analytics_status</code>. Admin: every other document.</td><td>Admin, for every document</td><td>Several</td><td><code>email</code>, <code>integrations</code> and <code>analytics</code> hold provider secrets. <code>dodo-payments</code> holds payment keys. <code>users</code> holds <code>defaultRole</code> for new sign-ups. <code>feedback</code> holds <code>enabled</code>. <code>discoverability</code>, <code>search_status</code>, <code>search_collections</code>, <code>contact_fields</code>, <code>sms</code>, <code>app_audience</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="warn"><p>Never put a secret in a public <code>Settings</code> document. The documents listed as public are readable without signing in.</p></div>
+
+    <h2>Users and sign-in</h2>
+    <p>Every sign-up creates its <code>users</code> record on the server. What an app keeps per person, and what deleting an account removes, is in <a href="../app/account-contract.html">Follow the account contract</a>.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Collection</th><th>Holds</th><th>Read</th><th>Write</th><th>Feature</th><th>Key fields</th></tr></thead>
+        <tbody>
+          <tr><td><code>users</code></td><td>One record per person, with an auto id. The id is the <code>arccms_uid</code> claim. Deleting it runs <code>onUserDeleted</code>, which removes the person's subcollections, Storage folders, feedback and notifications, and their sign-in account unless another app owns it.</td><td>Admin, or the owner (<code>isOwnUserDoc()</code>)</td><td>Create and delete: admin. Update: admin, or the owner for any field except <code>role</code>, <code>uid</code>, <code>isActive</code>, <code>status</code>, <code>authOwner</code>, <code>email</code>, <code>phone</code>, <code>phoneVerified</code>, <code>detachedAt</code>, <code>detachedReason</code> and the premium and credit fields; <code>emailVerified</code> may only go to <code>false</code>. Never a <code>password</code> field.</td><td><a href="../features/users-and-roles.html">Users and roles</a></td><td><code>uid</code>, <code>name</code>, <code>email</code>, <code>emailVerified</code>, <code>phone</code>, <code>role</code>, <code>status</code>, <code>isActive</code>, <code>by</code>, <code>authOwner</code>, <code>photo</code>, premium fields such as <code>premiumType</code> and <code>creditBalance</code></td></tr>
+          <tr><td><code>email_lookup</code></td><td>One document per registered email, id the SHA-256 of the trimmed, lowercased address, so the sign-up page can check an address without seeing any.</td><td>Public</td><td>Admin; mostly the server</td><td><a href="../features/sign-in.html">Sign-in methods</a></td><td><code>exists</code></td></tr>
+          <tr><td><code>_system</code></td><td>Server secrets and markers: <code>first_admin</code> (written once by <code>claimFirstAdmin</code>), <code>pin_pepper</code>, <code>unsubscribe_secret</code>.</td><td>Server only</td><td>Server only</td><td><a href="../features/users-and-roles.html">Users and roles</a></td><td></td></tr>
+          <tr><td><code>signup_otps</code></td><td>Email codes for sign-up and for adding an email, id the email hash. Only the code's hash is stored.</td><td>Server only</td><td>Server only</td><td><a href="../features/sign-in.html">Sign-in methods</a></td><td><code>purpose</code>, <code>codeHash</code>, <code>expiresAt</code>, <code>attempts</code>, <code>verified</code></td></tr>
+          <tr><td><code>phone_otps</code></td><td>SMS codes, id the hash of the number.</td><td>Server only</td><td>Server only</td><td><a href="../features/sms.html">SMS</a></td><td><code>purpose</code>, <code>uid</code>, <code>codeHash</code>, <code>expiresAt</code>, <code>attempts</code>, <code>verified</code></td></tr>
+          <tr><td><code>phone_index</code></td><td>Which account a phone number belongs to, id the hash of the number.</td><td>Server only</td><td>Server only</td><td><a href="../features/sms.html">SMS</a></td><td><code>userDocId</code>, <code>uid</code>, <code>createdAt</code></td></tr>
+          <tr><td><code>auth_pins</code></td><td>The hashed PIN for phone sign-in, id the Auth uid.</td><td>Server only</td><td>Server only</td><td><a href="../features/sms.html">SMS</a></td><td><code>salt</code>, <code>hash</code>, <code>failedAttempts</code></td></tr>
+          <tr><td><code>_rate_limits</code></td><td>Counters that slow down repeated requests (codes, PIN tries, feedback alerts, install events), one per key.</td><td>Server only</td><td>Server only</td><td><a href="../features/sign-in.html">Sign-in methods</a></td><td><code>windowStart</code>, <code>count</code>, <code>expiresAt</code></td></tr>
+          <tr><td><code>account_transfers</code></td><td>A record each time an email or phone number moves from one account to another.</td><td>Admin</td><td>Server only</td><td><a href="../features/sign-in.html">Sign-in methods</a></td><td><code>kind</code>, <code>shown</code>, <code>fromUserDocId</code>, <code>toUserDocId</code>, <code>detached</code>, <code>at</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><p>Core has no rule for subcollections of <code>users</code>, so the browser cannot touch them until an app grants access in <code class="new">firestore.app.rules</code>.</p></div>
+
+    <h2>Payments</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Collection</th><th>Holds</th><th>Read</th><th>Write</th><th>Feature</th><th>Key fields</th></tr></thead>
+        <tbody>
+          <tr><td><code>Products</code></td><td>What can be bought, for the pricing page.</td><td>Public</td><td>Admin</td><td><a href="../features/payments.html">Payments</a></td><td><code>name</code>, <code>active</code>, <code>type</code>, <code>price</code>, <code>currency</code>, <code>premiumType</code>, <code>tierRank</code>, <code>interval</code>, <code>trialDays</code>, <code>creditsGranted</code>, <code>tiers</code>, <code>providerProductIds</code>, <code>purchaseCount</code></td></tr>
+          <tr><td><code>Transactions</code></td><td>One document per payment event, kept once by <code>idempotencyKey</code>.</td><td>Admin, or the buyer (<code>userId</code> is their Auth uid)</td><td>Server only</td><td><a href="../features/payments.html">Payments</a></td><td><code>userId</code>, <code>productId</code>, <code>amount</code>, <code>currency</code>, <code>status</code>, <code>type</code>, <code>eventType</code>, <code>idempotencyKey</code>, <code>createdAt</code></td></tr>
+          <tr><td><code>WebhookEvents</code></td><td>Every raw webhook from the payment provider, id the <code>webhook-id</code> header. <code>handlePaymentEvent</code> runs on each new one.</td><td>Admin</td><td>Server only</td><td><a href="../features/payments.html">Payments</a></td><td><code>eventType</code>, <code>rawPayload</code>, <code>signatureValid</code>, <code>processed</code>, <code>receivedAt</code></td></tr>
+          <tr><td><code>CreditLedger</code></td><td>Every change to a person's prepaid credits, append only.</td><td>Admin, or the owner (<code>userId</code>)</td><td>Server only</td><td><a href="../features/payments.html">Payments</a></td><td><code>userId</code>, <code>delta</code>, <code>reason</code>, <code>balanceAfter</code>, <code>createdAt</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Signup forms</h2>
+    <p>In the code and the collection names, a form is a waitlist. Members join through the <code>joinForm</code> callable.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Collection</th><th>Holds</th><th>Read</th><th>Write</th><th>Feature</th><th>Key fields</th></tr></thead>
+        <tbody>
+          <tr><td><code>Waitlists</code></td><td>One document per form, usually with the form's slug as id. Subcollections: <code>users</code> (one per member, created by <code>joinForm</code>), <code>users/{id}/notes</code> (admin notes) and <code>users/{id}/referrals</code> (created by <code>creditReferral</code>).</td><td>Form: public. Members, notes and referrals: admin; the public pages use callables that mask addresses.</td><td>Admin. Signups, verification and referrals go through the form callables (<code>joinForm</code>, <code>finalizeFormSignup</code>, <code>creditReferral</code>).</td><td><a href="../features/forms.html">Signup forms</a></td><td>Form: <code>name</code>, <code>slug</code>, <code>isActive</code>, <code>otpEnabled</code>, <code>totalSignups</code>, <code>fields</code>, <code>targetListIds</code>, <code>defaultTagId</code>. Member: <code>email</code>, <code>firstName</code>, <code>emailVerified</code>, <code>isConfirmed</code>, <code>isSubscribed</code>, <code>queuePosition</code>, <code>totalReferrals</code>, <code>referralCode</code>, <code>tags</code>.</td></tr>
+          <tr><td><code>WaitlistedUsers</code></td><td>Legacy registry of signups across all forms, with a <code>referrals</code> subcollection. Arc CMS creates no new records here; the existing ones keep leaderboard links in sent emails working.</td><td>Admin</td><td>Admin</td><td><a href="../features/forms.html">Signup forms</a></td><td></td></tr>
+          <tr><td><code>WaitlistUserTags_{formId}</code></td><td>The member tags of one form.</td><td>Admin</td><td>Admin</td><td><a href="../features/forms.html">Signup forms</a></td><td><code>label</code>, <code>color</code>, <code>waitlistId</code>, <code>usageCount</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Email and SMS</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Collection</th><th>Holds</th><th>Read</th><th>Write</th><th>Feature</th><th>Key fields</th></tr></thead>
+        <tbody>
+          <tr><td><code>EmailTemplate</code></td><td>One email template per document: the defaults, per-form templates and templates made in the composer.</td><td>Admin</td><td>Admin</td><td><a href="../features/email.html">Email engine</a></td><td><code>type</code>, <code>category</code>, <code>scope</code>, <code>waitlistId</code>, <code>subject</code>, <code>previewText</code>, <code>template</code>, <code>senderName</code>, <code>senderEmail</code>, <code>isActive</code>, <code>editorVersion</code></td></tr>
+          <tr><td><code>EmailLogs</code></td><td>One document per outgoing email: the send queue and the record of what happened. Created by <code>queueEmail()</code>; <code>onEmailLogCreate</code> sends it.</td><td>Admin</td><td>Admin</td><td><a href="../features/email.html">Email engine</a></td><td><code>toEmail</code>, <code>subject</code>, <code>template</code>, <code>type</code>, <code>category</code>, <code>status</code>, <code>attempts</code>, <code>createdAt</code>, <code>sendingTime</code>, <code>isOpened</code></td></tr>
+          <tr><td><code>EmailLog</code></td><td>Legacy. No code uses it; email records are in <code>EmailLogs</code>.</td><td>Admin</td><td>Admin</td><td><a href="../features/email.html">Email engine</a></td><td></td></tr>
+          <tr><td><code>_email_counters</code></td><td>Sends per provider per day and per hour, for the provider's limits. Id such as <code>{provider}_daily_{date}</code>.</td><td>Server only</td><td>Server only</td><td><a href="../features/email.html">Email engine</a></td><td><code>count</code>, <code>provider</code>, <code>type</code></td></tr>
+          <tr><td><code>Suppression</code></td><td>Addresses that must get no marketing email, id the email hash.</td><td>Admin</td><td>Server only</td><td><a href="../features/email.html">Email engine</a></td><td><code>email</code>, <code>emailHash</code>, <code>reason</code>, <code>at</code></td></tr>
+          <tr><td><code>BroadcastEmails</code></td><td>One document per broadcast. <code>processBroadcast</code> runs when it is created.</td><td>Admin</td><td>Admin</td><td><a href="../features/email-marketing.html">Email marketing</a></td><td><code>subject</code>, <code>template</code>, <code>audience</code>, <code>status</code>, <code>scheduledAt</code>, <code>totalCount</code>, <code>sentCount</code>, <code>failedCount</code></td></tr>
+          <tr><td><code>_broadcast_continue</code></td><td>A short-lived document. Creating one runs <code>continueBroadcast</code>, which resumes a long broadcast and deletes it.</td><td>Server only</td><td>Server only</td><td><a href="../features/email-marketing.html">Email marketing</a></td><td><code>broadcastId</code>, <code>triggeredAt</code></td></tr>
+          <tr><td><code>SmsLogs</code></td><td>Every SMS sent, or only recorded with the log provider.</td><td>Admin</td><td>Server only</td><td><a href="../features/sms.html">SMS</a></td><td><code>to</code>, <code>purpose</code>, <code>provider</code>, <code>status</code>, <code>error</code>, <code>createdAt</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Audience and automations</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Collection</th><th>Holds</th><th>Read</th><th>Write</th><th>Feature</th><th>Key fields</th></tr></thead>
+        <tbody>
+          <tr><td><code>Contacts</code></td><td>One person in the audience, id the email hash. Filled from users, form members, imports and payments.</td><td>Admin</td><td>Server only; admins change contacts through callables</td><td><a href="../features/audience.html">Audience</a></td><td><code>email</code>, <code>emailHash</code>, <code>name</code>, <code>sources</code>, <code>userId</code>, <code>listIds</code>, <code>tags</code>, <code>fields</code>, <code>consent</code>, <code>disabled</code></td></tr>
+          <tr><td><code>Lists</code></td><td>Audience lists: system lists such as <code>all-users</code>, one list per form, and lists admins make.</td><td>Admin</td><td>Admin</td><td><a href="../features/audience.html">Audience</a></td><td><code>name</code>, <code>description</code>, <code>type</code>, <code>formId</code>, <code>conditions</code>, <code>memberCount</code></td></tr>
+          <tr><td><code>ContactTags</code></td><td>Tags on contacts, id a slug of the label. Not the content tags in <code>Tags_{slug}</code>.</td><td>Admin</td><td>Admin</td><td><a href="../features/audience.html">Audience</a></td><td><code>label</code>, <code>color</code>, <code>usageCount</code></td></tr>
+          <tr><td><code>ErasureLog</code></td><td>Proof that a contact was erased, id the email hash. It holds no address.</td><td>Admin</td><td>Server only</td><td><a href="../features/audience.html">Audience</a></td><td><code>emailHash</code>, <code>erasedAt</code>, <code>erasedByUid</code>, <code>removed</code></td></tr>
+          <tr><td><code>DripCampaigns</code></td><td>One drip sequence: the list it follows and its steps.</td><td>Admin</td><td>Admin</td><td><a href="../features/email-marketing.html">Email marketing</a></td><td><code>name</code>, <code>listId</code>, <code>status</code>, <code>trigger</code>, <code>steps</code>, <code>exit</code>, <code>counts</code></td></tr>
+          <tr><td><code>DripEnrollments</code></td><td>One contact's progress through one sequence, id <code>{campaignId}_{contactId}</code>.</td><td>Admin</td><td>Server only</td><td><a href="../features/email-marketing.html">Email marketing</a></td><td><code>campaignId</code>, <code>contactId</code>, <code>status</code>, <code>currentStep</code>, <code>nextSendAt</code></td></tr>
+          <tr><td><code>Announcements</code></td><td>One announcement sent by the <code>sendAnnouncement</code> callable.</td><td>Admin</td><td>Server only</td><td><a href="../features/email-marketing.html">Email marketing</a></td><td><code>title</code>, <code>body</code>, <code>link</code>, <code>audience</code>, <code>sendEmail</code>, <code>status</code>, <code>counts</code></td></tr>
+          <tr><td><code>AppEvents</code></td><td>The event bus: one event per document, such as <code>user.signed_up</code> or <code>payment.succeeded</code>. <code>onAppEventCreate</code> runs the matching actions.</td><td>Admin</td><td>Server only</td><td><a href="../features/automations.html">Automations</a></td><td><code>type</code>, <code>userId</code>, <code>contactEmail</code>, <code>data</code>, <code>processed</code>, <code>createdAt</code></td></tr>
+          <tr><td><code>Notifications</code></td><td>One in-app notification for one person.</td><td>Admin, or the person (<code>userId</code> is their Auth uid)</td><td>The person may change only <code>read</code> and <code>readAt</code>. Create and delete: server only.</td><td><a href="../features/notifications.html">Notifications</a></td><td><code>userId</code>, <code>type</code>, <code>title</code>, <code>body</code>, <code>link</code>, <code>read</code>, <code>createdAt</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Other collections</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Collection</th><th>Holds</th><th>Read</th><th>Write</th><th>Feature</th><th>Key fields</th></tr></thead>
+        <tbody>
+          <tr><td><code>Feedback</code></td><td>One item from the feedback button. <code>onFeedbackCreated</code> adds <code>sender</code>.</td><td>Admin</td><td>Create: a signed-in person, for themselves, while the button is on, with status <code>new</code>, known fields and short values, and files only from their own feedback folder. Update and delete: admin.</td><td><a href="../features/feedback.html">Feedback button</a></td><td><code>uid</code>, <code>userDocId</code>, <code>message</code>, <code>screenshotPath</code>, <code>voicePath</code>, <code>voiceSeconds</code>, <code>page</code>, <code>device</code>, <code>status</code>, <code>createdAt</code></td></tr>
+          <tr><td><code>PwaStats</code></td><td>Install prompt counts per day, id <code>YYYY-MM-DD</code>, written by <code>trackPwaEvent</code>.</td><td>Admin</td><td>Server only</td><td><a href="../features/pwa.html">Installable app (PWA)</a></td><td><code>date</code>, <code>prompt_shown</code>, <code>installed</code>, <code>dismissed</code>, <code>opened_installed</code></td></tr>
+          <tr><td><code>AnalyticsDashboards</code></td><td>One document, <code>analyticsData</code>: the Google Analytics numbers the dashboard shows.</td><td>Admin</td><td>Admin; filled by the analytics callables</td><td><a href="../features/analytics.html">Analytics</a></td><td><code>metrics</code>, <code>acquisitionPanels</code>, <code>dateRange</code>, <code>lastSyncDate</code>, <code>propertyId</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Server-only collections with no rule</h2>
+    <p>These have no rule in <code>firestore.rules</code>, so only Cloud Functions reach them.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Collection</th><th>Holds</th><th>Feature</th><th>Key fields</th></tr></thead>
+        <tbody>
+          <tr><td><code>form_otps</code></td><td>Email codes for forms that verify members, id <code>{formId}_{emailHash}</code>.</td><td><a href="../features/forms.html">Signup forms</a></td><td><code>waitlistId</code>, <code>emailHash</code>, <code>codeHash</code>, <code>expiresAt</code>, <code>attempts</code>, <code>verified</code></td></tr>
+          <tr><td><code>CountedBuyers</code></td><td>A marker per payment or subscription, so a buyer adds to a product's <code>purchaseCount</code> once.</td><td><a href="../features/payments.html">Payments</a></td><td><code>productId</code>, <code>countedAt</code></td></tr>
+          <tr><td><code>AppAudience</code></td><td>Arc CMS's own state for each of the host app's users, id the SHA-256 of the person's unique key, so no app identifier is stored in the clear.</td><td><a href="../features/app-audience.html">App audience</a></td><td><code>consent</code>, <code>consentChangedAt</code>, <code>deleted</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Published content items also get a <code>DeploymentLogs</code> subcollection: one record per static page deploy, written by the publish pipeline and never read by the browser.</p>
+
+    <h2>Storage</h2>
+    <p>Files live in the install's bucket. The browser puts <code>storagePrefix</code> in front of media, imported files and feedback files, so with <code>arccms/</code> the media library writes <code>arccms/mediaImages/...</code>. Profile photos in <code>avatars/</code> always go to the bucket root. The rules accept both forms: <code>{prefix}</code> below is that one folder.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Path</th><th>Read</th><th>Write</th><th>Limits</th><th>What writes there</th></tr></thead>
+        <tbody>
+          <tr><td><code>{fileName}</code></td><td>Public</td><td>Staff</td><td>None</td><td>Any file at the bucket root.</td></tr>
+          <tr><td><code>{first}/{second}/{rest=**}</code></td><td>Public, unless the first or second folder is <code>users</code></td><td>Staff</td><td>None</td><td>The media library (<code>mediaImages/{name}-{size}.{ext}</code>, one file per size), files uploaded on the Data pages, and every other admin upload.</td></tr>
+          <tr><td><code>users/{userDocId}/{rest=**}</code> and <code>{prefix}/users/{userDocId}/{rest=**}</code></td><td>The owner (<code>ownsUserRecord</code>) or an admin</td><td>Staff through the general rule; apps grant owners write in <code class="new">storage.app.rules</code></td><td>Set by the app</td><td>An app's per-person files. Deleting the account deletes the folder.</td></tr>
+          <tr><td><code>users/{userDocId}/feedback/{feedbackId}/{fileName}</code> and <code>{prefix}/users/{userDocId}/feedback/{feedbackId}/{fileName}</code></td><td>The owner or an admin</td><td>Create only, by the owner, and only a new file</td><td><code>screenshot.jpg</code> as <code>image/jpeg</code> under 5 MB; <code>voice.mp4</code>, <code>voice.webm</code> or <code>voice.ogg</code> as audio under 10 MB</td><td>The feedback button. Admins delete the files with the feedback.</td></tr>
+          <tr><td><code>avatars/{uid}/{fileName}</code></td><td>Public</td><td>The signed-in person whose Auth uid is <code>{uid}</code>, or staff</td><td>An image under 5 MB, or a delete</td><td>The profile page, which stores the photo's URL in the <code>users</code> record's <code>photo</code>. Deleting the account deletes the folder.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="trap"><p>Anything outside a <code>users</code> folder is public to read, including files an app uploads elsewhere. Keep private files in <code>users/{userDocId}/</code> (under the prefix, when there is one), and grant writes there in <code class="new">storage.app.rules</code>.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

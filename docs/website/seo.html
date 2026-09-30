@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Get found by search engines and AI | Arc CMS docs</title>
+  <meta name="description" content="Fill in the settings search engines and AI assistants read, choose structured data per content type, and write pages the Checks tab scores well.">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings)/about, src/app/pages/admin/(settings)/discoverability, src/shared/utils/discoverability-checklist.ts, src/shared/constants/schema-types.ts, src/shared/components/tiptap-editor/service/arc-block-extension.ts, functions/src/pages, functions/src/publishQueue/processPublishQueue.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/seo.html">
+  <main>
+    <h1>Get found by search engines and AI</h1>
+    <p class="lead">Arc CMS writes the technical part for you on every publish: structured data, a sitemap, <code>robots.txt</code>, <code>llms.txt</code>, feeds and a Markdown copy of each page. Your part is three settings screens and the way you write. The full reference is <a href="../features/seo.html">SEO and discoverability</a>.</p>
+
+    <h2>Fill in who you are</h2>
+    <ol class="steps">
+      <li><p>Open <strong>Settings</strong>, then <strong>About</strong>. Set <strong>Site Name</strong> and <strong>Production URL</strong>, the address people will use, such as <code>https://www.example.com</code>.</p></li>
+      <li><p>Under <strong>Identity for search engines and AI assistants</strong>, choose the <strong>Publisher type</strong>, and fill in <strong>Logo URL</strong> (absolute, at least 112 by 112 pixels), a one or two sentence <strong>Description</strong>, and your <strong>Profiles elsewhere (sameAs)</strong>, one per line. These go on every page as schema.org data. Press <strong>Save Settings</strong>.</p></li>
+      <li><p>Open <strong>Settings</strong>, then <strong>Discoverability</strong>. Every AI crawler is allowed by default. Block the <strong>Training bots</strong> if you do not want your pages used to train models; leave the <strong>Search and answer bots</strong> allowed, or assistants cannot cite you. Leave <strong>Publish /llms.txt and /llms-full.txt</strong> and <strong>Notify search engines on publish (IndexNow)</strong> on.</p></li>
+      <li><p>Press <strong>Save and apply to site</strong>.</p></li>
+    </ol>
+    <div class="trap"><p>Canonical links and the sitemap are built from the <strong>Production URL</strong>. Left empty, they point at the Firebase Hosting address, and search engines index that instead of your domain. Set it before launch, then deploy the website so every page is written again.</p></div>
+
+    <h2>Say what each content type is</h2>
+    <p>Pages publish as an Article by default, which fits most writing. For a type that is something else, edit it under <strong>Content types</strong> and use the <strong>Structured data</strong> section: choose Product, Service, Event, Person, Recipe or How-to guide (or Blog post, News article), then map each property to one of your custom fields. Unmapped properties are left out.</p>
+
+    <h2>What is written for you</h2>
+    <table>
+      <thead><tr><th>File</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td><code>/sitemap.xml</code> and one <code>/{type}/feed.xml</code> per content type</td><td>Every publish</td></tr>
+        <tr><td><code>/robots.txt</code>, with your crawler choices and the sitemap address</td><td>Every publish, and <strong>Save and apply to site</strong></td></tr>
+        <tr><td><code>/llms.txt</code> and <code>/llms-full.txt</code></td><td>The same, unless switched off</td></tr>
+        <tr><td>A Markdown copy of each item at its URL plus <code>.md</code></td><td>When the item is published</td></tr>
+        <tr><td>Structured data (organization, page type, author, breadcrumbs, FAQ and other blocks)</td><td>In every published page</td></tr>
+      </tbody>
+    </table>
+    <p>Check them from outside with Google Search Console and Bing Webmaster Tools; the Discoverability screen links to both.</p>
+
+    <h2>Write each page to be found</h2>
+    <p>In the editor, the <strong>SEO</strong> tab holds the <strong>SEO Title</strong>, the <strong>Meta Description</strong>, the <strong>Sources</strong> the page draws on, and <strong>Mark as updated today</strong>. The <strong>Checks</strong> tab scores the draft from 0 to 100. It is advice and never blocks publishing; 80 or more means the shape is right. It checks:</p>
+    <table>
+      <thead><tr><th>Check</th><th>Weight</th></tr></thead>
+      <tbody>
+        <tr><td>Opening paragraph is a direct answer (15 to 70 words)</td><td>High</td></tr>
+        <tr><td>At least one heading is a question</td><td>High</td></tr>
+        <tr><td>Has an FAQ or Key takeaways block</td><td>High</td></tr>
+        <tr><td>Title under 70 characters</td><td>Medium</td></tr>
+        <tr><td>Meta description 50 to 160 characters</td><td>Medium</td></tr>
+        <tr><td>Has a list or a table</td><td>Medium</td></tr>
+        <tr><td>Links to at least 3 pages on this site</td><td>Medium</td></tr>
+        <tr><td>Has an author</td><td>Medium</td></tr>
+        <tr><td>Cites at least one source</td><td>Medium</td></tr>
+        <tr><td>At least 300 words</td><td>Low</td></tr>
+        <tr><td>Has a cover image</td><td>Low</td></tr>
+        <tr><td>Has at least 2 tags</td><td>Low</td></tr>
+        <tr><td>Published or updated within 12 months</td><td>Low</td></tr>
+      </tbody>
+    </table>
+    <p>Each failing check says the one thing to fix. The tab also suggests related pages on your site to link to, and inserts a link in one click.</p>
+
+    <h3>Habits that get pages quoted</h3>
+    <p>Assistants quote passages, not pages, and Google rewards the same things:</p>
+    <ul>
+      <li><strong>Answer first.</strong> Open the page, and each section, with a complete answer in a few sentences; detail comes after.</li>
+      <li><strong>Headings are questions people ask</strong>, in their words: "How much does it cost?" rather than "Pricing".</li>
+      <li><strong>Facts, not adjectives.</strong> Numbers, dates, names and comparisons are quotable; praise is not.</li>
+      <li><strong>Give it structure.</strong> Lists, tables, and the FAQ, Key takeaways, How-to steps and Definition blocks from the editor's grid icon, which also become structured data.</li>
+      <li><strong>Say who and when.</strong> Name the author, and press <strong>Mark as updated today</strong> only after a real revision, never for a typo.</li>
+      <li><strong>Cite and link.</strong> Add your sources, and link to at least three of your own pages.</li>
+    </ul>
+    <p>Do not stuff keywords, rewrite what is already on the web, or write FAQs nobody asks. What only you can say (your data, your cases, your named opinion) is what gets cited.</p>
+
+    <h2>Next</h2>
+    <p>If you publish in several languages: <a href="languages.html">Publish in more than one language</a>. Otherwise, go on to <a href="search.html">Add search</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

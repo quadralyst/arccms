@@ -1,6 +1,6 @@
 /**
  * Reads the optional install config, `arccms.config.json` at the repo root
- * (docs/coexistence-spec.md, CO-D3, CO3.2). Shared by the Node scripts here.
+ * (specs/coexistence-spec.md, CO-D3, CO3.2). Shared by the Node scripts here.
  *
  * One checkout can deploy to several Firebase projects (dev, production, a test
  * project), and each can be set up differently, so the file holds settings per

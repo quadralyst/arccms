@@ -159,7 +159,7 @@ const ACQUISITION_PANELS = [
 
 /**
  * "AI assistants": sessions whose source is an assistant's domain
- * (docs/discoverability-spec.md, D-D14). GA4 files these under "Referral";
+ * (specs/discoverability-spec.md, D-D14). GA4 files these under "Referral";
  * this pulls the raw sources and buckets them by assistant. Empty items are
  * a real answer ("none yet"), not an error, so the panel is always present.
  */

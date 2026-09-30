@@ -4,11 +4,11 @@
  * A source is the whole of what the engine knows about a collection: which
  * documents to index, which of their fields, and how a hit is shown. The
  * tokenizer, the index collection, the callable and the search box never
- * change when a source is added. See docs/search-developer-guide.md for the
+ * change when a source is added. See docs/features/search.html for the
  * walkthrough and functions/src/search/sources/_template.ts for a starting
  * point.
  *
- * Spec: docs/search-spec.md, decisions S-D7, S-D8, S-D10 and S-D12.
+ * Spec: specs/search-spec.md, decisions S-D7, S-D8, S-D10 and S-D12.
  */
 
 import type { LocalizationSettings } from '../shared/site-settings.js';

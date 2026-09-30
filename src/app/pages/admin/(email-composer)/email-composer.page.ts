@@ -31,7 +31,7 @@ import { isOn } from '../../../core/features/features';
 import type { FeatureId } from '../../../core/features/feature-registry';
 
 /**
- * The feature whose emails a template type is (docs/feature-flags-spec.md). The
+ * The feature whose emails a template type is (specs/feature-flags-spec.md). The
  * composer leaves those of a feature that is off out: nothing sends them. Marketing
  * templates stay, since automations can send them without email marketing.
  */

@@ -135,7 +135,7 @@ async function stampLastPublishedAt(draftCollection: string, docId: string): Pro
             lastPublishedAt: Timestamp.now(),
         });
         // The drafts index shows Draft, Published or Edited from this stamp, and
-        // no trigger watches draft writes (docs/feature-flags-spec.md 6.5).
+        // no trigger watches draft writes (specs/feature-flags-spec.md 6.5).
         if (isFeatureOn('search')) {
             const draft = await db.collection(draftCollection).doc(docId).get();
             await syncDocument(draftCollection, docId, draft.exists ? draft.data() ?? null : null);
@@ -156,7 +156,7 @@ async function stampLastPublishedAt(draftCollection: string, docId: string): Pro
  * smaller problem than one that was not deployed.
  */
 async function indexPublished(publishedCollection: string, docId: string): Promise<void> {
-    if (!isFeatureOn('search')) return; // docs/feature-flags-spec.md
+    if (!isFeatureOn('search')) return; // specs/feature-flags-spec.md
     try {
         const snap = await db.collection(publishedCollection).doc(docId).get();
         const ctx = await buildSearchContext(publishedCollection, docId);
@@ -169,7 +169,7 @@ async function indexPublished(publishedCollection: string, docId: string): Promi
 
 /** Takes a document out of the published search index (and, on delete, the drafts index too). */
 async function unindexPublished(contentTypeSlug: string, docId: string, alsoDrafts = false): Promise<void> {
-    if (!isFeatureOn('search')) return; // docs/feature-flags-spec.md
+    if (!isFeatureOn('search')) return; // specs/feature-flags-spec.md
     try {
         await removeSearchEntries(CONTENT_SOURCE_ID, getPublishedCollectionName(contentTypeSlug), docId);
         if (alsoDrafts) await removeSearchEntries(CONTENT_DRAFTS_SOURCE_ID, getDraftCollectionName(contentTypeSlug), docId);
@@ -190,7 +190,7 @@ async function unindexPublished(contentTypeSlug: string, docId: string, alsoDraf
  */
 /**
  * robots.txt, llms.txt and the IndexNow key file ride in every publish
- * release (docs/discoverability-spec.md, D3), so a settings change reaches
+ * release (specs/discoverability-spec.md, D3), so a settings change reaches
  * Hosting at the next publish even if the admin never pressed "apply".
  */
 async function addDiscoverabilityFiles(batch: HostingBatch): Promise<void> {
@@ -237,7 +237,7 @@ export const processPublishQueue = onDocumentCreated({
     // pages, the sitemap and the feeds — goes out as ONE Hosting release.
     // Deploying them one at a time raced: a later deploy could be built from
     // a release list that had not caught up and silently drop an earlier
-    // file, which cost a translated page (docs/_todo.md item 3c).
+    // file, which cost a translated page (specs/_todo.md item 3c).
     const batch = new HostingBatch();
 
     // Handled ahead of the per-document setup below, which needs a document to
@@ -321,7 +321,7 @@ export const processPublishQueue = onDocumentCreated({
                 // A `firebase deploy --only hosting` builds its new version
                 // from the previous *release's* file list, which contains only
                 // what the CLI uploaded — so every page this pipeline wrote
-                // disappears from the live site (docs/_todo.md item 3b). The
+                // disappears from the live site (specs/_todo.md item 3b). The
                 // pages still need restoring, but the drafts behind them may
                 // hold unreviewed edits, so 'publish' is the wrong repair:
                 // it would push those edits live. This reads the published

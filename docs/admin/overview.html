@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Use the admin area | Arc CMS docs</title>
+  <meta name="description" content="A map of the admin area: every menu item and settings tab, what it is for, and where to read more.">
+  <meta name="docs:sources" content="src/shared/components/side-navbar, src/app/pages/admin, src/app/pages/admin/(settings)/settings.page.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="admin/overview.html">
+  <main>
+    <h1>Use the admin area</h1>
+    <p class="lead">The admin area is where the people who run a site or an app write content, manage contacts, send email and change settings. This page is a map of it. Each area links to the page that explains it.</p>
+
+    <h2>Get in</h2>
+    <p>Sign in with an admin account and open <code>/admin/dashboard</code>. The menu is on the left. The first person to sign up on a new install becomes the admin (see <a href="../getting-started/first-admin.html">Create the first admin</a>); other roles are described in <a href="../features/users-and-roles.html">Users and roles</a>.</p>
+    <div class="note"><p>What you see in the menu depends on the features the site has. A feature that is switched off has no menu item, no page and no settings tab. See <a href="../features/overview.html">All features</a>.</p></div>
+
+    <h2>The menu</h2>
+    <p>Items appear in this order. Items marked with a feature are left out when that feature is off. An app's own items appear just before Profile (see <a href="../app/admin-menu.html">Add admin menu items</a>).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Menu item</th><th>What it is for</th><th>Feature</th><th>Read more</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Dashboard</strong></td><td>Cards for the site at a glance: Google Analytics numbers (once connected), how much content and media there is, and growth and leads such as total users and sign-ups.</td><td>Always on. The content card needs content, the sign-up cards need forms.</td><td><a href="../features/analytics.html">Analytics</a></td></tr>
+          <tr><td><strong>Signup Forms</strong></td><td>The list of signup forms. After it, each form has a group of its own, named after the form: Dashboard, Users, Audience &amp; emails, Tags and Email Templates.</td><td>forms</td><td><a href="../features/forms.html">Signup forms</a></td></tr>
+          <tr><td><strong>Media Manager</strong></td><td>Uploaded images and files.</td><td>Always on</td><td><a href="../features/media.html">Media</a></td></tr>
+          <tr><td><strong>Content</strong></td><td>Content types, authors, and one entry list for each content type you have created.</td><td>content</td><td><a href="../features/content.html">Content</a>, <a href="../features/authors-and-tags.html">Authors and tags</a></td></tr>
+          <tr><td><strong>Users</strong></td><td>The people who have accounts, and their roles.</td><td>Always on</td><td><a href="../features/users-and-roles.html">Users and roles</a></td></tr>
+          <tr><td><strong>Audience</strong></td><td>Contacts, Lists, Tags, Fields and App users.</td><td>audience</td><td><a href="../features/audience.html">Audience</a>, <a href="../features/app-audience.html">App audience</a></td></tr>
+          <tr><td><strong>Email + SMS</strong> (shown as <strong>Email</strong> when SMS is off)</td><td>Brand Kit, Composer, Broadcasts, Drip Campaigns, Announcements, Email Logs and SMS Logs.</td><td>Brand Kit, Composer and Email Logs are always on. Broadcasts, Drip Campaigns and Announcements need email-marketing. SMS Logs needs sms.</td><td><a href="../features/email.html">Email engine</a>, <a href="../features/email-marketing.html">Email marketing</a>, <a href="../features/sms.html">SMS</a></td></tr>
+          <tr><td><strong>Feedback</strong></td><td>The inbox for messages, voice notes and screenshots sent with the feedback button, and the switch that turns the button on.</td><td>Always on</td><td><a href="../features/feedback.html">Feedback button</a></td></tr>
+          <tr><td><strong>Products</strong></td><td>What you sell.</td><td>payments</td><td><a href="../features/payments.html">Payments</a></td></tr>
+          <tr><td><strong>Transactions</strong></td><td>Payments received.</td><td>payments</td><td><a href="../features/payments.html">Payments</a></td></tr>
+          <tr><td><strong>Data</strong></td><td>Export Data, Import Data, Export Files and Import Files.</td><td>data</td><td><a href="../features/data.html">Data import and export</a></td></tr>
+          <tr><td><strong>Profile</strong></td><td>Your own account details.</td><td>Always on</td><td><a href="../features/users-and-roles.html">Users and roles</a></td></tr>
+          <tr><td><strong>Settings</strong></td><td>Everything configurable, in the tabs below.</td><td>Always on</td><td>See below</td></tr>
+          <tr><td><strong>About</strong></td><td>Opens the Arc CMS website in a new page.</td><td>Always on</td><td></td></tr>
+          <tr><td><strong>Logout</strong></td><td>Ends your session.</td><td>Always on</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Settings</h2>
+    <p>Settings is a hub of tabs. Tabs of a feature that is off are left out.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tab</th><th>What you set</th><th>Feature</th></tr></thead>
+        <tbody>
+          <tr><td><strong>About</strong></td><td>Site name, URL and address.</td><td>Always on</td></tr>
+          <tr><td><strong>Email Settings</strong></td><td>The email provider, such as SMTP, and the sender.</td><td>Always on</td></tr>
+          <tr><td><strong>Integrations</strong></td><td>Third-party API keys and services.</td><td>Always on</td></tr>
+          <tr><td><strong>Analytics</strong></td><td>The Google Analytics connection.</td><td>Always on</td></tr>
+          <tr><td><strong>Payments</strong></td><td>The payment provider and payment emails.</td><td>payments</td></tr>
+          <tr><td><strong>User Settings</strong></td><td>Signup and role settings.</td><td>Always on</td></tr>
+          <tr><td><strong>SMS</strong></td><td>Text messages for phone sign-in.</td><td>sms</td></tr>
+          <tr><td><strong>Global Messages</strong></td><td>A message shown across the site.</td><td>Always on</td></tr>
+          <tr><td><strong>Site Usage</strong></td><td>The site usage banner, its message and style.</td><td>Always on</td></tr>
+          <tr><td><strong>Localization</strong></td><td>The site's languages and the default language.</td><td>Always on</td></tr>
+          <tr><td><strong>Search</strong></td><td>What is searchable, and the index tools.</td><td>search</td></tr>
+          <tr><td><strong>Discoverability</strong></td><td>AI crawlers, llms.txt and IndexNow.</td><td>seo</td></tr>
+          <tr><td><strong>App audience</strong></td><td>Your app's users, read live.</td><td>audience</td></tr>
+          <tr><td><strong>Automations</strong></td><td>Emails and actions when something happens.</td><td>Always on</td></tr>
+          <tr><td><strong>Miscellaneous</strong></td><td>Branding and media upload.</td><td>Always on</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Where each setting is explained: <a href="../features/email.html">Email engine</a>, <a href="../features/search.html">Search</a>, <a href="../features/seo.html">SEO and discoverability</a>, <a href="../features/languages.html">Languages</a>, <a href="../features/automations.html">Automations</a>, <a href="../features/analytics.html">Analytics</a> and <a href="../features/banners.html">Banners</a>.</p>
+
+    <h2>What members see</h2>
+    <p>People who are not admins use the member area instead. See <a href="../members/overview.html">What members see</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 /**
  * Where the host app's users live, and how ArcCMS reads a document of theirs
- * (the App audience, docs/coexistence-spec.md section 5b, CO6.2).
+ * (the App audience, specs/coexistence-spec.md section 5b, CO6.2).
  *
  * Two layers:
  * - The database and collection are deploy-time params, set by `arc:configure`

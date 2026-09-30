@@ -1,4 +1,4 @@
-/** Sending a sequence step to an app user (docs/coexistence-spec.md 5b, CO6.5c). */
+/** Sending a sequence step to an app user (specs/coexistence-spec.md 5b, CO6.5c). */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const m = vi.hoisted(() => {

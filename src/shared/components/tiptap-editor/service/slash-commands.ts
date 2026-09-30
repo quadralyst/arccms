@@ -227,7 +227,7 @@ export const SlashCommands = Extension.create({
           command: () => this.editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
         },
         {},
-        // Structured blocks (docs/discoverability-spec.md, D-D10)
+        // Structured blocks (specs/discoverability-spec.md, D-D10)
         ...ARC_BLOCKS.map(block => ({
           title: block.title,
           type: '',

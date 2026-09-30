@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Troubleshooting | Arc CMS docs</title>
+  <meta name="description" content="Known problems with Arc CMS in development, deploys, sign-in, email, search and features, with the cause and the fix for each.">
+  <meta name="docs:sources" content="vite.config.ts, src/app/app.config.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, scripts/arc-deploy.mjs, scripts/arc-configure.mjs, functions/scripts/check-callable-access.sh, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, functions/src/email-core/queueEmail.ts, functions/src/custom/search-sources.ts, src/shared/components/row-actions/row-actions.component.ts, firebase.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="operations/troubleshooting.html">
+  <main>
+    <h1>Troubleshooting</h1>
+    <p class="lead">Find your symptom below for its cause and the fix. Each problem links to the page that covers its area in full.</p>
+
+    <h2>Local development</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>A change to a Cloud Function makes no difference in the browser at <code>localhost</code></td>
+          <td><code>npm run dev</code> has no emulators: the site talks to the real Firebase project in <code>src/environments/environment.ts</code>, so it calls the deployed functions</td>
+          <td>Deploy the function (see <a href="targeted-deploys.html">Deploy only what changed</a>), then test again. Test functions logic with specs first (see <a href="testing.html">Testing</a>)</td>
+        </tr>
+        <tr>
+          <td><code>npm run dev</code> stops with "JavaScript heap out of memory"</td>
+          <td>Every change to <code>vite.config.ts</code> or a file it imports, such as <code>src/custom/features.ts</code>, restarts the dev server. <code>vite.config.ts</code> frees each old server, but a long session can still run out</td>
+          <td>Start it again, or give Node more memory: <code>NODE_OPTIONS=--max-old-space-size=8192 npm run dev</code></td>
+        </tr>
+        <tr>
+          <td><code>npm run dev</code> or <code>npm run build</code> stops with a message that starts "src/custom/features.ts:"</td>
+          <td>An unknown feature name, a feature in both lists, or a feature on while one it needs is off</td>
+          <td>Change the file as the message says (see <a href="../reference/feature-ids.html">Feature ids</a>)</td>
+        </tr>
+        <tr>
+          <td>A new admin page shows the public "Content Not Found" page</td>
+          <td>File-based routing does not reliably reach the browser's route table for admin pages, so the URL falls through to the public content route. The page answers with HTTP 200, because Hosting serves the app shell for every path, so a status check does not catch it</td>
+          <td>Add an explicit route for it in <code>src/app/app.routes.ts</code>, like the other admin pages (see <a href="../contributing/frontend-notes.html#routing">Frontend notes</a>)</td>
+        </tr>
+        <tr>
+          <td>A component keeps showing old data after a row or page state changed in place (an icon, a hidden button)</td>
+          <td>The app runs without zone.js. An <code>OnPush</code> component whose inputs did not change is not checked again</td>
+          <td>Use default change detection for components whose output reads page state or objects changed in place (see <a href="../contributing/frontend-notes.html#change-detection">Frontend notes</a>)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Deploys</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>New functions are missing after a deploy, or the old code is still live</td>
+          <td>The deploy ran with plain <code>firebase deploy</code>, which uploads the last functions build as it is</td>
+          <td>Always deploy with <code>npm run deploy</code>, which builds first (see <a href="deploy.html">Deploy</a>)</td>
+        </tr>
+        <tr>
+          <td>Every browser call to one function fails with HTTP 403, and the answer is an HTML "403 Forbidden" page</td>
+          <td>The callable was created without public access, for example in a partly failed deploy. Later deploys do not repair it</td>
+          <td>Run the callable check and its fix (see <a href="deploy.html#check-the-callables">Check the callables</a>). A JSON <code>PERMISSION_DENIED</code> answer is different: the function ran and refused the caller</td>
+        </tr>
+        <tr>
+          <td>A named Firestore database appeared in the project's default location</td>
+          <td>The Firebase CLI creates a missing named database on the first deploy, even with <code>--dry-run</code>, in the default location</td>
+          <td>Create the database yourself, in the location you want, before any deploy. <code>npm run arc:configure</code> prints the commands (see <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>)</td>
+        </tr>
+        <tr>
+          <td>The deploy stops with a message and deploys nothing</td>
+          <td>Missing install settings, a database mismatch, no website, a shared bucket, or functions it would delete</td>
+          <td>See <a href="deploy.html#when-the-deploy-stops">When the deploy stops</a></td>
+        </tr>
+        <tr>
+          <td>Published pages are gone after a website deploy</td>
+          <td>A Hosting deploy uploads only the build. Published content pages are written to Hosting by Cloud Functions</td>
+          <td>Publish them again: <code>npm run seed:dev</code> or <code>npm run seed:prod</code> (see <a href="deploy.html#publish-the-static-pages">Publish the static pages</a>)</td>
+        </tr>
+        <tr>
+          <td>Sign-ups or public pages fail right after a rules deploy</td>
+          <td>The new rules went out before the functions or website code they depend on</td>
+          <td>Deploy the functions and the website, or deploy the previous rules again from git (see <a href="deploy.html#when-the-order-matters">When the order matters</a>)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Sign-in and permissions</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>"New accounts can't be created on this site right now."</td>
+          <td>Sign-ups are closed in the site's user settings</td>
+          <td>Open them in Admin, Settings, User Settings (see <a href="../features/sign-in.html">Sign-in methods</a>)</td>
+        </tr>
+        <tr>
+          <td>"This account doesn't have access to this site."</td>
+          <td>The sign-in account exists, but it has no Arc CMS user record, for example a user of another app that shares the sign-in accounts</td>
+          <td>An admin adds the person in Admin, Users (see <a href="../features/users-and-roles.html">Users and roles</a>)</td>
+        </tr>
+        <tr>
+          <td>"Google sign-in is not turned on for this site." or "Phone sign-in is not turned on for this site."</td>
+          <td>That method is off in the site's user settings. Phone sign-in also needs the SMS feature</td>
+          <td>Turn it on in Admin, Settings, User Settings (see <a href="../features/sign-in.html">Sign-in methods</a>)</td>
+        </tr>
+        <tr>
+          <td>A person made admin still gets "Missing or insufficient permissions"</td>
+          <td>The rules read the role from the ID token, which still carries the old role</td>
+          <td>Reload the page or sign in again: the app refreshes the token's claims when they disagree with the user record (see <a href="../concepts/roles-and-claims.html">Roles and claims</a>)</td>
+        </tr>
+        <tr>
+          <td>A browser read or write fails with "Missing or insufficient permissions"</td>
+          <td>A security rule refuses it. A query on <code>users</code> that does not filter on the caller's own uid is refused as a whole</td>
+          <td>Check the rule for that collection (see <a href="security-rules.html">Security rules</a>)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Data, email, search and features</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>A query fails with "The query requires an index" and a link to the Firebase console</td>
+          <td>The query needs a composite index the project does not have</td>
+          <td>Add the index to <code>firestore.indexes.json</code> (in an app, to <code class="new">firestore.app.indexes.json</code>) and deploy it with <code>npm run deploy -- --only firestore:indexes --project default</code>. The console link creates the same index by hand. Indexes take a few minutes to build</td>
+        </tr>
+        <tr>
+          <td>An email was not sent</td>
+          <td>Every email is logged, with the reason when it was held back: email turned off or no provider set, a feature's email turned off, an inactive template, a disabled contact, an unsubscribe, or a suppressed address</td>
+          <td>Open Admin, Email Logs and read the status and reason. Set up the provider in Admin, Settings, Email Settings (see <a href="../features/email.html">Email engine</a>)</td>
+        </tr>
+        <tr>
+          <td>Search finds nothing in a collection of your own</td>
+          <td>The collection is not in <code>functions/src/custom/search-sources.ts</code>, the functions were not deployed after adding it, it is not set up in Admin, Settings, Search, or its existing documents were never indexed</td>
+          <td>Add it, deploy every function, set it up, then use Rebuild in Admin, Settings, Search (see <a href="../features/search.html">Search</a>)</td>
+        </tr>
+        <tr>
+          <td>A page shows "not found", and a menu item or settings tab is missing</td>
+          <td>The feature it belongs to is turned off in <code>src/custom/features.ts</code>: the pages of a feature that is off answer with the not-found page</td>
+          <td>Turn the feature on, then deploy the functions and the website (see <a href="../app/choose-features.html">Choose your app's features</a> or <a href="../website/choose-features.html">Choose your website's features</a>)</td>
+        </tr>
+        <tr>
+          <td>A function of a feature answers 404, or is missing from the project</td>
+          <td>The feature is off, so its functions are not in the build, and a deploy of every function deleted them</td>
+          <td>Turn the feature on and deploy every function</td>
+        </tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

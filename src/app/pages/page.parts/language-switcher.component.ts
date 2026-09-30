@@ -11,7 +11,7 @@
  *
  * Renders nothing on a single-language site.
  *
- * Spec: docs/multilingual-spec.md — Phase M4.
+ * Spec: specs/multilingual-spec.md — Phase M4.
  */
 
 import { isPlatformBrowser } from '@angular/common';

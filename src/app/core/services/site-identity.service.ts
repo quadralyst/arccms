@@ -2,7 +2,7 @@
  * Site Identity Service
  *
  * Who publishes this site, for the SPA fallback pages' structured data
- * (docs/discoverability-spec.md, D1). Reads `Settings/about` once and caches
+ * (specs/discoverability-spec.md, D1). Reads `Settings/about` once and caches
  * it; the same document the publish pipeline bakes into the static pages.
  *
  * One-time `getDoc`, not a listener, for the SSR reason documented in

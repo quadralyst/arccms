@@ -1,5 +1,5 @@
 /**
- * Install configuration for the browser app and SSR (docs/coexistence-spec.md, CO-D2, CO-D3).
+ * Install configuration for the browser app and SSR (specs/coexistence-spec.md, CO-D2, CO-D3).
  *
  * Read from `src/environments/arc-install.ts`, which `npm run arc:configure`
  * writes from `arccms.config.json`: one entry per Firebase project, so a build

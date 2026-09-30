@@ -8,7 +8,7 @@
  * The default language has no file — its text is the English authored into the
  * templates and component markup, which is also the fallback for missing keys.
  *
- * Spec: docs/multilingual-spec.md — Phase M5.1.
+ * Spec: specs/multilingual-spec.md — Phase M5.1.
  */
 
 import { inject, Injectable, signal } from '@angular/core';

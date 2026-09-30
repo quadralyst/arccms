@@ -1,5 +1,5 @@
 /**
- * Tests for AuthorsPageComponent (docs/discoverability-spec.md, D2)
+ * Tests for AuthorsPageComponent (specs/discoverability-spec.md, D2)
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';

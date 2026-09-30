@@ -1,5 +1,5 @@
 /**
- * Install configuration for the Cloud Functions (docs/coexistence-spec.md, CO-D2, CO-D3).
+ * Install configuration for the Cloud Functions (specs/coexistence-spec.md, CO-D2, CO-D3).
  *
  * Every value is optional. A missing key means today's behaviour: the `(default)`
  * Firestore database and the hosting site named after the project. An install that
@@ -72,7 +72,7 @@ export function arcStoragePrefix(env: Env = process.env): string {
 /**
  * The per-user Storage folder, `{prefix}users/{userDocId}/`: apps keep a
  * person's files here, and deleting the account deletes the folder
- * (docs/account-contract.md).
+ * (docs/app/account-contract.html).
  */
 export function userStorageFolder(userDocId: string, env: Env = process.env): string {
     return `${arcStoragePrefix(env)}users/${userDocId}/`;
@@ -88,7 +88,7 @@ export function userStorageFolder(userDocId: string, env: Env = process.env): st
  */
 export const arcDatabaseParam = defineString('ARC_DATABASE_ID', {
     default: DEFAULT_DATABASE_ID,
-    description: 'Firestore database ArcCMS uses. Leave as (default) unless ArcCMS shares its Firebase project (docs/coexistence-spec.md).',
+    description: 'Firestore database ArcCMS uses. Leave as (default) unless ArcCMS shares its Firebase project (specs/coexistence-spec.md).',
 });
 
 /**

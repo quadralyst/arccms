@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Installable app (PWA) | Arc CMS docs</title>
+  <meta name="description" content="Make the site installable on phones and computers: name, colors, start page and icon, the install prompt, updates and install numbers.">
+  <meta name="docs:sources" content="src/custom/pwa.ts, src/app/core/pwa, vite.config.ts, src/shared/components/install-prompt, functions/src/pwa, functions/src/features/pwa.ts, src/app/pages/admin/(dashboard)/dashboard.page.ts, src/app/pages/user/(dashboard)/dashboard.page.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/pwa.html">
+  <main>
+    <h1>Installable app (PWA)</h1>
+    <p class="lead">Turn the site into an app people install from their phone's home screen or as a desktop app. You give it a name, colors and one icon; Arc CMS builds the rest.</p>
+
+    <h2>What it is</h2>
+    <p>With the PWA on, the build adds a web app manifest, every icon size, and a service worker. People get:</p>
+    <ul>
+      <li><strong>An install card</strong> that shows the right steps for their browser.</li>
+      <li><strong>Fast opening:</strong> the app's main code, styles and fonts are stored on the device; other code, images and fonts from the site and common font and script CDNs are stored the first time they load. A person's own files in Storage (<code>users/...</code>) are never stored, so nothing private stays on a shared device.</li>
+      <li><strong>Fresh content:</strong> pages always come from the network first. Without a connection, or after 4 seconds of waiting, the stored copy opens instead. Signed-in data still needs a connection.</li>
+      <li><strong>Safe updates:</strong> after a deploy, an open app shows "A new version is ready." with an <strong>Update</strong> button. It checks on each page load and every hour, and never reloads by itself.</li>
+    </ul>
+    <p>Admins see install numbers on the admin dashboard. For when an app should use this, see <a href="../app/pwa.html">Make it installable</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>The PWA is a switchable feature, id <code>pwa</code>, and the only one that is <strong>off</strong> by default, so a plain website gets no service worker. It needs no other feature. Turn it on in <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    on: ['pwa'],
+};</code></pre>
+    <p>The choice is read at build time, so it takes a new build and deploy.</p>
+    <p>When it is off, the build writes no manifest, icons or service worker, the install card and update bar never show, the dashboard has no App installs numbers, and the <code>trackPwaEvent</code> function is not built. To turn it off again, remove <code>'pwa'</code> from <code>on</code> and deploy: on each visitor's next visit the site removes its service worker and stored files, so everyone gets the plain website. An icon already on a home screen still opens the site, as a normal web page.</p>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li>
+        <p><strong>Name it</strong> in <code>src/custom/pwa.ts</code>. Anything you leave out keeps the default:</p>
+        <pre><code>export const CUSTOM_PWA: Partial&lt;PwaConfig&gt; = {
+    name: 'Sanskrit for Kids',
+    shortName: 'Sanskrit',
+    description: 'Learn Sanskrit through play.',
+    themeColor: '#e8590c',
+    backgroundColor: '#ffffff',
+    startUrl: '/learn',
+};</code></pre>
+        <table>
+          <thead><tr><th>Key</th><th>Default</th><th>Used for</th></tr></thead>
+          <tbody>
+            <tr><td><code>name</code></td><td><code>Arc CMS</code></td><td>The install dialog and the app switcher.</td></tr>
+            <tr><td><code>shortName</code></td><td><code>Arc CMS</code></td><td>Under the home-screen icon. Keep it to about 12 characters. Set it whenever you set <code>name</code>: left out, it stays <code>Arc CMS</code>.</td></tr>
+            <tr><td><code>description</code></td><td>Empty</td><td>The manifest's description.</td></tr>
+            <tr><td><code>themeColor</code></td><td><code>#1d47a3</code></td><td>The browser bar and phone status bar, and the install card's accent.</td></tr>
+            <tr><td><code>backgroundColor</code></td><td><code>#ffffff</code></td><td>The splash screen while the app opens.</td></tr>
+            <tr><td><code>startUrl</code></td><td><code>/</code></td><td>The page the home-screen icon opens.</td></tr>
+          </tbody>
+        </table>
+        <p>The defaults are in <code>src/app/core/pwa/pwa-config.ts</code>. The installed app opens in its own window without the browser bar (<code>standalone</code>), with the whole site in scope.</p>
+      </li>
+      <li><p><strong>Add one square icon</strong>, at least 512 by 512 pixels, as <code class="new">src/custom/pwa-icon.svg</code> or <code class="new">src/custom/pwa-icon.png</code> (the SVG wins if both exist). Every size is made from it at build time, including the iPhone icon and the "maskable" one Android crops to a circle or rounded square, so keep the important part within the middle 80%. Without one, a plain "Arc" icon is used. The site's favicon is not changed.</p></li>
+      <li><p><strong>Build and deploy</strong> (see <a href="../operations/deploy.html">Deploy</a>). Deploy the functions too, for the install numbers.</p></li>
+    </ol>
+    <div class="trap"><p>Do not put <code>enabled</code> in <code>src/custom/pwa.ts</code>. The switch lives in <code>src/custom/features.ts</code>, and the build stops with a message saying so.</p></div>
+
+    <h2>Use it</h2>
+    <h3>The install card</h3>
+    <p><code>&lt;arc-install-prompt /&gt;</code> shows what fits each browser:</p>
+    <table>
+      <thead><tr><th>Browser</th><th>Shown</th></tr></thead>
+      <tbody>
+        <tr><td>Chrome and Edge on Android and computers</td><td>An <strong>Install</strong> button, which opens the browser's own dialog.</td></tr>
+        <tr><td>Safari on iPhone and iPad</td><td>Two steps: tap Share, then "Add to Home Screen".</td></tr>
+        <tr><td>Other browsers on iPhone and iPad</td><td>"To install, open this page in Safari." with <strong>Copy link</strong>.</td></tr>
+        <tr><td>Already installed, or a browser that cannot install</td><td>Nothing.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Not now</strong> hides it on that device for 30 days. Arc CMS's own member dashboard (<code>/user/dashboard</code>) shows it at the top; an app that replaces that page places it itself.</p>
+    <p>iPhone and iPad read the home-screen icon and name from the page itself, not the manifest, so the build also adds an <code>apple-touch-icon</code> link and the <code>apple-mobile-web-app-title</code> (the short name) to every page.</p>
+
+    <h3>Install numbers</h3>
+    <p>With the PWA on, the admin dashboard shows <strong>App installs</strong>: installs in the last 30 days by platform (Android, iPhone and iPad, computer), the install rate (people whose record says they installed, out of everyone with a record), and openings from the home screen in the last 30 days (each device once a day).</p>
+    <p>The browser reports four events to the <code>trackPwaEvent</code> function: <code>prompt_shown</code>, <code>installed</code>, <code>dismissed</code> and <code>opened_installed</code>. <code>prompt_shown</code> and <code>installed</code> count once per device, <code>opened_installed</code> once a day per device, and <code>dismissed</code> each time someone declines. iPhone has no install event, so the first opening from the home screen counts as the install. Visitors who are not signed in are counted too, since people often install before signing in.</p>
+
+    <h3>Test it</h3>
+    <p>A service worker runs only on <code>https</code> or <code>localhost</code>, and only in a production build: <code>npm run dev</code> has none. To try it on your computer, build and serve the browser build:</p>
+    <pre><code>npm run build</code></pre>
+    <pre><code>npx vite preview --port 5190 --outDir dist/client</code></pre>
+    <p>Open <code>http://localhost:5190</code>. In Chrome's DevTools, Application: Manifest shows the name and icons, Service workers shows <code>sw.js</code> running, and the install icon appears in the address bar. On a phone, the site needs a real <code>https</code> address: deploy it and open it there.</p>
+
+    <h2>Extend it</h2>
+    <ul>
+      <li><strong>Show the install card on your own page:</strong> import <code>InstallPromptComponent</code> from <code>src/shared/components/install-prompt/install-prompt.component.ts</code> and put <code>&lt;arc-install-prompt /&gt;</code> in the template.</li>
+      <li><strong>Know whether the app runs installed:</strong> <code>PwaService</code> (<code>src/app/core/pwa/pwa.service.ts</code>) has <code>installed()</code>, <code>showInstall()</code>, <code>installMode()</code> and <code>updateReady()</code>.</li>
+    </ul>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>PwaStats/{YYYY-MM-DD}</code></td><td>One document per day (UTC): each event's total and count per platform.</td></tr>
+        <tr><td><code>users/{docId}</code>, field <code>pwa</code></td><td><code>{ installed, platform, installedAt, lastOpenedAt }</code> for a signed-in person who installed. Written only when something changes: the first install, or the first opening of a day.</td></tr>
+        <tr><td>On the device</td><td>The service worker's stored files (caches named <code>arc-...</code> and <code>workbox-...</code>) and, in local storage, the "Not now" date and which events were already sent.</td></tr>
+      </tbody>
+    </table>
+    <p>Cloud Function: <code>trackPwaEvent</code> (callable, built only with the feature). One caller counts at most 30 events an hour; the rest are accepted and not counted. The build writes <code>sw.js</code>, the manifest and the icons into the site; no Storage files are used.</p>
+
+    <h2>Who can do what</h2>
+    <ul>
+      <li>Visitors, signed in or not, report install events through <code>trackPwaEvent</code>.</li>
+      <li>Only admins can read <code>PwaStats</code>; only the function writes it.</li>
+      <li>The <code>pwa</code> field on a record is written by the function and readable by the person and admins, like the rest of the record.</li>
+    </ul>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>No install option on <code>npm run dev</code></td><td>The dev server has no service worker. Test a production build, as above.</td></tr>
+        <tr><td>No install card on iPhone in Chrome</td><td>Only Safari can install on iPhone and iPad. The card tells people to open the page in Safari.</td></tr>
+        <tr><td>The install card never shows again</td><td>Someone pressed Not now on that device less than 30 days ago.</td></tr>
+        <tr><td>A change to the name, colors or icon does not show</td><td>They are read at build time. Build and deploy again; an installed app picks them up after its update.</td></tr>
+        <tr><td>Users were not asked to update after a deploy</td><td>Nothing in the app's files changed, so there is no new version. Content published in the CMS needs no update.</td></tr>
+        <tr><td>App installs shows nothing</td><td>The <code>trackPwaEvent</code> function is not deployed, or nobody has installed yet.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

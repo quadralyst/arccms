@@ -11,7 +11,7 @@
  * Mirrored in src/app/core/utils/language-links.ts — the publish pipeline and
  * the SPA must produce the same href for the same page.
  *
- * Spec: docs/multilingual-spec.md — Phase M5.5.
+ * Spec: specs/multilingual-spec.md — Phase M5.5.
  */
 
 /** `<a … href="…">`, capturing the quote so either style round-trips. */

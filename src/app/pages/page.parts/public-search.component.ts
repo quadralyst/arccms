@@ -10,7 +10,7 @@
  * Searches the language being viewed. Picking a result loads the page with
  * a full navigation, because published pages are static files on Hosting.
  *
- * Spec: docs/search-spec.md, decision S-D16 and phase S5 item 4.
+ * Spec: specs/search-spec.md, decision S-D16 and phase S5 item 4.
  */
 
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
@@ -39,7 +39,7 @@ export type PublicSearchStringKey = keyof typeof PUBLIC_SEARCH_STRINGS;
     imports: [SearchBoxComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     // Without the search feature the site's header keeps its <arc-search> tag,
-    // which then shows nothing (docs/feature-flags-spec.md).
+    // which then shows nothing (specs/feature-flags-spec.md).
     host: { '[style.display]': "searchOn ? null : 'none'" },
     template: `
         @if (searchOn) {

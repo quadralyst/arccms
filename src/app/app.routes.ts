@@ -283,7 +283,7 @@ export const routes: Routes = [
       },
     ],
   },
-  // Admin Authors route (docs/discoverability-spec.md, D2). Explicit like
+  // Admin Authors route (specs/discoverability-spec.md, D2). Explicit like
   // every other admin feature route.
   {
     path: 'admin/authors',
@@ -348,7 +348,7 @@ export const routes: Routes = [
       },
     ],
   },
-  // Admin search results (docs/search-spec.md, S4). Explicit like every
+  // Admin search results (specs/search-spec.md, S4). Explicit like every
   // other admin route.
   {
     path: 'admin/search',
@@ -379,7 +379,7 @@ export const routes: Routes = [
       },
     ],
   },
-  // Admin Feedback: what people sent with the feedback button (docs/feedback.md).
+  // Admin Feedback: what people sent with the feedback button (docs/features/feedback.html).
   {
     path: 'admin/feedback',
     loadComponent: () =>
@@ -597,7 +597,7 @@ export const routes: Routes = [
   // `canMatch` is what makes a wildcard first segment safe: a URL like
   // /admin/settings/localization has the right shape but 'admin' is not a
   // language, so the route is skipped rather than matched-and-broken.
-  // Search results (docs/search-spec.md, S-D18). The default language's
+  // Search results (specs/search-spec.md, S-D18). The default language's
   // /search is the file-based src/app/pages/search.page.ts; this is its
   // /{lang}/search twin, listed before the two-segment content route so a
   // language prefix plus 'search' is never read as a content type.
@@ -621,7 +621,7 @@ export const routes: Routes = [
       import('./pages/page.parts/content-list.component').then((m) => m.ContentListComponent),
   }]),
 
-  // The app's own routes (src/custom/routes.ts, docs/custom-code.md). After every
+  // The app's own routes (src/custom/routes.ts, docs/app/custom-space.html). After every
   // core route, so an app page never replaces a core one by accident; still
   // ahead of the file-based pages, which Analog adds after these.
   ...CUSTOM_ROUTES,

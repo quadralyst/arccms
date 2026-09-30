@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>App audience | Arc CMS docs</title>
+  <meta name="description" content="Email, segment and run sequences for an app's own users, read live from the app's collection, and react when their data changes.">
+  <meta name="docs:sources" content="functions/src/app-audience, functions/src/email-core/appEvents.ts, functions/src/email-core/eventRules.ts, functions/src/email-core/recipientConsent.ts, functions/src/email-core/appUserConsent.ts, functions/src/email-core/liveListGuard.ts, functions/src/email-core/dripSend.ts, functions/src/email-log/broadcastAudience.ts, functions/src/features/audience.ts, src/app/pages/admin/(settings)/app-audience, src/app/pages/admin/(app-users), src/app/pages/admin/(lists)/(app-list-conditions), scripts/arc-configure.mjs, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/app-audience.html">
+  <main>
+    <h1>App audience</h1>
+    <p class="lead">Connect the collection where an app keeps its users, and Arc CMS can email those people, group them into live lists, run sequences for them and react when their data changes. Their data stays in the app's own collection: Arc CMS keeps no copy of their documents, only its own records about them and the name, email and phone carried by each event and email log.</p>
+
+    <h2>What it is</h2>
+    <p>The <strong>host app</strong> keeps one document per person in one Firestore collection, such as <code>users/{id}</code>, and writes to it as it always has. Arc CMS reads that collection live and watches it with a trigger. The people in it are <strong>app users</strong>. When the host is another app, they are not contacts, never sign in to Arc CMS and get no user record there. Arc CMS keeps only what is its own about them: their email consent and their place in sequences.</p>
+    <table>
+      <thead><tr><th>Where</th><th>What the admin gets</th></tr></thead>
+      <tbody>
+        <tr><td>Settings, App audience</td><td>How to read one person: unique key, email, phone and name fields, and the fields to watch</td></tr>
+        <tr><td>Audience, App users</td><td>Every app user, live, with search and a panel showing all their fields, email status and recent events</td></tr>
+        <tr><td>Audience, Lists</td><td>App users (live) lists: conditions on the app's fields, no stored members</td></tr>
+        <tr><td>Email, Broadcasts and Drip Campaigns</td><td>Send to live lists, alone or with contact lists; sequences that start when someone starts matching</td></tr>
+        <tr><td>Settings, Automations</td><td>Rules on app user events, such as "<code>isPro</code> becomes true sends the upgrade email"</td></tr>
+        <tr><td>Any template</td><td><code>##APP.&lt;field&gt;##</code> merge tags, such as <code>##APP.plan.tier|free##</code></td></tr>
+      </tbody>
+    </table>
+    <p>The host can be another app sharing the Firebase project (see <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>), or the install's own <code>users</code> collection, for a site or app built on Arc CMS that wants live lists and automations on its own members' data. <a href="../app/app-audience.html">Connect your app's users</a> is the short path through this page.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>App audience is part of the <code>audience</code> feature (<a href="audience.html">Audience</a>): with <code>audience</code> off, the App users page, the Settings, App audience tab and every function on this page are gone. Broadcasts and sequences to live lists also need <code>email-marketing</code> (<a href="email-marketing.html">Email marketing</a>).</p>
+    <p>Within the feature it is off until a host collection is configured. An install with none points the trigger at a collection nothing writes to, so it costs nothing.</p>
+
+    <h2>Set it up</h2>
+    <h3>Check the host fits</h3>
+    <ul>
+      <li>It is in the same Firebase project as Arc CMS.</li>
+      <li>Its users are one top-level collection, one document per person (not a subcollection or a collection group).</li>
+      <li>Each person has a unique key: the document id, or a field such as <code>uid</code>, <code>email</code> or <code>phone</code> that no two people share.</li>
+      <li>It has an email field, if these people are to be emailed. People without an address are listed but never emailed.</li>
+      <li>It has at most about 2,000 people. Every read (the App users page, live lists, broadcasts) stops at the first 2,000 documents and says so.</li>
+    </ul>
+
+    <h3>Connect it</h3>
+    <ol class="steps">
+      <li>
+        <p>Name the host database and collection. The path is <code>&lt;collection&gt;/{id}</code> exactly; the wildcard name does not matter:</p>
+        <pre><code>npm run arc:configure -- --app-users-database='(default)' --app-users-path='users/{id}'</code></pre>
+        <p>For the install's own users instead, use <code>--app-users=own</code>. Add <code>--project=</code> with an alias for another project, and <code>--dry-run</code> to see the change first. This writes <code>ARC_APP_USERS_DATABASE</code> and <code>ARC_APP_USERS_PATH</code> to the project's functions environment file (see <a href="../getting-started/configure.html">Configure a project</a>).</p>
+      </li>
+      <li>
+        <p>Deploy the functions. The trigger is bound to the collection at deploy time:</p>
+        <pre><code>npm run deploy -- --only functions</code></pre>
+        <p>If only the collection changed on an install that is already deployed, deploying the trigger alone is enough (<a href="../operations/targeted-deploys.html">Deploy only what changed</a>):</p>
+        <pre><code>npm run deploy -- --only functions:arccms:arccms.onAppUserWritten</code></pre>
+      </li>
+      <li><p>Open Settings, App audience. The top shows the database and collection from the deploy. Choose the <strong>Unique key</strong>: the document id or a field. Never assume it is the email; apps with phone sign-in have none.</p></li>
+      <li><p>Pick the <strong>Email field</strong>, <strong>Phone field</strong> and <strong>Name field</strong>. The choices come from a sample of 20 real documents; nested fields are dot paths such as <code>profile.name</code>.</p></li>
+      <li><p>Under <strong>Watch for changes</strong>, tick the fields whose changes should become events, such as <code>isPro</code> or <code>plan.tier</code>. Leave out counters and timestamps: they change all the time and mean nothing.</p></li>
+      <li><p>Click <strong>Test with a document</strong> (with a document id, or none for the first document) to see the person as Arc CMS reads them, then <strong>Save</strong>.</p></li>
+      <li><p>Open Audience, App users. It lists the app's people with the right names and addresses. Change a watched field in the app, then open the person: the change shows under <strong>Recent activity</strong>.</p></li>
+    </ol>
+    <p>With <code>--app-users=own</code>, the key, email, name and phone fields default to the document id, <code>email</code>, <code>name</code> and <code>phone</code> until you save others.</p>
+
+    <h3>Fields that are never shown</h3>
+    <p>A field whose name looks like a credential is shown as <code>(hidden)</code> and never goes into an email, an event or a merge tag. A name counts when it contains a word such as <code>password</code>, <code>passcode</code>, <code>secret</code>, <code>token</code>, <code>credential</code> or <code>jwt</code>; when one of its words is a credential word such as <code>otp</code>, <code>pin</code>, <code>pwd</code>, <code>hash</code>, <code>salt</code>, <code>cvv</code> or <code>ssn</code>; or when it is a key, code, id or cookie of a kind such as <code>apiKey</code>, <code>resetCode</code> or <code>sessionId</code>. Everything under such a field is hidden too. A yes or no value stays visible (<code>passwordless: true</code>). If the app keeps a secret under another name, rename it in the app.</p>
+
+    <h2>Use it</h2>
+
+    <h3>Events and automations</h3>
+    <p>Every write to a host document runs the trigger once. It turns the write into events:</p>
+    <table>
+      <thead><tr><th>Event</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td><code>app_user.created</code></td><td>A new document appears. Documents that existed before the deploy never fire it, and a document with no value in the unique key field fires no event</td></tr>
+        <tr><td><code>app_user.changed.&lt;field&gt;</code></td><td>A watched field (or the unique key field) changes, one event per field, with its old and new value</td></tr>
+        <tr><td><code>app_user.deleted</code></td><td>A document is deleted</td></tr>
+      </tbody>
+    </table>
+    <p>Any other write produces nothing. Set what each event does in Settings, Automations: rules with an optional condition on the old and new value ("was" and "becomes": exactly, any of, none of) and an email, transactional or marketing. See <a href="automations.html">Automations</a> for the rules. App user events send email only: they never create contacts or change lists.</p>
+    <p>Values compare as text, ignoring case, and empty, missing and null are the same empty value. So <code>isPro</code> becoming <code>true</code> is "becomes exactly <code>true</code>", and a free plan written as either <code>""</code> or <code>"free"</code> is "any of <code>, free</code>".</p>
+
+    <h3>Live lists</h3>
+    <p>On Audience, Lists, click <strong>Create list</strong> and choose <strong>App users (live)</strong> (offered only when a host is connected). Add conditions on the app's fields; all must match:</p>
+    <table>
+      <thead><tr><th>Operator</th><th>Matches when the value</th></tr></thead>
+      <tbody>
+        <tr><td>is, is not</td><td>Equals, or differs from, the text (ignoring case)</td></tr>
+        <tr><td>is any of</td><td>Equals one of a comma-separated list</td></tr>
+        <tr><td>contains</td><td>Contains the text</td></tr>
+        <tr><td>is greater than, is less than</td><td>Compares as a number, or as a date written like <code>2026-10-01</code>; a number never compares with a date</td></tr>
+        <tr><td>is empty, is not empty</td><td>Has no value, or has one</td></tr>
+      </tbody>
+    </table>
+    <p>The count updates as you edit, and the list's page shows who matches at that moment. Values compare as the admin sees them: <code>true</code> and <code>false</code> for booleans, ISO text for dates. Contacts can never be added to a live list.</p>
+    <div class="trap"><p>"isPro is false" does not match a person with no <code>isPro</code> field, because a missing value is empty, not <code>false</code>. For everyone who is not Pro, use "isPro is not true".</p></div>
+
+    <h3>Broadcasts and sequences</h3>
+    <ul>
+      <li><strong>Broadcast:</strong> pick the live list in Email, Broadcasts. The host collection is read when the send runs, and each person's email carries their own <code>##APP.*##</code> values. An address on both a contact list and a live list, or on two host documents, gets one email.</li>
+      <li><strong>Sequence:</strong> create a drip campaign on the live list. A person joins when a write makes them start matching (a step at 0 hours goes out at once), and leaves when a write makes them stop matching, when their document is deleted, or when they unsubscribe. <strong>Enroll existing members on activate</strong> enrolls everyone who matches at activation. Before every step the host document is read again.</li>
+    </ul>
+    <p>See <a href="email-marketing.html">Email marketing</a> for both.</p>
+
+    <h3>Merge tags</h3>
+    <table>
+      <thead><tr><th>Tag</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td><code>##APP.&lt;path&gt;##</code></td><td>The host field when the email is queued, such as <code>##APP.plan.tier##</code></td></tr>
+        <tr><td><code>##APP.&lt;path&gt;|fallback##</code></td><td>The same, with a fallback when it is empty or missing</td></tr>
+        <tr><td><code>##NAME##</code></td><td>The name field from Settings, App audience, or the part of the address before the @ when it is empty</td></tr>
+        <tr><td><code>##FIELD##</code>, <code>##FROM##</code>, <code>##TO##</code></td><td>In an email from a field-change rule: the field, its old value and its new value</td></tr>
+      </tbody>
+    </table>
+    <p>Values are plain text: markup in a value is shown as typed, never rendered. An email log keeps only the host fields that email's tags use, never the whole document. All other tags are in <a href="../reference/email-tags.html">Email merge tags</a>.</p>
+
+    <h3>Unsubscribes</h3>
+    <p>Every app user is subscribed until they unsubscribe. The unsubscribe link and the preferences page put the address on the suppression list, record the choice on each <code>AppAudience</code> record behind that address (without creating a contact) and end their sequences. Their status shows in the Email status column on the App users page. As for everyone, a suppressed address gets no marketing email and still gets transactional email (see <a href="email.html#unsubscribe-and-preferences">Email engine</a>). When the address is also a contact, the unsubscribe applies to both; if the two ever differ, the contact's choice decides.</p>
+
+    <h3>What the host app must keep doing</h3>
+    <ul>
+      <li>Keep the email field current: Arc CMS reads it at every send.</li>
+      <li>Deleting a user document ends their sequences. If Arc CMS holds a record for them, it is marked deleted and their unsubscribe is kept in case the same unique key returns; the address stays on the suppression list either way.</li>
+      <li>Changing a person's unique key moves their consent and sequences to the new key.</li>
+      <li>Never write to the Arc CMS database, and never store a secret under a name that does not look like one.</li>
+    </ul>
+
+    <h2>Extend it</h2>
+    <p>Nothing to code: the host app keeps writing its own documents, and everything above reacts. To act on a change in your own code rather than with a rule, write a Firestore trigger on the host collection in <code>functions/src/custom/</code> (<a href="../app/functions.html">Write your own Cloud Functions</a>). For an app built on Arc CMS that uses its own <code>users</code> collection, the account rules in <a href="../app/account-contract.html">Follow the account contract</a> still apply: Arc CMS reads those records, it never replaces them.</p>
+    <p>With the install's own users as the audience, those people are also contacts (every sign-up joins All Users), and one sign-up fires both <code>user.signed_up</code> and <code>app_user.created</code>. Put a welcome email on one of them, not both.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>ARC_APP_USERS_DATABASE</code>, <code>ARC_APP_USERS_PATH</code></td><td>Deploy-time settings: the host database and collection</td></tr>
+        <tr><td><code>Settings/app_audience</code></td><td>How to read a document: <code>key</code>, <code>emailField</code>, <code>phoneField</code>, <code>nameField</code>, <code>watchedFields</code></td></tr>
+        <tr><td><code>AppAudience/{id}</code></td><td>One record per person, the id being a SHA-256 hash of their unique key, so no host identifier is stored in the clear: <code>consent</code>, and <code>deleted</code> after the host deletes them. A person with no record is subscribed</td></tr>
+        <tr><td><code>AppEvents/{id}</code></td><td>Every event, with <code>appUserId</code>, its data and what the rules did</td></tr>
+        <tr><td><code>Lists/{listId}</code></td><td>A live list: <code>type: 'app'</code> and its <code>conditions</code></td></tr>
+        <tr><td><code>DripEnrollments/{campaignId}_app_{id}</code></td><td>A person's place in a sequence on a live list</td></tr>
+        <tr><td><code>Settings/event_mappings</code></td><td>The automation rules (<a href="automations.html">Automations</a>)</td></tr>
+      </tbody>
+    </table>
+    <p>Every collection is also in <a href="../reference/data-model.html">Data model</a>. Nothing is written to the host collection, and no host document is copied; events and email logs keep only the person's name, email, phone and the values they use. Cloud Functions (each deploys as <code>arccms-</code> followed by its name):</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>onAppUserWritten</code></td><td>Trigger on the host collection</td><td>Emits the events, keeps <code>AppAudience</code> in step, joins and leaves live-list sequences. A failed run is retried for up to an hour</td></tr>
+        <tr><td><code>appAudienceStatus</code>, <code>sampleAppUsers</code>, <code>testAppUser</code></td><td>Admin callables</td><td>Behind Settings, App audience</td></tr>
+        <tr><td><code>listAppUsers</code>, <code>getAppUser</code></td><td>Admin callables</td><td>Behind Audience, App users</td></tr>
+        <tr><td><code>previewAppList</code></td><td>Admin callable</td><td>Who a live list matches</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Data</th><th>Admins</th><th>Everyone else</th></tr></thead>
+      <tbody>
+        <tr><td><code>Settings/app_audience</code>, <code>Lists</code></td><td>Read and write</td><td>Nothing</td></tr>
+        <tr><td><code>AppEvents</code></td><td>Read; Cloud Functions write</td><td>Nothing</td></tr>
+        <tr><td><code>AppAudience</code></td><td>Nothing directly: the App users page reads it through the callables</td><td>Nothing</td></tr>
+        <tr><td>The host collection</td><td>Read through the callables, with the functions' own access</td><td>Whatever the host app's own rules say</td></tr>
+      </tbody>
+    </table>
+    <p>Every callable refuses anyone without the Arc CMS admin role (<a href="../concepts/roles-and-claims.html">Roles and claims</a>). People from another app never sign in to Arc CMS. On a shared project, keep Arc CMS sign-ups off (the default for an install that shares its project) so they cannot: see <a href="../app/shared-project.html">Share a Firebase project</a>.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>"No host collection is configured"</td><td>The functions were deployed without <code>ARC_APP_USERS_PATH</code>. Run <code>npm run arc:configure</code> with <code>--app-users-path</code> and deploy the functions.</td></tr>
+        <tr><td>The App users page fails with "internal"</td><td>The callables are missing or still starting. Deploy the functions again and reload after a minute.</td></tr>
+        <tr><td>"N documents have no value in the unique key field"</td><td>Those documents lack the key field and are left out. Pick another key, or fix the documents.</td></tr>
+        <tr><td>Recent activity stays empty after a change in the app</td><td>The field is not watched, or the trigger is bound to another database or collection. Check Settings, App audience and the project's functions environment file.</td></tr>
+        <tr><td>An event says "No rule set up for this event"</td><td>Add a rule for it in Settings, Automations.</td></tr>
+        <tr><td>A rule ran but no email arrived</td><td>Email is off, the template is inactive, the person has no address, or a marketing email met an unsubscribe. Email Logs gives the skip reason; with no address, no log is written.</td></tr>
+        <tr><td>A live list matches nobody</td><td>A condition names a field most documents lack, or a value in another format. Compare with the values on the list's page.</td></tr>
+        <tr><td>"Only the first 2,000 users in your app are checked"</td><td>The host collection has more than 2,000 documents; people after them are left out of lists, counts and broadcasts.</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>A trigger stays bound to the database it was deployed against. If the host database, or the Arc CMS database, is deleted and created again, the triggers never fire. Delete the affected <code>arccms-</code> triggers (for the host, <code>arccms-onAppUserWritten</code>) and deploy them again; an update does not rebind them.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

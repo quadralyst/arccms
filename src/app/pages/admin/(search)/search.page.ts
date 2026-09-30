@@ -4,7 +4,7 @@
  * Where Enter in the header search box lands. Twenty results across every
  * language of the drafts index, each linking to its editor.
  *
- * Spec: docs/search-spec.md, phase S4 item 4.
+ * Spec: specs/search-spec.md, phase S4 item 4.
  */
 
 import { RouteMeta } from '@analogjs/router';
@@ -85,7 +85,7 @@ export default class AdminSearchPage implements OnInit, OnDestroy {
         try {
             const response = await this.searchService.search({
                 // Every source an admin may read but published content, whose
-                // drafts it already finds (docs/feature-flags-spec.md 6.4).
+                // drafts it already finds (specs/feature-flags-spec.md 6.4).
                 q, lang: 'all', scope: 'admin', except: ['content'], limit: 20,
             });
             if (!response) return;

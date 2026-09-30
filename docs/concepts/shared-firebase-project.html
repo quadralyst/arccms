@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sharing a Firebase project | Arc CMS docs</title>
+  <meta name="description" content="How Arc CMS runs in a Firebase project another app already uses: what it keeps apart, what stays shared, and the traps.">
+  <meta name="docs:sources" content="scripts/arc-install-config.mjs, scripts/arc-configure.mjs, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, functions/src/function-names.ts, functions/src/arc-config.ts, functions/src/init.ts, functions/src/index.ts, functions/src/users/claims.ts, functions/src/users/adminCreateUser.ts, functions/src/auth/emailAccount.ts, src/app/core/config, arccms.config.example.json, firebase.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="concepts/shared-firebase-project.html">
+  <main>
+    <h1>Sharing a Firebase project</h1>
+    <p class="lead">Arc CMS can run in a Firebase project that another app already uses, for example as the admin and content backend of a mobile app. It keeps its own database, functions, website and files, so neither app touches the other's. Sign-in stays shared.</p>
+
+    <h2>Why share a project</h2>
+    <p>Your app and Arc CMS then see the same sign-in accounts, and Arc CMS can read your app's users as an audience for email and lists (see <a href="../features/app-audience.html">App audience</a>). Without that need, give Arc CMS a project of its own: nothing on this page applies.</p>
+
+    <h2>What Arc CMS keeps apart</h2>
+    <table>
+      <thead><tr><th>Part</th><th>How it is kept apart</th></tr></thead>
+      <tbody>
+        <tr><td>Firestore</td><td>A database of its own, named in the install settings (the setup suggests <code>arccms</code>). The other app keeps <code>(default)</code>. Every function opens it through <code>functions/src/init.ts</code>, and every trigger listens on it through <code>arcDocument()</code>. Since Firebase takes one rules file per database, each app keeps its own rules and indexes.</td></tr>
+        <tr><td>Cloud Functions</td><td>Every Arc CMS function is named <code>arccms-</code> plus its name (<code>functions/src/function-names.ts</code>), and belongs to the <code>arccms</code> codebase in <code>firebase.json</code>. A deploy of one codebase never deletes the other's functions, and Arc CMS's deploy only ever compares its own.</td></tr>
+        <tr><td>Hosting</td><td>A hosting site of its own (the setup suggests the project id followed by <code>-arccms</code>), or no website at all. Arc CMS then never publishes to the project's main site.</td></tr>
+        <tr><td>Storage</td><td>A bucket of its own (the setup suggests the project id followed by <code>-arccms</code>) and an upload folder in it (<code>arccms/</code>). Firebase takes one storage rules file per bucket, so in the other app's bucket Arc CMS deploys no storage rules.</td></tr>
+        <tr><td>Claims</td><td>Arc CMS's custom claims are named <code>arccms_role</code> and <code>arccms_uid</code>, and it never reads a plain <code>role</code> claim. See <a href="roles-and-claims.html">Roles and claims</a>.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>What stays shared</h2>
+    <ul>
+      <li><strong>Sign-in.</strong> A project has one Firebase Auth pool and one set of sign-in providers. The other app's users can reach Arc CMS's sign-in page; with no Arc CMS record they are told they have no access. Sign-ups turn off when the first-run setup finishes (admin-only sign-in, the default for a shared project), so admins add people under Users.</li>
+      <li><strong>Accounts in both apps.</strong> When an admin adds someone who already has an account from the other app, Arc CMS reuses the account and never changes it. Deleting that Arc CMS user removes only Arc CMS's record and claims, never the account.</li>
+      <li><strong>Custom claims on an account.</strong> Arc CMS merges its claims into the existing ones. Firebase has no atomic merge, so if both apps write claims on the same account at the same moment, one write can be lost. Arc CMS writes claims rarely (sign-up, a role change, blocking, deletion).</li>
+      <li><strong>The project itself:</strong> billing, quotas, and Google's per-minute limit on changes to functions.</li>
+    </ul>
+
+    <h2>How it is set up</h2>
+    <p>The guided deploy asks, the first time it meets a project, whether the project is shared with another app, then suggests every name above. It writes the settings, prints the commands that create the database, the site and the bucket, and stops so you can run them. The steps are in <a href="../app/shared-project.html">Share a Firebase project</a>.</p>
+    <p>The settings live per project in <code>arccms.config.json</code> (see <code>arccms.config.example.json</code>), with the profile <code>backend</code>. That profile refuses to deploy without its own database, hosting site (or none) and bucket. From the settings, <code>npm run arc:configure</code> writes the files each part reads: <code>src/environments/arc-install.ts</code> for the app (commit it), <code>functions/.env.{projectId}</code> for the functions and <code>firebase.{projectId}.json</code> for the Firebase CLI. See <a href="architecture.html">Architecture</a>.</p>
+
+    <h2>Traps</h2>
+    <div class="trap"><p>A Firebase deploy creates a missing named database by itself, in the project's default location, and so does <code>firebase deploy --dry-run</code>. Create the database first, with the command the setup prints: that is how you choose its location (the same as the other app's). Do not run a dry run to "check" a named-database config.</p></div>
+    <div class="trap"><p>If the Arc CMS database is deleted and created again, the functions that trigger on it stay bound to the old one and never fire, so nothing that depends on them happens, publishing included. Updating the functions does not rebind them. Delete the <code>arccms-</code> Firestore trigger functions and deploy them again.</p></div>
+    <div class="trap"><p>Plain <code>firebase deploy</code> uses <code>firebase.json</code>, which knows nothing of Arc CMS's database, site or bucket, so it would deploy Arc CMS's rules and website over the other app's. Always deploy with <code>npm run deploy</code>, which picks the project's generated config.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

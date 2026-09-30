@@ -53,7 +53,7 @@ vi.mock('firebase-functions/v2/https', () => ({
   onRequest: vi.fn((handler: any) => handler),
 }));
 
-// Every feature on unless a test turns some off (docs/feature-flags-spec.md).
+// Every feature on unless a test turns some off (specs/feature-flags-spec.md).
 const featuresOff = vi.hoisted(() => new Set<string>());
 vi.mock('../feature-flags.js', () => ({ isFeatureOn: (id: string) => !featuresOff.has(id) }));
 const { mockSetRecipientConsent, mockExitAllEnrollments } = vi.hoisted(() => ({

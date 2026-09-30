@@ -1,5 +1,5 @@
 /**
- * The URLs each feature owns (docs/feature-flags-spec.md), and the route that
+ * The URLs each feature owns (specs/feature-flags-spec.md), and the route that
  * answers them with the not-found page when the feature is off.
  *
  * One route, first in the table, instead of a guard on every page: it also

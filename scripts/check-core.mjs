@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * `npm run check:core`: in an app built on a copy of Arc CMS, list the Arc CMS
- * (core) files the app has changed (docs/custom-code.md).
+ * (core) files the app has changed (docs/app/custom-space.html).
  *
  * An app keeps its own code in the custom space (src/custom, functions/src/custom,
  * the *.app.rules files) and never edits core files, so pulling Arc CMS updates
@@ -128,7 +128,7 @@ export function main(argv = process.argv.slice(2), log = console.log, cwd = proc
     }
     log(`These Arc CMS core files changed compared with ${against}:\n  ${groups.core.join('\n  ')}`);
     log('Move each change into the custom space (src/custom, functions/src/custom, *.app.rules),');
-    log('or build it in Arc CMS as a general feature and pull it. See docs/custom-code.md.');
+    log('or build it in Arc CMS as a general feature and pull it. See docs/app/custom-space.html.');
     return 1;
 }
 

@@ -7,7 +7,7 @@
  * Pure functions, so ranking.spec.ts can pin every row of the spec's
  * behaviour table.
  *
- * Spec: docs/search-spec.md, phase S3 item 4.
+ * Spec: specs/search-spec.md, phase S3 item 4.
  */
 
 import { normalize, words } from './tokenizer.js';

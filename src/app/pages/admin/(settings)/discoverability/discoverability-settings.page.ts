@@ -3,7 +3,7 @@
  *
  * AI-crawler policy (rendered into robots.txt), the llms.txt switch and
  * IndexNow, with links to the engines' own verification tools.
- * Spec: docs/discoverability-spec.md, D3 (D-D6, D-D7, D-D9, D-D14).
+ * Spec: specs/discoverability-spec.md, D3 (D-D6, D-D7, D-D9, D-D14).
  */
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';

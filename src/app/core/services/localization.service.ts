@@ -11,7 +11,7 @@
  * constructed during SSR outlives the request injector and crashes the server
  * on the next snapshot (see the note in `GlobalMessageService`).
  *
- * Spec: docs/multilingual-spec.md — Phase M1.
+ * Spec: specs/multilingual-spec.md — Phase M1.
  */
 
 import { inject, Injectable, Injector, runInInjectionContext, signal, computed } from '@angular/core';

@@ -22,7 +22,7 @@ export function clock(seconds: number): string {
 }
 
 /**
- * The feedback button and its panel (docs/feedback.md), placed once in the app
+ * The feedback button and its panel (docs/features/feedback.html), placed once in the app
  * root. The button shows to signed-in people when an admin turned it on, except
  * on admin pages and pages that hide it (`data: { feedbackButton: false }`).
  * The panel opens from the button, or from an app's own button through

@@ -8,7 +8,7 @@
  * verified by an SMS code, the person then signs in with a 6-digit PIN, and
  * the server hands the browser a custom token for their account. The number
  * lives on the `users` record and in `phone_index`, never on the Auth account,
- * so a sign-in pool shared with another app (docs/coexistence-spec.md, P3) is
+ * so a sign-in pool shared with another app (specs/coexistence-spec.md, P3) is
  * never touched.
  */
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';

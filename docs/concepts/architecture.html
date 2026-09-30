@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture | Arc CMS docs</title>
+  <meta name="description" content="How the pieces of Arc CMS fit together: the Angular app, Firebase, the Cloud Functions, the generated pages and the three areas of a site.">
+  <meta name="docs:sources" content="functions/src/index.ts, functions/src/all.ts, functions/src/function-names.ts, functions/src/arc-config.ts, functions/src/init.ts, functions/src/features, functions/src/publishQueue/processPublishQueue.ts, functions/src/pages, functions/src/email-core/appEvents.ts, src/app/app.routes.ts, src/app/core/config, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, vite.config.ts, firebase.json, package.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="concepts/architecture.html">
+  <main>
+    <h1>Architecture</h1>
+    <p class="lead">Arc CMS is an Angular app on Firebase. The browser talks to Firestore, Auth and Storage directly, under security rules; Cloud Functions do everything the browser must not, and publish the public pages as plain files on Firebase Hosting.</p>
+
+    <h2>The pieces</h2>
+    <table>
+      <thead><tr><th>Piece</th><th>What it does</th><th>Where it lives</th></tr></thead>
+      <tbody>
+        <tr><td>The app</td><td>AnalogJS (full-stack Angular), built with Vite. It is the admin area, the member area, the sign-in pages and the fallback for every public address.</td><td><code>src/app/</code>, <code>src/shared/</code>, <code>src/custom/</code></td></tr>
+        <tr><td>Firestore</td><td>All data: content, settings, people, lists, logs. One database per install, <code>(default)</code> unless the install names another.</td><td>Rules in <code>firestore.rules</code></td></tr>
+        <tr><td>Firebase Auth</td><td>Sign-in. A person's role travels as a custom claim on their ID token (see <a href="roles-and-claims.html">Roles and claims</a>).</td><td><code>functions/src/auth/</code>, <code>functions/src/users/</code></td></tr>
+        <tr><td>Cloud Storage</td><td>Media, imports and exports, and each person's own folder.</td><td>Rules in <code>storage.rules</code></td></tr>
+        <tr><td>Cloud Functions</td><td>Triggers on database writes, callables the browser calls, scheduled jobs and a few public HTTP endpoints (webhooks, unsubscribe, email tracking). Node.js 22.</td><td><code>functions/src/</code></td></tr>
+        <tr><td>Firebase Hosting</td><td>Serves the built app and the pages the functions publish.</td><td><code>firebase.json</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>How pages are served</h2>
+    <p>No server runs when someone opens a page. Firebase Hosting serves files:</p>
+    <ul>
+      <li><strong>Published content</strong> (content pages, list pages, static pages, the sitemap, the feeds, <code>robots.txt</code> and <code>llms.txt</code>) is HTML and text that Cloud Functions render from the templates in <code>public/templates/</code> and write to Hosting whenever something is published.</li>
+      <li><strong>The home page</strong> is rendered once, at build time.</li>
+      <li><strong>Every other address</strong> that is not a file gets the app shell, <code>__shell.html</code>, and Angular renders the page in the browser. That covers the admin area, the member area, and any content page not published as a file yet.</li>
+    </ul>
+    <p>During development, <code>npm run dev</code> also renders pages on the server. Pages that need a signed-in person are always rendered in the browser.</p>
+
+    <h2>The three areas</h2>
+    <table>
+      <thead><tr><th>Area</th><th>Addresses</th><th>Who gets in</th></tr></thead>
+      <tbody>
+        <tr><td>Public site</td><td><code>/</code>, content and static pages, <code>/search</code>, forms and leaderboards</td><td>Everyone</td></tr>
+        <tr><td>Member area</td><td><code>/user/dashboard</code>, <code>/user/profile</code>, and your app's own pages</td><td>Anyone signed in (route guard in <code>src/app/pages/user/user.guards.ts</code>); premium pages need an entitlement</td></tr>
+        <tr><td>Admin area</td><td><code>/admin/...</code></td><td>Admins (route guard in <code>src/app/guards/role.guard.ts</code>)</td></tr>
+      </tbody>
+    </table>
+    <p>The sign-in pages (<code>/signup</code>) and the first-run setup (<code>/onboarding</code>) sit between them. The route guards only decide what the browser shows: the security rules and the function checks are what protect the data. See <a href="../members/overview.html">What members see</a> and <a href="../admin/overview.html">Use the admin area</a>.</p>
+
+    <h2>How the functions are grouped</h2>
+    <ul>
+      <li><code>functions/src/index.ts</code> exports one group, <code>arccms</code>, made of everything in <code>functions/src/all.ts</code>. So every function deploys as <code>arccms-</code> plus its name, such as <code>arccms-search</code>, and belongs to the <code>arccms</code> codebase in <code>firebase.json</code>.</li>
+      <li>A switchable feature's functions live in <code>functions/src/features/</code> and are built in only when the feature is on in <code>src/custom/features.ts</code>. See <a href="../reference/feature-ids.html">Feature ids</a>.</li>
+      <li>Your app's functions, from <code>functions/src/custom/</code>, form the <code>custom</code> group and deploy as <code>arccms-custom-</code> plus their name.</li>
+      <li>The browser calls a function by its plain name through <code>arcCallable()</code> in <code>src/app/core/config/arc-functions.ts</code>, the one place that adds the prefix.</li>
+      <li>Every function reads and writes the install's database through <code>db</code> from <code>functions/src/init.ts</code>, and every Firestore trigger passes its path through <code>arcDocument()</code> from <code>functions/src/arc-config.ts</code>, so it listens on that database.</li>
+    </ul>
+    <p>The full list is in <a href="../reference/cloud-functions.html">Cloud Functions</a>.</p>
+
+    <h2>Install settings</h2>
+    <p>Which database, bucket, upload folder and hosting site an install uses comes from <code>arccms.config.json</code>. <code>npm run arc:configure</code> and the guided deploy turn it into one file per consumer:</p>
+    <table>
+      <thead><tr><th>Read by</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>The app (browser and build)</td><td><code>src/environments/arc-install.ts</code>, read only by <code>src/app/core/config/arc-config.ts</code></td></tr>
+        <tr><td>The functions</td><td><code>functions/.env.{projectId}</code>, read only by <code>functions/src/arc-config.ts</code></td></tr>
+        <tr><td>The Firebase CLI</td><td><code>firebase.{projectId}.json</code>, used by <code>npm run deploy</code></td></tr>
+      </tbody>
+    </table>
+    <p>With no settings, an install uses the <code>(default)</code> database, the project's default bucket and its main hosting site. See <a href="../getting-started/configure.html">Configure a project</a> and <a href="shared-firebase-project.html">Sharing a Firebase project</a>.</p>
+
+    <h2>The main data flows</h2>
+    <table>
+      <thead><tr><th>When</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td>An editor publishes content</td><td>The draft lives in <code>arc_{slug}_drafts</code>. Publishing adds an item to <code>_publish_queue</code>; the <code>processPublishQueue</code> function copies the draft to <code>arc_{slug}</code>, renders its page, the list pages, the sitemap and the feeds, publishes them to Hosting as one release, and updates the search index.</td></tr>
+        <tr><td>Someone signs up</td><td>A callable creates the <code>users</code> record on the server. <code>onUserRoleChange</code> puts the role and the record id on the account as claims, which the rules read.</td></tr>
+        <tr><td>An admin changes a role</td><td>The admin writes <code>role</code> on the <code>users</code> record; <code>onUserRoleChange</code> copies it to the <code>arccms_role</code> claim.</td></tr>
+        <tr><td>Something happens to a person</td><td>Core writes an event to <code>AppEvents</code> (such as <code>user.signed_up</code> or <code>user.deleted</code>). Automations, and your app's own triggers, react to it.</td></tr>
+        <tr><td>A person is deleted</td><td>Deleting the <code>users</code> record starts <code>onUserDeleted</code>, which ends their access, removes their sign-in (unless another app shares it), their data under the record and their storage folder, then writes <code>user.deleted</code>. See <a href="../app/account-contract.html">Follow the account contract</a>.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

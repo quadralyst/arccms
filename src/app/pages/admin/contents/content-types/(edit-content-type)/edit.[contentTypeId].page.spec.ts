@@ -760,7 +760,7 @@ describe('EditContentTypeComponent', () => {
         });
     });
 
-    // ─── Structured data (docs/discoverability-spec.md, D-D12) ────────────
+    // ─── Structured data (specs/discoverability-spec.md, D-D12) ────────────
 
     describe('Structured data mapping', () => {
         function addField(key: string, type: string, label = key): void {

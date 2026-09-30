@@ -3,7 +3,7 @@ import { renderRobotsTxt } from '../pages/generateRobotsTxt.js';
 import { DEFAULT_DISCOVERABILITY, normalizeDiscoverability } from '../shared/discoverability-settings.js';
 import { CRAWLERS } from '../shared/crawlers.js';
 
-describe('renderRobotsTxt (docs/discoverability-spec.md, D-D6)', () => {
+describe('renderRobotsTxt (specs/discoverability-spec.md, D-D6)', () => {
     it('allows everything and lists no AI groups by default', () => {
         const txt = renderRobotsTxt('https://example.com/', DEFAULT_DISCOVERABILITY);
         expect(txt).toBe([

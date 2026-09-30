@@ -1,5 +1,5 @@
 /**
- * One trigger per collection an app made searchable (docs/feature-flags-spec.md,
+ * One trigger per collection an app made searchable (specs/feature-flags-spec.md,
  * section 6.5), exported as a group: `Products` deploys as
  * `arccms-searchSync-Products`. Adding a collection to
  * functions/src/custom/search-sources.ts adds its trigger on the next deploy;

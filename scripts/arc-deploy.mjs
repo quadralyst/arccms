@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * `firebase deploy` for this install (docs/coexistence-spec.md, CO-D14, CO3.2).
+ * `firebase deploy` for this install (specs/coexistence-spec.md, CO-D14, CO3.2).
  *
- * With no arguments it runs the guided deploy (arc-deploy-menu.mjs, docs/deploy.md).
+ * With no arguments it runs the guided deploy (arc-deploy-menu.mjs, docs/operations/deploy.html).
  * Otherwise it passes every argument through to `firebase deploy`, and:
  *
  * - picks the project the way the Firebase CLI does (--project, else the one
@@ -31,7 +31,7 @@
  *   search collection removed) and asks once before letting Firebase delete them;
  *   off a terminal it needs --yes, and stops rather than delete unasked. A
  *   targeted deploy (functions:arccms:arccms.<name>) never deletes anything
- *   (docs/feature-flags-spec.md, section 7);
+ *   (specs/feature-flags-spec.md, section 7);
  * - with --probe, after a deploy that included functions, runs the callable
  *   access check. A callable whose creation timed out is left without public
  *   access, and every browser call to it then fails with 403 (found 2026-09-23).
@@ -343,7 +343,7 @@ export async function runDeploy(args, options = {}) {
     // other app's, so the generated config has none (review F).
     if (generatedConfig && namesTarget(args, 'storage') && !generatedConfig.storage) {
         console.error(`Storage rules are not deployed for ${projectId}: Arc CMS keeps its files in the default bucket, which another app uses, `
-            + 'and a bucket has one rules file, so this would replace that app\'s rules. Give Arc CMS its own bucket first (docs/deploy.md).');
+            + 'and a bucket has one rules file, so this would replace that app\'s rules. Give Arc CMS its own bucket first (docs/operations/deploy.html).');
         return { status: 1, created: [] };
     }
     if (deploysFunctions(args) && !options.built) {

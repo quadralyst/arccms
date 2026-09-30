@@ -1,5 +1,5 @@
 /**
- * Admin callables behind Settings, App audience (docs/coexistence-spec.md 5b, CO6.2).
+ * Admin callables behind Settings, App audience (specs/coexistence-spec.md 5b, CO6.2).
  * They read the host collection with the functions' admin rights; nothing is written
  * to it, and nothing read is stored.
  */

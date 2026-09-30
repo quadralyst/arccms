@@ -1,5 +1,5 @@
 /**
- * App users (live) lists (docs/coexistence-spec.md 5b, CO6.5b).
+ * App users (live) lists (specs/coexistence-spec.md 5b, CO6.5b).
  *
  * A live list stores conditions on the host app's fields, never members. Every
  * use (a count, the list page, a broadcast) reads the host collection and keeps

@@ -1,4 +1,4 @@
-/** Audience, App users: the live list and detail callables (docs/coexistence-spec.md 5b, CO6.3). */
+/** Audience, App users: the live list and detail callables (specs/coexistence-spec.md 5b, CO6.3). */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const m = vi.hoisted(() => {

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What is Arc CMS | Arc CMS docs</title>
+  <meta name="description" content="What Arc CMS is, what it gives you, what it is built with, who it is for and what it is not.">
+  <meta name="docs:sources" content="README.md, package.json, functions/package.json, vite.config.ts, src/app/core/features/feature-registry.ts, functions/src/pages, src/custom, functions/src/custom, src/custom/features.ts, src/app/core/features/feature-routes.ts, functions/src/features">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="getting-started/what-is-arc-cms.html">
+  <main>
+    <h1>What is Arc CMS</h1>
+    <p class="lead">Arc CMS is an open-source content management system that runs on your own Firebase project. You use it to build a website, or you copy it and build your own app on top of it.</p>
+
+    <h2>In plain words</h2>
+    <p>Arc CMS gives you an admin area where you define content types, write and publish content, design how it looks with HTML templates, collect sign-ups and send email. Everything it stores lives in your Firebase project: Firestore for data, Firebase Authentication for accounts, Cloud Storage for files and Cloud Functions for the work that has to happen on a server.</p>
+    <p>When you publish, Cloud Functions write the page as a static HTML file to Firebase Hosting. Visitors get plain, fast pages; the admin area and the member area are an Angular app served from the same site.</p>
+
+    <h2>What you get</h2>
+    <p>Most capabilities are always on. Ten switchable features can be turned on or off per app in <code>src/custom/features.ts</code>: nine are on unless you turn them off, and the installable app (<code>pwa</code>) is off until you turn it on (see <a href="../reference/feature-ids.html">Feature ids</a>). The last column says which switch a capability belongs to.</p>
+    <table>
+      <thead><tr><th>Capability</th><th>What it does</th><th>Switch</th></tr></thead>
+      <tbody>
+        <tr><td><a href="../features/content.html">Content</a></td><td>Your own content types with their own fields, drafts, a publish queue and bulk import.</td><td><code>content</code></td></tr>
+        <tr><td><a href="../features/templates.html">Templates</a></td><td>Plain HTML and CSS files that decide how lists and single items look.</td><td>Part of <code>content</code></td></tr>
+        <tr><td><a href="../features/media.html">Media</a></td><td>A media library for images, stored at several sizes and converted to WebP on upload.</td><td>Always on</td></tr>
+        <tr><td><a href="../features/authors-and-tags.html">Authors and tags</a></td><td>Author profiles and tags for grouping content.</td><td>Part of <code>content</code></td></tr>
+        <tr><td><a href="../features/search.html">Search</a></td><td>Site search for visitors and search inside the admin area.</td><td><code>search</code></td></tr>
+        <tr><td><a href="../features/seo.html">SEO and discoverability</a></td><td>Meta tags, sitemap, robots file, RSS feed and <code>llms.txt</code>, written for you.</td><td><code>seo</code></td></tr>
+        <tr><td><a href="../features/languages.html">Languages</a></td><td>Content in more than one language, and an admin area in more than one language.</td><td>Always on</td></tr>
+        <tr><td><a href="../features/forms.html">Signup forms</a></td><td>Waitlists and signup forms with referrals and a leaderboard.</td><td><code>forms</code> (needs <code>audience</code>)</td></tr>
+        <tr><td><a href="../features/audience.html">Audience</a></td><td>Contacts, lists, tags and fields for everyone who signed up.</td><td><code>audience</code></td></tr>
+        <tr><td><a href="../features/app-audience.html">App audience</a></td><td>The users of an app as a live audience you can email.</td><td>Part of <code>audience</code></td></tr>
+        <tr><td><a href="../features/email.html">Email engine</a></td><td>Sending through Gmail, SMTP or Resend, with logs and a shared brand kit.</td><td>Always on</td></tr>
+        <tr><td><a href="../features/email-marketing.html">Email marketing</a></td><td>Broadcasts, drip series and announcements to lists and audiences.</td><td><code>email-marketing</code> (needs <code>audience</code>)</td></tr>
+        <tr><td><a href="../features/automations.html">Automations</a></td><td>Rules that send an email, add a notification or change list membership when something happens.</td><td>Always on</td></tr>
+        <tr><td><a href="../features/sms.html">SMS</a></td><td>Text messages, such as sign-in codes.</td><td><code>sms</code></td></tr>
+        <tr><td><a href="../features/sign-in.html">Sign-in methods</a></td><td>Email and password, Google and phone sign-in.</td><td>Always on; phone sign-in is part of <code>sms</code></td></tr>
+        <tr><td><a href="../features/payments.html">Payments</a></td><td>Checkout, plans and payment events through Dodo Payments.</td><td><code>payments</code></td></tr>
+        <tr><td><a href="../features/entitlements.html">Premium entitlements</a></td><td>Premium access and credits that follow from payments.</td><td>Part of <code>payments</code></td></tr>
+        <tr><td><a href="../features/users-and-roles.html">Users and roles</a></td><td>Accounts, roles and who may do what.</td><td>Always on</td></tr>
+        <tr><td><a href="../features/pwa.html">Installable app (PWA)</a></td><td>An app people can install on their phone.</td><td><code>pwa</code> (off by default)</td></tr>
+        <tr><td><a href="../features/feedback.html">Feedback button</a></td><td>A button that sends feedback with a screenshot to the admins.</td><td>Core, with its own switch on the Feedback page (off by default)</td></tr>
+        <tr><td><a href="../features/notifications.html">Notifications</a></td><td>Notifications inside the admin and member areas.</td><td>Always on</td></tr>
+        <tr><td><a href="../features/analytics.html">Analytics</a></td><td>A Google Analytics connection and dashboard.</td><td>Always on</td></tr>
+        <tr><td><a href="../features/banners.html">Banners</a></td><td>A site-wide message banner and a site usage banner.</td><td>Always on</td></tr>
+        <tr><td><a href="../features/data.html">Data import and export</a></td><td>Exporting and importing your data.</td><td><code>data</code></td></tr>
+      </tbody>
+    </table>
+    <p>The full list, with what each feature needs, is in <a href="../features/overview.html">All features</a>.</p>
+
+    <h2>What it is built with</h2>
+    <table>
+      <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+      <tbody>
+        <tr><td>Framework</td><td>AnalogJS 2 (full-stack Angular) on Angular 21</td></tr>
+        <tr><td>Interface</td><td>Angular Material and Bootstrap 5</td></tr>
+        <tr><td>State</td><td>NgRx Signals</td></tr>
+        <tr><td>Editor</td><td>TipTap 3</td></tr>
+        <tr><td>Build and dev server</td><td>Vite 7</td></tr>
+        <tr><td>Backend</td><td>Firebase: Firestore, Authentication, Cloud Storage, Cloud Functions (Node 22), Hosting</td></tr>
+        <tr><td>Tests</td><td>Vitest</td></tr>
+      </tbody>
+    </table>
+    <p>There is no server of your own to run. The build prerenders the home page and ships everything else as static files, and all server work happens in Cloud Functions. See <a href="../concepts/architecture.html">Architecture</a> for how the parts fit.</p>
+
+    <h2>Who it is for</h2>
+    <ul>
+      <li><strong>Developers</strong> who know web development and want a content site, or an app with sign-in, email and payments, without building those parts again.</li>
+      <li><strong>Teams that run the site</strong>: editors and admins who write content, manage sign-ups and send email from the admin area, without touching code.</li>
+    </ul>
+
+    <h2>What it is not</h2>
+    <ul>
+      <li><strong>Not a hosted service.</strong> You run it on your own Firebase project and pay Google for what it uses.</li>
+      <li><strong>Not a drag-and-drop page builder.</strong> Pages are shaped by HTML templates that a developer writes once.</li>
+      <li><strong>Not for another backend.</strong> It is built on Firebase and needs a Firebase project; it does not run on another database or host.</li>
+      <li><strong>Not something you edit freely in an app.</strong> An app built on a copy keeps its own code in the custom space and leaves the Arc CMS files alone, so updates merge cleanly (see <a href="../concepts/core-and-custom.html">Core and custom</a>).</li>
+    </ul>
+
+    <h2>Next</h2>
+    <p>Decide what you are building: <a href="website-or-app.html">A website or an app</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

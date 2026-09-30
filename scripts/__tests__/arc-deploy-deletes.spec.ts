@@ -1,7 +1,7 @@
 /**
  * A full functions deploy deletes what the build no longer has (a feature turned
  * off, a search collection removed). arc-deploy lists those and asks once
- * (docs/feature-flags-spec.md, section 7).
+ * (specs/feature-flags-spec.md, section 7).
  */
 import { describe, it, expect, vi } from 'vitest';
 import { confirmDeletes, deletesByRegion, deployArgs, deploysWholeFunctions, functionIds, onlyFunctionErrors, removedDeployed, removedFunctions } from '../arc-deploy.mjs';

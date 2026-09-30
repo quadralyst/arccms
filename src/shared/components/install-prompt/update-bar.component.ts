@@ -3,7 +3,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { PwaService } from '../../../app/core/pwa/pwa.service';
 
 /**
- * "A new version is ready" after a deploy (docs/pwa.md). It never reloads by
+ * "A new version is ready" after a deploy (docs/features/pwa.html). It never reloads by
  * itself, so nobody is cut off mid-way: the person chooses when to update.
  * Placed once, in the app root.
  */

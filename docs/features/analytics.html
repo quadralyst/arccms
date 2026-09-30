@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analytics | Arc CMS docs</title>
+  <meta name="description" content="Track visits with Google Analytics and show your GA4 numbers on the admin dashboard by connecting the property once.">
+  <meta name="docs:sources" content="functions/src/AnalyticsDashboard, src/app/pages/admin/(settings)/analytics-setting, src/app/pages/admin/(dashboard), src/shared/services/ga-tracking.service.ts, src/shared/services/google-oauth.service.ts, src/shared/services/analytics-connection-status.service.ts, src/app/app.config.ts, src/app/app.ts, src/environments/environment.example.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/analytics.html">
+  <main>
+    <h1>Analytics</h1>
+    <p class="lead">Arc CMS reports visits to Google Analytics from the browser, and, once you connect your GA4 property, shows the last 28 days of traffic on the admin dashboard.</p>
+
+    <h2>What it is</h2>
+    <p>Two separate parts, set up in different places:</p>
+    <table>
+      <thead><tr><th>Part</th><th>What it does</th><th>Set up with</th></tr></thead>
+      <tbody>
+        <tr><td>Tracking</td><td>Firebase Analytics (GA4) runs in the browser on the pages the app draws, recording page views and Arc CMS's own events. Published content pages and static pages carry no tracking code</td><td>The <code>measurementId</code> in your Firebase web config</td></tr>
+        <tr><td>Dashboard analytics</td><td>Cloud Functions read your GA4 property and the admin dashboard shows the numbers</td><td>A Google OAuth client, on Admin, Settings, Analytics</td></tr>
+      </tbody>
+    </table>
+    <p>Besides page views, tracking records these events:</p>
+    <table>
+      <thead><tr><th>Events</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td><code>content_list_view</code>, <code>content_detail_view</code>, <code>public_page_view</code>, <code>share_click</code></td><td>A content list, a content item or a static page is viewed, or a share button is clicked</td></tr>
+        <tr><td><code>waitlist_view</code>, <code>waitlist_signup_submit</code>, <code>waitlist_otp_verify</code>, <code>waitlist_signup_complete</code>, <code>waitlist_existing_user</code>, <code>waitlist_error</code></td><td>Steps of a signup form (see <a href="forms.html">Signup forms</a>)</td></tr>
+        <tr><td><code>referral_code_used</code>, <code>referral_link_copy</code>, <code>leaderboard_view</code>, <code>unsubscribe_view</code></td><td>A <code>ref</code> code is in the address (any page), a referral link is copied, or a leaderboard or unsubscribe page is viewed</td></tr>
+      </tbody>
+    </table>
+    <p>Content events need the <a href="content.html">Content</a> feature, and signup form events the <a href="forms.html">Signup forms</a> feature. UTM parameters and a <code>ref</code> code in the address are saved as user properties. After a form sign-up, the visitor is linked to their user id, their email domain and the form.</p>
+    <p>The dashboard shows nine numbers for the last 28 days, each compared with the 28 days before: Users, New Users, Sessions, Bounce Rate, Avg. Duration, Pages/Session, Pageviews, Event Count and Engaged Sessions. Beside them are five lists: Top Pages, Traffic Sources, Devices, Top Countries, and AI assistants (sessions sent by AI assistants, which GA4 files under Referral).</p>
+    <p>The other cards on the dashboard (content, users, sign-ups) are counted from Firestore, not from Google Analytics; see <a href="../admin/overview.html">Use the admin area</a>. App install numbers are on <a href="pwa.html">Installable app (PWA)</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Analytics is always on: it is core, not a switchable feature. Tracking runs whenever your Firebase web config has a <code>measurementId</code>. The dashboard part shows numbers only after you connect a property, and stops when you disconnect it.</p>
+    <div class="trap"><p>Tracking starts when a page loads and does not wait for the Site Usage banner (see <a href="banners.html">Banners</a>): Google Analytics runs whether a visitor accepts or rejects. If your site must have consent before tracking, the banner alone does not provide it.</p></div>
+
+    <h2>Set it up</h2>
+    <h3>Tracking</h3>
+    <p>Copy the web app config from the Firebase console, including <code>measurementId</code>, into your environment file (see <a href="../getting-started/configure.html">Configure a project</a>; the shape is in <code>src/environments/environment.example.ts</code>). Nothing else is needed.</p>
+    <h3>Dashboard analytics</h3>
+    <ol class="steps">
+      <li><p>In the Google Cloud console for your Firebase project, enable the <strong>Google Analytics Data API</strong> and the <strong>Google Analytics Admin API</strong>.</p></li>
+      <li><p>Create an <strong>OAuth client ID</strong> of type Web application. Add your site's address and <code>http://localhost:5173</code> under both Authorized JavaScript origins and Authorized redirect URIs, and also add <code>http://localhost</code> under Authorized JavaScript origins. If Google asks for a consent screen first, choose External and fill in the app name and emails.</p></li>
+      <li><p>Open Admin, Settings, Analytics, click <strong>Configure Analytics</strong>, paste the client ID and secret, and click <strong>Save Credentials</strong>. The page has these steps as a guide, with the addresses to copy.</p></li>
+      <li><p>Click <strong>Connect Google Analytics</strong> and allow access in the Google popup, with the account that can see your Analytics property.</p></li>
+      <li><p>Arc CMS lists the Analytics properties the account can see, under <strong>Select GA4 Property</strong>: pick the one your site reports to and click <strong>Connect</strong>. The first numbers are fetched straight away.</p></li>
+    </ol>
+
+    <h2>Use it</h2>
+    <p>Open the admin dashboard. When the numbers are more than 5 minutes old, opening it fetches fresh ones; <strong>Refresh</strong> fetches them at any time. The header shows when they were last fetched, and <strong>View Full Analytics</strong> opens your project's Analytics page in the Firebase console.</p>
+    <p>To connect another property or another account, click <strong>Disconnect</strong> on Admin, Settings, Analytics, then connect again. Disconnecting revokes Arc CMS's access at Google.</p>
+
+    <h2>Extend it</h2>
+    <p>Firebase Analytics is available in the browser through <code>@angular/fire/analytics</code>, so your own pages can log events with <code>logEvent</code>. Inject <code>Analytics</code> with <code>{ optional: true }</code>: it is not provided during server rendering. <code>GaTrackingService</code> (<code>src/shared/services/ga-tracking.service.ts</code>) is core; call its methods, but put new event helpers in your own code in <code>src/custom/</code>.</p>
+    <p>The dashboard's metrics and lists are fixed in core (<code>functions/src/AnalyticsDashboard/analyticsHelpers.ts</code>). A different set is a feature request for Arc CMS, not a change in an app.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>Settings/analytics</code></td><td>The OAuth client ID and secret, the access and refresh tokens, the chosen property, and whether it is connected</td></tr>
+        <tr><td><code>Settings/analytics_status</code></td><td>No secrets: whether it is connected, the property name and id, the measurement id, and when data was last fetched</td></tr>
+        <tr><td><code>AnalyticsDashboards/analyticsData</code></td><td>The last fetched numbers and lists, the date range and the property id</td></tr>
+      </tbody>
+    </table>
+    <p>Nothing is kept in Storage. The Cloud Functions, all callables:</p>
+    <table>
+      <thead><tr><th>Function</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>connectGoogleAnalytics</code></td><td>Exchanges the Google authorization for tokens, finds the property, fetches the first numbers</td></tr>
+        <tr><td><code>selectAnalyticsProperty</code></td><td>Saves the property you picked</td></tr>
+        <tr><td><code>refreshAnalyticsData</code></td><td>Fetches fresh numbers</td></tr>
+        <tr><td><code>disconnectGoogleAnalytics</code></td><td>Revokes access, clears the connection and deletes the stored numbers</td></tr>
+        <tr><td><code>testAnalyticsConnection</code></td><td>A debugging check for a service-account setup; the admin pages do not use it</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="../reference/cloud-functions.html">Cloud Functions</a> and <a href="../reference/data-model.html">Data model</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Who</th><th>Can</th></tr></thead>
+      <tbody>
+        <tr><td>Admin</td><td>Read and write <code>Settings/analytics</code> and <code>AnalyticsDashboards</code>; connect, pick a property, refresh and disconnect</td></tr>
+        <tr><td>Signed-in person</td><td>Read <code>Settings/analytics_status</code> (no secrets)</td></tr>
+      </tbody>
+    </table>
+    <p>The client secret is shown masked on the settings page and is only sent to Google by the functions.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>You see</th><th>Why, and what to do</th></tr></thead>
+      <tbody>
+        <tr><td>"No refresh token received"</td><td>Google remembers an earlier grant. Remove the app's access at <code>https://myaccount.google.com/permissions</code> and connect again.</td></tr>
+        <tr><td>"OAuth client ID and secret not configured"</td><td>Save the credentials before you connect.</td></tr>
+        <tr><td>"Google Analytics access has been revoked. Please reconnect."</td><td>The grant expired or was removed at Google. Connect again.</td></tr>
+        <tr><td>The Google popup shows an origin or redirect error, or "Authorization timed out"</td><td>The address you are on is not in the OAuth client's origins and redirect URIs; add it in the Google Cloud console. For a timeout, allow popups for your site.</td></tr>
+        <tr><td>Dashboard shows placeholders, no numbers</td><td>The stored numbers are for another property. Click <strong>Refresh</strong>.</td></tr>
+        <tr><td>"No GA4 property selected."</td><td>No property was picked when you connected, or the account can see none. On Admin, Settings, Analytics, click <strong>Disconnect</strong>, connect again, and pick a property.</td></tr>
+        <tr><td>No page views in Google Analytics</td><td>Check <code>measurementId</code> in the environment file, and look for Analytics in the browser's network requests.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

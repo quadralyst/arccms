@@ -133,7 +133,7 @@ export default class TiptapEditorComponent {
   showFiller = false;
   isOpenFormateOverlay = false;
   isOpenListTypeOverlay = false;
-  /** Structured blocks offered in the toolbar (docs/discoverability-spec.md, D-D10). */
+  /** Structured blocks offered in the toolbar (specs/discoverability-spec.md, D-D10). */
   readonly arcBlocks: readonly ArcBlockMeta[] = ARC_BLOCKS;
   isOpenBlocksOverlay = false;
 

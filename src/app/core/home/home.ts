@@ -2,7 +2,7 @@ import { CUSTOM_HOME } from '../../../custom/home';
 
 /**
  * Where each role lands after signing in, when no page asked for them
- * (docs/custom-code.md). Keys are roles (`admin`, `user`, or an install's own
+ * (docs/app/custom-space.html). Keys are roles (`admin`, `user`, or an install's own
  * role); `*` is everyone else.
  */
 export type HomePages = Partial<Record<string, string>>;

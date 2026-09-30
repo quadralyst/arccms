@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Add search | Arc CMS docs</title>
+  <meta name="description" content="Give your website a search box and a results page, choose which fields are searched, and rebuild the index.">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings)/search, src/app/pages/search.page.ts, src/app/pages/page.parts/public-search.component.ts, functions/src/search, public/_partials/_header.html, src/app/pages/admin/(search)">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/search.html">
+  <main>
+    <h1>Add search</h1>
+    <p class="lead">Search is on as soon as Arc CMS is installed: published content is searchable by everyone, from a box in the site header and a results page at <code>/search</code>. Your job is to put the box where you want it and choose which extra fields count. The full reference is <a href="../features/search.html">Search</a>.</p>
+
+    <h2>Place the search box</h2>
+    <p>The box is the <code>&lt;arc-search&gt;&lt;/arc-search&gt;</code> element in <code>public/_partials/_header.html</code>. Keep it where it should appear in your header, or remove it if you want no box. On published pages it becomes a plain form that works without JavaScript, with suggestions as you type; either way, it leads to <code>/search</code> (or <code>/{lang}/search</code> on a translated page).</p>
+    <p>The placeholder and messages come from the same <code>strings.json</code> files as other template text (see <a href="languages.html">Publish in more than one language</a>).</p>
+
+    <h2>Choose what is searched</h2>
+    <p>Titles and summaries of every published item are always searched. To add a custom field:</p>
+    <ol class="steps">
+      <li><p>Open <strong>Content</strong>, <strong>Content types</strong>, and edit the type.</p></li>
+      <li><p>Under <strong>Searchable custom fields</strong>, tick the plain text fields that should count, such as a subtitle or a location. Only <code>text</code> fields can be ticked.</p></li>
+      <li><p>Save. The search index for that type is rebuilt.</p></li>
+    </ol>
+    <p>Drafts are searchable too, but only by admins, from the search box at the top of admin pages.</p>
+
+    <h2>Check the index</h2>
+    <p>Open <strong>Settings</strong>, then <strong>Search</strong>. Under <strong>What is searchable</strong> you see each source, who can search it, and how many documents and entries it holds. New and changed items are indexed when they are published; press <strong>Rebuild everything</strong> once after your first deploy, or whenever results look out of date.</p>
+    <p>The <strong>Collections</strong> list on the same screen is for data a developer adds in code; a website does not need it.</p>
+
+    <h2>Next</h2>
+    <p>Start collecting leads: <a href="forms.html">Collect sign-ups</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

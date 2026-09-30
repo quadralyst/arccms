@@ -1,6 +1,6 @@
 /**
  * Client mirror of functions/src/shared/related-content.ts for the SPA
- * fallback (docs/discoverability-spec.md, D-D15). The query builder here
+ * fallback (specs/discoverability-spec.md, D-D15). The query builder here
  * is a plain word splitter rather than the search tokenizer; the callable
  * tokenizes the query itself, so the exact split does not matter.
  */

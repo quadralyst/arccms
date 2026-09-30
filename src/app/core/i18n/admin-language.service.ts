@@ -11,7 +11,7 @@
  * arrives well after the first paint: without the cache the admin would render
  * in English and visibly flip a moment later, every single load.
  *
- * Spec: docs/multilingual-spec.md — Phase M6.
+ * Spec: specs/multilingual-spec.md — Phase M6.
  */
 
 import { Injectable, PLATFORM_ID, computed, effect, inject, signal } from '@angular/core';

@@ -7,7 +7,7 @@
  * one way is looked up another and never found. Nothing in here touches
  * Firestore, so the behaviour is fully covered by tokenizer.spec.ts.
  *
- * Spec: docs/search-spec.md, decisions S-D3 to S-D6.
+ * Spec: specs/search-spec.md, decisions S-D3 to S-D6.
  */
 
 /** Prefixes are emitted from this length up to PREFIX_MAX (S-D4). */

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configuration keys | Arc CMS docs</title>
+  <meta name="description" content="Every key of arccms.config.json, the environment variables the scripts and functions read, and the exports of the custom space's starter files.">
+  <meta name="docs:sources" content="arccms.config.example.json, scripts/arc-install-config.mjs, scripts/arc-configure.mjs, src/app/core/config/arc-config.ts, src/environments/arc-install.ts, functions/src/arc-config.ts, functions/src/app-audience/config.ts, functions/scripts/arc-env.cjs, functions/.env, vite.config.ts, src/custom, functions/src/custom">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="reference/config-keys.html">
+  <main>
+    <h1>Configuration keys</h1>
+    <p class="lead">Arc CMS reads its settings from three places: the install config <code>arccms.config.json</code>, a few environment variables, and the starter files of the custom space. This page lists every key.</p>
+
+    <h2>The install config: arccms.config.json</h2>
+    <p>The optional file <code class="new">arccms.config.json</code> at the repository root says how Arc CMS sits in each Firebase project: which database, hosting site and bucket it uses. Without it every value is the default, which is right for a site that has a Firebase project to itself. Copy <code>arccms.config.example.json</code> to start:</p>
+    <pre><code>{
+  "profile": "standalone",
+  "projects": {
+    "your-project-id": {
+      "profile": "backend",
+      "databaseId": "arccms",
+      "hostingSite": "your-project-arccms",
+      "storageBucket": "your-project-arccms",
+      "storagePrefix": ""
+    }
+  }
+}</code></pre>
+    <p>Keys at the top level apply to every project; the keys under <code>projects</code> override them for one project. Nothing reads the file directly at run time: <code>npm run arc:configure</code> turns it into <code>src/environments/arc-install.ts</code>, <code>functions/.env.&lt;projectId&gt;</code> and, when needed, <code>firebase.&lt;projectId&gt;.json</code>, and the guided <code>npm run deploy</code> does the same before each deploy. How to set it up is on <a href="../getting-started/configure.html">Configure a project</a> and <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>.</p>
+
+    <h3>Keys</h3>
+    <table>
+      <thead><tr><th>Key</th><th>Type and default</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><code>profile</code></td><td><code>"standalone"</code> or <code>"backend"</code>. Default <code>"standalone"</code>.</td><td><code>standalone</code>: Arc CMS has the project to itself. <code>backend</code>: it shares the project with another app, so it must have its own <code>databaseId</code> (not <code>(default)</code>), <code>hostingSite</code> and <code>storageBucket</code>, <code>adminOnlySignIn</code> defaults to <code>yes</code>, and <code>arc:configure</code> prints the commands that create those resources.</td></tr>
+        <tr><td><code>projects</code></td><td>Object keyed by Firebase project id. Default none.</td><td>Settings for one project, laid over the top-level keys. <code>arc:configure --project=&lt;alias or id&gt;</code> resolves an alias from <code>.firebaserc</code> to the id.</td></tr>
+        <tr><td><code>databaseId</code></td><td>String. Default <code>"(default)"</code>.</td><td>The Firestore database Arc CMS reads and writes. Lowercase letters, digits and hyphens, 3 to 63 characters, starting with a letter; or <code>(default)</code>. Written to <code>arc-install.ts</code> for the browser, to <code>ARC_DATABASE_ID</code> for the functions, and to the generated Firebase config for rules and index deploys.</td></tr>
+        <tr><td><code>hostingSite</code></td><td>String. Default the project id (the project's first site).</td><td>The Firebase Hosting site the static pages are published to. <code>"none"</code> turns Hosting off: nothing is published and a deploy includes no Hosting. Written to <code>ARC_HOSTING_SITE</code> and the generated Firebase config.</td></tr>
+        <tr><td><code>storageBucket</code></td><td>String, without <code>gs://</code>. Default the bucket in the app's Firebase config.</td><td>The Storage bucket for uploads. Written to <code>arc-install.ts</code>, <code>ARC_STORAGE_BUCKET</code> and the generated Firebase config. With a named database but no bucket of its own, Arc CMS deploys no Storage rules, because a bucket has one rules file and the other app's would be replaced.</td></tr>
+        <tr><td><code>storagePrefix</code></td><td>String. Default <code>""</code> (the bucket root).</td><td>A folder every new upload goes under, such as <code>"arccms/"</code>. Must be one folder ending in a slash. Written to <code>arc-install.ts</code> and <code>ARC_STORAGE_PREFIX</code>.</td></tr>
+        <tr><td><code>adminOnlySignIn</code></td><td><code>"yes"</code> or <code>"no"</code>. Default <code>"yes"</code> for <code>backend</code>, else <code>"no"</code>.</td><td>Onboarding turns sign-ups off once the first admin exists. Written to <code>arc-install.ts</code>. See <a href="../features/sign-in.html">Sign-in methods</a>.</td></tr>
+        <tr><td><code>appUsersDatabase</code></td><td>String. Default <code>"(default)"</code>.</td><td>The database that holds the host app's users, for the App audience. Written to <code>ARC_APP_USERS_DATABASE</code>. See <a href="../features/app-audience.html">App audience</a>.</td></tr>
+        <tr><td><code>appUsersPath</code></td><td>String, <code>&lt;collection&gt;/{id}</code>. Default a collection nothing writes to.</td><td>The host app's user documents, one top-level collection, such as <code>users/{uid}</code>. Written to <code>ARC_APP_USERS_PATH</code>.</td></tr>
+        <tr><td><code>appUsers</code></td><td><code>"own"</code>. Default not set.</td><td>The App audience is this install's own <code>users</code> collection; sets <code>appUsersDatabase</code> to <code>databaseId</code> and <code>appUsersPath</code> to <code>users/{id}</code>.</td></tr>
+        <tr><td><code>region</code></td><td>String, a Firestore or Storage location. Default not set.</td><td>Used only in the setup commands <code>arc:configure</code> prints for a <code>backend</code> install.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="trap"><p>Every value is a string. <code>arc:configure</code> drops any other type without a word, so <code>"adminOnlySignIn": true</code> is ignored and the default applies. Write <code>"yes"</code> or <code>"no"</code>, or use the flag: <code>npm run arc:configure -- --admin-only-sign-in=yes</code>.</p></div>
+
+    <p>Each key has a flag that sets it for one project and writes the file for you: <code>--profile</code>, <code>--database</code>, <code>--site</code>, <code>--bucket</code>, <code>--prefix</code>, <code>--region</code>, <code>--app-users-database</code>, <code>--app-users-path</code>, <code>--app-users</code>, <code>--admin-only-sign-in</code>. Add <code>--dry-run</code> to see what would change.</p>
+
+    <h2>Environment variables</h2>
+    <p>The Cloud Functions read their install settings from <code>functions/.env</code> (the committed defaults) overridden by <code>functions/.env.&lt;projectId&gt;</code>. <code>arc:configure</code> writes the <code>ARC_</code> lines of the project's file and keeps every other line, so set these through <code>arccms.config.json</code>, not by hand.</p>
+    <table>
+      <thead><tr><th>Variable</th><th>Default</th><th>Read by and effect</th></tr></thead>
+      <tbody>
+        <tr><td><code>ARC_DATABASE_ID</code></td><td><code>(default)</code></td><td>The functions: the database they use, and, as a deploy-time parameter, the database every Firestore trigger listens on. Always written, because a non-interactive deploy refuses a parameter with no value.</td></tr>
+        <tr><td><code>ARC_HOSTING_SITE</code></td><td>The project id</td><td>The functions and the seed scripts: the Hosting site pages are published to. <code>none</code> turns publishing off.</td></tr>
+        <tr><td><code>ARC_STORAGE_BUCKET</code></td><td>The project's default bucket</td><td>The functions: the bucket Arc CMS files live in, such as the folder deleted with an account.</td></tr>
+        <tr><td><code>ARC_STORAGE_PREFIX</code></td><td>Empty (bucket root)</td><td>The functions: the upload folder, ending in <code>/</code>.</td></tr>
+        <tr><td><code>ARC_APP_USERS_DATABASE</code></td><td><code>(default)</code></td><td>The functions, as a deploy-time parameter: the database of the host app's users.</td></tr>
+        <tr><td><code>ARC_APP_USERS_PATH</code></td><td><code>_arccms_app_users_not_configured/{id}</code></td><td>The functions, as a deploy-time parameter: the host app's user documents, watched by the App audience trigger. The default is a path nothing writes to.</td></tr>
+        <tr><td><code>PORT</code></td><td>Vite's own (5173)</td><td><code>npm run dev</code>: the dev server's port, so a second one can run beside the first.</td></tr>
+        <tr><td><code>USE_DEV_ENV</code></td><td>Not set</td><td><code>npm run build</code>: <code>true</code> builds for production with <code>src/environments/environment.ts</code> instead of <code>src/environments/environment.prod.ts</code>. <code>deploy:dev</code> sets it.</td></tr>
+        <tr><td><code>GCLOUD_PROJECT</code></td><td>The alias's project in <code>.firebaserc</code></td><td><code>npm run seed:dev</code> and <code>seed:prod</code>: the project to seed, when set.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="trap"><p>A trigger's database is fixed when the function is deployed, from <code>ARC_DATABASE_ID</code> in the dotenv files. Change <code>databaseId</code>, run <code>arc:configure</code>, then deploy the functions again, or the triggers keep listening on the old database.</p></div>
+
+    <h2>Custom space starter exports</h2>
+    <p>An app configures Arc CMS through the starter files of the custom space. Arc CMS ships each one empty and never edits it again. See <a href="../app/custom-space.html">Use the custom space</a>.</p>
+    <table>
+      <thead><tr><th>Export</th><th>File and type</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>CUSTOM_FEATURES</code></td><td><code>src/custom/features.ts</code>, <code>FeatureChoice</code>: <code>{ on?: FeatureId[]; off?: FeatureId[] }</code></td><td>The features the app turns on (<code>pwa</code>) or off. Empty: every feature except <code>pwa</code>. See <a href="feature-ids.html">Feature ids</a>.</td></tr>
+        <tr><td><code>CUSTOM_ROUTES</code></td><td><code>src/custom/routes.ts</code>, Angular <code>Routes</code></td><td>The app's own routes, added after Arc CMS's explicit routes and before the file-based pages, so an app page cannot replace a core page. See <a href="../app/pages-and-routes.html">Add pages and routes</a>.</td></tr>
+        <tr><td><code>CUSTOM_NAV</code></td><td><code>src/custom/nav.ts</code>, <code>MenuItem[]</code></td><td>The app's items in the admin menu, shown before Profile. Each item takes <code>label</code>, <code>labelKey</code>, <code>route</code> or <code>externalUrl</code>, <code>icon</code>, <code>subItems</code>, <code>allowRoles</code> and <code>feature</code>. See <a href="../app/admin-menu.html">Add admin menu items</a>.</td></tr>
+        <tr><td><code>CUSTOM_HOME</code></td><td><code>src/custom/home.ts</code>, <code>HomePages</code>: role to path</td><td>Where each role lands after signing in, laid over the defaults (<code>admin</code>: <code>/admin/dashboard</code>, everyone else: <code>/user/dashboard</code>). <code>'*'</code> covers roles not listed, but not <code>admin</code>, which keeps its default unless you list it. A sign-in that started from a page returns there instead. See <a href="../app/member-area.html">Build the member area</a>.</td></tr>
+        <tr><td><code>CUSTOM_USER_DASHBOARD</code></td><td><code>src/custom/user-dashboard.ts</code>, <code>UserDashboardLoader | null</code></td><td>A loader for the app's own page at <code>/user/dashboard</code>. <code>null</code> shows Arc CMS's dashboard. See <a href="../app/member-area.html">Build the member area</a>.</td></tr>
+        <tr><td><code>CUSTOM_PWA</code></td><td><code>src/custom/pwa.ts</code>, <code>Partial&lt;PwaConfig&gt;</code></td><td>The installable app's <code>name</code>, <code>shortName</code>, <code>description</code>, <code>themeColor</code>, <code>backgroundColor</code> and <code>startUrl</code>, laid over the defaults in <code>src/app/core/pwa/pwa-config.ts</code>. Used only when <code>pwa</code> is on. See <a href="../app/pwa.html">Make it installable</a>.</td></tr>
+        <tr><td><code>SEARCH_COLLECTIONS</code></td><td><code>functions/src/custom/search-sources.ts</code>, <code>string[]</code></td><td>Collections the app makes searchable besides content. Each gets its own trigger, so adding or removing one needs a functions deploy; fields and results are set in the admin under Settings, Search. See <a href="../features/search.html">Search</a>.</td></tr>
+        <tr><td><code>CUSTOM_SEARCH_SOURCES</code></td><td><code>functions/src/custom/search-sources.ts</code>, <code>SearchSource[]</code></td><td>Search sources written in code, for what the settings cannot express. A ready-made one for products is in <code>functions/src/search/sources/products.ts</code>. See <a href="../features/search.html">Search</a>.</td></tr>
+      </tbody>
+    </table>
+    <p>The other starter files have no settings to export: <code>src/custom/pages/</code> (file-based pages), <code>src/custom/i18n/</code> (translations), <code>src/custom/styles.css</code> (global styles), <code>functions/src/custom/index.ts</code> (the app's Cloud Functions, deployed as <code>arccms-custom-&lt;name&gt;</code>) and <code>functions/src/custom/public-callables.txt</code> (the app's callables, one per line, for the post-deploy access check).</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

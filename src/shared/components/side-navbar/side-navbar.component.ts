@@ -51,7 +51,7 @@ export type MenuItem = {
 };
 
 /**
- * The menu without the items of features that are off (docs/feature-flags-spec.md):
+ * The menu without the items of features that are off (specs/feature-flags-spec.md):
  * a group whose sub-items all go goes too, and separators never lead, trail or
  * double up. Returns new objects; `items` is left alone.
  */
@@ -73,7 +73,7 @@ export function withoutFeaturesOff(items: readonly MenuItem[], on: (id: FeatureI
 }
 
 /**
- * Put the app's menu items (src/custom/nav.ts, docs/custom-code.md) before
+ * Put the app's menu items (src/custom/nav.ts, docs/app/custom-space.html) before
  * Profile, or at the end when there is no Profile item. Changes `items` in place.
  */
 export function insertCustomNav(items: MenuItem[], custom: readonly MenuItem[]): MenuItem[] {
@@ -338,7 +338,7 @@ export default class NavbarComponent extends BaseComponent {
         // Audience → Contacts supersedes it.
         const separator = (): MenuItem => ({ label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
         const [dashboard, signupForms, mediaManager, ...rest] = this.baseMenuItems;
-        // Items of features that are off go (docs/feature-flags-spec.md), and
+        // Items of features that are off go (specs/feature-flags-spec.md), and
         // with them any separator left with nothing to separate.
         const items = withoutFeaturesOff([
             dashboard, signupForms, ...dynamicWaitlistItems, mediaManager,

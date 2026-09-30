@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Feature ids | Arc CMS docs</title>
+  <meta name="description" content="The ten feature ids you can turn on or off in src/custom/features.ts, their defaults, what each needs, and what goes when it is off.">
+  <meta name="docs:sources" content="src/app/core/features, src/custom/features.ts, functions/src/features, functions/src/feature-flags.ts, functions/src/all.ts, scripts/arc-features.mjs, vite.config.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="reference/feature-ids.html">
+  <main>
+    <h1>Feature ids</h1>
+    <p class="lead">An app turns Arc CMS features on or off by id in <code>src/custom/features.ts</code>. This page lists every id, its default, what it needs, and what goes when it is off.</p>
+
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    on: ['pwa'],
+    off: ['sms', 'payments'],
+};</code></pre>
+    <p>An empty choice means every feature is on except <code>pwa</code>. The choice is checked when <code>npm run dev</code> or <code>npm run build</code> starts and before every functions build: an unknown id, an id in both lists, or a feature whose need is off stops it with a message that says what to change. How to choose is on <a href="../website/choose-features.html">Choose your website's features</a> and <a href="../app/choose-features.html">Choose your app's features</a>.</p>
+
+    <h2>The ids</h2>
+    <table>
+      <thead><tr><th>Id</th><th>Default</th><th>Needs</th><th>What goes when it is off</th></tr></thead>
+      <tbody>
+        <tr><td><code>content</code></td><td>On</td><td>None</td><td>The Content menu and its admin pages (content types, templates, tags, authors), the public content pages, the default content types onboarding creates, the content preset in data export, and content in search. Functions: <code>processPublishQueue</code>, <code>onContentTypeDeleted</code>, <code>seedStaticPages</code>. See <a href="../features/content.html">Content</a>.</td></tr>
+        <tr><td><code>search</code></td><td>On</td><td>None</td><td>The public search page, the search box on published pages, the admin search box in the page header, Search settings, and related content on content pages. Functions: <code>search</code>, <code>reindexSearch</code>, <code>listSearchCollections</code>, <code>sampleCollectionFields</code>, the trigger for each searchable collection, and <code>onSearchQueued</code> (which also needs <code>content</code>). See <a href="../features/search.html">Search</a>.</td></tr>
+        <tr><td><code>seo</code></td><td>On</td><td>None</td><td>Discoverability settings, the sitemap, RSS feeds, <code>robots.txt</code> and <code>llms.txt</code> files published with the site, and IndexNow notices on publish. Function: <code>regenerateSeoFiles</code>. See <a href="../features/seo.html">SEO and discoverability</a>.</td></tr>
+        <tr><td><code>forms</code></td><td>On</td><td><code>audience</code></td><td>Signup forms: their admin pages, form email templates, joined users, the public form, leaderboard and member pages, referrals, and the default form onboarding creates. Functions: the form, signup code, referral, leaderboard and form email template functions. See <a href="../features/forms.html">Signup forms</a>.</td></tr>
+        <tr><td><code>audience</code></td><td>On</td><td>None</td><td>Contacts, lists, the list hub, contact tags, contact fields, App users and App audience settings. Nothing creates contacts or keeps them in step with users and form sign-ups. Functions: the contact, list, import and App audience functions. See <a href="../features/audience.html">Audience</a>.</td></tr>
+        <tr><td><code>email-marketing</code></td><td>On</td><td><code>audience</code></td><td>Broadcasts, drip campaigns and announcements, with their menu items. Joining a list does not start campaigns. Functions: <code>processBroadcast</code>, <code>continueBroadcast</code>, <code>processScheduledBroadcasts</code>, <code>previewBroadcastAudience</code>, <code>processDripQueue</code>, <code>activateDripCampaign</code>, <code>archiveDripCampaign</code>, <code>migrateWelcomeToSequences</code>, <code>sendAnnouncement</code>. See <a href="../features/email-marketing.html">Email marketing</a>.</td></tr>
+        <tr><td><code>sms</code></td><td>On</td><td>None</td><td>SMS settings, SMS logs and phone sign-in (it needs an SMS provider). Functions: the phone sign-in and PIN functions and <code>sendTestSms</code>. See <a href="../features/sms.html">SMS</a>.</td></tr>
+        <tr><td><code>payments</code></td><td>On</td><td>None</td><td>Products, transactions and payment settings in the admin; pricing, checkout and account pages; the member area's premium and payments pages. Functions: checkout and test checkout links, the payment webhook, payment event processing, the connection test, the daily scans (trial endings, updates ending, expired entitlements) and <code>consumeCredits</code>. See <a href="../features/payments.html">Payments</a>.</td></tr>
+        <tr><td><code>data</code></td><td>On</td><td>None</td><td>The Data menu and its import and export pages. It has no functions. See <a href="../features/data.html">Data import and export</a>.</td></tr>
+        <tr><td><code>pwa</code></td><td>Off</td><td>None</td><td>Turned on with <code>on: ['pwa']</code>. While off there is no web manifest, no app icons and no service worker, and the install tracking function <code>trackPwaEvent</code> is not deployed. See <a href="../features/pwa.html">Installable app (PWA)</a>.</td></tr>
+      </tbody>
+    </table>
+
+    <p>A page of a feature that is off answers with the not-found page. A full functions deploy deletes the functions of a feature that is off; the exact functions of each feature are in <a href="cloud-functions.html">Cloud Functions</a>.</p>
+
+    <div class="trap"><p>Turning a feature off and then running a full functions deploy deletes its deployed functions. <code>npm run deploy</code> lists them and asks first; <code>npm run deploy:dev</code> and <code>npm run deploy:prod</code> do not ask. The feature's data in Firestore stays.</p></div>
+
+    <h2>Always on</h2>
+    <p>Everything that is not in the table is core and cannot be turned off:</p>
+    <ul>
+      <li><a href="../features/users-and-roles.html">Users and roles</a>, onboarding and the first admin, profiles and account deletion.</li>
+      <li><a href="../features/sign-in.html">Sign-in methods</a> with email and Google. Phone sign-in belongs to <code>sms</code>.</li>
+      <li><a href="../features/media.html">Media</a>, including the Unsplash search.</li>
+      <li><a href="../features/languages.html">Languages</a> (localization settings).</li>
+      <li>The <a href="../features/email.html">Email engine</a>: email settings, the brand kit, the composer, email logs, sending and retries, unsubscribe and the preference center.</li>
+      <li><a href="../features/automations.html">Automations</a> settings.</li>
+      <li><a href="../features/notifications.html">Notifications</a> and the admin digest.</li>
+      <li>The <a href="../features/feedback.html">Feedback button</a>.</li>
+      <li><a href="../features/analytics.html">Analytics</a>.</li>
+      <li><a href="../features/banners.html">Banners</a>: the site message and the site usage banner.</li>
+      <li>The member dashboard and profile, see <a href="../app/member-area.html">Build the member area</a>.</li>
+    </ul>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

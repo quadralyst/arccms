@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A tour of the folders | Arc CMS docs</title>
+  <meta name="description" content="What each top-level folder and file of the Arc CMS repository is for, and which ones are core and which belong to your app.">
+  <meta name="docs:sources" content="src/app, src/shared, src/custom, src/environments, functions/src, functions/scripts, scripts, public, tests, docs, firebase.json, firestore.rules, storage.rules, firestore.indexes.json, index.html, vite.config.ts, scripts/check-core.mjs">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="getting-started/folder-tour.html">
+  <main>
+    <h1>A tour of the folders</h1>
+    <p class="lead">Know where things live before you change them. Most of the repository is Arc CMS itself (core); a small set of folders and files belongs to your app (the custom space).</p>
+
+    <p>The "Kind" column below is the same sorting <code>npm run check:core</code> uses: <strong>core</strong> is Arc CMS's own code, <strong>custom</strong> is your app's, and <strong>install</strong> is the settings of one installation. In an app built on a copy of Arc CMS, you change custom and install files only. <a href="../concepts/core-and-custom.html">Core and custom</a> explains the rule.</p>
+
+    <h2>The browser app</h2>
+    <table>
+      <thead><tr><th>Path</th><th>Kind</th><th>What it holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/app/</code></td><td>Core</td><td>The Angular app. <code>src/app/pages/</code> holds the pages, found by file name (AnalogJS file-based routing), <code>src/app/app.routes.ts</code> the routes that need to be listed by hand, <code>src/app/core/</code> the services every page uses (install settings, features, languages, the installable app) and <code>src/app/guards/</code> the route guards.</td></tr>
+        <tr><td><code>src/shared/</code></td><td>Core</td><td>Building blocks shared by the pages: components (such as the table and the page header), services, models, constants and the email compiler.</td></tr>
+        <tr><td><code>src/custom/</code></td><td>Custom</td><td>Your app's pages, routes, admin menu items, member dashboard, landing pages per role, translations, styles, installable app settings and feature choices (<code>src/custom/features.ts</code>).</td></tr>
+        <tr><td><code>src/environments/</code></td><td>Install</td><td>The Firebase web config for each build (<code>src/environments/environment.ts</code>, <code>src/environments/environment.prod.ts</code>) and <code>src/environments/arc-install.ts</code>, which <code>npm run arc:configure</code> writes.</td></tr>
+        <tr><td><code>src/assets/</code>, <code>src/styles/</code></td><td>Core</td><td>Files bundled into the app, such as the interface translations in <code>src/assets/i18n/</code>, and the global styles.</td></tr>
+        <tr><td><code>src/test/</code></td><td>Core</td><td>Test setup and the providers that page tests share.</td></tr>
+        <tr><td><code>index.html</code></td><td>Core</td><td>The page the app starts in. It loads <code>src/custom/styles.css</code> last, so your styles win.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>The server side</h2>
+    <table>
+      <thead><tr><th>Path</th><th>Kind</th><th>What it holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>functions/src/</code></td><td>Core</td><td>The Cloud Functions, one folder per area (<code>functions/src/users/</code>, <code>functions/src/search/</code>, <code>functions/src/pages/</code> and so on). <code>functions/src/all.ts</code> lists every function, <code>functions/src/features/</code> the functions of each switchable feature, and <code>functions/src/__tests__/</code> their tests.</td></tr>
+        <tr><td><code>functions/src/custom/</code></td><td>Custom</td><td>Your app's own functions and triggers, the callables the deploy checks, and the collections your app makes searchable.</td></tr>
+        <tr><td><code>functions/scripts/</code></td><td>Core</td><td>Helpers the deploy runs: publishing the generated pages and checking that callables are reachable.</td></tr>
+        <tr><td><code>firestore.rules</code>, <code>storage.rules</code>, <code>firestore.indexes.json</code></td><td>Core</td><td>Arc CMS's security rules and database indexes.</td></tr>
+        <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code></td><td>Custom</td><td>Your app's rules and indexes. They are optional: create them when your app has data of its own. Every deploy combines them with the core files (see <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>).</td></tr>
+        <tr><td><code>firebase.json</code></td><td>Core</td><td>The Firebase CLI config: the <code>arccms</code> functions codebase, the rules and index files, and the hosting settings.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>The public site</h2>
+    <table>
+      <thead><tr><th>Path</th><th>Kind</th><th>What it holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>public/</code></td><td>Core</td><td>Files served on the site as they are: the content templates (<code>public/templates/</code>), the static pages (<code>public/pages/</code>), the shared header and footer (<code>public/_partials/</code>), translated home pages (<code>public/i18n/</code>) and assets. A website designs its templates here; <code>npm run check:core</code> counts a change here as a core change. See <a href="../website/templates.html">Design templates</a>.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Tooling, tests and docs</h2>
+    <table>
+      <thead><tr><th>Path</th><th>Kind</th><th>What it holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>scripts/</code></td><td>Core</td><td>The command-line tools behind the npm scripts: the guided deploy, <code>arc:configure</code>, the rules build, <code>check:core</code> and the docs tools. See <a href="../reference/npm-scripts.html">npm scripts</a>.</td></tr>
+        <tr><td><code>tests/rules/</code></td><td>Core</td><td>Tests of the combined security rules, run with <code>npm run test:rules</code>.</td></tr>
+        <tr><td><code class="new">tests/rules/custom/</code></td><td>Custom</td><td>Your app's own rules tests.</td></tr>
+        <tr><td><code>docs/</code></td><td>Core</td><td>This developer documentation.</td></tr>
+        <tr><td><code>docs/custom/</code></td><td>Custom</td><td>Your app's own docs.</td></tr>
+        <tr><td><code>package.json</code>, <code>functions/package.json</code></td><td>Core, reviewed</td><td>The dependency lists and npm scripts. An app may add dependencies; <code>npm run check:core</code> lists the change for a look but allows it.</td></tr>
+        <tr><td><code>vite.config.ts</code>, <code>angular.json</code>, <code>tsconfig.json</code>, <code>vitest.config.ts</code></td><td>Core</td><td>Build and test configuration.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Files you will not find in the repository</h2>
+    <p>Some files are made per checkout and are not committed:</p>
+    <ul>
+      <li><code>.firebaserc</code>: your Firebase project aliases, written by <code>firebase use --add</code>.</li>
+      <li><code>arccms.config.json</code>: the install settings of each Firebase project (copy <code>arccms.config.example.json</code> to start). See <a href="configure.html">Configure a project</a>.</li>
+      <li><code>firebase.{projectId}.json</code> and <code>functions/.env.{projectId}</code>: generated from <code>arccms.config.json</code> by <code>npm run arc:configure</code> and by the guided deploy.</li>
+      <li><code>.arc-build/</code>: the combined rules and indexes, built before every deploy.</li>
+      <li><code>.arc-deploy-state.json</code>: what the guided deploy remembers about your last deploys.</li>
+      <li><code>functions/src/*.gen.ts</code>: the list of features the functions build includes, generated from <code>src/custom/features.ts</code> before every functions build.</li>
+    </ul>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

@@ -2,7 +2,7 @@
  * npm run arc:upgrade -- --project=<alias or id> [--dry-run]
  *
  * One-time move of an existing install to the arccms- function names
- * (docs/coexistence-spec.md, CO4, section 4.1).
+ * (specs/coexistence-spec.md, CO4, section 4.1).
  *
  * Old and new names cannot overlap: two copies of every trigger would send every
  * welcome email, drip step and notification twice. So this deletes the old
@@ -12,7 +12,7 @@
  * Old URLs stop working: open-tracking pixels and links in emails already sent,
  * webhook URLs registered with Dodo and the email provider, and the search
  * endpoint in static pages published before the upgrade. Re-register the
- * webhooks and republish pages afterwards (docs/coexistence-spec.md, CO-D6).
+ * webhooks and republish pages afterwards (specs/coexistence-spec.md, CO-D6).
  *
  * Only functions whose names ArcCMS exports AND that are not already in the
  * arccms codebase are deleted, so another app's functions in the same project
@@ -32,7 +32,7 @@ const NEW_CODEBASE = 'arccms';
 /**
  * ArcCMS functions removed from the code since installs started upgrading, whose
  * old-name copies must still be deleted: the search triggers that fired on every
- * write (docs/feature-flags-spec.md 6.5).
+ * write (specs/feature-flags-spec.md 6.5).
  */
 export const RETIRED_FUNCTIONS = ['onAnyDocumentWritten', 'onTranslationWritten'];
 
@@ -72,7 +72,7 @@ function run(cmd, args, { capture = false, cwd = ROOT } = {}) {
 
 /**
  * Every function name ArcCMS has, read from the built functions: the exported
- * ones and those of features this app turned off (docs/feature-flags-spec.md),
+ * ones and those of features this app turned off (specs/feature-flags-spec.md),
  * whose old-name copies must go too although nothing replaces them.
  */
 async function arcFunctionNames() {

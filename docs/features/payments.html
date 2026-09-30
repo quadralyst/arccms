@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payments | Arc CMS docs</title>
+  <meta name="description" content="Sell one-time purchases and subscriptions through Dodo Payments: products, pricing tiers, checkout, transactions, credits and payment emails.">
+  <meta name="docs:sources" content="functions/src/dodo-payments, functions/src/features/payments.ts, src/app/pages/admin/(products), src/app/pages/admin/(transactions), src/app/pages/admin/(settings)/payments, src/app/pages/pricing, src/app/pages/checkout-success, src/app/pages/checkout-cancel, src/app/pages/account, src/app/pages/user/payments, src/app/pages/user/premium, src/app/pages/payments-ui, src/app/core/features/feature-routes.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/payments.html">
+  <main>
+    <h1>Payments</h1>
+    <p class="lead">Sell one-time purchases and subscriptions with Dodo Payments. A purchase gives the buyer a plan (and, if you want, prepaid credits) on their account, which your pages can check.</p>
+
+    <h2>What it is</h2>
+    <p>Payments connects Arc CMS to <a href="https://dodopayments.com">Dodo Payments</a>, the only payment provider Arc CMS supports. Dodo hosts the checkout page and takes the money; Arc CMS keeps the product list, records every payment, and writes the buyer's plan onto their account. It gives you:</p>
+    <ul>
+      <li><strong>Products</strong> (admin): a mirror of your Dodo products, with the plan each one grants, pricing tiers and credits.</li>
+      <li><strong>Transactions</strong> (admin): every payment, failure and refund Dodo reports.</li>
+      <li><strong>A pricing page</strong> at <code>/pricing</code>, checkout through Dodo, and return pages at <code>/checkout/success</code> and <code>/checkout/cancel</code>.</li>
+      <li><strong>Member pages</strong>: Payments (<code>/user/payments</code>), Membership and billing (<code>/account</code>), and a members-only example page (<code>/user/premium</code>).</li>
+      <li><strong>Prepaid credits</strong>: a balance per person, granted by purchases and spent by your app.</li>
+      <li><strong>Payment emails</strong>, member notifications and admin alerts.</li>
+    </ul>
+    <p>How an app checks what a person has paid for is on its own page: <a href="entitlements.html">Premium entitlements</a>. For when to use payments in an app, see <a href="../app/payments.html">Add payments and premium features</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Payments is a switchable feature, id <code>payments</code>, on by default. It needs no other feature. To turn it off, list it in <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    off: ['payments'],
+};</code></pre>
+    <p>When it is off:</p>
+    <ul>
+      <li>Every payments URL shows the not-found page: <code>/pricing</code>, <code>/checkout/...</code>, <code>/account</code>, <code>/user/payments</code>, <code>/user/premium</code>, <code>/admin/products</code>, <code>/admin/transactions</code> and <code>/admin/settings/payments</code>.</li>
+      <li>Products and Transactions leave the admin menu, and the Payments card leaves Settings.</li>
+      <li>The member area hides its Payments, Account, Premium and Plans links and does not load the plan.</li>
+      <li>The payment Cloud Functions are not built, so a full functions deploy deletes them.</li>
+    </ul>
+    <p>Data already in Firestore stays. The full list of feature ids is in <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li><p><strong>In Dodo:</strong> create your products (one-time or subscription). For each pricing tier you plan to offer, create a discount code. A code's own usage limit is what caps a tier.</p></li>
+      <li><p><strong>Deploy the functions</strong> (see <a href="../operations/targeted-deploys.html">Deploy only what changed</a>). The webhook receiver is deployed as <code>arccms-dodoWebhook</code>.</p></li>
+      <li><p><strong>In Dodo, add a webhook</strong> whose URL is the deployed <code>arccms-dodoWebhook</code> function (its URL is in the Firebase console, Functions). Copy the webhook's signing secret.</p></li>
+      <li>
+        <p><strong>In Arc CMS, open Settings, Payments</strong> and fill in:</p>
+        <table>
+          <thead><tr><th>Field</th><th>What to enter</th></tr></thead>
+          <tbody>
+            <tr><td>Enable Dodo Payments</td><td>On. With it off, checkout and test links fail.</td></tr>
+            <tr><td>Mode</td><td>Test while you try it, Live for real sales.</td></tr>
+            <tr><td>Test API Key, Live API Key</td><td>From Dodo. The key for the selected mode is used.</td></tr>
+            <tr><td>Webhook Signing Secret</td><td>The secret from the step before.</td></tr>
+            <tr><td>Success / Return URL</td><td><code>https://your-site/checkout/success</code></td></tr>
+            <tr><td>Cancel URL</td><td><code>https://your-site/checkout/cancel</code></td></tr>
+          </tbody>
+        </table>
+        <p>Save, then press <strong>Test Connection</strong>. Saved keys and the secret show as dots; they are only replaced when you type a new value.</p>
+      </li>
+      <li><p><strong>Open Products, New Product</strong> for each Dodo product: its name, the <strong>Dodo Product ID</strong> (<code>prod_...</code>), the type, and the plan it grants (<strong>Premium type</strong> such as <code>gold</code>, and <strong>Tier rank</strong>, higher means more access). Mark it Active to show it on the pricing page. The other fields are below.</p></li>
+      <li><p><strong>Try it in Test mode.</strong> Buy from <code>/pricing</code> with a test card, then check Transactions and the buyer's <code>/account</code> page.</p></li>
+      <li><p><strong>Go live:</strong> switch Mode to Live and enter the Live API Key. Settings holds one signing secret, so it must be the secret of the webhook that sends the events of the mode you use.</p></li>
+    </ol>
+
+    <h3>Product fields</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>Type</td><td>One-time (lifetime access) or Subscription.</td></tr>
+        <tr><td>Interval, Trial days</td><td>Subscriptions only. The trial is passed to Dodo at checkout.</td></tr>
+        <tr><td>Free-updates years</td><td>One-time only. Access never ends; the buyer's <code>updatesUntil</code> date is set this far ahead, and a reminder email goes out 14 days before it.</td></tr>
+        <tr><td>Credits granted</td><td>Credits added for each successful charge: once for a one-time purchase, again on every subscription renewal. 0 means none.</td></tr>
+        <tr><td>Premium type, Tier rank</td><td>The plan written on the buyer's account. See <a href="entitlements.html">Premium entitlements</a>.</td></tr>
+        <tr><td>List price, Currency, Features</td><td>Shown on the pricing page only. Dodo charges its own price.</td></tr>
+        <tr><td>Pricing tiers</td><td>Optional headcount pricing, below.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Pricing tiers</h3>
+    <p>Tiers give the first buyers a better price, such as "first 100 buyers get 40% off". Each tier has a label, a limit (the cumulative number of buyers it covers), a Dodo discount code, and a display percentage and price. A new buyer gets the first tier whose limit is higher than the number of confirmed buyers so far; a limit of 0 means "everyone else" and belongs last. The code is applied at checkout. Only a first purchase or a first subscription activation counts as a buyer; renewals do not.</p>
+    <p>Each tier has a <strong>Test payment link</strong>: a real Dodo checkout with that tier's code, so you can check the price. A purchase through it is marked test in Transactions and grants no plan, no credits, no email, and does not count as a buyer.</p>
+    <div class="trap"><p>A subscription tier keeps its discount on renewals only when the Dodo discount code is set up as recurring. A one-time code discounts the first payment and the buyer pays full price from the first renewal.</p></div>
+
+    <h3>Payment emails</h3>
+    <p>Settings, Payments, Payment Emails has four emails you can switch on or off and edit: Payment succeeded, Payment / renewal failed, Subscription lifecycle (trial started, past due, on hold, cancelled, expired, refunded) and Trial ending soon (sent once when a trial ends within 3 days). A test send must be confirmed before a template can be saved. The free-updates reminder (<code>updates_ending_email</code>) is edited in the email composer. They go through the email engine: see <a href="email.html">Email engine</a> and <a href="../reference/email-tags.html">Email merge tags</a>.</p>
+
+    <h2>Use it</h2>
+    <h3>What a buyer does</h3>
+    <ol class="steps">
+      <li><p>Opens <code>/pricing</code>, which lists the active products.</p></li>
+      <li><p>Presses buy. A visitor who is not signed in is sent to sign in first and comes back to <code>/pricing</code>. The <code>createCheckoutSession</code> function picks the pricing tier, and the browser goes to Dodo's checkout.</p></li>
+      <li><p>Pays. Dodo sends them to the Success URL. <code>/checkout/success</code> waits for the webhook to grant the plan (checking every 3 seconds, for about 45 seconds), then links to <code>/account</code>.</p></li>
+    </ol>
+    <p>Members see their plan, credit balance, recent activity and full transaction history on <code>/user/payments</code> and <code>/account</code>. <code>/user/premium</code> opens only for a paying member; others are sent to <code>/pricing</code>.</p>
+
+    <h3>What each Dodo event does</h3>
+    <table>
+      <thead><tr><th>Event</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><code>payment.succeeded</code>, <code>subscription.active</code>, <code>subscription.renewed</code></td><td>Records the transaction, grants or renews the plan, grants credits, adds the buyer to the <code>all-customers</code> list (with the <code>audience</code> feature), notifies the member and the admins. The receipt email is sent for <code>payment.succeeded</code> only.</td></tr>
+        <tr><td><code>payment.failed</code></td><td>Records it, sends the failure email, notifies the member and the admins.</td></tr>
+        <tr><td><code>subscription.failed</code>, <code>subscription.on_hold</code></td><td>Marks the plan <code>past_due</code> (access stays) and sends the lifecycle email.</td></tr>
+        <tr><td><code>subscription.cancelled</code>, <code>subscription.expired</code></td><td>Ends the plan and sends the lifecycle email.</td></tr>
+        <tr><td><code>refund.succeeded</code></td><td>Records the refund and sends the lifecycle email. A full refund also ends the plan and takes back the credits that charge granted; a partial refund leaves the plan and credits as they are.</td></tr>
+      </tbody>
+    </table>
+    <p>Every step is safe to repeat, so a webhook Dodo sends twice is counted once. Events that arrive out of order never undo a newer one.</p>
+
+    <h3>Every day</h3>
+    <table>
+      <thead><tr><th>Function</th><th>When (UTC)</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>scanExpiredEntitlements</code></td><td>08:00</td><td>Ends any subscription whose paid period ended more than 3 days ago, in case the cancel or expiry webhook never came.</td></tr>
+        <tr><td><code>scanTrialEndings</code></td><td>09:00</td><td>Sends Trial ending soon to trials that end in the next 3 days, once each.</td></tr>
+        <tr><td><code>scanUpdatesEnding</code></td><td>09:30</td><td>Sends the free-updates reminder 14 days before <code>updatesUntil</code>, once each.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Extend it</h2>
+    <ul>
+      <li><strong>Lock your app's features</strong> by the buyer's plan: <a href="entitlements.html">Premium entitlements</a>.</li>
+      <li><strong>Spend credits</strong> from your app with the <code>consumeCredits</code> callable: <code>{ amount, note }</code>, where <code>amount</code> is a positive whole number. It returns <code>{ balance, spent }</code>, or fails with <code>failed-precondition</code> ("Insufficient credits.") when the balance is too low. Apart from a full refund, it is the only way a balance goes down.</li>
+      <li><strong>React to payments</strong> in automations or your own functions: the event bus gets <code>payment.succeeded</code> and <code>payment.failed</code>. See <a href="automations.html">Automations</a> and <a href="../app/functions.html">Write your own Cloud Functions</a>.</li>
+      <li><strong>Your own pricing page</strong>: read the <code>Products</code> collection (public) and call <code>createCheckoutSession</code> with <code>{ productId }</code>; it returns <code>{ checkoutUrl, sessionId, tierApplied }</code>. Send the browser to <code>checkoutUrl</code>.</li>
+    </ul>
+    <p>Another payment provider cannot be plugged in from an app: the records are provider-neutral, but only Dodo is wired up.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What</th></tr></thead>
+      <tbody>
+        <tr><td><code>Settings/dodo-payments</code></td><td>On or off, mode, API keys, webhook secret, success and cancel URLs.</td></tr>
+        <tr><td><code>Products</code></td><td>Your products, tiers and <code>purchaseCount</code> (confirmed buyers).</td></tr>
+        <tr><td><code>Transactions</code></td><td>One document per payment event: buyer uid (<code>userId</code>) and email, product, plan, amount, currency, status (<code>succeeded</code>, <code>failed</code>, <code>refunded</code>, <code>pending</code>), tier and code, and <code>isTest</code> for test links.</td></tr>
+        <tr><td><code>WebhookEvents</code></td><td>Every verified webhook exactly as Dodo sent it, keyed by its <code>webhook-id</code>, with <code>processed</code>, <code>processingError</code> and <code>processingAttempts</code>.</td></tr>
+        <tr><td><code>CreditLedger</code></td><td>Every credit change (<code>purchase</code>, <code>renewal</code>, <code>refund</code>, <code>consume</code>), with the balance after it.</td></tr>
+        <tr><td><code>CountedBuyers</code></td><td>One marker per counted buyer, so a buyer is counted once.</td></tr>
+        <tr><td><code>users/{docId}</code></td><td>The plan and credit fields: see <a href="entitlements.html#what-it-stores">Premium entitlements</a>.</td></tr>
+        <tr><td><code>EmailTemplate</code></td><td>The payment email templates.</td></tr>
+      </tbody>
+    </table>
+    <p>Payments stores no files. Its Cloud Functions, built only when the feature is on: <code>createCheckoutSession</code>, <code>createTestCheckoutLink</code>, <code>testDodoConnection</code>, <code>consumeCredits</code> (callables), <code>dodoWebhook</code> (HTTP), <code>handlePaymentEvent</code> (runs on each new <code>WebhookEvents</code> document), and the three daily scans above. All are listed in <a href="../reference/cloud-functions.html">Cloud Functions</a>; the collections in <a href="../reference/data-model.html">Data model</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Data or action</th><th>Who</th></tr></thead>
+      <tbody>
+        <tr><td>Read products</td><td>Anyone (the pricing page is public)</td></tr>
+        <tr><td>Create, edit, delete products; payment settings</td><td>Admins</td></tr>
+        <tr><td>Read transactions and credit ledger entries</td><td>Admins, and the person they belong to</td></tr>
+        <tr><td>Read webhook events</td><td>Admins</td></tr>
+        <tr><td>Write transactions, ledger, webhook events</td><td>Cloud Functions only</td></tr>
+        <tr><td>Start a checkout, spend own credits</td><td>Any signed-in person</td></tr>
+        <tr><td>Test payment link, Test Connection</td><td>Admins</td></tr>
+      </tbody>
+    </table>
+    <p>People cannot write their own plan or credit fields: the rules refuse it. See <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>Dodo shows the webhook failing with 401</td><td>The signing secret in Settings, Payments does not match the webhook's. Paste it again.</td></tr>
+        <tr><td>Dodo shows 500 "Webhook not configured"</td><td>No signing secret is saved. Paste it in Settings, Payments and save.</td></tr>
+        <tr><td>Dodo shows 500 "Webhook configuration unavailable"</td><td>The payment settings were never saved, or there is no API key for the selected Mode. Fill them in and save.</td></tr>
+        <tr><td>Paid, but the plan never arrived</td><td>Open the event in <code>WebhookEvents</code>: <code>processingError</code> says why. After 5 failed tries it is marked <code>processingFailedPermanently</code>. The buyer is found by the uid sent at checkout, then by email; the product by its id in the checkout metadata, so a deleted product grants nothing.</td></tr>
+        <tr><td>Pressing buy on <code>/pricing</code> does nothing</td><td>The page shows no message; the browser console has the reason. "Your account has no email address": checkout needs an email for Dodo, so a person who signed up with a phone number adds an email under Profile, Sign-in methods. "Product is not linked to a Dodo product": give the product its Dodo Product ID in Products. "Failed to create checkout session.": check that Enable Dodo Payments is on and the key for the selected mode is saved (Test Connection).</td></tr>
+        <tr><td><code>/checkout/success</code> shows "Payment received" instead of "You're all set!"</td><td>The webhook took longer than about 45 seconds, or failed. <strong>Check again</strong> starts checking again; the plan appears on <code>/account</code> once the event is processed.</td></tr>
+        <tr><td>A test purchase gave no access</td><td>Purchases through a Test payment link never do. Buy from <code>/pricing</code> in Test mode instead.</td></tr>
+      </tbody>
+    </table>
+    <div class="warn"><p>Never grant access from the checkout return URL. Its query parameters are not proof of payment; only the webhook writes the plan.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

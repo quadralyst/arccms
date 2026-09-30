@@ -1,5 +1,5 @@
 /**
- * Every search source this app has (docs/feature-flags-spec.md, section 6):
+ * Every search source this app has (specs/feature-flags-spec.md, section 6):
  *
  *  - content and content drafts, with the content feature;
  *  - the app's sources written in code (CUSTOM_SEARCH_SOURCES);
@@ -9,7 +9,7 @@
  * so every entry point (the search callable, a trigger, a reindex) awaits
  * `refreshSearchSources()` once before using the synchronous lookups below.
  *
- * Spec: docs/search-spec.md, decision S-D7.
+ * Spec: specs/search-spec.md, decision S-D7.
  */
 
 import type { SearchSource } from './source.js';

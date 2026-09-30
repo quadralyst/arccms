@@ -268,7 +268,7 @@ export default class ProfileComponent extends BaseComponent {
     return this.currentUser()?.role !== 'admin';
   }
 
-  /** Deletes the account and everything stored under it (docs/account-contract.md). */
+  /** Deletes the account and everything stored under it (docs/app/account-contract.html). */
   async deleteAccount(): Promise<void> {
     const confirmed = await firstValueFrom(this.dialog.open(ConfirmationPopupComponent, {
       width: '400px',

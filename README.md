@@ -1,13 +1,13 @@
 # Arc CMS
 
 <p align="center">
-  <strong>Open-Source, Low-Code Content Management System for Scalable Startup Websites</strong>
+  <strong>Open-source, low-code content management for websites and apps, on your own Firebase project</strong>
 </p>
 
 <p align="center">
   <a href="https://github.com/quadralyst/arccms">GitHub Repository</a> &bull;
-  <a href="#features">Features</a> &bull;
-  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#what-you-get">What you get</a> &bull;
+  <a href="#quick-start">Quick start</a> &bull;
   <a href="#documentation">Documentation</a>
 </p>
 
@@ -15,194 +15,90 @@
 
 ## Overview
 
-Arc CMS is a modern, open-source content management system built with **Angular 21** and **Firebase**. It provides a low-code solution for startups and developers who need a scalable website with powerful content management, waitlist/signup management, and customizable templates — all without the complexity of traditional CMS platforms.
+Arc CMS is an open-source content management system built with **Angular 21** and **Firebase**. Use it to build a content website with search, SEO, signup forms and email, or copy it and build your own app on top of it. Everything it stores lives in your own Firebase project.
 
-### Built With
+### Built with
 
 | Layer | Technology |
 |-------|-----------|
-| Meta-Framework | [AnalogJS](https://analogjs.org) 2.1.3 (fullstack Angular) |
+| Meta-framework | [AnalogJS](https://analogjs.org) (fullstack Angular) |
 | Frontend | Angular 21, Angular Material, Bootstrap 5 |
-| Backend | Firebase (Firestore, Auth, Storage, Cloud Functions) |
-| Editor | TipTap 3 with Prosemirror |
-| State Management | NgRx Signals |
-| Build Tool | Vite 7 |
-| Testing | Vitest |
+| Backend | Firebase: Firestore, Authentication, Storage, Cloud Functions |
+| Editor | TipTap 3 |
+| State | NgRx Signals |
+| Build and test | Vite 7, Vitest |
 
 ---
 
-## Features
+## What you get
 
-### Content Management
-- **Dynamic Content Types** — Create custom content types (articles, manuals, products, etc.) with configurable fields
-- **Rich Text Editor** — Full-featured TipTap editor with code blocks, tables, images, links, and more
-- **Custom Fields** — Add text, textarea, dropdown, checkbox, and number fields to any content type
-- **Template System** — Create custom HTML templates for list, detail, and partial views
-- **SEO Optimization** — Built-in meta tags, Open Graph, and Twitter cards support
-- **Draft/Publish Workflow** — Manage content lifecycle with draft and publish states
-- **Tags & Categories** — Organize content with multiple tags and color-coded labels
+- **Content**: your own content types with their own fields, drafts, publishing, bulk import, and plain HTML templates that decide how pages look.
+- **Search and discoverability**: site search, structured data, sitemap, robots.txt, llms.txt and RSS.
+- **Languages**: content and the admin area in more than one language.
+- **Sign-ups and audience**: signup forms with referrals, contacts, lists, tags, and your app's users as a live audience.
+- **Email and SMS**: an email engine with a brand kit and logs, broadcasts, drip sequences and automations, and text messages.
+- **Accounts and payments**: email, Google and phone sign-in, roles, and checkout with premium entitlements.
+- **Installable app**: an optional PWA.
 
-### Waitlist Management
-- **Signup Forms** — Embeddable waitlist forms with referral tracking
-- **Leaderboard** — Display waitlist rankings with masked email privacy
-- **Email Workflows** — Welcome emails, OTP verification, and broadcast messaging
-- **Unsubscribe Handling** — Built-in unsubscribe with user-friendly flow
-
-### User Management
-- **Role-based Access** — Admin and User roles with protected routes
-- **Firebase Authentication** — Email/password authentication with email verification
-- **User Settings** — Configure signup permissions and default roles
-
-### Admin Settings
-- **Email Configuration** — Modular email provider support (SMTP, Gmail, Resend)
-- **Global Banner** — Configurable site-wide announcement banner
-- **Cookie Consent** — GDPR-compliant cookie consent banner
-- **Analytics Integration** — Google Analytics connection and dashboard
-- **Media Library** — Image upload and management with Unsplash integration
-
-### Template System
-Arc CMS uses a template hydration system — write plain HTML/CSS templates and Arc CMS injects your content:
-
-```
-public/templates/
-├── articles/          # Template folder for a content type
-│   ├── list.html      # List/grid page
-│   ├── detail.html    # Single item page
-│   └── partials.html  # Embeddable card sections
-└── templates.json     # Template registry
-```
-
-See [TEMPLATES.md](TEMPLATES.md) for the complete customization guide.
+Ten features can be switched on or off, so an app carries only what it needs. Everything is described in the [documentation](docs/index.html).
 
 ---
 
-## Quick Start
+## Quick start
 
-### Prerequisites
-- Node.js >= 20.19.1
-- npm >= 10.0.0
-- Firebase CLI (`npm install -g firebase-tools`)
-- A Firebase project with Firestore, Authentication, and Storage enabled
+You need Node 22.18 or later, npm 10 or later, the Firebase CLI and a Firebase project on the Blaze plan.
 
-### Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/quadralyst/arccms.git
-   cd arccms
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   cd functions && npm install && cd ..
-   ```
-
-3. **Configure environment:**
-   ```bash
-   cp src/environments/environment.example.ts src/environments/environment.ts
-   ```
-   Edit `src/environments/environment.ts` and add your Firebase project config.
-
-4. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
-   Navigate to `http://localhost:5173/`. The onboarding wizard will guide you through initial setup.
-
-For detailed setup instructions, see [INSTALL.md](INSTALL.md).
-
-### Available Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run test` | Run unit tests with Vitest |
-| `npm run deploy:dev` | Build and deploy to development project |
-| `npm run deploy:prod` | Build and deploy to production project |
-
----
-
-## Project Structure
-
-```
-arccms/
-├── src/
-│   ├── app/
-│   │   ├── pages/                # File-based routing (AnalogJS)
-│   │   │   ├── admin/            # Admin dashboard pages
-│   │   │   ├── (auth)/           # Authentication pages
-│   │   │   ├── user/             # User dashboard
-│   │   │   └── waitlist/         # Public waitlist pages
-│   │   ├── app.ts                # Root component
-│   │   └── app.routes.ts         # Route definitions
-│   ├── shared/
-│   │   ├── components/           # Reusable UI components
-│   │   ├── services/             # Core services
-│   │   ├── models/               # TypeScript interfaces
-│   │   └── stores/               # NgRx Signal stores
-│   └── environments/             # Environment configs
-├── functions/                    # Firebase Cloud Functions
-├── public/
-│   ├── templates/                # Custom HTML templates
-│   ├── pages/                    # Static HTML pages
-│   └── _partials/                # Global header/footer
-├── firebase.json                 # Firebase configuration
-├── firestore.rules               # Firestore security rules
-└── storage.rules                 # Cloud Storage security rules
+```bash
+git clone https://github.com/quadralyst/arccms.git
+cd arccms
+npm install
+npm install --prefix functions
 ```
 
-For a detailed architecture overview, see [ARCHITECTURE.md](ARCHITECTURE.md).
+To build a website or an app of your own, make a copy with its own repository instead of working in the clone: see [Install](docs/getting-started/install.html).
+
+Create the Firebase project, paste its web config into `src/environments/environment.ts` and `src/environments/environment.prod.ts`, and choose it with `firebase use --add`. Then deploy once and start the dev server:
+
+```bash
+npm run deploy
+npm run dev
+```
+
+Open `http://localhost:5173`. The setup wizard creates the first admin.
+
+The local app works against your real Firebase project: there is no emulator. Step by step, with the reasons and the traps, in [Get started](docs/getting-started/what-is-arc-cms.html).
 
 ---
 
 ## Documentation
 
+The developer documentation is plain HTML in [`docs/`](docs/index.html). Open `docs/index.html` in a browser, or run `npm run docs` and open `http://localhost:5180`.
+
+| Start here | For |
+|------------|-----|
+| [Get started](docs/getting-started/what-is-arc-cms.html) | Install, configure, run and deploy |
+| [Build a website](docs/website/overview.html) | Content, templates, search, forms and launch |
+| [Build a custom app](docs/app/overview.html) | Your own pages, functions and rules on a copy of Arc CMS |
+| [Use Arc CMS](docs/admin/overview.html) | Running a site or an app: the admin area and what members see |
+| [Features](docs/features/overview.html) | Every feature, one page each |
+| [Reference](docs/reference/npm-scripts.html) | Scripts, configuration, functions, email tags and the data model |
+
+Other files in this repository:
+
 | Document | Description |
 |----------|-------------|
-| [INSTALL.md](INSTALL.md) | Detailed installation and deployment guide |
-| [TEMPLATES.md](TEMPLATES.md) | Template customization and creation guide |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Codebase architecture and data model |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
-| [SECURITY.md](SECURITY.md) | Security policy and vulnerability reporting |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Contributor Code of Conduct |
-| [Global Table README](src/shared/components/global-table/README.md) | Configuration-driven table component |
+| [SECURITY.md](SECURITY.md) | Security policy and how to report a vulnerability |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Code of conduct |
 
----
-
-## Deployment
-
-### Firebase Hosting
-
-1. Build the project:
-   ```bash
-   npm run build
-   ```
-
-2. Build Cloud Functions:
-   ```bash
-   cd functions && npm run build && cd ..
-   ```
-
-3. Deploy:
-   ```bash
-   firebase deploy
-   ```
-
-See [INSTALL.md](INSTALL.md) for detailed deployment instructions.
+`specs/` holds the working papers of the project (build specs, test plans, runbooks); the documentation is in `docs/`.
 
 ---
 
 ## Contributing
 
-We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
-
-- Setting up your development environment
-- Branch naming conventions
-- Submitting pull requests
-- Code style expectations
+We welcome contributions. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, branch names, pull requests and code style. Every change updates the documentation and its tests: see [Docs and tests are part of done](docs/contributing/docs-and-tests-are-part-of-done.html).
 
 ---
 
@@ -214,9 +110,9 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## Community
 
-- Star the [GitHub Repository](https://github.com/quadralyst/arccms)
+- Star the [GitHub repository](https://github.com/quadralyst/arccms)
 - Report issues on [GitHub Issues](https://github.com/quadralyst/arccms/issues)
-- Discuss with us at [GitHub Discussions](https://github.com/quadralyst/arccms/discussions)
+- Discuss with us on [GitHub Discussions](https://github.com/quadralyst/arccms/discussions)
 
 ---
 

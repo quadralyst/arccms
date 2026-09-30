@@ -87,7 +87,7 @@ export const appConfig: ApplicationConfig = {
     // Material's paginator ships its own English; see paginator-intl.ts.
     { provide: MatPaginatorIntl, useClass: TranslatedPaginatorIntl },
 
-    // The installable app: service worker, update bar, install counts (docs/pwa.md).
+    // The installable app: service worker, update bar, install counts (docs/features/pwa.html).
     // Does nothing unless src/custom/pwa.ts turns it on.
     provideAppInitializer(() => inject(PwaService).start()),
 

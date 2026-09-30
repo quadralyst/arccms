@@ -1,5 +1,5 @@
 /**
- * Cited sources on a content item (docs/discoverability-spec.md, D-D11):
+ * Cited sources on a content item (specs/discoverability-spec.md, D-D11):
  * `references: { title, url }[]`, edited in the SEO tab, rendered as a
  * "Sources" list and emitted as `Article.citation`. Mirrored client-side
  * in src/shared/models/references.model.ts.

@@ -4,7 +4,7 @@
  * collections need no code: name them there and set them up in Admin,
  * Settings, Search.
  *
- * Walkthrough: docs/search-developer-guide.md.
+ * Walkthrough: docs/features/search.html.
  *
  * The file is not imported anywhere, so it compiles without being deployed.
  * Delete the `_` prefix when you copy it.

@@ -242,7 +242,7 @@ export class OnboardingSetupService {
      * the admin can create a waitlist from the admin UI whenever they want one.
      */
     async completeSetup(): Promise<{ waitlistCreated: boolean }> {
-        // Seed only what this app has (docs/feature-flags-spec.md).
+        // Seed only what this app has (specs/feature-flags-spec.md).
         if (isOn('content')) await this.createDefaultContentTypes();
 
         let waitlistCreated = true;

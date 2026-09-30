@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Make it installable | Arc CMS docs</title>
+  <meta name="description" content="Turn your app into an installable web app: switch on the pwa feature, name it, give it an icon, test it, and know the way to the app stores.">
+  <meta name="docs:sources" content="src/custom/pwa.ts, src/custom/features.ts, src/app/core/pwa, src/shared/components/install-prompt, vite.config.ts, functions/src/pwa">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/pwa.html">
+  <main>
+    <h1>Make it installable</h1>
+    <p class="lead">Your app can be installed from the browser to a phone's home screen or a computer, and open like an app. It takes one switch, a name and one icon.</p>
+    <p>What people see, the update bar and the install numbers are in <a href="../features/pwa.html">Installable app (PWA)</a>. This page is the setup.</p>
+
+    <h2>Turn it on</h2>
+    <ol class="steps">
+      <li>
+        <p><strong>Switch on the feature</strong> in <code>src/custom/features.ts</code>. The PWA is the one feature that is off until you ask for it:</p>
+        <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    on: ['pwa'],
+};</code></pre>
+      </li>
+      <li>
+        <p><strong>Name it</strong> in <code>src/custom/pwa.ts</code>. Anything you leave out keeps Arc CMS's default; every key and default is in <a href="../features/pwa.html#set-it-up">Installable app (PWA)</a>:</p>
+        <pre><code>export const CUSTOM_PWA: Partial&lt;PwaConfig&gt; = {
+    name: 'Sanskrit for Kids',      // install dialog and app switcher
+    shortName: 'Sanskrit',          // under the home screen icon, about 12 characters
+    themeColor: '#e8590c',          // browser bar and phone status bar
+    startUrl: '/learn',             // the page the home screen icon opens
+};</code></pre>
+      </li>
+      <li>
+        <p><strong>Add one icon</strong>: a square image of at least 512 by 512 pixels, saved as <code class="new">src/custom/pwa-icon.svg</code> or <code class="new">src/custom/pwa-icon.png</code>. Keep the important part inside the middle 80%, since Android crops it into a circle or rounded square.</p>
+      </li>
+      <li>
+        <p><strong>Build and deploy the website.</strong> These settings are read at build time, so every change needs a new build and a hosting deploy. See <a href="../operations/deploy.html">Deploy</a>.</p>
+      </li>
+    </ol>
+    <div class="trap"><p>Putting <code>enabled</code> in <code>src/custom/pwa.ts</code> stops the build with a message. The switch lives only in <code>src/custom/features.ts</code>.</p></div>
+
+    <h2>What the build makes</h2>
+    <table>
+      <thead><tr><th>File</th><th>From</th></tr></thead>
+      <tbody>
+        <tr><td>The web app manifest</td><td>Your name, short name, description, colors and start page, shown full screen (<code>standalone</code>) with the whole site as its scope</td></tr>
+        <tr><td>Every icon size</td><td>Your one image: the standard app icon sizes, the maskable icon, and the 180 by 180 pixel iPhone icon</td></tr>
+        <tr><td>The service worker, <code>sw.js</code></td><td>Stores the app's main code, styles and fonts; pages always come from the network first, and the stored app opens when there is no connection</td></tr>
+        <tr><td>iPhone tags</td><td>The home screen icon link and the short name as the iPhone app title</td></tr>
+      </tbody>
+    </table>
+    <p>With the feature off, none of these are built, and a visitor who still has an old service worker gets it removed on their next visit.</p>
+
+    <h2>Show the install button</h2>
+    <p>Arc CMS shows the install card at the top of the member dashboard. To show it on a page of your own, such as your app's start page, add <code>&lt;arc-install-prompt /&gt;</code> (see <a href="../features/pwa.html#extend-it">Installable app (PWA)</a>). It shows what fits the browser, and nothing once the app is installed.</p>
+
+    <h2>Test that it installs</h2>
+    <ol class="steps">
+      <li><p><strong>On your computer:</strong> build, serve the build, and check Chrome's DevTools, Application, as described in <a href="../features/pwa.html#test-it">Installable app (PWA)</a>. <code>npm run dev</code> has no service worker, so it cannot be used for this.</p></li>
+      <li><p><strong>On an Android phone:</strong> deploy to your Firebase Hosting site, open it in Chrome, and install from the install card or the browser menu. The icon, name and splash colors come from your settings.</p></li>
+      <li><p><strong>On an iPhone:</strong> open the same address in Safari and add it to the home screen (below).</p></li>
+      <li><p><strong>After a change:</strong> build and deploy again, then reopen the installed app. It offers the new version with an Update button instead of reloading by itself.</p></li>
+    </ol>
+
+    <h2>iPhone and iPad</h2>
+    <ul>
+      <li>Only Safari can install. The install card shows the two steps (tap Share, then "Add to Home Screen"); in another browser it asks the person to open the page in Safari, with a Copy link button.</li>
+      <li>iPhone reports no install event, so the install numbers count the first opening from the home screen as the install.</li>
+      <li>The home screen uses the iPhone icon and the short name, both made from your settings.</li>
+    </ul>
+
+    <h2>Wrap it for the app stores</h2>
+    <p>To publish in the App Store or Google Play, wrap the installable app with <a href="https://capacitorjs.com">Capacitor</a>: add Capacitor to the project, point its web directory at the browser files that <code>npm run build</code> writes, add the plugins your app needs (push notifications, camera and so on, chosen per app), and build the iOS and Android apps with Xcode and Android Studio. Follow Capacitor's own documentation for each step.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

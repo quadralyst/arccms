@@ -10,7 +10,7 @@
  * the route does not match at all and the router carries on to the next one,
  * rather than matching and then failing to render.
  *
- * Spec: docs/multilingual-spec.md — Phase M4.
+ * Spec: specs/multilingual-spec.md — Phase M4.
  */
 
 import { inject } from '@angular/core';

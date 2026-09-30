@@ -61,7 +61,7 @@ import { isOn } from '../../../../core/features/features';
 /**
  * The subset of editor state that varies by language. Everything else on a
  * content item (slug, cover image, tags, dates, references) is shared across
- * languages — see docs/multilingual-spec.md decision M-D5.
+ * languages — see specs/multilingual-spec.md decision M-D5.
  */
 interface TranslatableValues {
   title: string;
@@ -208,7 +208,7 @@ export class CreateContentComponent extends BaseComponent {
   paramContentType: string | null = null;
   activeTab: 'basic' | 'seo' | 'checks' | 'history' = 'basic';
 
-  // ── Discoverability checks (docs/discoverability-spec.md, D-D13, D-D16) ──
+  // ── Discoverability checks (specs/discoverability-spec.md, D-D13, D-D16) ──
   private searchService = inject(SearchService);
   @ViewChild(TiptapEditorComponent) private bodyEditor?: TiptapEditorComponent;
   checklist = signal<ChecklistReport | null>(null);
@@ -1576,7 +1576,7 @@ export class CreateContentComponent extends BaseComponent {
     return this.seoForm?.get('canonicalUrl');
   }
 
-  /** Stamps today as the last substantive revision (docs/discoverability-spec.md, D-D3). */
+  /** Stamps today as the last substantive revision (specs/discoverability-spec.md, D-D3). */
   markUpdatedToday(): void {
     this.seoForm.get('updatedOn')?.setValue(toDateInputValue(new Date()));
     this.seoForm.get('updatedOn')?.markAsDirty();

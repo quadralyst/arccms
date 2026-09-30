@@ -1,5 +1,5 @@
 /**
- * The page a signed-in member lands on, /user/dashboard (docs/custom-code.md).
+ * The page a signed-in member lands on, /user/dashboard (docs/app/custom-space.html).
  * Arc CMS ships this empty, showing its own blank dashboard, and never edits it
  * again. To show the app's own page there instead:
  *

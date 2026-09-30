@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deploy only what changed | Arc CMS docs</title>
+  <meta name="description" content="Deploy one or a few Cloud Functions, only the rules, only the indexes or only the website, and know which part to deploy for the files you changed.">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, functions/src/index.ts, functions/src/all.ts, functions/src/function-names.ts, functions/src/custom/index.ts, firebase.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="operations/targeted-deploys.html">
+  <main>
+    <h1>Deploy only what changed</h1>
+    <p class="lead">Deploy just the functions you changed, or just the rules, indexes or website. A small deploy is faster, and a targeted functions deploy never deletes anything.</p>
+
+    <p>The quickest way is the guided deploy's first choice, "Only the functions changed since the last deploy", which works out the functions for you:</p>
+    <pre><code>npm run deploy</code></pre>
+    <p>The rest of this page is for deploying by name, from a script, or when that choice is not offered. Everything about the guided deploy and the flags is in <a href="deploy.html">Deploy</a>.</p>
+
+    <h2>Deploy one or a few functions</h2>
+    <p>Every Arc CMS function is exported in one group, <code>arccms</code>, from the <code>arccms</code> codebase, so a function exported as <code>search</code> is deployed as <code>arccms-search</code>. The Firebase CLI names it <code>functions:arccms:arccms.search</code>:</p>
+    <pre><code>npm run deploy -- --only functions:arccms:arccms.&lt;name&gt; --project default</code></pre>
+    <p>Several at once, separated by commas:</p>
+    <pre><code>npm run deploy -- --only functions:arccms:arccms.search,functions:arccms:arccms.reindexSearch --project default</code></pre>
+    <table>
+      <thead><tr><th>To deploy</th><th>Target</th><th>Deployed name</th></tr></thead>
+      <tbody>
+        <tr><td>One core function</td><td><code>functions:arccms:arccms.&lt;name&gt;</code></td><td><code>arccms-&lt;name&gt;</code></td></tr>
+        <tr><td>One of the app's functions (<code>functions/src/custom/</code>)</td><td><code>functions:arccms:arccms.custom.&lt;name&gt;</code></td><td><code>arccms-custom-&lt;name&gt;</code></td></tr>
+        <tr><td>All of the app's functions</td><td><code>functions:arccms:arccms.custom</code></td><td></td></tr>
+        <tr><td>Every function</td><td><code>functions:arccms</code></td><td></td></tr>
+      </tbody>
+    </table>
+    <p><code>&lt;name&gt;</code> is the name the function is exported under in the source, such as <code>export const reindexSearch = onCall(...)</code>. The deploy builds the functions first, as always.</p>
+    <div class="note"><p>A targeted deploy never deletes a function. Deleting the functions of a feature you turned off, or of a search collection you removed, takes a deploy of every function (see <a href="deploy.html#functions-that-are-deleted">Functions that are deleted</a>).</p></div>
+
+    <h2>Deploy only rules, indexes or the website</h2>
+    <table>
+      <thead><tr><th>To deploy</th><th>Command</th></tr></thead>
+      <tbody>
+        <tr><td>Database rules and indexes</td><td><code>npm run deploy -- --only firestore --project default</code></td></tr>
+        <tr><td>Database rules only</td><td><code>npm run deploy -- --only firestore:rules --project default</code></td></tr>
+        <tr><td>Database indexes only</td><td><code>npm run deploy -- --only firestore:indexes --project default</code></td></tr>
+        <tr><td>Storage rules</td><td><code>npm run deploy -- --only storage --project default</code></td></tr>
+      </tbody>
+    </table>
+    <p>Each of these combines the core rules and indexes with the app's own before uploading (see <a href="security-rules.html">Security rules</a>).</p>
+
+    <p>For the website, build it first, deploy Hosting, then publish the static pages again. For the <code>default</code> alias:</p>
+    <pre><code>USE_DEV_ENV=true npm run build
+npm run deploy -- --only hosting --project default
+npm run seed:dev</code></pre>
+    <p>For <code>production</code>, build without <code>USE_DEV_ENV</code> and run <code>npm run seed:prod</code>. The guided deploy's "Website" choice does all three steps.</p>
+
+    <h2>I changed this, so I deploy that</h2>
+    <table>
+      <thead><tr><th>You changed</th><th>Deploy</th></tr></thead>
+      <tbody>
+        <tr><td>A file in <code>functions/src/</code></td><td>The functions that use it: the guided deploy's "Only the functions changed", or those functions by name</td></tr>
+        <tr><td>A file in <code>functions/src/custom/</code></td><td><code>functions:arccms:arccms.custom</code></td></tr>
+        <tr><td><code>functions/package.json</code>, <code>functions/package-lock.json</code>, <code>functions/tsconfig.json</code>, or a <code>.env</code> file in <code>functions/</code></td><td>Every function (<code>functions:arccms</code>)</td></tr>
+        <tr><td>The collections in <code>functions/src/custom/search-sources.ts</code></td><td>Every function: each collection has its own trigger, and a removed one is deleted only by a deploy of every function</td></tr>
+        <tr><td><code>src/custom/features.ts</code></td><td>Every function, then the website</td></tr>
+        <tr><td><code>firestore.rules</code> or the app's <code class="new">firestore.app.rules</code></td><td><code>firestore:rules</code></td></tr>
+        <tr><td><code>firestore.indexes.json</code> or the app's <code class="new">firestore.app.indexes.json</code></td><td><code>firestore:indexes</code></td></tr>
+        <tr><td><code>storage.rules</code> or the app's <code class="new">storage.app.rules</code></td><td><code>storage</code></td></tr>
+        <tr><td>Anything in <code>src/</code> or <code>public/</code>, <code>index.html</code>, <code>vite.config.ts</code>, <code>package.json</code></td><td>The website (build, <code>hosting</code>, then the static pages)</td></tr>
+      </tbody>
+    </table>
+    <p>When a change touches functions, rules and the website together, mind the order: see <a href="deploy.html#when-the-order-matters">When the order matters</a>.</p>
+
+    <h2>How the guided deploy finds the changed functions</h2>
+    <p>Each successful deploy is recorded per project, with its git commit, in <code>.arc-deploy-state.json</code> in your checkout. Next time, the guided deploy:</p>
+    <ol class="steps">
+      <li><p>Lists the files changed since the commit of the last functions deploy: committed changes, uncommitted changes and new files, because the deploy builds the working tree.</p></li>
+      <li><p>Builds the functions and reads which functions the build exports.</p></li>
+      <li><p>Reads the imports of every <code>.ts</code> file in <code>functions/src/</code> (not specs), and which functions each file defines (<code>export const name = onCall(...)</code>, any other <code>on...</code> trigger, or <code>beforeUser...</code>).</p></li>
+      <li><p>Picks every function whose file, or any file it imports directly or indirectly, changed. A change in <code>functions/src/custom/</code> picks the whole <code>custom</code> group.</p></li>
+      <li><p>Adds functions that are new since the last deploy, and every function it cannot find a definition for whenever any source changed.</p></li>
+    </ol>
+    <p>It does not offer the choice when:</p>
+    <ul>
+      <li>this checkout has no recorded functions deploy for the project (the first time, or after deploying from another computer);</li>
+      <li>a dependency, TypeScript setting or <code>.env</code> file changed, which affects every function: it says so, and "All functions" is the one to pick;</li>
+      <li>no function changed.</li>
+    </ul>
+    <p>It also names functions that were removed from the code since the last deploy: only "All functions" deletes them from the project.</p>
+    <div class="trap"><p>Only whole deploys are recorded: all the functions, the "changed" choice, <code>firestore</code>, <code>storage</code> or <code>hosting</code>. A deploy of named functions with flags is not, so the next guided deploy still counts their files as changed. That is on purpose: the other functions may still be behind.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

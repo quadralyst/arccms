@@ -1,5 +1,5 @@
 /**
- * The Arc CMS features an app can turn off (docs/feature-flags-spec.md), and the
+ * The Arc CMS features an app can turn off (specs/feature-flags-spec.md), and the
  * rules for resolving the app's choice in `src/custom/features.ts`. Everything not
  * listed here is core and always on.
  *

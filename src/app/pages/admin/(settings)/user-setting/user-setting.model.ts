@@ -20,7 +20,7 @@ export interface IUserSettings {
 
 /**
  * Whether people can sign in with a phone number. It sends its codes by SMS, so
- * it is off without the SMS feature whatever the setting says (docs/feature-flags-spec.md).
+ * it is off without the SMS feature whatever the setting says (specs/feature-flags-spec.md).
  */
 export function phoneSignInOn(settings: Pick<IUserSettings, 'phoneSignIn'> | null | undefined, smsOn = isOn('sms')): boolean {
     return smsOn && settings?.phoneSignIn === true;

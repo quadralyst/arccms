@@ -1,6 +1,6 @@
 /**
  * "Related" items for a detail page, chosen at publish time from the search
- * index (docs/discoverability-spec.md, D-D15): the item's title and tags go
+ * index (specs/discoverability-spec.md, D-D15): the item's title and tags go
  * through the same ranking the header search uses, the item itself is
  * dropped, and the top few come back as links. Static pages stay static;
  * the SPA twin asks the callable at render time.
@@ -49,7 +49,7 @@ export async function findRelated(input: {
     lang: string;
 }): Promise<RelatedItem[]> {
     const q = relatedQuery(input.title, input.tags);
-    // Related items come from search; none without it (docs/feature-flags-spec.md).
+    // Related items come from search; none without it (specs/feature-flags-spec.md).
     if (!q || !isFeatureOn('search')) return [];
     try {
         await refreshSearchSources();

@@ -465,7 +465,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
 
     /**
      * A draft write also queues the draft for search, in the same batch or
-     * transaction (docs/feature-flags-spec.md 6.5); any other write, nothing.
+     * transaction (specs/feature-flags-spec.md 6.5); any other write, nothing.
      */
     private queueForSearch(writer: { set: (ref: any, data: any) => unknown }, path: string): void {
         const entry = runInInjectionContext(this.injector, () => draftQueueEntry(this.firestore, path));

@@ -107,7 +107,7 @@ export class SignInService {
         return { verified: reply.verified };
     }
 
-    // --- The account's claims and deletion (docs/account-contract.md) ------
+    // --- The account's claims and deletion (docs/app/account-contract.html) ------
 
     /**
      * Make sure the ID token carries this record's `arccms_uid` and its role as

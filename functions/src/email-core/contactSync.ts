@@ -241,7 +241,7 @@ export const onWaitlistVerifiedContact = onDocumentUpdated(
       // here is what makes the welcome arrive in seconds; without it the contact
       // would wait for the next 15-minute scheduler tick, and a "you're in!"
       // email that late reads as broken.
-      // Sequences are email marketing's (docs/feature-flags-spec.md).
+      // Sequences are email marketing's (specs/feature-flags-spec.md).
       if (promoted && isFeatureOn('email-marketing')) {
         try {
           await flushDueEnrollments(emailHash);

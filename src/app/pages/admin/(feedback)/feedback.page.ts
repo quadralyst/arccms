@@ -1,5 +1,5 @@
 /**
- * Admin, Feedback: what people sent with the feedback button (docs/feedback.md),
+ * Admin, Feedback: what people sent with the feedback button (docs/features/feedback.html),
  * newest first. The switch at the top turns the button on or off for everyone.
  */
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';

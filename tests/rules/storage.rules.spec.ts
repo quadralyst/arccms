@@ -77,7 +77,7 @@ describe('storage', () => {
     });
 });
 
-describe('per-user folders (docs/account-contract.md)', () => {
+describe('per-user folders (docs/app/account-contract.html)', () => {
     const owner = () => env.authenticatedContext('alice-uid', { arccms_uid: 'rec-alice' }).storage();
     const other = () => env.authenticatedContext('bob-uid', { arccms_uid: 'rec-bob' }).storage();
     const noClaim = () => env.authenticatedContext('alice-uid').storage();

@@ -139,12 +139,12 @@ export class PageHeaderComponent {
      */
     @Input() showLanguagePicker = true;
     /**
-     * The admin search box (docs/search-spec.md, S-D17). Shown to admins by
+     * The admin search box (specs/search-spec.md, S-D17). Shown to admins by
      * default from every page header; off where the header has no room or
      * no admin, such as onboarding.
      */
     @Input() showSearch = true;
-    /** The admin search box needs the search feature (docs/feature-flags-spec.md). */
+    /** The admin search box needs the search feature (specs/feature-flags-spec.md). */
     readonly searchOn = isOn('search');
     /** Show an inline back button before the title (for detail/sub pages). */
     @Input() showBack = false;

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Writing docs | Arc CMS docs</title>
+  <meta name="description" content="How a docs page is written: the skeleton, the writing rules, the callouts, and the checks every page must pass.">
+  <meta name="docs:sources" content="docs/assets, scripts/docs-lib.mjs, scripts/docs-checks.mjs, scripts/docs-index.mjs, scripts/docs-affected.mjs, scripts/docs-serve.mjs">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="contributing/writing-docs.html">
+  <main>
+    <h1>Writing docs</h1>
+    <p class="lead">A docs page is one plain HTML file. There is no build step: you edit the file, refresh the browser, and run one command to keep search current.</p>
+
+    <h2>Preview the docs</h2>
+    <p>Open <code>docs/index.html</code> in a browser. Nothing has to run. To browse them at a real address (for example from a phone on the same network), serve them:</p>
+    <pre><code>npm run docs</code></pre>
+    <p>The docs are then at <code>http://localhost:5180</code>. Use <code>npm run docs -- --port 5190</code> for another port.</p>
+
+    <h2>Add a page</h2>
+    <ol class="steps">
+      <li>
+        <p>Copy the skeleton below into a new file in the right folder of <code>docs/</code>. A page in a folder uses <code>../</code> for its assets; the home page uses none.</p>
+      </li>
+      <li>
+        <p>Add the page to <code>docs/assets/nav.js</code>, in the place a reader should meet it. The title in the list must match the page's heading.</p>
+      </li>
+      <li>
+        <p>Rewrite the search index:</p>
+        <pre><code>npm run docs:index</code></pre>
+      </li>
+      <li>
+        <p>Run the docs checks:</p>
+        <pre><code>npm run check:docs</code></pre>
+      </li>
+    </ol>
+    <p>While you are still writing, <code>npm run docs:lint -- docs/contributing/writing-docs.html</code> checks just that page (its shape, links, paths, writing rules and sections) without needing it in the navigation yet.</p>
+
+    <h2>The page skeleton</h2>
+    <p>Every page is a whole HTML document, so it opens on its own and can be lifted into another site. Only what is inside <code>&lt;main&gt;</code> is content; the header, sidebar, contents list, previous and next links come from <code>docs/assets/docs.js</code> and <code>docs/assets/nav.js</code>.</p>
+    <pre><code>&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="utf-8"&gt;
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;
+  &lt;title&gt;Search | Arc CMS docs&lt;/title&gt;
+  &lt;meta name="description" content="One sentence: what this page lets you do."&gt;
+  &lt;meta name="docs:sources" content="functions/src/search, src/app/core/search"&gt;
+  &lt;link rel="stylesheet" href="../assets/docs.css"&gt;
+&lt;/head&gt;
+&lt;body data-root="../" data-page="features/search.html"&gt;
+  &lt;main&gt;
+    &lt;h1&gt;Search&lt;/h1&gt;
+    &lt;p class="lead"&gt;What you can do, in one or two sentences.&lt;/p&gt;
+    ...
+  &lt;/main&gt;
+  &lt;script src="../assets/nav.js"&gt;&lt;/script&gt;
+  &lt;script src="../assets/search-index.js"&gt;&lt;/script&gt;
+  &lt;script src="../assets/docs.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+    <h3>docs:sources</h3>
+    <p>The <code>docs:sources</code> meta lists the files and folders the page describes, separated by commas, or <code>none</code> when the page is not about any code. It does two jobs. A check fails when a listed path no longer exists, so a rename cannot leave a page pointing at nothing. And <code>npm run docs:affected</code> reads it to tell you which pages to review after a change (see <a href="docs-and-tests-are-part-of-done.html">Docs and tests are part of done</a>).</p>
+
+    <h2>Writing rules</h2>
+    <ul>
+      <li><strong>Task first.</strong> Start with what the reader can do after the page, then the shortest way to do it. Reasons come second and stay short.</li>
+      <li><strong>One fact, one place.</strong> If another page owns a fact, link to it instead of repeating it.</li>
+      <li><strong>Present tense, plain words.</strong> The docs say how Arc CMS works today. No history, no "recently", no "now".</li>
+      <li><strong>Numbered steps and copyable commands.</strong> Put each command in its own <code>&lt;pre&gt;&lt;code&gt;</code> block, and run it before you publish the page.</li>
+      <li><strong>Recommend one way.</strong> If there are options, give the recommended path first and the alternatives on a labelled line after it.</li>
+      <li><strong>American spelling</strong>, the same as the interface.</li>
+    </ul>
+
+    <p>Some things are refused by a check, on every page:</p>
+    <ul>
+      <li>Em dashes and en dashes. Use a comma, a colon, a full stop, or "such as".</li>
+      <li>Internal terms: task or phase codes, branch names, and our own Firebase project ids.</li>
+      <li>A mention of the <code>specs</code> folder. The docs never point into the working papers.</li>
+      <li>Placeholder text such as a leftover to-do.</li>
+    </ul>
+
+    <h2>Paths, files and code</h2>
+    <p>Write a path in <code>&lt;code&gt;</code> and the checks confirm it exists in the repository, so a moved file is caught. A file the reader is told to create is written with the <code>new</code> class so it is not checked:</p>
+    <pre><code>&lt;p&gt;Open &lt;code&gt;src/custom/features.ts&lt;/code&gt; and create &lt;code class="new"&gt;src/custom/pages/deals.page.ts&lt;/code&gt;.&lt;/p&gt;</code></pre>
+    <p>Placeholders such as <code>{lang}</code> or <code>YOUR_PROJECT</code> are skipped.</p>
+
+    <h2>Callouts</h2>
+    <p>Three callouts exist. Use them sparingly.</p>
+    <div class="note"><p>A note gives context that helps but is not needed to finish the task.</p></div>
+    <div class="warn"><p>A warning is for something that breaks, or loses data, if it is ignored.</p></div>
+    <div class="trap"><p>A trap is a mistake that has actually happened, stated as what goes wrong and what to do instead.</p></div>
+    <pre><code>&lt;div class="note"&gt;&lt;p&gt;...&lt;/p&gt;&lt;/div&gt;
+&lt;div class="warn"&gt;&lt;p&gt;...&lt;/p&gt;&lt;/div&gt;
+&lt;div class="trap"&gt;&lt;p&gt;...&lt;/p&gt;&lt;/div&gt;</code></pre>
+
+    <h2>Numbered steps</h2>
+    <p>Give an ordered list the <code>steps</code> class for large numbers, as on this page:</p>
+    <pre><code>&lt;ol class="steps"&gt;
+  &lt;li&gt;&lt;p&gt;Do this.&lt;/p&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;p&gt;Then this.&lt;/p&gt;&lt;/li&gt;
+&lt;/ol&gt;</code></pre>
+
+    <h2>Feature pages</h2>
+    <p>A page in the <code>features</code> folder has the same sections, in the same order, so a reader always knows where to look. A section that does not apply says so in one line.</p>
+    <ol>
+      <li>What it is</li>
+      <li>Turn it on or off</li>
+      <li>Set it up</li>
+      <li>Use it</li>
+      <li>Extend it</li>
+      <li>What it stores</li>
+      <li>Who can do what</li>
+      <li>Troubleshooting</li>
+    </ol>
+    <p>A check fails when a feature page misses one, or has them out of order, and when a switchable feature has no page of its own.</p>
+
+    <h2>The checks</h2>
+    <p>The checks run with the whole test suite and on their own with <code>npm run check:docs</code>. They fail on:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Check</th><th>Fails when</th></tr></thead>
+        <tbody>
+          <tr><td>Navigation</td><td>A page is not in <code>nav.js</code>, or <code>nav.js</code> lists a page that is missing, or a title differs from the page's heading</td></tr>
+          <tr><td>Page shape</td><td>A page lacks its title, description, sources, stylesheet or scripts, or has the wrong <code>data-root</code> or <code>data-page</code></td></tr>
+          <tr><td>Links</td><td>A link, an image or a <code>#heading</code> does not lead anywhere</td></tr>
+          <tr><td>Sources and paths</td><td>A path in <code>docs:sources</code> or in <code>&lt;code&gt;</code> does not exist</td></tr>
+          <tr><td>Features</td><td>A switchable feature has no page, or a feature page misses a section</td></tr>
+          <tr><td>Writing rules</td><td>A dash, an internal term, a mention of the working papers, or placeholder text is found</td></tr>
+          <tr><td>Search index</td><td>The index is not what <code>npm run docs:index</code> would write</td></tr>
+          <tr><td>References</td><td>Any file in the repository names a docs page that does not exist</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>The app's own pages</h2>
+    <p>An app built on a copy of Arc CMS keeps its own docs in <code>docs/custom/</code>. Core never touches that folder, and the checks above skip it.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

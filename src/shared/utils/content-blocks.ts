@@ -1,6 +1,6 @@
 /**
  * Client mirror of functions/src/shared/content-blocks.ts for the SPA
- * fallback pages (docs/discoverability-spec.md, D-D10): reads the
+ * fallback pages (specs/discoverability-spec.md, D-D10): reads the
  * `<section data-arc-block="…">` wrappers out of a body and builds the
  * matching schema.org nodes. Uses DOMParser, so browser only; on the server
  * it returns empty shapes and the static pages carry the real nodes anyway.

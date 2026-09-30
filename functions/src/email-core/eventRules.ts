@@ -1,5 +1,5 @@
 /**
- * Rules within an event mapping (docs/coexistence-spec.md 5b, CO6.4).
+ * Rules within an event mapping (specs/coexistence-spec.md 5b, CO6.4).
  *
  * A mapping in `Settings/event_mappings` used to hold one set of actions per
  * event. It can now also hold `rules`: several sets of actions for the same

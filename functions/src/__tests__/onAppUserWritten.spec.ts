@@ -1,4 +1,4 @@
-/** Reacting to the host app's users (docs/coexistence-spec.md 5b, CO6.4). */
+/** Reacting to the host app's users (specs/coexistence-spec.md 5b, CO6.4). */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const m = vi.hoisted(() => {

@@ -1,5 +1,5 @@
 /**
- * Reacting to the host app's users (docs/coexistence-spec.md 5b, CO6.4).
+ * Reacting to the host app's users (specs/coexistence-spec.md 5b, CO6.4).
  *
  * A trigger on the host collection set at deploy time (`ARC_APP_USERS_DATABASE`,
  * `ARC_APP_USERS_PATH`). It turns writes into events on the ArcCMS event bus:
@@ -183,7 +183,7 @@ export const onAppUserWritten = onDocumentWritten(
                 });
             }
             // Sequences on App users (live) lists: joining is starting to match (CO6.5c).
-            // Sequences are email marketing's (docs/feature-flags-spec.md).
+            // Sequences are email marketing's (specs/feature-flags-spec.md).
             if (isFeatureOn('email-marketing')) await syncAppDrips(docId, beforeData, afterData, settings);
         } catch (err) {
             const retry = shouldRetryAppUserWrite(event.time);

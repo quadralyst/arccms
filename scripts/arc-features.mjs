@@ -1,5 +1,5 @@
 /**
- * Writes the functions' view of the app's features (docs/feature-flags-spec.md):
+ * Writes the functions' view of the app's features (specs/feature-flags-spec.md):
  *
  *   functions/src/enabled-features.gen.ts   the features that are on, for runtime checks
  *   functions/src/feature-exports.gen.ts    `export *` of each functions/src/features file

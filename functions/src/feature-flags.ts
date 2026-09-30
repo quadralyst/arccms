@@ -1,6 +1,6 @@
 /**
  * The features this app has, for code that runs whatever the features are and
- * calls into one of them (docs/feature-flags-spec.md, section 5.3).
+ * calls into one of them (specs/feature-flags-spec.md, section 5.3).
  *
  * ENABLED_FEATURES is generated from src/custom/features.ts by
  * scripts/arc-features.mjs before every build and test run. FeatureId mirrors

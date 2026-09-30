@@ -252,7 +252,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             .filter(field => !!field.key);
     }
 
-    // ── Structured data (docs/discoverability-spec.md, D-D12) ──────────────
+    // ── Structured data (specs/discoverability-spec.md, D-D12) ──────────────
 
     readonly schemaTypes = SCHEMA_TYPES;
 

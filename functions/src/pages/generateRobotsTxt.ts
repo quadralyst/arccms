@@ -5,7 +5,7 @@ import { deploySeoFileToHosting } from './deploySeoFile.js';
 import type { HostingBatch } from './deployToHosting.js';
 
 /**
- * The robots.txt text for a site (docs/discoverability-spec.md, D-D6).
+ * The robots.txt text for a site (specs/discoverability-spec.md, D-D6).
  *
  * Everything is allowed by default; only crawlers the owner switched off get
  * a `Disallow: /` group of their own. An allowed AI crawler needs no

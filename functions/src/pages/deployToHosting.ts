@@ -128,7 +128,7 @@ async function updateDeployStatus(
  * manifest. Two deploys seconds apart can therefore race: the second reads a
  * release list that has not yet caught up, inherits a manifest without the
  * first file, and silently drops it — while both calls report success. That
- * cost a translated page on the dev project (docs/_todo.md item 3c), and M3
+ * cost a translated page on the dev project (specs/_todo.md item 3c), and M3
  * made it far likelier by turning 2 files per publish into 2 x languages.
  *
  * Collecting a whole publish into one batch removes the race by construction —

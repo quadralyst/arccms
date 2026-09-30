@@ -1,5 +1,5 @@
 /**
- * Every row of the behaviour table in docs/search-spec.md Appendix B, run
+ * Every row of the behaviour table in specs/search-spec.md Appendix B, run
  * through the real tokenizer and ranker against the fixture entries A, B
  * and C. If a row here changes, the spec's table changes with it.
  */

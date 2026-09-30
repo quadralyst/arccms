@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build a custom app | Arc CMS docs</title>
+  <meta name="description" content="Decide whether to build your product on a copy of Arc CMS, see what you get without writing code, and follow the steps in order.">
+  <meta name="docs:sources" content="src/custom, functions/src/custom, scripts/check-core.mjs, CLAUDE.md">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/overview.html">
+  <main>
+    <h1>Build a custom app</h1>
+    <p class="lead">Build your own product on a copy of the Arc CMS repository. Sign-in, users, email, an admin area and more are there on day one, and your code lives in a separate custom space so Arc CMS updates merge cleanly.</p>
+
+    <h2>Is this the right choice</h2>
+    <table>
+      <thead><tr><th>You want</th><th>Do this</th></tr></thead>
+      <tbody>
+        <tr><td>A new product with members, its own data and pages, and an admin area, on Firebase</td><td>Build on a copy of Arc CMS (this path)</td></tr>
+        <tr><td>A content website, with no code of your own beyond templates</td><td><a href="../website/overview.html">Build a website</a></td></tr>
+        <tr><td>Arc CMS next to an app you already have in its own Firebase project</td><td><a href="shared-project.html">Share a Firebase project</a>, then <a href="app-audience.html">Connect your app's users</a></td></tr>
+        <tr><td>To change how an Arc CMS feature itself works</td><td>Build it in Arc CMS as a general feature, then pull it (<a href="../contributing/keep-core-generic.html">Keep core generic</a>)</td></tr>
+      </tbody>
+    </table>
+    <p>See <a href="../getting-started/website-or-app.html">A website or an app</a> for a longer comparison.</p>
+
+    <h2>What you get without writing code</h2>
+    <table>
+      <thead><tr><th>Area</th><th>What is there</th><th>Read</th></tr></thead>
+      <tbody>
+        <tr><td>Sign-in</td><td>Email, Google and phone sign-in, sign-up, and the first-admin setup</td><td><a href="../features/sign-in.html">Sign-in methods</a></td></tr>
+        <tr><td>Users and roles</td><td>User records, roles, custom claims, account deletion</td><td><a href="../features/users-and-roles.html">Users and roles</a></td></tr>
+        <tr><td>Email</td><td>A provider setup, brand kit, composer, transactional emails, logs and unsubscribe</td><td><a href="../features/email.html">Email engine</a></td></tr>
+        <tr><td>Audience</td><td>Contacts, lists, tags, broadcasts and drip sequences</td><td><a href="../features/audience.html">Audience</a></td></tr>
+        <tr><td>Payments</td><td>Products, checkout, transactions and premium entitlements</td><td><a href="../features/payments.html">Payments</a></td></tr>
+        <tr><td>Installable app</td><td>Manifest, icons, service worker and install prompt</td><td><a href="../features/pwa.html">Installable app (PWA)</a></td></tr>
+        <tr><td>Content</td><td>Content types, templates, media, search and SEO</td><td><a href="../features/content.html">Content</a></td></tr>
+        <tr><td>Everyday tools</td><td>Feedback button, notifications, banners, analytics, data import and export</td><td><a href="../features/overview.html">All features</a></td></tr>
+      </tbody>
+    </table>
+    <p>You turn off what your app does not need in one file (<a href="choose-features.html">Choose your app's features</a>).</p>
+
+    <h2>The one rule: never edit core</h2>
+    <p>Every file Arc CMS ships is core. Your app's code goes only in the custom space: <code>src/custom/</code>, <code>functions/src/custom/</code> and your own rules and index files (<a href="custom-space.html">Use the custom space</a>). Arc CMS ships those files once, empty, and never changes them again, so pulling an update never conflicts with your work.</p>
+    <p>If your app needs something core does not offer, it becomes a general feature or a new plug point in Arc CMS, and your app pulls it. Before every commit, run:</p>
+    <pre><code>npm run check:core</code></pre>
+    <p>It lists every core file you changed and fails when there is one. See <a href="../concepts/core-and-custom.html">Core and custom</a> for the reasoning.</p>
+
+    <h2>The steps, in order</h2>
+    <p>Start with a working copy: <a href="../getting-started/install.html">Install</a>, <a href="../getting-started/configure.html">Configure a project</a> and <a href="../getting-started/first-admin.html">Create the first admin</a>. Then:</p>
+    <ol class="steps">
+      <li><p><a href="custom-space.html">Use the custom space</a>: learn which file does what.</p></li>
+      <li><p><a href="choose-features.html">Choose your app's features</a>: turn off what the app does not need.</p></li>
+      <li><p><a href="pages-and-routes.html">Add pages and routes</a>: the app's own screens.</p></li>
+      <li><p><a href="admin-menu.html">Add admin menu items</a>: links to your admin screens.</p></li>
+      <li><p><a href="member-area.html">Build the member area</a>: where signed-in people land and what they see.</p></li>
+      <li><p><a href="functions.html">Write your own Cloud Functions</a>: callables and triggers.</p></li>
+      <li><p><a href="rules-and-indexes.html">Set security rules and indexes</a>: protect the app's data.</p></li>
+      <li><p><a href="account-contract.html">Follow the account contract</a>: where each person's data lives.</p></li>
+      <li><p><a href="sign-in.html">Set up sign-in</a>: choose how people sign in.</p></li>
+      <li><p><a href="payments.html">Add payments and premium features</a>: charge for the app.</p></li>
+      <li><p><a href="pwa.html">Make it installable</a>: name, colors and icon.</p></li>
+      <li><p><a href="app-audience.html">Connect your app's users</a>: email the app's users from Arc CMS.</p></li>
+      <li><p><a href="shared-project.html">Share a Firebase project</a>: only when Arc CMS lives next to another app.</p></li>
+      <li><p><a href="check-core-and-upgrade.html">Keep core untouched</a>: check your work and pull Arc CMS updates.</p></li>
+    </ol>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

@@ -37,7 +37,7 @@ if (!projectId) {
     process.exit(1);
 }
 
-// The install's database and hosting site (docs/coexistence-spec.md, CO3), read
+// The install's database and hosting site (specs/coexistence-spec.md, CO3), read
 // as the Firebase CLI reads them for a deploy (arc-env.cjs, review O3).
 loadArcEnv(path.join(__dirname, '..'), projectId);
 

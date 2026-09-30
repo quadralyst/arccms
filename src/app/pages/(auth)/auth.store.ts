@@ -236,7 +236,7 @@ export const AuthState = signalStore(
                         .pipe(
                             tap((res) => {
                                 // The server writes the record, with the site's default role and
-                                // the `arccms_uid` claim (docs/account-contract.md), so the token
+                                // the `arccms_uid` claim (docs/app/account-contract.html), so the token
                                 // carries the claim when sign-up completes. Then read the record.
                                 createRecordWithRetry(() => signIn().createAccountRecord(form.name))
                                     .then(async (result) => {
@@ -437,7 +437,7 @@ export const AuthState = signalStore(
 
                                                 // The `arccms_uid` claim (the record id) must be in the token
                                                 // before sign-in completes: apps and rules rely on it
-                                                // (docs/account-contract.md). Accounts made before it existed
+                                                // (docs/app/account-contract.html). Accounts made before it existed
                                                 // get it here, once. Non-fatal: rules simply deny without it.
                                                 try {
                                                     await signIn().ensureRecordClaim(userData.id, userData.role);

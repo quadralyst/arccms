@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { htmlToMarkdown } from '../shared/html-to-markdown.js';
 
-describe('htmlToMarkdown (docs/discoverability-spec.md, D-D8)', () => {
+describe('htmlToMarkdown (specs/discoverability-spec.md, D-D8)', () => {
     it('returns an empty string for nothing', () => {
         expect(htmlToMarkdown('')).toBe('');
         expect(htmlToMarkdown('   ')).toBe('');

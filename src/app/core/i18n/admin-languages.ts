@@ -6,7 +6,7 @@
  * enabling a content language must not half-translate the admin UI — a
  * language belongs here only once its `src/assets/i18n/{code}.json` exists.
  *
- * Spec: docs/multilingual-spec.md — Phase M6, decision M-D11.
+ * Spec: specs/multilingual-spec.md — Phase M6, decision M-D11.
  */
 
 export interface AdminLanguage {

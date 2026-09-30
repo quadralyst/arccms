@@ -7,7 +7,7 @@
  * the page header so that the header injects nothing new: this one is
  * created inside an @if block, on change detection, like the bell.
  *
- * Spec: docs/search-spec.md, decision S-D17 and phase S4 item 3.
+ * Spec: specs/search-spec.md, decision S-D17 and phase S4 item 3.
  */
 
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
@@ -47,7 +47,7 @@ export class AdminSearchComponent {
     private firestore = inject(Firestore, { optional: true });
 
     /**
-     * Every source an admin may read (docs/feature-flags-spec.md 6.4) except
+     * Every source an admin may read (specs/feature-flags-spec.md 6.4) except
      * published content: every draft has a published twin, which would show
      * up as a duplicate, and an admin searching from a header wants the thing
      * to edit.

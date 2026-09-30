@@ -1,5 +1,5 @@
 /**
- * Admin: add an ArcCMS user (docs/coexistence-spec.md, CO6.6).
+ * Admin: add an ArcCMS user (specs/coexistence-spec.md, CO6.6).
  *
  * Creates the sign-in account and the `users` record together, with the role,
  * and never stores a password. When sign-ups are off (the backend profile's

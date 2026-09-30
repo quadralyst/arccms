@@ -10,7 +10,7 @@
  * The publish pipeline must merge exactly the way the editor previews, so the
  * two implementations are kept in step (see contentTranslation.spec.ts).
  *
- * Spec: docs/multilingual-spec.md — Phase M2/M3, decision M-D1.
+ * Spec: specs/multilingual-spec.md — Phase M2/M3, decision M-D1.
  */
 
 /** Built-in content fields that can be translated (decision M-D5). */

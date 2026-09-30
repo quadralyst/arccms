@@ -20,7 +20,7 @@ import { AuthorsService } from './authors.service';
 import { IAuthor, IAuthorData, EMPTY_AUTHOR } from '../../../../shared/models/author.model';
 
 /**
- * Authors (docs/discoverability-spec.md, D2).
+ * Authors (specs/discoverability-spec.md, D2).
  *
  * The people named on bylines and in each page's Article JSON-LD. One of
  * them can be the default, pre-filled on new content.

@@ -1,5 +1,5 @@
 /**
- * Structured content blocks (docs/discoverability-spec.md, D-D10).
+ * Structured content blocks (specs/discoverability-spec.md, D-D10).
  *
  * One Tiptap node, `arcBlock`, with a `kind` attribute: faq, takeaways,
  * howto or definition. Each is a plain wrapper around ordinary block

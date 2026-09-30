@@ -5,7 +5,7 @@
  * src/app/pages/admin/contents/content-types/content-types.model.ts — the
  * publish pipeline and the SPA must label a page the same way.
  *
- * Spec: docs/multilingual-spec.md — Phase M5.2, decision M-D19.
+ * Spec: specs/multilingual-spec.md — Phase M5.2, decision M-D19.
  */
 
 export interface ContentTypeNames {

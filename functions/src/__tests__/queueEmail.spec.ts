@@ -28,7 +28,7 @@ vi.mock('../email-core/contacts', () => ({
   },
 }));
 
-// Every feature on unless a test turns some off (docs/feature-flags-spec.md).
+// Every feature on unless a test turns some off (specs/feature-flags-spec.md).
 const featuresOff = vi.hoisted(() => new Set<string>());
 vi.mock('../feature-flags.js', () => ({ isFeatureOn: (id: string) => !featuresOff.has(id) }));
 

@@ -1,5 +1,5 @@
 /**
- * Keeps the features complete (docs/feature-flags-spec.md, section 8): every page
+ * Keeps the features complete (specs/feature-flags-spec.md, section 8): every page
  * URL belongs to exactly one feature or to core, so a new page cannot ship
  * outside the system. The menu, the settings tabs and the Cloud Functions have
  * their own checks beside their code (side-navbar, settings page, functions).

@@ -1,6 +1,6 @@
 /**
  * The schema.org types a content type can publish as, and the properties an
- * admin may map to custom fields (docs/discoverability-spec.md, D-D12).
+ * admin may map to custom fields (specs/discoverability-spec.md, D-D12).
  *
  * `Article` and its subtypes need no mapping: their properties come from the
  * built-in fields (title, summary, cover, dates, author). The others list

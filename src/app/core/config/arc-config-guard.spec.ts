@@ -1,5 +1,5 @@
 /**
- * CO2 guard (docs/coexistence-spec.md): the browser app opens Firestore and
+ * CO2 guard (specs/coexistence-spec.md): the browser app opens Firestore and
  * Storage only through arc-firebase.ts, so the install's database and bucket
  * apply everywhere.
  */

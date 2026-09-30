@@ -3,7 +3,7 @@
  *
  * Reads and writes `Settings/discoverability` (crawler policy, llms.txt,
  * IndexNow) and applies it to Hosting through the `regenerateSeoFiles`
- * callable. Spec: docs/discoverability-spec.md, D3.
+ * callable. Spec: specs/discoverability-spec.md, D3.
  */
 import { Injectable, inject } from '@angular/core';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';

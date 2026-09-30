@@ -1,5 +1,5 @@
 /**
- * Collections that can never be searchable (docs/feature-flags-spec.md, F-D13):
+ * Collections that can never be searchable (specs/feature-flags-spec.md, F-D13):
  * they grow by thousands of documents a day, hold secrets or site settings, or
  * are the index itself. Search settings shows them greyed out with the reason;
  * naming one in functions/src/custom/search-sources.ts stops the functions from

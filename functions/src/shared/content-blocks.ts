@@ -1,6 +1,6 @@
 /**
  * Reads the structured blocks an author placed in the body
- * (docs/discoverability-spec.md, D-D10) and turns them into schema.org
+ * (specs/discoverability-spec.md, D-D10) and turns them into schema.org
  * nodes. The blocks are `<section data-arc-block="…">` wrappers around
  * ordinary headings, paragraphs and lists, so this is a shape reader, not
  * a parser of anything the editor invented:

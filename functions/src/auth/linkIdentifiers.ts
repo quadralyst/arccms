@@ -259,7 +259,7 @@ export const linkEmail = onCall(async (request) => {
     if (oldEmail) batch.delete(db.collection('email_lookup').doc(computeEmailHash(oldEmail)));
     await batch.commit();
 
-    // Contacts are the audience feature's (docs/feature-flags-spec.md).
+    // Contacts are the audience feature's (specs/feature-flags-spec.md).
     if (isFeatureOn('audience')) try {
         if (oldEmail) await unlinkUserContact(oldEmail);
         await ensureSystemLists();

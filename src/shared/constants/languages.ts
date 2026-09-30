@@ -9,7 +9,7 @@
  * with their own labels, so removing a language from this catalogue never
  * breaks a site already publishing it.
  *
- * Spec: docs/multilingual-spec.md — Phase M1.
+ * Spec: specs/multilingual-spec.md — Phase M1.
  */
 
 import { ILanguage } from '../models/localization.model';

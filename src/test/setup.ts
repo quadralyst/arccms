@@ -13,7 +13,7 @@ import 'zone.js/testing';
 import { beforeEach, vi } from 'vitest';
 
 /**
- * Core specs test Arc CMS with every feature on (docs/feature-flags-spec.md),
+ * Core specs test Arc CMS with every feature on (specs/feature-flags-spec.md),
  * whatever an app built on it puts in src/custom/features.ts, so an app that
  * turns features off can still run the whole suite. A spec about a particular
  * choice mocks the file itself, which wins over this.

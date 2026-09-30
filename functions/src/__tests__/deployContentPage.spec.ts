@@ -867,7 +867,7 @@ describe('deployContentPage', () => {
         });
     });
 
-    // ─── Structured data (docs/discoverability-spec.md, D1) ───────────────
+    // ─── Structured data (specs/discoverability-spec.md, D1) ───────────────
 
     describe('structured data', () => {
         /** Every JSON-LD node in the first deployed file, parsed. */

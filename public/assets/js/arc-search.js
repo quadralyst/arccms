@@ -10,7 +10,7 @@
  * It talks to the `search` callable directly over fetch using the callable
  * protocol ({ data } in, { result } out), so it needs no Firebase SDK.
  *
- * Spec: docs/search-spec.md, phase S5 item 1.
+ * Spec: specs/search-spec.md, phase S5 item 1.
  */
 (function () {
     'use strict';

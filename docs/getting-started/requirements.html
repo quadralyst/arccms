@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Requirements | Arc CMS docs</title>
+  <meta name="description" content="The tools and accounts you need before you install Arc CMS: Node, npm, the Firebase CLI, a Firebase project on the Blaze plan, git and an editor.">
+  <meta name="docs:sources" content="package.json, functions/package.json, scripts/arc-features.mjs, scripts/vitest-global-setup.ts, scripts/arc-deploy.mjs, scripts/arc-configure.mjs, .vscode/extensions.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="getting-started/requirements.html">
+  <main>
+    <h1>Requirements</h1>
+    <p class="lead">Before you install, have these tools on your computer and a Firebase project you own.</p>
+
+    <h2>The list</h2>
+    <table>
+      <thead><tr><th>You need</th><th>Version</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Node.js</td><td>22.18 or later in the 22 line</td><td>Runs the dev server, the build, the tests and the scripts. Cloud Functions run on Node 22.</td></tr>
+        <tr><td>npm</td><td>10 or later</td><td>Installs the dependencies. It comes with Node.</td></tr>
+        <tr><td>Firebase CLI</td><td>Current version</td><td>Signs you in to Firebase, picks the project and deploys. The deploy script calls the <code>firebase</code> command.</td></tr>
+        <tr><td>A Firebase project</td><td>Blaze plan</td><td>Holds your data, accounts, files and functions. Cloud Functions only deploy on the Blaze (pay as you go) plan.</td></tr>
+        <tr><td>git</td><td>Any recent version</td><td>Gets the code, and for an app keeps the link to Arc CMS for updates.</td></tr>
+        <tr><td>A code editor</td><td>Any</td><td>Visual Studio Code works well: the repository recommends the Angular, Analog and Vitest extensions.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Node.js</h2>
+    <p>Use Node 22, version 22.18 or later. Check with:</p>
+    <pre><code>node --version</code></pre>
+    <p>Two things set this version:</p>
+    <ul>
+      <li>The functions are built for Node 22: <code>functions/package.json</code> asks for Node 22, and that is the runtime Firebase gives them.</li>
+      <li>Before every functions build and every test run, <code>scripts/arc-features.mjs</code> loads the TypeScript file <code>src/custom/features.ts</code> directly, which Node can do from 22.18 on.</li>
+    </ul>
+    <div class="trap"><p>The root <code>package.json</code> accepts Node 20.19, and the dev server starts on it. The functions build and <code>npm run test</code> then stop with "Node 22.18 or later is needed". Install Node 22, version 22.18 or later, from the start.</p></div>
+
+    <h2>The Firebase CLI</h2>
+    <p>Install it once, globally, and sign in:</p>
+    <pre><code>npm install -g firebase-tools</code></pre>
+    <pre><code>firebase login</code></pre>
+    <p>A shared-project install (the <code>backend</code> profile) also needs the Google Cloud CLI, <code>gcloud</code>, to create its own storage bucket. A site that has its Firebase project to itself does not.</p>
+
+    <h2>A Firebase project</h2>
+    <p>Create one at the Firebase console, or use one you have. It must be on the Blaze plan, because Arc CMS does its server work in Cloud Functions, and those deploy only on Blaze. Creating the project and turning on its services is on <a href="configure.html">Configure a project</a>.</p>
+    <div class="note"><p>A local copy of Arc CMS talks to this real project; there is no local emulator (see <a href="run-locally.html">Run it locally</a>). Use a separate project for development if you do not want test data next to live data.</p></div>
+
+    <h2>Next</h2>
+    <p><a href="install.html">Install</a> Arc CMS.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

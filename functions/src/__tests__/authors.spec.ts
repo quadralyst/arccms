@@ -17,7 +17,7 @@ import {
 } from '../shared/authors.js';
 import { contentSearchFields } from '../search/sources/content-fields.js';
 
-describe('authors (docs/discoverability-spec.md, D2)', () => {
+describe('authors (specs/discoverability-spec.md, D2)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         clearAuthorCache();

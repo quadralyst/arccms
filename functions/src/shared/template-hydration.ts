@@ -216,7 +216,7 @@ export class TemplateHydrationService {
    * The suffixes are underscored because field keys are themselves forced to
    * `^[a-z0-9_-]+$`, so `card_iconSvg` would be the odd one out.
    *
-   * Documented in TEMPLATES.md. Runs on a copy; the caller's data is not
+   * Documented in docs/features/templates.html. Runs on a copy; the caller's data is not
    * touched.
    */
   private static flattenIcons(data: TemplateContext): TemplateContext {

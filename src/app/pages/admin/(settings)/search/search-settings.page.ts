@@ -1,7 +1,7 @@
 /**
  * Search Settings Page
  *
- * What is searchable and how (docs/feature-flags-spec.md, section 6.4):
+ * What is searchable and how (specs/feature-flags-spec.md, section 6.4):
  *
  *  - every source in the index, the fields it tokenizes, its counts and a Rebuild button;
  *  - every collection in the database and where it stands: searchable, named
@@ -13,7 +13,7 @@
  *    Saving writes `Settings/search_collections` and rebuilds that collection,
  *    with no deploy.
  *
- * Spec: docs/search-spec.md, phase S2 item 6.
+ * Spec: specs/search-spec.md, phase S2 item 6.
  */
 
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';

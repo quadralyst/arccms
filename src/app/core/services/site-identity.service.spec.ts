@@ -1,5 +1,5 @@
 /**
- * Tests for SiteIdentityService (docs/discoverability-spec.md, D1)
+ * Tests for SiteIdentityService (specs/discoverability-spec.md, D1)
  */
 import { TestBed } from '@angular/core/testing';
 import { Firestore, getDoc } from '@angular/fire/firestore';

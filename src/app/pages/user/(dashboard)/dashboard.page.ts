@@ -16,7 +16,7 @@ export const routeMeta: RouteMeta = {
 /**
  * The member's home, /user/dashboard: a greeting and nothing else, for every app.
  * An app shows its own page here through src/custom/user-dashboard.ts
- * (docs/custom-code.md); payments has its own page, /user/payments.
+ * (docs/app/custom-space.html); payments has its own page, /user/payments.
  */
 @Component({
     selector: 'arc-user-dashboard',
@@ -27,7 +27,7 @@ export const routeMeta: RouteMeta = {
             <div class="dash">
                 <arc-page-header [title]="'user.dashboard.welcome' | transloco: { name: firstName() }"></arc-page-header>
 
-                <!-- Shows only where the app can be installed and is not yet (docs/pwa.md) -->
+                <!-- Shows only where the app can be installed and is not yet (docs/features/pwa.html) -->
                 <arc-install-prompt class="d-block mb-3" />
 
                 <mat-card class="empty">

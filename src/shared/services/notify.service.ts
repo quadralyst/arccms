@@ -12,7 +12,7 @@
  * `raw()` is the escape hatch for text that genuinely is not ours to translate
  * — a message from a server, or a content title echoed back.
  *
- * Spec: docs/multilingual-spec.md — Phase M7.
+ * Spec: specs/multilingual-spec.md — Phase M7.
  */
 
 import { Injectable, inject } from '@angular/core';

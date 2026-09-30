@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Core and custom | Arc CMS docs</title>
+  <meta name="description" content="The one rule of building on Arc CMS: never edit core files, keep your app in the custom space, and let check:core prove it.">
+  <meta name="docs:sources" content="scripts/check-core.mjs, scripts/arc-rules-build.mjs, src/custom, functions/src/custom, functions/src/all.ts, src/app/custom-space.spec.ts, CLAUDE.md, docs/custom">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="concepts/core-and-custom.html">
+  <main>
+    <h1>Core and custom</h1>
+    <p class="lead">An app built on Arc CMS never edits an Arc CMS file. Its own code goes in the custom space, which Arc CMS never touches, so every Arc CMS update merges cleanly.</p>
+
+    <h2>The two spaces</h2>
+    <p><strong>Core</strong> is everything Arc CMS ships. Your app receives it by pulling updates (<a href="../getting-started/upgrading.html">Upgrade Arc CMS</a>) and uses it: importing a core component or helper is fine, editing it is not.</p>
+    <p><strong>Custom</strong> is the set of files and folders Arc CMS ships once, empty, and never changes again:</p>
+    <table>
+      <thead><tr><th>Path</th><th>For</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/custom/</code></td><td>Pages and routes, admin menu items, the member dashboard, where each role lands, translations, styles, installable app settings, feature choices</td></tr>
+        <tr><td><code>functions/src/custom/</code></td><td>Cloud Functions and triggers, the callables the deploy checks, searchable collections</td></tr>
+        <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code></td><td>Security rules and indexes for the app's data (optional files, created when needed)</td></tr>
+        <tr><td><code class="new">tests/rules/custom/</code></td><td>The app's rules tests</td></tr>
+        <tr><td><code>docs/custom/</code></td><td>The app's own docs</td></tr>
+      </tbody>
+    </table>
+    <p>How to use each file is in <a href="../app/custom-space.html">Use the custom space</a>.</p>
+    <p>Core reads the custom space at fixed plug points: the routes file, the pages folder, the admin menu, the translations, the stylesheet, the feature choices, and the functions (<code>functions/src/all.ts</code> exports <code>functions/src/custom/index.ts</code> as the <code>custom</code> group). The rules build places your rules inside the core rules, so they can call the core helpers. A test in <code>src/app/custom-space.spec.ts</code> checks that every starter file ships empty.</p>
+
+    <h2>What check:core reports</h2>
+    <p>Run it before every commit in an app:</p>
+    <pre><code>npm run check:core</code></pre>
+    <p>It compares your working copy, committed or not, with the Arc CMS version your copy is based on (<code>upstream/main</code>, from the <code>upstream</code> remote), and sorts every difference into four kinds:</p>
+    <table>
+      <thead><tr><th>Kind</th><th>Files</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>custom</td><td>The custom space above</td><td>Fine</td></tr>
+        <tr><td>install</td><td><code>src/environments/environment.ts</code>, <code>src/environments/environment.prod.ts</code>, <code>src/environments/arc-install.ts</code>: this install's Firebase settings</td><td>Fine</td></tr>
+        <tr><td>review</td><td><code>package.json</code>, <code>package-lock.json</code>, <code>functions/package.json</code>, <code>functions/package-lock.json</code></td><td>Fine, listed so you look at them before the next update</td></tr>
+        <tr><td>core</td><td>Everything else</td><td>Listed, and the check fails</td></tr>
+      </tbody>
+    </table>
+    <p>It exits with 1 when a core file changed, so it can run in CI, and also when there is no <code>upstream</code> remote to compare with, so it never passes without checking. It prints the two commands that add the remote. A core file moved into the custom space still counts as a core change. To compare with another Arc CMS branch, name it with <code>--against</code>:</p>
+    <pre><code>npm run check:core -- --against upstream/BRANCH</code></pre>
+    <p>In the Arc CMS repository itself there is no core to protect, and the check says so and passes.</p>
+
+    <h2>When the app needs something core does not offer</h2>
+    <p>Stop, and do not edit the core file. The need becomes a general feature or a new plug point in Arc CMS, built there, and your app pulls it with the next update. The same goes for a core component that falls short: it gets a new option in Arc CMS. Copying it into the custom space loses every later fix, and editing it in place breaks the next update.</p>
+    <p>If you work on Arc CMS itself, keep it generic: nothing specific to one app, and nothing in the custom space beyond the empty starter files. See <a href="../contributing/keep-core-generic.html">Keep core generic</a>.</p>
+    <p>For the routine in an app (checking, fixing a flagged file, upgrading), see <a href="../app/check-core-and-upgrade.html">Keep core untouched</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

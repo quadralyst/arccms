@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Add payments and premium features | Arc CMS docs</title>
+  <meta name="description" content="Sell plans with Dodo Payments and lock your app's premium features behind them, in this app or in a separate app that reads the same accounts.">
+  <meta name="docs:sources" content="functions/src/dodo-payments, functions/src/features/payments.ts, src/app/pages/user/entitlement.service.ts, src/app/pages/user/if-entitled.directive.ts, src/app/pages/user/user.guards.ts, src/app/pages/payments-ui/membership.service.ts, src/app/pages/pricing, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/payments.html">
+  <main>
+    <h1>Add payments and premium features</h1>
+    <p class="lead">Arc CMS sells plans through Dodo Payments and records on each person's record which plan they hold. Your app reads that record and decides what to unlock.</p>
+    <p>Arc CMS <strong>records</strong> the plan; your app <strong>enforces</strong> it. The setup screens, webhook and emails are in <a href="../features/payments.html">Payments</a>; the fields and their life cycle are in <a href="../features/entitlements.html">Premium entitlements</a>.</p>
+
+    <h2>Turn payments on and sell a plan</h2>
+    <ol class="steps">
+      <li><p><strong>Keep the feature on.</strong> <code>payments</code> is on unless <code>src/custom/features.ts</code> lists it in <code>off</code>. See <a href="choose-features.html">Choose your app's features</a>.</p></li>
+      <li><p><strong>Connect Dodo Payments</strong> in Settings, Payments: the API keys, the webhook secret, and the pages people return to after checkout. The steps are in <a href="../features/payments.html">Payments</a>.</p></li>
+      <li><p><strong>Add a product</strong> under Products. Link it to its Dodo product id, and set the two fields your app reads:</p>
+        <table>
+          <thead><tr><th>Field</th><th>What it is</th></tr></thead>
+          <tbody>
+            <tr><td>Premium type</td><td>The plan key written to the buyer's record, such as <code>plus</code> or <code>gold</code>. Your app's code checks this string, so agree on it.</td></tr>
+            <tr><td>Tier rank</td><td>A number, higher means more access. A person holds one plan at a time; a lower-ranked purchase never replaces a higher active one.</td></tr>
+          </tbody>
+        </table>
+      </li>
+      <li><p><strong>Let people buy it.</strong> <code>/pricing</code> lists the active products and starts checkout; signed-out visitors are sent to sign in first and come back. That is the recommended path.</p></li>
+    </ol>
+    <p><strong>Your own buy button:</strong> call the <code>createCheckoutSession</code> callable with <code>{ productId }</code> (the Products document id). It returns <code>{ checkoutUrl, sessionId, tierApplied }</code>; send the browser to <code>checkoutUrl</code>.</p>
+    <pre><code>import { inject } from '@angular/core';
+import { Functions } from '@angular/fire/functions';
+import { arcCallable } from '../../app/core/config/arc-functions';
+
+private functions = inject(Functions);
+
+async buy(productId: string) {
+    const call = arcCallable&lt;{ productId: string }, { checkoutUrl: string }&gt;(this.functions, 'createCheckoutSession');
+    const { data } = await call({ productId });
+    window.location.href = data.checkoutUrl;
+}</code></pre>
+    <div class="trap"><p>Checkout needs an email address on the sign-in account, and it reads it from Firebase Auth, not from the <code>users</code> record. Someone who signed up with a phone number has none, and <code>createCheckoutSession</code> refuses with "Your account has no email address." Offer phone-only people another way to buy, or ask them to add an email under Profile.</p></div>
+
+    <h2>Lock a feature in your app</h2>
+    <table>
+      <thead><tr><th>To lock</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td>A whole page</td><td><code>entitledGuard</code> on the route. Signed out goes to sign-in; signed in without a plan goes to <code>/pricing</code>.</td></tr>
+        <tr><td>Part of a page</td><td><code>*appIfEntitled</code> shows its content to anyone with a plan; <code>*appIfEntitled="2"</code> to a tier rank of 2 or more.</td></tr>
+        <tr><td>Something in code</td><td><code>EntitlementService</code>: <code>isPro()</code>, <code>tierRank()</code>, <code>hasTier(minRank)</code> and more.</td></tr>
+      </tbody>
+    </table>
+    <p>All three are in <code>src/app/pages/user/</code>, and <a href="../features/entitlements.html#use-it">Premium entitlements</a> describes each. A page of your own with free and paid parts, on a route protected with <code>userGuard</code> so the person is known when it opens:</p>
+    <pre><code>// src/custom/pages/lessons.page.ts
+import { Component, inject, OnInit } from '@angular/core';
+import { EntitlementService } from '../../app/pages/user/entitlement.service';
+import { IfEntitledDirective } from '../../app/pages/user/if-entitled.directive';
+
+@Component({
+    standalone: true,
+    imports: [IfEntitledDirective],
+    template: `
+        &lt;section&gt;Free lessons&lt;/section&gt;
+        &lt;section *appIfEntitled="2"&gt;Gold lessons&lt;/section&gt;
+    `,
+})
+export default class LessonsPage implements OnInit {
+    private entitlements = inject(EntitlementService);
+
+    ngOnInit() {
+        this.entitlements.load().subscribe();
+    }
+}</code></pre>
+    <ul>
+      <li>The plan is read once, when <code>load()</code> runs. Call it again to pick up a purchase made since.</li>
+      <li>The browser check is for showing and hiding. Premium data or a paid action also needs a security rule, or a check in a Cloud Function, that reads the same fields on the record.</li>
+    </ul>
+
+    <h2>Read the plan from a separate app</h2>
+    <p>An app outside this repository, in the same Firebase project, reads the plan straight from the person's <code>users</code> record, which its owner may read. There is no callable for it: the record is the source of truth.</p>
+    <ol class="steps">
+      <li><p>Sign the person in and take their record id from the <code>arccms_uid</code> claim (<a href="account-contract.html">Follow the account contract</a>).</p></li>
+      <li><p>Listen to <code>users/{arccms_uid}</code> in the Arc CMS database. When Arc CMS runs in its own named database (<a href="shared-project.html">Share a Firebase project</a>), open that one, such as <code>getFirestore(app, 'arccms')</code>.</p></li>
+      <li><p>Map each Premium type to your own rank, and decide from <code>isPro</code>, <code>premiumStatus</code>, <code>premiumExpiresAt</code> and <code>premiumType</code>, failing closed. The code and every field are in <a href="../features/entitlements.html#read-the-plan-from-another-app">Premium entitlements</a>.</p></li>
+    </ol>
+    <ul>
+      <li><strong>The checkout return page proves nothing.</strong> Access starts when the payment webhook writes the fields, a few seconds later.</li>
+      <li><strong>Only the server writes them.</strong> The rules refuse every premium and credit field from the person's own browser, so never unlock optimistically.</li>
+      <li><strong>Credits</strong> are spent with the <code>arccms-consumeCredits</code> callable: <code>{ amount, note }</code> (a whole number above 0, and an optional note) returns <code>{ balance, spent }</code>, and fails with "Insufficient credits." when the balance is too low.</li>
+    </ul>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

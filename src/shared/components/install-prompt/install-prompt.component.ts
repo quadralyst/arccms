@@ -3,7 +3,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { PWA, PwaService } from '../../../app/core/pwa/pwa.service';
 
 /**
- * "Install the app", the right way for each browser (docs/pwa.md):
+ * "Install the app", the right way for each browser (docs/features/pwa.html):
  *
  *   Android, desktop Chrome and Edge   an Install button (the browser's own dialog)
  *   iPhone and iPad, Safari            two steps: Share, then Add to Home Screen

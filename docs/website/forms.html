@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Collect sign-ups | Arc CMS docs</title>
+  <meta name="description" content="Set up a signup form, put it on your home page, edit the emails it sends, turn on referrals, and find the people who signed up.">
+  <meta name="docs:sources" content="src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/app/pages/page.parts/waitlist-form.service.ts, src/app/pages/page.parts/home-base.component.ts, functions/src/waitlists, functions/src/email-core/contactSync.ts, src/shared/constants/waitlist-form.ts, src/shared/constants/legal-notice.ts, public/index.html, functions/src/email-core/defaultTemplates.ts, src/shared/components/side-navbar/side-navbar.component.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/forms.html">
+  <main>
+    <h1>Collect sign-ups</h1>
+    <p class="lead">A signup form turns visitors into contacts you can email: a waitlist, a newsletter or early access. Arc CMS verifies each email, sends a welcome email, can reward referrals, and files every sign-up in your audience. The full references are <a href="../features/forms.html">Signup forms</a> and <a href="../features/audience.html">Audience</a>.</p>
+
+    <h2>1. Connect an email provider</h2>
+    <p>Forms send a verification code and a welcome email, so do this first. Open <strong>Settings</strong>, then <strong>Email Settings</strong>, choose a provider (Gmail, SMTP or Resend), fill in the <strong>Sender Information</strong>, and use <strong>Send a Test Email</strong>. Until email works, the Signup Forms screen shows an "Email not configured" warning. For the emails you build in the Composer and broadcasts, set your logo, colors and footer in <strong>Brand Kit</strong>, under <strong>Email + SMS</strong> in the admin menu (<strong>Email</strong> when SMS is off) (see <a href="../features/email.html">Email engine</a>).</p>
+
+    <h2>2. Set up the form</h2>
+    <p>The first-run wizard already created a form named Waitlist, with the slug <code>waitlist-form</code>. Use it, or add one per campaign:</p>
+    <ol class="steps">
+      <li><p>Open <strong>Signup Forms</strong> in the admin menu. The page it opens is titled <strong>Waitlists</strong>: press <strong>Add Waitlist</strong> (or <strong>Edit</strong> on an existing form).</p></li>
+      <li><p>Fill in the <strong>Name</strong>; the <strong>Slug</strong> is filled in from it, such as <code>product-launch</code>. The slug is the form's id in URLs and in your page's markup. Choose it once: changing it later breaks existing links.</p></li>
+      <li><p>Under <strong>Feeds lists</strong>, tick any lists everyone who signs up should also join (the form always has its own list). Once the form has tags of its own (its <strong>Tags</strong> item in the menu), <strong>Edit</strong> also offers a <strong>Default Tag</strong> for every new sign-up.</p></li>
+      <li><p><strong>Gamification (referrals &amp; leaderboard)</strong> is on, so people move up by inviting others. Turn it off for a plain signup form.</p></li>
+      <li><p>Leave it <strong>Active</strong>. When you close it, the message you set is shown over the form. Press <strong>Create</strong>.</p></li>
+    </ol>
+
+    <h2>3. Put the form on a page</h2>
+    <p>Add the form to your home page, <code>public/index.html</code>. Any form with these two attributes and an <code>email</code> field works, styled however you like:</p>
+    <pre><code>&lt;form data-waitlist-form data-waitlist-id="product-launch"&gt;
+  &lt;input type="text" name="name" placeholder="Your name"&gt;
+  &lt;input type="email" name="email" required placeholder="Your email"&gt;
+  &lt;button type="submit"&gt;Join the waitlist&lt;/button&gt;
+&lt;/form&gt;</code></pre>
+    <p>Arc CMS takes over the submit: it asks for the emailed code, then shows the person's place in the queue and their referral link. On the home page this panel always shows both; the <strong>Gamification</strong> switch applies to the form's own page. It adds the terms notice above the button. Put <code>&lt;span data-waitlist-count="product-launch"&gt;&lt;/span&gt;</code> anywhere on the page to show the number of confirmed sign-ups. The full markup reference is in <a href="../features/forms.html#put-a-form-on-the-home-page">Signup forms</a>.</p>
+    <p><strong>Alternative:</strong> link to the ready-made form page at <code>/waitlist/{form-slug}</code>, for example from a button in an article or an email.</p>
+    <div class="trap"><p>A <code>data-waitlist-form</code> form only works on the home page (and translated home pages). Pasted into a content item, a template or a static page, Arc CMS does not handle it, and nobody is signed up. Link to <code>/waitlist/{form-slug}</code> from those pages instead.</p></div>
+
+    <h2>4. Edit the emails</h2>
+    <p>Each form has its own group in the admin menu, under its name. Open <strong>Email Templates</strong> there and edit the <strong>OTP Verification</strong> email (the code) and the <strong>Welcome Email</strong>. <strong>Insert Placeholder</strong> adds merge tags such as <code>##NAME##</code>, <code>##OTP##</code> or <code>##REFERRAL_LINK##</code> (see <a href="../reference/email-tags.html">Email merge tags</a>). These two emails are edited as they are and do not use the Brand Kit: put your logo and postal address in them yourself, and keep the unsubscribe link in the welcome email.</p>
+    <p>To keep writing to the people who signed up, use broadcasts and drip campaigns (see <a href="../features/email-marketing.html">Email marketing</a>).</p>
+
+    <h2>5. Referrals and the leaderboard</h2>
+    <p>Each person gets a referral code and link after signing up. Someone who signs up through the link credits the referrer, who moves up the leaderboard. The public ranking, with emails masked, is at <code>/leaderboard/{form-slug}</code>.</p>
+
+    <h2>6. Find the people who signed up</h2>
+    <table>
+      <thead><tr><th>Where</th><th>What you see</th></tr></thead>
+      <tbody>
+        <tr><td>The form's group, <strong>Dashboard</strong></td><td>Total and weekly sign-ups, verification rate, top referrers and recent sign-ups</td></tr>
+        <tr><td>The form's group, <strong>Users</strong></td><td>Everyone who signed up to that form, with their status, place in the queue, referrals and tags</td></tr>
+        <tr><td>The form's group, <strong>Audience &amp; emails</strong></td><td>The form's own list: its members and the emails sent to it</td></tr>
+        <tr><td><strong>Audience</strong>, <strong>Contacts</strong></td><td>Every person across all forms and accounts, one record each, with tags and consent</td></tr>
+        <tr><td><strong>Audience</strong>, <strong>Lists</strong></td><td>Each form's own list, plus the lists you create</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Next</h2>
+    <p>Switch off what your website does not use: <a href="choose-features.html">Choose your website's features</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

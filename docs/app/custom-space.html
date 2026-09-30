@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Use the custom space | Arc CMS docs</title>
+  <meta name="description" content="Know every file and folder of the custom space, what each is for, and where Arc CMS reads it, so your app never edits a core file.">
+  <meta name="docs:sources" content="src/custom, functions/src/custom, docs/custom, scripts/check-core.mjs, scripts/arc-rules-build.mjs, scripts/arc-features.mjs, src/app/app.routes.ts, src/app/custom-space.spec.ts, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/home/home.ts, src/app/core/i18n/translation.loader.ts, src/app/core/pwa/pwa.service.ts, src/app/core/features/features.ts, functions/src/all.ts, vite.config.ts, index.html, vitest.rules.config.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/custom-space.html">
+  <main>
+    <h1>Use the custom space</h1>
+    <p class="lead">All of your app's code goes in a handful of files and folders that Arc CMS ships once, empty, and never changes again. This page lists each one, what it is for, and where Arc CMS reads it.</p>
+
+    <h2>The files</h2>
+    <p>In the browser app, <code>src/custom/</code>:</p>
+    <table>
+      <thead><tr><th>File</th><th>What it holds</th><th>Read</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/custom/features.ts</code></td><td><code>CUSTOM_FEATURES</code>: the Arc CMS features the app turns off, and the installable app turned on</td><td><a href="choose-features.html">Choose your app's features</a></td></tr>
+        <tr><td><code>src/custom/routes.ts</code></td><td><code>CUSTOM_ROUTES</code>: the app's pages as Angular routes</td><td><a href="pages-and-routes.html">Add pages and routes</a></td></tr>
+        <tr><td><code>src/custom/pages/</code></td><td>Page files found by name, like <code>src/app/pages/</code> (<code class="new">learn.page.ts</code> is <code>/learn</code>)</td><td><a href="pages-and-routes.html">Add pages and routes</a></td></tr>
+        <tr><td><code>src/custom/nav.ts</code></td><td><code>CUSTOM_NAV</code>: the app's items in the admin menu</td><td><a href="admin-menu.html">Add admin menu items</a></td></tr>
+        <tr><td><code>src/custom/user-dashboard.ts</code></td><td><code>CUSTOM_USER_DASHBOARD</code>: the app's own page at <code>/user/dashboard</code></td><td><a href="member-area.html">Build the member area</a></td></tr>
+        <tr><td><code>src/custom/home.ts</code></td><td><code>CUSTOM_HOME</code>: where each role lands after signing in</td><td><a href="member-area.html">Build the member area</a></td></tr>
+        <tr><td><code>src/custom/i18n/en.json</code>, <code>src/custom/i18n/hi.json</code></td><td>The app's translations, and new wording for core ones</td><td><a href="../features/languages.html">Languages</a></td></tr>
+        <tr><td><code>src/custom/styles.css</code></td><td>The app's global styles</td><td>This page</td></tr>
+        <tr><td><code>src/custom/pwa.ts</code>, <code class="new">src/custom/pwa-icon.svg</code> (or <code class="new">src/custom/pwa-icon.png</code>)</td><td><code>CUSTOM_PWA</code>: the installable app's name, colors, start page, and its icon</td><td><a href="pwa.html">Make it installable</a></td></tr>
+      </tbody>
+    </table>
+    <p>In the Cloud Functions, <code>functions/src/custom/</code>:</p>
+    <table>
+      <thead><tr><th>File</th><th>What it holds</th><th>Read</th></tr></thead>
+      <tbody>
+        <tr><td><code>functions/src/custom/index.ts</code></td><td>The app's functions and triggers, exported from here</td><td><a href="functions.html">Write your own Cloud Functions</a></td></tr>
+        <tr><td><code>functions/src/custom/public-callables.txt</code></td><td>The app's callables, one name per line, for the check that they are reachable</td><td><a href="functions.html">Write your own Cloud Functions</a></td></tr>
+        <tr><td><code>functions/src/custom/search-sources.ts</code></td><td><code>SEARCH_COLLECTIONS</code> and <code>CUSTOM_SEARCH_SOURCES</code>: what the app makes searchable besides content</td><td><a href="../features/search.html">Search</a></td></tr>
+      </tbody>
+    </table>
+    <p>At the root and in the test and docs folders. Arc CMS does not ship these; you create them when you need them:</p>
+    <table>
+      <thead><tr><th>File</th><th>What it holds</th><th>Read</th></tr></thead>
+      <tbody>
+        <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code></td><td>The app's security rules, added to the core rules at deploy</td><td><a href="rules-and-indexes.html">Set security rules and indexes</a></td></tr>
+        <tr><td><code class="new">firestore.app.indexes.json</code></td><td>The app's Firestore indexes, merged with the core ones</td><td><a href="rules-and-indexes.html">Set security rules and indexes</a></td></tr>
+        <tr><td><code class="new">tests/rules/custom/</code></td><td>Tests of the app's rules</td><td><a href="rules-and-indexes.html">Set security rules and indexes</a></td></tr>
+        <tr><td><code>docs/custom/</code></td><td>The app's own documentation, in any format</td><td><a href="../contributing/writing-docs.html">Writing docs</a></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Where Arc CMS reads each file</h2>
+    <p>Each custom file has one plug point: a place in core that reads it. You never edit these core files; they are listed so you know what happens to your code.</p>
+    <table>
+      <thead><tr><th>Custom file</th><th>Read by</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/custom/routes.ts</code></td><td><code>src/app/app.routes.ts</code></td><td>Added after every core route, so an app page cannot replace a core page by accident, and before the file-based pages</td></tr>
+        <tr><td><code>src/custom/pages/</code></td><td><code>vite.config.ts</code></td><td>Scanned for page files next to <code>src/app/pages/</code> (<code>additionalPagesDirs</code>)</td></tr>
+        <tr><td><code>src/custom/nav.ts</code></td><td><code>src/shared/components/side-navbar/side-navbar.component.ts</code></td><td>Inserted before Profile; an item with a <code>feature</code> is left out when that feature is off</td></tr>
+        <tr><td><code>src/custom/user-dashboard.ts</code></td><td><code>src/app/app.routes.ts</code></td><td>Loaded at <code>/user/dashboard</code> in place of the blank core page</td></tr>
+        <tr><td><code>src/custom/home.ts</code></td><td><code>src/app/core/home/home.ts</code></td><td>Laid over the defaults (admins to <code>/admin/dashboard</code>, everyone else to <code>/user/dashboard</code>)</td></tr>
+        <tr><td><code>src/custom/i18n/</code></td><td><code>src/app/core/i18n/translation.loader.ts</code></td><td>Merged over the core translation file key by key: new keys are added, existing keys are reworded</td></tr>
+        <tr><td><code>src/custom/styles.css</code></td><td><code>index.html</code></td><td>Loaded as the last stylesheet, so its rules win</td></tr>
+        <tr><td><code>src/custom/pwa.ts</code> and the icon</td><td><code>vite.config.ts</code>, <code>src/app/core/pwa/pwa.service.ts</code></td><td>Laid over the core defaults at build time; the icon is found by its file name</td></tr>
+        <tr><td><code>src/custom/features.ts</code></td><td><code>vite.config.ts</code>, <code>src/app/core/features/features.ts</code>, <code>scripts/arc-features.mjs</code></td><td>Checked when the build starts, then decides which pages, menu items and functions exist</td></tr>
+        <tr><td><code>functions/src/custom/index.ts</code></td><td><code>functions/src/all.ts</code></td><td>Exported as the <code>custom</code> group, so each function deploys as <code>arccms-custom-</code> plus its name</td></tr>
+        <tr><td><code>functions/src/custom/public-callables.txt</code></td><td><code>functions/scripts/check-callable-access.sh</code>, <code>scripts/arc-deploy-menu.mjs</code></td><td>The listed callables are checked for public access after a deploy</td></tr>
+        <tr><td><code>functions/src/custom/search-sources.ts</code></td><td><code>functions/src/search/</code></td><td>Each named collection gets a search trigger</td></tr>
+        <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code></td><td><code>scripts/arc-rules-build.mjs</code></td><td>Combined with the core files before every rules or indexes deploy</td></tr>
+        <tr><td><code class="new">tests/rules/custom/</code></td><td><code>vitest.rules.config.ts</code></td><td>Run with the core rules tests by <code>npm run test:rules</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Styles and translations</h2>
+    <p>Put global styles in <code>src/custom/styles.css</code>. Styles for one page belong in that page's component.</p>
+    <p>Add the app's words to <code>src/custom/i18n/en.json</code> under a <code>custom</code> key, and the same keys to every other language file. A key that already exists in core is reworded for the whole admin:</p>
+    <pre><code>{
+  "custom": { "nav": { "lessons": "Lessons" } },
+  "admin": { "nav": { "users": "Parents" } }
+}</code></pre>
+    <p>The admin has two languages, English and Hindi, and each reads its own file in <code>src/custom/i18n/</code>. See <a href="../features/languages.html">Languages</a>.</p>
+
+    <h2>Use core building blocks</h2>
+    <p>The rule forbids editing core files, not using them. Your pages import core components the same way core pages do and get every later fix for free. These are meant for apps:</p>
+    <table>
+      <thead><tr><th>Component</th><th>Import from</th><th>For</th></tr></thead>
+      <tbody>
+        <tr><td><code>arc-page-header</code></td><td><code>src/shared/components/page-header/page-header.component.ts</code></td><td>The title row of every admin and member page</td></tr>
+        <tr><td><code>app-global-table</code></td><td><code>src/shared/components/global-table/global-table.component.ts</code></td><td>Any list: columns, sorting, empty and loading states, row actions (see its <code>src/shared/components/global-table/README.md</code>)</td></tr>
+        <tr><td><code>arc-row-actions</code></td><td><code>src/shared/components/row-actions/row-actions.component.ts</code></td><td>The actions of a row in a table or card you build yourself</td></tr>
+        <tr><td><code>app-user-shell</code></td><td><code>src/app/pages/user/user-shell.component.ts</code></td><td>The member area's layout and menu</td></tr>
+      </tbody>
+    </table>
+    <p>If a building block falls short, the missing option is added to it in Arc CMS. Copying the component into the custom space loses every later fix.</p>
+
+    <h2>Why updates never conflict</h2>
+    <ul>
+      <li>Arc CMS ships each file in <code>src/custom/</code> and <code>functions/src/custom/</code> once, empty, and never changes it again, so a merge never touches your version.</li>
+      <li>The app's rules, indexes, rules tests and docs are files Arc CMS does not ship at all.</li>
+      <li>Everything built from your choices (the combined rules in <code>.arc-build/</code> and the functions' feature files) is generated and ignored by git.</li>
+    </ul>
+    <p><code>npm run check:core</code> sorts every file you changed into the custom space (fine), install settings such as <code>src/environments/environment.ts</code> and <code>src/environments/arc-install.ts</code> (fine), dependency lists such as <code>package.json</code> (fine, worth a look), and core (a problem). See <a href="check-core-and-upgrade.html">Keep core untouched</a>.</p>
+    <div class="trap"><p>Moving a core file into the custom space to change it still counts as a core change: <code>npm run check:core</code> still lists the core file's old path. If you need to change what a core file does, ask for a plug point or a setting in Arc CMS instead.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

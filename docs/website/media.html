@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manage media | Arc CMS docs</title>
+  <meta name="description" content="Set image sizes and upload limits, upload images to the Media Manager, and use them in content and templates.">
+  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/utils/image-sizes.ts, src/app/pages/admin/(settings)/misc, src/app/pages/admin/(settings)/integrations-setting">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/media.html">
+  <main>
+    <h1>Manage media</h1>
+    <p class="lead">Every image on the site comes from the Media Manager, which stores each upload in four sizes (a GIF is stored once, as it is). Set the sizes once before you upload, then pick images wherever the editor asks for one. The full reference is <a href="../features/media.html">Media</a>.</p>
+
+    <h2>Set the sizes first</h2>
+    <ol class="steps">
+      <li><p>Open <strong>Settings</strong>, then <strong>Miscellaneous</strong>.</p></li>
+      <li><p>Under <strong>Media Upload</strong>, set <strong>Max image size (px, longest side)</strong> to the widest image your design shows. The default, 1200, gives S 300, M 600, L 900 and XL 1200 pixels on the longest side. Images are never enlarged.</p></li>
+      <li><p>Set <strong>Max File Size (MB)</strong> (5 by default). Leave <strong>Convert all images to WebP</strong> on, as it is by default, for smaller pages (GIFs are left alone).</p></li>
+      <li><p>Press <strong>Save Media Settings</strong>.</p></li>
+    </ol>
+    <p>Sizes are made when an image is uploaded, so settle them before you upload your library.</p>
+
+    <h2>Upload images</h2>
+    <p>Open <strong>Media Manager</strong> in the admin menu and press <strong>Upload New</strong>, then drop an image or browse for one. It takes JPEG, PNG, WebP and GIF.</p>
+    <p><strong>Optional:</strong> to search free stock photos from Unsplash inside the Media Manager, add your Unsplash keys in Settings, <strong>Integrations</strong>. The page there walks you through getting them.</p>
+
+    <h2>Use images in content</h2>
+    <ul>
+      <li><strong>Cover image:</strong> in the editor's Basic tab. It is the list card image, the social sharing image and the search thumbnail.</li>
+      <li><strong>In the body:</strong> insert an image from the editor toolbar and choose its <strong>Size</strong> (M unless you choose).</li>
+      <li><strong>Image and gallery fields:</strong> custom fields open the same library; a gallery's <strong>Add photos</strong> picks several at once, in the order you click them.</li>
+    </ul>
+
+    <h2>Use sizes in templates</h2>
+    <p>In a template, any image from the Media Manager, except a GIF, also has its four sizes: add <code>_s</code>, <code>_m</code>, <code>_l</code> or <code>_xl</code> to the name. For a list card, the small or medium size is enough:</p>
+    <pre><code>&lt;img src="{{ coverImage_m }}" alt=""&gt;</code></pre>
+    <p>The plain name, such as <code>{{ coverImage }}</code>, gives the image as it was picked. See <a href="templates.html">Design templates</a>.</p>
+
+    <h2>Next</h2>
+    <p>Set up bylines and topics: <a href="authors-and-tags.html">Add authors and tags</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

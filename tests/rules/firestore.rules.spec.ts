@@ -286,7 +286,7 @@ describe('phone and email sign-in fields (item 1: Google and phone sign-in)', ()
     });
 });
 
-describe('data under a users record (docs/account-contract.md)', () => {
+describe('data under a users record (docs/app/account-contract.html)', () => {
     it('is closed until an app rule opens it, even to the owner', async () => {
         const owner = env.authenticatedContext(ALICE, { arccms_uid: 'alice-doc' }).firestore();
         await assertFails(setDoc(doc(owner, 'users', 'alice-doc', 'children', 'c1'), { name: 'Kid' }));
@@ -299,7 +299,7 @@ describe('data under a users record (docs/account-contract.md)', () => {
     });
 });
 
-describe('feedback (docs/feedback.md)', () => {
+describe('feedback (docs/features/feedback.html)', () => {
     const sender = () => env.authenticatedContext(ALICE, { arccms_uid: 'alice-doc' }).firestore();
     const noRecord = () => env.authenticatedContext(ALICE).firestore();
     const feedback = (extra: Record<string, unknown> = {}) => ({

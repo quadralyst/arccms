@@ -34,7 +34,7 @@ export const handleEmailPreferences = onRequest(async (req, res) => {
 
   const email = await recoverEmail(emailHash);
   // Without the audience feature there are no contacts: the Suppression doc
-  // alone holds the choice (docs/feature-flags-spec.md, 5.3).
+  // alone holds the choice (specs/feature-flags-spec.md, 5.3).
   const audienceOn = isFeatureOn('audience');
 
   try {

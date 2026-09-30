@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notifications | Arc CMS docs</title>
+  <meta name="description" content="How in-app notifications reach admins and members through the bell, when they are also emailed, and how your code creates them.">
+  <meta name="docs:sources" content="functions/src/email-core/notifications.ts, functions/src/email-core/onNotificationCreate.ts, functions/src/email-core/notificationPrefs.ts, functions/src/email-core/adminAlerts.ts, src/app/pages/(notifications), src/shared/components/notification-bell, src/shared/components/page-header/page-header.component.ts, src/shared/services/notification.service.ts, src/shared/services/notification.model.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/notifications.html">
+  <main>
+    <h1>Notifications</h1>
+    <p class="lead">Notifications are short in-app messages to one signed-in person, shown under the bell in the admin and member areas. Each type can also go out by email, and people can turn that email off for the types that allow it.</p>
+
+    <h2>What it is</h2>
+    <p>A notification is one document in <code>Notifications</code>, addressed to one person by their Firebase Auth uid. It has a type, a title, a body and an optional link. Arc CMS creates them for these moments:</p>
+    <table>
+      <thead><tr><th>Type</th><th>Goes to</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td><code>admin_new_signup</code></td><td>Every admin</td><td>A user record is created</td></tr>
+        <tr><td><code>admin_new_feedback</code></td><td>Every admin</td><td>Someone sends feedback (see <a href="feedback.html">Feedback button</a>)</td></tr>
+        <tr><td><code>admin_payment_received</code>, <code>admin_payment_failed</code></td><td>Every admin</td><td>A customer's payment goes through or fails</td></tr>
+        <tr><td><code>payment_succeeded</code>, <code>payment_failed</code></td><td>The paying user</td><td>Their payment goes through or fails (see <a href="payments.html">Payments</a>)</td></tr>
+        <tr><td><code>account_security</code></td><td>The user</td><td>Their email or phone number was verified on another account and removed from theirs</td></tr>
+        <tr><td><code>admin_account_detached</code></td><td>Every admin</td><td>An account lost its only sign-in method to another account</td></tr>
+        <tr><td><code>announcement</code></td><td>The users an admin picks: everyone, a role, or lists</td><td>An admin sends an announcement, with the Email marketing feature on (see <a href="email-marketing.html">Email marketing</a>)</td></tr>
+        <tr><td>Any type</td><td>The event's user</td><td>A rule in <a href="automations.html">Automations</a> creates one</td></tr>
+      </tbody>
+    </table>
+    <p>The <strong>type registry</strong> in <code>Settings/notification_types</code> describes each type: its label and description, its category (transactional or marketing), whether it is also emailed, and whether people can turn its email off.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Notifications are always on: they are core, not a switchable feature. The in-app part cannot be turned off. The email part can, in three places:</p>
+    <ul>
+      <li>per type, with the <strong>Email</strong> switch on the <strong>Notification types</strong> tab of Email, Announcements, then <strong>Save types</strong> (that page comes with the <a href="email-marketing.html">Email marketing</a> feature; without it, set <code>defaultChannels.email</code> on the type in <code>Settings/notification_types</code>);</li>
+      <li>for every type at once, with the Notification emails switch under Email Features on Admin, Settings, Email Settings (see <a href="email.html#turn-it-on-or-off">Email engine</a>);</li>
+      <li>for admin alerts only, with the Admin alerts switch on the same page, which stops the admin notifications themselves, in-app as well.</li>
+    </ul>
+
+    <h2>Set it up</h2>
+    <p>Nothing to set up. The type registry is filled with the built-in types the first time someone opens their notification preferences, or when an admin opens Email, Announcements (Email marketing feature). Until then, the built-in defaults apply. The email copy needs a working <a href="email.html#set-it-up">Email engine</a>.</p>
+
+    <h2>Use it</h2>
+    <h3>The bell</h3>
+    <p>The bell sits at the right of the page header on admin pages and on the member pages. Its badge counts the unread notifications among the 30 most recent, and shows 9+ above nine. Click it to open a panel with the 10 most recent:</p>
+    <ul>
+      <li>Click a notification to mark it read and open its link.</li>
+      <li><strong>Mark all read</strong> marks the unread notifications read, up to 200 at a time.</li>
+      <li><strong>View all notifications</strong> opens the full list: <code>/admin/notifications</code> for admins, <code>/notifications</code> for members.</li>
+    </ul>
+    <h3>The notifications page</h3>
+    <p>The page lists the 100 most recent notifications. Under <strong>Email preferences</strong>, below the list, each type whose email people may turn off has a switch: turn it off and click <strong>Save preferences</strong>, and that type stops coming by email (it still shows in the app). The same page serves admins and members.</p>
+    <h3>When a notification is also emailed</h3>
+    <p>When a notification is created, the <code>onNotificationCreate</code> function decides whether to email it. It is emailed only when all of these hold:</p>
+    <ol>
+      <li>the sender asked for email (an announcement sent without <strong>Also send email</strong> stays in-app);</li>
+      <li>the type is in the registry or is a built-in type, and its email channel is on;</li>
+      <li>the person has an email address on their user record;</li>
+      <li>the person has not turned that type's email off (types they may configure only);</li>
+      <li>the Notification emails switch is on;</li>
+      <li>the type's email template exists;</li>
+      <li>the email engine lets it through: the master switch, an active template, the contact not disabled, consent for marketing types, and the suppression list (see <a href="email.html#how-a-send-works">Email engine</a>).</li>
+    </ol>
+    <p>The email uses the <code>notification_generic_email</code> template, filled with the title, body and link. The outcome is written on the notification as <code>emailDelivery</code>, with a <code>skippedReason</code> when it was not sent.</p>
+    <div class="note"><p>People's email choices are stored on their contact record (<code>Contacts</code>, field <code>notificationPrefs</code>), which only Cloud Functions can write. The page reads and saves them through the <code>getMyNotificationPrefs</code> and <code>updateMyNotificationPrefs</code> functions.</p></div>
+
+    <h2>Extend it</h2>
+    <p>Create a notification from your Cloud Functions in <code>functions/src/custom/</code>. The browser cannot create one.</p>
+    <pre><code>import { createNotification } from '../email-core/notifications.js';
+
+await createNotification({
+  userId: uid,                 // the person's Firebase Auth uid
+  type: 'order_shipped',       // a type in the registry
+  title: 'Your order has shipped',
+  body: 'It should arrive on Friday.',
+  link: '/user/dashboard',     // optional
+});</code></pre>
+    <p>A new type needs an entry under <code>types</code> in <code>Settings/notification_types</code>, or it stays in-app only (its email is skipped as <code>unknown_type</code>):</p>
+    <pre><code>"order_shipped": {
+  "label": "Order shipped",
+  "description": "Your order is on its way.",
+  "category": "transactional",
+  "defaultChannels": { "inApp": true, "email": true },
+  "userConfigurable": true,
+  "enabled": true
+}</code></pre>
+    <p>Set <code>emailTemplateType</code> on the type to email it with your own template instead of <code>notification_generic_email</code>. To send to every admin, use <code>notifyAdmins(type, { title, body, link })</code> from <code>functions/src/email-core/adminAlerts.ts</code>. It creates nothing while the Admin alerts switch is off.</p>
+    <p>If an admin, not your code, should decide whether something notifies people, emit an event and let them add a rule in <a href="automations.html">Automations</a>.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>Notifications</code></td><td><code>userId</code>, <code>type</code>, <code>title</code>, <code>body</code>, <code>link</code>, <code>read</code>, <code>readAt</code>, <code>createdAt</code>, <code>createdBy</code>, <code>emailDelivery</code>, and when set <code>icon</code>, <code>announcementId</code>, <code>suppressEmail</code></td></tr>
+        <tr><td><code>Settings/notification_types</code></td><td>The type registry</td></tr>
+        <tr><td><code>Contacts</code> (<code>notificationPrefs</code>)</td><td>Each person's per-type email choices</td></tr>
+      </tbody>
+    </table>
+    <p>A user's notifications are deleted with their account. The functions: <code>onNotificationCreate</code> (Firestore trigger), <code>getMyNotificationPrefs</code> and <code>updateMyNotificationPrefs</code> (callables, signed in). See <a href="../reference/data-model.html">Data model</a> and <a href="../reference/cloud-functions.html">Cloud Functions</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Who</th><th>Can</th></tr></thead>
+      <tbody>
+        <tr><td>Signed-in person</td><td>Read their own notifications; change only <code>read</code> and <code>readAt</code> on them; read and save their own email choices through the callables</td></tr>
+        <tr><td>Admin</td><td>Read every notification; read and write <code>Settings/notification_types</code></td></tr>
+        <tr><td>Nobody from a browser</td><td>Create or delete a notification. Only Cloud Functions do.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>You see</th><th>Why, and what to do</th></tr></thead>
+      <tbody>
+        <tr><td>The notification shows but no email came</td><td>Read <code>emailDelivery.skippedReason</code> on the notification: <code>suppressed_by_sender</code> (an announcement sent without email), <code>unknown_type</code>, <code>type_channel_off</code>, <code>no_email</code>, <code>user_pref_off</code>, <code>feature_disabled</code>, <code>no_template</code>, or an email engine reason (<code>email_disabled</code>, <code>template_inactive</code>, <code>contact_disabled</code>, <code>unsubscribed</code>, <code>suppressed</code>). With <code>emailLogId</code>, the email log has the rest.</td></tr>
+        <tr><td>The bell badge says 9+ but there are more</td><td>The badge counts only the 30 most recent notifications and stops at 9+. The notifications page lists up to 100.</td></tr>
+        <tr><td>A member's notification list is empty</td><td>The notification's <code>userId</code> must be their Firebase Auth uid, not their user record id.</td></tr>
+        <tr><td>No admin gets alerts</td><td>The Admin alerts switch under Email Features is off.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

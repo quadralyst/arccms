@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Banners | Arc CMS docs</title>
+  <meta name="description" content="Show a site-wide message banner, a site usage (cookie) banner, and know which status banners the admin area shows by itself.">
+  <meta name="docs:sources" content="src/app/pages/page.parts/global-message-banner.component.ts, src/app/pages/page.parts/site-usage-banner.component.ts, src/app/pages/admin/(settings)/message, src/app/pages/admin/(settings)/site-usage, src/shared/services/email-config-status.service.ts, src/app/pages/admin/(dashboard)/dashboard.html, src/app/pages/admin/(waitlists)/waitlists.page.html, src/app/app.ts, public/pages/cookie-policy.html, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/banners.html">
+  <main>
+    <h1>Banners</h1>
+    <p class="lead">Two banners are yours to set: a message across the top of every page, and a site usage (cookie) banner at the bottom of every page outside the admin area. The admin area also shows a few status banners of its own.</p>
+
+    <h2>What it is</h2>
+    <table>
+      <thead><tr><th>Banner</th><th>Shows</th><th>Set on</th></tr></thead>
+      <tbody>
+        <tr><td>Global message</td><td>At the top of every page: public, member and admin</td><td>Admin, Settings, Global Messages (<code>/admin/settings/message</code>)</td></tr>
+        <tr><td>Site usage</td><td>At the bottom of every page except admin pages, until the visitor accepts or rejects</td><td>Admin, Settings, Site Usage (<code>/admin/settings/site-usage</code>)</td></tr>
+        <tr><td>Email not configured</td><td>On the admin dashboard and, with the <a href="forms.html">Signup forms</a> feature on, the Signup Forms page, while email is off</td><td>Shown by itself (see <a href="#use-it">Use it</a>)</td></tr>
+        <tr><td>Debug Provider active</td><td>On the admin dashboard, while the Debug Provider is the email provider</td><td>Shown by itself</td></tr>
+      </tbody>
+    </table>
+    <p>Announcements are something else: with the Email marketing feature on, under Admin, Email, Announcements, an admin sends a message to chosen users as an in-app notification, and optionally by email. See <a href="email-marketing.html">Email marketing</a> and <a href="notifications.html">Notifications</a>.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Banners are always on: they are core, not a switchable feature. Each of your two banners is turned on with <strong>Enable Banner</strong> on its settings page and off with the <strong>Banner Enabled</strong> switch; both start switched off.</p>
+
+    <h2>Set it up</h2>
+    <h3>Global message</h3>
+    <ol class="steps">
+      <li><p>Open Admin, Settings, Global Messages and click <strong>Enable Banner</strong>.</p></li>
+      <li><p>Write a heading and a message (both required).</p></li>
+      <li><p>Optionally add a button label and URL. The button shows only when both are filled in, and opens the URL in a new tab.</p></li>
+      <li><p>Pick a background style: Info Blue, Warning Amber, Success Green, Urgent Red, Ocean Blue or Ocean Teal. Check the preview, and click <strong>Save Settings</strong>.</p></li>
+    </ol>
+    <h3>Site usage</h3>
+    <ol class="steps">
+      <li><p>Open Admin, Settings, Site Usage and click <strong>Enable Banner</strong>.</p></li>
+      <li><p>Edit the message and the accept and reject button texts, or keep the defaults.</p></li>
+      <li><p>Set the policy link. The default, <code>/p/cookie-policy</code>, opens the built-in page from <code>public/pages/cookie-policy.html</code>; the built-in page is a sample that names Arc CMS and <code>support@example.com</code>, so point the link at your own policy, or rewrite that page, before launch.</p></li>
+      <li><p>Pick a background style and click <strong>Save Settings</strong>.</p></li>
+    </ol>
+
+    <h2>Use it</h2>
+    <p>Both banners update in open browsers as soon as you save: nobody has to reload.</p>
+    <ul>
+      <li>The <strong>global message</strong> stays until you turn it off. Visitors cannot close it.</li>
+      <li>The <strong>site usage</strong> banner disappears for a visitor once they click accept or reject. The choice is kept in that browser only (local storage, key <code>arc_site_usage</code>), so they see it again in another browser or after clearing site data.</li>
+      <li>The <strong>email not configured</strong> banner shows while the email master switch is off (see <a href="email.html#turn-it-on-or-off">Email engine</a>). An admin can close it in that browser tab; it shows again in a new tab until email is turned on.</li>
+      <li>The <strong>Debug Provider</strong> banner stays while the Debug Provider is active, so a test setup is never taken for a live one.</li>
+    </ul>
+    <div class="trap"><p>The site usage banner records the visitor's choice and then hides; tracking does not depend on that choice. Google Analytics runs whether the visitor accepts or rejects (see <a href="analytics.html">Analytics</a>). If your site must wait for consent before tracking, the banner alone does not provide it.</p></div>
+    <div class="note"><p>Both banners are drawn in the browser, not in the server-rendered HTML, so search engines and link previews do not see their text.</p></div>
+
+    <h2>Extend it</h2>
+    <p>The banners have no plug points. For a banner of your own (only in the member area, say, or with a dismiss button), build a component in the custom space (see <a href="../app/custom-space.html">Use the custom space</a>) rather than changing these.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>Settings/global-message</code></td><td><code>isEnabled</code>, <code>heading</code>, <code>message</code>, <code>buttonLabel</code>, <code>buttonLink</code>, <code>gradientId</code></td></tr>
+        <tr><td><code>Settings/site-usage</code></td><td><code>isEnabled</code>, <code>bannerText</code>, <code>acceptButtonText</code>, <code>rejectButtonText</code>, <code>privacyPolicyLink</code>, <code>gradientId</code></td></tr>
+        <tr><td><code>Settings/email_status</code></td><td>What the two status banners read: <code>isEnabled</code> and <code>debugMode</code></td></tr>
+        <tr><td>Visitor's browser</td><td><code>arc_site_usage</code> (local storage): <code>accepted</code> or <code>rejected</code>; <code>email_banner_dismissed</code> (session storage) for an admin who closed the email banner</td></tr>
+      </tbody>
+    </table>
+    <p>No Cloud Functions and nothing in Storage. See <a href="../reference/data-model.html">Data model</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Who</th><th>Can</th></tr></thead>
+      <tbody>
+        <tr><td>Anyone, signed in or not</td><td>Read <code>Settings/global-message</code>, <code>Settings/site-usage</code> and <code>Settings/email_status</code> (the banners need them before sign-in)</td></tr>
+        <tr><td>Admin</td><td>Write them</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>You see</th><th>Why, and what to do</th></tr></thead>
+      <tbody>
+        <tr><td>The site usage banner does not show for you</td><td>You already accepted or rejected in this browser, or you are on an admin page. Remove <code>arc_site_usage</code> from the site's local storage, or open a private window.</td></tr>
+        <tr><td>The global message has no button</td><td>The button needs both a label and a URL.</td></tr>
+        <tr><td>The email not configured banner keeps coming back</td><td>Email is off. Set up a provider and turn the master switch on (see <a href="email.html#set-it-up">Email engine</a>).</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

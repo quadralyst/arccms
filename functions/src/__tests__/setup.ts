@@ -5,7 +5,7 @@
 import { vi } from 'vitest';
 
 /**
- * Core function specs run with every feature on (docs/feature-flags-spec.md),
+ * Core function specs run with every feature on (specs/feature-flags-spec.md),
  * whatever an app built on Arc CMS turns off in src/custom/features.ts. A spec
  * about a particular choice mocks '../feature-flags.js' itself.
  */

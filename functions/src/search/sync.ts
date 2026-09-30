@@ -1,7 +1,7 @@
 /**
  * Keeps the index in step with one document, for every source that watches its
  * collection. Called by the per-collection triggers and the draft queue
- * (docs/feature-flags-spec.md, section 6.5); nothing watches every write.
+ * (specs/feature-flags-spec.md, section 6.5); nothing watches every write.
  */
 
 import { refreshSearchSources, findSources } from './registry.js';

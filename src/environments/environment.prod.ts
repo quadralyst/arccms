@@ -2,7 +2,7 @@
  * Production Environment Configuration
  *
  * Copy environment.example.ts and fill in your Firebase credentials.
- * See INSTALL.md for setup instructions.
+ * See docs/getting-started/install.html for setup instructions.
  */
 
 export const environment = {

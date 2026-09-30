@@ -105,7 +105,7 @@ describe('SettingsPageComponent', () => {
         expect(component.settingCategories()[9].label).toBe('Localization');
     });
 
-    it('gives every tab the feature of its page, or none for core (docs/feature-flags-spec.md 8)', () => {
+    it('gives every tab the feature of its page, or none for core (specs/feature-flags-spec.md 8)', () => {
         for (const tab of component.settingCategories()) {
             const path = tab.route.split('/').filter(Boolean);
             expect(tab.feature, tab.id).toBe(featureOfPath(path));

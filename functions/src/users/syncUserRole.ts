@@ -19,7 +19,7 @@
  * - The first admin of a fresh install cannot come from either path (nobody is an admin yet),
  *   so the onboarding wizard calls `claimFirstAdmin`, which grants admin exactly once.
  * - Claims are merged, never replaced, so claims set by anything else survive
- *   (docs/coexistence-spec.md, CO-D7).
+ *   (specs/coexistence-spec.md, CO-D7).
  */
 import { onDocumentWrittenWithAuthContext } from 'firebase-functions/v2/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';

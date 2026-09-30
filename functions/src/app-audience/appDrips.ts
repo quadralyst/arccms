@@ -1,5 +1,5 @@
 /**
- * Sequences on App users (live) lists (docs/coexistence-spec.md 5b, CO6.5c).
+ * Sequences on App users (live) lists (specs/coexistence-spec.md 5b, CO6.5c).
  *
  * A live list has no membership to join, so joining is a change: a person joins
  * when a write to their host document makes them match the list's conditions

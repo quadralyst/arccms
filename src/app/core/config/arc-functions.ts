@@ -1,5 +1,5 @@
 /**
- * Calling ArcCMS Cloud Functions (docs/coexistence-spec.md, CO-D5).
+ * Calling ArcCMS Cloud Functions (specs/coexistence-spec.md, CO-D5).
  *
  * Every ArcCMS function is deployed inside one export group, so its deployed
  * name is `arccms-<name>`. Call sites keep using the plain name and go through

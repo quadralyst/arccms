@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configure a project | Arc CMS docs</title>
+  <meta name="description" content="Create the Firebase project, point your copy of Arc CMS at it, pick an install profile and run npm run arc:configure.">
+  <meta name="docs:sources" content="scripts/arc-configure.mjs, scripts/arc-install-config.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy.mjs, arccms.config.example.json, src/environments, src/app/core/config/arc-config.ts, functions/src/arc-config.ts, functions/.env, firebase.json, .gitignore">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="getting-started/configure.html">
+  <main>
+    <h1>Configure a project</h1>
+    <p class="lead">Connect your copy of Arc CMS to a Firebase project in three moves: create the project, paste its web config into the environment files, and pick the Firebase CLI alias. A project that Arc CMS has to itself needs nothing more; one shared with another app also runs <code>npm run arc:configure</code>.</p>
+
+    <h2>Create the Firebase project</h2>
+    <ol class="steps">
+      <li><p>In the Firebase console, add a project (or open one you have) and move it to the <strong>Blaze</strong> plan. Cloud Functions do not deploy without it.</p></li>
+      <li><p><strong>Firestore Database:</strong> create the database in production mode, in the region you want. Arc CMS deploys its own security rules. For a project shared with another app, skip this step: Arc CMS gets a database of its own (see <a href="#install-profiles">Install profiles</a>).</p></li>
+      <li><p><strong>Authentication:</strong> click Get started and turn on the <strong>Email/Password</strong> provider. The first admin signs up with it.</p></li>
+      <li><p><strong>Storage:</strong> click Get started. Arc CMS deploys its own storage rules.</p></li>
+      <li><p><strong>Project settings, General, Your apps:</strong> add a Web app and copy its <code>firebaseConfig</code> object.</p></li>
+    </ol>
+
+    <h2>Point the code at the project</h2>
+    <ol class="steps">
+      <li>
+        <p>Open <code>src/environments/environment.ts</code> and replace the <code>firebaseConfig</code> object with the one you copied. <code>src/environments/environment.example.ts</code> shows the shape.</p>
+      </li>
+      <li>
+        <p>Do the same in <code>src/environments/environment.prod.ts</code>, with your live project's config if you keep a separate one, and set <code>production: true</code>.</p>
+      </li>
+      <li>
+        <p>Tell the Firebase CLI which project to use. Give your development project the alias <code>default</code>:</p>
+        <pre><code>firebase use --add</code></pre>
+        <p>This writes <code>.firebaserc</code>, which git ignores. Add your live project the same way with the alias <code>production</code> when you have one.</p>
+      </li>
+    </ol>
+    <div class="trap"><p>The environment files in a fresh copy hold the Firebase settings of the project Arc CMS is developed on, not placeholders. If you skip the first two steps, <code>npm run dev</code> talks to a project that is not yours and nothing works. Replace both.</p></div>
+
+    <h3 id="the-environment-files">The environment files</h3>
+    <table>
+      <thead><tr><th>File</th><th>Used by</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/environments/environment.ts</code></td><td><code>npm run dev</code>, and website builds for the <code>default</code> alias (the build sets <code>USE_DEV_ENV=true</code>)</td></tr>
+        <tr><td><code>src/environments/environment.prod.ts</code></td><td><code>npm run build</code>, and website builds for the <code>production</code> alias</td></tr>
+        <tr><td><code>src/environments/environment.example.ts</code></td><td>Nothing: the template to copy from</td></tr>
+        <tr><td><code>src/environments/arc-install.ts</code></td><td>The app, for the database, bucket and upload folder of each project. Written by <code>npm run arc:configure</code>; never edit it by hand</td></tr>
+        <tr><td><code>src/environments/index.ts</code></td><td>Re-exports <code>environment.ts</code></td></tr>
+      </tbody>
+    </table>
+    <p>The app reads its own entry in <code>arc-install.ts</code> by the <code>projectId</code> in its <code>firebaseConfig</code>, so one build can hold settings for several projects.</p>
+
+    <h2 id="install-profiles">Install profiles</h2>
+    <p>The profile says whether Arc CMS has the Firebase project to itself or shares it with another app.</p>
+    <table>
+      <thead><tr><th></th><th><code>standalone</code> (the default)</th><th><code>backend</code></th></tr></thead>
+      <tbody>
+        <tr><td>Use it for</td><td>A website or an app that owns its Firebase project</td><td>Arc CMS next to an app you already have, as its admin or backend</td></tr>
+        <tr><td>Firestore database</td><td><code>(default)</code>, unless you set <code>databaseId</code></td><td>Its own named database, required (for example <code>arccms</code>); <code>(default)</code> is refused</td></tr>
+        <tr><td>Hosting site</td><td>The project's own site, named like the project id</td><td>Required: a second site of its own, or <code>none</code> for no website</td></tr>
+        <tr><td>Storage bucket</td><td>The bucket in <code>firebaseConfig.storageBucket</code></td><td>Required: a bucket of its own</td></tr>
+        <tr><td>Sign-ups after setup</td><td>Stay open</td><td>Closed by the setup wizard once the first admin exists (<code>adminOnlySignIn</code> defaults to yes)</td></tr>
+        <tr><td>Setup commands</td><td>None</td><td><code>arc:configure</code> prints the commands that create the database, site and bucket</td></tr>
+      </tbody>
+    </table>
+    <p>For the reasons behind the backend rules (why the other app's database, rules and bucket are left alone), see <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>.</p>
+
+    <h2>Run arc:configure</h2>
+    <p><strong>Recommended:</strong> let the first <code>npm run deploy</code> do it. For a project with no settings it asks how the project is used (only by Arc CMS, or shared with another app), asks for the names it needs, and runs <code>arc:configure</code> for you (see <a href="first-deploy.html">Deploy for the first time</a>). A <code>standalone</code> project that keeps every default needs no settings at all.</p>
+    <p><strong>Alternative:</strong> run it yourself, with flags that set the project's entry in the config file. For example, a backend install on the <code>default</code> project:</p>
+    <pre><code>npm run arc:configure -- --project=default --profile=backend --database=arccms --site=YOUR_PROJECT-arccms --bucket=YOUR_PROJECT-arccms --prefix=arccms/</code></pre>
+    <p>To see what would change without writing anything:</p>
+    <pre><code>npm run arc:configure -- --project=default --dry-run</code></pre>
+
+    <h3>What it does, step by step</h3>
+    <ol class="steps">
+      <li><p>Finds the project: <code>--project</code> takes an alias from <code>.firebaserc</code> or a project id; without it, the <code>default</code> alias. With neither, it stops.</p></li>
+      <li><p>If you passed flags, merges them into <code>projects.&lt;projectId&gt;</code> in <code>arccms.config.json</code>, creating the file if needed.</p></li>
+      <li><p>Works out the project's settings: the top-level keys, overridden by the project's own entry, with blanks dropped and the defaults filled in.</p></li>
+      <li><p>Checks them, and stops with a message for each problem: an unknown profile, a backend without its own database, site or bucket, a bad database id or upload folder.</p></li>
+      <li><p>Writes the generated files (below), each only when its content changes, and lists what it created, updated or removed.</p></li>
+      <li><p>For a <code>backend</code> profile, prints the commands that create the database, hosting site and bucket. It never creates cloud resources itself.</p></li>
+    </ol>
+    <div class="trap"><p>For a backend install, create the named database with the printed command before any deploy. A deploy, even <code>firebase deploy --dry-run</code>, creates a missing named database itself, in the project's default location, which cannot be changed afterwards. Create it in the same location as the other app.</p></div>
+
+    <h2>The config file</h2>
+    <p><code>arccms.config.json</code> sits at the repository root and is ignored by git: it belongs to the checkout, like <code>.firebaserc</code>. <code>arccms.config.example.json</code> shows the shape. Top-level keys apply to every project; <code>projects.&lt;projectId&gt;</code> overrides them for one project. With no file, every project uses the defaults.</p>
+    <pre><code>{
+  "profile": "standalone",
+  "projects": {
+    "your-project-id": {
+      "profile": "backend",
+      "databaseId": "arccms",
+      "hostingSite": "your-project-arccms",
+      "storageBucket": "your-project-arccms",
+      "storagePrefix": "arccms/"
+    }
+  }
+}</code></pre>
+    <p>Every value is a string.</p>
+    <table>
+      <thead><tr><th>Key</th><th>Flag</th><th>Default</th><th>What it sets</th></tr></thead>
+      <tbody>
+        <tr><td><code>profile</code></td><td><code>--profile</code></td><td><code>standalone</code></td><td><code>standalone</code> or <code>backend</code> (see <a href="#install-profiles">Install profiles</a>)</td></tr>
+        <tr><td><code>projects</code></td><td>None</td><td>None</td><td>Settings for one project, keyed by project id; the keys below, for that project only</td></tr>
+        <tr><td><code>databaseId</code></td><td><code>--database</code></td><td><code>(default)</code></td><td>The Firestore database Arc CMS uses: lowercase letters, digits and hyphens, 3 to 63 characters, starting with a letter</td></tr>
+        <tr><td><code>hostingSite</code></td><td><code>--site</code></td><td>The project's own site</td><td>The Hosting site the website is deployed to and published pages go to; <code>none</code> publishes no website</td></tr>
+        <tr><td><code>storageBucket</code></td><td><code>--bucket</code></td><td>The bucket in <code>firebaseConfig.storageBucket</code></td><td>The bucket for uploads, without <code>gs://</code></td></tr>
+        <tr><td><code>storagePrefix</code></td><td><code>--prefix</code></td><td>None: the bucket root</td><td>The folder every upload goes in: exactly one folder ending in a slash, such as <code>arccms/</code></td></tr>
+        <tr><td><code>region</code></td><td><code>--region</code></td><td>None</td><td>The location written into the printed setup commands, such as <code>nam5</code></td></tr>
+        <tr><td><code>adminOnlySignIn</code></td><td><code>--admin-only-sign-in</code></td><td><code>yes</code> for backend, <code>no</code> for standalone</td><td><code>yes</code>: the setup wizard turns sign-ups off when it finishes</td></tr>
+        <tr><td><code>appUsers</code></td><td><code>--app-users</code></td><td>None</td><td><code>own</code>: this install's own users are the App audience</td></tr>
+        <tr><td><code>appUsersDatabase</code></td><td><code>--app-users-database</code></td><td><code>(default)</code></td><td>The database the other app keeps its users in</td></tr>
+        <tr><td><code>appUsersPath</code></td><td><code>--app-users-path</code></td><td>Not set</td><td>Where the other app's users are, as <code>collection/{id}</code>, such as <code>users/{uid}</code></td></tr>
+      </tbody>
+    </table>
+    <p>The three App audience keys are explained on <a href="../features/app-audience.html">App audience</a>.</p>
+    <div class="trap"><p><code>storagePrefix</code> must be one folder with a trailing slash. <code>arccms</code> would put uploads in <code>arccmsusers/</code>, and a nested folder would leave private uploads outside the rules that protect them, so both are refused.</p></div>
+
+    <h2>What gets generated</h2>
+    <table>
+      <thead><tr><th>File</th><th>What it holds</th><th>In git</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/environments/arc-install.ts</code></td><td>For every configured project that differs from the defaults: its database id, bucket, upload folder and admin-only sign-in. The website build reads it.</td><td>Yes: commit it</td></tr>
+        <tr><td><code>functions/.env.{projectId}</code></td><td>The same settings for the Cloud Functions: <code>ARC_DATABASE_ID</code> (always), <code>ARC_APP_USERS_DATABASE</code> and <code>ARC_APP_USERS_PATH</code> (always), and <code>ARC_HOSTING_SITE</code>, <code>ARC_STORAGE_BUCKET</code>, <code>ARC_STORAGE_PREFIX</code> when set. Other lines in the file are kept.</td><td>No</td></tr>
+        <tr><td><code>firebase.{projectId}.json</code></td><td>A copy of <code>firebase.json</code> with the named database, own bucket or own site filled in, and without Hosting when the site is <code>none</code>. Removed when the project uses none of these. <code>npm run deploy</code> uses it for that project.</td><td>No</td></tr>
+      </tbody>
+    </table>
+    <p>The committed <code>functions/.env</code> holds the defaults every project starts from. The guided <code>npm run deploy</code> (run with no options) runs <code>arc:configure</code> again before each deploy of a configured project, so the generated files never go stale.</p>
+    <div class="trap"><p>Always deploy with <code>npm run deploy</code>, never plain <code>firebase deploy</code>: only the former picks up <code>firebase.{projectId}.json</code>, so a plain deploy of a backend install sends the rules to the wrong database. And because <code>arccms.config.json</code> is not in git, copy it to any other computer you deploy from; the guided deploy stops when a project is set up in <code>arc-install.ts</code> but missing from the config file.</p></div>
+
+    <h2>Next</h2>
+    <p><a href="first-deploy.html">Deploy for the first time</a>: the local app calls the deployed functions and needs the deployed rules. Then <a href="run-locally.html">Run it locally</a>. Every key and generated value is also listed in <a href="../reference/config-keys.html">Configuration keys</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

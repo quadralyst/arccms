@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Add admin menu items | Arc CMS docs</title>
+  <meta name="description" content="Add your app's links and groups to the admin side menu with CUSTOM_NAV, pick Font Awesome icons, and hide items when a feature is off.">
+  <meta name="docs:sources" content="src/custom/nav.ts, src/shared/components/side-navbar, src/custom/i18n, index.html, public/assets/icons, scripts/generate-icon-index.mjs">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/admin-menu.html">
+  <main>
+    <h1>Add admin menu items</h1>
+    <p class="lead">List your app's admin links in <code>CUSTOM_NAV</code>, in <code>src/custom/nav.ts</code>. They appear in the admin side menu just before Profile, translated like the core items.</p>
+
+    <h2>Add an item</h2>
+    <ol class="steps">
+      <li>
+        <p>Add the item to <code>src/custom/nav.ts</code>:</p>
+        <pre><code>import type { MenuItem } from '../shared/components/side-navbar/side-navbar.component';
+
+export const CUSTOM_NAV: MenuItem[] = [
+  {
+    label: 'Lessons',
+    labelKey: 'custom.nav.lessons',
+    route: '/admin/lessons',
+    icon: 'fa-solid fa-book-open',
+    allowRoles: ['admin'],
+  },
+];</code></pre>
+      </li>
+      <li>
+        <p>Add the label to <code>src/custom/i18n/en.json</code>, and the same key to <code>src/custom/i18n/hi.json</code>:</p>
+        <pre><code>{ "custom": { "nav": { "lessons": "Lessons" } } }</code></pre>
+      </li>
+      <li>
+        <p>Make sure the route exists. An admin page needs an explicit route with the admin shell (<a href="pages-and-routes.html#add-an-admin-page">Add an admin page</a>).</p>
+      </li>
+    </ol>
+
+    <h2>The fields of an item</h2>
+    <table>
+      <thead><tr><th>Field</th><th>For</th></tr></thead>
+      <tbody>
+        <tr><td><code>label</code></td><td>The English label, and the item's identity. It is not translated; keep it unique</td></tr>
+        <tr><td><code>labelKey</code></td><td>The translation key shown instead of <code>label</code></td></tr>
+        <tr><td><code>route</code></td><td>The address the item opens</td></tr>
+        <tr><td><code>externalUrl</code></td><td>An outside address, opened in a new tab, instead of <code>route</code></td></tr>
+        <tr><td><code>icon</code></td><td>Font Awesome classes, such as <code>fa-solid fa-book-open</code></td></tr>
+        <tr><td><code>allowRoles</code></td><td>The roles that see the item, such as <code>['admin']</code> or <code>['admin', 'user']</code></td></tr>
+        <tr><td><code>subItems</code></td><td>Items shown under this one, which makes it a group that opens and closes</td></tr>
+        <tr><td><code>queryParams</code></td><td>Query parameters added to a sub-item's link</td></tr>
+        <tr><td><code>separator</code></td><td><code>true</code> for a dividing line instead of a link (give it <code>label: ''</code> and <code>allowRoles</code>)</td></tr>
+        <tr><td><code>feature</code></td><td>A feature id: the item is left out when that feature is off</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>An item without <code>allowRoles</code> is never shown, for anyone. Set it on every top-level item. Sub-items are shown to whoever sees their group.</p></div>
+    <div class="trap"><p>The menu finds Profile and Logout by their <code>label</code>, and clicking an item labelled <code>Logout</code> opens the sign-out dialog instead of its route. Never use <code>Profile</code> or <code>Logout</code> as a label, and keep every label unique: a group's open or closed state is also kept by its label.</p></div>
+
+    <h2>Group items</h2>
+    <pre><code>export const CUSTOM_NAV: MenuItem[] = [
+  {
+    label: 'Classroom',
+    labelKey: 'custom.nav.classroom',
+    icon: 'fa-solid fa-school',
+    allowRoles: ['admin'],
+    subItems: [
+      { label: 'Lessons', labelKey: 'custom.nav.lessons', route: '/admin/lessons', icon: 'fa-solid fa-book-open' },
+      { label: 'Classes', labelKey: 'custom.nav.classes', route: '/admin/classes', icon: 'fa-solid fa-users' },
+    ],
+  },
+];</code></pre>
+    <p>A group opens by itself when the current page is one of its sub-items.</p>
+
+    <h2>Hide an item when a feature is off</h2>
+    <p>Set <code>feature</code> on an item or a sub-item that only makes sense with that feature (<a href="choose-features.html">Choose your app's features</a>):</p>
+    <pre><code>{ label: 'Refunds', labelKey: 'custom.nav.refunds', route: '/admin/refunds', icon: 'fa-solid fa-rotate-left',
+  allowRoles: ['admin'], feature: 'payments' },</code></pre>
+    <p>A group whose sub-items all go goes with them.</p>
+
+    <h2>Where the items appear</h2>
+    <p>Your items are placed together, in the order you list them, just before Profile, with a dividing line before Profile. The menu shows only the items whose <code>allowRoles</code> include the signed-in person's role.</p>
+
+    <h2>Choose an icon</h2>
+    <p>The admin loads Font Awesome Free 6.5.1 (see <code>index.html</code>), so any free icon works. Write the style class and the icon class: <code>fa-solid fa-book-open</code>, <code>fa-regular fa-calendar</code>, <code>fa-brands fa-youtube</code>.</p>
+    <p>To see which icons and styles exist, search <code>public/assets/icons/fa-index.json</code>: each entry has the icon name (<code>n</code>), its label, its free styles (<code>s</code>) and search terms. <code>npm run icons:index</code> builds that file for the admin's icon picker; it is a core file, so you never need to run it in an app.</p>
+    <div class="note"><p>A Pro-only icon or style renders as an empty box. Check the styles in the index before you pick one.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

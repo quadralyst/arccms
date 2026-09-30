@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What members see | Arc CMS docs</title>
+  <meta name="description" content="The member area a signed-in person uses: its menu, what each item is for, and how an app changes what members land on.">
+  <meta name="docs:sources" content="src/app/pages/user, src/app/core/home, src/custom/home.ts, src/custom/user-dashboard.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="members/overview.html">
+  <main>
+    <h1>What members see</h1>
+    <p class="lead">A signed-in person who is not an admin uses the member area. It is a small sidebar layout with the person's own pages, and it is the same for every install until an app changes it.</p>
+
+    <h2>The menu</h2>
+    <p>The member area starts at <code>/user/dashboard</code>. Its menu shows these items, in this order. The payment items appear only when the <code>payments</code> feature is on.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Menu item</th><th>What it is for</th><th>Needs</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Home</strong></td><td>Back to the app's own home page. It appears only when an app sets a home page other than the dashboard.</td><td>An app's custom home</td></tr>
+          <tr><td><strong>Dashboard</strong></td><td>The member's landing page: a welcome line and a "Nothing here yet." card until an app puts its own page there.</td><td>Always on</td></tr>
+          <tr><td><strong>Payments</strong></td><td>The member's payments and credits.</td><td>payments</td></tr>
+          <tr><td><strong>Account &amp; Billing</strong></td><td>The member's subscription and billing.</td><td>payments</td></tr>
+          <tr><td><strong>Premium</strong></td><td>What the member's plan unlocks.</td><td>payments</td></tr>
+          <tr><td><strong>Profile</strong></td><td>The member's own details.</td><td>Always on</td></tr>
+          <tr><td><strong>Plans</strong></td><td>The public pricing page.</td><td>payments</td></tr>
+          <tr><td><strong>Sign out</strong></td><td>Ends the session. It is a button at the foot of the sidebar.</td><td>Always on</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>With payments on, the sidebar also shows the member's credit balance.</p>
+
+    <h2>Signing in and signing up</h2>
+    <p>People sign in and sign up on the same page, with the methods the site has switched on (see <a href="../features/sign-in.html">Sign-in methods</a>). A sign-in that started from a protected page returns there afterwards. Otherwise each role lands on its home: admins on <code>/admin/dashboard</code>, everyone else on <code>/user/dashboard</code>, unless the app sets another home.</p>
+
+    <h2>Making it the app's own</h2>
+    <p>An app built on Arc CMS decides what members land on, without editing core files:</p>
+    <ul>
+      <li>The app's own page at <code>/user/dashboard</code>, set with <code>CUSTOM_USER_DASHBOARD</code>.</li>
+      <li>A different home for a role, set with <code>CUSTOM_HOME</code>.</li>
+    </ul>
+    <p>Both are explained in <a href="../app/member-area.html">Build the member area</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

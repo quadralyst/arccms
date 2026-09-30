@@ -1,5 +1,5 @@
 /**
- * Audience, App users (docs/coexistence-spec.md section 5b, CO6.3).
+ * Audience, App users (specs/coexistence-spec.md section 5b, CO6.3).
  *
  * The host app's users, read live from its own collection through the App
  * audience settings. They are not ArcCMS users and nothing about them is copied

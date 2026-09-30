@@ -10,7 +10,7 @@
  * The authored English is the fallback: the element is only rewritten once a
  * translation for that key exists.
  *
- * Spec: docs/multilingual-spec.md — Phase M5.1.
+ * Spec: specs/multilingual-spec.md — Phase M5.1.
  */
 
 import { Directive, ElementRef, effect, inject, input } from '@angular/core';

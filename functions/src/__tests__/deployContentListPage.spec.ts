@@ -537,7 +537,7 @@ describe('deployContentListPage', () => {
         });
     });
 
-    // ─── Structured data (docs/discoverability-spec.md, D1) ───────────────
+    // ─── Structured data (specs/discoverability-spec.md, D1) ───────────────
 
     describe('structured data', () => {
         function jsonLdNodes(): Array<Record<string, any>> {

@@ -1,4 +1,4 @@
-/** App audience config, field reading and the Settings callables (docs/coexistence-spec.md 5b, CO6.2). */
+/** App audience config, field reading and the Settings callables (specs/coexistence-spec.md 5b, CO6.2). */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const m = vi.hoisted(() => {

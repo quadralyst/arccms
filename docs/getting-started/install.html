@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install | Arc CMS docs</title>
+  <meta name="description" content="Get the Arc CMS code into a repository of your own for a website or an app, and install its dependencies.">
+  <meta name="docs:sources" content="package.json, package-lock.json, functions/package.json, functions/package-lock.json, .npmrc, scripts/check-core.mjs, scripts/arc-features.mjs">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="getting-started/install.html">
+  <main>
+    <h1>Install</h1>
+    <p class="lead">Get the code into a repository of your own, install two sets of dependencies, and you are ready to configure a Firebase project.</p>
+
+    <h2>Get the code</h2>
+    <h3 id="build-a-website-or-an-app">Build a website or an app</h3>
+    <p>Your site or app lives in its own repository and keeps Arc CMS as a remote named <code>upstream</code>, so it can pull Arc CMS updates and so <code>npm run check:core</code> has something to compare with.</p>
+    <ol class="steps">
+      <li>
+        <p>Create an empty repository for your site or app on your git host.</p>
+      </li>
+      <li>
+        <p>Clone Arc CMS under your project's name and turn the Arc CMS remote into <code>upstream</code>:</p>
+        <pre><code>git clone https://github.com/quadralyst/arccms.git my-app
+cd my-app
+git remote rename origin upstream</code></pre>
+      </li>
+      <li>
+        <p>Point <code>origin</code> at your own repository and push:</p>
+        <pre><code>git remote add origin YOUR_REPOSITORY_URL
+git push -u origin main</code></pre>
+      </li>
+      <li>
+        <p>Confirm the copy is clean:</p>
+        <pre><code>npm run check:core</code></pre>
+        <p>It compares your copy with <code>upstream/main</code> and reports "No Arc CMS core file changed". Run it after the dependencies are installed (below) and before every commit.</p>
+      </li>
+    </ol>
+    <p>Already have a copy without the remote? Add it once:</p>
+    <pre><code>git remote add upstream https://github.com/quadralyst/arccms.git
+git fetch upstream</code></pre>
+    <p>What belongs in your copy and what does not is on <a href="../concepts/core-and-custom.html">Core and custom</a>; pulling updates is on <a href="upgrading.html">Upgrade Arc CMS</a>.</p>
+
+    <h3 id="work-on-arc-cms-itself">Work on Arc CMS itself</h3>
+    <p>To change Arc CMS for everyone, clone it directly. In this checkout <code>npm run check:core</code> sees the Arc CMS repository and has nothing to check.</p>
+    <pre><code>git clone https://github.com/quadralyst/arccms.git
+cd arccms</code></pre>
+
+    <h2>Install the dependencies</h2>
+    <p>The site and the Cloud Functions each have their own dependencies. From the repository root:</p>
+    <pre><code>npm install</code></pre>
+    <pre><code>npm install --prefix functions</code></pre>
+    <p>There is no install hook that does the second one for you. The root <code>.npmrc</code> sets <code>legacy-peer-deps</code>, so peer dependency warnings do not stop the install.</p>
+    <div class="note"><p>Before every functions build, a <code>prebuild</code> step runs <code>scripts/arc-features.mjs</code>, which writes two files in <code>functions/src/</code> from <code>src/custom/features.ts</code>. They are ignored by git and brought up to date on every build, so you never edit or commit them.</p></div>
+
+    <h2>Check it worked</h2>
+    <p>Run the whole test suite once. It does not need your Firebase project:</p>
+    <pre><code>npm run test -- --run</code></pre>
+    <p>Without <code>--run</code>, <code>npm run test</code> keeps watching for changes; press <kbd>q</kbd> to leave it.</p>
+    <p>If it stops with "Node 22.18 or later is needed", your Node is too old (see <a href="requirements.html">Requirements</a>).</p>
+
+    <h2>Next</h2>
+    <p><a href="configure.html">Configure a project</a>: point your copy at your Firebase project. For a map of what you just downloaded, see <a href="folder-tour.html">A tour of the folders</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

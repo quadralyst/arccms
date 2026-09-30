@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Premium entitlements | Arc CMS docs</title>
+  <meta name="description" content="Check whether a person has paid and which plan they hold, lock pages and features by plan, and read the plan from another app.">
+  <meta name="docs:sources" content="functions/src/dodo-payments/entitlements.ts, functions/src/dodo-payments/types.ts, functions/src/dodo-payments/credits.ts, functions/src/dodo-payments/consumeCredits.ts, functions/src/dodo-payments/scanExpiredEntitlements.ts, src/app/pages/user/entitlement.service.ts, src/app/pages/user/if-entitled.directive.ts, src/app/pages/user/user.guards.ts, src/app/pages/user/premium, src/app/pages/payments-ui/membership.service.ts, src/app/pages/admin/users/user.model.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/entitlements.html">
+  <main>
+    <h1>Premium entitlements</h1>
+    <p class="lead">Show or lock a page, a part of a page, or an app feature by what the signed-in person has paid for. The plan lives on the person's own record, written only by the server.</p>
+
+    <h2>What it is</h2>
+    <p>When a payment succeeds, the payment functions write the buyer's plan onto their <code>users</code> record: whether they are a paying member (<code>isPro</code>), which plan (<code>premiumType</code>), its rank, its status and when it ends. Arc CMS records the plan; your pages and your app decide what each plan unlocks.</p>
+    <p>Arc CMS gives you three ready-made checks for its own pages and for pages in the custom space:</p>
+    <table>
+      <thead><tr><th>Tool</th><th>Use it to</th></tr></thead>
+      <tbody>
+        <tr><td><code>*appIfEntitled</code></td><td>Show part of a page only to paying members, optionally from a minimum tier rank.</td></tr>
+        <tr><td><code>entitledGuard</code></td><td>Open a whole route only for paying members.</td></tr>
+        <tr><td><code>EntitlementService</code></td><td>Read the plan and credit balance as signals in your own code.</td></tr>
+      </tbody>
+    </table>
+    <p>Another codebase that shares the Firebase project reads the same fields straight from Firestore (below).</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Entitlements are part of the <a href="payments.html">Payments</a> feature (id <code>payments</code>) and are there whenever payments is on. They have no switch of their own.</p>
+    <p>With payments off, nothing writes the plan, <code>/user/premium</code> shows the not-found page, and the member area does not load the plan. The directive and the guard still compile, but no purchase can grant a plan any more.</p>
+    <div class="trap"><p>With payments off, a route of yours behind <code>entitledGuard</code> sends every signed-in person without a plan to <code>/pricing</code>, which is then a not-found page. Remove the guard, or keep payments on.</p></div>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li><p>Set up <a href="payments.html#set-it-up">Payments</a>.</p></li>
+      <li><p>Decide your plans and give each one a <strong>Premium type</strong> (a short key such as <code>plus</code>, <code>gold</code>, <code>platinum</code>) and a <strong>Tier rank</strong> (a number, higher means more access). Enter them on each product under Products.</p></li>
+      <li><p>Write down which features each plan unlocks, in one place in your app's code. Arc CMS does not know your features: the premium type strings and rank numbers are the contract between the products an admin sets up and your code, so agree them before anyone edits a product.</p></li>
+    </ol>
+
+    <h2>Use it</h2>
+    <h3>The fields on the record</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>isPro</code></td><td><code>true</code> while the person holds a paid plan. Missing or <code>false</code>: a free user.</td></tr>
+        <tr><td><code>premiumType</code></td><td>The plan's key, such as <code>gold</code>. <code>null</code> when not a member.</td></tr>
+        <tr><td><code>premiumTierRank</code></td><td>The plan's rank. <code>null</code> when not a member.</td></tr>
+        <tr><td><code>premiumStatus</code></td><td><code>active</code>, <code>trialing</code>, <code>past_due</code>, <code>cancelled</code> or <code>expired</code>.</td></tr>
+        <tr><td><code>premiumExpiresAt</code></td><td>Subscriptions: the end of the paid period or trial. Absent for one-time purchases, which never end.</td></tr>
+        <tr><td><code>updatesUntil</code></td><td>One-time purchases: the end of the free-updates window. It never ends access.</td></tr>
+        <tr><td><code>creditBalance</code></td><td>Prepaid credits left.</td></tr>
+        <tr><td><code>provider</code>, <code>providerSubscriptionId</code>, <code>providerCustomerId</code></td><td>The payment provider (<code>dodo</code>) and its ids, for support.</td></tr>
+        <tr><td><code>premiumTierLabel</code>, <code>premiumDiscountCode</code></td><td>The pricing tier and discount code the person bought at.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>How the plan changes</h3>
+    <ul>
+      <li><strong>One plan at a time.</strong> A purchase replaces the current plan only when its rank is the same or higher; buying a lower plan while holding a higher one leaves the higher one.</li>
+      <li><strong>A failed renewal</strong> sets <code>premiumStatus</code> to <code>past_due</code> and keeps <code>isPro</code> <code>true</code>.</li>
+      <li><strong>Cancelled, expired or fully refunded:</strong> <code>isPro</code> becomes <code>false</code>, <code>premiumType</code> and <code>premiumTierRank</code> become <code>null</code>, and <code>premiumStatus</code> becomes <code>cancelled</code> or <code>expired</code> (a full refund sets <code>expired</code>).</li>
+      <li><strong>A missed webhook:</strong> every morning a subscription whose <code>premiumExpiresAt</code> is more than 3 days past is set to <code>expired</code>.</li>
+      <li>The plan is not in the ID token. Arc CMS puts no plan claims on accounts, so always read the record.</li>
+    </ul>
+
+    <h3>Lock part of a page</h3>
+    <p>Import <code>IfEntitledDirective</code> from <code>src/app/pages/user/if-entitled.directive.ts</code> into your component:</p>
+    <pre><code>&lt;div *appIfEntitled&gt;Any paying member sees this.&lt;/div&gt;
+&lt;div *appIfEntitled="2"&gt;Rank 2 and above see this.&lt;/div&gt;</code></pre>
+    <p>The directive shows what <code>EntitlementService</code> has loaded. The member area's shell and <code>entitledGuard</code> load it; on any other page, call <code>inject(EntitlementService).load().subscribe()</code> first, or the content stays hidden.</p>
+
+    <h3>Lock a route</h3>
+    <p>In <code>src/custom/routes.ts</code>, put <code>userGuard</code> and <code>entitledGuard</code> from <code>src/app/pages/user/user.guards.ts</code> on the route:</p>
+    <pre><code>{
+    path: 'lessons/advanced',
+    canActivate: [userGuard, entitledGuard],
+    loadComponent: () =&gt; import('./lessons/advanced.component').then((m) =&gt; m.default),
+}</code></pre>
+    <p>A visitor who is not signed in goes to <code>/signup</code> and comes back after signing in; a signed-in person without a plan goes to <code>/pricing</code>. <code>/user/premium</code> is Arc CMS's own example of such a page. See <a href="../app/pages-and-routes.html">Add pages and routes</a>.</p>
+
+    <h3>Read the plan in code</h3>
+    <p><code>EntitlementService</code> (<code>src/app/pages/user/entitlement.service.ts</code>) has the signals <code>isPro()</code>, <code>premiumType()</code>, <code>premiumStatus()</code>, <code>tierRank()</code>, <code>creditBalance()</code> and <code>entitlement()</code> (the whole record), and <code>hasTier(minRank)</code>. It reads the record once each time <code>load()</code> is subscribed to: the member area's shell and <code>entitledGuard</code> do it, and you call <code>load().subscribe()</code> again after something changes, such as spending credits.</p>
+    <div class="note"><p>The directive, the guard and <code>hasTier()</code> check <code>isPro</code> and the rank only. A <code>past_due</code> subscription still passes until it expires. If a feature must stop at the first failed payment, check <code>premiumStatus()</code> as well.</p></div>
+
+    <h3>Read the plan from another app</h3>
+    <p>An app in another codebase that shares the Firebase project reads the person's record with the Firestore SDK. The record id is the <code>arccms_uid</code> claim in their ID token (see <a href="../app/account-contract.html">Follow the account contract</a>); use the same Firestore database as Arc CMS (see <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>). Listen, so access changes the moment a payment lands:</p>
+    <pre><code>import { doc, onSnapshot } from 'firebase/firestore';
+
+const token = await auth.currentUser.getIdTokenResult();
+const userDocId = token.claims['arccms_uid'];
+
+onSnapshot(doc(db, 'users', userDocId), (snap) =&gt; {
+  applyPlan(snap.data()); // work out what is unlocked
+});</code></pre>
+    <p>Then decide, and fail closed: when anything is missing or unknown, lock.</p>
+    <pre><code>const TIERS = { plus: 1, gold: 2, platinum: 3 };   // your own mapping
+
+function isUnlocked(user, minRank) {
+  if (!user || user.isPro !== true) return false;
+  if (user.premiumStatus !== 'active' &amp;&amp; user.premiumStatus !== 'trialing') return false;
+  if (user.premiumExpiresAt &amp;&amp; Date.now() &gt; user.premiumExpiresAt.toMillis()) return false;
+  return (TIERS[user.premiumType] ?? 0) &gt;= minRank;
+}</code></pre>
+    <p>Right after checkout, allow a few seconds for the webhook: show "finishing your purchase" and let the listener unlock when the fields change. Never unlock from the checkout return URL.</p>
+
+    <h3>Credits</h3>
+    <p>A person's balance is <code>creditBalance</code> on their record, and every change is a <code>CreditLedger</code> entry they can read (<code>userId</code> is their Auth uid). Spend credits with the <code>consumeCredits</code> callable, described in <a href="payments.html#extend-it">Payments</a>.</p>
+
+    <h2>Extend it</h2>
+    <ul>
+      <li><strong>Your own mapping</strong> of plans to features belongs in your app's code, as in the example above.</li>
+      <li><strong>Security rules for app data by plan:</strong> the plan is not a claim, so a rule in <code class="new">firestore.app.rules</code> has to read the record, which costs one document read per check:
+        <pre><code>function hasPaidPlan() {
+  return isSignedIn() &amp;&amp; get(/databases/$(database)/documents/users/$(request.auth.token.get('arccms_uid', ''))).data.get('isPro', false) == true;
+}</code></pre>
+        See <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>.</li>
+      <li><strong>Your own Cloud Functions</strong> read the record with the Admin SDK: find it by <code>uid</code>, or by the <code>arccms_uid</code> claim of the caller.</li>
+    </ul>
+
+    <h2>What it stores</h2>
+    <p>The fields above, on <code>users/{docId}</code>, plus a few the functions keep for themselves: <code>premiumEventAt</code> (the last event applied, so late events cannot undo newer ones), <code>premiumTrialReminderSent</code> and <code>updatesEndingReminderSent</code>. Credit changes go to <code>CreditLedger</code>. They are written by the payment functions (<code>handlePaymentEvent</code>, <code>consumeCredits</code>, <code>scanExpiredEntitlements</code>, <code>scanTrialEndings</code>, <code>scanUpdatesEnding</code>); see <a href="payments.html#what-it-stores">Payments</a> and <a href="../reference/data-model.html">Data model</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Action</th><th>Who</th></tr></thead>
+      <tbody>
+        <tr><td>Read a record's plan fields</td><td>The person themselves, and admins</td></tr>
+        <tr><td>Change the plan or credit fields</td><td>Cloud Functions. The rules refuse a person changing their own; admins are not blocked by the rules, but no admin screen edits them.</td></tr>
+        <tr><td>Read <code>CreditLedger</code> entries</td><td>The person they belong to, and admins</td></tr>
+        <tr><td>Spend credits</td><td>The signed-in person, through <code>consumeCredits</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+      <tbody>
+        <tr><td>Paid, but <code>isPro</code> is still false</td><td>The webhook has not been processed. See <a href="payments.html#troubleshooting">Payments troubleshooting</a>.</td></tr>
+        <tr><td>Bought a lower plan and nothing changed</td><td>A higher-ranked plan is still active; the higher one wins.</td></tr>
+        <tr><td>A page still shows locked content after purchase</td><td><code>EntitlementService</code> reads once. Call <code>load().subscribe()</code> again, or reopen the page.</td></tr>
+        <tr><td>A plan is unknown to your app</td><td>Someone typed a different premium type on a product. Treat unknown types as the lowest rank and fix the product.</td></tr>
+        <tr><td>Another app gets "permission denied" reading the record</td><td>It is reading a different record, or a different Firestore database. A person can read only their own record.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

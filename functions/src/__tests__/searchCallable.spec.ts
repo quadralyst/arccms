@@ -3,7 +3,7 @@
  * queries it issues, and ranking plus fallback end to end against a fake
  * index.
  *
- * Spec: docs/search-spec.md, phase S3.
+ * Spec: specs/search-spec.md, phase S3.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -44,7 +44,7 @@ const index: FakeEntry[] = [];
 const issuedQueries: { filters: [string, string, unknown][] }[] = [];
 const getUser = vi.fn();
 
-// Search settings: no collection set up (docs/feature-flags-spec.md 6.4).
+// Search settings: no collection set up (specs/feature-flags-spec.md 6.4).
 vi.mock('../search/collections.js', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../search/collections.js')>()),
     readCollectionSetups: vi.fn(async () => ({})),

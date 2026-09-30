@@ -12,7 +12,7 @@
  * app. Anchors elsewhere — the language switcher, the content templates —
  * already build their own prefixed URLs.
  *
- * Spec: docs/multilingual-spec.md — Phase M5.5.
+ * Spec: specs/multilingual-spec.md — Phase M5.5.
  */
 
 import { Directive, ElementRef, OnInit, Renderer2, effect, inject } from '@angular/core';

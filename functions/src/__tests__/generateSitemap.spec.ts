@@ -199,7 +199,7 @@ describe('generateAndDeploySitemap', () => {
         });
     });
 
-    // ─── lastmod (docs/discoverability-spec.md, D-D3) ─────────────────────
+    // ─── lastmod (specs/discoverability-spec.md, D-D3) ─────────────────────
 
     describe('lastmod', () => {
         function wireDates(data: Record<string, unknown>): void {

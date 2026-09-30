@@ -2,7 +2,7 @@
  * Author Profile Service
  *
  * Public read of one `Authors/{id}` document for the SPA fallback pages
- * (docs/discoverability-spec.md, D2): the byline, the author box and the
+ * (specs/discoverability-spec.md, D2): the byline, the author box and the
  * Article's `author` Person node. Cached per id; a missing or denied read
  * yields null and the page simply shows no byline.
  */

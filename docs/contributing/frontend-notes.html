@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Frontend notes | Arc CMS docs</title>
+  <meta name="description" content="What a contributor must know about the Arc CMS Angular app: components, stores, translations, routing, change detection without zone.js, the page header and styles.">
+  <meta name="docs:sources" content="src/main.ts, src/app/app.config.ts, src/app/app.routes.ts, vite.config.ts, src/shared/components/page-header/page-header.component.ts, src/shared/components/row-actions/row-actions.component.ts, src/shared/services/generic-store.service.ts, src/app/core/i18n, src/assets/i18n, scripts/generate-i18n-keys.mjs, src/app/core/config/arc-functions.ts, src/app/core/config/arc-firebase.ts, src/styles.css, src/shared/utils/status-badge.ts, index.html">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="contributing/frontend-notes.html">
+  <main>
+    <h1>Frontend notes</h1>
+    <p class="lead">The Arc CMS website and admin area are one Angular 21 app built with AnalogJS. These are the conventions to follow when you change it, and the few places where it does not behave the way an Angular developer might expect.</p>
+
+    <p>The folders are described in <a href="../getting-started/folder-tour.html">A tour of the folders</a>, and how the parts fit together in <a href="../concepts/architecture.html">Architecture</a>. An app built on Arc CMS adds its pages in the custom space instead: see <a href="../app/pages-and-routes.html">Add pages and routes</a>.</p>
+
+    <h2>Components</h2>
+    <ul>
+      <li>Every component is standalone. There are no NgModules: a component lists what it uses in <code>imports</code>.</li>
+      <li>Admin and member pages start with the shared page header (below).</li>
+      <li>Components that call Cloud Functions go through <code>arcCallable()</code> in <code>src/app/core/config/arc-functions.ts</code>, with the plain function name. It adds the <code>arccms-</code> prefix the functions are deployed under.</li>
+      <li>Firestore and Storage are injected, never created with <code>getFirestore()</code> or <code>getStorage()</code>: <code>src/app/core/config/arc-firebase.ts</code> points them at the install's database and bucket, which may not be the defaults.</li>
+    </ul>
+
+    <h2>State: NgRx Signals stores</h2>
+    <p>Page state lives in NgRx Signals stores (<code>signalStore</code> from <code>@ngrx/signals</code>), such as the auth store in <code>src/app/pages/(auth)/auth.store.ts</code>. A store for a Firestore collection is usually made with <code>createGenericStore()</code> from <code>src/shared/services/generic-store.service.ts</code>, which gives it loading, paging, sorting and the create, update and delete calls. Templates read store state as signals.</p>
+
+    <h2>Translations</h2>
+    <p>The admin area's text is translated with Transloco. English is the source language:</p>
+    <ol class="steps">
+      <li><p>Add the key and its English text to <code>src/assets/i18n/en.json</code>, and the translation to each other language file in that folder, such as <code>src/assets/i18n/hi.json</code>.</p></li>
+      <li><p>Use it: <code>{{ 'admin.nav.broadcasts' | transloco }}</code> in a template, or <code>injectT()</code> from <code>src/app/core/i18n/inject-t.ts</code> in TypeScript.</p></li>
+      <li>
+        <p>Regenerate the key type:</p>
+        <pre><code>npm run i18n:keys</code></pre>
+        <p>It writes <code>src/app/core/i18n/translation-keys.ts</code>, so a mistyped key in TypeScript is a compile error.</p>
+      </li>
+    </ol>
+    <p>A spec (<code>src/test/i18n-parity.spec.ts</code>) fails when a translation misses a key, has a key English does not, or the generated keys are out of date. A missing translation falls back to English in the app, so without that spec the gap would be invisible. Keys written in templates are plain strings to the compiler; the spec is their only check.</p>
+    <p>This covers the admin interface only. The languages a site publishes its content in are a separate setting: see <a href="../features/languages.html">Languages</a>.</p>
+
+    <h2 id="routing">Routing</h2>
+    <p>AnalogJS turns files into routes. A file ending in <code>.page.ts</code> with a default export, under <code>src/app/pages/</code> (or <code>src/custom/pages/</code> in an app), is a page: <code>search.page.ts</code> is <code>/search</code>, <code>[contentTypeSlug]</code> in a name is a parameter, and a folder in parentheses such as <code>(settings)</code> groups files without adding to the URL.</p>
+    <p>The explicit routes in <code>src/app/app.routes.ts</code> come before the file-based ones. Admin pages need one: wrap the page in the admin layout with the role guard, like the existing entries:</p>
+    <pre><code>{
+  path: 'admin/email-logs',
+  loadComponent: () =&gt; import('./pages/admin.page').then((m) =&gt; m.default),
+  canActivate: [roleGuard],
+  data: { allowedRoles: ['admin'] },
+  children: [
+    {
+      path: '',
+      loadComponent: () =&gt;
+        import('./pages/admin/(email-logs)/email-logs.page').then((m) =&gt; m.default),
+    },
+  ],
+},</code></pre>
+    <div class="trap"><p>An admin page that relies on its file alone may render on the server but not reach the browser's route table. The URL then falls through to the public content route and shows "Content Not Found" in the public layout, with HTTP 200, so a status check misses it. Give every admin page an explicit route.</p></div>
+    <p>Every page URL also belongs to exactly one feature or to core, so a feature that is off can hide it. Add a new URL to the right list in <code>src/app/core/features/feature-routes.ts</code>; a test fails on one in no list (see <a href="keep-core-generic.html#add-a-feature">Keep core generic</a>).</p>
+
+    <h2 id="change-detection">Change detection without zone.js</h2>
+    <p>The app is zoneless: <code>src/main.ts</code> and <code>src/app/app.config.ts</code> load no zone.js and provide no zone change detection, so Angular 21 runs without it. A view updates when a signal it reads changes, an input changes, an event it bound fires, or something marks it for check. A value changed in place, or a callback's answer that changed, does not by itself update an <code>OnPush</code> view.</p>
+    <div class="trap"><p>Do not make a component <code>OnPush</code> when its output depends on callbacks that read page state or on objects changed in place. The row actions in tables (<code>src/shared/components/row-actions/row-actions.component.ts</code>) use default change detection for this reason: as <code>OnPush</code> they kept showing a Block button for a user who was already blocked. <code>OnPush</code> is fine when everything the view shows comes from signals or from inputs that are replaced, not mutated.</p></div>
+    <p>The tests load zone.js (<code>src/test/setup.ts</code>) for <code>TestBed</code>. A spec that changes a value in place calls <code>markForCheck()</code> before <code>detectChanges()</code>, as the app would need to.</p>
+
+    <h2>The page header</h2>
+    <p>Every admin and member page starts with <code>&lt;arc-page-header&gt;</code> (<code>src/shared/components/page-header/page-header.component.ts</code>): the title and subtitle on the left, the page's own buttons, the admin search box, the language picker and the notification bell on the right. It scrolls with the page, and looks the same in the admin and member layouts.</p>
+    <pre><code>&lt;arc-page-header title="Contacts" subtitle="Everyone you can email."&gt;
+  &lt;button mat-flat-button color="primary"&gt;Add&lt;/button&gt;
+&lt;/arc-page-header&gt;</code></pre>
+    <table>
+      <thead><tr><th>Input or output</th><th>Default</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>title</code>, <code>subtitle</code></td><td></td><td>The heading and the line under it</td></tr>
+        <tr><td><code>showBell</code></td><td>true</td><td>The notification bell</td></tr>
+        <tr><td><code>showLanguagePicker</code></td><td>true</td><td>The admin language picker</td></tr>
+        <tr><td><code>showSearch</code></td><td>true</td><td>The admin search box, when the search feature is on</td></tr>
+        <tr><td><code>showBack</code>, <code>(back)</code></td><td>false</td><td>A back arrow before the title, and its click</td></tr>
+      </tbody>
+    </table>
+    <p>A spec that renders a page with the header needs <code>headerTestProviders()</code>: see <a href="../operations/testing.html#write-a-component-spec">Testing</a>.</p>
+
+    <h2>Styles</h2>
+    <ul>
+      <li><strong>Libraries.</strong> Angular Material components with the indigo-pink theme (imported in <code>src/styles.css</code>), and Bootstrap 5 for layout, utilities and some components. <code>index.html</code> loads Bootstrap, Bootstrap Icons, Font Awesome and the Material Icons font. Admin icons are mostly Font Awesome classes, such as <code>fas fa-arrow-left</code>.</li>
+      <li><strong>Component styles first.</strong> Put a component's styles in the component. Global styles are in <code>src/styles.css</code>, and everything admin-only there is scoped under <code>.arc-admin</code> so it never reaches public pages.</li>
+      <li><strong>Shared admin pieces.</strong> <code>src/styles.css</code> has one set of admin page classes (<code>.page-container</code>, the status badges, side panels). Show a status with <code>.status-badge</code> and the class <code>statusBadgeClass()</code> returns (<code>src/shared/utils/status-badge.ts</code>), not with hand-picked Bootstrap colors.</li>
+      <li><strong>The app's styles win.</strong> <code>src/custom/styles.css</code> is loaded last, so an app can restyle anything without editing core.</li>
+    </ul>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

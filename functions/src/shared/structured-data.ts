@@ -1,5 +1,5 @@
 /**
- * JSON-LD builders for the public pages (docs/discoverability-spec.md, D1).
+ * JSON-LD builders for the public pages (specs/discoverability-spec.md, D1).
  *
  * Every builder is a pure function from plain inputs to a schema.org object.
  * Nothing here reads Firestore or knows about Hosting, so the same builders

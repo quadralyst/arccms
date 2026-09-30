@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SMS | Arc CMS docs</title>
+  <meta name="description" content="Set up the SMS provider, send a test message, read the SMS log, and let people sign in with a phone number and a PIN.">
+  <meta name="docs:sources" content="functions/src/sms, functions/src/features/sms.ts, functions/src/auth/phoneAuth.ts, functions/src/auth/phoneOtp.ts, functions/src/auth/phoneNumber.ts, functions/src/auth/accounts.ts, src/app/pages/admin/(settings)/sms, src/app/pages/admin/(sms-logs), src/app/pages/admin/(settings)/user-setting/user-setting.model.ts, src/app/core/features/feature-registry.ts, src/app/core/features/feature-routes.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/sms.html">
+  <main>
+    <h1>SMS</h1>
+    <p class="lead">SMS sends text messages through a provider and logs every one. Its main use is phone sign-in: a code by SMS the first time, then a 6-digit PIN.</p>
+
+    <h2>What it is</h2>
+    <table>
+      <thead><tr><th>Part</th><th>Where</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>SMS settings</td><td>Admin, Settings, SMS (<code>/admin/settings/sms</code>)</td><td>The provider and its keys, the default country code, the countries allowed, and a test send</td></tr>
+        <tr><td>SMS Logs</td><td>Admin, Email + SMS, SMS Logs (<code>/admin/sms-logs</code>)</td><td>Every message, sent or only recorded, with its status</td></tr>
+        <tr><td>Phone sign-in</td><td>The sign-in page, and the profile's sign-in methods</td><td>Sign up and sign in with a mobile number, a one-time code and a PIN</td></tr>
+      </tbody>
+    </table>
+    <p>Two providers exist:</p>
+    <table>
+      <thead><tr><th>Provider</th><th>Sends</th><th>Needs</th></tr></thead>
+      <tbody>
+        <tr><td>Test (log only)</td><td>Nothing. The full message, code included, goes to SMS Logs.</td><td>Nothing. It is the provider when no settings are saved.</td></tr>
+        <tr><td>MSG91</td><td>One-time codes, through MSG91's OTP API</td><td>An MSG91 auth key and the id of a DLT-approved OTP template that contains <code>##OTP##</code></td></tr>
+      </tbody>
+    </table>
+    <p>MSG91 sends only registered templates (Indian regulation), so it sends codes and nothing else; there is no free-text SMS.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>SMS is a switchable feature, id <code>sms</code>, on by default and needing no other feature. To turn it off, list it in <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    off: ['sms'],
+};</code></pre>
+    <p>With it off:</p>
+    <ul>
+      <li>the SMS settings tab and the SMS Logs page go, and their URLs show the not-found page; the menu's Email + SMS group is called Email;</li>
+      <li>phone sign-in is off whatever User Settings says, and its switch is hidden;</li>
+      <li>the functions <code>sendTestSms</code> and the phone sign-in functions are not built, so the next full functions deploy deletes them.</li>
+    </ul>
+    <p>Settings and logs stay in Firestore. How the switch works for every feature: <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li><p>Open Admin, Settings, SMS.</p></li>
+      <li><p>Set the <strong>default country code</strong> (digits only; <code>91</code> is India). It is added to numbers typed without one.</p></li>
+      <li><p>Set the <strong>allowed country codes</strong>, separated by commas. Only numbers starting with one of them can sign in by phone. Left empty, only the default country is allowed, never every country.</p></li>
+      <li><p>To send real messages, choose <strong>MSG91</strong> and enter the auth key and the OTP template id. The key is never shown again: leave the field empty to keep the saved one.</p></li>
+      <li><p>Click <strong>Save SMS settings</strong>. Then, under <strong>Send a test SMS</strong>, enter your own number and click <strong>Send test</strong>. With MSG91 the test is your OTP template with a made-up code; with the test provider it is only recorded in SMS Logs.</p></li>
+    </ol>
+    <p>Then turn phone sign-in on under Admin, Settings, User Settings (see <a href="sign-in.html">Sign-in methods</a>).</p>
+    <div class="warn"><p>With the test provider, no SMS is sent and the sign-in page shows the sign-up code on screen, so a sign-up does not prove the person owns the number. Reset and link codes are never shown on screen, only in SMS Logs. Switch to MSG91 before real people use phone sign-in.</p></div>
+
+    <h2>Use it</h2>
+    <h3>Phone sign-in</h3>
+    <ol>
+      <li>The person types their mobile number. Numbers in any common shape work (<code>+91 98765-43210</code>, <code>098765 43210</code>); each is stored as E.164, such as <code>+919876543210</code>.</li>
+      <li><strong>A new number</strong> gets a 6-digit code by SMS. After the code, the person enters their name and chooses a 6-digit PIN, and the account is created with the default role from User Settings. New numbers are refused while sign-ups are closed.</li>
+      <li><strong>A registered number</strong> signs in with its PIN. After 5 wrong PINs, the PIN is locked and the person resets it with a new code.</li>
+      <li><strong>Forgot PIN?</strong> sends a code; after it, the person chooses a new PIN, and every other session of that account is signed out within the hour.</li>
+    </ol>
+    <p>Codes last 10 minutes and allow 5 tries. A number can get a new code once a minute and 5 codes an hour. PINs such as repeated digits or <code>123456</code> are refused. A signed-in person can also add a number to their account, or change their PIN, from their profile. Adding a number sends a code; a number verified this way moves from any other account that had it (see <a href="sign-in.html">Sign-in methods</a>).</p>
+    <h3>SMS Logs</h3>
+    <p>Each message shows the time, the number (To), the message, its type (<strong>Sign-in code</strong> or <strong>Test</strong>), its status and the provider. The status is <strong>Logged</strong> (test provider, stored as <code>logged</code>), <strong>Sent</strong> (<code>sent</code>) or <strong>Failed</strong> (<code>failed</code>), with the provider's error after the message. For a real provider the code is replaced by dots in the stored text, so the log never holds a live code. Filter by status to find failures.</p>
+
+    <h2>Extend it</h2>
+    <p>To send a text from your own Cloud Functions, call <code>sendSms()</code> from <code>functions/src/sms/sendSms.ts</code>. It sends through the configured provider and writes the log:</p>
+    <pre><code>import { sendSms } from '../sms/sendSms.js';
+
+const code = '482913';
+const result = await sendSms({ to: '+919876543210', purpose: 'otp', code, text: `${code} is your code.` });
+// result.status: 'logged' | 'sent' | 'failed'</code></pre>
+    <p>With MSG91 only messages with a <code>code</code> can be sent, and the text is ignored: the OTP template is what arrives. Check <code>isFeatureOn('sms')</code> (from <code>functions/src/feature-flags.ts</code>) first if your app may turn SMS off.</p>
+    <p>A new provider is a change to core (<code>functions/src/sms/providers.ts</code>), not to an app. Raise it as a feature request.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>Settings/sms</code></td><td><code>provider</code>, <code>defaultCountryCode</code>, <code>allowedCountryCodes</code>, <code>msg91AuthKey</code>, <code>msg91OtpTemplateId</code></td></tr>
+        <tr><td><code>SmsLogs</code></td><td>One record per message</td></tr>
+        <tr><td><code>phone_otps</code></td><td>The current code for each number, hashed, with its purpose, expiry and tries</td></tr>
+        <tr><td><code>phone_index</code></td><td>Which user record owns each number (keyed by a hash of the number)</td></tr>
+        <tr><td><code>auth_pins</code></td><td>Each account's PIN, hashed, and its failed tries</td></tr>
+        <tr><td><code>_rate_limits</code></td><td>Counters for the per-number and per-caller limits</td></tr>
+      </tbody>
+    </table>
+    <p>The user record keeps <code>phone</code> and <code>phoneVerified</code>. Nothing is kept in Storage.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>sendTestSms</code></td><td>The test send (admin)</td></tr>
+        <tr><td><code>checkPhoneAccount</code></td><td>Whether a number has an account and a PIN</td></tr>
+        <tr><td><code>requestPhoneOtp</code>, <code>verifyPhoneOtp</code></td><td>Send and check a code</td></tr>
+        <tr><td><code>completePhoneSignup</code></td><td>Create the account after a sign-up code</td></tr>
+        <tr><td><code>signInWithPin</code>, <code>resetPin</code>, <code>setPin</code></td><td>Sign in, reset the PIN after a code, change the PIN when signed in</td></tr>
+      </tbody>
+    </table>
+    <p>All are callables, deployed as <code>arccms-&lt;name&gt;</code>. See <a href="../reference/cloud-functions.html">Cloud Functions</a> and <a href="../reference/data-model.html">Data model</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Who</th><th>Can</th></tr></thead>
+      <tbody>
+        <tr><td>Admin</td><td>Read and write <code>Settings/sms</code>; read <code>SmsLogs</code>; send a test SMS</td></tr>
+        <tr><td>Anyone, signed in or not</td><td>Call the phone sign-up and sign-in functions while phone sign-in is on; code requests, account checks and PIN tries are rate limited</td></tr>
+        <tr><td>Signed-in person</td><td>Change their own PIN (<code>setPin</code>)</td></tr>
+        <tr><td>Nobody from a browser</td><td>Read or write <code>phone_otps</code>, <code>phone_index</code>, <code>auth_pins</code>, <code>_rate_limits</code>, or write <code>SmsLogs</code>. Only Cloud Functions do.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>You see</th><th>Why, and what to do</th></tr></thead>
+      <tbody>
+        <tr><td>"Phone sign-in is not turned on for this site."</td><td>Turn it on in Admin, Settings, User Settings.</td></tr>
+        <tr><td>"Only numbers starting +91 can be used here."</td><td>Add the person's country code to the allowed country codes.</td></tr>
+        <tr><td>"We couldn't send the SMS."</td><td>The provider refused it. SMS Logs has the <code>failed</code> record and the provider's error. For MSG91, check the auth key and the template id.</td></tr>
+        <tr><td>"MSG91 is not set up"</td><td>The auth key or the template id is missing in Settings, SMS.</td></tr>
+        <tr><td>"Please wait 42s before asking for another code." or "Too many codes for this number."</td><td>The once-a-minute or 5-an-hour limit per number. Wait.</td></tr>
+        <tr><td>No code arrives and the status in SMS Logs is <strong>Logged</strong></td><td>The test provider is active: nothing is sent.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

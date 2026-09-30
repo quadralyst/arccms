@@ -1,7 +1,7 @@
 /**
  * Products: the pricing page's plans, searchable from the public site.
  *
- * The worked example from docs/search-developer-guide.md, added by
+ * The worked example from docs/features/search.html, added by
  * following that guide. Also useful: "gold" finds the Gold plan.
  */
 

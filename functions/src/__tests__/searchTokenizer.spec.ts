@@ -2,7 +2,7 @@
  * The tokenizer is shared by the indexer and the query side, so these pin
  * both what gets indexed and what a query turns into.
  *
- * Spec: docs/search-spec.md, decisions S-D3 to S-D6 and Appendix B.
+ * Spec: specs/search-spec.md, decisions S-D3 to S-D6 and Appendix B.
  */
 import { describe, it, expect } from 'vitest';
 import {

@@ -41,7 +41,7 @@ export function periodStart(now = new Date(), days = STATS_DAYS): string {
     return new Date(now.getTime() - (days - 1) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-/** The admin dashboard's "App installs" numbers (docs/pwa.md). */
+/** The admin dashboard's "App installs" numbers (docs/features/pwa.html). */
 @Injectable({ providedIn: 'root' })
 export class PwaStatsService {
     private firestore = inject(Firestore);

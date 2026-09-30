@@ -75,7 +75,7 @@ describe('check-core', () => {
             const { code, out } = run('--against', 'arc-base');
             expect(code).toBe(1);
             expect(out).toContain('firestore.rules');
-            expect(out).toContain('docs/custom-code.md');
+            expect(out).toContain('docs/app/custom-space.html');
         });
 
         it('fails, and explains how to add Arc CMS as upstream, when there is nothing to compare with (review F)', () => {

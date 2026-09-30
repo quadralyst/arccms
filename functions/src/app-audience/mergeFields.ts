@@ -1,5 +1,5 @@
 /**
- * An app user's host fields for merge tags (docs/coexistence-spec.md 5b, CO6.5a):
+ * An app user's host fields for merge tags (specs/coexistence-spec.md 5b, CO6.5a):
  * `##APP.<path>##` in a template reads `appFields[<path>]` on the email log.
  * Read from the host document when the email is queued; credential-like fields
  * are left out entirely, so no template can put one in an email.

@@ -1,5 +1,5 @@
 /**
- * Settings, App audience (docs/coexistence-spec.md section 5b, CO6.2).
+ * Settings, App audience (specs/coexistence-spec.md section 5b, CO6.2).
  *
  * Shows where the host app's users are (fixed at deploy time by arc:configure)
  * and sets how ArcCMS reads one of their documents: the unique key (asked every

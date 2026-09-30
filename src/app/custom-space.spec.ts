@@ -1,5 +1,5 @@
 /**
- * The custom space (docs/custom-code.md): each plug point where Arc CMS reads the
+ * The custom space (docs/app/custom-space.html): each plug point where Arc CMS reads the
  * app's own files, proven with sample content while the shipped files stay empty.
  */
 import { describe, expect, it, vi } from 'vitest';

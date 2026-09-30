@@ -2020,7 +2020,7 @@ describe('CreateContentComponent', () => {
         });
     });
 
-    // ─── Last updated date (docs/discoverability-spec.md, D-D3) ────────────
+    // ─── Last updated date (specs/discoverability-spec.md, D-D3) ────────────
 
     describe('updatedOn', () => {
         it('starts empty and is saved as null', () => {
@@ -2060,7 +2060,7 @@ describe('CreateContentComponent', () => {
         });
     });
 
-    // ─── Author (docs/discoverability-spec.md, D2) ─────────────────────────
+    // ─── Author (specs/discoverability-spec.md, D2) ─────────────────────────
 
     describe('author', () => {
         it('loads the author list and pre-fills the default on new content', async () => {
@@ -2105,7 +2105,7 @@ describe('CreateContentComponent', () => {
         });
     });
 
-    // ─── Sources (docs/discoverability-spec.md, D-D11) ─────────────────────
+    // ─── Sources (specs/discoverability-spec.md, D-D11) ─────────────────────
 
     describe('references', () => {
         it('starts empty, adds and edits rows, and saves only clean entries', () => {
@@ -2132,7 +2132,7 @@ describe('CreateContentComponent', () => {
         });
     });
 
-    // ─── Checks tab (docs/discoverability-spec.md, D-D13, D-D16) ───────────
+    // ─── Checks tab (specs/discoverability-spec.md, D-D13, D-D16) ───────────
 
     describe('checks tab', () => {
         it('scores the draft and lists failing rules with fixes', () => {

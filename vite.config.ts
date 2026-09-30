@@ -11,11 +11,11 @@ import { CUSTOM_PWA } from './src/custom/pwa';
 import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
 
-// The app's features (src/custom/features.ts, docs/feature-flags-spec.md). Resolved
+// The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
 const features = resolveFeatures(CUSTOM_FEATURES);
 
-// The install's PWA settings (src/custom/pwa.ts over the core defaults, docs/pwa.md),
+// The install's PWA settings (src/custom/pwa.ts over the core defaults, docs/features/pwa.html),
 // on when the features ask for it.
 const pwa = resolvePwaConfig(CUSTOM_PWA, features.has('pwa'));
 const pwaIcon = PWA_ICON_CANDIDATES.find((path) => existsSync(resolve(path))) ?? DEFAULT_PWA_ICON;
@@ -140,7 +140,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       // Frees a closed dev server (see releaseClosedServer).
       release.plugin,
-      // PWA (docs/pwa.md): manifest, icons and service worker, only when the install turns it on.
+      // PWA (docs/features/pwa.html): manifest, icons and service worker, only when the install turns it on.
       // Browser build only: Analog also builds the server bundle with these plugins,
       // and the PWA plugin skips the service worker when it last saw a server build.
       appleLinks(),
@@ -237,7 +237,7 @@ export default defineConfig(({ mode }) => {
         },
       })),
       analog({
-        // The app's own file-based pages (docs/custom-code.md), next to src/app/pages.
+        // The app's own file-based pages (docs/app/custom-space.html), next to src/app/pages.
         additionalPagesDirs: ['/src/custom/pages'],
         // ssr: true enables build-time prerendering (SSG) — no runtime server is deployed.
         // The server bundle is built but never referenced in firebase.json.

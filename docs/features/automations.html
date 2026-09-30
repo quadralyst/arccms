@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Automations | Arc CMS docs</title>
+  <meta name="description" content="Send an email, create a notification or change list membership when something happens, with rules an admin edits and events your code emits.">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings)/automations, functions/src/email-core/appEvents.ts, functions/src/email-core/eventRules.ts, functions/src/users/onUserCreate.ts, functions/src/users/onUserDelete.ts, functions/src/email-core/contactSync.ts, functions/src/dodo-payments/handlePaymentEvent.ts, functions/src/app-audience/onAppUserWritten.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/automations.html">
+  <main>
+    <h1>Automations</h1>
+    <p class="lead">An automation says what happens when an event fires: send an email, create an in-app notification, or add the person to a list or take them off one. Admins set them up on the Automations page; your code can add events of its own.</p>
+
+    <h2>What it is</h2>
+    <p>Arc CMS and your code <strong>emit events</strong>, such as <code>user.signed_up</code>. Each event can have a <strong>mapping</strong>: an on/off switch and one or more <strong>rules</strong>. A rule has a name, an optional condition, and actions. When the event fires, every rule that applies runs its actions.</p>
+    <table>
+      <thead><tr><th>Event</th><th>Fires when</th><th>Offered when</th></tr></thead>
+      <tbody>
+        <tr><td><code>user.signed_up</code></td><td>A user record is created</td><td>Always</td></tr>
+        <tr><td><code>payment.succeeded</code>, <code>payment.failed</code></td><td>A payment goes through or fails</td><td><a href="payments.html">Payments</a> is on</td></tr>
+        <tr><td><code>waitlist.joined</code></td><td>A signup form sign-up is confirmed</td><td><a href="forms.html">Signup forms</a> is on</td></tr>
+        <tr><td><code>app_user.created</code>, <code>app_user.deleted</code></td><td>A person appears in, or leaves, your app's user collection</td><td><a href="audience.html">Audience</a> is on and an app is connected (<a href="app-audience.html">App audience</a>)</td></tr>
+        <tr><td><code>app_user.changed.&lt;field&gt;</code></td><td>A watched field of an app user changes; one event per watched field</td><td>Same as above</td></tr>
+      </tbody>
+    </table>
+    <p>Arc CMS also emits <code>user.deleted</code> when a user record is deleted. It carries no email address, so its rules cannot send email or change lists. It, and any event your own code emits, shows on the page only once a mapping for it exists.</p>
+    <table>
+      <thead><tr><th>Action</th><th>Does</th><th>Not for</th></tr></thead>
+      <tbody>
+        <tr><td>Send an email</td><td>Queues a template, as transactional or marketing, to the event's email address</td><td></td></tr>
+        <tr><td>Create a notification</td><td>Adds an in-app notification of a chosen type, with a title, body and link</td><td>App user events</td></tr>
+        <tr><td>Add to lists, remove from lists</td><td>Changes the person's list membership, creating the contact if needed</td><td>App user events; needs Audience</td></tr>
+      </tbody>
+    </table>
+    <p>Emails from a rule go through the <a href="email.html">Email engine</a>: the master switch, the template's active switch and a disabled contact apply to every rule email. A marketing email also needs consent and is blocked by any suppression entry; a transactional one is blocked only by a bounce or a complaint. Rule emails have no switch of their own under Email Features.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Automations are always on: they are core, not a switchable feature. Each event has its own switch on the page, and each rule can be turned off on its own. Every event starts switched off, so nothing runs until an admin turns it on. With <a href="email-marketing.html">Email marketing</a> on, the <strong>Event mappings</strong> tab on Email, Announcements switches events on and off too.</p>
+    <p>Events of a feature that is off are not offered, and never fire. Their saved mappings stay, for when the feature is on again. Without <a href="audience.html">Audience</a>, list actions are hidden, and a saved list action is recorded as not run.</p>
+
+    <h2>Set it up</h2>
+    <p>Nothing to set up beyond a working <a href="email.html#set-it-up">Email engine</a> for rules that send email. The built-in events are listed from the start, switched off. An event's mapping is created by its first save, or, for the built-in events, when the email system's defaults are seeded (opening Email, Announcements does this). The seeded <code>user.signed_up</code> and <code>payment.succeeded</code> mappings come with a Default rule that adds the person to All Users or All Customers.</p>
+
+    <h2>Use it</h2>
+    <ol class="steps">
+      <li><p>Open Admin, Settings, Automations (<code>/admin/settings/automations</code>) and open an event.</p></li>
+      <li><p>Turn on <strong>Run this event's rules</strong>.</p></li>
+      <li><p>Click <strong>Add rule</strong>, name it, and choose its actions: tick <strong>Send an email</strong> and pick a template and its <strong>Email type</strong> (transactional or marketing); tick <strong>Create a notification</strong>, pick a type and write the title, message and optional link; or pick lists under <strong>Add to lists</strong> or <strong>Remove from lists</strong>.</p></li>
+      <li><p>For a field change (<code>app_user.changed.&lt;field&gt;</code>), set a condition on the old value (<strong>was</strong>), the new value (<strong>becomes</strong>), or both: anything, exactly, any of, or none of. Separate several values with commas.</p></li>
+      <li><p>Save. Each event saves on its own, and a change saved meanwhile on another event is kept.</p></li>
+    </ol>
+    <p>A rule needs a name and at least one action, an email needs a template, and a notification needs a type and a title; the page will not save until they are there.</p>
+    <p>Conditions compare values as text and ignore case, and treat empty, null and missing as the same empty value. So <code>exactly true</code> matches a stored <code>true</code>, <code>exactly pro</code> matches <code>Pro</code>, and <code>any of: , free</code> matches a free plan written either way.</p>
+    <p>An email template, and a notification's title and body, can use the event's data as <code>##KEY##</code> tags, for example <code>##WAITLIST_ID##</code> in an email on <code>waitlist.joined</code>. Only events with a <code>userId</code> (<code>user.signed_up</code>, the payment events, or your own) can create a notification.</p>
+    <div class="trap"><p>Some templates are filled by another feature with data a rule does not have: <code>signup_otp_email</code>, <code>waitlist_verify_otp_email</code>, <code>notification_generic_email</code> and <code>admin_digest_email</code>. Sent from a rule they would go out with a blank subject and body, or a code nobody asked for. The page does not offer them, and the server refuses them (the result is <code>template_not_for_rules</code>).</p></div>
+    <div class="note"><p>Events are extra to what Arc CMS already does. For example, the welcome email and the admin alert on a new sign-up are sent whether or not <code>user.signed_up</code> has rules, so a rule that sends a welcome email sends a second one.</p></div>
+
+    <h2>Extend it</h2>
+    <p>Emit your own events from your Cloud Functions in <code>functions/src/custom/</code>. The event is stored and processed by <code>onAppEventCreate</code>; the admin decides what it does:</p>
+    <pre><code>import { emitAppEvent } from '../email-core/appEvents.js';
+
+await emitAppEvent('order.shipped', {
+  userId: uid,                          // the Firebase Auth uid, for notifications
+  contactEmail: email,                  // where an email goes
+  data: { TRACKING: 'AB123' },          // fills ##TRACKING## in a notification
+}, { id: `order-shipped-${orderId}` }); // optional: the same id is processed once</code></pre>
+    <p>To make the event appear on the Automations page, give it a mapping: add a key for it under <code>mappings</code> in the <code>Settings/event_mappings</code> document, for example <code>"order.shipped": { "enabled": false, "rules": [] }</code>. From then on, admins edit it like any other event.</p>
+    <p>An event with no <code>userId</code> gets no notification. An event with no email address (neither <code>contactEmail</code> nor a user with an email) sends no email and changes no lists.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>Settings/event_mappings</code></td><td>The mappings, under <code>mappings</code>, keyed by event: <code>enabled</code> and <code>rules</code>. A rule has <code>name</code>, <code>enabled</code> (off only when <code>false</code>), an optional <code>when: { from, to }</code> where each side is <code>{ equals }</code>, <code>{ anyOf: [...] }</code> or <code>{ noneOf: [...] }</code>, and its actions: <code>sendEmail: { templateType, category }</code>, <code>createNotification: { typeKey, titleTemplate, bodyTemplate, link }</code>, <code>addToLists</code> and <code>removeFromLists</code> (list ids). Actions stored on the mapping itself run first, as a rule named <code>default</code>.</td></tr>
+        <tr><td><code>AppEvents</code></td><td>One document per event: <code>type</code>, <code>createdAt</code>, <code>processed</code> (false until handled), and when present <code>userId</code>, <code>contactEmail</code>, <code>appUserId</code> and <code>data</code>; once handled, <code>processedAt</code> and <code>results</code></td></tr>
+      </tbody>
+    </table>
+    <p>The function is <code>onAppEventCreate</code>, a Firestore trigger on <code>AppEvents</code>, deployed as <code>arccms-onAppEventCreate</code>. See <a href="../reference/data-model.html">Data model</a> and <a href="../reference/cloud-functions.html">Cloud Functions</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Who</th><th>Can</th></tr></thead>
+      <tbody>
+        <tr><td>Admin</td><td>Read and write <code>Settings/event_mappings</code> (the Automations page); read <code>AppEvents</code></td></tr>
+        <tr><td>Nobody from a browser</td><td>Create or change <code>AppEvents</code>. Only Cloud Functions emit events.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Troubleshooting</h2>
+    <p>Every processed event records what happened in <code>results</code> on its <code>AppEvents</code> document. Read it in the Firebase console, or for app user events on the person's Recent activity. <code>status</code> is at the top; each rule's outcome is under its name, for example <code>results['Rule 1'].email</code>.</p>
+    <table>
+      <thead><tr><th><code>results</code> says</th><th>Why, and what to do</th></tr></thead>
+      <tbody>
+        <tr><td><code>status: 'no_mapping'</code></td><td>The event has no mapping. Add one (see <a href="#extend-it">Extend it</a>).</td></tr>
+        <tr><td><code>status: 'disabled'</code></td><td>The event is switched off on the page.</td></tr>
+        <tr><td><code>status: 'no_matching_rule'</code></td><td>The event has no rules, every rule is off, or no condition matched the old and new value.</td></tr>
+        <tr><td><code>email: 'no_template'</code></td><td>No template of that type exists. It was deleted, or its type changed.</td></tr>
+        <tr><td><code>email: 'skipped'</code> or <code>'suppressed'</code></td><td>The email engine blocked it; the email log says why (see <a href="email.html#troubleshooting">Email engine</a>).</td></tr>
+        <tr><td><code>lists: 'feature_off'</code> or <code>'not_applicable'</code></td><td>Audience is off, or it is an app user event, where list actions do not apply.</td></tr>
+        <tr><td><code>status: 'error'</code></td><td>Something failed; <code>message</code> says what. The function logs have the details.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

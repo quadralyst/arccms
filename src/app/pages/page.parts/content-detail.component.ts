@@ -950,7 +950,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
     /**
      * "Updated {date}" text, or '' unless `updatedOn` is later than the publish
-     * date. Same rule as the static renderer (docs/discoverability-spec.md, D-D3).
+     * date. Same rule as the static renderer (specs/discoverability-spec.md, D-D3).
      */
     updatedOnDisplay = computed(() => {
         const content = this.currentContent();
@@ -1081,7 +1081,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     }
 
     /**
-     * The same JSON-LD the static page carries (docs/discoverability-spec.md,
+     * The same JSON-LD the static page carries (specs/discoverability-spec.md,
      * D1), mirrored from functions/src/pages/deployContentPage.ts. The SPA
      * fallback only serves pages that have no static file yet, so this exists
      * for parity, not as the primary path. Identity arrives asynchronously;
