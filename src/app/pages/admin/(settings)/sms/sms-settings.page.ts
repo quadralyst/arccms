@@ -1,8 +1,9 @@
 /**
  * Settings, SMS: the provider for text messages (phone sign-in codes) and a
  * test send. With the default Test provider nothing is sent: every message is
- * in Email + SMS, SMS Logs, and the sign-in page shows sign-up codes (never
- * reset or link codes, which would let anyone take over a number).
+ * in Email + SMS, SMS Logs, and the sign-in page shows sign-up codes. Reset codes
+ * are shown only when the admin turns that on here, since anyone could then reset
+ * any PIN; link codes never are (they would let anyone move a number).
  */
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -34,6 +35,14 @@ import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-set
                 <div class="alert alert-warning d-flex gap-2 align-items-start">
                     <i class="fa-solid fa-triangle-exclamation mt-1"></i>
                     <span>{{ 'admin.settings.sms.test_mode_warning' | transloco }}</span>
+                </div>
+                <div class="form-check form-switch mb-3 reset-codes">
+                    <input id="smsShowResetCodes" type="checkbox" class="form-check-input" role="switch"
+                        [ngModel]="form().showResetCodes" (ngModelChange)="update('showResetCodes', $event)" />
+                    <label class="form-check-label" for="smsShowResetCodes">{{ 'admin.settings.sms.show_reset_codes' | transloco }}</label>
+                    <small class="d-block mt-1" [class.text-danger]="form().showResetCodes" [class.text-muted]="!form().showResetCodes">
+                        {{ 'admin.settings.sms.show_reset_codes_hint' | transloco }}
+                    </small>
                 </div>
             }
 

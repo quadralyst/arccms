@@ -21,6 +21,11 @@ export interface SmsSettings {
     msg91AuthKey: string;
     /** The DLT-approved MSG91 OTP template; it must contain `##OTP##`. */
     msg91OtpTemplateId: string;
+    /**
+     * Test provider only: the sign-in page also shows PIN reset codes. Off by default,
+     * since anyone who knows a number could then reset its PIN (Settings, SMS warns).
+     */
+    showResetCodes: boolean;
 }
 
 export const DEFAULT_SMS_SETTINGS: SmsSettings = {
@@ -29,6 +34,7 @@ export const DEFAULT_SMS_SETTINGS: SmsSettings = {
     allowedCountryCodes: [DEFAULT_COUNTRY_CODE],
     msg91AuthKey: '',
     msg91OtpTemplateId: '',
+    showResetCodes: false,
 };
 
 function digits(value: unknown): string {
@@ -53,6 +59,7 @@ export function resolveSmsSettings(raw: Record<string, unknown> | undefined): Sm
         allowedCountryCodes: allowed,
         msg91AuthKey: typeof data['msg91AuthKey'] === 'string' ? data['msg91AuthKey'].trim() : '',
         msg91OtpTemplateId: typeof data['msg91OtpTemplateId'] === 'string' ? data['msg91OtpTemplateId'].trim() : '',
+        showResetCodes: data['showResetCodes'] === true,
     };
 }
 

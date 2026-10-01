@@ -1,17 +1,18 @@
 /**
  * Settings, SMS: the phone sign-in switch lives in User Settings, so this page says
- * whether phone sign-in is on and links there.
+ * whether phone sign-in is on and links there. With the Test provider it also has the
+ * "Show PIN reset codes on screen" switch, off unless the admin turns it on.
  */
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, it, expect, vi } from 'vitest';
 import { SmsSettingsPage } from './sms-settings.page';
-import { DEFAULT_SMS_FORM, SmsSettingsService } from './sms-settings.service';
+import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-settings.service';
 import { translocoTestingModule } from '../../../../../test/transloco-test-providers';
 
-async function render(phoneSignIn: boolean) {
+async function render(phoneSignIn: boolean, form: Partial<SmsSettingsForm> = {}) {
     const service = {
-        load: vi.fn(async () => ({ form: { ...DEFAULT_SMS_FORM }, hasAuthKey: false, phoneSignIn })),
+        load: vi.fn(async () => ({ form: { ...DEFAULT_SMS_FORM, ...form }, hasAuthKey: false, phoneSignIn })),
         save: vi.fn(),
         sendTest: vi.fn(),
     };
@@ -37,5 +38,24 @@ describe('SmsSettingsPage', () => {
     it('says phone sign-in is off', async () => {
         const page = await render(false);
         expect(page.querySelector('.phone-status')?.textContent).toContain('Phone sign-in is off.');
+    });
+
+    it('offers to show PIN reset codes in test mode, off by default, with the risk spelled out', async () => {
+        const page = await render(true);
+        const toggle = page.querySelector<HTMLInputElement>('#smsShowResetCodes');
+        expect(toggle?.checked).toBe(false);
+        expect(page.querySelector('.reset-codes')?.textContent).toContain('Show PIN reset codes on screen');
+        expect(page.querySelector('.reset-codes')?.textContent).toContain('take over the account');
+    });
+
+    it('shows the saved choice', async () => {
+        const page = await render(true, { showResetCodes: true });
+        await new Promise((r) => setTimeout(r));
+        expect(page.querySelector<HTMLInputElement>('#smsShowResetCodes')?.checked).toBe(true);
+    });
+
+    it('has no reset code switch with a real provider', async () => {
+        const page = await render(true, { provider: 'msg91' });
+        expect(page.querySelector('#smsShowResetCodes')).toBeNull();
     });
 });

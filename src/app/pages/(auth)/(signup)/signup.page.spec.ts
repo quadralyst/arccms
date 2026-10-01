@@ -469,6 +469,13 @@ describe('SignupComponent', () => {
             expect(c.toastService.success).not.toHaveBeenCalled();
         });
 
+        it('shows a reset code when the admin allowed it on Settings, SMS', async () => {
+            const c = ctx('482913', { testMode: true }, 'reset');
+            await sendOtp.call(c);
+            expect(c.testCode()).toBe('482913');
+            expect(c.testCodeInLogs()).toBe(false);
+        });
+
         it('shows the code the Test provider did not send', async () => {
             const c = ctx('482913');
             await sendOtp.call(c);

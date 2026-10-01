@@ -855,7 +855,9 @@
         "status_sent": "Sent",
         "status_failed": "Failed",
         "logs_link": "See every message in SMS Logs",
-        "test_mode_warning": "Test mode: no SMS is sent, and the sign-in page shows sign-up codes, so anyone can sign up with any number. Switch to MSG91 before real people use phone sign-in."
+        "test_mode_warning": "Test mode: no SMS is sent, and the sign-in page shows sign-up codes, so anyone can sign up with any number. Switch to MSG91 before real people use phone sign-in.",
+        "show_reset_codes": "Show PIN reset codes on screen",
+        "show_reset_codes_hint": "Only while you test: anyone who knows a number could then reset its PIN and take over the account. Turn it off before real people use the site."
       }
     },
     "contents": {

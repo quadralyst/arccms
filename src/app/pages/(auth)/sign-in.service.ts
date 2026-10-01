@@ -172,7 +172,9 @@ export class SignInService {
 
     /**
      * `testMode`: the Test SMS provider, where nothing is sent. A sign-up code
-     * then comes back as `testCode`; reset and link codes are in SMS Logs only.
+     * then comes back as `testCode`, and so does a reset code when an admin turned
+     * on "Show PIN reset codes on screen" (Settings, SMS); otherwise reset and link
+     * codes are in SMS Logs only.
      */
     requestPhoneCode(phone: string, purpose: PhoneOtpPurpose): Promise<{ sent: boolean; testMode?: boolean; testCode?: string }> {
         return this.call('requestPhoneOtp', { phone, purpose });

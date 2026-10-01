@@ -105,8 +105,28 @@ describe('test mode', () => {
         expect(lastCode()).toMatch(/^\d{6}$/);
     });
 
+    it('shows a reset code only when an admin turned that on (Settings, SMS)', async () => {
+        await signUp();
+        ageLastCode();
+        mem.seed('Settings', 'sms', { provider: 'log', showResetCodes: true });
+        const reply = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'reset' });
+        expect(reply).toEqual({ sent: true, phone: E164, testMode: true, testCode: lastCode() });
+
+        // The code it shows resets the PIN, as one read from SMS Logs would.
+        const { ticket } = await call(phone.verifyPhoneOtp, { phone: NUMBER, code: reply.testCode, purpose: 'reset' });
+        await expect(call(phone.resetPin, { phone: NUMBER, pin: '135792', ticket })).resolves.toMatchObject({ token: 'token-uid-asha' });
+    });
+
+    it('never shows a link code, even with reset codes on (review F)', async () => {
+        await signUp();
+        ageLastCode();
+        mem.seed('Settings', 'sms', { provider: 'log', showResetCodes: true });
+        const reply = await call(phone.requestPhoneOtp, { phone: '98765 00000', purpose: 'link' }, 'uid-asha');
+        expect(reply).toEqual({ sent: true, phone: '+919876500000', testMode: true });
+    });
+
     it('never returns the code with a real provider', async () => {
-        mem.seed('Settings', 'sms', { provider: 'msg91', msg91AuthKey: 'k', msg91OtpTemplateId: 't' });
+        mem.seed('Settings', 'sms', { provider: 'msg91', msg91AuthKey: 'k', msg91OtpTemplateId: 't', showResetCodes: true });
         const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ type: 'success', request_id: 'r1' }) });
         vi.stubGlobal('fetch', fetchMock);
         try {

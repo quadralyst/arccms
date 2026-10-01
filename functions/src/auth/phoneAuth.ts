@@ -5,7 +5,8 @@
  *   checkPhoneAccount    is this number registered, and does it have a PIN?
  *   requestPhoneOtp      send a code (signup, reset or link); with the Test
  *                        provider no SMS is sent, and the reply carries a
- *                        sign-up code (reset and link codes: SMS Logs only)
+ *                        sign-up code, and a reset code when an admin allows
+ *                        it (link codes: SMS Logs only)
  *   verifyPhoneOtp       check the code; the reply's ticket goes to the next step
  *   completePhoneSignup  new number: name and PIN, creates the account
  *   signInWithPin        registered number: the PIN
@@ -114,11 +115,14 @@ export const requestPhoneOtp = onCall(async (request) => {
     const { testCode } = await issuePhoneOtp(phone, purpose, sms, uid);
     logger.info(`requestPhoneOtp: ${purpose} code sent to ${maskPhone(phone)}.`);
     // Test provider: no SMS goes out (Settings, SMS warns admins). The page may
-    // show a sign-up code, which only makes a new account. A reset or link code
-    // would let anyone take over or move any number, so it is only in SMS Logs,
-    // for admins (review F).
+    // show a sign-up code, which only makes a new account. A reset code would let
+    // anyone take over any number, so it is shown only when an admin turned on
+    // "Show PIN reset codes on screen"; otherwise it is in SMS Logs, for admins.
+    // A link code would let anyone move a number to their account: SMS Logs only
+    // (review F).
     if (!testCode) return { sent: true, phone };
-    return { sent: true, phone, testMode: true, ...(purpose === 'signup' ? { testCode } : {}) };
+    const shown = purpose === 'signup' || (purpose === 'reset' && sms.showResetCodes);
+    return { sent: true, phone, testMode: true, ...(shown ? { testCode } : {}) };
 });
 
 export const verifyPhoneOtp = onCall(async (request) => {

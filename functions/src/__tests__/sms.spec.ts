@@ -41,6 +41,14 @@ describe('resolveSmsSettings', () => {
     });
 });
 
+describe('showResetCodes', () => {
+    it('is off unless an admin saved it as true', () => {
+        expect(resolveSmsSettings(undefined).showResetCodes).toBe(false);
+        expect(resolveSmsSettings({ showResetCodes: 'yes' }).showResetCodes).toBe(false);
+        expect(resolveSmsSettings({ showResetCodes: true }).showResetCodes).toBe(true);
+    });
+});
+
 describe('buildMsg91OtpRequest', () => {
     it('sends the number without +, the template and the code, with the auth key header', () => {
         const { url, init } = buildMsg91OtpRequest(

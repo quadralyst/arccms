@@ -1222,6 +1222,8 @@ export type TranslationKey =
     | 'admin.settings.sms.provider_msg91'
     | 'admin.settings.sms.save'
     | 'admin.settings.sms.saved'
+    | 'admin.settings.sms.show_reset_codes'
+    | 'admin.settings.sms.show_reset_codes_hint'
     | 'admin.settings.sms.status_failed'
     | 'admin.settings.sms.status_logged'
     | 'admin.settings.sms.status_sent'
@@ -2691,6 +2693,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.sms.provider_msg91',
     'admin.settings.sms.save',
     'admin.settings.sms.saved',
+    'admin.settings.sms.show_reset_codes',
+    'admin.settings.sms.show_reset_codes_hint',
     'admin.settings.sms.status_failed',
     'admin.settings.sms.status_logged',
     'admin.settings.sms.status_sent',

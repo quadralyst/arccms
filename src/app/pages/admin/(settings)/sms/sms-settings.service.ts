@@ -17,6 +17,8 @@ export interface SmsSettingsForm {
     /** Empty means "keep the saved key". */
     msg91AuthKey: string;
     msg91OtpTemplateId: string;
+    /** Test provider only: the sign-in page also shows PIN reset codes. */
+    showResetCodes: boolean;
 }
 
 export const DEFAULT_SMS_FORM: SmsSettingsForm = {
@@ -25,11 +27,29 @@ export const DEFAULT_SMS_FORM: SmsSettingsForm = {
     allowedCountryCodes: '91',
     msg91AuthKey: '',
     msg91OtpTemplateId: '',
+    showResetCodes: false,
 };
 
 /** `+91, 44 ,x` → `['91', '44']` */
 export function parseCountryCodes(text: string): string[] {
     return text.split(',').map((code) => code.replace(/\D/g, '')).filter(Boolean);
+}
+
+/** What `save` writes to `Settings/sms`, before the timestamp. */
+export function smsSettingsData(form: SmsSettingsForm): Record<string, unknown> {
+    const defaultCountryCode = form.defaultCountryCode.replace(/\D/g, '') || DEFAULT_SMS_FORM.defaultCountryCode;
+    const allowed = parseCountryCodes(form.allowedCountryCodes);
+    const data: Record<string, unknown> = {
+        provider: form.provider,
+        defaultCountryCode,
+        // Empty means the default country only (functions/src/sms/smsSettings.ts).
+        allowedCountryCodes: allowed.length ? allowed : [defaultCountryCode],
+        msg91OtpTemplateId: form.msg91OtpTemplateId.trim(),
+        // Leaving test mode turns it off, so coming back to it asks again.
+        showResetCodes: form.provider === 'log' && form.showResetCodes,
+    };
+    if (form.msg91AuthKey.trim()) data['msg91AuthKey'] = form.msg91AuthKey.trim();
+    return data;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -60,6 +80,7 @@ export class SmsSettingsService {
                 allowedCountryCodes: allowed,
                 msg91AuthKey: '',
                 msg91OtpTemplateId: String(data['msg91OtpTemplateId'] ?? ''),
+                showResetCodes: data['showResetCodes'] === true,
             },
             hasAuthKey: !!data['msg91AuthKey'],
             phoneSignIn: users?.data()?.['phoneSignIn'] === true,
@@ -67,17 +88,7 @@ export class SmsSettingsService {
     }
 
     async save(form: SmsSettingsForm): Promise<void> {
-        const defaultCountryCode = form.defaultCountryCode.replace(/\D/g, '') || DEFAULT_SMS_FORM.defaultCountryCode;
-        const allowed = parseCountryCodes(form.allowedCountryCodes);
-        const data: Record<string, unknown> = {
-            provider: form.provider,
-            defaultCountryCode,
-            // Empty means the default country only (functions/src/sms/smsSettings.ts).
-            allowedCountryCodes: allowed.length ? allowed : [defaultCountryCode],
-            msg91OtpTemplateId: form.msg91OtpTemplateId.trim(),
-            updatedAt: serverTimestamp(),
-        };
-        if (form.msg91AuthKey.trim()) data['msg91AuthKey'] = form.msg91AuthKey.trim();
+        const data = { ...smsSettingsData(form), updatedAt: serverTimestamp() };
         await this.inCtx(() => setDoc(doc(this.firestore, 'Settings', 'sms'), data, { merge: true }));
     }
 
