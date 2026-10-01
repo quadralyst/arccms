@@ -14,9 +14,7 @@
 import { langPrefix } from '../shared/content-translation.js';
 import { arcFunctionName } from '../function-names.js';
 import { isFeatureOn } from '../feature-flags.js';
-
-/** The region the `search` callable deploys to (the project default). */
-export const SEARCH_FUNCTION_REGION = 'us-central1';
+import { arcFunctionsRegion } from '../arc-config.js';
 
 export const SEARCH_WIDGET_SCRIPT = '/assets/js/arc-search.js';
 export const SEARCH_WIDGET_STYLESHEET = '/assets/css/arc-search.css';
@@ -32,7 +30,7 @@ export const SEARCH_WIDGET_DEFAULT_STRINGS = {
 export type SearchWidgetStringKey = keyof typeof SEARCH_WIDGET_DEFAULT_STRINGS;
 
 /** The callable's HTTPS URL, which the callable protocol accepts over plain fetch. */
-export function searchEndpoint(projectId: string, region = SEARCH_FUNCTION_REGION): string {
+export function searchEndpoint(projectId: string, region = arcFunctionsRegion()): string {
     return `https://${region}-${projectId}.cloudfunctions.net/${arcFunctionName('search')}`;
 }
 

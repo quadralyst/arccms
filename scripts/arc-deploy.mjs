@@ -32,6 +32,9 @@
  *   off a terminal it needs --yes, and stops rather than delete unasked. A
  *   targeted deploy (functions:arccms:arccms.<name>) never deletes anything
  *   (specs/feature-flags-spec.md, section 7);
+ * - before a deploy that includes functions, checks that they run next to the
+ *   database (scripts/arc-region.mjs): with none deployed yet they go where the
+ *   database is; deployed elsewhere, it warns and deploys anyway;
  * - with --probe, after a deploy that included functions, runs the callable
  *   access check. A callable whose creation timed out is left without public
  *   access, and every browser call to it then fails with 403 (found 2026-09-23).
@@ -46,9 +49,15 @@ import { createInterface } from 'node:readline/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, readFirebaseAliases, resolveProjectId } from './arc-install-config.mjs';
+import {
+    DEFAULT_DATABASE_ID, ROOT, configForProject, readArcInstallConfig, readFirebaseAliases, resolveProjectId,
+} from './arc-install-config.mjs';
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
 import { builtArccms } from './arc-built-functions.mjs';
+import { main as configure, normalizeConfig } from './arc-configure.mjs';
+import {
+    DEFAULT_FUNCTIONS_REGION, countArccms, databaseLocation, lookupDatabaseLocation, regionDecision, regionWarning,
+} from './arc-region.mjs';
 
 /** Retry rounds for functions that never reported success, and the wait before each. */
 export const RETRY_ROUNDS = 2;
@@ -169,6 +178,63 @@ async function askOnce(question) {
     } finally {
         rl.close();
     }
+}
+
+/** A project's install settings from arccms.config.json, defaults filled in. */
+export function projectConfig(projectId) {
+    return normalizeConfig(configForProject(readArcInstallConfig(), projectId));
+}
+
+/** The region a project's functions run in. */
+export function functionsRegionOf(projectId) {
+    return projectConfig(projectId).functionsRegion || DEFAULT_FUNCTIONS_REGION;
+}
+
+/**
+ * Before a functions deploy: are the functions next to the database
+ * (scripts/arc-region.mjs)? With no Arc CMS function deployed yet they are
+ * simply set to run where the database is, and the deploy goes on, except when
+ * it also publishes a website built for the old region: that must be built
+ * again first. Deployed elsewhere: a warning, unless turned off for the
+ * project, and the deploy goes on. Returns `{ proceed, decision }`.
+ *
+ * `deps` replaces the lookups, the listing and the config writer in tests.
+ */
+export function checkFunctionsRegion(projectId, { includesWebsite = false, deps = {} } = {}) {
+    const {
+        config = projectConfig(projectId), state = readState(), save = writeState,
+        lookup = lookupDatabaseLocation, list = listDeployed, write = configure, log = console.log,
+    } = deps;
+    const found = databaseLocation(state, projectId, config.databaseId || DEFAULT_DATABASE_ID, lookup);
+    if (found.state !== state) {
+        try { save(found.state); } catch { /* a remembered location is a convenience */ }
+    }
+    const region = config.functionsRegion || DEFAULT_FUNCTIONS_REGION;
+    let decision = regionDecision({ location: found.location, region, deployedArccms: 0 });
+    if (decision.kind === 'ok') return { proceed: true, decision };
+    decision = regionDecision({ location: found.location, region, deployedArccms: countArccms(list(projectId)) });
+
+    if (decision.kind === 'adopt') {
+        const messages = [];
+        if (write([`--project=${projectId}`, `--functions-region=${decision.suggested}`], undefined, (line) => messages.push(line)) !== 0) {
+            log(messages.join('\n'));
+            return { proceed: false, decision };
+        }
+        log(`\nThe functions will run in ${decision.suggested}, next to your database (${decision.location}).`
+            + ' Saved in arccms.config.json: commit it with src/environments/arc-install.ts.');
+        if (includesWebsite) {
+            log('The website calls the functions there only once it is built again. Build it, then deploy again. Nothing was deployed.');
+            return { proceed: false, decision };
+        }
+        return { proceed: true, decision };
+    }
+    if (!found.state.regionWarningOff?.[projectId]) log(`\n${regionWarning(decision, projectId)}\n`);
+    return { proceed: true, decision };
+}
+
+/** Whether a deploy with these arguments publishes the website: hosting named, or no --only at all. */
+export function deploysWebsite(args) {
+    return namesHosting(args) || !args.some((a) => a === '--only' || a.startsWith('--only='));
 }
 
 /** The functions deployed in a project, or null when the CLI cannot list them. */
@@ -330,6 +396,10 @@ export async function runDeploy(args, options = {}) {
         console.error('No Firebase project: pass --project=<alias or id>, run firebase use, or add a "default" alias to .firebaserc.');
         return { status: 1, created: [] };
     }
+    // Before the config is read: a first deploy may set the functions region.
+    if (deploysFunctions(args) && !options.regionChecked) {
+        if (!checkFunctionsRegion(projectId, { includesWebsite: deploysWebsite(args) }).proceed) return { status: 1, created: [] };
+    }
     const generated = !!projectId && existsSync(generatedConfigPath(projectId));
     const firebaseArgs = deployArgs(args, generated, projectId);
     // Hosting off (arc:configure --site=none) leaves no hosting in the generated
@@ -417,7 +487,7 @@ export async function runDeploy(args, options = {}) {
         console.log(`\n> Checking that every callable is publicly invocable on ${projectId}`);
         const probe = spawnSync('bash', [resolve(ROOT, 'functions/scripts/check-callable-access.sh')], {
             stdio: 'inherit',
-            env: { ...process.env, FIREBASE_PROJECT: projectId },
+            env: { ...process.env, FIREBASE_PROJECT: projectId, FIREBASE_REGION: functionsRegionOf(projectId) },
         });
         if (probe.status !== 0) {
             console.error('\nSome callables are blocked. Delete and redeploy them (a fresh create grants access).');

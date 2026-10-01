@@ -46,6 +46,7 @@
 
     <h2>What it deploys, in order</h2>
     <ol class="steps">
+      <li><p><strong>The functions region.</strong> With no functions deployed yet, the functions are set to run in the database's region, so every database call stays close (see <a href="../operations/deploy.html#regions">Regions</a>). Commit <code>arccms.config.json</code> and <code>src/environments/arc-install.ts</code> afterwards. <code>deploy:dev</code> and <code>deploy:prod</code> build the website before this check, so when it changes the region they stop once: run them again.</p></li>
       <li><p><strong>The website build.</strong> <code>npm run build</code>, with the development settings for <code>default</code> and the production settings for <code>production</code>.</p></li>
       <li><p><strong>One Firebase deploy</strong> of the <code>arccms</code> functions, the Firestore rules and indexes, the storage rules and the hosting files. Before the rules go out, <code>scripts/arc-rules-build.mjs</code> combines the core rules and indexes with your app's own into <code>.arc-build/</code>. When the project has generated settings (<code>firebase.{projectId}.json</code>), the deploy uses them.</p></li>
       <li><p><strong>A retry</strong> of any function Google's per-minute limit on changes held back. A first deploy creates every function at once, so this is common: it waits about a minute and deploys just those, twice at most.</p></li>

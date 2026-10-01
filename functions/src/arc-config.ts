@@ -23,6 +23,19 @@ export function arcDatabaseId(env: Env = process.env): string {
     return env.ARC_DATABASE_ID?.trim() || DEFAULT_DATABASE_ID;
 }
 
+/** Where Firebase puts functions that name no region. */
+export const DEFAULT_FUNCTIONS_REGION = 'us-central1';
+
+/**
+ * The region the functions run in. `ARC_FUNCTIONS_REGION`, default us-central1.
+ * `npm run arc:configure` sets it next to the install's database, because every
+ * database call a function makes travels to the database and back
+ * (docs/operations/deploy.html#regions).
+ */
+export function arcFunctionsRegion(env: Env = process.env): string {
+    return env.ARC_FUNCTIONS_REGION?.trim() || DEFAULT_FUNCTIONS_REGION;
+}
+
 /** `ARC_HOSTING_SITE=none`: this install publishes nothing to Firebase Hosting (CO5). */
 export const HOSTING_OFF = 'none';
 
@@ -89,6 +102,17 @@ export function userStorageFolder(userDocId: string, env: Env = process.env): st
 export const arcDatabaseParam = defineString('ARC_DATABASE_ID', {
     default: DEFAULT_DATABASE_ID,
     description: 'Firestore database ArcCMS uses. Leave as (default) unless ArcCMS shares its Firebase project (specs/coexistence-spec.md).',
+});
+
+/**
+ * The functions region as a deploy-time param, for the same reason as
+ * `arcDatabaseParam`: where a function deploys is decided when the CLI loads
+ * this code, before `functions/.env` is in `process.env`. region.ts sets it as
+ * every function's region.
+ */
+export const arcFunctionsRegionParam = defineString('ARC_FUNCTIONS_REGION', {
+    default: DEFAULT_FUNCTIONS_REGION,
+    description: 'Region the ArcCMS functions run in. Set by npm run arc:configure next to the Firestore database (docs/operations/deploy.html#regions).',
 });
 
 /**

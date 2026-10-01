@@ -16,7 +16,7 @@
     <h2>Create the Firebase project</h2>
     <ol class="steps">
       <li><p>In the Firebase console, add a project (or open one you have) and move it to the <strong>Blaze</strong> plan. Cloud Functions do not deploy without it.</p></li>
-      <li><p><strong>Firestore Database:</strong> create the database in production mode, in the region you want. Arc CMS deploys its own security rules. For a project shared with another app, skip this step: Arc CMS gets a database of its own (see <a href="#install-profiles">Install profiles</a>).</p></li>
+      <li><p><strong>Firestore Database:</strong> create the database in production mode, in the region nearest your visitors. Arc CMS deploys its own security rules, and its first deploy puts the functions in the same region (see <a href="../operations/deploy.html#regions">Regions</a>). For a project shared with another app, skip this step: Arc CMS gets a database of its own (see <a href="#install-profiles">Install profiles</a>).</p></li>
       <li><p><strong>Authentication:</strong> click Get started and turn on the <strong>Email/Password</strong> provider. The first admin signs up with it.</p></li>
       <li><p><strong>Storage:</strong> click Get started. Arc CMS deploys its own storage rules.</p></li>
       <li><p><strong>Project settings, General, Your apps:</strong> add a Web app and copy its <code>firebaseConfig</code> object.</p></li>
@@ -108,7 +108,8 @@
         <tr><td><code>hostingSite</code></td><td><code>--site</code></td><td>The project's own site</td><td>The Hosting site the website is deployed to and published pages go to; <code>none</code> publishes no website</td></tr>
         <tr><td><code>storageBucket</code></td><td><code>--bucket</code></td><td>The bucket in <code>firebaseConfig.storageBucket</code></td><td>The bucket for uploads, without <code>gs://</code></td></tr>
         <tr><td><code>storagePrefix</code></td><td><code>--prefix</code></td><td>None: the bucket root</td><td>The folder every upload goes in: exactly one folder ending in a slash, such as <code>arccms/</code></td></tr>
-        <tr><td><code>region</code></td><td><code>--region</code></td><td>None</td><td>The location written into the printed setup commands, such as <code>nam5</code></td></tr>
+        <tr><td><code>region</code></td><td><code>--region</code></td><td>None</td><td>The location written into the printed setup commands, such as <code>nam5</code>; it also chooses the functions region when that is not set</td></tr>
+        <tr><td><code>functionsRegion</code></td><td><code>--functions-region</code></td><td><code>us-central1</code>, until the first deploy sets it next to the database</td><td>Where the functions run (see <a href="../operations/deploy.html#regions">Regions</a>)</td></tr>
         <tr><td><code>adminOnlySignIn</code></td><td><code>--admin-only-sign-in</code></td><td><code>yes</code> for backend, <code>no</code> for standalone</td><td><code>yes</code>: the setup wizard turns sign-ups off when it finishes</td></tr>
         <tr><td><code>appUsers</code></td><td><code>--app-users</code></td><td>None</td><td><code>own</code>: this install's own users are the App audience</td></tr>
         <tr><td><code>appUsersDatabase</code></td><td><code>--app-users-database</code></td><td><code>(default)</code></td><td>The database the other app keeps its users in</td></tr>

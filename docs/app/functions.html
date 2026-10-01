@@ -126,6 +126,7 @@ export const onLessonDone = onDocumentCreated(
       <li>To parse HTML, use <code>loadHtml()</code> from <code>functions/src/shared/lazy-cheerio.ts</code> in place of <code>cheerio.load()</code>. It loads cheerio the first time it is called.</li>
       <li>For a callable a page is about to use, the page can start it early with a call that does nothing: <code>isWarmUp()</code> and <code>WARM</code> in <code>functions/src/auth/warmUp.ts</code>, as the sign-in page does (<a href="../features/sign-in.html">Sign-in</a>).</li>
     </ul>
+    <p>Do not give a function a <code>region</code> of its own: every function runs in the install's region, next to its database (<code>functions/src/region.ts</code>, see <a href="../operations/deploy.html#regions">Regions</a>), and a test fails on a function that sets one.</p>
     <p>Keeping a function always running (<code>minInstances</code>) removes cold starts, but is billed all the time, for each function; Arc CMS does not do it.</p>
 
     <h2>What public-callables.txt is for</h2>

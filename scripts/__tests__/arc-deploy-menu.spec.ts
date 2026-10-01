@@ -79,6 +79,7 @@ describe('the install check (review O5)', () => {
             'Website:    off',
             'Storage:    the default bucket, folder arccms/ (shared with the other app, so no storage rules)',
             'App users:  users/{id} in (default)',
+            'Functions:  us-central1',
         ]);
         expect(installSummary({})[1]).toBe("Website:    the project's main site");
     });

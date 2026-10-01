@@ -8,4 +8,7 @@
  * other's functions. Callers use the prefixed name: the frontend through
  * `arcCallable()`, HTTP clients through the `arccms-` URL.
  */
+// First, so every function below is defined in the install's region.
+import './region.js';
+
 export * as arccms from './all.js';

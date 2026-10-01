@@ -4,11 +4,13 @@ import type { Injector } from '@angular/core';
 vi.mock('@angular/fire/app', () => ({ FirebaseApp: class FirebaseApp {} }));
 vi.mock('@angular/fire/firestore', () => ({ getFirestore: vi.fn(() => ({ kind: 'firestore' })) }));
 vi.mock('@angular/fire/storage', () => ({ getStorage: vi.fn(() => ({ kind: 'storage' })) }));
+vi.mock('@angular/fire/functions', () => ({ getFunctions: vi.fn(() => ({ kind: 'functions' })) }));
 
 import { FirebaseApp } from '@angular/fire/app';
 import { getFirestore } from '@angular/fire/firestore';
 import { getStorage } from '@angular/fire/storage';
-import { arcFirestore, arcStorage } from './arc-firebase';
+import { getFunctions } from '@angular/fire/functions';
+import { arcFirestore, arcFunctions, arcStorage } from './arc-firebase';
 import { resolveArcConfig } from './arc-config';
 
 const app = { name: '[DEFAULT]' };
@@ -21,8 +23,10 @@ describe('arc-firebase', () => {
         const defaults = resolveArcConfig(undefined);
         arcFirestore(injector, defaults);
         arcStorage(injector, defaults);
+        arcFunctions(injector, defaults);
         expect(getFirestore).toHaveBeenCalledWith();
         expect(getStorage).toHaveBeenCalledWith();
+        expect(getFunctions).toHaveBeenCalledWith();
         expect(injector.get).not.toHaveBeenCalled();
     });
 
@@ -35,5 +39,10 @@ describe('arc-firebase', () => {
     it('opens the configured bucket on the injected app', () => {
         arcStorage(injector, resolveArcConfig({ storageBucket: 'acme-arccms' }));
         expect(getStorage).toHaveBeenCalledWith(app, 'gs://acme-arccms');
+    });
+
+    it('calls the functions in the install\'s region, next to its database', () => {
+        arcFunctions(injector, resolveArcConfig({ functionsRegion: 'asia-south1' }));
+        expect(getFunctions).toHaveBeenCalledWith(app, 'asia-south1');
     });
 });

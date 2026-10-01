@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Deploy | Arc CMS docs</title>
   <meta name="description" content="Deploy Arc CMS to a Firebase project with npm run deploy: the guided questions, the flags for scripts and CI, deleted functions, the callable check and the static pages.">
-  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-built-functions.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, firebase.json, package.json">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-built-functions.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, firebase.json, package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/deploy.html">
@@ -23,7 +23,7 @@
         <p><strong>Which Firebase project?</strong> The aliases in <code>.firebaserc</code>, plus the project chosen with <code>firebase use</code>. The default is the project you deployed to last from this checkout. "Another project id" takes any other.</p>
       </li>
       <li>
-        <p><strong>Its settings.</strong> The deploy prints the database, website, storage bucket and app users the project uses. They come from <code>arccms.config.json</code>, and the files generated from it are rebuilt on every deploy, so they are never stale. A project with no settings yet is offered a short setup, the same as <code>npm run arc:configure</code> (see <a href="../getting-started/configure.html">Configure a project</a>).</p>
+        <p><strong>Its settings.</strong> The deploy prints the database, website, storage bucket, app users and functions region the project uses. They come from <code>arccms.config.json</code>, and the files generated from it are rebuilt on every deploy, so they are never stale. A project with no settings yet is offered a short setup, the same as <code>npm run arc:configure</code> (see <a href="../getting-started/configure.html">Configure a project</a>).</p>
       </li>
       <li>
         <p><strong>What to deploy?</strong> See the table below. A choice whose files changed since its last deploy is marked "(changed since the last deploy)".</p>
@@ -88,6 +88,19 @@ npm run deploy:prod</code></pre>
     <p>Each builds the website (<code>deploy:dev</code> with <code>USE_DEV_ENV=true</code>, so it uses the development environment), builds the functions, runs the deploy with <code>--project &lt;alias&gt; --non-interactive --force</code> and no <code>--only</code>, then publishes the static pages (<code>npm run seed:dev</code> or <code>npm run seed:prod</code>).</p>
     <div class="warn"><p>Both pass <code>--force</code>, so they delete the deployed functions the build no longer has without asking. Use the guided deploy when you are not sure what the build contains.</p></div>
 
+    <h2 id="regions">Regions</h2>
+    <p>Every database read or write a function makes travels to the database and back. Functions far from their database are slow: with the database in Mumbai (<code>asia-south1</code>) and the functions in Iowa (<code>us-central1</code>, the Firebase default), one sign-in step takes several seconds. So the functions run next to the database, in the region set by <code>functionsRegion</code> (see <a href="../reference/config-keys.html">Config keys</a>).</p>
+    <p>Before every deploy that includes functions, the deploy compares the two. It looks up the database's location once per project and remembers it in <code>.arc-deploy-state.json</code>.</p>
+    <ul>
+      <li><strong>No Arc CMS function deployed yet:</strong> the deploy sets <code>functionsRegion</code> to the database's region, says so in one line, and deploys there. Commit <code>arccms.config.json</code> and <code>src/environments/arc-install.ts</code> afterwards. A deploy with options that also publishes the website stops first, because the website was built for the old region: build it again, then deploy.</li>
+      <li><strong>Functions already deployed somewhere else:</strong> the deploy warns and deploys anyway. It never moves live functions. The guided deploy asks once whether to keep warning for that project.</li>
+    </ul>
+    <p>A database in a multi-region location counts as next to the functions in one of its regions: <code>nam5</code> with <code>us-central1</code>, <code>eur3</code> with <code>europe-west1</code>. A location with no functions of its own gets the nearest region that has them.</p>
+    <p>The region reaches three places, all written by <code>npm run arc:configure</code>: the functions (<code>ARC_FUNCTIONS_REGION</code>), the website, which calls them there (<code>arc-install.ts</code>), and the Hosting rewrites to the unsubscribe and preference functions (<code>firebase.&lt;projectId&gt;.json</code>). To choose it yourself, before the first deploy:</p>
+    <pre><code>npm run arc:configure -- --project=default --functions-region=asia-south1</code></pre>
+    <div class="trap"><p>Changing <code>functionsRegion</code> after the functions are deployed moves the whole install: a deploy creates every function in the new region, the website must be built and deployed again to call them there, and the old ones stay until a full functions deploy deletes them. Plan it as a release, not a setting.</p></div>
+    <p>A region costs a little more or less than another per call, but at the free allowance most sites stay inside, the difference is nothing, and functions next to the database also stop the paid traffic between regions.</p>
+
     <h2>Functions that are deleted</h2>
     <p>A deploy of all the functions (<code>--only functions</code>, <code>--only functions:arccms</code>, or no <code>--only</code>) makes the project match the build, so it deletes the Arc CMS functions the build no longer has: those of a feature turned off in <code>src/custom/features.ts</code>, a search collection removed from <code>functions/src/custom/search-sources.ts</code>, or a function that was renamed.</p>
     <ul>
@@ -115,7 +128,7 @@ npm run deploy:prod</code></pre>
     <h3>Check the callables</h3>
     <p>Firebase lets the browser call a callable function when it creates it. If that step is missed, for example in a partly failed deploy, every browser call to it fails with HTTP 403, and later deploys do not repair it. The guided deploy checks every callable it just created. With flags, add <code>--probe</code>, or run the check yourself after a deploy that adds a callable and before a release:</p>
     <pre><code>FIREBASE_PROJECT=YOUR_PROJECT_ID bash functions/scripts/check-callable-access.sh</code></pre>
-    <p>It reads the callables from the functions build (plus the app's list in <code>functions/src/custom/public-callables.txt</code>), so build the functions first. Give function names after the script to check only those, without the <code>arccms-</code> prefix (<code>custom-&lt;name&gt;</code> for an app's own). Set <code>FIREBASE_REGION</code> when the functions are not in <code>us-central1</code>.</p>
+    <p>It reads the callables from the functions build (plus the app's list in <code>functions/src/custom/public-callables.txt</code>), so build the functions first. Give function names after the script to check only those, without the <code>arccms-</code> prefix (<code>custom-&lt;name&gt;</code> for an app's own). Set <code>FIREBASE_REGION</code> when the functions are not in <code>us-central1</code>; the deploy passes the project's region itself.</p>
     <table>
       <thead><tr><th>Result</th><th>Meaning</th><th>Fix</th></tr></thead>
       <tbody>

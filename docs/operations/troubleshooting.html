@@ -50,6 +50,11 @@
       <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
       <tbody>
         <tr>
+          <td>"Your database is in ..., but the functions run in ..." during a deploy, or every sign-in step takes seconds</td>
+          <td>The functions run far from the database, so each database call crosses that distance</td>
+          <td>On an install with no functions deployed yet, the deploy fixes it itself. On a live one, moving is a release of its own (see <a href="deploy.html#regions">Regions</a>)</td>
+        </tr>
+        <tr>
           <td>New functions are missing after a deploy, or the old code is still live</td>
           <td>The deploy ran with plain <code>firebase deploy</code>, which uploads the last functions build as it is</td>
           <td>Always deploy with <code>npm run deploy</code>, which builds first (see <a href="deploy.html">Deploy</a>)</td>
