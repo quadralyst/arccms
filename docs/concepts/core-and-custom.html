@@ -24,6 +24,7 @@
         <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code></td><td>Security rules and indexes for the app's data (optional files, created when needed)</td></tr>
         <tr><td><code class="new">tests/rules/custom/</code></td><td>The app's rules tests</td></tr>
         <tr><td><code>docs/custom/</code></td><td>The app's own docs</td></tr>
+        <tr><td><code>custom/</code></td><td>The app's command-line scripts, the data they import, and design files: nothing that is bundled into the site</td></tr>
       </tbody>
     </table>
     <p>How to use each file is in <a href="../app/custom-space.html">Use the custom space</a>.</p>
@@ -32,7 +33,7 @@
     <h2>What check:core reports</h2>
     <p>Run it before every commit in an app:</p>
     <pre><code>npm run check:core</code></pre>
-    <p>It compares your working copy, committed or not, with the Arc CMS version your copy is based on (<code>upstream/main</code>, from the <code>upstream</code> remote), and sorts every difference into four kinds:</p>
+    <p>It compares your working copy, committed or not, with the Arc CMS version your copy is based on (<code>upstream/main</code> or <code>upstream/dev</code>, whichever your copy follows, from the <code>upstream</code> remote), and sorts every difference into four kinds:</p>
     <table>
       <thead><tr><th>Kind</th><th>Files</th><th>Result</th></tr></thead>
       <tbody>
@@ -42,7 +43,7 @@
         <tr><td>core</td><td>Everything else</td><td>Listed, and the check fails</td></tr>
       </tbody>
     </table>
-    <p>It exits with 1 when a core file changed, so it can run in CI, and also when there is no <code>upstream</code> remote to compare with, so it never passes without checking. It prints the two commands that add the remote. A core file moved into the custom space still counts as a core change. To compare with another Arc CMS branch, name it with <code>--against</code>:</p>
+    <p>It exits with 1 when a core file changed, so it can run in CI, and also when there is no <code>upstream</code> remote to compare with, so it never passes without checking. It prints the two commands that add the remote. A core file moved into the custom space still counts as a core change. To choose the Arc CMS branch yourself, name it with <code>--against</code>:</p>
     <pre><code>npm run check:core -- --against upstream/BRANCH</code></pre>
     <p>In the Arc CMS repository itself there is no core to protect, and the check says so and passes.</p>
 

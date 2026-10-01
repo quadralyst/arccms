@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Testing | Arc CMS docs</title>
   <meta name="description" content="Run the Arc CMS test suite, run one file, and write component, Cloud Function, security rules and feature-aware specs the way the existing ones do.">
-  <meta name="docs:sources" content="vitest.config.ts, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json">
+  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/testing.html">
@@ -30,7 +30,7 @@
     <table>
       <thead><tr><th>Setting</th><th>Value</th></tr></thead>
       <tbody>
-        <tr><td>Specs</td><td><code>src/**/*.spec.ts</code>, <code>functions/src/**/*.spec.ts</code>, <code>scripts/**/*.spec.ts</code></td></tr>
+        <tr><td>Specs</td><td><code>src/**/*.spec.ts</code>, <code>functions/src/**/*.spec.ts</code>, <code>scripts/**/*.spec.ts</code>, and an app's <code class="new">custom/**/*.spec.ts</code></td></tr>
         <tr><td>Environment</td><td>jsdom, with Vitest globals</td></tr>
         <tr><td>Setup for every spec</td><td><code>src/test/setup.ts</code> (Angular) and <code>functions/src/__tests__/setup.ts</code> (Cloud Functions)</td></tr>
         <tr><td>Once before the run</td><td><code>scripts/vitest-global-setup.ts</code> writes the functions' generated feature files, which a fresh clone does not have</td></tr>

@@ -32,6 +32,11 @@ describe('custom space', () => {
         expect(read('functions/src/custom/search-sources.ts')).toMatch(/^export const CUSTOM_SEARCH_SOURCES: SearchSource\[\] = \[\];$/m);
     });
 
+    it("keeps the root custom folder for the app's scripts and data, with its tests in the suite", () => {
+        expect(read('custom/README.md')).toContain('runAdminScript');
+        expect(read('vitest.config.ts')).toContain("'custom/**/*.spec.ts'");
+    });
+
     describe('features', () => {
         it('resolves the app choice at build start, so a bad one stops the build', () => {
             const vite = read('vite.config.ts');

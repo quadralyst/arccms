@@ -11,7 +11,7 @@ export default defineConfig({
         setupFiles: ['./src/test/setup.ts', 'functions/src/__tests__/setup.ts'],
         // Writes the functions' generated feature files before any spec loads them.
         globalSetup: ['./scripts/vitest-global-setup.ts'],
-        include: ['src/**/*.spec.ts', 'functions/src/**/*.spec.ts', 'scripts/**/*.spec.ts'],
+        include: ['src/**/*.spec.ts', 'functions/src/**/*.spec.ts', 'scripts/**/*.spec.ts', 'custom/**/*.spec.ts'],
         reporters: ['default'],
         server: {
             deps: {

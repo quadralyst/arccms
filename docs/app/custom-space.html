@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Use the custom space | Arc CMS docs</title>
   <meta name="description" content="Know every file and folder of the custom space, what each is for, and where Arc CMS reads it, so your app never edits a core file.">
-  <meta name="docs:sources" content="src/custom, functions/src/custom, docs/custom, scripts/check-core.mjs, scripts/arc-rules-build.mjs, scripts/arc-features.mjs, src/app/app.routes.ts, src/app/custom-space.spec.ts, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/home/home.ts, src/app/core/i18n/translation.loader.ts, src/app/core/pwa/pwa.service.ts, src/app/core/features/features.ts, functions/src/all.ts, vite.config.ts, index.html, vitest.rules.config.ts">
+  <meta name="docs:sources" content="src/custom, functions/src/custom, docs/custom, custom, scripts/check-core.mjs, scripts/arc-admin-script.mjs, vitest.config.ts, scripts/arc-rules-build.mjs, scripts/arc-features.mjs, src/app/app.routes.ts, src/app/custom-space.spec.ts, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/home/home.ts, src/app/core/i18n/translation.loader.ts, src/app/core/pwa/pwa.service.ts, src/app/core/features/features.ts, functions/src/all.ts, vite.config.ts, index.html, vitest.rules.config.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/custom-space.html">
@@ -38,7 +38,7 @@
         <tr><td><code>functions/src/custom/search-sources.ts</code></td><td><code>SEARCH_COLLECTIONS</code> and <code>CUSTOM_SEARCH_SOURCES</code>: what the app makes searchable besides content</td><td><a href="../features/search.html">Search</a></td></tr>
       </tbody>
     </table>
-    <p>At the root and in the test and docs folders. Arc CMS does not ship these; you create them when you need them:</p>
+    <p>At the root and in the test and docs folders. Arc CMS ships nothing in these beyond a README; you create the files when you need them:</p>
     <table>
       <thead><tr><th>File</th><th>What it holds</th><th>Read</th></tr></thead>
       <tbody>
@@ -46,6 +46,7 @@
         <tr><td><code class="new">firestore.app.indexes.json</code></td><td>The app's Firestore indexes, merged with the core ones</td><td><a href="rules-and-indexes.html">Set security rules and indexes</a></td></tr>
         <tr><td><code class="new">tests/rules/custom/</code></td><td>Tests of the app's rules</td><td><a href="rules-and-indexes.html">Set security rules and indexes</a></td></tr>
         <tr><td><code>docs/custom/</code></td><td>The app's own documentation, in any format</td><td><a href="../contributing/writing-docs.html">Writing docs</a></td></tr>
+            <tr><td><code>custom/</code></td><td>Everything that is not part of the built site: command-line scripts, the data they import, design files. Arc CMS ships only its README.</td><td><a href="scripts-and-data.html">Run scripts and keep data</a></td></tr>
       </tbody>
     </table>
 
@@ -68,6 +69,7 @@
         <tr><td><code>functions/src/custom/search-sources.ts</code></td><td><code>functions/src/search/</code></td><td>Each named collection gets a search trigger</td></tr>
         <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code></td><td><code>scripts/arc-rules-build.mjs</code></td><td>Combined with the core files before every rules or indexes deploy</td></tr>
         <tr><td><code class="new">tests/rules/custom/</code></td><td><code>vitest.rules.config.ts</code></td><td>Run with the core rules tests by <code>npm run test:rules</code></td></tr>
+            <tr><td><code>custom/</code></td><td><code>vitest.config.ts</code>; your scripts import <code>scripts/arc-admin-script.mjs</code></td><td>Its <code>*.spec.ts</code> files run with <code>npm run test</code>; <code>runAdminScript</code> gives a script the project, database and credentials</td></tr>
       </tbody>
     </table>
 

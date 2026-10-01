@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>A tour of the folders | Arc CMS docs</title>
   <meta name="description" content="What each top-level folder and file of the Arc CMS repository is for, and which ones are core and which belong to your app.">
-  <meta name="docs:sources" content="src/app, src/shared, src/custom, src/environments, functions/src, functions/scripts, scripts, public, tests, docs, firebase.json, firestore.rules, storage.rules, firestore.indexes.json, index.html, vite.config.ts, scripts/check-core.mjs">
+  <meta name="docs:sources" content="src/app, src/shared, src/custom, custom, scripts/arc-admin-script.mjs, src/environments, functions/src, functions/scripts, scripts, public, tests, docs, firebase.json, firestore.rules, storage.rules, firestore.indexes.json, index.html, vite.config.ts, scripts/check-core.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="getting-started/folder-tour.html">
@@ -54,7 +54,8 @@
     <table>
       <thead><tr><th>Path</th><th>Kind</th><th>What it holds</th></tr></thead>
       <tbody>
-        <tr><td><code>scripts/</code></td><td>Core</td><td>The command-line tools behind the npm scripts: the guided deploy, <code>arc:configure</code>, the rules build, <code>check:core</code> and the docs tools. See <a href="../reference/npm-scripts.html">npm scripts</a>.</td></tr>
+        <tr><td><code>scripts/</code></td><td>Core</td><td>The command-line tools behind the npm scripts: the guided deploy, <code>arc:configure</code>, the rules build, <code>check:core</code> and the docs tools. See <a href="../reference/npm-scripts.html">npm scripts</a>. Also <code>scripts/arc-admin-script.mjs</code>, which your own scripts use to reach Firebase.</td></tr>
+        <tr><td><code>custom/</code></td><td>Custom</td><td>Your app's command-line scripts, the data they import, and design files. Not bundled into the site. See <a href="../app/scripts-and-data.html">Run scripts and keep data</a>.</td></tr>
         <tr><td><code>tests/rules/</code></td><td>Core</td><td>Tests of the combined security rules, run with <code>npm run test:rules</code>.</td></tr>
         <tr><td><code class="new">tests/rules/custom/</code></td><td>Custom</td><td>Your app's own rules tests.</td></tr>
         <tr><td><code>docs/</code></td><td>Core</td><td>This developer documentation.</td></tr>

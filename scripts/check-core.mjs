@@ -19,13 +19,15 @@
  * compare with (so the check never passes without checking); 0 otherwise, and in
  * Arc CMS itself (its own repository has no upstream).
  *
- *   npm run check:core                     compares with upstream/main
+ *   npm run check:core                     compares with upstream/main or
+ *                                          upstream/dev, whichever the app follows
  *   npm run check:core -- --against upstream/dev
  */
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-export const DEFAULT_UPSTREAM = 'upstream/main';
+/** The Arc CMS branches an app can follow; on a tie the first wins. */
+export const UPSTREAM_BRANCHES = ['upstream/main', 'upstream/dev'];
 export const ARC_CMS_REPO = 'git@github.com:quadralyst/arccms.git';
 
 const CUSTOM = [
@@ -36,6 +38,7 @@ const CUSTOM = [
     /^firestore\.app\.indexes\.json$/,
     /^tests\/rules\/custom\//,
     /^docs\/custom\//,
+    /^custom\//,
 ];
 
 const INSTALL = [
@@ -102,22 +105,44 @@ function hasRef(ref, cwd) {
     }
 }
 
+/**
+ * The Arc CMS branch this copy follows: of the upstream branches that exist, the
+ * one HEAD has the fewest commits beyond, since that is the one the app was copied
+ * from or last merged. A copy taken from dev then needs no --against. Null when
+ * no upstream branch exists.
+ */
+export function followedUpstream(cwd, branches = UPSTREAM_BRANCHES) {
+    let best = null;
+    for (const ref of branches) {
+        if (!hasRef(ref, cwd)) continue;
+        let ahead;
+        try {
+            ahead = Number(git(['rev-list', '--count', `${git(['merge-base', 'HEAD', ref], cwd)}..HEAD`], cwd));
+        } catch {
+            continue; // no history in common
+        }
+        if (!best || ahead < best.ahead) best = { ref, ahead };
+    }
+    return best?.ref ?? null;
+}
+
 export function main(argv = process.argv.slice(2), log = console.log, cwd = process.cwd()) {
     const i = argv.indexOf('--against');
-    const against = i === -1 ? DEFAULT_UPSTREAM : argv[i + 1];
+    const against = i === -1 ? followedUpstream(cwd) : argv[i + 1];
 
-    if (!hasRef(against, cwd)) {
+    if (!against || !hasRef(against, cwd)) {
         if (isArcCmsItself(cwd)) {
             log('This is Arc CMS itself: there is no core to protect, so nothing to check.');
             return 0;
         }
         // Passing here would let an app edit core files with the check still green.
-        log(`No ${against} to compare with, so nothing was checked. Add Arc CMS as the upstream remote once:`);
+        log(`No ${against ?? UPSTREAM_BRANCHES.join(' or ')} to compare with, so nothing was checked. Add Arc CMS as the upstream remote once:`);
         log(`  git remote add upstream ${ARC_CMS_REPO}`);
         log('  git fetch upstream');
         return 1;
     }
 
+    if (i === -1) log(`Comparing with ${against}, the Arc CMS branch this copy follows (choose another with --against).`);
     const groups = group(changedPaths(against, cwd));
     if (groups.review.length) {
         log(`Dependency lists changed (fine, worth a look before the next Arc CMS update):\n  ${groups.review.join('\n  ')}`);
@@ -127,7 +152,7 @@ export function main(argv = process.argv.slice(2), log = console.log, cwd = proc
         return 0;
     }
     log(`These Arc CMS core files changed compared with ${against}:\n  ${groups.core.join('\n  ')}`);
-    log('Move each change into the custom space (src/custom, functions/src/custom, *.app.rules),');
+    log('Move each change into the custom space (src/custom, functions/src/custom, custom, *.app.rules),');
     log('or build it in Arc CMS as a general feature and pull it. See docs/app/custom-space.html.');
     return 1;
 }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Keep core untouched | Arc CMS docs</title>
   <meta name="description" content="Run npm run check:core before every commit, move a change out of core into the custom space or into Arc CMS itself, and keep taking Arc CMS updates cleanly.">
-  <meta name="docs:sources" content="scripts/check-core.mjs, scripts/arc-upgrade.mjs, src/custom, functions/src/custom">
+  <meta name="docs:sources" content="scripts/check-core.mjs, scripts/arc-upgrade.mjs, src/custom, functions/src/custom, custom">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/check-core-and-upgrade.html">
@@ -19,7 +19,7 @@
     <table>
       <thead><tr><th>Kind</th><th>Files</th><th>Result</th></tr></thead>
       <tbody>
-        <tr><td>custom</td><td><code>src/custom/</code>, <code>functions/src/custom/</code>, <code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code>, <code class="new">tests/rules/custom/</code>, <code>docs/custom/</code></td><td>Fine: counted, not listed</td></tr>
+        <tr><td>custom</td><td><code>src/custom/</code>, <code>functions/src/custom/</code>, <code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code>, <code class="new">tests/rules/custom/</code>, <code>docs/custom/</code>, <code>custom/</code></td><td>Fine: counted, not listed</td></tr>
         <tr><td>install</td><td><code>src/environments/environment.ts</code>, <code>src/environments/environment.prod.ts</code>, <code>src/environments/arc-install.ts</code></td><td>Fine: this install's own settings</td></tr>
         <tr><td>review</td><td><code>package.json</code>, <code>package-lock.json</code>, <code>functions/package.json</code>, <code>functions/package-lock.json</code></td><td>Allowed, but listed: worth a look before the next update</td></tr>
         <tr><td>core</td><td>Everything else</td><td>Listed, and the check fails</td></tr>
@@ -35,10 +35,10 @@
     <p>Because a failure exits with 1, the same command works as a CI step.</p>
 
     <h3>The upstream remote</h3>
-    <p>The check compares with <code>upstream/main</code>, so your repository needs Arc CMS as a remote named <code>upstream</code>. Without it the check checks nothing and fails, so it can never pass by accident. Add it once:</p>
+    <p>The check compares with Arc CMS from a remote named <code>upstream</code>. Without it the check checks nothing and fails, so it can never pass by accident. Add it once:</p>
     <pre><code>git remote add upstream git@github.com:quadralyst/arccms.git</code></pre>
     <pre><code>git fetch upstream</code></pre>
-    <p>To compare with another Arc CMS branch, name it:</p>
+    <p>It compares with the Arc CMS branch your copy follows: of <code>upstream/main</code> and <code>upstream/dev</code>, the one your work is fewest commits ahead of, which is the one you copied or last merged. A copy taken from <code>dev</code> needs nothing extra. The first line of the report names the branch it chose. To choose yourself, name the branch:</p>
     <pre><code>npm run check:core -- --against upstream/dev</code></pre>
     <div class="trap"><p>Moving a core file into the custom space still counts as a core change: the check looks at the old path too. Copying a core component into <code>src/custom/</code> and editing the copy passes the check, but your app then misses every later fix to it. Use the component as it is, and ask for an option instead (below).</p></div>
 
@@ -54,6 +54,7 @@
         <tr><td>Styles</td><td><code>src/custom/styles.css</code>, loaded after every core stylesheet</td></tr>
         <tr><td>Features on or off</td><td><code>src/custom/features.ts</code>: <a href="choose-features.html">Choose your app's features</a></td></tr>
         <tr><td>A Cloud Function or trigger</td><td><code>functions/src/custom/index.ts</code>: <a href="functions.html">Write your own Cloud Functions</a></td></tr>
+        <tr><td>A command-line script, its data, or design files</td><td><code>custom/</code>: <a href="scripts-and-data.html">Run scripts and keep data</a></td></tr>
         <tr><td>Security rules or indexes</td><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code>: <a href="rules-and-indexes.html">Set security rules and indexes</a></td></tr>
       </tbody>
     </table>

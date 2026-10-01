@@ -120,7 +120,7 @@ export function checkLinks(site) {
     return problems;
 }
 
-const PATH_IN_CODE = /^(?:src|functions|scripts|public|tests|docs)\/[A-Za-z0-9_.\-/[\]()@]+$/;
+const PATH_IN_CODE = /^(?:src|functions|scripts|public|tests|docs|custom)\/[A-Za-z0-9_.\-/[\]()@]+$/;
 const ROOT_FILE_IN_CODE = /^[A-Za-z0-9_.-]+\.(?:json|md|rules|mjs|cjs|ts|js|html|css|txt|sh|yml|yaml)$/;
 const PLACEHOLDER = /[{}*<>]|\.\.\.|YOUR/;
 /** Files an app creates in its own copy; Arc CMS does not ship them, so a page writes them as new. */

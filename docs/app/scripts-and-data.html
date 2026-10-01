@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run scripts and keep data | Arc CMS docs</title>
+  <meta name="description" content="Keep your app's command-line scripts, source data and design files in the root custom folder, and run Admin SDK scripts against the right project and database with runAdminScript.">
+  <meta name="docs:sources" content="custom, scripts/arc-admin-script.mjs, functions/scripts/arc-env.cjs, functions/scripts/call-seed.cjs, scripts/check-core.mjs, vitest.config.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/scripts-and-data.html">
+  <main>
+    <h1>Run scripts and keep data</h1>
+    <p class="lead">Your app's command-line scripts, the data they import and your design files go in the <code>custom/</code> folder at the root. A script that talks to Firebase gets the project, the install's database and the credentials from <code>runAdminScript</code>, so it never handles credentials itself.</p>
+
+    <h2>The custom folder</h2>
+    <p><code>custom/</code> at the root of the repository belongs to your app. Arc CMS ships it with only a README and never changes it, and <code>npm run check:core</code> counts everything in it as custom. Nothing in it is bundled into the site. A suggested layout, none of it required:</p>
+    <table>
+      <thead><tr><th>Folder</th><th>For</th></tr></thead>
+      <tbody>
+        <tr><td><code class="new">custom/scripts/</code></td><td>Scripts you run from the command line, such as data imports and one-off fixes</td></tr>
+        <tr><td><code class="new">custom/data/</code></td><td>Source files those scripts read, such as CSV or JSON exports</td></tr>
+        <tr><td><code class="new">custom/design/</code></td><td>Design notes, mockups and other working files</td></tr>
+      </tbody>
+    </table>
+    <p>The app's developer documentation goes in <code>docs/custom/</code>, next to these docs. Code that runs in the site or in Cloud Functions goes in <code>src/custom/</code> and <code>functions/src/custom/</code> (<a href="custom-space.html">Use the custom space</a>).</p>
+
+    <h2>Write a script</h2>
+    <ol class="steps">
+      <li>
+        <p>Create the script, such as <code class="new">custom/scripts/import-words.mjs</code>, and hand your code to <code>runAdminScript</code> from <code>scripts/arc-admin-script.mjs</code>:</p>
+        <pre><code>import { readFileSync } from 'node:fs';
+import { runAdminScript } from '../../scripts/arc-admin-script.mjs';
+
+runAdminScript(async ({ db, args }) =&gt; {
+  const words = JSON.parse(readFileSync(args[0] ?? 'custom/data/words.json', 'utf8'));
+  const batch = db.batch();
+  for (const word of words) batch.set(db.collection('words').doc(word.id), word);
+  await batch.commit();
+  console.log(`Imported ${words.length} words`);
+});</code></pre>
+      </li>
+      <li>
+        <p>Sign in to Firebase once, if you have not:</p>
+        <pre><code>firebase login</code></pre>
+      </li>
+      <li>
+        <p>Run it from the root of the repository. Before your code runs, it prints the project, the database and the credentials it uses:</p>
+        <pre><code>node custom/scripts/import-words.mjs custom/data/words.json</code></pre>
+      </li>
+    </ol>
+
+    <h2>Which project</h2>
+    <table>
+      <thead><tr><th>Run with</th><th>Project</th></tr></thead>
+      <tbody>
+        <tr><td>No flag</td><td>The <code>default</code> alias in <code>.firebaserc</code> (the dev project), or <code>GCLOUD_PROJECT</code> when it is set</td></tr>
+        <tr><td><code>--prod</code></td><td>The <code>production</code> alias</td></tr>
+        <tr><td><code>--project=ALIAS_OR_ID</code></td><td>Any alias in <code>.firebaserc</code>, or a project id</td></tr>
+      </tbody>
+    </table>
+    <p>These flags are taken out; every other argument reaches your script in <code>args</code>, in order.</p>
+
+    <h2>What your script gets</h2>
+    <table>
+      <thead><tr><th>Name</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>db</code></td><td>Firestore for the install's own database: the one in <code>ARC_DATABASE_ID</code>, read from <code>functions/.env</code> and <code class="new">functions/.env.PROJECT_ID</code> the way a deploy reads them</td></tr>
+        <tr><td><code>auth</code></td><td>Firebase Authentication, to read or change users</td></tr>
+        <tr><td><code>storage</code></td><td>Cloud Storage. <code>storage.bucket()</code> is the bucket your environment file names for this project</td></tr>
+        <tr><td><code>app</code></td><td>The Admin SDK app behind them</td></tr>
+        <tr><td><code>projectId</code>, <code>databaseId</code></td><td>Where the script runs</td></tr>
+        <tr><td><code>prod</code></td><td>Whether it runs against the <code>production</code> alias, for a script that should ask before changing live data</td></tr>
+        <tr><td><code>args</code></td><td>The command-line arguments left after the flags above</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>Use <code>db</code> rather than calling <code>getFirestore()</code> yourself. A project can hold more than one Arc CMS database (<a href="shared-project.html">Share a Firebase project</a>), and <code>getFirestore()</code> always opens <code>(default)</code>, which may belong to another install.</p></div>
+
+    <h2>Credentials</h2>
+    <p>When <code>GOOGLE_APPLICATION_CREDENTIALS</code> is set, such as to a service account key, the script signs in with it. Otherwise it uses your Firebase CLI login through a temporary credentials file, which it deletes when the script ends, fails or is stopped with Ctrl+C. With neither, it stops and says to run <code>firebase login</code>.</p>
+    <p>When your code throws, the error is printed and the script exits with 1. <code>npm run seed:dev</code> runs the same way.</p>
+
+    <h2>Test a script</h2>
+    <p>Files named <code class="new">custom/**/*.spec.ts</code> run with the rest of the suite in <code>npm run test</code>. Keep the logic of a script in a function you can import, and test that function with sample data rather than a real project.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

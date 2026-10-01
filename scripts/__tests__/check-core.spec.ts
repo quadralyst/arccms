@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: plain ESM script without type declarations
-import { classify, group, main } from '../check-core.mjs';
+import { classify, followedUpstream, group, main } from '../check-core.mjs';
 
 describe('check-core', () => {
     describe('classify', () => {
@@ -16,6 +16,9 @@ describe('check-core', () => {
             ['storage.app.rules', 'custom'],
             ['firestore.app.indexes.json', 'custom'],
             ['tests/rules/custom/children.spec.ts', 'custom'],
+            ['custom/scripts/import-words.mjs', 'custom'],
+            ['custom/data/words.csv', 'custom'],
+            ['customer.md', 'core'],
             ['src/environments/environment.ts', 'install'],
             ['src/environments/environment.prod.ts', 'install'],
             ['src/environments/arc-install.ts', 'install'],
@@ -89,6 +92,52 @@ describe('check-core', () => {
             const { code, out } = run();
             expect(code).toBe(0);
             expect(out).toContain('Arc CMS itself');
+        });
+
+        it('keeps scripts and data in the root custom folder as app files', () => {
+            mkdirSync(join(dir, 'custom', 'data'), { recursive: true });
+            writeFileSync(join(dir, 'custom', 'data', 'words.csv'), 'word\n');
+            const { code } = run('--against', 'arc-base');
+            expect(code).toBe(0);
+        });
+
+        describe('without --against', () => {
+            // arc-base is where main stood; dev moved on, and the app was copied from dev.
+            beforeEach(() => {
+                git('update-ref', 'refs/remotes/upstream/main', 'arc-base');
+                writeFileSync(join(dir, 'firestore.rules'), 'core, newer on dev\n');
+                git('commit', '-qam', 'dev work');
+                git('update-ref', 'refs/remotes/upstream/dev', 'HEAD');
+                writeFileSync(join(dir, 'src', 'custom', 'routes.ts'), 'export const CUSTOM_ROUTES = [{ path: "game" }];\n');
+                git('commit', '-qam', 'app page');
+            });
+
+            it('compares with the upstream branch the copy follows', () => {
+                expect(followedUpstream(dir)).toBe('upstream/dev');
+                const { code, out } = run();
+                expect(code).toBe(0);
+                expect(out).toContain('Comparing with upstream/dev');
+            });
+
+            it('compares with main when main is the closer one', () => {
+                git('update-ref', 'refs/remotes/upstream/main', 'HEAD');
+                expect(followedUpstream(dir)).toBe('upstream/main');
+            });
+
+            it('uses main when only main exists', () => {
+                git('update-ref', '-d', 'refs/remotes/upstream/dev');
+                const { code, out } = run();
+                expect(out).toContain('Comparing with upstream/main');
+                // dev's core edit is a change compared with main
+                expect(code).toBe(1);
+                expect(out).toContain('firestore.rules');
+            });
+
+            it('lets --against override the choice', () => {
+                const { code, out } = run('--against', 'upstream/main');
+                expect(code).toBe(1);
+                expect(out).not.toContain('Comparing with');
+            });
         });
 
         it('names a core file moved into the custom space (review F)', () => {

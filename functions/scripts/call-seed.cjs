@@ -6,93 +6,32 @@
  *   npm run seed:dev
  *   npm run seed:prod
  *
- * Requires GCLOUD_PROJECT env var (set by the npm scripts).
- * Uses Firebase CLI credentials (from `firebase login`).
+ * The project, the install's database and the credentials (Firebase CLI login, or
+ * GOOGLE_APPLICATION_CREDENTIALS) come from runAdminScript (scripts/arc-admin-script.mjs).
  */
-
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const { loadArcEnv } = require('./arc-env.cjs');
 
 // Determine environment from CLI arg (default: "dev")
 const envArg = (process.argv[2] || 'dev').toLowerCase();
-const envToAlias = { dev: 'default', prod: 'production' };
-const alias = envToAlias[envArg];
-if (!alias) {
+if (envArg !== 'dev' && envArg !== 'prod') {
     console.error(`Error: Unknown environment "${envArg}". Use "dev" or "prod".`);
     process.exit(1);
 }
 
-// Read project ID from .firebaserc
-let projectId = process.env.GCLOUD_PROJECT;
-if (!projectId) {
-    try {
-        const firebaserc = JSON.parse(fs.readFileSync(path.join(__dirname, '../../.firebaserc'), 'utf-8'));
-        projectId = firebaserc.projects[alias];
-    } catch { /* ignore */ }
-}
-if (!projectId) {
-    console.error(`Error: Could not resolve project ID for "${envArg}" from .firebaserc.`);
-    process.exit(1);
-}
+async function seed() {
+    // Hosting off (arc:configure --site=none): there is no site to seed, and the
+    // seed would only mark every page as skipped.
+    if (process.env.ARC_HOSTING_SITE === 'none') {
+        console.log(`Hosting is off for ${process.env.GCLOUD_PROJECT} (arc:configure --site=none): no static pages to seed.`);
+        return;
+    }
+    const hostingSite = process.env.ARC_HOSTING_SITE || process.env.GCLOUD_PROJECT;
 
-// The install's database and hosting site (specs/coexistence-spec.md, CO3), read
-// as the Firebase CLI reads them for a deploy (arc-env.cjs, review O3).
-loadArcEnv(path.join(__dirname, '..'), projectId);
-
-// Hosting off (arc:configure --site=none): there is no site to seed, and the
-// seed would only mark every page as skipped.
-if (process.env.ARC_HOSTING_SITE === 'none') {
-    console.log(`Hosting is off for ${projectId} (arc:configure --site=none): no static pages to seed.`);
-    process.exit(0);
-}
-const hostingSite = process.env.ARC_HOSTING_SITE || projectId;
-
-// Read Firebase CLI refresh token to build Application Default Credentials
-let refreshToken;
-try {
-    const configPath = path.join(os.homedir(), '.config/configstore/firebase-tools.json');
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    refreshToken = config.tokens && config.tokens.refresh_token;
-} catch {
-    // ignore
-}
-
-if (!refreshToken) {
-    console.error('Error: No Firebase CLI credentials found. Run `firebase login` first.');
-    process.exit(1);
-}
-
-// Write a temporary ADC file so firebase-admin's initializeApp() picks up credentials.
-// Client ID/secret are the Firebase CLI's public OAuth2 credentials (from firebase-tools npm package).
-const tmpAdc = path.join(os.tmpdir(), `firebase-adc-${process.pid}.json`);
-fs.writeFileSync(tmpAdc, JSON.stringify({
-    type: 'authorized_user',
-    client_id: '563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com',
-    client_secret: 'j9iVZfS8kkCEFUPaAeJV0sAi',
-    refresh_token: refreshToken,
-}), { mode: 0o600 });
-
-// Set env vars BEFORE importing compiled function code (which triggers init.ts → admin.initializeApp())
-process.env.GOOGLE_APPLICATION_CREDENTIALS = tmpAdc;
-process.env.GCLOUD_PROJECT = projectId;
-process.env.FIREBASE_CONFIG = JSON.stringify({ projectId });
-
-
-async function main() {
-    // Dynamic import() because the compiled output is ESM ("type": "module")
+    // Dynamic import() because the compiled output is ESM ("type": "module"), and
+    // only now: init.ts calls initializeApp() on import, which needs the credentials.
     const { runSeed } = await import('../lib/pages/seedStaticPages.js');
     const startTime = Date.now();
 
-    console.log('');
-    console.log('╔══════════════════════════════════════════════╗');
-    console.log('║        Arc CMS — Static Page Seeder          ║');
-    console.log('╚══════════════════════════════════════════════╝');
-    console.log('');
-    console.log(`  Project:  ${projectId}`);
-    console.log(`  Database: ${process.env.ARC_DATABASE_ID || '(default)'}`);
-    console.log(`  Hosting:  https://${hostingSite}.web.app`);
+    console.log(`  Hosting:      https://${hostingSite}.web.app`);
     console.log('');
     console.log('  Initializing Firebase Admin SDK...');
 
@@ -110,9 +49,12 @@ async function main() {
             frameIdx = (frameIdx + 1) % spinnerFrames.length;
         }, 100);
 
-        const result = await runSeed();
-
-        clearInterval(spinner);
+        let result;
+        try {
+            result = await runSeed();
+        } finally {
+            clearInterval(spinner);
+        }
         process.stdout.write('\r  ✓ Deployment complete.                    \n');
 
         for (const line of result.details) {
@@ -137,14 +79,24 @@ async function main() {
         console.log('──────────────────────────────────────────────');
         console.log('');
 
-        process.exit(result.success ? 0 : 1);
+        if (!result.success) process.exitCode = 1;
     } catch (err) {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.error(`\nSeed failed after ${elapsed}s:`, err.message || err);
-        process.exit(1);
-    } finally {
-        try { fs.unlinkSync(tmpAdc); } catch { /* ignore */ }
+        throw new Error(`Seed failed after ${elapsed}s: ${err.message || err}`);
     }
+}
+
+async function main() {
+    console.log('');
+    console.log('╔══════════════════════════════════════════════╗');
+    console.log('║        Arc CMS: Static Page Seeder           ║');
+    console.log('╚══════════════════════════════════════════════╝');
+    console.log('');
+
+    const { runAdminScript } = await import('../../scripts/arc-admin-script.mjs');
+    await runAdminScript(seed, { argv: envArg === 'prod' ? ['--prod'] : [] });
+    // The built functions keep their own Admin SDK connection open, so leave explicitly.
+    process.exit(process.exitCode ?? 0);
 }
 
 main();
