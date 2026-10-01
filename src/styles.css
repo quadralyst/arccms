@@ -2,6 +2,29 @@
 @import "@angular/material/prebuilt-themes/indigo-pink.css";
 
 /* ============================================================
+   FULL-SCREEN ROUTES
+   A route with data: { fullScreen: true } (docs/app/pages-and-routes.html)
+   owns the whole screen: no page margin or padding, no page scroll and no
+   pull-to-refresh bounce. The page scrolls inside itself if it needs to.
+   The app root sets the class (src/app/app.ts).
+   ============================================================ */
+
+html.arc-full-screen,
+html.arc-full-screen body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* The routed page fills the screen, so height: 100% inside it is the screen. */
+html.arc-full-screen .arc-route-host > :not(router-outlet) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ============================================================
    ADMIN-ONLY STYLES
    All styles below are scoped to .arc-admin to prevent
    leaking into public pages.

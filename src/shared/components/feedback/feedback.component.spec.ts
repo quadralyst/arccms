@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { translocoTestingModule } from '../../../test/transloco-test-providers';
 import { FeedbackService } from '../../../app/core/feedback/feedback.service';
 import { clock, FeedbackComponent, routeHidesFeedback } from './feedback.component';
+import { FullScreenService } from '../../../app/core/layout/full-screen.service';
 
 // A recorder whose microphone starts when the test says so (the permission prompt).
 const recorders = vi.hoisted(() => [] as Array<{ release: () => void; cancel: ReturnType<typeof import('vitest').vi.fn> }>);
@@ -77,6 +78,20 @@ describe('FeedbackComponent', () => {
         available.set(false);
         fixture.detectChanges();
         expect(fixture.nativeElement.querySelector('.fb-button')).toBeNull();
+    });
+
+    it('hides the button on a full-screen page, but an app can still open the panel there', async () => {
+        const fixture = await render();
+        const fullScreen = TestBed.inject(FullScreenService);
+        fullScreen.active.set(true);
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.fb-button')).toBeNull();
+        service.openPanel();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.fb-panel')).not.toBeNull();
+        fullScreen.active.set(false);
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.fb-button')).not.toBeNull();
     });
 
     it('opens the panel, sends the message, and thanks', async () => {

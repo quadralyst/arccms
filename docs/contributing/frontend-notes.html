@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Frontend notes | Arc CMS docs</title>
   <meta name="description" content="What a contributor must know about the Arc CMS Angular app: components, stores, translations, routing, change detection without zone.js, the page header and styles.">
-  <meta name="docs:sources" content="src/main.ts, src/app/app.config.ts, src/app/app.routes.ts, vite.config.ts, src/shared/components/page-header/page-header.component.ts, src/shared/components/row-actions/row-actions.component.ts, src/shared/services/generic-store.service.ts, src/app/core/i18n, src/assets/i18n, scripts/generate-i18n-keys.mjs, src/app/core/config/arc-functions.ts, src/app/core/config/arc-firebase.ts, src/styles.css, src/shared/utils/status-badge.ts, index.html">
+  <meta name="docs:sources" content="src/main.ts, src/app/app.ts, src/app/app.config.ts, src/app/app.routes.ts, vite.config.ts, src/shared/components/page-header/page-header.component.ts, src/shared/components/row-actions/row-actions.component.ts, src/shared/services/generic-store.service.ts, src/app/core/i18n, src/assets/i18n, scripts/generate-i18n-keys.mjs, src/app/core/config/arc-functions.ts, src/app/core/config/arc-firebase.ts, src/styles.css, src/shared/utils/status-badge.ts, index.html">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="contributing/frontend-notes.html">
@@ -84,7 +84,8 @@
     <h2>Styles</h2>
     <ul>
       <li><strong>Libraries.</strong> Angular Material components with the indigo-pink theme (imported in <code>src/styles.css</code>), and Bootstrap 5 for layout, utilities and some components. <code>index.html</code> loads Bootstrap, Bootstrap Icons, Font Awesome and the Material Icons font. Admin icons are mostly Font Awesome classes, such as <code>fas fa-arrow-left</code>.</li>
-      <li><strong>Component styles first.</strong> Put a component's styles in the component. Global styles are in <code>src/styles.css</code>, and everything admin-only there is scoped under <code>.arc-admin</code> so it never reaches public pages.</li>
+      <li><strong>Component styles first.</strong> Put a component's styles in the component. Global styles are in <code>src/styles.css</code>, and everything admin-only there is scoped under <code>.arc-admin</code> so it never reaches public pages. The rules for full-screen pages are scoped under <code>html.arc-full-screen</code> (<a href="../app/pages-and-routes.html#full-screen-pages">Add pages and routes</a>).</li>
+      <li><strong>The root component cannot style the page.</strong> The routed page is not in the template of <code>src/app/app.ts</code>, so the root component's own styles do not reach it. Size or style the routed page from <code>src/styles.css</code>.</li>
       <li><strong>Shared admin pieces.</strong> <code>src/styles.css</code> has one set of admin page classes (<code>.page-container</code>, the status badges, side panels). Show a status with <code>.status-badge</code> and the class <code>statusBadgeClass()</code> returns (<code>src/shared/utils/status-badge.ts</code>), not with hand-picked Bootstrap colors.</li>
       <li><strong>The app's styles win.</strong> <code>src/custom/styles.css</code> is loaded last, so an app can restyle anything without editing core.</li>
     </ul>

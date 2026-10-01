@@ -2,9 +2,9 @@
  * Tests for App Component (Root Component)
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { App } from './app';
 import { GlobalMessageService } from './pages/admin/(settings)/message/global-message.service';
@@ -14,8 +14,14 @@ import { DEFAULT_SITE_USAGE_SETTINGS, ISiteUsageSettings } from './pages/admin/(
 
 import { GaTrackingService } from '../shared/services/ga-tracking.service';
 import { Firestore } from '@angular/fire/firestore';
-import { signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { FeedbackService } from './core/feedback/feedback.service';
+
+@Component({ template: '<p class="game">game</p>' })
+class GamePage {}
+
+@Component({ template: '<p>page</p>' })
+class NormalPage {}
 
 vi.mock('@angular/fire/firestore', () => ({
     doc: vi.fn(),
@@ -59,7 +65,10 @@ describe('App Component', () => {
         await TestBed.configureTestingModule({
             imports: [App],
             providers: [
-                provideRouter([]),
+                provideRouter([
+                    { path: 'game', component: GamePage, data: { fullScreen: true } },
+                    { path: '', component: NormalPage },
+                ]),
                 { provide: GlobalMessageService, useValue: mockGlobalMessageService },
                 { provide: SiteUsageService, useValue: mockSiteUsageService },
                 { provide: GaTrackingService, useValue: mockGaTrackingService },
@@ -150,6 +159,38 @@ describe('App Component', () => {
             component.navigating.set(false);
             fixture.detectChanges();
             expect(host.querySelector('arc-nav-progress')).toBeNull();
+        });
+    });
+
+    describe('Full-screen routes', () => {
+        const hidden = (selector: string) => getComputedStyle(fixture.nativeElement.querySelector(selector)).display === 'none';
+        const CHROME = ['arc-global-message-banner', 'arc-powered-by-footer', 'arc-site-usage-banner', 'arc-pwa-update-bar'];
+
+        afterEach(() => document.documentElement.classList.remove('arc-full-screen'));
+
+        it('steps out of the way on a route with data: { fullScreen: true }, and comes back after', async () => {
+            const router = TestBed.inject(Router);
+            await router.navigateByUrl('/game');
+            fixture.detectChanges();
+            const host: HTMLElement = fixture.nativeElement;
+            expect(host.classList).toContain('arc-full-screen');
+            expect(document.documentElement.classList).toContain('arc-full-screen');
+            for (const selector of CHROME) expect(hidden(selector), selector).toBe(true);
+            // Held, not removed: the site-usage banner and the update bar keep their state for the next page.
+            for (const selector of CHROME) expect(host.querySelector(selector), selector).toBeTruthy();
+
+            await router.navigateByUrl('/');
+            fixture.detectChanges();
+            expect(host.classList).not.toContain('arc-full-screen');
+            expect(document.documentElement.classList).not.toContain('arc-full-screen');
+            for (const selector of CHROME) expect(hidden(selector), selector).toBe(false);
+        });
+
+        it('leaves normal pages alone', async () => {
+            await TestBed.inject(Router).navigateByUrl('/');
+            fixture.detectChanges();
+            expect(fixture.nativeElement.classList).not.toContain('arc-full-screen');
+            for (const selector of CHROME) expect(hidden(selector), selector).toBe(false);
         });
     });
 });

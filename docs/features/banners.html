@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Banners | Arc CMS docs</title>
   <meta name="description" content="Show a site-wide message banner, a site usage (cookie) banner, and know which status banners the admin area shows by itself.">
-  <meta name="docs:sources" content="src/app/pages/page.parts/global-message-banner.component.ts, src/app/pages/page.parts/site-usage-banner.component.ts, src/app/pages/admin/(settings)/message, src/app/pages/admin/(settings)/site-usage, src/shared/services/email-config-status.service.ts, src/app/pages/admin/(dashboard)/dashboard.html, src/app/pages/admin/(waitlists)/waitlists.page.html, src/app/app.ts, public/pages/cookie-policy.html, firestore.rules">
+  <meta name="docs:sources" content="src/app/pages/page.parts/global-message-banner.component.ts, src/app/pages/page.parts/site-usage-banner.component.ts, src/app/pages/admin/(settings)/message, src/app/pages/admin/(settings)/site-usage, src/shared/services/email-config-status.service.ts, src/app/pages/admin/(dashboard)/dashboard.html, src/app/pages/admin/(waitlists)/waitlists.page.html, src/app/app.ts, src/app/core/layout/full-screen.service.ts, public/pages/cookie-policy.html, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/banners.html">
@@ -17,12 +17,13 @@
     <table>
       <thead><tr><th>Banner</th><th>Shows</th><th>Set on</th></tr></thead>
       <tbody>
-        <tr><td>Global message</td><td>At the top of every page: public, member and admin</td><td>Admin, Settings, Global Messages (<code>/admin/settings/message</code>)</td></tr>
-        <tr><td>Site usage</td><td>At the bottom of every page except admin pages, until the visitor accepts or rejects</td><td>Admin, Settings, Site Usage (<code>/admin/settings/site-usage</code>)</td></tr>
+        <tr><td>Global message</td><td>At the top of every page: public, member and admin. Not on an app's full-screen pages.</td><td>Admin, Settings, Global Messages (<code>/admin/settings/message</code>)</td></tr>
+        <tr><td>Site usage</td><td>At the bottom of every page except admin pages, until the visitor accepts or rejects. On an app's full-screen page it waits for the next normal page.</td><td>Admin, Settings, Site Usage (<code>/admin/settings/site-usage</code>)</td></tr>
         <tr><td>Email not configured</td><td>On the admin dashboard and, with the <a href="forms.html">Signup forms</a> feature on, the Signup Forms page, while email is off</td><td>Shown by itself (see <a href="#use-it">Use it</a>)</td></tr>
         <tr><td>Debug Provider active</td><td>On the admin dashboard, while the Debug Provider is the email provider</td><td>Shown by itself</td></tr>
       </tbody>
     </table>
+    <p>An app marks a page full-screen with <code>data: { fullScreen: true }</code> on its route, for a game or a kiosk screen (<a href="../app/pages-and-routes.html#full-screen-pages">Add pages and routes</a>).</p>
     <p>Announcements are something else: with the Email marketing feature on, under Admin, Email, Announcements, an admin sends a message to chosen users as an in-app notification, and optionally by email. See <a href="email-marketing.html">Email marketing</a> and <a href="notifications.html">Notifications</a>.</p>
 
     <h2>Turn it on or off</h2>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Add pages and routes | Arc CMS docs</title>
   <meta name="description" content="Add your app's public, member and admin pages with CUSTOM_ROUTES and page files, protect them with guards, and avoid the admin page trap.">
-  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, vite.config.ts, firebase.json">
+  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, src/app/core/layout/full-screen.service.ts, src/app/app.ts, src/styles.css, vite.config.ts, firebase.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/pages-and-routes.html">
@@ -47,7 +47,7 @@ export const CUSTOM_ROUTES: Routes = [
         <tr><td><code>loadComponent</code></td><td>The page, loaded only when someone opens it</td></tr>
         <tr><td><code>title</code></td><td>The browser tab title</td></tr>
         <tr><td><code>canActivate</code></td><td>Guards that decide who may open the page (below)</td></tr>
-        <tr><td><code>data</code></td><td>Values a guard reads, such as <code>allowedRoles</code></td></tr>
+        <tr><td><code>data</code></td><td>Values a guard reads, such as <code>allowedRoles</code>, and page options such as <code>fullScreen</code> (below)</td></tr>
         <tr><td><code>children</code></td><td>Pages shown inside a layout, such as the admin shell</td></tr>
       </tbody>
     </table>
@@ -138,6 +138,33 @@ export const routeMeta: RouteMeta = {
   canActivate: [userGuard],
 };</code></pre>
     <p>A page file needs no entry in <code>src/custom/routes.ts</code>. Your explicit routes come before the file-based pages, so when both give the same address, the explicit route is used. Explicit routes remain the recommended way, and the only one for admin pages.</p>
+
+    <h2>Full-screen pages</h2>
+    <p>Around every page, Arc CMS shows the admin's message banner, the powered-by footer, the site usage (cookie) banner, the installed app's update bar and the feedback button. A game, a player, a kiosk or a presentation screen needs the whole screen instead. Say so on its route:</p>
+    <pre><code>{ path: 'play', loadComponent: () =&gt; import('./play/play.component').then((m) =&gt; m.default), data: { fullScreen: true } }</code></pre>
+    <p>On that page:</p>
+    <table>
+      <thead><tr><th>Part</th><th>On a full-screen page</th></tr></thead>
+      <tbody>
+        <tr><td>Message banner, powered-by footer, feedback button</td><td>Not shown</td></tr>
+        <tr><td>Site usage banner, update bar</td><td>Held: they appear when the person reaches a normal page, so consent and updates still happen, just not over the screen</td></tr>
+        <tr><td>Layout</td><td>The page is exactly one screen tall (<code>100dvh</code>), with no page margin, padding or scroll, and no pull-to-refresh bounce. The page scrolls inside itself if it needs to.</td></tr>
+      </tbody>
+    </table>
+    <p>Any route on the way to the page can set it, and the deepest one that sets it wins, so a child route can say <code>fullScreen: false</code> under a full-screen parent. The page's own top element fills the screen, so <code>height: 100%</code> inside it is the screen height. The feedback panel still opens from the app's own button (<a href="../features/feedback.html">Feedback</a>).</p>
+    <p>Core sets the class <code>arc-full-screen</code> on <code>&lt;html&gt;</code> and on <code>arc-root</code> while such a page is open, in the server render too, so styles in <code>src/custom/styles.css</code> can use it.</p>
+    <h3>Keep the global styles out</h3>
+    <p>Bootstrap, the Material theme and the icon fonts are loaded for the whole site. To keep them off a full-screen page, give its component Shadow DOM encapsulation:</p>
+    <pre><code>import { Component, ViewEncapsulation } from '@angular/core';
+
+@Component({
+  standalone: true,
+  encapsulation: ViewEncapsulation.ShadowDom,
+  styles: [`:host { display: block; }`],
+  template: `...`,
+})
+export default class PlayComponent {}</code></pre>
+    <p>Class rules such as <code>btn</code> or <code>bi-star</code> then do not reach inside the page; only inherited values such as the body font and color do. Load inside the component whatever the page needs, including any icon font.</p>
 
     <h2>Routes that belong to a feature</h2>
     <p>If a page only makes sense while a feature is on, wrap its routes so they go when the feature is off (<a href="choose-features.html">Choose your app's features</a>):</p>

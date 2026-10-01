@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Feedback button | Arc CMS docs</title>
   <meta name="description" content="Let signed-in people send a message, a voice note and a screenshot from any page, and read it all in one admin inbox.">
-  <meta name="docs:sources" content="src/app/core/feedback, src/shared/components/feedback, src/app/pages/admin/(feedback), functions/src/feedback, firestore.rules, storage.rules, firestore.indexes.json">
+  <meta name="docs:sources" content="src/app/core/feedback, src/shared/components/feedback, src/app/core/layout/full-screen.service.ts, src/app/pages/admin/(feedback), functions/src/feedback, firestore.rules, storage.rules, firestore.indexes.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/feedback.html">
@@ -54,6 +54,7 @@
       <li>
         <p><strong>Hide the button on a page</strong>, for example during a game, with route data. Any route on the way to the page can say it:</p>
         <pre><code>{ path: 'play', loadComponent: ..., data: { feedbackButton: false } }</code></pre>
+        <p>A full-screen page (<code>data: { fullScreen: true }</code>, see <a href="../app/pages-and-routes.html#full-screen-pages">Add pages and routes</a>) hides it too.</p>
       </li>
       <li>
         <p><strong>Open the panel from your own button</strong>, which works on pages that hide the floating button too:</p>

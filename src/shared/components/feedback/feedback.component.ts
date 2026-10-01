@@ -4,6 +4,7 @@ import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { filter } from 'rxjs';
 import { FeedbackService, MAX_MESSAGE_LENGTH } from '../../../app/core/feedback/feedback.service';
+import { FullScreenService } from '../../../app/core/layout/full-screen.service';
 import { canRecordVoice, MAX_VOICE_SECONDS, VoiceRecorder, type VoiceNote } from '../../../app/core/feedback/voice-recorder';
 
 type Stage = 'compose' | 'sending' | 'sent';
@@ -24,7 +25,8 @@ export function clock(seconds: number): string {
 /**
  * The feedback button and its panel (docs/features/feedback.html), placed once in the app
  * root. The button shows to signed-in people when an admin turned it on, except
- * on admin pages and pages that hide it (`data: { feedbackButton: false }`).
+ * on admin pages, pages that hide it (`data: { feedbackButton: false }`) and
+ * full-screen pages (`data: { fullScreen: true }`).
  * The panel opens from the button, or from an app's own button through
  * FeedbackService.openPanel().
  */
@@ -194,6 +196,7 @@ export function clock(seconds: number): string {
 export class FeedbackComponent {
     readonly feedback = inject(FeedbackService);
     private router = inject(Router);
+    private fullScreen = inject(FullScreenService);
 
     readonly maxLength = MAX_MESSAGE_LENGTH;
     readonly maxVoice = MAX_VOICE_SECONDS;
@@ -201,7 +204,7 @@ export class FeedbackComponent {
     readonly clock = clock;
 
     private readonly hiddenHere = signal(false);
-    readonly showButton = computed(() => this.feedback.available() && !this.hiddenHere());
+    readonly showButton = computed(() => this.feedback.available() && !this.hiddenHere() && !this.fullScreen.active());
 
     readonly stage = signal<Stage>('compose');
     readonly message = signal('');

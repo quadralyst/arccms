@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DOCUMENT, effect, inject, signal } from '@angular/core';
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { GlobalMessageBannerComponent } from './pages/page.parts/global-message-banner.component';
@@ -8,10 +8,12 @@ import { PoweredByFooterComponent } from './pages/page.parts/powered-by-footer.c
 import { NavProgressComponent } from './pages/page.parts/nav-progress.component';
 import { PwaUpdateBarComponent } from '../shared/components/install-prompt/update-bar.component';
 import { FeedbackComponent } from '../shared/components/feedback/feedback.component';
+import { FullScreenService } from './core/layout/full-screen.service';
 
 @Component({
   selector: 'arc-root',
   imports: [RouterOutlet, GlobalMessageBannerComponent, SiteUsageBannerComponent, PoweredByFooterComponent, NavProgressComponent, PwaUpdateBarComponent, FeedbackComponent],
+  host: { '[class.arc-full-screen]': 'fullScreen.active()' },
   template: `
     <arc-global-message-banner />
     @if (navigating()) {
@@ -46,12 +48,37 @@ import { FeedbackComponent } from '../shared/components/feedback/feedback.compon
       .arc-route-host > :not(router-outlet) {
         flex: 1 1 auto;
       }
+
+      /* A full-screen route (data: { fullScreen: true }): the page is exactly one
+         screen tall and owns all of it. The banners, footer and update bar stay
+         alive but out of sight, so the site-usage banner and the update bar come
+         back on the next normal page; the feedback button hides itself. The
+         routed page itself is not in this template, so src/styles.css sizes it. */
+      :host.arc-full-screen {
+        height: 100vh;
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      :host.arc-full-screen .arc-route-host {
+        min-height: 0;
+      }
+
+      :host.arc-full-screen arc-global-message-banner,
+      :host.arc-full-screen arc-powered-by-footer,
+      :host.arc-full-screen arc-site-usage-banner,
+      :host.arc-full-screen arc-pwa-update-bar {
+        display: none;
+      }
     `,
   ],
 })
 export class App {
   private gaTracking = inject(GaTrackingService);
   private router = inject(Router);
+  private document = inject(DOCUMENT);
+  readonly fullScreen = inject(FullScreenService);
 
   /**
    * True while the router is between pages, when the lazy chunk of the next
@@ -63,6 +90,12 @@ export class App {
 
   constructor() {
     this.gaTracking.initializeTracking();
+
+    // The class on <html> lets the global styles drop page scroll and margins
+    // (src/styles.css), on the server render as well as in the browser.
+    effect(() => {
+      this.document.documentElement.classList.toggle('arc-full-screen', this.fullScreen.active());
+    });
 
     this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
       if (event instanceof NavigationStart) {
