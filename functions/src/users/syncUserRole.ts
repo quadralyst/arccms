@@ -46,15 +46,80 @@ export async function setRoleClaim(uid: string, role: string): Promise<void> {
 }
 
 /**
+ * The project a Google service account email belongs to: the project id, or for the
+ * default compute account the project number. Null for anything that is not one.
+ */
+export function serviceAccountProject(authId: string): string | null {
+    const email = authId.toLowerCase();
+    const match =
+        /^(\d+)-compute@developer\.gserviceaccount\.com$/.exec(email) ??
+        /^([a-z0-9-]+)@appspot\.gserviceaccount\.com$/.exec(email) ??
+        /^[a-z0-9-]+@([a-z0-9-]+)\.iam\.gserviceaccount\.com$/.exec(email);
+    return match ? match[1] : null;
+}
+
+const METADATA = 'http://metadata.google.internal/computeMetadata/v1/project/';
+let projectKeys: Promise<string[]> | null = null;
+
+/**
+ * This project's id and number, from the metadata server the functions run next to.
+ * Cached once it answers; a failed lookup is retried on the next call.
+ */
+function thisProjectKeys(): Promise<string[]> {
+    projectKeys ??= Promise.all(['project-id', 'numeric-project-id'].map(async (key) => {
+        const response = await fetch(METADATA + key, {
+            headers: { 'Metadata-Flavor': 'Google' },
+            signal: AbortSignal.timeout(3000),
+        });
+        if (!response.ok) throw new Error(`metadata ${key}: HTTP ${response.status}`);
+        return (await response.text()).trim().toLowerCase();
+    })).catch((error) => {
+        console.warn('Could not read this project\'s id and number from the metadata server:', error);
+        projectKeys = null;
+        return [];
+    });
+    return projectKeys;
+}
+
+/** For tests: forget the cached project id and number. */
+export function resetProjectKeysForTests(): void {
+    projectKeys = null;
+}
+
+/**
+ * Is `authId` one of this project's own service accounts: the default compute account
+ * (`<number>-compute@developer.gserviceaccount.com`, what 2nd gen functions run as), the
+ * App Engine account (`<id>@appspot.gserviceaccount.com`), or one made in the project
+ * (`<name>@<id>.iam.gserviceaccount.com`)?
+ *
+ * A Firebase Auth uid never looks like this, and a service account of another project
+ * is not trusted, even one granted access to this database.
+ */
+export async function isProjectServiceAccount(authId: string, project?: string): Promise<boolean> {
+    const accountProject = serviceAccountProject(authId);
+    if (!accountProject) return false;
+    if (project && accountProject === project.toLowerCase()) return true;
+    return (await thisProjectKeys()).includes(accountProject);
+}
+
+/**
  * Did this write come from someone allowed to grant roles?
  *
- * Admin SDK writes (other functions, scripts, the console) arrive as `service_account` or
- * `system`. A client write carries the writer's uid in `authId`, and is trusted only if that
- * user holds the admin claim right now. Anything else, including a missing `authId`, is not.
+ * Server writes (other functions, scripts) are trusted. Eventarc reports them as
+ * `service_account` or `system`, or, for 2nd gen functions running as the default compute
+ * account, as `unknown` with that account's email in `authId`; so an `authId` that is one of
+ * this project's service accounts is trusted whatever the `authType`. A client write carries
+ * the writer's uid in `authId`, and is trusted only if that user holds the admin claim right
+ * now. Anything else, including a missing `authId`, is not.
  */
-export async function isTrustedRoleWriter(authType: string | undefined, authId: string | undefined): Promise<boolean> {
+export async function isTrustedRoleWriter(
+    authType: string | undefined,
+    authId: string | undefined,
+    project?: string,
+): Promise<boolean> {
     if (authType === 'service_account' || authType === 'system') return true;
     if (!authId) return false;
+    if (await isProjectServiceAccount(authId, project)) return true;
     try {
         const writer = await owner.getUser(authId);
         return isArcAdmin(writer.customClaims);
@@ -134,7 +199,7 @@ export const onUserRoleChange = onDocumentWrittenWithAuthContext(
         }
 
         const escalation = !SELF_ASSIGNABLE_ROLES.includes(newRole);
-        if (escalation && !(await isTrustedRoleWriter(event.authType, event.authId))) {
+        if (escalation && !(await isTrustedRoleWriter(event.authType, event.authId, event.project))) {
             console.error(
                 `Refused role '${newRole}' for user ${uid}: written by ${event.authType}:${event.authId ?? 'none'}, ` +
                 'who is not an admin. Reverting the document.',
@@ -174,7 +239,9 @@ async function readDefaultRole(): Promise<string | null> {
  * sentinel). Everything runs in one transaction, so two racing callers cannot both win.
  *
  * Idempotent for the winner: calling it again as the existing first admin just re-applies the
- * claim, which lets the wizard retry after a network failure.
+ * claim, which lets the wizard retry after a network failure. If the winner's role was reverted
+ * before setup finished, the retry restores it (only while `Settings/onboarding_status` is not
+ * `completed` and no other admin exists).
  *
  * It also marks setup as started (`Settings/onboarding_status`, with `startedBy`), so an
  * abandoned wizard is detected and only this admin may resume it. The browser cannot write
@@ -199,8 +266,21 @@ export const claimFirstAdmin = onCall(async (request) => {
         const myDoc = mine.docs[0];
 
         if (sentinel.exists) {
-            if (sentinel.data()?.['uid'] === uid && myDoc.data()['role'] === 'admin') return;
-            throw new HttpsError('permission-denied', 'This site already has an administrator.');
+            if (sentinel.data()?.['uid'] !== uid) {
+                throw new HttpsError('permission-denied', 'This site already has an administrator.');
+            }
+            if (myDoc.data()['role'] === 'admin') return;
+            // The first admin lost the role before setup finished (a role trigger that did not
+            // recognise this function's write reverted it). Put it back, but only while setup is
+            // unfinished and nobody else is an admin, so a first admin who was later demoted
+            // cannot take the site back through the wizard.
+            const onboarding = await tx.get(onboardingRef);
+            const admins = await tx.get(db.collection('users').where('role', '==', 'admin').limit(1));
+            if (!onboarding.exists || onboarding.data()?.['completed'] === true || !admins.empty) {
+                throw new HttpsError('permission-denied', 'This site already has an administrator.');
+            }
+            tx.update(myDoc.ref, { role: 'admin' });
+            return;
         }
 
         const admins = await tx.get(db.collection('users').where('role', '==', 'admin').limit(1));

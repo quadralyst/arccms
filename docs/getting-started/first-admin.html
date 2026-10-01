@@ -36,7 +36,7 @@
       <li>The <code>createAccountRecord</code> function creates your record in <code>users</code> with the site's default role, <code>user</code>.</li>
       <li>The <code>claimFirstAdmin</code> function makes you the admin. In one transaction it checks that no admin was ever created (no <code>_system/first_admin</code> document and no user with the <code>admin</code> role), then records you in <code>_system/first_admin</code>, sets your role to <code>admin</code> and marks setup as started in <code>Settings/onboarding_status</code>. It then puts <code>arccms_role: admin</code> on your sign-in account as a custom claim, which is what the rules check.</li>
     </ol>
-    <p>From then on <code>claimFirstAdmin</code> refuses everyone with "This site already has an administrator", so revisiting the wizard cannot take over a finished site. Calling it again as the first admin changes nothing, which lets the wizard retry safely. How roles and claims work in general is on <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
+    <p>From then on <code>claimFirstAdmin</code> refuses everyone with "This site already has an administrator", so revisiting the wizard cannot take over a finished site. Calling it again as the first admin changes nothing, which lets the wizard retry safely. If your role was taken back before setup finished, reopening the wizard calls it again and it restores your role, but only while setup is unfinished and nobody else is an admin. How roles and claims work in general is on <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
     <p>Setup counts as finished when <code>Settings/onboarding_status</code> has <code>completed: true</code>. After that, <code>/onboarding</code> sends everyone to the home page.</p>
 
     <h2>If you stop halfway</h2>
@@ -64,7 +64,7 @@
         <tr><td>No wizard on a fresh project</td><td>The Firestore rules are not deployed, so the check cannot read the database and assumes setup is done. Deploy them and reload.</td></tr>
         <tr><td>"Authentication Disabled"</td><td>Turn on the Email/Password provider; the message links to the right console page.</td></tr>
         <tr><td>Creating the account fails or never finishes</td><td>The Cloud Functions are not deployed to this project. Deploy them, then try again.</td></tr>
-        <tr><td>"Your administrator permissions have not finished propagating"</td><td>Wait a few seconds and try again. If it stays, check that <code>claimFirstAdmin</code> is deployed.</td></tr>
+        <tr><td>"Your administrator permissions have not finished propagating"</td><td>Wait a few seconds and try again. If it stays, check that <code>claimFirstAdmin</code> is deployed, and look in the function logs for "Refused role" from <code>onUserRoleChange</code>: it means the role trigger did not recognize the server's write, so deploy the current functions and reopen the wizard.</td></tr>
         <tr><td>"This site already has an administrator" in the browser console</td><td>An admin exists. Sign in at <code>/signup</code> with that account, or ask that admin for access.</td></tr>
         <tr><td>Setup fails on the last step</td><td>Click <strong>Retry</strong>, or <strong>Skip &amp; Go to Dashboard</strong>, which still tries to create the defaults and finishes setup.</td></tr>
       </tbody>

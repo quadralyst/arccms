@@ -6,6 +6,7 @@
  * - onUserRoleChange refuses (and reverts) an elevated role written by a non-admin
  * - it syncs roles written by admins and by the Admin SDK
  * - it applies Settings/users.defaultRole to self sign-ups
+ * - it trusts this project's own service accounts whatever authType Eventarc reports
  * - claimFirstAdmin grants admin once, only while no admin exists
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -19,6 +20,7 @@ const mockRevoke = vi.fn();
 // Firestore: a tiny in-memory model of just what these functions touch.
 let settingsUsers: Record<string, unknown> | null = null;
 let sentinel: Record<string, unknown> | null = null;
+let onboarding: Record<string, unknown> | null = null;
 let userDocs: Array<{ id: string; data: Record<string, unknown> }> = [];
 const txSet = vi.fn();
 const txUpdate = vi.fn();
@@ -49,7 +51,8 @@ const mockDb = {
         const tx = {
             get: async (target: any) => {
                 if (target.__query) return queryResult((d) => d[target.field] === target.value);
-                return { exists: sentinel !== null, data: () => sentinel };
+                const value = target.__path === 'Settings/onboarding_status' ? onboarding : sentinel;
+                return { exists: value !== null, data: () => value };
             },
             set: txSet,
             update: txUpdate,
@@ -76,7 +79,8 @@ vi.mock('firebase-functions/v2/https', () => {
     return { onCall: vi.fn((handler: Function) => handler), HttpsError };
 });
 
-const { onUserRoleChange, claimFirstAdmin, setRoleClaim } = await import('../users/syncUserRole.js');
+const { onUserRoleChange, claimFirstAdmin, setRoleClaim, isTrustedRoleWriter, serviceAccountProject, resetProjectKeysForTests } =
+    await import('../users/syncUserRole.js');
 const trigger = onUserRoleChange as unknown as (event: any) => Promise<void>;
 const claim = claimFirstAdmin as unknown as (request: any) => Promise<unknown>;
 
@@ -87,6 +91,7 @@ function makeEvent(
     after: Record<string, unknown> | null,
     authType = 'app_user',
     authId?: string,
+    project = 'my-project',
 ) {
     const refUpdate = vi.fn().mockResolvedValue(undefined);
     return {
@@ -94,6 +99,7 @@ function makeEvent(
         event: {
             authType,
             authId,
+            project,
             data: {
                 before: before ? { data: () => before } : { data: () => undefined },
                 after: after ? { data: () => after, ref: { update: refUpdate } } : undefined,
@@ -105,11 +111,25 @@ function makeEvent(
 /** Claims each Auth user currently holds. */
 let claimsByUid: Record<string, Record<string, unknown>> = {};
 
+/** The metadata server: this project's id and number. */
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
+function metadataAnswers(id: string, number: string) {
+    mockFetch.mockImplementation(async (url: string) => ({
+        ok: true,
+        status: 200,
+        text: async () => (url.endsWith('numeric-project-id') ? number : id),
+    }));
+}
+
 beforeEach(() => {
     vi.clearAllMocks();
     settingsUsers = null;
     sentinel = null;
+    onboarding = null;
     userDocs = [];
+    resetProjectKeysForTests();
+    metadataAnswers('my-project', '449144539409');
     claimsByUid = { 'admin-uid': { arccms_role: 'admin' } };
     mockGetUser.mockImplementation(async (uid: string) => ({ uid, customClaims: claimsByUid[uid] }));
     mockSetCustomUserClaims.mockResolvedValue(undefined);
@@ -171,6 +191,25 @@ describe('onUserRoleChange', () => {
         expect(mockSetCustomUserClaims).toHaveBeenCalledWith('bob', { arccms_role: 'admin' });
     });
 
+    it('syncs a role written by a 2nd gen function as the default compute account (authType unknown)', async () => {
+        // What Eventarc reported for claimFirstAdmin on a fresh install (sanskrit-app-live).
+        const { event, refUpdate } = makeEvent(
+            { uid: 'first', role: 'user' }, { uid: 'first', role: 'admin' },
+            'unknown', '449144539409-compute@developer.gserviceaccount.com');
+        await trigger(event);
+        expect(refUpdate).not.toHaveBeenCalled();
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('first', { arccms_role: 'admin' });
+    });
+
+    it('refuses an elevated role written by another project\'s service account', async () => {
+        const { event, refUpdate } = makeEvent(
+            { uid: 'bob', role: 'user' }, { uid: 'bob', role: 'admin' },
+            'unknown', '111111111111-compute@developer.gserviceaccount.com');
+        await trigger(event);
+        expect(mockSetCustomUserClaims).not.toHaveBeenCalled();
+        expect(refUpdate).toHaveBeenCalledWith({ role: 'user' });
+    });
+
     it('syncs a plain user role on self sign-up', async () => {
         const { event } = makeEvent(null, { uid: 'amy', role: 'user' }, 'app_user', 'amy');
         await trigger(event);
@@ -219,6 +258,59 @@ describe('onUserRoleChange', () => {
         await trigger(makeEvent({ uid: 'amy', role: 'admin' }, null).event);
         await trigger(makeEvent(null, { role: 'user' }).event);
         expect(mockSetCustomUserClaims).not.toHaveBeenCalled();
+    });
+});
+
+// ─── isTrustedRoleWriter ──────────────────────────────────────────────────────
+
+describe('isTrustedRoleWriter: this project\'s own service accounts', () => {
+    it('reads the project from each kind of service account email', () => {
+        expect(serviceAccountProject('449144539409-compute@developer.gserviceaccount.com')).toBe('449144539409');
+        expect(serviceAccountProject('my-project@appspot.gserviceaccount.com')).toBe('my-project');
+        expect(serviceAccountProject('deployer@my-project.iam.gserviceaccount.com')).toBe('my-project');
+        expect(serviceAccountProject('zYfL8LP0jON2Al5C3Q7jL2QGIPq2')).toBeNull();
+        expect(serviceAccountProject('someone@example.com')).toBeNull();
+    });
+
+    it('trusts the compute, App Engine and project-made accounts of this project, whatever the authType', async () => {
+        for (const id of [
+            '449144539409-compute@developer.gserviceaccount.com',
+            'my-project@appspot.gserviceaccount.com',
+            'arccms-runner@my-project.iam.gserviceaccount.com',
+        ]) {
+            expect(await isTrustedRoleWriter('unknown', id, 'my-project')).toBe(true);
+        }
+    });
+
+    it('does not trust another project\'s accounts', async () => {
+        expect(await isTrustedRoleWriter('unknown', 'other@appspot.gserviceaccount.com', 'my-project')).toBe(false);
+        expect(await isTrustedRoleWriter('unknown', 'x@other.iam.gserviceaccount.com', 'my-project')).toBe(false);
+    });
+
+    it('matches the event\'s own project without asking the metadata server', async () => {
+        await isTrustedRoleWriter('unknown', 'my-project@appspot.gserviceaccount.com', 'my-project');
+        expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('asks the metadata server once and caches the answer', async () => {
+        const compute = '449144539409-compute@developer.gserviceaccount.com';
+        await isTrustedRoleWriter('unknown', compute, 'my-project');
+        await isTrustedRoleWriter('unknown', compute, 'my-project');
+        expect(mockFetch).toHaveBeenCalledTimes(2); // id and number, once
+        expect(mockFetch.mock.calls[0][1]).toMatchObject({ headers: { 'Metadata-Flavor': 'Google' } });
+    });
+
+    it('trusts nothing new when the metadata server cannot be reached, and asks again next time', async () => {
+        mockFetch.mockRejectedValue(new Error('offline'));
+        const compute = '449144539409-compute@developer.gserviceaccount.com';
+        expect(await isTrustedRoleWriter('unknown', compute, 'my-project')).toBe(false);
+        metadataAnswers('my-project', '449144539409');
+        expect(await isTrustedRoleWriter('unknown', compute, 'my-project')).toBe(true);
+    });
+
+    it('never asks the metadata server about a Firebase Auth uid', async () => {
+        expect(await isTrustedRoleWriter('unknown', 'eve', 'my-project')).toBe(false);
+        expect(mockFetch).not.toHaveBeenCalled();
     });
 });
 
@@ -320,6 +412,37 @@ describe('claimFirstAdmin', () => {
         expect(txUpdate).not.toHaveBeenCalled();
         expect(txSet).not.toHaveBeenCalled();
         expect(mockSetCustomUserClaims).toHaveBeenCalledWith('first', { arccms_role: 'admin' });
+    });
+
+    it('restores the first admin\'s reverted role on a retry while setup is unfinished', async () => {
+        // The state a fresh install was left in when the role trigger reverted the grant.
+        sentinel = { uid: 'first' };
+        onboarding = { completed: false, startedBy: 'first' };
+        userDocs = [{ id: 'first-doc', data: { uid: 'first', role: 'user' } }];
+        await expect(claim({ auth: { uid: 'first' } })).resolves.toEqual({ role: 'admin' });
+        expect(txUpdate).toHaveBeenCalledWith({ id: 'first-doc' }, { role: 'admin' });
+        expect(txSet).not.toHaveBeenCalled();
+        expect(mockSetCustomUserClaims).toHaveBeenCalledWith('first', { arccms_role: 'admin' });
+    });
+
+    it('does not restore a first admin who was demoted after setup finished', async () => {
+        sentinel = { uid: 'first' };
+        onboarding = { completed: true };
+        userDocs = [{ id: 'first-doc', data: { uid: 'first', role: 'user' } }];
+        await expect(claim({ auth: { uid: 'first' } })).rejects.toMatchObject({ code: 'permission-denied' });
+        expect(txUpdate).not.toHaveBeenCalled();
+        expect(mockSetCustomUserClaims).not.toHaveBeenCalled();
+    });
+
+    it('does not restore the first admin when someone else is already an admin', async () => {
+        sentinel = { uid: 'first' };
+        onboarding = { completed: false, startedBy: 'first' };
+        userDocs = [
+            { id: 'first-doc', data: { uid: 'first', role: 'user' } },
+            { id: 'other-doc', data: { uid: 'other', role: 'admin' } },
+        ];
+        await expect(claim({ auth: { uid: 'first' } })).rejects.toMatchObject({ code: 'permission-denied' });
+        expect(txUpdate).not.toHaveBeenCalled();
     });
 
     it('requires the caller to have a user document first', async () => {
