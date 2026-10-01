@@ -38,6 +38,8 @@ export const CUSTOM_ROUTES: Routes = [
       </li>
     </ol>
 
+    <p>The page takes the room between the message banner and the powered-by footer, even when its content is short. To fill that room, such as to center an empty state, make the page a flex column and give the part that should grow <code>flex: 1</code>. <code>height: 100%</code> inside the page does not reach the footer, because the shell has only a minimum height; a full-screen page (below) has a fixed height, where it does.</p>
+
     <h2>The shape of a route</h2>
     <p><code>CUSTOM_ROUTES</code> is a plain Angular <code>Routes</code> list. The fields you use most:</p>
     <table>

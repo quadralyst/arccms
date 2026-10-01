@@ -31,7 +31,8 @@ import { FullScreenService } from './core/layout/full-screen.service';
     `
       /* A flex column the height of the viewport: the routed page takes the
          room and the powered-by footer stays at the bottom, even while the
-         page has nothing to show yet. */
+         page has nothing to show yet. The routed page is not in this
+         template, so these styles cannot reach it: src/styles.css stretches it. */
       :host {
         display: flex;
         flex-direction: column;
@@ -44,16 +45,10 @@ import { FullScreenService } from './core/layout/full-screen.service';
         flex-direction: column;
       }
 
-      /* The routed component is a sibling of <router-outlet>, not a child. */
-      .arc-route-host > :not(router-outlet) {
-        flex: 1 1 auto;
-      }
-
       /* A full-screen route (data: { fullScreen: true }): the page is exactly one
          screen tall and owns all of it. The banners, footer and update bar stay
          alive but out of sight, so the site-usage banner and the update bar come
-         back on the next normal page; the feedback button hides itself. The
-         routed page itself is not in this template, so src/styles.css sizes it. */
+         back on the next normal page; the feedback button hides itself. */
       :host.arc-full-screen {
         height: 100vh;
         height: 100dvh;

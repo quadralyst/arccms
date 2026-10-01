@@ -2,6 +2,21 @@
 @import "@angular/material/prebuilt-themes/indigo-pink.css";
 
 /* ============================================================
+   THE ROUTED PAGE
+   The page takes the room between the message banner and the
+   powered-by footer. A short page that is a flex column can grow a
+   child into that room (flex: 1); height: 100% does not reach it,
+   because the shell has only a minimum height. The routed component
+   is a sibling of <router-outlet>, and it is not in the template of
+   src/app/app.ts, whose own styles therefore never reach it: the rule
+   lives here.
+   ============================================================ */
+
+.arc-route-host > :not(router-outlet) {
+  flex: 1 1 auto;
+}
+
+/* ============================================================
    FULL-SCREEN ROUTES
    A route with data: { fullScreen: true } (docs/app/pages-and-routes.html)
    owns the whole screen: no page margin or padding, no page scroll and no
@@ -18,9 +33,9 @@ html.arc-full-screen body {
   overscroll-behavior: none;
 }
 
-/* The routed page fills the screen, so height: 100% inside it is the screen. */
+/* The routed page fills the screen, so height: 100% inside it is the
+   screen, and never grows past it. */
 html.arc-full-screen .arc-route-host > :not(router-outlet) {
-  flex: 1 1 auto;
   min-height: 0;
 }
 

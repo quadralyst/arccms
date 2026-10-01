@@ -3,6 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
@@ -159,6 +161,40 @@ describe('App Component', () => {
             component.navigating.set(false);
             fixture.detectChanges();
             expect(host.querySelector('arc-nav-progress')).toBeNull();
+        });
+    });
+
+    describe('The routed page', () => {
+        // The global stylesheet, as index.html loads it (the Material theme import left out).
+        let globalStyles: HTMLStyleElement;
+        beforeEach(() => {
+            const css = readFileSync(resolve(__dirname, '..', 'styles.css'), 'utf8').replace(/^@import[^;]+;/m, '');
+            globalStyles = Object.assign(document.createElement('style'), { textContent: css });
+            document.head.append(globalStyles);
+        });
+        afterEach(() => {
+            globalStyles.remove();
+            document.documentElement.classList.remove('arc-full-screen');
+        });
+        const routedPage = (): HTMLElement => fixture.nativeElement.querySelector('main.arc-route-host > :not(router-outlet)');
+
+        it('takes the room above the footer, from the global styles', async () => {
+            await TestBed.inject(Router).navigateByUrl('/');
+            fixture.detectChanges();
+            expect(getComputedStyle(routedPage()).flexGrow).toBe('1');
+        });
+
+        it('may shrink to the screen on a full-screen route', async () => {
+            await TestBed.inject(Router).navigateByUrl('/game');
+            fixture.detectChanges();
+            expect(getComputedStyle(routedPage()).flexGrow).toBe('1');
+            expect(getComputedStyle(routedPage()).minHeight).toMatch(/^0(px)?$/);
+        });
+
+        it("is not styled from the root component, whose styles cannot reach it", () => {
+            // Emulated encapsulation scopes these to the root's own template; the routed page is not in it.
+            const rootSource = readFileSync(resolve(__dirname, 'app.ts'), 'utf8');
+            expect(rootSource).not.toMatch(/\.arc-route-host\s*>/);
         });
     });
 
