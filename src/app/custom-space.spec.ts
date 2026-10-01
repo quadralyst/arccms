@@ -5,6 +5,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+// @ts-expect-error: plain ESM script without type declarations
+import { isArcCmsRepository } from '../../scripts/check-core.mjs';
 import { mergeTranslations } from './core/i18n/translation.loader';
 import { insertCustomNav, type MenuItem } from '../shared/components/side-navbar/side-navbar.component';
 import { CUSTOM_ROUTES } from '../custom/routes';
@@ -18,7 +20,9 @@ const ROOT = resolve(__dirname, '..', '..');
 const read = (path: string) => readFileSync(resolve(ROOT, path), 'utf8');
 
 describe('custom space', () => {
-    it('ships every starter file empty', () => {
+    // Only Arc CMS ships them empty: an app fills them in, so in an app this would fail
+    // on its first feature. Detected the way check:core detects Arc CMS itself.
+    it.skipIf(!isArcCmsRepository(ROOT))('ships every starter file empty', () => {
         expect(CUSTOM_ROUTES).toEqual([]);
         expect(CUSTOM_NAV).toEqual([]);
         expect(CUSTOM_USER_DASHBOARD).toBeNull();

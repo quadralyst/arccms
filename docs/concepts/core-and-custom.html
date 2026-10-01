@@ -28,7 +28,7 @@
       </tbody>
     </table>
     <p>How to use each file is in <a href="../app/custom-space.html">Use the custom space</a>.</p>
-    <p>Core reads the custom space at fixed plug points: the routes file, the pages folder, the admin menu, the translations, the stylesheet, the feature choices, and the functions (<code>functions/src/all.ts</code> exports <code>functions/src/custom/index.ts</code> as the <code>custom</code> group). The rules build places your rules inside the core rules, so they can call the core helpers. A test in <code>src/app/custom-space.spec.ts</code> checks that every starter file ships empty.</p>
+    <p>Core reads the custom space at fixed plug points: the routes file, the pages folder, the admin menu, the translations, the stylesheet, the feature choices, and the functions (<code>functions/src/all.ts</code> exports <code>functions/src/custom/index.ts</code> as the <code>custom</code> group). The rules build places your rules inside the core rules, so they can call the core helpers. A test in <code>src/app/custom-space.spec.ts</code> checks that every starter file ships empty. It runs only in Arc CMS's own repository, told apart the way <code>npm run check:core</code> does it (a remote at Arc CMS and no <code>upstream</code> branch), so filling the files in an app does not fail it.</p>
 
     <h2>What check:core reports</h2>
     <p>Run it before every commit in an app:</p>

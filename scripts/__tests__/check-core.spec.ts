@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: plain ESM script without type declarations
-import { classify, followedUpstream, group, main } from '../check-core.mjs';
+import { classify, followedUpstream, group, isArcCmsRepository, main } from '../check-core.mjs';
 
 describe('check-core', () => {
     describe('classify', () => {
@@ -92,6 +92,23 @@ describe('check-core', () => {
             const { code, out } = run();
             expect(code).toBe(0);
             expect(out).toContain('Arc CMS itself');
+        });
+
+        it('tells Arc CMS itself from an app, whose upstream remote also points at Arc CMS', () => {
+            expect(isArcCmsRepository(dir)).toBe(false); // no Arc CMS remote: an app, or a copy
+            git('remote', 'add', 'origin', 'git@github.com:quadralyst/arccms.git');
+            expect(isArcCmsRepository(dir)).toBe(true);
+            git('remote', 'rename', 'origin', 'upstream');
+            git('update-ref', 'refs/remotes/upstream/main', 'arc-base');
+            expect(isArcCmsRepository(dir)).toBe(false);
+        });
+
+        it('does not call an app Arc CMS itself when --against names a branch it lacks', () => {
+            git('remote', 'add', 'upstream', 'git@github.com:quadralyst/arccms.git');
+            git('update-ref', 'refs/remotes/upstream/main', 'arc-base');
+            const { code, out } = run('--against', 'upstream/nope');
+            expect(code).toBe(1);
+            expect(out).not.toContain('Arc CMS itself');
         });
 
         it('keeps scripts and data in the root custom folder as app files', () => {

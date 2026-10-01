@@ -87,7 +87,7 @@ export function changedPaths(against, cwd = process.cwd()) {
     ];
 }
 
-/** Whether this checkout is Arc CMS itself: a remote points at its repository. */
+/** Whether a remote points at Arc CMS's repository (in an app, `upstream` does too). */
 export function isArcCmsItself(cwd) {
     try {
         return /[/:]quadralyst\/arccms(\.git)?$/m.test(git(['remote', '-v'], cwd).replace(/ \((fetch|push)\)/g, ''));
@@ -103,6 +103,16 @@ function hasRef(ref, cwd) {
     } catch {
         return false;
     }
+}
+
+/**
+ * Whether this checkout is Arc CMS's own repository rather than an app built on it:
+ * a remote points at Arc CMS, and there is no upstream Arc CMS branch to follow.
+ * Core tests that only hold in Arc CMS itself (the starter files ship empty) skip
+ * anywhere else with this.
+ */
+export function isArcCmsRepository(cwd = process.cwd()) {
+    return isArcCmsItself(cwd) && !UPSTREAM_BRANCHES.some((ref) => hasRef(ref, cwd));
 }
 
 /**
@@ -131,7 +141,7 @@ export function main(argv = process.argv.slice(2), log = console.log, cwd = proc
     const against = i === -1 ? followedUpstream(cwd) : argv[i + 1];
 
     if (!against || !hasRef(against, cwd)) {
-        if (isArcCmsItself(cwd)) {
+        if (isArcCmsRepository(cwd)) {
             log('This is Arc CMS itself: there is no core to protect, so nothing to check.');
             return 0;
         }
