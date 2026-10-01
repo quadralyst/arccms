@@ -35,6 +35,9 @@
  * - before a deploy that includes functions, checks that they run next to the
  *   database (scripts/arc-region.mjs): with none deployed yet they go where the
  *   database is; deployed elsewhere, it warns and deploys anyway;
+ * - before a deploy that includes functions with the sms feature, checks once per
+ *   project that phone sign-in can sign people in (scripts/arc-sign-in-setup.mjs),
+ *   and on a terminal offers to set it up; never stops the deploy;
  * - with --probe, after a deploy that included functions, runs the callable
  *   access check. A callable whose creation timed out is left without public
  *   access, and every browser call to it then fails with 403 (found 2026-09-23).
@@ -55,6 +58,7 @@ import {
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
 import { builtArccms } from './arc-built-functions.mjs';
 import { main as configure, normalizeConfig } from './arc-configure.mjs';
+import { checkSignInSetup, smsBuilt } from './arc-sign-in-setup.mjs';
 import {
     DEFAULT_FUNCTIONS_REGION, countArccms, databaseLocation, lookupDatabaseLocation, regionDecision, regionWarning,
 } from './arc-region.mjs';
@@ -425,6 +429,11 @@ export async function runDeploy(args, options = {}) {
             console.error('\nThe functions build failed, so nothing was deployed.');
             return { status: build.status ?? 1, created: [] };
         }
+    }
+    if (deploysFunctions(args) && !options.signInSetupChecked && smsBuilt()) {
+        await checkSignInSetup(projectId, {
+            state: readState(), save: writeState, ask: options.askSignInSetup ?? askOnce, isTTY: options.isTTY ?? !!process.stdin.isTTY,
+        });
     }
     // Functions the user agreed to delete, so they can be finished off if the CLI skips them.
     let toDelete = [];

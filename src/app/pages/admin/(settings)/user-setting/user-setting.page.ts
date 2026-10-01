@@ -5,7 +5,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { FormBuilder, FormControl, FormGroup, FormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSlideToggleChange, MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -14,6 +14,7 @@ import { BaseComponent } from '../../../../../shared/components/base/base.compon
 import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { UserSettingService } from './user-setting.service';
 import { AVAILABLE_ROLES, IUserSettings } from './user-setting.model';
+import { PhoneSignInCheck, PhoneSignInCheckService } from './phone-sign-in-check.service';
 import { isOn } from '../../../../core/features/features';
 import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
@@ -42,6 +43,7 @@ export const routeMeta: RouteMeta = {
 })
 export default class UserSettingPageComponent extends BaseComponent implements OnInit {
     private userSettingService = inject(UserSettingService);
+    private phoneCheckService = inject(PhoneSignInCheckService);
     private fb = inject(FormBuilder);
 
     userSettingsForm!: FormGroup;
@@ -51,6 +53,9 @@ export default class UserSettingPageComponent extends BaseComponent implements O
     readonly smsOn = isOn('sms');
     isUserSettingEnabled = signal(false);
     userSettings: IUserSettings | null = null;
+    /** The last phone sign-in check (null before one ran): the Google Cloud setup and the SMS provider. */
+    phoneCheck = signal<PhoneSignInCheck | null>(null);
+    checkingPhone = signal(false);
 
     ngOnInit(): void {
         this.initForm();
@@ -72,6 +77,8 @@ export default class UserSettingPageComponent extends BaseComponent implements O
                 this.isUserSettingEnabled.set(settings.isSignupEnabled);
                 this.userSettingsForm.patchValue(settings);
                 this.isLoading.set(false);
+                // Already on: say now if people cannot finish signing in, not after they try.
+                if (this.smsOn && settings.phoneSignIn) void this.runPhoneCheck();
             },
             error: (error) => {
                 console.error('Failed to load user settings:', error);
@@ -129,6 +136,58 @@ export default class UserSettingPageComponent extends BaseComponent implements O
             this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
         } finally {
             this.isSaving.set(false);
+        }
+    }
+
+    /**
+     * Phone sign-in on or off. Turning it on checks first that the server can sign people in
+     * (the Token Creator role on the functions' service account): without it every phone
+     * sign-in fails at the last step, so the switch stays off and the page shows the fix.
+     * When the check itself cannot run, phone sign-in is turned on anyway, with a warning.
+     */
+    async togglePhoneSignIn(event: MatSlideToggleChange): Promise<void> {
+        if (!event.checked) {
+            this.phoneCheck.set(null);
+            await this.toggleMethod('phoneSignIn', false);
+            return;
+        }
+        const check = await this.runPhoneCheck();
+        if (check && !check.ready) {
+            event.source.checked = false;
+            this.toastService.openCustomSnackbar(this.t('admin.settings.user.phone_setup_first'), 'error', 'error');
+            return;
+        }
+        if (!check) this.toastService.openCustomSnackbar(this.t('admin.settings.user.phone_check_failed'), 'warning', 'warning');
+        await this.toggleMethod('phoneSignIn', true);
+    }
+
+    /** Run the check; null when it could not run. */
+    async runPhoneCheck(): Promise<PhoneSignInCheck | null> {
+        this.checkingPhone.set(true);
+        try {
+            const check = await this.phoneCheckService.check();
+            this.phoneCheck.set(check);
+            return check;
+        } catch (error) {
+            console.error('Phone sign-in check failed:', error);
+            return null;
+        } finally {
+            this.checkingPhone.set(false);
+        }
+    }
+
+    /** "Check again" after fixing the setup in Google Cloud. */
+    async recheckPhone(): Promise<void> {
+        const check = await this.runPhoneCheck();
+        if (check?.ready) this.toastService.openCustomSnackbar(this.t('admin.settings.user.phone_setup_ready'), 'success', 'check_circle');
+    }
+
+    async copyPhoneFix(command: string): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(command);
+            this.toastService.openCustomSnackbar(this.t('admin.settings.user.phone_setup_copied'), 'success', 'check_circle');
+        } catch {
+            // No clipboard (an insecure origin): the command is on screen to copy by hand.
         }
     }
 

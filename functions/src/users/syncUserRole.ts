@@ -26,6 +26,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import { owner, db } from '../init.js';
 import { arcDocument } from '../arc-config.js';
+import { thisProjectKeys } from '../utils/runtimeIdentity.js';
 import { clearArcClaims, isArcAdmin, mergeUserClaims, ROLE_CLAIM, setRecordClaims, USER_RECORD_CLAIM } from './claims.js';
 
 /** Roles anyone may hold without an admin granting them. Keep in step with firestore.rules. */
@@ -56,34 +57,6 @@ export function serviceAccountProject(authId: string): string | null {
         /^([a-z0-9-]+)@appspot\.gserviceaccount\.com$/.exec(email) ??
         /^[a-z0-9-]+@([a-z0-9-]+)\.iam\.gserviceaccount\.com$/.exec(email);
     return match ? match[1] : null;
-}
-
-const METADATA = 'http://metadata.google.internal/computeMetadata/v1/project/';
-let projectKeys: Promise<string[]> | null = null;
-
-/**
- * This project's id and number, from the metadata server the functions run next to.
- * Cached once it answers; a failed lookup is retried on the next call.
- */
-function thisProjectKeys(): Promise<string[]> {
-    projectKeys ??= Promise.all(['project-id', 'numeric-project-id'].map(async (key) => {
-        const response = await fetch(METADATA + key, {
-            headers: { 'Metadata-Flavor': 'Google' },
-            signal: AbortSignal.timeout(3000),
-        });
-        if (!response.ok) throw new Error(`metadata ${key}: HTTP ${response.status}`);
-        return (await response.text()).trim().toLowerCase();
-    })).catch((error) => {
-        console.warn('Could not read this project\'s id and number from the metadata server:', error);
-        projectKeys = null;
-        return [];
-    });
-    return projectKeys;
-}
-
-/** For tests: forget the cached project id and number. */
-export function resetProjectKeysForTests(): void {
-    projectKeys = null;
 }
 
 /**

@@ -89,11 +89,46 @@
                     </div>
                 </div>
                 <div class="setting-control">
-                    <mat-slide-toggle [checked]="userSettings?.phoneSignIn" (change)="toggleMethod('phoneSignIn', $event.checked)"
-                        [disabled]="isSaving()" color="primary">
+                    @if (checkingPhone()) { <mat-spinner diameter="20" class="me-2"></mat-spinner> }
+                    <mat-slide-toggle [checked]="userSettings?.phoneSignIn" (change)="togglePhoneSignIn($event)"
+                        [disabled]="isSaving() || checkingPhone()" color="primary">
                     </mat-slide-toggle>
                 </div>
             </div>
+            <!-- The server cannot sign people in yet (signInSetup.ts): the fix for this project. -->
+            @if (phoneCheck(); as check) {
+                @if (!check.ready) {
+                <div class="alert alert-warning phone-setup" role="alert">
+                    <div class="fw-semibold mb-1">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ 'admin.settings.user.phone_setup_title' | transloco }}
+                    </div>
+                    <p class="mb-2">
+                        @if (check.problem === 'api-disabled') {
+                        {{ 'admin.settings.user.phone_setup_api' | transloco: { project: check.project } }}
+                        } @else {
+                        {{ 'admin.settings.user.phone_setup_role' | transloco: { account: check.serviceAccount } }}
+                        }
+                    </p>
+                    <code class="phone-setup-command">{{ check.command }}</code>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <button mat-stroked-button type="button" (click)="copyPhoneFix(check.command ?? '')">
+                            <i class="fa-regular fa-copy me-1"></i>{{ 'admin.settings.user.phone_setup_copy' | transloco }}
+                        </button>
+                        <a mat-stroked-button [href]="check.consoleUrl" target="_blank" rel="noopener">
+                            <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>{{ 'admin.settings.user.phone_setup_console' | transloco }}
+                        </a>
+                        <button mat-stroked-button type="button" (click)="recheckPhone()" [disabled]="checkingPhone()">
+                            <i class="fa-solid fa-rotate me-1"></i>{{ 'admin.settings.user.phone_setup_recheck' | transloco }}
+                        </button>
+                    </div>
+                </div>
+                } @else if (userSettings?.phoneSignIn && check.smsProvider === 'log') {
+                <div class="alert alert-warning phone-setup" role="status">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ 'admin.settings.user.phone_sms_test_mode' | transloco }}
+                    <a routerLink="/admin/settings/sms">{{ 'admin.settings.user.sms_settings_link' | transloco }}</a>
+                </div>
+                }
+            }
             }
             <div class="setting-row">
                 <div class="setting-info">

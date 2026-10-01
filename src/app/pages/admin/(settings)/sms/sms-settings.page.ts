@@ -19,7 +19,16 @@ import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-set
     template: `
         <div class="settings-section">
             <h3 class="mb-2">{{ 'admin.settings.sms.title' | transloco }}</h3>
-            <p class="text-muted mb-4">{{ 'admin.settings.sms.intro' | transloco }}</p>
+            <p class="text-muted mb-2">{{ 'admin.settings.sms.intro' | transloco }}</p>
+            <!-- The phone sign-in switch is in User Settings: say where it stands, and link to it. -->
+            <p class="mb-4 phone-status">
+                @if (phoneSignIn()) {
+                    <i class="fa-solid fa-circle-check text-success me-1"></i>{{ 'admin.settings.sms.phone_on' | transloco }}
+                } @else {
+                    <i class="fa-solid fa-circle-minus text-muted me-1"></i>{{ 'admin.settings.sms.phone_off' | transloco }}
+                }
+                <a routerLink="/admin/settings/user" class="ms-1">{{ 'admin.settings.sms.phone_switch_link' | transloco }}</a>
+            </p>
 
             @if (form().provider === 'log') {
                 <div class="alert alert-warning d-flex gap-2 align-items-start">
@@ -113,6 +122,7 @@ export class SmsSettingsPage implements OnInit {
 
     readonly form = signal<SmsSettingsForm>({ ...DEFAULT_SMS_FORM });
     readonly hasAuthKey = signal(false);
+    readonly phoneSignIn = signal(false);
     readonly saving = signal(false);
     readonly saveMessage = signal('');
 
@@ -122,9 +132,10 @@ export class SmsSettingsPage implements OnInit {
     readonly testFailed = signal(false);
 
     ngOnInit(): void {
-        this.service.load().then(({ form, hasAuthKey }) => {
+        this.service.load().then(({ form, hasAuthKey, phoneSignIn }) => {
             this.form.set(form);
             this.hasAuthKey.set(hasAuthKey);
+            this.phoneSignIn.set(phoneSignIn);
         }).catch((err) => console.error('SMS settings: load failed', err));
     }
 

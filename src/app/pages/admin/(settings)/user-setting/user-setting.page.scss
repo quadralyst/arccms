@@ -82,6 +82,8 @@
 }
 
 .setting-control {
+    display: flex;
+    align-items: center;
     flex-shrink: 0;
     margin-left: 24px;
 }
@@ -136,4 +138,21 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #6c757d;
+}
+
+/* Phone sign-in cannot sign people in yet: the fix, under its switch. */
+.phone-setup {
+    margin: 0 0 16px;
+    font-size: 0.9rem;
+}
+
+.phone-setup-command {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.06);
+    color: inherit;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    word-break: break-all;
 }

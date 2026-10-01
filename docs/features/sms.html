@@ -17,7 +17,7 @@
     <table>
       <thead><tr><th>Part</th><th>Where</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td>SMS settings</td><td>Admin, Settings, SMS (<code>/admin/settings/sms</code>)</td><td>The provider and its keys, the default country code, the countries allowed, and a test send</td></tr>
+        <tr><td>SMS settings</td><td>Admin, Settings, SMS (<code>/admin/settings/sms</code>)</td><td>The provider and its keys, the default country code, the countries allowed, and a test send. It also says whether phone sign-in is on, with a link to its switch in User Settings.</td></tr>
         <tr><td>SMS Logs</td><td>Admin, Email + SMS, SMS Logs (<code>/admin/sms-logs</code>)</td><td>Every message, sent or only recorded, with its status</td></tr>
         <tr><td>Phone sign-in</td><td>The sign-in page, and the profile's sign-in methods</td><td>Sign up and sign in with a mobile number, a one-time code and a PIN</td></tr>
       </tbody>
@@ -41,7 +41,7 @@
     <ul>
       <li>the SMS settings tab and the SMS Logs page go, and their URLs show the not-found page; the menu's Email + SMS group is called Email;</li>
       <li>phone sign-in is off whatever User Settings says, and its switch is hidden;</li>
-      <li>the functions <code>sendTestSms</code> and the phone sign-in functions are not built, so the next full functions deploy deletes them.</li>
+      <li>the functions <code>sendTestSms</code>, <code>checkPhoneSignIn</code> and the phone sign-in functions are not built, so the next full functions deploy deletes them.</li>
     </ul>
     <p>Settings and logs stay in Firestore. How the switch works for every feature: <a href="../reference/feature-ids.html">Feature ids</a>.</p>
 
@@ -53,7 +53,7 @@
       <li><p>To send real messages, choose <strong>MSG91</strong> and enter the auth key and the OTP template id. The key is never shown again: leave the field empty to keep the saved one.</p></li>
       <li><p>Click <strong>Save SMS settings</strong>. Then, under <strong>Send a test SMS</strong>, enter your own number and click <strong>Send test</strong>. With MSG91 the test is your OTP template with a made-up code; with the test provider it is only recorded in SMS Logs.</p></li>
     </ol>
-    <p>Then turn phone sign-in on under Admin, Settings, User Settings (see <a href="sign-in.html">Sign-in methods</a>).</p>
+    <p>Then turn phone sign-in on under Admin, Settings, User Settings (the SMS page links there). The switch first checks the one Google Cloud setting phone sign-in needs, and shows how to fix it if it is missing (see <a href="sign-in.html#google-cloud-setup-for-phone-sign-in">Google Cloud setup for phone sign-in</a>). With phone sign-in on and the test provider, User Settings also warns that codes are only logged.</p>
     <div class="warn"><p>With the test provider, no SMS is sent and the sign-in page shows the sign-up code on screen, so a sign-up does not prove the person owns the number. Reset and link codes are never shown on screen, only in SMS Logs. Switch to MSG91 before real people use phone sign-in.</p></div>
 
     <h2>Use it</h2>
@@ -95,6 +95,7 @@ const result = await sendSms({ to: '+919876543210', purpose: 'otp', code, text: 
       <thead><tr><th>Function</th><th>Does</th></tr></thead>
       <tbody>
         <tr><td><code>sendTestSms</code></td><td>The test send (admin)</td></tr>
+        <tr><td><code>checkPhoneSignIn</code></td><td>Whether phone sign-in can sign people in on this project, and the fix when it cannot (admin; see <a href="sign-in.html#google-cloud-setup-for-phone-sign-in">Google Cloud setup</a>)</td></tr>
         <tr><td><code>checkPhoneAccount</code></td><td>Whether a number has an account and a PIN</td></tr>
         <tr><td><code>requestPhoneOtp</code>, <code>verifyPhoneOtp</code></td><td>Send and check a code</td></tr>
         <tr><td><code>completePhoneSignup</code></td><td>Create the account after a sign-up code</td></tr>

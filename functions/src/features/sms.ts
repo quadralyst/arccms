@@ -5,4 +5,5 @@
 
 // SMS: the test send, and phone sign-in, which cannot work without an SMS provider.
 export * from '../auth/phoneAuth.js';
+export * from '../auth/phoneSignInCheck.js';
 export * from '../sms/sendTestSms.js';

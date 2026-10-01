@@ -98,6 +98,11 @@ export const DEFAULT_NOTIFICATION_TYPES: Record<string, NotificationTypeConfig> 
     category: 'transactional', defaultChannels: { inApp: true, email: false },
     userConfigurable: false, enabled: true,
   },
+  admin_sign_in_setup: {
+    label: 'Phone sign-in setup (admin)', description: "Phone sign-in can't sign people in until a Google Cloud setting is fixed.",
+    category: 'transactional', defaultChannels: { inApp: true, email: true },
+    userConfigurable: false, enabled: true,
+  },
   admin_webhook_failure: {
     label: 'Webhook failure (admin)', description: 'A provider webhook failed to process.',
     category: 'transactional', defaultChannels: { inApp: true, email: true },

@@ -42,9 +42,15 @@ export class SmsSettingsService {
         return runInInjectionContext(this.injector, fn);
     }
 
-    /** The form values, and whether an auth key is saved. */
-    async load(): Promise<{ form: SmsSettingsForm; hasAuthKey: boolean }> {
-        const snap = await this.inCtx(() => getDoc(doc(this.firestore, 'Settings', 'sms')));
+    /**
+     * The form values, whether an auth key is saved, and whether phone sign-in is on
+     * (`Settings/users.phoneSignIn`, switched in User Settings), so the page can say so.
+     */
+    async load(): Promise<{ form: SmsSettingsForm; hasAuthKey: boolean; phoneSignIn: boolean }> {
+        const [snap, users] = await Promise.all([
+            this.inCtx(() => getDoc(doc(this.firestore, 'Settings', 'sms'))),
+            this.inCtx(() => getDoc(doc(this.firestore, 'Settings', 'users'))).catch(() => null),
+        ]);
         const data = snap.data() ?? {};
         const allowed = Array.isArray(data['allowedCountryCodes']) ? (data['allowedCountryCodes'] as string[]).join(', ') : DEFAULT_SMS_FORM.allowedCountryCodes;
         return {
@@ -56,6 +62,7 @@ export class SmsSettingsService {
                 msg91OtpTemplateId: String(data['msg91OtpTemplateId'] ?? ''),
             },
             hasAuthKey: !!data['msg91AuthKey'],
+            phoneSignIn: users?.data()?.['phoneSignIn'] === true,
         };
     }
 

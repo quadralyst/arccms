@@ -542,6 +542,7 @@ async function menu(rl) {
     const result = await runDeploy(args, {
         built: true, record: false, isTTY: true, regionChecked: true,
         ask: async () => ((await yes(rl, 'Delete them?', false)) ? 'y' : 'n'),
+        askSignInSetup: async () => ((await yes(rl, 'Set it up now?', true)) ? 'y' : 'n'),
     });
     // Only a newly created callable can be left unreachable: check just those.
     const newCallables = result.created.filter((name) => callableNames().has(name));

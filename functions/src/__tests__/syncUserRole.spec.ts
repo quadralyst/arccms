@@ -79,8 +79,9 @@ vi.mock('firebase-functions/v2/https', () => {
     return { onCall: vi.fn((handler: Function) => handler), HttpsError };
 });
 
-const { onUserRoleChange, claimFirstAdmin, setRoleClaim, isTrustedRoleWriter, serviceAccountProject, resetProjectKeysForTests } =
+const { onUserRoleChange, claimFirstAdmin, setRoleClaim, isTrustedRoleWriter, serviceAccountProject } =
     await import('../users/syncUserRole.js');
+const { resetRuntimeIdentityForTests } = await import('../utils/runtimeIdentity.js');
 const trigger = onUserRoleChange as unknown as (event: any) => Promise<void>;
 const claim = claimFirstAdmin as unknown as (request: any) => Promise<unknown>;
 
@@ -128,7 +129,7 @@ beforeEach(() => {
     sentinel = null;
     onboarding = null;
     userDocs = [];
-    resetProjectKeysForTests();
+    resetRuntimeIdentityForTests();
     metadataAnswers('my-project', '449144539409');
     claimsByUid = { 'admin-uid': { arccms_role: 'admin' } };
     mockGetUser.mockImplementation(async (uid: string) => ({ uid, customClaims: claimsByUid[uid] }));

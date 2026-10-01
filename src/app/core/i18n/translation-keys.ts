@@ -1214,6 +1214,9 @@ export type TranslationKey =
     | 'admin.settings.sms.msg91_auth_key_hint'
     | 'admin.settings.sms.msg91_template'
     | 'admin.settings.sms.msg91_template_hint'
+    | 'admin.settings.sms.phone_off'
+    | 'admin.settings.sms.phone_on'
+    | 'admin.settings.sms.phone_switch_link'
     | 'admin.settings.sms.provider'
     | 'admin.settings.sms.provider_log'
     | 'admin.settings.sms.provider_msg91'
@@ -1248,8 +1251,19 @@ export type TranslationKey =
     | 'admin.settings.user.enable_signups_hint'
     | 'admin.settings.user.google_sign_in'
     | 'admin.settings.user.google_sign_in_hint'
+    | 'admin.settings.user.phone_check_failed'
+    | 'admin.settings.user.phone_setup_api'
+    | 'admin.settings.user.phone_setup_console'
+    | 'admin.settings.user.phone_setup_copied'
+    | 'admin.settings.user.phone_setup_copy'
+    | 'admin.settings.user.phone_setup_first'
+    | 'admin.settings.user.phone_setup_ready'
+    | 'admin.settings.user.phone_setup_recheck'
+    | 'admin.settings.user.phone_setup_role'
+    | 'admin.settings.user.phone_setup_title'
     | 'admin.settings.user.phone_sign_in'
     | 'admin.settings.user.phone_sign_in_hint'
+    | 'admin.settings.user.phone_sms_test_mode'
     | 'admin.settings.user.sign_in_methods'
     | 'admin.settings.user.sign_in_saved'
     | 'admin.settings.user.signups_disabled'
@@ -2669,6 +2683,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.sms.msg91_auth_key_hint',
     'admin.settings.sms.msg91_template',
     'admin.settings.sms.msg91_template_hint',
+    'admin.settings.sms.phone_off',
+    'admin.settings.sms.phone_on',
+    'admin.settings.sms.phone_switch_link',
     'admin.settings.sms.provider',
     'admin.settings.sms.provider_log',
     'admin.settings.sms.provider_msg91',
@@ -2703,8 +2720,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.user.enable_signups_hint',
     'admin.settings.user.google_sign_in',
     'admin.settings.user.google_sign_in_hint',
+    'admin.settings.user.phone_check_failed',
+    'admin.settings.user.phone_setup_api',
+    'admin.settings.user.phone_setup_console',
+    'admin.settings.user.phone_setup_copied',
+    'admin.settings.user.phone_setup_copy',
+    'admin.settings.user.phone_setup_first',
+    'admin.settings.user.phone_setup_ready',
+    'admin.settings.user.phone_setup_recheck',
+    'admin.settings.user.phone_setup_role',
+    'admin.settings.user.phone_setup_title',
     'admin.settings.user.phone_sign_in',
     'admin.settings.user.phone_sign_in_hint',
+    'admin.settings.user.phone_sms_test_mode',
     'admin.settings.user.sign_in_methods',
     'admin.settings.user.sign_in_saved',
     'admin.settings.user.signups_disabled',

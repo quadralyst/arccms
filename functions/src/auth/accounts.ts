@@ -12,6 +12,7 @@
  * never touched.
  */
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions/v2';
 import { Timestamp, type DocumentReference, type DocumentSnapshot } from 'firebase-admin/firestore';
 import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -19,6 +20,7 @@ import { db, owner } from '../init.js';
 import { phoneHash } from './phoneNumber.js';
 import { KNOWN_ROLES } from '../users/syncUserRole.js';
 import { setRecordClaims } from '../users/claims.js';
+import { SIGN_IN_NOT_READY, alertSigningProblem, signingProblem } from './signInSetup.js';
 
 const scryptAsync = promisify(scrypt) as (pin: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -128,9 +130,23 @@ export function applyNewAccountClaims(uid: string, userDocId: string, role: stri
     return setRecordClaims(uid, role, userDocId);
 }
 
-/** A custom token the browser exchanges for a session (`signInWithCustomToken`). */
+/**
+ * A custom token the browser exchanges for a session (`signInWithCustomToken`).
+ *
+ * Signing it needs Google Cloud setup (signInSetup.ts). When that is missing the person
+ * is told phone sign-in is not ready, and the admins are told how to fix it, instead of
+ * the person getting "Something went wrong" and the cause sitting in the logs.
+ */
 export async function issueSignInToken(uid: string): Promise<string> {
-    return owner.createCustomToken(uid);
+    try {
+        return await owner.createCustomToken(uid);
+    } catch (error) {
+        const problem = signingProblem(error);
+        if (!problem) throw error;
+        logger.error(`Phone sign-in cannot create sign-in tokens (${problem}). See docs/features/sign-in.html.`, error);
+        await alertSigningProblem(problem);
+        throw new HttpsError('failed-precondition', SIGN_IN_NOT_READY, { reason: 'sign-in-not-ready' });
+    }
 }
 
 // ---------------------------------------------------------------------------

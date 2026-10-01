@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Deploy | Arc CMS docs</title>
   <meta name="description" content="Deploy Arc CMS to a Firebase project with npm run deploy: the guided questions, the flags for scripts and CI, deleted functions, the callable check and the static pages.">
-  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-built-functions.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, firebase.json, package.json">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-built-functions.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, firebase.json, package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/deploy.html">
@@ -49,7 +49,7 @@
     <p>The website is offered only for the <code>default</code> and <code>production</code> aliases, the two with a website build: <code>default</code> builds with the development environment (<code>src/environments/environment.ts</code>), <code>production</code> with <code>src/environments/environment.prod.ts</code>. It is not offered when the project has no website (set up with <code>--site=none</code>).</p>
 
     <h2>Deploy from a script or CI</h2>
-    <p>With any option, <code>npm run deploy</code> skips the guided questions and passes the options on to <code>firebase deploy</code>. The one question it can still ask, in a terminal, is before it deletes functions (see <a href="#functions-that-are-deleted">Functions that are deleted</a>). Off a terminal and with no options, it prints these examples and stops.</p>
+    <p>With any option, <code>npm run deploy</code> skips the guided questions and passes the options on to <code>firebase deploy</code>. The questions it can still ask, in a terminal, are before it deletes functions (see <a href="#functions-that-are-deleted">Functions that are deleted</a>) and, once per project, whether to set up phone sign-in's Google Cloud setting. Off a terminal and with no options, it prints these examples and stops.</p>
     <pre><code>npm run deploy -- --only functions:arccms --project default
 npm run deploy -- --only functions:arccms:arccms.&lt;name&gt; --project default
 npm run deploy -- --only firestore --project default
@@ -76,7 +76,8 @@ npm run deploy -- --only hosting --project default</code></pre>
       <li>waits 65 seconds and deploys again, up to two times, any function the Firebase CLI started but never reported as done (Google limits how many functions can change per minute);</li>
       <li>fails when a function still never reported success, and prints the command that redeploys it;</li>
       <li>stops with a plain message when you ask for hosting on a project with no website, or for storage rules on a bucket shared with another app;</li>
-      <li>records a whole deploy of a part (all functions, <code>firestore</code>, <code>storage</code>, <code>hosting</code>) for the guided deploy's "only what changed".</li>
+      <li>records a whole deploy of a part (all functions, <code>firestore</code>, <code>storage</code>, <code>hosting</code>) for the guided deploy's "only what changed";</li>
+      <li>with the <code>sms</code> feature on, checks once per project, with <code>gcloud</code>, that phone sign-in can sign people in (the IAM Service Account Credentials API and the Token Creator role for the functions' service account), and in a terminal offers to set up what is missing. A yes or a no is remembered in <code>.arc-deploy-state.json</code>; without <code>gcloud</code> it says so once. It never stops the deploy. See <a href="../features/sign-in.html#google-cloud-setup-for-phone-sign-in">Google Cloud setup for phone sign-in</a>.</li>
     </ul>
 
     <div class="trap"><p>Plain <code>firebase deploy</code> skips all of this. It ships the functions exactly as they were last built, so new functions are silently missing, and it uses <code>firebase.json</code>, so a project set up with its own database, bucket or website gets the wrong ones. Always deploy through <code>npm run deploy</code>.</p></div>

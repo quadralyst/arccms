@@ -37,7 +37,7 @@
       <thead><tr><th>Switch</th><th>Default</th><th>Also needs</th></tr></thead>
       <tbody>
         <tr><td>Enable User Signups</td><td>On</td><td>Nothing. Off: only admins can add people (Users, Add User), and existing accounts still sign in.</td></tr>
-        <tr><td>Phone number</td><td>Off</td><td>The <code>sms</code> feature (on by default) and SMS settings. With <code>sms</code> off in <code>src/custom/features.ts</code>, the switch is hidden, phone sign-in is off whatever it says, and the phone functions are not built.</td></tr>
+        <tr><td>Phone number</td><td>Off</td><td>The <code>sms</code> feature (on by default), SMS settings, and one Google Cloud setting (see <a href="#google-cloud-setup-for-phone-sign-in">Google Cloud setup for phone sign-in</a>). The switch checks that setting before it turns on. With <code>sms</code> off in <code>src/custom/features.ts</code>, the switch is hidden, phone sign-in is off whatever it says, and the phone functions are not built.</td></tr>
         <tr><td>Google</td><td>Off</td><td>The Google provider turned on in the Firebase console.</td></tr>
       </tbody>
     </table>
@@ -47,10 +47,27 @@
     <ol class="steps">
       <li><p><strong>Firebase console, Authentication, Sign-in method:</strong> Email/Password must be on (email sign-in uses it). Turn on Google if you want Google sign-in. See <a href="../getting-started/configure.html">Configure a project</a>.</p></li>
       <li><p><strong>Deploy the functions, Firestore rules and indexes</strong> (see <a href="../operations/deploy.html">Deploy</a>).</p></li>
-      <li><p><strong>Phone numbers only:</strong> set up SMS under Settings, SMS: the provider, the default country code and the allowed country codes. Keep the Test provider while trying it. See <a href="sms.html">SMS</a>.</p></li>
+      <li><p><strong>Phone numbers only:</strong> set up SMS under Settings, SMS: the provider, the default country code and the allowed country codes. Keep the Test provider while trying it. See <a href="sms.html">SMS</a>. The project also needs the Google Cloud setting below; the deploy offers to make it.</p></li>
       <li><p><strong>Settings, User Settings:</strong> leave sign-ups on, and turn on Phone number and Google as wanted.</p></li>
       <li><p><strong>Try each method</strong> on <code>/signup</code> in a private window.</p></li>
     </ol>
+
+    <h3 id="google-cloud-setup-for-phone-sign-in">Google Cloud setup for phone sign-in</h3>
+    <p>The last step of every phone sign-in creates a custom token, which the functions sign as their own service account (for 2nd gen functions, <code>&lt;project-number&gt;-compute@developer.gserviceaccount.com</code>). A new Firebase project cannot do that until:</p>
+    <ul>
+      <li>the IAM Service Account Credentials API (<code>iamcredentials.googleapis.com</code>) is on, and</li>
+      <li>that service account has the <strong>Service Account Token Creator</strong> role (<code>roles/iam.serviceAccountTokenCreator</code>), granted on the account itself or on the project.</li>
+    </ul>
+    <p>Three things make sure nobody finds out the hard way:</p>
+    <ol>
+      <li><strong>The deploy.</strong> A deploy that includes functions, with the <code>sms</code> feature on, checks both once per project with <code>gcloud</code> and, in a terminal, offers to set up what is missing. Without <code>gcloud</code> it says so once. It never stops the deploy (see <a href="../operations/deploy.html">Deploy</a>).</li>
+      <li><strong>The switch.</strong> Turning on Phone number under Settings, User Settings first signs a throwaway token (the <code>checkPhoneSignIn</code> function; it creates no account). If that fails, the switch stays off and the page shows what is missing, a <code>gcloud</code> command for this project to copy, a link to the Google Cloud console, and <strong>Check again</strong>. With phone sign-in already on, the page runs the same check whenever it opens. If the check itself cannot run (the function is not deployed), the switch turns on anyway, with a warning.</li>
+      <li><strong>A failed sign-in.</strong> If the setting goes missing later, the person signing in sees "Phone sign-in isn't ready on this site yet. Please contact the site's team.", and every admin gets a notification (<code>admin_sign_in_setup</code>) saying what to fix, at most once a day.</li>
+    </ol>
+    <p>To set it up by hand, with your project id and service account:</p>
+    <pre><code>gcloud services enable iamcredentials.googleapis.com --project=&lt;project-id&gt;
+gcloud iam service-accounts add-iam-policy-binding &lt;service-account&gt; --member=serviceAccount:&lt;service-account&gt; --role=roles/iam.serviceAccountTokenCreator --project=&lt;project-id&gt;</code></pre>
+    <p>Granting a role needs the Owner or Security Admin role on the project. In the console, the role is added under IAM and admin, IAM.</p>
 
     <h2>Use it</h2>
     <h3>Email</h3>
@@ -142,7 +159,8 @@
         <tr><td>No SMS arrives</td><td>The SMS provider is Test, which sends nothing. Look in SMS Logs, or switch the provider (see <a href="sms.html">SMS</a>).</td></tr>
         <tr><td>The first sign-in after a quiet spell is slow</td><td>The functions were not running and had to start. The page starts them as it opens, so the wait is shortest when the person opens it before typing. A function added to a sign-in step belongs in <code>SIGN_IN_FUNCTIONS</code> in <code>src/app/pages/(auth)/sign-in.service.ts</code>, with <code>if (isWarmUp(request)) return WARM;</code> as the first line of its handler; a test checks both.</td></tr>
         <tr><td>"Too many tries. Reset your PIN with a code."</td><td>The PIN is locked after 5 wrong tries. Use Forgot PIN.</td></tr>
-        <tr><td>Phone sign-in accepts the code or PIN, then fails to sign in</td><td>The last step creates a custom token, which Firebase signs with the service account the functions run as. Check the function's log in the Firebase console: if it mentions <code>iam.serviceAccounts.signBlob</code>, give that service account the IAM role <strong>Service Account Token Creator</strong> and turn on the IAM Service Account Credentials API, both in the Google Cloud console.</td></tr>
+        <tr><td>"Phone sign-in isn't ready on this site yet. Please contact the site's team."</td><td>The functions cannot sign the sign-in token: the Token Creator role or the IAM Service Account Credentials API is missing. Open Settings, User Settings: it shows the fix for this project. See <a href="#google-cloud-setup-for-phone-sign-in">Google Cloud setup for phone sign-in</a>.</td></tr>
+        <tr><td>The Phone number switch will not turn on</td><td>The same setup is missing, and the page shows how to fix it. After fixing it, click <strong>Check again</strong>, then turn the switch on.</td></tr>
       </tbody>
     </table>
   </main>
