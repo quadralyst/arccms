@@ -150,3 +150,32 @@ that renders the same templates in the browser. An inline editor could reuse tho
 binding markers to know which field each element maps to. Open questions: auth/edit-mode
 gating on public pages, saving back to `arc_{slug}_drafts`, rich-text vs plain fields,
 and how it interacts with translations (edit the language you are viewing).
+
+---
+
+## Analytics
+
+### 6. Analytics that follows consent (future release, raised 2026-10-01)
+Today `app.config.ts` starts Firebase Analytics, `ScreenTrackingService` and
+`UserTrackingService` for every visitor. The Site Usage banner saves the visitor's
+choice to localStorage, but nothing applies it (docs/features/analytics.html says so).
+Raised by the Sanskrit app, which has children's screens (India's DPDP Act requires
+verifiable parental consent and rules out tracking children). Deferred on purpose:
+analytics stays as it is for now.
+
+When picked up:
+- Load Analytics only after "accepted"; on withdrawal turn collection off
+  (`ga-disable-<id>`) and delete the `_ga` cookies. Replace the two AngularFire tracking
+  services with our own screen view and user id calls, so nothing runs before consent.
+- An `analytics` feature flag (`off: ['analytics']`) that also hides the admin
+  analytics pages.
+- `data: { analytics: false }` on a route, inherited like `feedbackButton`. Decide whether
+  entering such a route from a tracked page needs a full page load, or whether turning
+  collection off is enough.
+- A public way to reopen the consent choice (the banner never comes back today).
+- Decide what happens when Analytics is on but the banner is off (recommendation: no
+  consent asked means nobody tracked, with a warning in Settings).
+- `GaTrackingService.linkUserAfterSignup` sends the uid and the email domain; drop the
+  email domain.
+- Document what is collected and when: every event, user properties, the uid, and that
+  the choice is stored per device.
