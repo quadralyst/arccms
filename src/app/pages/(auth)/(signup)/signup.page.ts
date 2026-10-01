@@ -196,6 +196,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.phoneEnabled.set(phoneSignInOn(settings));
         this.googleEnabled.set(settings.googleSignIn === true);
         this.updateValidators(this.currentStep());
+        // Start the sign-in functions while the person types (each takes seconds to start).
+        this.signIn.warmUp({ phone: this.phoneEnabled(), google: this.googleEnabled() });
       });
 
       // Listen for auth state changes on initial load

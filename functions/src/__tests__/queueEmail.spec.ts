@@ -28,6 +28,14 @@ vi.mock('../email-core/contacts', () => ({
   },
 }));
 
+// sendNow: the call that queued the email sends it once it claims it.
+const { mockSendMail, mockClaim } = vi.hoisted(() => ({
+  mockSendMail: vi.fn().mockResolvedValue(undefined),
+  mockClaim: vi.fn().mockResolvedValue(true),
+}));
+vi.mock('../mail-config/mailConfig', () => ({ sendMail: mockSendMail }));
+vi.mock('../email-core/claimEmailSend', () => ({ claimEmailSend: mockClaim }));
+
 // Every feature on unless a test turns some off (specs/feature-flags-spec.md).
 const featuresOff = vi.hoisted(() => new Set<string>());
 vi.mock('../feature-flags.js', () => ({ isFeatureOn: (id: string) => !featuresOff.has(id) }));
@@ -102,6 +110,65 @@ describe('queueEmail', () => {
     mockGetContactConsent.mockResolvedValue(null); // no contact → fall back to isSubscribed
     mockDisabled.value = false;
     featuresOff.clear();
+    mockClaim.mockResolvedValue(true);
+    mockSendMail.mockResolvedValue(undefined);
+  });
+
+  describe('sendNow (a code the person is waiting for)', () => {
+    beforeEach(() => mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() }));
+
+    it('sends from the call once it has claimed the log, and marks the log so the trigger claims first', async () => {
+      const res = await queueEmail({ ...baseParams, sendNow: true });
+
+      expect(res).toEqual({ id: 'log-1', status: 'pending' });
+      expect(lastAddArg()).toMatchObject({ status: 'pending', sendNow: true });
+      expect(mockClaim).toHaveBeenCalledWith('log-1');
+      expect(mockSendMail).toHaveBeenCalledWith(expect.objectContaining({ toEmail: 'user@example.com', sendNow: true }), 'log-1');
+    });
+
+    it('leaves the email to the trigger without sendNow', async () => {
+      await queueEmail(baseParams);
+
+      expect(lastAddArg().sendNow).toBeUndefined();
+      expect(mockClaim).not.toHaveBeenCalled();
+      expect(mockSendMail).not.toHaveBeenCalled();
+    });
+
+    it('does not send when the trigger claimed it first', async () => {
+      mockClaim.mockResolvedValue(false);
+
+      await queueEmail({ ...baseParams, sendNow: true });
+
+      expect(mockSendMail).not.toHaveBeenCalled();
+    });
+
+    it('never sends a blocked email', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => enabledSettings({ isEnabled: false }) });
+
+      const res = await queueEmail({ ...baseParams, sendNow: true });
+
+      expect(res.status).toBe('skipped');
+      expect(mockClaim).not.toHaveBeenCalled();
+      expect(mockSendMail).not.toHaveBeenCalled();
+    });
+
+    it('still reports the email queued when sending fails, since the log keeps it', async () => {
+      mockSendMail.mockRejectedValue(new Error('provider down'));
+      const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      await expect(queueEmail({ ...baseParams, sendNow: true })).resolves.toEqual({ id: 'log-1', status: 'pending' });
+      error.mockRestore();
+    });
+
+    it('sends a deduplicated email once, and not again for a duplicate', async () => {
+      await queueEmail({ ...baseParams, sendNow: true, dedupeKey: 'k1' });
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
+
+      mockCreate.mockRejectedValue({ code: 6 });
+      const res = await queueEmail({ ...baseParams, sendNow: true, dedupeKey: 'k1' });
+      expect(res.duplicate).toBe(true);
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('without the audience feature', () => {

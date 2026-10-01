@@ -161,7 +161,7 @@
     <table>
       <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td><code>onEmailLogCreate</code></td><td>Firestore trigger: <code>EmailLogs/{EmailLogsId}</code> created</td><td>Every queued email</td><td>Sends a pending email through the active mail provider.</td></tr>
+        <tr><td><code>onEmailLogCreate</code></td><td>Firestore trigger: <code>EmailLogs/{EmailLogsId}</code> created</td><td>Every queued email</td><td>Sends a pending email through the active mail provider. A <code>sendNow</code> email, such as a sign-up code, is sent by the call that queued it, and this sends it only if that call did not.</td></tr>
         <tr><td><code>retryPendingEmails</code></td><td>Scheduled: every 5 minutes</td><td>The schedule</td><td>Sends again the emails in <code>retrying</code> or <code>deferred</code> whose next attempt is due.</td></tr>
         <tr><td><code>handleUnsubscribe</code></td><td>HTTP, GET and POST</td><td>Public, with a signed link</td><td>Unsubscribes the recipient. GET shows a page; POST is one-click unsubscribe.</td></tr>
         <tr><td><code>handleEmailPreferences</code></td><td>HTTP</td><td>Public, with a signed link</td><td>Shows the recipient's preferences page and subscribes or unsubscribes them.</td></tr>

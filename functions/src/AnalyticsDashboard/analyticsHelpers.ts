@@ -1,4 +1,4 @@
-import { google, analyticsdata_v1beta } from 'googleapis';
+import type { analyticsdata_v1beta } from 'googleapis';
 import { bucketAiReferrers } from '../shared/ai-referrers.js';
 import { FieldValue, Firestore } from 'firebase-admin/firestore';
 import { OAuth2Client } from 'google-auth-library';
@@ -31,6 +31,8 @@ export async function fetchAndStoreAnalyticsData(
   authClient: OAuth2Client,
   propertyId: string,
 ): Promise<void> {
+  // Loaded here, not at the top: googleapis is slow to load and would slow every function's cold start.
+  const { google } = await import('googleapis');
   const analyticsData = google.analyticsdata({ version: 'v1beta', auth: authClient });
 
   // Query with two date ranges: current (28 days) and previous (28 days before that) for comparison

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@angular/fire/functions', () => ({ Functions: class {}, httpsCallable: vi.fn() }));
 
-import { readSignInError, SignInService } from './sign-in.service';
+import { readSignInError, SIGN_IN_FUNCTIONS, SignInService } from './sign-in.service';
 
 const ensureRecordClaim = SignInService.prototype.ensureRecordClaim;
 
@@ -96,5 +96,39 @@ describe('SignInService code tickets (review F)', () => {
         await proto['verifySignupCode'].call(c, 'asha@example.com ', '123456');
         await proto['createAccountRecord'].call(c, 'Asha');
         expect(c['call']).toHaveBeenLastCalledWith('createAccountRecord', { name: 'Asha', ticket: 'email-ticket' });
+    });
+});
+
+describe('SignInService.warmUp', () => {
+    const warmUp = SignInService.prototype.warmUp;
+
+    function ctx() {
+        return { lastWarmUp: 0, call: vi.fn(async () => ({ warm: true })) };
+    }
+
+    it('wakes the email functions with a warm-up call, and phone and Google only when they are on', () => {
+        const c = ctx();
+        warmUp.call(c as never, { phone: false, google: false });
+        expect(c.call.mock.calls.map(([name]) => name)).toEqual([...SIGN_IN_FUNCTIONS.email]);
+        for (const [, data] of c.call.mock.calls as unknown as [string, unknown][]) expect(data).toEqual({ warmUp: true });
+
+        const all = ctx();
+        warmUp.call(all as never, { phone: true, google: true });
+        expect(all.call.mock.calls.map(([name]) => name)).toEqual([
+            ...SIGN_IN_FUNCTIONS.email, ...SIGN_IN_FUNCTIONS.phone, ...SIGN_IN_FUNCTIONS.google,
+        ]);
+    });
+
+    it('does not wake them again within a few minutes', () => {
+        const c = ctx();
+        warmUp.call(c as never, { phone: false, google: false });
+        warmUp.call(c as never, { phone: true, google: true });
+        expect(c.call).toHaveBeenCalledTimes(SIGN_IN_FUNCTIONS.email.length);
+    });
+
+    it('ignores a failed warm-up call', async () => {
+        const c = { lastWarmUp: 0, call: vi.fn(async () => { throw new Error('offline'); }) };
+        expect(() => warmUp.call(c as never, { phone: false, google: false })).not.toThrow();
+        await Promise.resolve();
     });
 });

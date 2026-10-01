@@ -37,6 +37,7 @@ import {
     setPin as storePin,
 } from './accounts.js';
 import { consumeVerifiedPhoneOtp, isPhoneOtpPurpose, issuePhoneOtp, verifyPhoneOtp as checkPhoneOtp } from './phoneOtp.js';
+import { isWarmUp, WARM } from './warmUp.js';
 
 const HOUR = 60 * 60 * 1000;
 const TOO_MANY = 'Too many attempts. Please try again later.';
@@ -80,6 +81,7 @@ async function phoneContext(request: CallableRequest) {
 }
 
 export const checkPhoneAccount = onCall(async (request) => {
+    if (isWarmUp(request)) return WARM;
     await consumeRateLimit(`check-ip-${callerKey(request)}`, 100, HOUR, TOO_MANY);
     const { signIn, phone } = await phoneContext(request);
     const account = await findUserByPhone(phone);
@@ -92,6 +94,7 @@ export const checkPhoneAccount = onCall(async (request) => {
 });
 
 export const requestPhoneOtp = onCall(async (request) => {
+    if (isWarmUp(request)) return WARM;
     const purpose = request.data?.purpose;
     if (!isPhoneOtpPurpose(purpose)) throw new HttpsError('invalid-argument', 'Unknown request.');
     const { signIn, sms, phone } = await phoneContext(request);
@@ -119,6 +122,7 @@ export const requestPhoneOtp = onCall(async (request) => {
 });
 
 export const verifyPhoneOtp = onCall(async (request) => {
+    if (isWarmUp(request)) return WARM;
     const purpose = request.data?.purpose;
     if (!isPhoneOtpPurpose(purpose)) throw new HttpsError('invalid-argument', 'Unknown request.');
     const { phone } = await phoneContext(request);
@@ -130,6 +134,7 @@ export const verifyPhoneOtp = onCall(async (request) => {
 });
 
 export const completePhoneSignup = onCall(async (request) => {
+    if (isWarmUp(request)) return WARM;
     const { signIn, phone } = await phoneContext(request);
     const name = readName(request.data?.name);
     const pin = readNewPin(request.data?.pin);
@@ -178,6 +183,7 @@ export const completePhoneSignup = onCall(async (request) => {
 });
 
 export const signInWithPin = onCall(async (request) => {
+    if (isWarmUp(request)) return WARM;
     await consumeRateLimit(`pin-ip-${callerKey(request)}`, 30, HOUR, TOO_MANY);
     const { phone } = await phoneContext(request);
     const pin = readPin(request.data?.pin);

@@ -11,6 +11,9 @@ import { getContactGateState } from './contacts.js';
 import { usedAppFields } from '../app-audience/mergeFields.js';
 import { appUserSubscribed } from './appUserConsent.js';
 import { isFeatureOn } from '../feature-flags.js';
+import { sendMail } from '../mail-config/mailConfig.js';
+import type { EmailLogData } from '../types.js';
+import { claimEmailSend } from './claimEmailSend.js';
 
 /** Default max delivery attempts before an email is marked `failed`. */
 export const DEFAULT_MAX_ATTEMPTS = 3;
@@ -91,6 +94,12 @@ export interface QueueEmailParams {
    * now, and a retry after the cause is fixed must be free to send.
    */
   dedupeKey?: string;
+  /**
+   * Send it from this call instead of waiting for onEmailLogCreate, for mail a
+   * person is waiting on (a sign-in code): it saves the trigger's cold start.
+   * The trigger still runs and sends it only if this call did not.
+   */
+  sendNow?: boolean;
 }
 
 export interface QueueEmailResult {
@@ -109,8 +118,8 @@ export interface QueueEmailResult {
  * to `EmailLogs` (status `skipped`/`suppressed` + `skipReason`) so every
  * decision is auditable — nothing is ever silently dropped.
  *
- * A `pending` doc fires `onEmailLogCreate` → `sendMail()`. Blocked docs are
- * ignored by that trigger.
+ * A `pending` doc fires `onEmailLogCreate` → `sendMail()`, or is sent here
+ * with `sendNow`. Blocked docs are ignored by that trigger.
  */
 export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailResult> {
   const settings = params.emailSettings ?? (await readEmailSettings());
@@ -210,12 +219,14 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
   const pending = {
     ...base,
     status: 'pending',
+    ...(params.sendNow ? { sendNow: true } : {}),
     ...(contact.fields ? { contactFields: contact.fields } : {}),
     // Only the host fields this email's ##APP.*## tags use, never the whole document.
     ...(params.appUser ? { appFields: usedAppFields(params.appUser.fields, params.template, params.subject) } : {}),
   };
   if (!params.dedupeKey) {
     const id = await writeLog(pending);
+    if (params.sendNow) await sendFromCaller(id, pending);
     return { id, status: 'pending' };
   }
 
@@ -224,12 +235,26 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
   const id = emailLogId(params.type, params.dedupeKey);
   try {
     await db.collection('EmailLogs').doc(id).create(pending);
+    if (params.sendNow) await sendFromCaller(id, pending);
     return { id, status: 'pending' };
   } catch (error) {
     if (isAlreadyExists(error)) {
       return { id, status: 'pending', duplicate: true };
     }
     throw error;
+  }
+}
+
+/**
+ * Send a `sendNow` email from the call that queued it, once it has claimed it.
+ * A failure is logged, never thrown: the log is written, and sendMail records
+ * a failed send there and retries it like any other.
+ */
+async function sendFromCaller(id: string, data: Record<string, unknown>): Promise<void> {
+  try {
+    if (await claimEmailSend(id)) await sendMail(data as EmailLogData, id);
+  } catch (error) {
+    console.error(`queueEmail: sending ${id} now failed`, error);
   }
 }
 

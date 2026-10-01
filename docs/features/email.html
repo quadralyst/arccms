@@ -113,7 +113,7 @@
     <p>The admin digest emails every admin a count of new sign-ups, successful payments and failed emails from the last 24 hours. It has no switch on the admin page: set <code>adminDigest</code> to <code>{ enabled: true, hourUtc: 8 }</code> in the <code>Settings/email</code> document. The job runs every hour and sends in that hour (UTC).</p>
 
     <h3>How a send works</h3>
-    <p>Every email is queued by one function, <code>queueEmail()</code> in <code>functions/src/email-core/queueEmail.ts</code>. It checks, in order: the master switch, the email's feature switch, whether the template is active, whether an admin disabled the contact (with Audience on), marketing consent (marketing only), and the suppression list. A send that fails a check is still written to the log, with the reason. A send that passes is written as <code>pending</code>, and a trigger sends it.</p>
+    <p>Every email is queued by one function, <code>queueEmail()</code> in <code>functions/src/email-core/queueEmail.ts</code>. It checks, in order: the master switch, the email's feature switch, whether the template is active, whether an admin disabled the contact (with Audience on), marketing consent (marketing only), and the suppression list. A send that fails a check is still written to the log, with the reason. A send that passes is written as <code>pending</code>, and a trigger, <code>onEmailLogCreate</code>, sends it. An email queued with <code>sendNow: true</code>, such as a sign-up code, is sent by the call that queued it instead, which saves the seconds the trigger can take to start. The trigger still runs and sends it only if that call did not.</p>
     <p>A failed send is retried with growing delays (10, then 20 minutes) up to 3 attempts, then marked <code>failed</code>. A send over the rate limit is marked <code>deferred</code> and tried again after 15 minutes. The <code>retryPendingEmails</code> job picks both up every 5 minutes.</p>
 
     <h3>Read the email log</h3>
@@ -168,6 +168,7 @@ export async function sendShippedEmail(toEmail: string, tracking: string) {
     <p>A template created with <strong>New email</strong> has no sender of its own, and <code>queueEmail()</code> sends with exactly the sender you pass: fall back to the sender on Email Settings, as above.</p>
     <ul>
       <li>The result says what happened: <code>{ status: 'pending' | 'skipped' | 'suppressed', skipReason }</code>.</li>
+      <li>Add <code>sendNow: true</code> for an email someone is waiting for on screen, such as a code: your function sends it before it returns, not the trigger. Leave it off for everything else, so a burst of emails does not hold up your function.</li>
       <li>Pass <code>dedupeKey</code> from a trigger that may run twice: the same type and key never queue a second email.</li>
       <li>To let admins decide which email goes out when something happens in your app, emit an event instead and let them map it in <a href="automations.html">Automations</a>.</li>
       <li>To reach a signed-in user in the app and by email, create a notification (see <a href="notifications.html#extend-it">Notifications</a>).</li>
@@ -192,7 +193,7 @@ export async function sendShippedEmail(toEmail: string, tracking: string) {
     <table>
       <thead><tr><th>Function</th><th>Kind</th><th>Does</th></tr></thead>
       <tbody>
-        <tr><td><code>onEmailLogCreate</code></td><td>Firestore trigger</td><td>Sends each new <code>pending</code> log</td></tr>
+        <tr><td><code>onEmailLogCreate</code></td><td>Firestore trigger</td><td>Sends each new <code>pending</code> log. A <code>sendNow</code> log only if the call that queued it did not send it</td></tr>
         <tr><td><code>retryPendingEmails</code></td><td>Every 5 minutes</td><td>Retries <code>retrying</code> and <code>deferred</code> logs</td></tr>
         <tr><td><code>scheduledPurgeEmailLogs</code></td><td>Daily, 02:00 UTC</td><td>Deletes old logs</td></tr>
         <tr><td><code>purgeEmailLogs</code></td><td>Callable, admin</td><td>Deletes logs older than a number of days</td></tr>

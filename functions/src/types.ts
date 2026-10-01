@@ -102,6 +102,10 @@ export interface EmailLogData {
   activeProvider?: string;
   status?: EmailLogStatus;
   sendingTime?: Timestamp;
+  /** Sent by the call that queued it, not by onEmailLogCreate (queueEmail `sendNow`). */
+  sendNow?: boolean;
+  /** When the call or the trigger claimed a `sendNow` email for sending. */
+  sendClaimedAt?: Timestamp;
   messageId?: string;
   errorMessage?: string;
   broadcastId?: string;

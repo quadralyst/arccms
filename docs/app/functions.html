@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Write your own Cloud Functions | Arc CMS docs</title>
   <meta name="description" content="Add your app's callables and Firestore triggers in functions/src/custom, call them from the browser, read the right database, and test and deploy them.">
-  <meta name="docs:sources" content="functions/src/custom, functions/src/all.ts, functions/src/index.ts, functions/src/function-names.ts, functions/src/init.ts, functions/src/arc-config.ts, functions/src/users/claims.ts, functions/src/email-core/appEvents.ts, functions/scripts/check-callable-access.sh, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, src/app/core/config/arc-functions.ts, functions/src/__tests__/arcConfigGuard.spec.ts">
+  <meta name="docs:sources" content="functions/src/custom, functions/src/all.ts, functions/src/index.ts, functions/src/function-names.ts, functions/src/init.ts, functions/src/arc-config.ts, functions/src/users/claims.ts, functions/src/email-core/appEvents.ts, functions/scripts/check-callable-access.sh, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, src/app/core/config/arc-functions.ts, functions/src/__tests__/arcConfigGuard.spec.ts, functions/src/auth/warmUp.ts, functions/src/shared/lazy-cheerio.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/functions.html">
@@ -118,6 +118,15 @@ export const onLessonDone = onDocumentCreated(
     <h2>Settings for your functions</h2>
     <p>Read a setting with Firebase's <code>defineString</code> from <code>firebase-functions/params</code>, as core does in <code>functions/src/arc-config.ts</code>. Put the value in the per-project file <code class="new">functions/.env.YOUR_PROJECT</code>: <code>npm run arc:configure</code> writes its own keys there and keeps every other line. For a secret, use Firebase's <code>defineSecret</code> so the value stays out of the repository.</p>
     <div class="trap"><p>Do not add your keys to <code>functions/.env</code>. It is a core file, so <code>npm run check:core</code> reports your change, and an Arc CMS update can conflict with it.</p></div>
+
+    <h2 id="cold-starts">Keep cold starts short</h2>
+    <p>A function that has not run for a while starts from cold, and every function loads the whole functions codebase as it starts: core, the app's features and your functions. A slow library imported at the top of any file therefore slows the start of every function, sign-in included, and not only the one that uses it.</p>
+    <ul>
+      <li>Import a large library inside the function that uses it: <code>const { google } = await import('googleapis');</code>. A test fails if <code>googleapis</code> or <code>cheerio</code> is imported at the top of a file; types can still be imported with <code>import type</code>.</li>
+      <li>To parse HTML, use <code>loadHtml()</code> from <code>functions/src/shared/lazy-cheerio.ts</code> in place of <code>cheerio.load()</code>. It loads cheerio the first time it is called.</li>
+      <li>For a callable a page is about to use, the page can start it early with a call that does nothing: <code>isWarmUp()</code> and <code>WARM</code> in <code>functions/src/auth/warmUp.ts</code>, as the sign-in page does (<a href="../features/sign-in.html">Sign-in</a>).</li>
+    </ul>
+    <p>Keeping a function always running (<code>minInstances</code>) removes cold starts, but is billed all the time, for each function; Arc CMS does not do it.</p>
 
     <h2>What public-callables.txt is for</h2>
     <p>Firebase makes a callable publicly invocable when it creates it. If that step fails, for example in a deploy that timed out, every browser call to the function fails with HTTP 403, and a later deploy does not fix it. <code>functions/scripts/check-callable-access.sh</code> calls each callable and reports the blocked ones with the command that fixes them.</p>

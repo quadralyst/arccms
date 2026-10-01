@@ -2,6 +2,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { sendMail } from '../mail-config/mailConfig.js';
 import type { EmailLogData } from '../types.js';
 import { arcDocument } from '../arc-config.js';
+import { claimEmailSend } from '../email-core/claimEmailSend.js';
 
 /**
  * Triggered when an EmailLog document is created.
@@ -22,6 +23,13 @@ export const onEmailLogCreate = onDocumentCreated(arcDocument('EmailLogs/{EmailL
   const status = (emailLogsData as EmailLogData).status;
   if (status && status !== 'pending') {
     console.log(`onEmailLogCreate: ${emailLogsId} has status '${status}', not sending.`);
+    return;
+  }
+
+  // A `sendNow` email (a sign-in code) is sent by the call that queued it; this
+  // sends it only when that call did not claim it first.
+  if ((emailLogsData as EmailLogData).sendNow && !(await claimEmailSend(emailLogsId))) {
+    console.log(`onEmailLogCreate: ${emailLogsId} was sent by the call that queued it.`);
     return;
   }
 

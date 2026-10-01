@@ -15,7 +15,8 @@
  *
  * Mirrored client-side in src/shared/utils/content-blocks.ts for the SPA.
  */
-import * as cheerio from 'cheerio';
+import type * as cheerio from 'cheerio';
+import { loadHtml } from './lazy-cheerio.js';
 import { SCHEMA_CONTEXT } from './structured-data.js';
 
 export interface FaqEntry { question: string; answer: string }
@@ -36,7 +37,7 @@ export function extractBlocks(bodyHtml: string): ContentBlocks {
     const blocks: ContentBlocks = { faqs: [], howTos: [], takeaways: [], definitions: [] };
     if (!bodyHtml || !bodyHtml.includes('data-arc-block')) return blocks;
 
-    const $ = cheerio.load(`<body>${bodyHtml}</body>`, { xmlMode: false });
+    const $ = loadHtml(`<body>${bodyHtml}</body>`, { xmlMode: false });
 
     $('section[data-arc-block="faq"]').each((_, section) => {
         let question = '';

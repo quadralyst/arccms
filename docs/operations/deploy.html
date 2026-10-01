@@ -55,6 +55,7 @@ npm run deploy -- --only functions:arccms:arccms.&lt;name&gt; --project default
 npm run deploy -- --only firestore --project default
 npm run deploy -- --only storage --project default
 npm run deploy -- --only hosting --project default</code></pre>
+    <p>Copy these as they are, except for the project. <code>arccms</code> in <code>functions:arccms</code> is not a project or database name: it is the name of the Arc CMS functions codebase in <code>firebase.json</code>, the same in every install, and the <code>arccms-</code> in front of every function name. The part that differs from person to person is <code>--project</code>: an alias from your own <code>.firebaserc</code> (<code>default</code>, <code>production</code>) or a project id.</p>
 
     <table>
       <thead><tr><th>Option</th><th>What it does</th></tr></thead>

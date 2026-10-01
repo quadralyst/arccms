@@ -1,4 +1,5 @@
-import * as cheerio from 'cheerio';
+import type * as cheerio from 'cheerio';
+import { loadHtml } from './lazy-cheerio.js';
 import { interpolate, parseParams } from './interpolate.js';
 import { youTubeVideo } from './youtube.js';
 import { parseHexColor } from './color.js';
@@ -256,7 +257,7 @@ export class TemplateHydrationService {
    * ```
    */
   static hydrateTemplate(htmlContent: string, data: TemplateContext): string {
-    const $ = cheerio.load(htmlContent, {
+    const $ = loadHtml(htmlContent, {
       xmlMode: false,
     });
 
@@ -461,7 +462,7 @@ export class TemplateHydrationService {
    */
   static applyStrings(htmlContent: string, strings: Record<string, string> | null | undefined): string {
     if (!htmlContent) return htmlContent;
-    const $ = cheerio.load(htmlContent, { xmlMode: false });
+    const $ = loadHtml(htmlContent, { xmlMode: false });
     const table = strings || {};
 
     $('[data-arc-t]').each((_, element) => {
@@ -568,7 +569,7 @@ export class TemplateHydrationService {
    * @returns HTML with the loops expanded
    */
   static processLoops(htmlContent: any, listData: any[] | Record<string, any[]>): any {
-    const $ = cheerio.load(htmlContent, {
+    const $ = loadHtml(htmlContent, {
       xmlMode: false,
     });
 

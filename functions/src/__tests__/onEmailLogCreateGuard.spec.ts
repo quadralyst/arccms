@@ -8,6 +8,9 @@ const { mockSendMail } = vi.hoisted(() => ({ mockSendMail: vi.fn().mockResolvedV
 
 vi.mock('../mail-config/mailConfig', () => ({ sendMail: mockSendMail }));
 
+const { mockClaim } = vi.hoisted(() => ({ mockClaim: vi.fn() }));
+vi.mock('../email-core/claimEmailSend', () => ({ claimEmailSend: mockClaim }));
+
 vi.mock('firebase-functions/v2/firestore', () => ({
   onDocumentCreated: vi.fn((_path: string, handler: any) => handler),
 }));
@@ -41,6 +44,22 @@ describe('onEmailLogCreate status guard', () => {
       expect(mockSendMail).not.toHaveBeenCalled();
     },
   );
+
+  it('sends a sendNow email only when the call that queued it did not claim it first', async () => {
+    mockClaim.mockResolvedValueOnce(false);
+    await handler(event({ toEmail: 'a@b.com', status: 'pending', sendNow: true }));
+    expect(mockSendMail).not.toHaveBeenCalled();
+
+    mockClaim.mockResolvedValueOnce(true);
+    await handler(event({ toEmail: 'a@b.com', status: 'pending', sendNow: true }));
+    expect(mockClaim).toHaveBeenCalledWith('log-1');
+    expect(mockSendMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not claim ordinary emails', async () => {
+    await handler(event({ toEmail: 'a@b.com', status: 'pending' }));
+    expect(mockClaim).not.toHaveBeenCalled();
+  });
 
   it('does nothing when there is no data', async () => {
     await handler({ data: undefined, params: { EmailLogsId: 'log-1' } });
