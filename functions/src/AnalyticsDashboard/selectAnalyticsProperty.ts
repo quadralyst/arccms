@@ -1,6 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { db } from '../init.js';
-import { google } from 'googleapis';
 import { createOAuth2Client, fetchAndStoreAnalyticsData } from './analyticsHelpers.js';
 import { isArcAdmin } from '../users/claims.js';
 
@@ -34,6 +33,8 @@ export const selectAnalyticsProperty = onCall(
       const oauth2Client = createOAuth2Client(clientId, clientSecret, refreshToken);
       let detectedMeasurementId: string | null = null;
       try {
+        // Loaded here, not at the top: googleapis is slow to load and would slow every function's cold start.
+        const { google } = await import('googleapis');
         const analyticsAdmin = google.analyticsadmin({ version: 'v1beta', auth: oauth2Client });
         const streamsResponse = await analyticsAdmin.properties.dataStreams.list({
           parent: `properties/${propertyId}`,

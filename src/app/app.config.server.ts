@@ -8,9 +8,9 @@ import { initializeServerApp, provideFirebaseApp } from '@angular/fire/app';
 import { provideAuth, getAuth } from '@angular/fire/auth';
 import { provideFirestore } from '@angular/fire/firestore';
 import { provideStorage } from '@angular/fire/storage';
-import { getFunctions, provideFunctions } from '@angular/fire/functions';
+import { provideFunctions } from '@angular/fire/functions';
 import { environment } from '../environments/environment';
-import { arcFirestore, arcStorage } from './core/config/arc-firebase';
+import { arcFirestore, arcFunctions, arcStorage } from './core/config/arc-firebase';
 
 const serverConfig: ApplicationConfig = {
   providers: [
@@ -19,7 +19,7 @@ const serverConfig: ApplicationConfig = {
     provideFirebaseApp(() => initializeServerApp(environment.firebaseConfig, {})),
     provideFirestore((injector) => arcFirestore(injector)),
     provideStorage((injector) => arcStorage(injector)),
-    provideFunctions(() => getFunctions()),
+    provideFunctions((injector) => arcFunctions(injector)),
     provideAuth(() => getAuth()),
   ],
 };

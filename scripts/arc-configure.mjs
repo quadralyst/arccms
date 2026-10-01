@@ -8,7 +8,7 @@
  *   src/environments/arc-install.ts   every project's database, bucket and upload
  *                                     folder, keyed by project id; the app picks
  *                                     its own by firebaseConfig.projectId
- *   functions/.env.<projectId>        ARC_DATABASE_ID, ARC_HOSTING_SITE, ARC_STORAGE_* for that
+ *   functions/.env.<projectId>        ARC_DATABASE_ID, ARC_FUNCTIONS_REGION, ARC_HOSTING_SITE, ARC_STORAGE_* for that
  *                                     project (other lines kept); the committed
  *                                     functions/.env stays the default
  *   firebase.<projectId>.json         Firebase CLI config for a named database, own
@@ -21,6 +21,9 @@
  * Flags update that project's entry in arccms.config.json first:
  *   --profile=standalone|backend  --database=<id>  --site=<hosting site | none>
  *   --bucket=<bucket>  --prefix=<upload folder>  --region=<location>
+ *   --functions-region=<region>   where the functions run; set by the first functions
+ *                     deploy to the database's region (scripts/arc-region.mjs), and
+ *                     from --region when that is given
  *   --app-users-database=<db>  --app-users-path=<collection>/{id}   the host app's users (CO6)
  *   --app-users=own   the audience is this install's own users collection (CO6.8), for a
  *                     standalone site or an app built on ArcCMS; sets the two flags above
@@ -39,6 +42,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
     DEFAULT_DATABASE_ID, configForProject, readFirebaseAliases, resolveProjectId,
 } from './arc-install-config.mjs';
+import { DEFAULT_FUNCTIONS_REGION, functionsRegionFor } from './arc-region.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PATHS = {
@@ -63,6 +67,7 @@ const FLAG_KEYS = {
     bucket: 'storageBucket',
     prefix: 'storagePrefix',
     region: 'region',
+    'functions-region': 'functionsRegion',
     'app-users-database': 'appUsersDatabase',
     'app-users-path': 'appUsersPath',
     'admin-only-sign-in': 'adminOnlySignIn',
@@ -110,6 +115,12 @@ export function normalizeConfig(raw) {
         config.appUsersDatabase = config.databaseId || DEFAULT_DATABASE_ID;
         config.appUsersPath = OWN_USERS_PATH;
     }
+    // The functions go next to the database: a database location given for the
+    // setup commands chooses their region too, unless one is set.
+    if (!config.functionsRegion && config.region) {
+        const near = functionsRegionFor(config.region);
+        if (near) config.functionsRegion = near;
+    }
     return config;
 }
 
@@ -147,6 +158,9 @@ export function validateConfig(config) {
     if (config.storagePrefix && !/^[A-Za-z0-9_-]+\/$/.test(config.storagePrefix)) {
         errors.push(`prefix "${config.storagePrefix}" must be one folder ending in a slash, for example "arccms/".`);
     }
+    if (config.functionsRegion && !/^[a-z]+-[a-z]+[0-9]+$/.test(config.functionsRegion)) {
+        errors.push(`functions-region "${config.functionsRegion}" is not a region, such as asia-south1 or us-central1.`);
+    }
     if (config.databaseId && !/^(\(default\)|[a-z][a-z0-9-]{2,62})$/.test(config.databaseId)) {
         errors.push(`databaseId "${config.databaseId}" is not a valid Firestore database id (lowercase letters, digits and hyphens, 3 to 63 characters, starting with a letter).`);
     }
@@ -154,6 +168,8 @@ export function validateConfig(config) {
 }
 
 const isNamedDatabase = (config) => !!config.databaseId && config.databaseId !== DEFAULT_DATABASE_ID;
+/** Functions somewhere other than Firebase's default region. */
+const ownFunctionsRegion = (config) => !!config.functionsRegion && config.functionsRegion !== DEFAULT_FUNCTIONS_REGION;
 /** `--site=none`: the install publishes nothing to Firebase Hosting (CO5). */
 export const HOSTING_OFF = 'none';
 const ownHostingSite = (config) => !!config.hostingSite && config.hostingSite !== HOSTING_OFF;
@@ -174,6 +190,7 @@ export function appValues(config) {
     if (config.storageBucket) values.storageBucket = config.storageBucket;
     if (config.storagePrefix) values.storagePrefix = config.storagePrefix;
     if (config.adminOnlySignIn === 'yes') values.adminOnlySignIn = true;
+    if (ownFunctionsRegion(config)) values.functionsRegion = config.functionsRegion;
     return Object.keys(values).length ? values : null;
 }
 
@@ -209,15 +226,16 @@ export const arcInstall: Record<string, ArcInstallConfig> = ${body};
 /**
  * functions/.env with the ARC_* keys set and every other line kept as it was.
  *
- * ARC_DATABASE_ID is always written, `(default)` included: it backs a deploy-time
- * param, and the Firebase CLI refuses a non-interactive deploy when a param has
- * no value in a dotenv file, default or not. ARC_HOSTING_SITE is written only
+ * ARC_DATABASE_ID and ARC_FUNCTIONS_REGION are always written, defaults included:
+ * they back deploy-time params, and the Firebase CLI refuses a non-interactive
+ * deploy when a param has no value in a dotenv file, default or not. ARC_HOSTING_SITE is written only
  * when set (its default comes from the project id at run time), and so are
  * ARC_STORAGE_BUCKET and ARC_STORAGE_PREFIX.
  */
 export function updateFunctionsEnv(existing, config) {
     const wanted = {
         ARC_DATABASE_ID: config.databaseId || DEFAULT_DATABASE_ID,
+        ARC_FUNCTIONS_REGION: config.functionsRegion || DEFAULT_FUNCTIONS_REGION,
         ARC_HOSTING_SITE: config.hostingSite,
         // App audience (CO6): params too, so always written for non-interactive deploys.
         ARC_APP_USERS_DATABASE: config.appUsersDatabase || DEFAULT_DATABASE_ID,
@@ -248,10 +266,13 @@ export function updateFunctionsEnv(existing, config) {
  * default site, which in a shared project is another app's (on the dev project,
  * the old install's live site). So hosting off always gets a generated config,
  * even when nothing else differs from firebase.json.
+ *
+ * Functions outside us-central1 put their region on every Hosting rewrite to a
+ * function: a rewrite with none looks for the function in us-central1.
  */
 export function renderFirebaseConfig(base, config) {
     const hostingOff = config.hostingSite === HOSTING_OFF;
-    if (!isNamedDatabase(config) && !config.storageBucket && !ownHostingSite(config) && !hostingOff) return null;
+    if (!isNamedDatabase(config) && !config.storageBucket && !ownHostingSite(config) && !hostingOff && !ownFunctionsRegion(config)) return null;
     const out = structuredClone(base);
     if (isNamedDatabase(config)) {
         const firestore = Array.isArray(base.firestore) ? base.firestore[0] : base.firestore;
@@ -263,6 +284,11 @@ export function renderFirebaseConfig(base, config) {
     }
     if (ownHostingSite(config)) {
         out.hosting = { site: config.hostingSite, ...stripSite(base.hosting) };
+    }
+    if (ownFunctionsRegion(config) && Array.isArray(out.hosting?.rewrites)) {
+        out.hosting.rewrites = out.hosting.rewrites.map((rewrite) => (rewrite.function && typeof rewrite.function === 'object'
+            ? { ...rewrite, function: { ...rewrite.function, region: config.functionsRegion } }
+            : rewrite));
     }
     if (hostingOff) delete out.hosting;
     if (sharesDefaultBucket(config)) delete out.storage;
@@ -352,7 +378,8 @@ export function main(argv = process.argv.slice(2), paths = PATHS, log = console.
     log(`ArcCMS install for ${projectId}: profile ${config.profile}, database ${config.databaseId ?? DEFAULT_DATABASE_ID}`
         + `${config.hostingSite ? `, hosting site ${config.hostingSite}` : ''}`
         + `${config.storageBucket ? `, bucket ${config.storageBucket}` : ''}`
-        + `${config.storagePrefix ? `, upload folder ${config.storagePrefix}` : ''}.`);
+        + `${config.storagePrefix ? `, upload folder ${config.storagePrefix}` : ''}`
+        + `${ownFunctionsRegion(config) ? `, functions in ${config.functionsRegion}` : ''}.`);
     log(changes.length ? `${dryRun ? 'Would ' : ''}${changes.join('\n')}` : 'Nothing to change.');
     if (sharesDefaultBucket(config)) {
         log(`\nStorage rules are not deployed for ${projectId}: Arc CMS keeps its files in the default bucket, which the other app uses,`

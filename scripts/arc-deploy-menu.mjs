@@ -22,7 +22,10 @@ import { pathToFileURL } from 'node:url';
 import {
     DEFAULT_DATABASE_ID, ROOT, configForProject, readArcInstallConfig, readFirebaseAliases,
 } from './arc-install-config.mjs';
-import { cliActiveProject, generatedConfigPath, runDeploy } from './arc-deploy.mjs';
+import {
+    checkFunctionsRegion, cliActiveProject, functionsRegionOf, generatedConfigPath, runDeploy,
+} from './arc-deploy.mjs';
+import { DEFAULT_FUNCTIONS_REGION } from './arc-region.mjs';
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
 import {
     APP_USERS_OWN, APP_USERS_UNCONFIGURED, HOSTING_OFF, OWN_USERS_PATH, PATHS,
@@ -99,6 +102,7 @@ export function installSummary(config) {
         `Storage:    ${config.storageBucket || 'the default bucket'}${config.storagePrefix ? `, folder ${config.storagePrefix}` : ''}`
             + `${sharesDefaultBucket(config) ? ' (shared with the other app, so no storage rules)' : ''}`,
         `App users:  ${appUsers}`,
+        `Functions:  ${config.functionsRegion || DEFAULT_FUNCTIONS_REGION}`,
     ];
 }
 
@@ -491,6 +495,17 @@ async function menu(rl) {
     const preferred = Math.max(0, choices.findIndex((c) => c.key === lastKey));
     const choice = await choose(rl, 'What to deploy?', choices, lastKey ? preferred : 0);
 
+    // The functions run next to the database: set on a first deploy, a warning after.
+    if (choice.only.some((target) => target.startsWith('functions'))) {
+        const region = checkFunctionsRegion(projectId);
+        if (!region.proceed) return 1;
+        if (region.decision.kind === 'warn' && !readState().regionWarningOff?.[projectId]
+            && !(await yes(rl, 'Warn about this on every deploy to this project?', true))) {
+            const latest = readState();
+            writeState({ ...latest, regionWarningOff: { ...latest.regionWarningOff, [projectId]: true } });
+        }
+    }
+
     // 4. Confirm.
     const generated = existsSync(generatedConfigPath(projectId));
     const args = ['--only', choice.only.join(','), '--project', projectId];
@@ -525,14 +540,14 @@ async function menu(rl) {
     // The functions were built above, to see what changed. A deploy of all the
     // functions lists any it would delete and asks here, on the menu's prompt.
     const result = await runDeploy(args, {
-        built: true, record: false, isTTY: true,
+        built: true, record: false, isTTY: true, regionChecked: true,
         ask: async () => ((await yes(rl, 'Delete them?', false)) ? 'y' : 'n'),
     });
     // Only a newly created callable can be left unreachable: check just those.
     const newCallables = result.created.filter((name) => callableNames().has(name));
     if (result.status === 0 && newCallables.length) {
         const check = spawnSync('bash', [resolve(ROOT, 'functions/scripts/check-callable-access.sh'), ...newCallables], {
-            stdio: 'inherit', env: { ...process.env, FIREBASE_PROJECT: projectId },
+            stdio: 'inherit', env: { ...process.env, FIREBASE_PROJECT: projectId, FIREBASE_REGION: functionsRegionOf(projectId) },
         });
         if (check.status !== 0) {
             console.error('\nA new callable is blocked. Delete it and deploy again (a fresh create grants access).');
@@ -547,8 +562,10 @@ async function menu(rl) {
     if (result.status === 0) {
         const record = { commit: head, at: new Date().toISOString() };
         const parts = choice.key === 'changed' ? ['functions'] : deployedParts(choice.only.join(','));
-        const next = recordDeploy(state, projectId, parts, parts.includes('functions') ? { ...record, names: deployable } : record);
-        writeState({ ...next, lastProject: projectId, choice: { ...state.choice, [projectId]: choice.key } });
+        // Read again: the region check may have remembered things since the start.
+        const latest = readState();
+        const next = recordDeploy(latest, projectId, parts, parts.includes('functions') ? { ...record, names: deployable } : record);
+        writeState({ ...next, lastProject: projectId, choice: { ...latest.choice, [projectId]: choice.key } });
         console.log(`\nDone: ${choice.label} on ${projectId}.`);
     }
     return result.status;

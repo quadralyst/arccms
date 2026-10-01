@@ -49,9 +49,9 @@ describe('arc-configure', () => {
         });
 
         it('writes ARC_DATABASE_ID=(default), which a non-interactive deploy needs, and keeps other lines', () => {
-            expect(configure.updateFunctionsEnv('', config)).toBe(`ARC_DATABASE_ID=(default)\n${APP_USERS_DEFAULTS}`);
+            expect(configure.updateFunctionsEnv('', config)).toBe(`ARC_DATABASE_ID=(default)\nARC_FUNCTIONS_REGION=us-central1\n${APP_USERS_DEFAULTS}`);
             expect(configure.updateFunctionsEnv('RESEND_KEY=x\nARC_DATABASE_ID=old\n', config))
-                .toBe(`RESEND_KEY=x\nARC_DATABASE_ID=(default)\n${APP_USERS_DEFAULTS}`);
+                .toBe(`RESEND_KEY=x\nARC_DATABASE_ID=(default)\nARC_FUNCTIONS_REGION=us-central1\n${APP_USERS_DEFAULTS}`);
         });
 
         it('matches the committed functions/.env, so a fresh clone deploys without running configure', () => {
@@ -161,12 +161,12 @@ describe('arc-configure', () => {
 
         it('sets the ARC_* keys in functions/.env, replacing old values', () => {
             expect(configure.updateFunctionsEnv('RESEND_KEY=x\nARC_DATABASE_ID=old\n', config))
-                .toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}ARC_STORAGE_BUCKET=acme-arccms\n`);
+                .toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_FUNCTIONS_REGION=us-central1\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}ARC_STORAGE_BUCKET=acme-arccms\n`);
         });
 
         it('--site=none turns hosting off: the env says so, and the CLI config has no hosting to deploy (review O2)', () => {
             const off = configure.normalizeConfig({ databaseId: 'arccms', hostingSite: 'none' });
-            expect(configure.updateFunctionsEnv('', off)).toBe(`ARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=none\n${APP_USERS_DEFAULTS}`);
+            expect(configure.updateFunctionsEnv('', off)).toBe(`ARC_DATABASE_ID=arccms\nARC_FUNCTIONS_REGION=us-central1\nARC_HOSTING_SITE=none\n${APP_USERS_DEFAULTS}`);
             const out = configure.renderFirebaseConfig(committedFirebase, off);
             expect(out).not.toHaveProperty('hosting');
             // Everything else is still deployed as before.
@@ -236,7 +236,7 @@ describe('arc-configure', () => {
             expect(JSON.parse(readFileSync(paths.config, 'utf8'))).toEqual({ projects: { 'acme-prod': backend } });
             expect(existsSync(generated('acme-prod'))).toBe(true);
             expect(existsSync(generated('acme-dev'))).toBe(false);
-            expect(readFileSync(envFor('acme-prod'), 'utf8')).toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}ARC_STORAGE_BUCKET=acme-arccms\n`);
+            expect(readFileSync(envFor('acme-prod'), 'utf8')).toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_FUNCTIONS_REGION=us-central1\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}ARC_STORAGE_BUCKET=acme-arccms\n`);
             expect(readFileSync(join(dir, 'functions', '.env'), 'utf8')).toBe('ARC_DATABASE_ID=(default)\n');
             expect(readFileSync(paths.install, 'utf8')).toContain('"acme-prod": {');
 
@@ -247,14 +247,14 @@ describe('arc-configure', () => {
 
             // The default project stays default: its env says so and it gets no generated config.
             expect(run()).toBe(0);
-            expect(readFileSync(envFor('acme-dev'), 'utf8')).toBe(`ARC_DATABASE_ID=(default)\n${APP_USERS_DEFAULTS}`);
+            expect(readFileSync(envFor('acme-dev'), 'utf8')).toBe(`ARC_DATABASE_ID=(default)\nARC_FUNCTIONS_REGION=us-central1\n${APP_USERS_DEFAULTS}`);
             expect(existsSync(generated('acme-dev'))).toBe(false);
 
             // Back to standalone for prod: its generated config goes, other env lines stay.
             writeFileSync(paths.config, '{}');
             expect(run('--project=acme-prod')).toBe(0);
             expect(existsSync(generated('acme-prod'))).toBe(false);
-            expect(readFileSync(envFor('acme-prod'), 'utf8')).toBe(`RESEND_KEY=x\nARC_DATABASE_ID=(default)\n${APP_USERS_DEFAULTS}`);
+            expect(readFileSync(envFor('acme-prod'), 'utf8')).toBe(`RESEND_KEY=x\nARC_DATABASE_ID=(default)\nARC_FUNCTIONS_REGION=us-central1\n${APP_USERS_DEFAULTS}`);
             expect(readFileSync(paths.install, 'utf8')).toContain('= {};');
         });
 

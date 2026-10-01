@@ -56,6 +56,9 @@
     <h3>Email</h3>
     <p>A new address gets a 6-digit code by email (template <code>signup_otp_email</code>), valid for 10 minutes, with 5 tries and at least 60 seconds between codes; an address gets at most 5 codes an hour. The new account is marked email-verified only when it is created from the browser that entered the code. Passwords need at least 8 characters.</p>
 
+    <h3>Waking the functions early</h3>
+    <p>Each step of a sign-in is its own Cloud Function, and one that has not run for a while takes a few seconds to start. So that the person does not wait for each one in turn, the sign-in page calls the functions its sign-in methods use with <code>{ warmUp: true }</code> as it opens, at most once every 5 minutes (<code>SignInService.warmUp()</code>, the list is <code>SIGN_IN_FUNCTIONS</code>). A warm-up call does nothing and returns at once, before any check or rate limit, so it costs a function call and nothing else. The code email is sent by the function that creates the code, not by the email trigger, which would be one more function to start.</p>
+
     <h3>Phone number</h3>
     <ul>
       <li>Numbers can be typed or pasted in any common format; a number without a country code gets the default one. Numbers outside the allowed country codes are refused (by default only <code>91</code>).</li>
@@ -137,6 +140,7 @@
         <tr><td>"This account doesn't have access to this site."</td><td>The address has a Firebase sign-in but no Arc CMS record, such as another app's user in a shared project. An admin adds them under Users.</td></tr>
         <tr><td>A number is refused as not allowed</td><td>Its country code is not in the allowed list under Settings, SMS.</td></tr>
         <tr><td>No SMS arrives</td><td>The SMS provider is Test, which sends nothing. Look in SMS Logs, or switch the provider (see <a href="sms.html">SMS</a>).</td></tr>
+        <tr><td>The first sign-in after a quiet spell is slow</td><td>The functions were not running and had to start. The page starts them as it opens, so the wait is shortest when the person opens it before typing. A function added to a sign-in step belongs in <code>SIGN_IN_FUNCTIONS</code> in <code>src/app/pages/(auth)/sign-in.service.ts</code>, with <code>if (isWarmUp(request)) return WARM;</code> as the first line of its handler; a test checks both.</td></tr>
         <tr><td>"Too many tries. Reset your PIN with a code."</td><td>The PIN is locked after 5 wrong tries. Use Forgot PIN.</td></tr>
         <tr><td>Phone sign-in accepts the code or PIN, then fails to sign in</td><td>The last step creates a custom token, which Firebase signs with the service account the functions run as. Check the function's log in the Firebase console: if it mentions <code>iam.serviceAccounts.signBlob</code>, give that service account the IAM role <strong>Service Account Token Creator</strong> and turn on the IAM Service Account Credentials API, both in the Google Cloud console.</td></tr>
       </tbody>

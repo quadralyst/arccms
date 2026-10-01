@@ -8,7 +8,8 @@
  * Scripts and styles are dropped. Pure and dependency-free apart from
  * cheerio, which the pipeline already uses.
  */
-import * as cheerio from 'cheerio';
+import type * as cheerio from 'cheerio';
+import { loadHtml } from './lazy-cheerio.js';
 import type { AnyNode, Element } from 'domhandler';
 
 const HARD_BREAK = '\u0000br\u0000';
@@ -21,7 +22,7 @@ const BLOCK_TAGS = new Set([
 
 export function htmlToMarkdown(html: string): string {
     if (!html || !html.trim()) return '';
-    const $ = cheerio.load(`<body>${html}</body>`, { xmlMode: false });
+    const $ = loadHtml(`<body>${html}</body>`, { xmlMode: false });
     $('script, style, template').remove();
     const out = renderChildren($('body')[0] as Element, $, 0);
     const text = collapseBlankLines(out).trim().split(HARD_BREAK).join('  \n');

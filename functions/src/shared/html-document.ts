@@ -1,4 +1,5 @@
-import * as cheerio from 'cheerio';
+import type * as cheerio from 'cheerio';
+import { loadHtml } from './lazy-cheerio.js';
 import { renderJsonLdScripts } from './structured-data.js';
 
 /** Canonical branding text used in the powered-by footer (static pages & Angular component). */
@@ -191,7 +192,7 @@ export function replaceArcComponents(
     languageSwitcherHtml = '',
     searchWidgetHtml = '',
 ): string {
-    const $ = cheerio.load(html, { xmlMode: false });
+    const $ = loadHtml(html, { xmlMode: false });
 
     $('arc-header').replaceWith(fixPartialHashLinks(headerHtml));
     $('arc-footer').replaceWith(fixPartialHashLinks(footerHtml));
@@ -286,7 +287,7 @@ export function extractStylesAndScripts(html: string): {
     styles: string;
     scripts: string;
 } {
-    const $ = cheerio.load(html, { xmlMode: false });
+    const $ = loadHtml(html, { xmlMode: false });
 
     const styles: string[] = [];
     const scripts: string[] = [];
@@ -321,7 +322,7 @@ export function injectSeoMetadata(
         canonicalUrl?: string;
     },
 ): string {
-    const $ = cheerio.load(html, { xmlMode: false });
+    const $ = loadHtml(html, { xmlMode: false });
 
     if (seo.title) {
         if ($('title').length) {

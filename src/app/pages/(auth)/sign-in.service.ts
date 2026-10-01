@@ -36,6 +36,19 @@ export interface LinkCheck {
     needsPassword?: boolean;
 }
 
+/**
+ * The functions a sign-in or sign-up calls, woken by `warmUp()` when the page
+ * opens. Each answers a `{ warmUp: true }` call at once (functions/src/auth/warmUp.ts).
+ */
+export const SIGN_IN_FUNCTIONS = {
+    email: ['checkEmailAccount', 'requestSignupOtp', 'verifySignupOtp', 'createAccountRecord'],
+    phone: ['checkPhoneAccount', 'requestPhoneOtp', 'verifyPhoneOtp', 'completePhoneSignup', 'signInWithPin'],
+    google: ['ensureGoogleAccount'],
+} as const;
+
+/** A function stays started for several minutes after a call, so waking it more often is wasted. */
+const WARM_UP_EVERY_MS = 5 * 60 * 1000;
+
 /** A callable's error, as the page shows it. */
 export interface SignInError {
     code: string;
@@ -63,6 +76,28 @@ export class SignInService {
      * only this browser can use the code it verified (review F).
      */
     private readonly tickets = new Map<string, string>();
+
+    private lastWarmUp = 0;
+
+    /**
+     * Start the functions this page's sign-in methods use, without waiting:
+     * each one would otherwise take seconds to start on its first call, one
+     * after another through the steps. A warm-up call does nothing on the
+     * server, and a failed one changes nothing.
+     */
+    warmUp(methods: { phone: boolean; google: boolean }): void {
+        const now = Date.now();
+        if (now - this.lastWarmUp < WARM_UP_EVERY_MS) return;
+        this.lastWarmUp = now;
+        const names: string[] = [
+            ...SIGN_IN_FUNCTIONS.email,
+            ...(methods.phone ? SIGN_IN_FUNCTIONS.phone : []),
+            ...(methods.google ? SIGN_IN_FUNCTIONS.google : []),
+        ];
+        for (const name of names) {
+            this.call(name, { warmUp: true }).catch(() => undefined);
+        }
+    }
 
     private rememberTicket(key: string, reply: { ticket?: string }): void {
         if (reply?.ticket) this.tickets.set(key, reply.ticket);

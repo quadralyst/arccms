@@ -12,9 +12,6 @@ export const getOptimizedLeaderboard = onCall<{
   userEmail?: string; // Make userEmail optional
   collectionName?: string;
 }>(
-  {
-    region: 'us-central1',
-  },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentication required.');

@@ -25,6 +25,7 @@ import { normalizeEmailAddress } from './linkIdentifiers.js';
 import { readName } from './phoneAuth.js';
 import { authOwnerFor } from './googleAccount.js';
 import { consumeVerifiedSignupCode } from './signupOtp.js';
+import { isWarmUp, WARM } from './warmUp.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -43,6 +44,7 @@ export function isUnfinishedSignup(creationTime: string | undefined, now = Date.
 }
 
 export const checkEmailAccount = onCall(async (request) => {
+    if (isWarmUp(request)) return WARM;
     await consumeRateLimit(`check-ip-${callerKey(request)}`, 100, HOUR, 'Too many attempts. Please try again later.');
     const email = normalizeEmailAddress(request.data?.email);
     const { signupOpen } = await readSignInSettings();
@@ -75,6 +77,7 @@ export const checkEmailAccount = onCall(async (request) => {
  * signing in here never gets a record that way.
  */
 export const createAccountRecord = onCall(async (request) => {
+    if (isWarmUp(request)) return WARM;
     const uid = requireSignedIn(request);
     const existing = await findUserByUid(uid);
     if (existing) return { id: existing.ref.id, created: false };

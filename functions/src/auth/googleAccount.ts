@@ -11,6 +11,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { db, owner } from '../init.js';
 import { AUTH_OWNER } from '../users/authOwner.js';
 import { applyNewAccountClaims, findUserByEmail, findUserByUid, readSignInSettings } from './accounts.js';
+import { isWarmUp, WARM } from './warmUp.js';
 
 /**
  * A sign-in account older than this was not made by the Google sign-in that
@@ -25,6 +26,7 @@ export function authOwnerFor(creationTime: string | undefined, now = Date.now())
 }
 
 export const ensureGoogleAccount = onCall(async (request) => {
+    if (isWarmUp(request)) return WARM;
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Please sign in again.');
     if (await findUserByUid(uid)) return { created: false };

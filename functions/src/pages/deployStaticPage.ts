@@ -1,4 +1,4 @@
-import * as cheerio from 'cheerio';
+import { loadHtml } from '../shared/lazy-cheerio.js';
 import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings } from '../shared/site-settings.js';
 import { replaceArcComponents, POWERED_BY_HTML } from '../shared/html-document.js';
 import { buildSearchWidget } from '../search/widget.js';
@@ -56,7 +56,7 @@ export async function generateAndDeployStaticPage(
 
     // 4. Post-process: inject CSS, meta tags, and powered-by footer
     {
-        const $ = cheerio.load(processedHtml, { xmlMode: false });
+        const $ = loadHtml(processedHtml, { xmlMode: false });
 
         // Inject site CSS <link> tags into <head>
         if (siteConfig.cssUrls && siteConfig.cssUrls.length > 0) {

@@ -123,7 +123,17 @@ describe('requestSignupOtp', () => {
       type: 'signup_otp_email',
       toEmail: EMAIL,
       data: expect.objectContaining({ otp: expect.stringMatching(/^\d{6}$/) }),
+      // sent by this call, not after the email trigger's cold start
+      sendNow: true,
     }));
+  });
+
+  it('answers a warm-up call at once, before any limit, read or email', async () => {
+    await expect(reqHandler({ data: { warmUp: true } })).resolves.toEqual({ warm: true });
+    await expect(verifyHandler({ data: { warmUp: true } })).resolves.toEqual({ warm: true });
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockOtpGet).not.toHaveBeenCalled();
+    expect(mockQueueEmail).not.toHaveBeenCalled();
   });
 
   it('throttles resends within 60s', async () => {

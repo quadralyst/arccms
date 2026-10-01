@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Configuration keys | Arc CMS docs</title>
   <meta name="description" content="Every key of arccms.config.json, the environment variables the scripts and functions read, and the exports of the custom space's starter files.">
-  <meta name="docs:sources" content="arccms.config.example.json, scripts/arc-install-config.mjs, scripts/arc-configure.mjs, src/app/core/config/arc-config.ts, src/environments/arc-install.ts, functions/src/arc-config.ts, functions/src/app-audience/config.ts, functions/scripts/arc-env.cjs, functions/.env, vite.config.ts, src/custom, functions/src/custom">
+  <meta name="docs:sources" content="arccms.config.example.json, scripts/arc-install-config.mjs, scripts/arc-configure.mjs, scripts/arc-region.mjs, functions/src/region.ts, src/app/core/config/arc-config.ts, src/environments/arc-install.ts, functions/src/arc-config.ts, functions/src/app-audience/config.ts, functions/scripts/arc-env.cjs, functions/.env, vite.config.ts, src/custom, functions/src/custom">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="reference/config-keys.html">
@@ -43,13 +43,14 @@
         <tr><td><code>appUsersDatabase</code></td><td>String. Default <code>"(default)"</code>.</td><td>The database that holds the host app's users, for the App audience. Written to <code>ARC_APP_USERS_DATABASE</code>. See <a href="../features/app-audience.html">App audience</a>.</td></tr>
         <tr><td><code>appUsersPath</code></td><td>String, <code>&lt;collection&gt;/{id}</code>. Default a collection nothing writes to.</td><td>The host app's user documents, one top-level collection, such as <code>users/{uid}</code>. Written to <code>ARC_APP_USERS_PATH</code>.</td></tr>
         <tr><td><code>appUsers</code></td><td><code>"own"</code>. Default not set.</td><td>The App audience is this install's own <code>users</code> collection; sets <code>appUsersDatabase</code> to <code>databaseId</code> and <code>appUsersPath</code> to <code>users/{id}</code>.</td></tr>
-        <tr><td><code>region</code></td><td>String, a Firestore or Storage location. Default not set.</td><td>Used only in the setup commands <code>arc:configure</code> prints for a <code>backend</code> install.</td></tr>
+        <tr><td><code>region</code></td><td>String, a Firestore or Storage location. Default not set.</td><td>The location in the setup commands <code>arc:configure</code> prints for a <code>backend</code> install. When <code>functionsRegion</code> is not set, it also chooses that: the region next to this location.</td></tr>
+        <tr><td><code>functionsRegion</code></td><td>String, a Cloud Functions region. Default <code>"us-central1"</code>.</td><td>Where the functions run: next to the database. The first functions deploy sets it to the database's region (see <a href="../operations/deploy.html#regions">Regions</a>). Written to <code>ARC_FUNCTIONS_REGION</code> for the functions, to <code>arc-install.ts</code> for the website, and onto the Hosting rewrites in the generated Firebase config.</td></tr>
       </tbody>
     </table>
 
     <div class="trap"><p>Every value is a string. <code>arc:configure</code> drops any other type without a word, so <code>"adminOnlySignIn": true</code> is ignored and the default applies. Write <code>"yes"</code> or <code>"no"</code>, or use the flag: <code>npm run arc:configure -- --admin-only-sign-in=yes</code>.</p></div>
 
-    <p>Each key has a flag that sets it for one project and writes the file for you: <code>--profile</code>, <code>--database</code>, <code>--site</code>, <code>--bucket</code>, <code>--prefix</code>, <code>--region</code>, <code>--app-users-database</code>, <code>--app-users-path</code>, <code>--app-users</code>, <code>--admin-only-sign-in</code>. Add <code>--dry-run</code> to see what would change.</p>
+    <p>Each key has a flag that sets it for one project and writes the file for you: <code>--profile</code>, <code>--database</code>, <code>--site</code>, <code>--bucket</code>, <code>--prefix</code>, <code>--region</code>, <code>--functions-region</code>, <code>--app-users-database</code>, <code>--app-users-path</code>, <code>--app-users</code>, <code>--admin-only-sign-in</code>. Add <code>--dry-run</code> to see what would change.</p>
 
     <h2>Environment variables</h2>
     <p>The Cloud Functions read their install settings from <code>functions/.env</code> (the committed defaults) overridden by <code>functions/.env.&lt;projectId&gt;</code>. <code>arc:configure</code> writes the <code>ARC_</code> lines of the project's file and keeps every other line, so set these through <code>arccms.config.json</code>, not by hand.</p>
@@ -57,6 +58,7 @@
       <thead><tr><th>Variable</th><th>Default</th><th>Read by and effect</th></tr></thead>
       <tbody>
         <tr><td><code>ARC_DATABASE_ID</code></td><td><code>(default)</code></td><td>The functions: the database they use, and, as a deploy-time parameter, the database every Firestore trigger listens on. Always written, because a non-interactive deploy refuses a parameter with no value.</td></tr>
+        <tr><td><code>ARC_FUNCTIONS_REGION</code></td><td><code>us-central1</code></td><td>The functions, as a deploy-time parameter: the region every function runs in (<code>functions/src/region.ts</code>), and the address the published search box calls. Always written, like <code>ARC_DATABASE_ID</code>.</td></tr>
         <tr><td><code>ARC_HOSTING_SITE</code></td><td>The project id</td><td>The functions and the seed scripts: the Hosting site pages are published to. <code>none</code> turns publishing off.</td></tr>
         <tr><td><code>ARC_STORAGE_BUCKET</code></td><td>The project's default bucket</td><td>The functions: the bucket Arc CMS files live in, such as the folder deleted with an account.</td></tr>
         <tr><td><code>ARC_STORAGE_PREFIX</code></td><td>Empty (bucket root)</td><td>The functions: the upload folder, ending in <code>/</code>.</td></tr>

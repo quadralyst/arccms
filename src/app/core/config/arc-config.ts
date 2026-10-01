@@ -17,6 +17,9 @@ import { environment } from '../../../environments/environment';
 /** The id Firestore gives the database every project starts with. */
 export const DEFAULT_DATABASE_ID = '(default)';
 
+/** Where Firebase puts functions that name no region. */
+export const DEFAULT_FUNCTIONS_REGION = 'us-central1';
+
 /** One project's entry in `arc-install.ts`, as written by `arc:configure`. */
 export interface ArcInstallConfig {
     /** Firestore database id. Default `(default)`. */
@@ -30,6 +33,11 @@ export interface ArcInstallConfig {
      * admin exists. Set by `arc:configure` (on by default for the backend profile).
      */
     adminOnlySignIn?: boolean;
+    /**
+     * The region the Cloud Functions run in, next to the database. Set by
+     * `arc:configure` (docs/operations/deploy.html#regions). Default us-central1.
+     */
+    functionsRegion?: string;
 }
 
 export interface ResolvedArcConfig {
@@ -39,6 +47,7 @@ export interface ResolvedArcConfig {
     /** Empty, or a folder ending in `/`. */
     storagePrefix: string;
     adminOnlySignIn: boolean;
+    functionsRegion: string;
 }
 
 /** Fills in the defaults and normalises what was given. */
@@ -50,6 +59,7 @@ export function resolveArcConfig(raw: ArcInstallConfig | undefined): ResolvedArc
         storageBucket: bucket || null,
         storagePrefix: prefix && !prefix.endsWith('/') ? `${prefix}/` : prefix,
         adminOnlySignIn: raw?.adminOnlySignIn === true,
+        functionsRegion: raw?.functionsRegion?.trim() || DEFAULT_FUNCTIONS_REGION,
     };
 }
 

@@ -9,6 +9,7 @@ import { ensureDefaultTemplates } from '../email-core/defaultTemplates.js';
 import type { EmailTemplateData } from '../types.js';
 import { callerKey, consumeRateLimit } from './accounts.js';
 import { newOtpTicket, ticketMatches } from './otpTicket.js';
+import { isWarmUp, WARM } from './warmUp.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -66,6 +67,7 @@ async function loadSignupOtpTemplate(): Promise<(EmailTemplateData & { isActive?
  * transactional) so the kill-switch / authEmails toggle / suppression all apply.
  */
 export const requestSignupOtp = onCall(async (request) => {
+  if (isWarmUp(request)) return WARM;
   const email = normalizeEmail(request.data?.email);
   if (!email || !email.includes('@')) {
     throw new HttpsError('invalid-argument', 'Enter a valid email address.');
@@ -135,6 +137,8 @@ export async function issueEmailOtp(
     type: 'signup_otp_email',
     templateIsActive: template.isActive !== false,
     data: { otp: code },
+    // The person is waiting for this code: send it now, not from the trigger.
+    sendNow: true,
   });
 
   logger.info(`issueEmailOtp: queued ${purpose} OTP for ${email} (status=${result.status}).`);
@@ -150,6 +154,7 @@ export async function issueEmailOtp(
  * can (review F).
  */
 export const verifySignupOtp = onCall(async (request) => {
+  if (isWarmUp(request)) return WARM;
   const email = normalizeEmail(request.data?.email);
   const code = String(request.data?.code || '');
   if (!email || !code) {

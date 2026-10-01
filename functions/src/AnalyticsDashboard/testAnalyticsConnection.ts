@@ -1,6 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { GoogleAuth } from 'google-auth-library';
-import { google } from 'googleapis';
 import { db } from '../init.js';
 import { AnalyticsPropertyInfo } from '../types.js';
 
@@ -81,6 +80,8 @@ export const testAnalyticsConnection = onCall(
       const serviceAccountEmail = (authClient as { email?: string }).email;
 
       // Initialize Analytics
+      // Loaded here, not at the top: googleapis is slow to load and would slow every function's cold start.
+      const { google } = await import('googleapis');
       const analyticsData = google.analyticsdata({ version: 'v1beta', auth: auth });
 
       // Test 1: Try to get metadata
@@ -147,6 +148,8 @@ export const testAnalyticsConnection = onCall(
 
 async function getAnalyticsPropertyInfo(propertyId: string, auth: GoogleAuth): Promise<AnalyticsPropertyInfo> {
   try {
+    // Loaded here, not at the top: googleapis is slow to load and would slow every function's cold start.
+    const { google } = await import('googleapis');
     const analyticsAdmin = google.analyticsadmin({
       version: 'v1beta',
       auth,
