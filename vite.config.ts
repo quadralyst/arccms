@@ -10,6 +10,7 @@ import { DEFAULT_PWA_ICON, PWA_ICON_CANDIDATES, resolvePwaConfig } from './src/a
 import { CUSTOM_PWA } from './src/custom/pwa';
 import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
+import { oneBuildAtATime } from './scripts/vite-build-order';
 
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
@@ -236,12 +237,16 @@ export default defineConfig(({ mode }) => {
           ],
         },
       })),
-      analog({
+      // The browser and server bundles are built one after the other, not at once,
+      // which needs less memory (scripts/vite-build-order.ts).
+      ...oneBuildAtATime(analog({
         // The app's own file-based pages (docs/app/custom-space.html), next to src/app/pages.
         additionalPagesDirs: ['/src/custom/pages'],
         // ssr: true enables build-time prerendering (SSG) — no runtime server is deployed.
-        // The server bundle is built but never referenced in firebase.json.
         ssr: true,
+        // Prerender only: skip the Cloud Functions server bundle ("Building Server"),
+        // which firebase.json never deploys and which took the most memory of the build.
+        static: true,
         prerender: {
           // '/' is prerendered for SEO (social crawlers, fast FCP for the home page).
           // The SPA fallback for all other routes is __shell.html, copied from
@@ -266,7 +271,7 @@ export default defineConfig(({ mode }) => {
             external: ['firebase-admin/app', 'firebase-admin/firestore'],
           },
         },
-      }),
+      })),
     ],
   };
 });

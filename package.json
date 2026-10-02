@@ -16,7 +16,7 @@
     "docs:index": "node scripts/docs-index.mjs",
     "docs:affected": "node scripts/docs-affected.mjs",
     "docs:lint": "node scripts/docs-lint.mjs",
-    "build": "vite build && cp dist/client/index.html dist/analog/public/__shell.html",
+    "build": "NODE_OPTIONS=\"--max-old-space-size=8192 $NODE_OPTIONS\" vite build && cp dist/client/index.html dist/analog/public/__shell.html",
     "test": "vitest",
     "test:rules": "node scripts/arc-rules-build.mjs && firebase emulators:exec --only firestore,storage --project demo-arccms-rules 'vitest run --config vitest.rules.config.ts'",
     "i18n:keys": "node scripts/generate-i18n-keys.mjs",
