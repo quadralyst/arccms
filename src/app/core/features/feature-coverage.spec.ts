@@ -7,11 +7,11 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import type { Route } from '@angular/router';
 import { routes } from '../../app.routes';
 import { CUSTOM_ROUTES } from '../../../custom/routes';
 import { CORE_URLS, FEATURE_PARAM_ROUTES, FEATURE_URLS, featureOfPath, isCorePath } from './feature-routes';
 import { FEATURE_IDS } from './feature-registry';
+import { explicitRouteUrls } from '../../../test/route-urls';
 
 const PAGES = resolve(__dirname, '../../pages');
 
@@ -33,15 +33,6 @@ function fileRouteUrls(): string[] {
             .replace(/\[\.\.\.[^\]]*\]/g, '**')
             .replace(/\[([^\]]*)\]/g, ':$1')
             .replace(/\./g, '/'));
-}
-
-/** The URL of every explicit route with a page, children joined to their parents. */
-function explicitRouteUrls(list: Route[], prefix = ''): string[] {
-    return list.flatMap((route) => {
-        if (route.matcher) return [];
-        const url = [prefix, route.path].filter(Boolean).join('/');
-        return route.children ? explicitRouteUrls(route.children, url) : [url];
-    });
 }
 
 const owners = (url: string) => {

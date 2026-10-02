@@ -114,6 +114,7 @@ vi.mock('../feature-flags.js', () =&gt; ({ isFeatureOn: (id: string) =&gt; !feat
     <ul>
       <li>Where a role lands after sign-in: compare with <code>homeFor(role)</code>, not with <code>/user/dashboard</code>, because <code>src/custom/home.ts</code> may send people elsewhere.</li>
       <li>The route list: a route may group <code>children</code> without a component of its own, and the app's routes in <code>src/custom/routes.ts</code> are left out of the check that gives every URL to a feature or to core.</li>
+      <li>The admin menu: an item that links to one of the app's routes opens the app's page, so the menu check accepts it whatever feature the item names. <code>explicitRouteUrls()</code> and <code>isServedBy()</code> in <code>src/test/route-urls.ts</code> read the app's routes for both checks.</li>
       <li>A file the check should not find: use a throwaway folder as the repo root, because an app has files such as <code class="new">firestore.app.rules</code> that Arc CMS does not.</li>
     </ul>
 

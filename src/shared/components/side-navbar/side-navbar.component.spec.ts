@@ -1,14 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, type Routes } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 
 import NavbarComponent, { type MenuItem } from './side-navbar.component';
 import { featureOfPath, isCorePath } from '../../../app/core/features/feature-routes';
 import type { FeatureId } from '../../../app/core/features/feature-registry';
+import { CUSTOM_NAV } from '../../../custom/nav';
+import { CUSTOM_ROUTES } from '../../../custom/routes';
+import { explicitRouteUrls, isServedBy } from '../../../test/route-urls';
 import { AuthState } from '../../../app/pages/(auth)/auth.store';
 import { ContentTypesStore } from '../../../app/pages/admin/contents/content-types/content-types.store';
 import { ContentType } from '../../../app/pages/admin/contents/content-types/content-types.model';
@@ -170,9 +173,13 @@ describe('NavbarComponent', () => {
         fixture.detectChanges();
     });
 
-    it("links every item to a page of its own feature, or of core (specs/feature-flags-spec.md 8)", () => {
-        contentTypesSignal.set([{ id: '1', name: 'Blog', slug: 'blog' }]);
-        waitlistsSignal.set([{ id: 'w1', name: 'Launch' }]);
+    /**
+     * Each menu item whose page has another owner than the item says. A page is a
+     * feature's, core's, the app's (src/custom/routes.ts) or nobody's. An app page may
+     * be linked by an item of any feature: an app item names one to hide with it.
+     */
+    const ownershipProblems = (items: MenuItem[]) => {
+        const appUrls = explicitRouteUrls(CUSTOM_ROUTES);
         const problems: string[] = [];
         const check = (items: MenuItem[], inherited?: FeatureId) => {
             for (const item of items) {
@@ -180,12 +187,48 @@ describe('NavbarComponent', () => {
                 if (item.subItems) check(item.subItems, feature);
                 if (!item.route) continue;
                 const path = item.route.split('?')[0].split('/').filter(Boolean);
-                const owner = featureOfPath(path) ?? (isCorePath(path) ? undefined : 'nobody');
+                const owner = featureOfPath(path) ?? (isCorePath(path) ? undefined : isServedBy(appUrls, path) ? 'app' : 'nobody');
+                if (owner === 'app') continue;
                 if (owner !== feature) problems.push(`${item.label} (${item.route}): menu says ${feature ?? 'core'}, the page is ${owner ?? 'core'}'s`);
             }
         };
-        check(component.menuItems());
-        expect(problems).toEqual([]);
+        check(items);
+        return problems;
+    };
+
+    it("links every item to a page of its own feature, or of core (specs/feature-flags-spec.md 8)", () => {
+        contentTypesSignal.set([{ id: '1', name: 'Blog', slug: 'blog' }]);
+        waitlistsSignal.set([{ id: 'w1', name: 'Launch' }]);
+        expect(ownershipProblems(component.menuItems())).toEqual([]);
+    });
+
+    describe("an app's own items (src/custom/nav.ts)", () => {
+        // Added to the app's real lists, so an app's own items stay in the check above.
+        const nav: MenuItem[] = [
+            { label: 'Lessons', route: '/admin/lessons', icon: 'fa-solid fa-book' },
+            { label: 'Lesson', route: '/admin/lessons/intro?tab=notes', icon: 'fa-solid fa-book', feature: 'search' },
+            { label: 'Broken', route: '/admin/no-such-page', icon: 'fa-solid fa-xmark' },
+        ];
+        const appRoutes: Routes = [{ path: 'admin', children: [{ path: 'lessons' }, { path: 'lessons/:id' }] }];
+
+        beforeEach(() => {
+            CUSTOM_NAV.push(...nav);
+            CUSTOM_ROUTES.push(...appRoutes);
+            contentTypesSignal.set([{ id: '1', name: 'Blog', slug: 'blog' }]); // recompute the menu
+        });
+        afterEach(() => {
+            CUSTOM_NAV.splice(CUSTOM_NAV.length - nav.length);
+            CUSTOM_ROUTES.splice(CUSTOM_ROUTES.length - appRoutes.length);
+        });
+
+        it("counts a link to one of the app's routes as the app's page, whatever feature the item names", () => {
+            const problems = ownershipProblems(component.menuItems());
+            expect(problems.filter((p) => p.startsWith('Lesson'))).toEqual([]);
+        });
+
+        it('still reports an app item that links to a page nobody serves', () => {
+            expect(ownershipProblems(component.menuItems())).toContain("Broken (/admin/no-such-page): menu says core, the page is nobody's");
+        });
     });
 
     it('should group content types under a single Content menu with Content types first', () => {

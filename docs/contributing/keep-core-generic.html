@@ -71,7 +71,7 @@
       <tbody>
         <tr><td><code>src/app/core/features/feature-registry.spec.ts</code></td><td>An id has no info, a need is not a feature, needs form a cycle, or a feature other than the PWA is off by default</td></tr>
         <tr><td><code>src/app/core/features/feature-coverage.spec.ts</code></td><td>A page URL (explicit or file-based) belongs to no feature and is not in <code>CORE_URLS</code>, or to two; or a listed URL no longer exists</td></tr>
-        <tr><td><code>src/shared/components/side-navbar/side-navbar.component.spec.ts</code></td><td>A menu item's feature differs from its page's</td></tr>
+        <tr><td><code>src/shared/components/side-navbar/side-navbar.component.spec.ts</code></td><td>A menu item's feature differs from its page's, or no route serves its page. An app's own page (<code>src/custom/routes.ts</code>) may be linked by an item of any feature</td></tr>
         <tr><td><code>src/app/pages/admin/(settings)/settings.page.spec.ts</code></td><td>A settings tab's feature differs from its page's</td></tr>
         <tr><td><code>functions/src/__tests__/featureFlags.spec.ts</code></td><td>The functions' ids differ from the browser's, a feature file is misnamed, a module is exported from both core and a feature, or a file that defines a function is exported from neither or from two</td></tr>
       </tbody>
