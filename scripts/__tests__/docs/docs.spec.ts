@@ -207,8 +207,12 @@ describe('the checks catch drift', () => {
             expect(checks.checkSources(site, REPO_ROOT)).toEqual(['a/one.html: docs:sources names src/nothing/here.ts, which does not exist']);
         });
         it('fails on an app-only file written as plain code, and accepts it marked new', () => {
+            // An empty repo root: every app has firestore.app.rules, Arc CMS itself does not, so the
+            // real root cannot stand in for "the file is not there".
+            const emptyRoot = mkdtempSync(join(tmpdir(), 'docs-root-'));
+            made.push(emptyRoot);
             const bad = fixture({ 'a/one.html': { title: 'One', body: '<p>Edit <code>firestore.app.rules</code>.</p>' } });
-            expect(checks.checkSources(bad, REPO_ROOT)).toEqual([
+            expect(checks.checkSources(bad, emptyRoot)).toEqual([
                 'a/one.html: <code>firestore.app.rules</code> names a path that does not exist (mark a file the reader creates with class="new")',
             ]);
             const good = fixture({ 'a/one.html': { title: 'One', body: '<p>Create <code class="new">firestore.app.rules</code>.</p>' } });

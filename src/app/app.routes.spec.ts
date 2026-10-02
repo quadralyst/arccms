@@ -35,11 +35,13 @@ describe('App Routes', () => {
                 // Every route has a path, except the one that matches by function
                 // (a feature that is off, specs/feature-flags-spec.md).
                 expect(route.path !== undefined || route.matcher !== undefined).toBe(true);
-                // Each route should have either component, loadComponent, or redirectTo
+                // Each route should have either component, loadComponent, redirectTo, or children
+                // (a parent that only groups routes under one path and its guards, as an app does).
                 const hasComponent = route.component !== undefined;
                 const hasLoadComponent = route.loadComponent !== undefined;
                 const hasRedirect = route.redirectTo !== undefined;
-                expect(hasComponent || hasLoadComponent || hasRedirect).toBe(true);
+                const hasChildren = route.children !== undefined;
+                expect(hasComponent || hasLoadComponent || hasRedirect || hasChildren).toBe(true);
             });
         });
     });

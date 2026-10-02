@@ -4,6 +4,7 @@ import { AuthState } from './(auth)/auth.store';
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
 import { ConstantVariables } from '../../shared/constants';
 import { Router } from '@angular/router';
+import { homeFor } from '../core/home/home';
 import { of } from 'rxjs';
 import { vi, describe, beforeEach, it, expect } from 'vitest';
 
@@ -67,7 +68,8 @@ describe('AuthCheckerComponent', () => {
         mockSetupService.shouldShowOnboarding.mockReturnValue(of(false));
         mockAuthStore.initAuthStateListener.mockReturnValue(of({ role: 'user' }));
         component.ngOnInit();
-        expect(mockRouter.navigateByUrl).toHaveBeenCalledWith('/user/dashboard');
+        // The role's home page: /user/dashboard in Arc CMS, whatever src/custom/home.ts says in an app.
+        expect(mockRouter.navigateByUrl).toHaveBeenCalledWith(homeFor('user'));
     });
 
     it('should navigate to /signup when nobody is signed in', () => {

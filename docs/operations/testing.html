@@ -109,6 +109,14 @@ import { adminCreateUser } from '../users/adminCreateUser.js';</code></pre>
 vi.mock('../feature-flags.js', () =&gt; ({ isFeatureOn: (id: string) =&gt; !featuresOff.has(id) }));</code></pre>
     <p>The feature ids are listed in <a href="../reference/feature-ids.html">Feature ids</a>.</p>
 
+    <h2>Specs that meet an app's pages</h2>
+    <p>The same suite runs in an app, so a core spec must not assume the app is empty. Where a spec touches something an app can change, it reads the app's answer instead of a fixed one:</p>
+    <ul>
+      <li>Where a role lands after sign-in: compare with <code>homeFor(role)</code>, not with <code>/user/dashboard</code>, because <code>src/custom/home.ts</code> may send people elsewhere.</li>
+      <li>The route list: a route may group <code>children</code> without a component of its own, and the app's routes in <code>src/custom/routes.ts</code> are left out of the check that gives every URL to a feature or to core.</li>
+      <li>A file the check should not find: use a throwaway folder as the repo root, because an app has files such as <code class="new">firestore.app.rules</code> that Arc CMS does not.</li>
+    </ul>
+
     <h2>Rules tests</h2>
     <p>The security rules are tested against the Firestore and Storage emulators:</p>
     <pre><code>npm run test:rules</code></pre>

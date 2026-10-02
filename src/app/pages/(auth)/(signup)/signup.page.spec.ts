@@ -20,6 +20,7 @@ vi.mock('@angular/fire/functions', () => ({
 }));
 
 import SignupComponent from './signup.page';
+import { homeFor } from '../../../core/home/home';
 
 describe('SignupComponent', () => {
     describe('Component Definition', () => {
@@ -607,10 +608,10 @@ describe('SignupComponent', () => {
             };
         }
 
-        it('routes a regular user to /user/dashboard', () => {
+        it('routes a regular user to their home page', () => {
             const c = ctx(false);
             handleLoginSuccess.call(c);
-            expect(c._navigate).toHaveBeenCalledWith('/user/dashboard', { replaceUrl: true });
+            expect(c._navigate).toHaveBeenCalledWith(homeFor('user'), { replaceUrl: true });
             expect(c.navigationInProgress).toBe(true);
         });
 
@@ -629,7 +630,7 @@ describe('SignupComponent', () => {
         it('ignores a redirect to another site', () => {
             const c = ctx(false, false, '/signup?redirect=https%3A%2F%2Fevil.example');
             handleLoginSuccess.call(c);
-            expect(c._navigate).toHaveBeenCalledWith('/user/dashboard', { replaceUrl: true });
+            expect(c._navigate).toHaveBeenCalledWith(homeFor('user'), { replaceUrl: true });
         });
 
         it('does not double-navigate when one is already in progress', () => {
