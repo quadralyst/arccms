@@ -1,6 +1,6 @@
 # An App's Own Website: Build Spec
 
-**Status:** W1 and W2 committed (446b05e), W3 (c4fa603), W4 and W5 (fc424dd), all deployed to the dev project and checked. W6 built 2026-10-04, uncommitted. W7 not built.
+**Status:** All phases built 2026-10-04. W1 and W2 (446b05e), W3 (c4fa603), W4 and W5 (fc424dd) deployed to the dev project and checked; W6 (002b25a) needs no deploy. W7 (final docs pass, example page script, CHANGELOG) uncommitted. Screenshots: the docs have none yet; they come with the developer docs' own screenshot phase (D7, specs/developer-docs-strategy.md).
 **Branch:** `feat/own-website`, cut from `dev` (a41d8b4), in the worktree `../arccms-own-website`.
 **Scope:** an app built on Arc CMS owns its whole public website (home page in every
 language, header, footer, content templates, static pages, styles, favicon, error

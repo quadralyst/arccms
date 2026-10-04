@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **The app owns its website.** Home page, header, footer, sign-in panel, content templates, static pages, strings, site styles, favicon and error pages live in `src/custom/site/`, laid over Arc CMS's defaults in `public/_site/`. See docs/website/overview.html.
+- **The home page is published as a static page** in every language, from `src/custom/site/home.html` (or `home.{lang}.html`), with SEO tags and live parts run by `/assets/js/arc-site.js`. **Republish website** on the Content types page publishes everything again.
+- **`npm run arc:own-site`** moves a site an app edited in `public/` into `src/custom/site/`.
+- In `npm run dev`, the editor says **Live site differs** when your site files are not the live ones yet.
+
+### Changed
+
+- Publishing reads templates and site files from the live site's `/_site/`; template overrides stored in Firestore are no longer read.
+- The build no longer prerenders or builds a server bundle.
+- `main.css` styles only the body, header and footer. The old marketing page's styles are in `docs/examples/arc-cms-home.css`.
+
+### For apps upgrading
+
+1. Merge the new version. If your copy edited files in `public/`, run `npm run arc:own-site`, then `npm run arc:own-site -- --write` (docs/website/move-your-site.html).
+2. Run `npm run arc:configure` once, so `arc-install.ts` names your hosting site.
+3. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`). Until the republish, `/` shows the home page from the app instead of the published file.
+
+---
+
 ## [1.0.0] - 2026-03-06
 
 ### Added
