@@ -15,6 +15,7 @@ import { provideClientHydration, withEventReplay, withIncrementalHydration } fro
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { withComponentInputBinding } from '@angular/router';
 import { provideFileRouter, requestContextInterceptor, withExtraRoutes } from '@analogjs/router';
+import { siteFilesInterceptor } from './core/site/site-files.interceptor';
 
 // Firebase imports
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
@@ -53,7 +54,7 @@ export const appConfig: ApplicationConfig = {
     provideFileRouter(withExtraRoutes(routes), withComponentInputBinding()),
     provideHttpClient(
       withFetch(),
-      withInterceptors([requestContextInterceptor])
+      withInterceptors([requestContextInterceptor, siteFilesInterceptor])
     ),
     provideClientHydration(withEventReplay(), withIncrementalHydration()),
 

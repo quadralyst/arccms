@@ -136,6 +136,7 @@ export function siteContents(root = process.cwd()) {
             contents.set(path, { from: source.from, file: source.file });
         }
     }
+    versionCssUrls(contents);
     const manifest = buildManifest(contents);
     contents.set(MANIFEST_PATH, { from: 'core', content: `${JSON.stringify(manifest, null, 2)}\n` });
     return { contents, manifest, ignored };
@@ -145,6 +146,44 @@ function contentOf(entry) {
     return entry.content !== undefined ? Buffer.from(entry.content) : readFileSync(entry.file);
 }
 
+/** `url(...)` in CSS, with or without quotes. */
+const CSS_URL = /url\(\s*(["']?)([^"')]+)\1\s*\)/g;
+
+/**
+ * Adds `?v={hash}` to each url() in the app's own stylesheets (site.css and the
+ * .css files in src/custom/site/assets/) that points at a file the site serves,
+ * absolute (/site/hero.webp) or relative to the stylesheet (hero.webp). Browsers
+ * keep images and fonts for a year, so a changed one reaches returning visitors
+ * only under a new address. Pages version their own links (shared/site-urls.ts);
+ * a stylesheet is a file, so it is done here, when the site is assembled.
+ */
+function versionCssUrls(contents) {
+    for (const [path, entry] of contents) {
+        if (entry.from !== 'app' || !path.endsWith('.css')) continue;
+        const css = contentOf(entry).toString('utf8');
+        const dir = path.slice(0, path.lastIndexOf('/') + 1);
+        const rewritten = css.replace(CSS_URL, (match, quote, url) => {
+            if (/^(data:|https?:|\/\/|#)/.test(url) || url.includes('?')) return match;
+            const [target, fragment] = url.split('#');
+            const served = target.startsWith('/') ? target.slice(1) : normalisePath(dir + target);
+            const file = contents.get(served);
+            if (!file || served.endsWith('.css')) return match;
+            return `url(${quote}${target}?v=${hash(contentOf(file))}${fragment !== undefined ? `#${fragment}` : ''}${quote})`;
+        });
+        if (rewritten !== css) contents.set(path, { ...entry, content: rewritten, file: undefined });
+    }
+}
+
+/** `a/b/../c.png` as `a/c.png`. */
+function normalisePath(path) {
+    const out = [];
+    for (const part of path.split('/')) {
+        if (part === '..') out.pop();
+        else if (part && part !== '.') out.push(part);
+    }
+    return out.join('/');
+}
+
 /**
  * What the site has, for the SPA, the publish functions and the admin:
  *
@@ -152,8 +191,9 @@ function contentOf(entry) {
  *   templates  each folder's files and where each comes from: { articles: { detail: 'app', list: 'core' } }
  *   pages      static pages: { 'privacy-policy': 'core', terms: 'app' }
  *   strings    languages with a strings file
- *   files      a hash of every /_site file and of the site stylesheets, to tell
- *              whether two copies of the site are the same, and to version links
+ *   files      a hash of every /_site file, every /site file (the app's own
+ *              assets) and the site stylesheets, to tell whether two copies of the
+ *              site are the same, and to version links (shared/site-urls.ts)
  */
 export function buildManifest(contents) {
     const manifest = { version: 1, home: {}, templates: {}, pages: {}, strings: [], files: {} };
@@ -164,7 +204,7 @@ export function buildManifest(contents) {
             (manifest.templates[m[1]] ??= {})[m[2]] = entry.from;
         } else if ((m = /^_site\/pages\/([^/]+)\.html$/.exec(path))) manifest.pages[m[1]] = entry.from;
         else if ((m = /^_site\/strings\/([^/]+)\.json$/.exec(path))) manifest.strings.push(m[1]);
-        if (path.startsWith('_site/') || VERSIONED.includes(path)) manifest.files[path] = hash(contentOf(entry));
+        if (path.startsWith('_site/') || path.startsWith('site/') || VERSIONED.includes(path)) manifest.files[path] = hash(contentOf(entry));
     }
     return manifest;
 }

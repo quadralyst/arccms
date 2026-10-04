@@ -9,8 +9,10 @@
  *
  * - `data-arc-t` text and attributes in the page's language
  *   (applyStringsToElement, the same rules as the publish functions);
- * - root-relative links pointed at the page's language (`/articles` becomes
- *   `/hi/articles` on a Hindi page);
+ * - links to the site's files with their version (`/site/logo.svg?v=...`), as on
+ *   a published page (core/site/site-urls.ts);
+ * - links to pages that exist in every language pointed at the page's language
+ *   (`/articles` becomes `/hi/articles` on a Hindi page; `/signup` stays);
  * - the Arc CMS elements in the HTML, such as `<arc-search>` and
  *   `<arc-language-switcher>`, become the real components.
  *
@@ -23,6 +25,9 @@ import {
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { applyStringsToElement } from '../../core/i18n/apply-strings-dom';
 import { withLangPrefix } from '../../core/utils/language-links';
+import { PublicContentTypesService } from '../../core/site/public-content-types';
+import { siteManifest } from '../../core/site/site';
+import { versionSiteUrls } from '../../core/site/site-urls';
 
 /** Arc CMS elements a fragment may hold, by tag name, and the component each becomes. */
 export type FragmentElements = Record<string, Type<unknown>>;
@@ -31,6 +36,7 @@ export type FragmentElements = Record<string, Type<unknown>>;
 export function renderSiteFragment(html: string, elements: FragmentElements): void {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
     const uiStrings = inject(UiStringsService);
+    const contentTypes = inject(PublicContentTypesService);
     const appRef = inject(ApplicationRef);
     const environmentInjector = inject(EnvironmentInjector);
     const elementInjector = inject(Injector);
@@ -44,14 +50,14 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
         mounted = [];
     };
 
-    const render = (lang: string, strings: Record<string, string>) => {
+    const render = (lang: string, strings: Record<string, string>, types: ReadonlySet<string>) => {
         unmount();
-        host.innerHTML = html;
+        host.innerHTML = versionSiteUrls(html, siteManifest().files);
         applyStringsToElement(host, strings);
         const prefix = lang ? `/${lang}` : '';
         if (prefix) {
             host.querySelectorAll('a[href]').forEach((anchor) => {
-                anchor.setAttribute('href', withLangPrefix(anchor.getAttribute('href') || '', prefix));
+                anchor.setAttribute('href', withLangPrefix(anchor.getAttribute('href') || '', prefix, types));
             });
         }
         for (const [tag, component] of Object.entries(elements)) {
@@ -63,15 +69,17 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
         }
     };
 
-    // Rendered at once so it is in a prerendered page, then again whenever the
-    // page's language or its strings arrive or change.
-    let shown = { lang: uiStrings.activeLang(), strings: uiStrings.strings() };
-    render(shown.lang, shown.strings);
+    // Rendered at once, then again whenever the page's language, its strings or
+    // the public content types (which links take the language) arrive or change.
+    let shown = { lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs() };
+    render(shown.lang, shown.strings, shown.types);
+    if (shown.lang) void contentTypes.load();
     effect(() => {
-        const next = { lang: uiStrings.activeLang(), strings: uiStrings.strings() };
-        if (next.lang === shown.lang && next.strings === shown.strings) return;
+        const next = { lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs() };
+        if (next.lang === shown.lang && next.strings === shown.strings && next.types === shown.types) return;
         shown = next;
-        untracked(() => render(next.lang, next.strings));
+        if (next.lang) void contentTypes.load();
+        untracked(() => render(next.lang, next.strings, next.types));
     });
 
     inject(DestroyRef).onDestroy(unmount);

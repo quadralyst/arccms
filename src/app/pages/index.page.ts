@@ -18,6 +18,7 @@ import { LocalizationService } from '../core/services/localization.service';
 import { UiStringsService } from '../core/services/ui-strings.service';
 import { applyStringsToElement } from '../core/i18n/apply-strings-dom';
 import { withLangPrefix } from '../core/utils/language-links';
+import { PublicContentTypesService } from '../core/site/public-content-types';
 import { siteManifest } from '../core/site/site';
 import { useSiteStyles } from '../core/site/site-styles';
 import { arcConfig } from '../core/config/arc-config';
@@ -82,6 +83,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
     private localization = inject(LocalizationService);
     private uiStrings = inject(UiStringsService);
     private onboarding = inject(OnboardingSetupService);
+    private contentTypes = inject(PublicContentTypesService);
 
     /** Nodes this page added to <head> and <body>, removed when it goes. */
     private added: Element[] = [];
@@ -107,17 +109,19 @@ export default class HomeComponent implements OnInit, OnDestroy {
     }
 
     private async load(lang: string): Promise<void> {
-        const [settings, strings] = await Promise.all([this.localization.load(), this.uiStrings.use(lang)]);
+        const [settings, strings, types] = await Promise.all([
+            this.localization.load(), this.uiStrings.use(lang), lang ? this.contentTypes.load() : Promise.resolve(new Set<string>()),
+        ]);
         // The home page exists in every enabled language (home.{lang}.html, or
         // home.html translated), so the switcher offers them all.
         this.localization.languageVariants.set(settings.enabledLanguages.map((l) => l.code));
 
         const ownFile = !!lang && !!siteManifest().home[lang];
         const html = await firstValueFrom(this.http.get(ownFile ? `/_site/home.${lang}.html` : '/_site/home.html', { responseType: 'text' }));
-        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings);
+        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types);
     }
 
-    private render(page: Document, lang: string, strings: Record<string, string>): void {
+    private render(page: Document, lang: string, strings: Record<string, string>, types: ReadonlySet<string>): void {
         applyStringsToElement(page.documentElement, strings);
 
         // Head: title, description, language, the page's own stylesheets.
@@ -137,7 +141,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
         scripts.forEach((script) => script.remove());
         this.host.innerHTML = page.body.innerHTML;
         if (lang) {
-            this.host.querySelectorAll('a[href]').forEach((a) => a.setAttribute('href', withLangPrefix(a.getAttribute('href') || '', `/${lang}`)));
+            this.host.querySelectorAll('a[href]').forEach((a) => a.setAttribute('href', withLangPrefix(a.getAttribute('href') || '', `/${lang}`, types)));
         }
         this.mountElements();
         this.addLegalNotices();

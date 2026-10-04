@@ -17,6 +17,7 @@ import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service'
 import { LocalizationService } from '../core/services/localization.service';
 import { UiStringsService } from '../core/services/ui-strings.service';
 import { setSiteManifestForTesting, siteManifest } from '../core/site/site';
+import { PublicContentTypesService } from '../core/site/public-content-types';
 
 const HOME = `<!doctype html><html lang="en"><head>
     <title data-arc-t="home_title">My Site</title>
@@ -25,7 +26,7 @@ const HOME = `<!doctype html><html lang="en"><head>
     <style>.hero { color: red; }</style>
 </head><body>
     <arc-header></arc-header>
-    <section class="hero"><h1 data-arc-t="home_heading">Hello</h1><a class="more" href="/articles">Read</a><a class="terms" href="/p/terms">Terms</a></section>
+    <section class="hero"><h1 data-arc-t="home_heading">Hello</h1><a class="more" href="/articles">Read</a><a class="terms" href="/p/terms">Terms</a><a class="learn" href="/learn">Learn</a></section>
     <arc-content-partials content-type="articles" count="3" section-title="From the blog"></arc-content-partials>
     <form data-waitlist-form data-waitlist-id="waitlist-form"><input name="email"><button>Join</button></form>
     <arc-footer></arc-footer>
@@ -62,6 +63,7 @@ describe('HomeComponent (home page preview)', () => {
                         translate: (_k: string, fallback: string) => fallback,
                     },
                 },
+                { provide: PublicContentTypesService, useValue: { slugs: signal(new Set(['articles'])), load: vi.fn().mockResolvedValue(new Set(['articles'])) } },
                 { provide: ContentTypesStore, useValue: { items: signal([]), isLoading: signal(false), getAll: vi.fn(), unsubscribeStore: vi.fn() } },
             ],
         })
@@ -124,6 +126,8 @@ describe('HomeComponent (home page preview)', () => {
         expect(TestBed.inject(Title).getTitle()).toBe('मेरी साइट');
         expect(el.querySelector('a.more')!.getAttribute('href')).toBe('/hi/articles');
         expect(el.querySelector('a.terms')!.getAttribute('href')).toBe('/p/terms');
+        // An app's own page exists once: no language prefix.
+        expect(el.querySelector('a.learn')!.getAttribute('href')).toBe('/learn');
         expect(document.documentElement.lang).toBe('hi');
         fixture.destroy();
         expect(document.documentElement.lang).not.toBe('hi');

@@ -103,6 +103,41 @@ describe('siteContents', () => {
         expect(() => siteContents(root)).toThrow(/strings\/hi\.json is not valid JSON/);
     });
 
+    it('lists the app\'s own files with a hash, so pages can version their links', () => {
+        app('assets/home.css', 'body{}');
+        app('assets/img/hero.webp', 'IMG');
+        const { manifest } = siteContents(root);
+        expect(manifest.files['site/home.css']).toMatch(/^[0-9a-f]{16}$/);
+        expect(manifest.files['site/img/hero.webp']).toMatch(/^[0-9a-f]{16}$/);
+    });
+
+    it('versions url() in the app\'s stylesheets, absolute or relative, and its hash follows the image', () => {
+        app('assets/img/hero.webp', 'IMG-1');
+        app('assets/fonts/a.woff2', 'FONT');
+        app('assets/home.css', ".hero{background:url('/site/img/hero.webp')} @font-face{src:url(fonts/a.woff2) format('woff2')} .x{background:url(data:image/png;base64,AA)} .y{background:url(https://cdn.test/a.png)} .z{background:url(/site/none.png)}");
+        app('site.css', '.logo{background:url("/site/img/hero.webp#c")}');
+        const first = siteContents(root);
+        const imgHash = first.manifest.files['site/img/hero.webp'];
+        const css = readSiteFile(root, 'site/home.css');
+        expect(css).toContain(`url('/site/img/hero.webp?v=${imgHash}')`);
+        expect(css).toMatch(/url\(fonts\/a\.woff2\?v=[0-9a-f]{16}\)/);
+        expect(css).toContain('url(data:image/png;base64,AA)');
+        expect(css).toContain('url(https://cdn.test/a.png)');
+        expect(css).toContain('url(/site/none.png)');
+        expect(readSiteFile(root, 'assets/css/site.css')).toContain(`url("/site/img/hero.webp?v=${imgHash}#c")`);
+
+        // A changed image changes the stylesheet, so pages link the stylesheet anew too.
+        app('assets/img/hero.webp', 'IMG-2');
+        const second = siteContents(root);
+        expect(second.manifest.files['site/home.css']).not.toBe(first.manifest.files['site/home.css']);
+    });
+
+    it('leaves Arc CMS\'s own stylesheets as they are', () => {
+        core('assets/css/main.css', '.a{background:url(/site/img/hero.webp)}');
+        app('assets/img/hero.webp', 'IMG');
+        expect(readSiteFile(root, 'assets/css/main.css')).toBe('.a{background:url(/site/img/hero.webp)}');
+    });
+
     it('describes the site in the manifest', () => {
         app('home.html', '<html>home</html>');
         app('home.hi.html', '<html>घर</html>');
@@ -179,22 +214,23 @@ describe('siteModule', () => {
 });
 
 describe('Arc CMS\'s own site files', () => {
-    it('ship a full default template set, a header, a footer and no app files', () => {
-        const repo = join(__dirname, '..', '..');
-        const { manifest } = siteContents(repo);
-        expect(manifest.templates.default).toEqual({ detail: 'core', list: 'core', partials: 'core' });
-        expect(readSiteFile(repo, '_site/header.html')).toContain('<arc-search>');
-        expect(readSiteFile(repo, '_site/footer.html')).not.toBe('');
+    // Core's defaults, read from public/ directly: an app's src/custom/site/ may replace any of them.
+    const repo = join(__dirname, '..', '..');
+    const coreFile = (path: string) => readFileSync(join(repo, CORE_PUBLIC, path), 'utf8');
+
+    it('ship a full default template set, a header and a footer', () => {
+        for (const file of ['detail', 'list', 'partials']) expect(coreFile(`_site/templates/default/${file}.html`)).not.toBe('');
+        expect(coreFile('_site/header.html')).toContain('<arc-search>');
+        expect(coreFile('_site/footer.html')).not.toBe('');
     });
 
     it('ship a placeholder home page that says it runs on Arc CMS, in every language it has strings for, and stays out of search', () => {
-        const repo = join(__dirname, '..', '..');
-        const home = readSiteFile(repo, '_site/home.html');
+        const home = coreFile('_site/home.html');
         expect(home).toContain('<meta name="robots" content="noindex">');
         expect(home).toContain('href="https://arccms.com"');
         expect(home).toContain('href="https://github.com/quadralyst/arccms"');
         const keys = [...home.matchAll(/data-arc-t="([^"]+)"/g)].map((m) => m[1]);
-        const hi = JSON.parse(readSiteFile(repo, '_site/strings/hi.json'));
+        const hi = JSON.parse(coreFile('_site/strings/hi.json'));
         expect(keys.filter((key) => !(key in hi))).toEqual([]);
     });
 });

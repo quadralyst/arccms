@@ -82,3 +82,33 @@ describe('languageRouteGuard', () => {
         await expect(runGuard()).resolves.toBe(false);
     });
 });
+
+describe('languageRedirect', () => {
+    // Imported here so the guard tests above stay as they were.
+    let languageRedirect: typeof import('./language.guard').languageRedirect;
+    let languageRedirectGuard: typeof import('./language.guard').languageRedirectGuard;
+    beforeEach(async () => {
+        ({ languageRedirect, languageRedirectGuard } = await import('./language.guard'));
+        TestBed.configureTestingModule({
+            providers: [{ provide: LocalizationService, useValue: { load: vi.fn().mockResolvedValue(EN_HI) } }],
+        });
+    });
+
+    it('takes any address of two segments or more', () => {
+        const matcher = languageRedirect.matcher!;
+        expect(matcher(segments('hi', 'signup'), {} as never, {} as never)).toEqual({ consumed: segments('hi', 'signup') });
+        expect(matcher(segments('hi', 'learn', 'lesson-1'), {} as never, {} as never)).toBeTruthy();
+        expect(matcher(segments('hi'), {} as never, {} as never)).toBeNull();
+    });
+
+    it('sends an address under a language to the same address without it', async () => {
+        const guard = (...paths: string[]) => TestBed.runInInjectionContext(() => languageRedirectGuard({}, segments(...paths)));
+        expect(String(await guard('hi', 'signup'))).toBe('/signup');
+        expect(String(await guard('hi', 'learn', 'lesson-1'))).toBe('/learn/lesson-1');
+    });
+
+    it('lets the next route try when the first segment is not a language', async () => {
+        const result = await TestBed.runInInjectionContext(() => languageRedirectGuard({}, segments('admin', 'settings')));
+        expect(result).toBe(false);
+    });
+});
