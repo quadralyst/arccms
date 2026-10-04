@@ -1,6 +1,6 @@
 # An App's Own Website: Build Spec
 
-**Status:** W1 and W2 built and committed 2026-10-04 (446b05e); W3 built 2026-10-04, deployed to the dev project (processPublishQueue, seedStaticPages, regenerateSeoFiles, website, seed) and browser-checked; uncommitted. W4 to W7 not built.
+**Status:** W1 and W2 built and committed 2026-10-04 (446b05e); W3 committed (c4fa603), deployed to the dev project and browser-checked. W4 and W5 built 2026-10-04, uncommitted, not yet deployed. W6 and W7 not built.
 **Branch:** `feat/own-website`, cut from `dev` (a41d8b4), in the worktree `../arccms-own-website`.
 **Scope:** an app built on Arc CMS owns its whole public website (home page in every
 language, header, footer, content templates, static pages, styles, favicon, error
@@ -34,12 +34,12 @@ which is its own task; a visual editor for templates.
 | W-D12 | Header and footer in the SPA | Rendered from the same HTML as published pages, not compiled as Angular templates. The `{`, `}`, `@` escaping rule disappears. |
 | W-D13 | Live parts of published pages | One script, `/assets/js/arc-site.js`, beside `arc-search.js`: signup forms, live counts, the legal notice, PWA install. Published pages work without the SPA. |
 | W-D14 | The "deploy before publishing" trap | Guarded twice: a template folder missing on the live site fails the publish with a message; the admin running locally warns when local site files differ from the live ones. |
-| W-D15 | Home page without the content feature | Home and static pages publish with `content` off (the cards are empty); they are the website, not a content feature. Their functions move to a core group. |
+| W-D15 | Home page without the content feature | Home and static pages publish with `content` off (the cards are empty); they are the website, not a content feature. Their functions move to a core group. **As built:** no move. The website deploy's seed runs the publishing code directly (`functions/scripts/call-seed.cjs`), so the home page and static pages publish with `content` off; with it off there is no content to republish for, and no admin action. |
 | W-D16 | Legal links on signup forms | **No setting.** The notice links to `/p/terms` and `/p/privacy-policy` when the site has those pages; its wording is translatable through `strings/{lang}.json`. `src/shared/constants/legal-notice.ts` keeps only the wording defaults. |
 | W-D18 | Site stylesheets in the app | **On only while a website page is shown** (added 2026-10-04). `main.css` and `site.css` are each one `<link>`, versioned `?v={hash}`, switched on by the website's components (header, footer, home page, sign-in page) and off (`disabled`) when the last goes, so they never style the admin or member area. `main.css` leaves the home page's JS bundle. |
 | W-D19 | The sign-in page is the site's | **Added to W2 on request (2026-10-04).** Name and logo from Settings, About (Arc CMS's when unset); the brand panel is a site file, `sign-in.html` (core ships a neutral one, no marketing); colours and font through CSS variables set in `site.css` (`--arc-sign-in-*`). |
 | W-D20 | Failures found in W3 testing | **Fixed in W3 (2026-10-04).** (a) A release that went out without the item's own page stamped the item "deployed", hiding any build failure: the publish queue now releases the rest unstamped and records the failure on the item. (b) The editor read the previous publish's result as this one's: it now waits for a deploy time that differs from the one on the record when it started watching. |
-| W-D21 | Editor side panel | **Added to W3 on request (2026-10-04).** The resize handle is always visible (divider plus a dotted grip) and the width is remembered per content type in the browser, starting from the shared width. |
+| W-D21 | Editor side panel | **Added to W3 on request (2026-10-04).** The resize handle is always visible (a dotted grip in the gap between the two areas, no extra line) and the width is remembered per content type in the browser, starting from the shared width. |
 | W-D17 | Migration | **`npm run arc:own-site`**, a plan by default and the move with `--write` (section 9). Quadralyst's own website becomes an app repo of its own and is the first site moved with it. |
 
 ---
@@ -125,10 +125,16 @@ the build output (build). Core's `public/` keeps only plain served files.
    the PWA manifest when on. The page's own `<title>` and description are kept; when
    missing, they come from Settings, About.
 4. Write `/index.html` (default language) and `/{lang}/index.html` in one Hosting release.
-5. List the home page in the sitemap and llms.txt.
+5. List the home page in the sitemap and llms.txt. **As built:** llms.txt links it as HTML under Optional, since it has no Markdown twin.
 
 **When it publishes.** After every website deploy (the reseed), when content of a type it
-shows is published or unpublished, and from a "Republish home page" action in the admin.
+shows is published or unpublished, and from a "Republish home page" action in the admin. **As built:** the action is **Republish website** on the Content types page (the whole site, `redeploy-all`), since a Settings change can touch every page.
+
+**Setup redirect.** The published page carries `data-setup` while the setup wizard is still to do (decided at publish time), and arc-site.js then sends the owner to /onboarding as the SPA does. A page published after setup has no check and no read.
+
+**main.css.** The old marketing page's rules (about 840 lines: hero, sponsors, features, founding circle, contact) moved to `docs/examples/arc-cms-home.css`. Core `main.css` keeps only the body, header and footer, so an app's own class names (`.hero`, `section`) are not styled by core.
+
+**Build.** Nothing is prerendered, so the Analog build has `ssr: false`: one browser bundle, faster and lighter, and `dist/analog/public/index.html` is the app shell until the seed publishes the home page over it.
 
 **Preview.** In `npm run dev` the SPA's `/` and `/{lang}` render the same file from
 `/_site/`, filling the same elements client-side. On the live site the published file

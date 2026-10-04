@@ -1,189 +1,143 @@
 /**
- * Tests for HomeComponent (index.page.ts)
+ * The home page preview (index.page.ts, specs/own-website-spec.md W4): the site's
+ * home.html shown in the app, the way publishing builds it.
  */
-
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Title } from '@angular/platform-browser';
 import { of } from 'rxjs';
 import HomeComponent from './index.page';
-import { BaseComponent } from '../../shared/components/base/base.component';
-import { GlobalService } from '../../shared/services/global.service';
-import { ToastService } from '../../shared/services/toast.service';
-import { EmailConfigStatusService } from '../../shared/services/email-config-status.service';
 import { ContentsStore } from './admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from './admin/contents/content-types/content-types.store';
 import { ContentPartialsComponent } from './page.parts/content-partials.component';
-
-import { WaitlistService } from './waitlist/waitlist.service';
 import { WaitlistFormService } from './page.parts/waitlist-form.service';
-import { AuthService } from './(auth)/auth.service';
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
-import { vi } from 'vitest';
+import { LocalizationService } from '../core/services/localization.service';
+import { UiStringsService } from '../core/services/ui-strings.service';
+import { setSiteManifestForTesting, siteManifest } from '../core/site/site';
 
-describe('HomeComponent', () => {
-    let component: HomeComponent;
+const HOME = `<!doctype html><html lang="en"><head>
+    <title data-arc-t="home_title">My Site</title>
+    <meta name="description" content="What we do.">
+    <link rel="stylesheet" href="/site/home.css">
+    <style>.hero { color: red; }</style>
+</head><body>
+    <arc-header></arc-header>
+    <section class="hero"><h1 data-arc-t="home_heading">Hello</h1><a class="more" href="/articles">Read</a><a class="terms" href="/p/terms">Terms</a></section>
+    <arc-content-partials content-type="articles" count="3" section-title="From the blog"></arc-content-partials>
+    <form data-waitlist-form data-waitlist-id="waitlist-form"><input name="email"><button>Join</button></form>
+    <arc-footer></arc-footer>
+    <script>window.__homeScriptRan = (window.__homeScriptRan || 0) + 1;</script>
+</body></html>`;
+
+describe('HomeComponent (home page preview)', () => {
     let fixture: ComponentFixture<HomeComponent>;
+    let http: { get: ReturnType<typeof vi.fn> };
+    let waitlistForms: { initWaitlistForms: ReturnType<typeof vi.fn>; cleanup: ReturnType<typeof vi.fn> };
+    let onboarding: { shouldShowOnboarding: ReturnType<typeof vi.fn> };
+    let strings: Record<string, string>;
+    const localization = () => ({
+        load: vi.fn().mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: [{ code: 'en' }, { code: 'hi' }] }),
+        languageVariants: signal<string[] | null>(null),
+        enabledLanguages: signal([]),
+        defaultLanguage: signal('en'),
+    });
 
-    beforeEach(async () => {
-        const mockWaitlistService = {
-            getWaitlist: vi.fn(),
-            createWaitlistWithId: vi.fn(),
-            getWaitlistBySlug: vi.fn(),
-        };
-
-        const mockWaitlistFormService = {
-            initWaitlistForms: vi.fn(),
-            cleanup: vi.fn(),
-        };
-
-        const mockEmailConfigService = {
-            isEmailConfigured: vi.fn().mockReturnValue(true),
-            isLoading: vi.fn().mockReturnValue(false),
-            bannerDismissed: vi.fn().mockReturnValue(false),
-            shouldShowBanner: vi.fn().mockReturnValue(false),
-            dismissBanner: vi.fn()
-        };
-
-        // Mocks for ContentPartialsComponent
-        const mockContentsStore = {
-            items: signal([]),
-            isLoading: signal(false),
-            getAll: vi.fn(),
-            unsubscribeStore: vi.fn(),
-        };
-
-        const mockContentTypesStore = {
-            items: signal([]),
-            isLoading: signal(false),
-            getAll: vi.fn(),
-            unsubscribeStore: vi.fn(),
-        };
-
-        const mockHttpClient = {
-            get: vi.fn().mockReturnValue(of('<div>Template</div>')),
-        };
-
-        const mockAuthService = {
-            isFirstRun: vi.fn().mockReturnValue(of(false)),
-        };
-
-        const mockSetupService = {
-            shouldShowOnboarding: vi.fn().mockReturnValue(of(false)),
-        };
-
+    async function open(lang = ''): Promise<HTMLElement> {
         await TestBed.configureTestingModule({
             imports: [HomeComponent],
             providers: [
                 provideRouter([]),
+                { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (k: string) => (k === 'lang' ? lang || null : null) } }, paramMap: of({ keys: [], get: () => null }), queryParams: of({}) } },
+                { provide: HttpClient, useValue: http },
+                { provide: WaitlistFormService, useValue: waitlistForms },
+                { provide: OnboardingSetupService, useValue: onboarding },
+                { provide: LocalizationService, useValue: localization() },
                 {
-                    provide: ActivatedRoute,
+                    provide: UiStringsService,
                     useValue: {
-                        snapshot: {
-                            params: {},
-                            paramMap: {
-                                get: (key: string) => null,
-                            },
-                        },
-                        paramMap: of({ get: () => null, keys: [] }),
-                        queryParams: of({}),
+                        activeLang: signal(lang),
+                        strings: signal({}),
+                        use: vi.fn().mockResolvedValue(strings),
+                        translate: (_k: string, fallback: string) => fallback,
                     },
                 },
-                GlobalService,
-                ToastService,
-                { provide: WaitlistService, useValue: mockWaitlistService },
-                { provide: WaitlistFormService, useValue: mockWaitlistFormService },
-                { provide: EmailConfigStatusService, useValue: mockEmailConfigService },
-                { provide: ContentTypesStore, useValue: mockContentTypesStore },
-                { provide: HttpClient, useValue: mockHttpClient },
-                { provide: AuthService, useValue: mockAuthService },
-                { provide: OnboardingSetupService, useValue: mockSetupService },
+                { provide: ContentTypesStore, useValue: { items: signal([]), isLoading: signal(false), getAll: vi.fn(), unsubscribeStore: vi.fn() } },
             ],
         })
-            // HomeComponent renders <arc-content-partials>, and ContentPartialsComponent declares
-            // `providers: [ContentsStore]`, which shadows the root-level mock above. Override the
-            // child's component-level provider so no real store (and no Firestore) is constructed.
             .overrideComponent(ContentPartialsComponent, {
-                set: {
-                    providers: [
-                        { provide: ContentsStore, useValue: mockContentsStore },
-                    ]
-                }
+                set: { providers: [{ provide: ContentsStore, useValue: { items: signal([]), isLoading: signal(false), getAll: vi.fn(), unsubscribeStore: vi.fn() } }] },
             })
             .compileComponents();
-
         fixture = TestBed.createComponent(HomeComponent);
-        component = fixture.componentInstance;
         fixture.detectChanges();
+        await new Promise((r) => setTimeout(r, 0));
+        await new Promise((r) => setTimeout(r, 0));
+        fixture.detectChanges();
+        return fixture.nativeElement as HTMLElement;
+    }
+
+    beforeEach(() => {
+        (window as unknown as { __homeScriptRan?: number }).__homeScriptRan = 0;
+        http = { get: vi.fn().mockReturnValue(of(HOME)) };
+        waitlistForms = { initWaitlistForms: vi.fn().mockResolvedValue(undefined), cleanup: vi.fn() };
+        onboarding = { shouldShowOnboarding: vi.fn().mockReturnValue(of(false)) };
+        strings = {};
     });
 
-    describe('Component Creation', () => {
-        it('should create', () => {
-            expect(component).toBeTruthy();
-        });
+    afterEach(() => setSiteManifestForTesting());
 
-        it('should extend BaseComponent', () => {
-            expect(component instanceof BaseComponent).toBe(true);
-        });
+    it('shows the site\'s home page, with its title, styles and scripts', async () => {
+        const el = await open();
+        expect(http.get).toHaveBeenCalledWith('/_site/home.html', { responseType: 'text' });
+        expect(el.querySelector('.hero h1')!.textContent).toBe('Hello');
+        expect(TestBed.inject(Title).getTitle()).toBe('My Site');
+        expect(document.head.querySelector('link[data-arc-home][href="/site/home.css"]')).toBeTruthy();
+        expect(document.head.querySelector('style[data-arc-home]')!.textContent).toContain('.hero');
+        expect(document.body.querySelector('script[data-arc-home]')!.textContent).toContain('__homeScriptRan');
     });
 
-    describe('Component Metadata', () => {
-        it('should be a standalone component with arc-home selector', () => {
-            // Verify the component was created and is functional
-            expect(component).toBeTruthy();
-            expect(fixture.nativeElement).toBeTruthy();
-        });
-
-        it('should be standalone', () => {
-            expect(HomeComponent).toBeDefined();
-        });
-
-        it('should be the default export', () => {
-            // HomeComponent is exported as default
-            expect(typeof HomeComponent).toBe('function');
-        });
+    it('turns the Arc CMS elements into components, cards with the page\'s settings', async () => {
+        const el = await open();
+        // The header's own HTML is in place, and its search box is the header's.
+        expect(el.querySelector('arc-header nav, arc-header *')).toBeTruthy();
+        const partials = el.querySelector('arc-content-partials') as HTMLElement & { __ngContext__?: unknown };
+        expect(partials).toBeTruthy();
+        expect(waitlistForms.initWaitlistForms).toHaveBeenCalledWith(el);
     });
 
-    describe('Component Template', () => {
-        it('should render header component', () => {
-            const header = fixture.nativeElement.querySelector('arc-header');
-            expect(header).toBeTruthy();
-        });
-
-        it('should render footer component', () => {
-            const footer = fixture.nativeElement.querySelector('arc-footer');
-            expect(footer).toBeTruthy();
-        });
-
-        it('should render main content (hero section)', () => {
-            const heroSection = fixture.nativeElement.querySelector('.hero');
-            expect(heroSection).toBeTruthy();
-        });
+    it('cleans up what it added when it goes', async () => {
+        await open();
+        fixture.destroy();
+        expect(document.querySelector('[data-arc-home]')).toBeNull();
+        expect(waitlistForms.cleanup).toHaveBeenCalled();
     });
 
-    describe('Inherited Functionality', () => {
-        it('should have access to constantVariables', () => {
-            expect(component.constantVariables).toBeDefined();
-            expect(component.constantVariables.APPLICATION_NAME).toBe('Arc CMS');
-        });
+    it('shows home.html in another language with its strings, and its links in that language', async () => {
+        strings = { home_heading: 'नमस्ते', home_title: 'मेरी साइट' };
+        const el = await open('hi');
+        expect(http.get).toHaveBeenCalledWith('/_site/home.html', { responseType: 'text' });
+        expect(el.querySelector('.hero h1')!.textContent).toBe('नमस्ते');
+        expect(TestBed.inject(Title).getTitle()).toBe('मेरी साइट');
+        expect(el.querySelector('a.more')!.getAttribute('href')).toBe('/hi/articles');
+        expect(el.querySelector('a.terms')!.getAttribute('href')).toBe('/p/terms');
+        expect(document.documentElement.lang).toBe('hi');
+        fixture.destroy();
+        expect(document.documentElement.lang).not.toBe('hi');
+    });
 
-        it('should have access to router', () => {
-            expect(component.router).toBeDefined();
-        });
+    it('shows the language\'s own file when the site has one', async () => {
+        const built = siteManifest();
+        setSiteManifestForTesting({ ...built, home: { default: 'app', hi: 'app' } });
+        await open('hi');
+        expect(http.get).toHaveBeenCalledWith('/_site/home.hi.html', { responseType: 'text' });
+    });
 
-        it('should have access to globalService', () => {
-            expect(component.globalService).toBeDefined();
-        });
-
-        it('should have access to toastService', () => {
-            expect(component.toastService).toBeDefined();
-        });
-
-        it('should have access to activatedRoute', () => {
-            expect(component.activatedRoute).toBeDefined();
-        });
+    it('asks whether the site still needs its setup wizard', async () => {
+        await open();
+        expect(onboarding.shouldShowOnboarding).toHaveBeenCalled();
     });
 });

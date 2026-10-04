@@ -40,7 +40,7 @@ export const MANIFEST_PATH = '_site/site.json';
  * Served files that keep their name across builds but must reach browsers when
  * they change (Hosting lets browsers keep CSS for a year): linked with `?v={hash}`.
  */
-export const VERSIONED = ['assets/css/main.css', 'assets/css/site.css'];
+export const VERSIONED = ['assets/css/main.css', 'assets/css/site.css', 'assets/js/arc-site.js'];
 
 /** The three files a template folder can have. */
 export const TEMPLATE_FILES = ['partials', 'list', 'detail'];

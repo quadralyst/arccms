@@ -4,6 +4,7 @@ import { clearSettingsCache, getPartials, getSiteConfig } from '../shared/site-s
 import { generateAndDeployContentDetailPage } from './deployContentPage.js';
 import { generateAndDeployContentListPage } from './deployContentListPage.js';
 import { generateAndDeployStaticPage, staticPageSlugs } from './deployStaticPage.js';
+import { generateAndDeployHomePage } from './deployHomePage.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { generateAndDeployRobotsTxt } from './generateRobotsTxt.js';
 import { generateAndDeployLlmsTxt } from './generateLlmsTxt.js';
@@ -122,6 +123,23 @@ export async function runSeed(): Promise<SeedResult> {
             result.errors++;
             result.success = false;
             const errorMsg = `Failed to deploy /${slug}/index.html (${duration}s): ${err.message}`;
+            result.details.push(`ERROR: ${errorMsg}`);
+            result.errorDetails.push(errorMsg);
+        }
+    }
+
+    // 2b. The home page, every language (deployHomePage.ts)
+    result.details.push('\n--- Home page ---');
+    {
+        const startTime = Date.now();
+        try {
+            await generateAndDeployHomePage();
+            result.details.push(`Deployed the home page (${((Date.now() - startTime) / 1000).toFixed(1)}s)`);
+            result.deployed++;
+        } catch (err: any) {
+            result.errors++;
+            result.success = false;
+            const errorMsg = `Failed to deploy the home page: ${err.message}`;
             result.details.push(`ERROR: ${errorMsg}`);
             result.errorDetails.push(errorMsg);
         }

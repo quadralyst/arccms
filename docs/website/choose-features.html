@@ -48,7 +48,7 @@
       <li><strong>In Firebase:</strong> its Cloud Functions, at the next deploy of all functions. Links that point at them, such as a payment webhook, stop working.</li>
       <li><strong>Nothing else:</strong> its data, security rules and indexes stay. Take the id out of <code>off</code>, build and deploy, and everything is back.</li>
     </ul>
-    <div class="trap"><p>Switching off <code>forms</code> does not remove a form's markup from your home page; the form stays on the page but nothing submits it. Take the form out of <code>public/index.html</code> as well.</p></div>
+    <div class="trap"><p>Switching off <code>forms</code> does not remove a form's markup from your home page; the form stays on the page but nothing submits it. Take the form out of <code class="new">src/custom/site/home.html</code> as well.</p></div>
 
     <h2>Next</h2>
     <p>Check everything before you go live: <a href="launch-checklist.html">Launch checklist</a>.</p>

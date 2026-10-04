@@ -242,26 +242,23 @@ export default defineConfig(({ mode }) => {
           ],
         },
       })),
-      // The browser and server bundles are built one after the other, not at once,
-      // which needs less memory (scripts/vite-build-order.ts).
+      // Only the browser bundle is built (ssr is off below). If server rendering is
+      // ever turned back on, the browser and server bundles are built one after the
+      // other, not at once, which needs less memory (scripts/vite-build-order.ts).
       ...oneBuildAtATime(analog({
         // The app's own file-based pages (docs/app/custom-space.html), next to src/app/pages.
         additionalPagesDirs: ['/src/custom/pages'],
-        // ssr: true enables build-time prerendering (SSG) — no runtime server is deployed.
-        ssr: true,
-        // Prerender only: skip the Cloud Functions server bundle ("Building Server"),
-        // which firebase.json never deploys and which took the most memory of the build.
+        // No server rendering and nothing prerendered: the home page is published by
+        // the functions as static /index.html and /{lang}/index.html
+        // (specs/own-website-spec.md, W4), and every other route is the SPA
+        // fallback, __shell.html, copied from dist/client/index.html by the
+        // post-build step (package.json "build"; firebase.json rewrites serve it).
+        // One browser bundle makes the build faster and lighter.
+        ssr: false,
+        // No Cloud Functions server bundle, which firebase.json never deploys.
         static: true,
         prerender: {
-          // '/' is prerendered for SEO (social crawlers, fast FCP for the home page).
-          // The SPA fallback for all other routes is __shell.html, copied from
-          // dist/client/index.html by the post-build step (see package.json "build" script).
-          // Firebase hosting serves __shell.html for non-file routes (see firebase.json rewrites).
-          // '/' plus every translated home page that exists as a file under
-          // public/i18n/{lang}/index.html. Hand-maintained: the language list
-          // is runtime data in Firestore, but prerendering is a build-time
-          // decision and only a real file can be prerendered.
-          routes: ['/', '/hi'],
+          routes: [],
         },
         nitro: {
           hooks: release.nitroHooks,

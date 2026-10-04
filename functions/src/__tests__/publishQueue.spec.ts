@@ -92,6 +92,12 @@ vi.mock('../pages/generateSitemap', () => ({
     }),
 }));
 
+vi.mock('../pages/deployHomePage', () => ({
+    // The home page shows no content types unless a test says so.
+    homeShowsType: async () => false,
+    generateAndDeployHomePage: async () => undefined,
+}));
+
 vi.mock('../pages/generateRssFeed', () => ({
     generateAndDeployRssFeeds: vi.fn().mockResolvedValue(undefined),
 }));

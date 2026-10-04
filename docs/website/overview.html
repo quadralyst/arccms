@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Build a website | Arc CMS docs</title>
   <meta name="description" content="The steps, in order, to build a content website with sign-up forms on Arc CMS, and what to prepare before you start.">
-  <meta name="docs:sources" content="src/shared/components/side-navbar/side-navbar.component.ts, src/app/pages/(onboarding)/onboarding-defaults.ts, src/custom/features.ts, src/custom/README.md, public/_site, scripts/arc-site.mjs, public/index.html, index.html, src/shared/constants/legal-notice.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/index.page.ts, scripts/check-core.mjs">
+  <meta name="docs:sources" content="src/shared/components/side-navbar/side-navbar.component.ts, src/app/pages/(onboarding)/onboarding-defaults.ts, src/custom/features.ts, src/custom/README.md, public/_site, scripts/arc-site.mjs, functions/src/pages/deployHomePage.ts, src/shared/constants/legal-notice.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/index.page.ts, scripts/check-core.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/overview.html">
@@ -43,6 +43,7 @@
       <li><p><a href="plan-content.html">Plan your content</a>: decide what is a content type, a static page or a form, and what each URL looks like.</p></li>
       <li><p><a href="content-types.html">Define content types</a>: create them in the admin area with their fields.</p></li>
       <li><p><a href="templates.html">Design templates</a>: give each content type its list and detail layout.</p></li>
+      <li><p><a href="home-page.html">Build your home page</a>: your front door, with your own design, animation and signup form.</p></li>
       <li><p><a href="static-pages.html">Write static pages</a>: the legal pages and anything else that rarely changes.</p></li>
       <li><p><a href="sign-in-page.html">Brand the sign-in page</a>: your name, logo, words and colours where people sign in.</p></li>
       <li><p><a href="media.html">Manage media</a>: set image sizes and upload images.</p></li>
@@ -63,6 +64,7 @@
     <table>
       <thead><tr><th>File or folder</th><th>What it holds</th></tr></thead>
       <tbody>
+        <tr><td><code class="new">src/custom/site/home.html</code></td><td>The home page: one HTML file with your own styles, scripts and animation, published in every language (<a href="home-page.html">Build your home page</a>)</td></tr>
         <tr><td><code class="new">src/custom/site/templates/</code></td><td>The partials, list and detail layouts of your content types, one folder each</td></tr>
         <tr><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code></td><td>The site header (menu, search box, language switcher) and footer</td></tr>
         <tr><td><code class="new">src/custom/site/pages/</code></td><td>Static pages such as your privacy policy and terms</td></tr>
@@ -74,8 +76,7 @@
       </tbody>
     </table>
     <p>Every file is optional. Where you have none, Arc CMS's own is used (from <code>public/_site/</code>), and it keeps improving with each upgrade. Where you have one, yours replaces Arc CMS's. The build puts the two together and serves them at <code>/_site/</code>, and the app and the publish functions both read from there, so what you see locally is what publishes. The full list is in <a href="templates.html">Design templates</a> and <a href="../app/custom-space.html">Use the custom space</a>.</p>
-    <p>The home page, <code>public/index.html</code>, and its browser title in <code>index.html</code> are still core files: a website edits them in place, <code>npm run check:core</code> lists them, and an upgrade can conflict where Arc CMS changed the same file (see <a href="../getting-started/upgrading.html">Upgrade Arc CMS</a>).</p>
-    <div class="trap"><p>The home page is compiled into the app as an Angular template, so a literal <code>{</code>, <code>}</code> or <code>@</code> in its text stops the build. Write <code>&amp;#123;</code>, <code>&amp;#125;</code> and <code>&amp;#64;</code> instead. The header, footer and templates are plain HTML and have no such limit.</p></div>
+    <p>None of these is a core file, so <code>npm run check:core</code> stays clean and an Arc CMS upgrade never conflicts with your site. All of them are plain HTML, CSS and JavaScript: there are no special rules for <code>{</code>, <code>}</code> or <code>@</code>.</p>
     <p>Run the site locally with <code>npm run dev</code> while you build; it reads and writes your real Firebase project (see <a href="../getting-started/run-locally.html">Run it locally</a>). Publishing an item puts its page on the live site straight away. Changes to files reach the live site when you deploy the website (see <a href="../operations/deploy.html">Deploy</a>).</p>
 
     <h2>Next</h2>

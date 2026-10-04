@@ -948,7 +948,11 @@
         "create_failed": "Error creating content type",
         "updated": "Content type updated successfully",
         "update_failed": "Error updating content type",
-        "slug_exists": "Slug \"{{ slug }}\" already exists."
+        "slug_exists": "Slug \"{{ slug }}\" already exists.",
+        "republish_site": "Republish website",
+        "republish_site_hint": "Publish every page, the home page and the sitemap again, from the live website's templates",
+        "republish_started": "Republishing the website. It takes a minute or two.",
+        "republish_failed": "Could not start republishing the website."
       },
       "editor": {
         "preview": "Preview",

@@ -101,6 +101,15 @@ describe('generateAndDeploySitemap', () => {
         }
     });
 
+    it('lists the home page in every enabled language, with each other as alternates', async () => {
+        mockGetLocalizationSettings.mockResolvedValue(EN_HI);
+        await generateAndDeploySitemap();
+        const xml = generatedXml();
+        expect(xml).toContain('<loc>https://example.com/</loc>');
+        expect(xml).toContain('<loc>https://example.com/hi</loc>');
+        expect(xml).toContain('hreflang="hi" href="https://example.com/hi"');
+    });
+
     it('should deploy to /sitemap.xml', async () => {
         await generateAndDeploySitemap();
         expect(mockDeploySeoFileToHosting).toHaveBeenCalledWith('/sitemap.xml', expect.any(String), undefined);

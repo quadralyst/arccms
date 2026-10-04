@@ -65,7 +65,9 @@ export function renderLlmsTxt(input: LlmsSiteInput): string {
         }
         lines.push('');
     }
-    lines.push('## Optional', '', `- [Sitemap](${input.baseUrl.replace(/\/+$/, '')}/sitemap.xml)`, '');
+    // The home page has no Markdown twin, so it is linked as HTML.
+    const base = input.baseUrl.replace(/\/+$/, '');
+    lines.push('## Optional', '', `- [Home page](${base}/)`, `- [Sitemap](${base}/sitemap.xml)`, '');
     return lines.join('\n');
 }
 

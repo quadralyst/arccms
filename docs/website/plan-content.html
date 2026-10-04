@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Plan your content | Arc CMS docs</title>
   <meta name="description" content="Decide what on your website is a content type, a static page or a form, sketch the fields, and see the URL each one gets.">
-  <meta name="docs:sources" content="src/app/app.routes.ts, src/app/pages/[contentTypeSlug], src/app/pages/index.page.ts, functions/src/shared/content-translation.ts, functions/src/pages/generateRssFeed.ts, firebase.json, public/_site, public/index.html">
+  <meta name="docs:sources" content="src/app/app.routes.ts, src/app/pages/[contentTypeSlug], src/app/pages/index.page.ts, functions/src/shared/content-translation.ts, functions/src/pages/generateRssFeed.ts, firebase.json, public/_site, functions/src/pages/deployHomePage.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/plan-content.html">
@@ -19,7 +19,7 @@
       <tbody>
         <tr><td><strong>Content type</strong></td><td>Anything you publish more than once with the same shape: articles, guides, case studies, events, team members</td><td>The admin area, by editors</td></tr>
         <tr><td><strong>Static page</strong></td><td>Pages that rarely change and need no editor: privacy policy, cookie policy</td><td>HTML files in <code class="new">src/custom/site/pages/</code></td></tr>
-        <tr><td><strong>Home page</strong></td><td>Your landing page, with its signup form</td><td><code>public/index.html</code></td></tr>
+        <tr><td><strong>Home page</strong></td><td>Your landing page, with its signup form</td><td><code class="new">src/custom/site/home.html</code>, published as a static page (<a href="home-page.html">Build your home page</a>)</td></tr>
         <tr><td><strong>Signup form</strong></td><td>Waitlists, newsletters, early access</td><td>Admin, Signup Forms; the form markup sits on the home page, or visitors use the form's own page</td></tr>
       </tbody>
     </table>

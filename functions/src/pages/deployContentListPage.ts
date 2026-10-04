@@ -8,7 +8,7 @@ import {
     listUrl,
     mergeTranslation,
 } from '../shared/content-translation.js';
-import { calculateReadingTime } from '../shared/reading-time.js';
+import { cardData } from '../shared/content-cards.js';
 import { contentTypeDescription, contentTypeName } from '../shared/content-type-names.js';
 import { buildBreadcrumbList, buildCollectionPage } from '../shared/structured-data.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
@@ -26,42 +26,6 @@ import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { arcHostingSite } from '../arc-config.js';
-
-// ─── Private Helpers ────────────────────────────────────────────────────────
-
-/**
- * Format date in short form for list pages (e.g., "Jan 15, 2024").
- * Matches the Angular content-list.component.ts pattern.
- */
-function formatContentDateShort(date: any, lang = 'en'): string {
-    if (!date) return '';
-    const dateObj = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-    try {
-        return dateObj.toLocaleDateString(lang, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    } catch {
-        // An unknown locale must not abort a deploy — fall back to English.
-        return dateObj.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    }
-}
-
-/**
- * Generate an excerpt from content text.
- * Strips HTML, takes first 25 words. Matches Angular content-list.component.ts.
- */
-function getExcerpt(content: Record<string, any>): string {
-    const text = content.metaDescription || content.content || '';
-    const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    const words = cleanText.split(' ').slice(0, 25);
-    return words.length >= 25 ? words.join(' ') + '...' : cleanText;
-}
 
 // ─── Exported Functions ─────────────────────────────────────────────────────
 
@@ -188,42 +152,10 @@ export async function generateAndDeployContentListPage(
         // Items are never filtered by translation status — an untranslated item
         // falls back to its default-language card. A half-empty list page reads
         // as a broken site, and partial translation is the normal state.
-        const listData = contents.map((content: Record<string, any>) => {
-            const localized = mergeTranslation(
-                content,
-                translationsByDoc.get(content.id)?.get(lang),
-            );
-
-            const tagsData = localized.tagsWithColors ||
-                (localized.tags || []).map((t: string) => ({ name: t, color: '#6b7280' }));
-
-            // Pre-render tags HTML (nested loops not supported)
-            const tagsHtml = tagsData.slice(0, 3).map((tag: { name: string; color: string }) =>
-                `<span class="tag-pill arc-skeleton" style="background-color: ${tag.color}; color: #333;">${tag.name}</span>`
-            ).join('');
-
-            return {
-                id: content.id,
-                title: localized.title || '',
-                urlSlug: localized.urlSlug || '',
-                url: `${prefix}/${contentTypeSlug}/${localized.urlSlug}`,
-                coverImage: localized.coverImage || '',
-                excerpt: getExcerpt(localized),
-                content: localized.content || '',
-                publishedOn: formatContentDateShort(localized.publishedOn, lang),
-                readTime: localized.readTime || calculateReadingTime(localized.content || ''),
-                // The credited author's name (D2); falls back to a legacy
-                // `author` custom field for templates that bound one.
-                authorName: localized.authorName || '',
-                author: localized.authorName || localized.author || '',
-                tags: tagsData,
-                tagsHtml,
-                tagsDisplay: (localized.tags || []).slice(0, 3).join(', '),
-                contentType: typeName,
-                cat: typeName,
-                ...((localized.customFields as Record<string, any>) || {}),
-            };
-        });
+        const listData = contents.map((content: Record<string, any>) => cardData(
+            { id: content.id, ...mergeTranslation(content, translationsByDoc.get(content.id)?.get(lang)) },
+            contentTypeSlug, typeName, lang, prefix,
+        ));
 
         // Hydrate: process loops first, then page-level bindings
         // Static chrome baked into the template ("Read Article", "min read").

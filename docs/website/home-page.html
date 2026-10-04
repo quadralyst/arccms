@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build your home page | Arc CMS docs</title>
+  <meta name="description" content="Write your site's home page as one HTML file with your own styles, scripts and animation, with live cards, signup forms and an install button, published as a fast static page in every language.">
+  <meta name="docs:sources" content="public/_site/home.html, functions/src/pages/deployHomePage.ts, src/app/pages/index.page.ts, public/assets/js/arc-site.js, src/app/core/site/signed-in-hint.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/pages/seedStaticPages.ts, src/app/pages/admin/contents/content-types/index.page.ts, scripts/arc-site.mjs">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/home-page.html">
+  <main>
+    <h1>Build your home page</h1>
+    <p class="lead">Your home page is one HTML file, <code class="new">src/custom/site/home.html</code>: a whole page with your own styles, scripts and animation. Arc CMS fills in the live parts (your header and footer, the latest articles, signup forms) and publishes it as a fast static page in every language, with everything search engines and AI assistants read.</p>
+
+    <h2>Until you write one</h2>
+    <p>Arc CMS's own home page (<code>public/_site/home.html</code>) is a placeholder: "This site is not set up yet". It tells search engines not to list it. Your file replaces it.</p>
+
+    <h2>Write it</h2>
+    <ol class="steps">
+      <li><p>Start from an example, or from your designer's page. <code>docs/examples/arc-cms-home.html</code> is Arc CMS's own marketing page written this way; copy it to <code class="new">src/custom/site/home.html</code> and its stylesheet, <code>docs/examples/arc-cms-home.css</code>, to <code class="new">src/custom/site/assets/</code>.</p></li>
+      <li><p>Keep it a whole document: <code>&lt;head&gt;</code> with your <code>&lt;title&gt;</code>, <code>&lt;meta name="description"&gt;</code>, fonts and stylesheets, then <code>&lt;body&gt;</code>. Any HTML works; there are no special rules for <code>{</code>, <code>}</code> or <code>@</code>.</p></li>
+      <li><p>Put your own files in <code class="new">src/custom/site/assets/</code>; they are served at <code>/site/</code>. Link them as <code>/site/home.css</code>, <code>/site/home.js</code>, <code>/site/hero.webp</code>.</p></li>
+      <li><p>Run <code>npm run dev</code> and open <code>/</code>. The page is shown from your file, live parts included; save the file and reload.</p></li>
+    </ol>
+    <pre><code>&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;title&gt;Deepakam: Sanskrit for kids&lt;/title&gt;
+    &lt;meta name="description" content="Short daily Sanskrit lessons for children."&gt;
+    &lt;link rel="stylesheet" href="/site/home.css"&gt;
+    &lt;script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;arc-header&gt;&lt;/arc-header&gt;
+    &lt;section class="hero"&gt;
+        &lt;h1 data-arc-t="home_heading"&gt;Sanskrit for the whole family&lt;/h1&gt;
+        &lt;button data-arc-install hidden&gt;Install the app&lt;/button&gt;
+        &lt;a href="/learn" data-arc-signed-in hidden&gt;Open the app&lt;/a&gt;
+    &lt;/section&gt;
+    &lt;arc-content-partials content-type="articles" count="3" section-title="From the blog"&gt;&lt;/arc-content-partials&gt;
+    &lt;form data-waitlist-form data-waitlist-id="waitlist-form"&gt;
+        &lt;input name="email" type="email" placeholder="Your email"&gt;
+        &lt;button type="submit"&gt;Join&lt;/button&gt;
+    &lt;/form&gt;
+    &lt;arc-footer&gt;&lt;/arc-footer&gt;
+    &lt;script src="/site/home.js" defer&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+    <h2>The live parts</h2>
+    <table>
+      <thead><tr><th>Write</th><th>Becomes</th></tr></thead>
+      <tbody>
+        <tr><td><code>&lt;arc-header&gt;&lt;/arc-header&gt;</code>, <code>&lt;arc-footer&gt;&lt;/arc-footer&gt;</code></td><td>Your site header and footer (see <a href="templates.html">Design templates</a>)</td></tr>
+        <tr><td><code>&lt;arc-content-partials content-type="articles"&gt;</code></td><td>Cards of the latest items of that type, laid out by its <code>partials.html</code>. <code>count</code> (default 4), <code>section-title</code> (default "Latest" and the type's name) and <code>template-folder</code> (another folder's cards) are optional. The page is republished when that type's content is published or unpublished.</td></tr>
+        <tr><td><code>&lt;arc-search&gt;</code>, <code>&lt;arc-language-switcher&gt;</code></td><td>The search box and the language links, outside the header too</td></tr>
+        <tr><td><code>&lt;form data-waitlist-form data-waitlist-id="…"&gt;</code></td><td>A signup form: the emailed code, then the person's place and referral link (see <a href="forms.html">Collect sign-ups</a>). The terms notice is added above its button.</td></tr>
+        <tr><td><code>&lt;span data-waitlist-count="…"&gt;&lt;/span&gt;</code></td><td>The number of confirmed sign-ups on that form</td></tr>
+        <tr><td><code>&lt;button data-arc-install hidden&gt;</code></td><td>Shown when the browser offers installing your app; a click asks. Needs the installable app on (see <a href="../app/pwa.html">Make it installable</a>). In your script, <code>window.arcSite.install()</code> and <code>window.arcSite.canInstall</code> do the same.</td></tr>
+        <tr><td><code>data-arc-signed-in</code>, <code>data-arc-signed-out</code></td><td>Elements shown to people signed in to the app on this browser, or to everyone else. Give the signed-in one <code>hidden</code> so it starts hidden.</td></tr>
+        <tr><td><code>data-arc-t="key"</code></td><td>Text in the page's language (below)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Styles, scripts and animation</h2>
+    <p>Your stylesheets and scripts are yours. Arc CMS's stylesheets (Bootstrap, <code>main.css</code> and your <code class="new">src/custom/site/site.css</code>) are linked before them, so your rules win. <code>main.css</code> styles only the page body and the site header and footer, so your class names are free. Scripts are plain files: load a library such as GSAP or ScrollTrigger from a CDN, or keep its file in <code class="new">src/custom/site/assets/</code>, and write your own in <code>/site/home.js</code>. A script cannot <code>import</code> an npm package, because the page is served as it is, without a build step.</p>
+    <p>Start animations when the page has loaded, for example with <code>defer</code> on your script tag. The page works the same in <code>npm run dev</code> and on the live site.</p>
+
+    <h2>What Arc CMS adds when it publishes</h2>
+    <p>Everything your page does not set itself: <code>&lt;html lang&gt;</code>, the canonical address, links to the other languages (<code>hreflang</code>), Open Graph and Twitter tags (the logo from Settings, <strong>About</strong> as the image when you set none), the site's structured data (Organization and WebSite), the app manifest when the installable app is on, and the small script that runs the live parts (<code>/assets/js/arc-site.js</code>). While the setup wizard is still to do, that script also sends the site's owner to <code>/onboarding</code>, as the app does. Your own title, description and social tags are kept. The home page is listed in the sitemap in every language.</p>
+
+    <h2>More than one language</h2>
+    <p>The home page is published at <code>/</code> and at <code>/{lang}</code> for every language you turn on (see <a href="languages.html">Publish in more than one language</a>). For each language it uses:</p>
+    <ul>
+      <li><code class="new">src/custom/site/home.hi.html</code> when you write one: a whole page in that language, best for long marketing text;</li>
+      <li>otherwise <code>home.html</code>, with every <code>data-arc-t</code> text replaced from <code class="new">src/custom/site/strings/hi.json</code>.</li>
+    </ul>
+    <p>Links that start with <code>/</code> point at the page's language (<code>/articles</code> becomes <code>/hi/articles</code>), except static pages (<code>/p/…</code>) and files (<code>/site/…</code>, <code>/assets/…</code>), which exist once.</p>
+
+    <h2>Put it live</h2>
+    <p>Deploy the website (see <a href="../operations/deploy.html">Deploy</a>). The deploy publishes the home page with every other page. After that, it is published again by itself whenever content it shows changes. To publish it again yourself, for example after changing Settings, <strong>About</strong>, open <strong>Content</strong>, <strong>Content types</strong> and choose <strong>Republish website</strong>.</p>
+    <div class="trap"><p>The live site serves the published page. A change to <code>home.html</code> shows in <code>npm run dev</code> at once, but reaches the live site only after a website deploy.</p></div>
+
+    <h2>Next</h2>
+    <p>Write the pages that are not content: <a href="static-pages.html">Write static pages</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

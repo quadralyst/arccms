@@ -68,10 +68,10 @@
     <div class="trap"><p>Publishing an item after editing its template locally, but before deploying the website, produces a page with the old template. Deploy the website first. A type whose folder is new, so not on the live site yet, is not published at all: the editor shows "Template folder 'x' is not on the live site. Deploy the website, then publish again."</p></div>
 
     <h2>Cards on the home page</h2>
-    <p>The home page, <code>public/index.html</code>, can show cards of any type with <code>&lt;arc-content-partials [contentType]="'articles'"&gt;&lt;/arc-content-partials&gt;</code>, laid out by that type's <code>partials.html</code> (its folder's, else the default's). This element works on the home page only; content pages and static pages do not render it.</p>
+    <p>The home page can show cards of any type with <code>&lt;arc-content-partials content-type="articles"&gt;&lt;/arc-content-partials&gt;</code>, laid out by that type's <code>partials.html</code> (its folder's, else the default's), and republished whenever that type's content changes. See <a href="home-page.html">Build your home page</a>. Content pages and static pages do not render it.</p>
 
     <h2>Next</h2>
-    <p>Write the pages that are not content: <a href="static-pages.html">Write static pages</a>.</p>
+    <p>Write the front door of your site: <a href="home-page.html">Build your home page</a>.</p>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

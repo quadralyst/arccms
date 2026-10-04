@@ -353,6 +353,10 @@ export type TranslationKey =
     | 'admin.contents.types.no_action'
     | 'admin.contents.types.page_subtitle'
     | 'admin.contents.types.page_title'
+    | 'admin.contents.types.republish_failed'
+    | 'admin.contents.types.republish_site'
+    | 'admin.contents.types.republish_site_hint'
+    | 'admin.contents.types.republish_started'
     | 'admin.contents.types.slug_exists'
     | 'admin.contents.types.update_failed'
     | 'admin.contents.types.updated'
@@ -1824,6 +1828,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.no_action',
     'admin.contents.types.page_subtitle',
     'admin.contents.types.page_title',
+    'admin.contents.types.republish_failed',
+    'admin.contents.types.republish_site',
+    'admin.contents.types.republish_site_hint',
+    'admin.contents.types.republish_started',
     'admin.contents.types.slug_exists',
     'admin.contents.types.update_failed',
     'admin.contents.types.updated',

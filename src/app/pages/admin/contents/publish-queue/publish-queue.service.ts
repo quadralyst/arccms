@@ -6,7 +6,7 @@ import { Firestore, collection, addDoc, query, where, getDocs, deleteDoc } from 
  * without touching drafts — the repair after a `firebase deploy --only
  * hosting`, which drops every page this pipeline wrote.
  */
-export type PublishAction = 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy';
+export type PublishAction = 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all';
 
 export interface PublishQueueItem {
     action: PublishAction;
@@ -73,7 +73,7 @@ export class PublishQueueService {
      */
     async redeployAll(): Promise<void> {
         await addDoc(collection(this.firestore, '_publish_queue'), {
-            action: 'redeploy-all' as PublishAction,
+            action: 'redeploy-all',
             contentTypeSlug: '',
             docId: '',
             timestamp: new Date(),

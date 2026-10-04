@@ -7,6 +7,8 @@ import { of } from 'rxjs';
 import { signal } from '@angular/core';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ContentTypesStore } from './content-types.store';
+import { PublishQueueService } from '../publish-queue/publish-queue.service';
+import { NotifyService } from '../../../../../shared/services/notify.service';
 
 describe('ContentTypesPage', () => {
     let component: ContentTypesPage;
@@ -22,7 +24,12 @@ describe('ContentTypesPage', () => {
         totalRecords: vi.fn().mockReturnValue(100),
     };
 
+    let mockPublishQueue: { redeployAll: ReturnType<typeof vi.fn> };
+    let mockNotify: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+
     beforeEach(async () => {
+        mockPublishQueue = { redeployAll: vi.fn().mockResolvedValue('q1') };
+        mockNotify = { success: vi.fn(), error: vi.fn() };
         mockRouter = {
             navigate: vi.fn().mockResolvedValue(true),
         };
@@ -39,7 +46,9 @@ describe('ContentTypesPage', () => {
                 { provide: ContentTypesStore, useValue: mockStore },
                 { provide: MatDialog, useValue: {} },
                 { provide: Router, useValue: mockRouter },
-                { provide: ActivatedRoute, useValue: mockActivatedRoute }
+                { provide: ActivatedRoute, useValue: mockActivatedRoute },
+                { provide: PublishQueueService, useValue: mockPublishQueue },
+                { provide: NotifyService, useValue: mockNotify },
             ]
         })
             .compileComponents();
@@ -51,6 +60,22 @@ describe('ContentTypesPage', () => {
 
     it('should create', () => {
         expect(component).toBeTruthy();
+    });
+
+    describe('Republish website', () => {
+        it('queues the whole site and says so', async () => {
+            await component.republishSite();
+            expect(mockPublishQueue.redeployAll).toHaveBeenCalled();
+            expect(mockNotify.success).toHaveBeenCalledWith('admin.contents.types.republish_started');
+            expect(component.republishing()).toBe(false);
+        });
+
+        it('says when it could not be queued', async () => {
+            mockPublishQueue.redeployAll.mockRejectedValue(new Error('denied'));
+            await component.republishSite();
+            expect(mockNotify.error).toHaveBeenCalledWith('admin.contents.types.republish_failed');
+            expect(component.republishing()).toBe(false);
+        });
     });
 
     describe('Sorting functionality', () => {

@@ -7,6 +7,7 @@
 
 import { inject, Injector, runInInjectionContext } from '@angular/core';
 import { Auth, onAuthStateChanged, User } from '@angular/fire/auth';
+import { rememberSignedIn } from '../../core/site/signed-in-hint';
 import { Router } from '@angular/router';
 import { patchState, signalStore, withHooks, withMethods, withState } from '@ngrx/signals';
 import { catchError, finalize, firstValueFrom, from, map, Observable, of, Subscription, switchMap, tap, throwError } from 'rxjs';
@@ -420,6 +421,8 @@ export const AuthState = signalStore(
                         const unsubscribe = runInInjectionContext(injector, () => onAuthStateChanged(
                             auth,
                             (user) => {
+                                // For the published pages' signed-in hint (arc-site.js).
+                                rememberSignedIn(!!user);
                                 if (user) {
                                     if (user && user.uid) {
                                         authService.getCurrentUserByUid(user.uid).subscribe(async (userData: any) => {

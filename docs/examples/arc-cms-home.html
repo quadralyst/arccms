@@ -1,7 +1,20 @@
-<!-- arc-source-version: 1
-     Bump this when the page STRUCTURE changes, and update every
-     translation under public/i18n/{lang}/index.html to match.
-     See public/i18n/README.md. -->
+<!doctype html>
+<!--
+  Arc CMS's own marketing home page, as an example of a home page an app or
+  website writes in src/custom/site/home.html (docs/website/home-page.html).
+  Copy it there, and arc-cms-home.css to src/custom/site/assets/, and change
+  them. Arc CMS's stylesheets (Bootstrap, main.css, site.css) are linked before
+  the page's own when it is published.
+-->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Arc CMS - Open-Source, Low-Code Solution for Scalable Startup Websites</title>
+    <meta name="description" content="Arc CMS is an open-source, low-code content platform: run your landing page, blog and waitlist on your own Firebase project.">
+    <link rel="stylesheet" href="/site/arc-cms-home.css">
+</head>
+<body>
 <div class="arc-cms-template">
     <!-- These are page parts can be included -->
     <arc-header></arc-header>
@@ -43,7 +56,7 @@
                 viral referrals, email automation, and analytics.
             </p>
             <div class="flow-diagram">
-                <img ngSrc="assets/images/arccms-flow-end.png" width="1200" height="670" alt="Arc CMS Flow Diagram" />
+                <img src="/assets/images/arccms-flow-end.png" width="1200" height="670" alt="Arc CMS Flow Diagram" />
             </div>
         </div>
     </section>
@@ -228,10 +241,10 @@
                 <div class="tab-content active" id="tab-waitlists">
                     <h3 class="tab-title">Automatic Waitlists</h3>
                     <p class="tab-description">Capture, verify, and manage email signups with a beautiful dashboard.
-                        Export your subscriber list anytime. No coding required—just drop in your HTML and Arc CMS
+                        Export your subscriber list anytime. No coding required: just drop in your HTML and Arc CMS
                         handles the rest.</p>
                     <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/waitlists.png" width="1200" height="690" alt="Automatic Waitlists Dashboard" />
+                        <img src="/assets/images/screenshots/waitlists.png" width="1200" height="690" alt="Automatic Waitlists Dashboard" />
                     </div>
                 </div>
 
@@ -241,7 +254,7 @@
                     <p class="tab-description">Ensure quality signups with built-in email verification. Automatically
                         send confirmation emails and prevent fake or spam addresses from cluttering your waitlist.</p>
                     <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/email-verification.png" width="1200" height="690" alt="Email Verification" />
+                        <img src="/assets/images/screenshots/email-verification.png" width="1200" height="690" alt="Email Verification" />
                     </div>
                 </div>
 
@@ -251,7 +264,7 @@
                     <p class="tab-description">Set up welcome emails, drip sequences, and broadcasts without any coding.
                         Use pre-built templates or customize your own. Track opens and clicks to measure engagement.</p>
                     <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/email-automation.png" width="1200" height="690" alt="Email Automation" />
+                        <img src="/assets/images/screenshots/email-automation.png" width="1200" height="690" alt="Email Automation" />
                     </div>
                 </div>
 
@@ -261,7 +274,7 @@
                     <p class="tab-description">Turn every signup into a growth engine. Each subscriber gets a unique
                         referral link automatically. Track who referred whom and reward your top referrers.</p>
                     <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/viral.png" width="1200" height="750" alt="Viral Referral System" />
+                        <img src="/assets/images/screenshots/viral.png" width="1200" height="750" alt="Viral Referral System" />
                     </div>
                 </div>
 
@@ -271,7 +284,7 @@
                     <p class="tab-description">Gamify your waitlist with a public leaderboard. Show top referrers and
                         create competition. Customize tiers and rewards to drive more signups organically.</p>
                     <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/leaderboard.png" width="1200" height="690" alt="Global Leaderboard" />
+                        <img src="/assets/images/screenshots/leaderboard.png" width="1200" height="690" alt="Global Leaderboard" />
                     </div>
                 </div>
 
@@ -282,7 +295,7 @@
                         add SEO metadata, and build your audience. Perfect for sharing updates and building authority.
                     </p>
                     <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/blogging.png" width="1200" height="690" alt="Blogging System" />
+                        <img src="/assets/images/screenshots/blogging.png" width="1200" height="690" alt="Blogging System" />
                     </div>
                 </div>
 
@@ -292,7 +305,7 @@
                     <p class="tab-description">Track signups, referrals, email performance, and conversion rates. See
                         what's working with real-time data. Integrated Google Analytics for deeper insights.</p>
                     <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/analytics-dashboard.png" width="1200" height="690" alt="Analytics Dashboard" />
+                        <img src="/assets/images/screenshots/analytics-dashboard.png" width="1200" height="690" alt="Analytics Dashboard" />
                     </div>
                 </div>
 
@@ -302,7 +315,7 @@
                     <p class="tab-description">Keep users informed with customizable notification banners. Announce
                         launches, updates, or special offers. Control visibility and timing from your dashboard.</p>
                     <div class="tab-image">
-                        <img ngSrc="assets/images/screenshots/global-banner.png" width="1200" height="690" alt="Global Notifications" />
+                        <img src="/assets/images/screenshots/global-banner.png" width="1200" height="690" alt="Global Notifications" />
                     </div>
                 </div>
             </div>
@@ -358,9 +371,9 @@
     </section>
 
     <!-- Latest Updates Section -->
-    <arc-content-partials [contentType]="'articles'"></arc-content-partials>
+    <arc-content-partials content-type="articles"></arc-content-partials>
 
-    <arc-content-partials [contentType]="'user-manuals'"></arc-content-partials>
+    <arc-content-partials content-type="user-manuals"></arc-content-partials>
 
 
     <!-- <section class="updates-section" id="updates">
@@ -495,7 +508,7 @@
                             <i class="fas fa-bullhorn"></i>
                         </div>
                         <h4>Free Promotion</h4>
-                        <p>Featured on our website and social media—boost your startup</p>
+                        <p>Featured on our website and social media to boost your startup</p>
                     </div>
                     <div class="fc-benefit-card">
                         <div class="fc-benefit-icon">
@@ -622,3 +635,5 @@
 
     <arc-footer></arc-footer>
 </div>
+</body>
+</html>

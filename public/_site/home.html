@@ -1,0 +1,43 @@
+<!doctype html>
+<!--
+  Arc CMS's home page until a site has its own: a placeholder that tells visitors
+  the site is not ready, and keeps search engines away (noindex). Replace it with
+  src/custom/site/home.html, a whole HTML document (docs/website/home-page.html).
+-->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title data-arc-t="placeholder_title">Coming soon</title>
+    <meta name="description" content="This site is being set up.">
+    <meta name="robots" content="noindex">
+    <style>
+        .arc-placeholder {
+            min-height: 70vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 3rem 1.5rem;
+        }
+        .arc-placeholder h1 {
+            font-size: clamp(1.75rem, 1rem + 3vw, 2.75rem);
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+        .arc-placeholder p {
+            color: #6e6e73;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <main class="arc-placeholder">
+        <div>
+            <h1 data-arc-t="placeholder_heading">This site is not set up yet</h1>
+            <p data-arc-t="placeholder_body">Please check back soon.</p>
+        </div>
+    </main>
+</body>
+</html>

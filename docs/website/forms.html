@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Collect sign-ups | Arc CMS docs</title>
   <meta name="description" content="Set up a signup form, put it on your home page, edit the emails it sends, turn on referrals, and find the people who signed up.">
-  <meta name="docs:sources" content="src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/app/pages/page.parts/waitlist-form.service.ts, src/app/pages/page.parts/home-base.component.ts, functions/src/waitlists, functions/src/email-core/contactSync.ts, src/shared/constants/waitlist-form.ts, src/shared/constants/legal-notice.ts, public/index.html, functions/src/email-core/defaultTemplates.ts, src/shared/components/side-navbar/side-navbar.component.ts">
+  <meta name="docs:sources" content="src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/app/pages/page.parts/waitlist-form.service.ts, src/app/pages/index.page.ts, public/assets/js/arc-site.js, functions/src/pages/deployHomePage.ts, functions/src/waitlists, functions/src/email-core/contactSync.ts, src/shared/constants/waitlist-form.ts, src/shared/constants/legal-notice.ts, functions/src/email-core/defaultTemplates.ts, src/shared/components/side-navbar/side-navbar.component.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/forms.html">
@@ -27,7 +27,7 @@
     </ol>
 
     <h2>3. Put the form on a page</h2>
-    <p>Add the form to your home page, <code>public/index.html</code>. Any form with these two attributes and an <code>email</code> field works, styled however you like:</p>
+    <p>Add the form to your home page, <code class="new">src/custom/site/home.html</code> (see <a href="home-page.html">Build your home page</a>). Any form with these two attributes and an <code>email</code> field works, styled however you like:</p>
     <pre><code>&lt;form data-waitlist-form data-waitlist-id="product-launch"&gt;
   &lt;input type="text" name="name" placeholder="Your name"&gt;
   &lt;input type="email" name="email" required placeholder="Your email"&gt;

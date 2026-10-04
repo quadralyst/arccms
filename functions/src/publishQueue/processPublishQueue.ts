@@ -3,6 +3,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
 import { MissingTemplateFolderError } from '../shared/site-files.js';
+import { generateAndDeployHomePage, homeShowsType } from '../pages/deployHomePage.js';
 import { generateAndDeployContentDetailPage, removeContentPage } from '../pages/deployContentPage.js';
 import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
@@ -267,6 +268,12 @@ export const processPublishQueue = onDocumentCreated({
     if (action === 'redeploy-all') {
         try {
             const pages = await collectAllPublishedPages(batch);
+            // The home page is part of the site, whatever it shows.
+            try {
+                await generateAndDeployHomePage(batch);
+            } catch (homeErr) {
+                console.error('Home page rebuild failed during redeploy-all:', homeErr);
+            }
             // Sitemap, feeds, robots/llms and IndexNow are the seo feature's.
             if (isFeatureOn('seo')) {
                 await generateAndDeploySitemap(batch);
@@ -485,6 +492,15 @@ export const processPublishQueue = onDocumentCreated({
 
             default:
                 console.warn(`Unknown action: ${action}`);
+        }
+
+        // The home page shows cards of some types: republish it with them.
+        if (hasPublicUrl && (await homeShowsType(contentTypeSlug).catch(() => false))) {
+            try {
+                await generateAndDeployHomePage(batch);
+            } catch (homeErr) {
+                console.error(`Home page rebuild failed after ${action} ${contentTypeSlug}/${docId}:`, homeErr);
+            }
         }
 
         // Regenerate sitemap and RSS feeds after any content change

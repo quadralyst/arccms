@@ -20,6 +20,10 @@
                 <div class="content-area">
                     <arc-page-header [title]="'admin.contents.types.page_title' | transloco"
                         [subtitle]="'admin.contents.types.page_subtitle' | transloco">
+                        <button mat-stroked-button (click)="republishSite()" [disabled]="republishing()"
+                            [title]="'admin.contents.types.republish_site_hint' | transloco">
+                            <mat-icon>publish</mat-icon> {{ 'admin.contents.types.republish_site' | transloco }}
+                        </button>
                         <button mat-raised-button color="primary" (click)="openAdd()">
                             <mat-icon>add</mat-icon> {{ 'admin.contents.types.add' | transloco }}
                         </button>

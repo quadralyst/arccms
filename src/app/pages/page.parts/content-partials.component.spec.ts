@@ -120,9 +120,9 @@ describe('ContentPartialsComponent', () => {
             expect(component.count()).toBe(10);
         });
 
-        it('should have default sectionTitle of "Latest Updates"', () => {
+        it('should have no sectionTitle by default, so the title comes from the type', () => {
             fixture.detectChanges();
-            expect(component.sectionTitle()).toBe('Latest Updates');
+            expect(component.sectionTitle()).toBe('');
         });
 
         it('should accept sectionTitle input', () => {
@@ -150,15 +150,14 @@ describe('ContentPartialsComponent', () => {
             expect(component.displayTitle()).toBe('My Custom Title');
         });
 
-        it('should use default sectionTitle if not provided', () => {
+        it('should title the cards with the type\'s name if no sectionTitle is provided', () => {
             fixture.componentRef.setInput('contentType', 'articles');
-            // No sectionTitle provided, should use default 'Latest Updates'
 
             const contentType = { slug: 'articles', name: 'Articles' };
             mockContentTypesStore.items.set([contentType]);
             fixture.detectChanges();
 
-            expect(component.displayTitle()).toBe('Latest Updates');
+            expect(component.displayTitle()).toBe('Latest Articles');
         });
 
         it('should generate title from content type name if sectionTitle is explicitly cleared', () => {

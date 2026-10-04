@@ -64,7 +64,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     // Inputs - support both property binding and attribute binding
     contentType = input<string>('articles');
     count = input<number>(4);
-    sectionTitle = input<string>('Latest Updates');
+    /** The heading; empty gives "Latest {type}", as on a published page. */
+    sectionTitle = input<string>('');
     templateFolder = input<string>('');
 
     templateHtml = signal<string>('');

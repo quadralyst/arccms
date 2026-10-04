@@ -14,7 +14,7 @@
     <p class="lead">Every published page tells search engines and AI assistants what it is, who wrote it and where its sources are, and the site publishes the files crawlers look for. Authors get a Checks tab that scores each draft for being found and quoted.</p>
 
     <h2>What it is</h2>
-    <p>The publish pipeline writes these with every published page. Nothing has to be switched on.</p>
+    <p>The publish pipeline writes these with every published page. Nothing has to be switched on. The home page gets the head tags and the site's structured data too, without overwriting the ones it sets itself (see <a href="../website/home-page.html">Build your home page</a>).</p>
     <table>
       <thead><tr><th>Part</th><th>What it gives</th></tr></thead>
       <tbody>
@@ -32,7 +32,7 @@
       <tbody>
         <tr><td><code>/sitemap.xml</code></td><td>The home page, each content type's list page, every published page in every language it exists in (with <code>hreflang</code> alternates), and every static page (Arc CMS's privacy and cookie policies and the app's own, see <a href="../website/static-pages.html">Write static pages</a>). <code>lastmod</code> is the updated date, else the publish date.</td></tr>
         <tr><td><code>/robots.txt</code></td><td>Everything allowed except <code>/_site/</code> (the site's source files: templates, header, page sources), a <code>Disallow: /</code> group for each AI crawler switched off, and the sitemap address.</td></tr>
-        <tr><td><code>/llms.txt</code></td><td>A Markdown index of the site (llmstxt.org): the site name and description, then a section per content type linking its pages' Markdown twins in the default language, newest first, up to 500 pages in all.</td></tr>
+        <tr><td><code>/llms.txt</code></td><td>A Markdown index of the site (llmstxt.org): the site name and description, then a section per content type linking its pages' Markdown twins in the default language, newest first, up to 500 pages in all, then links to the home page and the sitemap.</td></tr>
         <tr><td><code>/llms-full.txt</code></td><td>Every default-language Markdown twin in one file, newest first, up to 2 MB.</td></tr>
         <tr><td><code>/{type}/feed.xml</code></td><td>An RSS 2.0 feed per content type with its 20 newest items.</td></tr>
         <tr><td><code>/{key}.txt</code></td><td>The IndexNow key file, which proves the site to the engines.</td></tr>

@@ -54,7 +54,7 @@
     </ol>
 
     <h3>Put a form on the home page</h3>
-    <p>The home page (<code>public/index.html</code>, and its translations in <code>public/i18n/</code>) binds every form that has <code>data-waitlist-form</code>:</p>
+    <p>The home page (<code class="new">src/custom/site/home.html</code> and its translations, see <a href="../website/home-page.html">Build your home page</a>) binds every form that has <code>data-waitlist-form</code>, in the app and on the published page, where <code>public/assets/js/arc-site.js</code> runs the same steps through the same functions:</p>
     <pre><code>&lt;form data-waitlist-form data-waitlist-id="beta"&gt;
   &lt;input name="firstName" placeholder="Your name"&gt;
   &lt;input type="email" name="email" required&gt;
