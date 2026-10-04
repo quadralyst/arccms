@@ -46,6 +46,8 @@
                 }
             </button>
 
+            <arc-site-drift-notice [compact]="true" />
+
             <button type="button" class="btn btn-primary btn-sm" (click)="directPublishContent()"
                 [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
                 <i class="fa-solid fa-upload"></i> <span class="btn-text">{{ 'admin.contents.editor.publish' | transloco }}</span>

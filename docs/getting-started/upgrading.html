@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Upgrade Arc CMS | Arc CMS docs</title>
   <meta name="description" content="Take a newer Arc CMS version into your copy: add the upstream remote once, check for core edits, merge, test and redeploy.">
-  <meta name="docs:sources" content="scripts/check-core.mjs, scripts/arc-upgrade.mjs, scripts/arc-deploy.mjs, CHANGELOG.md, package.json">
+  <meta name="docs:sources" content="scripts/check-core.mjs, scripts/arc-upgrade.mjs, scripts/arc-own-site.mjs, scripts/arc-deploy.mjs, CHANGELOG.md, package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="getting-started/upgrading.html">
@@ -23,7 +23,7 @@
       <li>
         <p><strong>Check that no core file changed</strong>, with your work committed:</p>
         <pre><code>npm run check:core</code></pre>
-        <p>It must report that no Arc CMS core file changed. If it lists core files, move those changes into the custom space first (<a href="../app/check-core-and-upgrade.html">Keep core untouched</a>), or the merge will conflict with them. A website's own templates, static pages and partials in <code>public/</code> are listed as core too: keep them, and expect a conflict only where the new version changed the same file.</p>
+        <p>It must report that no Arc CMS core file changed. If it lists core files, move those changes into the custom space first (<a href="../app/check-core-and-upgrade.html">Keep core untouched</a>), or the merge will conflict with them. A site's own home page, templates, static pages and partials belong in <code class="new">src/custom/site/</code>. A copy made before that folder existed has them in <code>public/</code>, listed as core: merge anyway, then move them with <code>npm run arc:own-site</code> (<a href="../website/move-your-site.html">Move your site into src/custom/site</a>).</p>
       </li>
       <li>
         <p><strong>Read what changed</strong> in <code>CHANGELOG.md</code> of the new version, and look for any step it asks of an app.</p>
@@ -55,13 +55,14 @@
     <h2>What a clean upgrade looks like</h2>
     <ul>
       <li>The merge has no conflicts, and none of your custom files changed: Arc CMS ships them once, empty, and never changes them again.</li>
-      <li><code>npm run check:core</code> still reports no core file changed (for a website, none beyond your own files in <code>public/</code>). Your custom and install files are counted, not flagged.</li>
+      <li><code>npm run check:core</code> still reports no core file changed. Your custom and install files are counted, not flagged.</li>
       <li>The tests pass, and the deploy ends with <code>Done:</code>.</li>
     </ul>
 
     <h2>When the merge conflicts</h2>
     <ul>
       <li><strong>In a core file:</strong> your copy edited it. Take the new version's file, then make your change in the custom space. If the custom space cannot do it, the change belongs in Arc CMS as a general feature: see <a href="../concepts/core-and-custom.html">Core and custom</a>.</li>
+      <li><strong>In <code>public/</code>:</strong> your copy edited the website in Arc CMS's files. Run <code>npm run arc:own-site</code>, then <code>npm run arc:own-site -- --write</code>: it moves your edits into <code class="new">src/custom/site/</code> and settles these conflicts (<a href="../website/move-your-site.html">Move your site into src/custom/site</a>).</li>
       <li><strong>In <code>package.json</code> or <code>functions/package.json</code>:</strong> your app added a dependency. Keep both sides' entries, then run the two installs above to rewrite the lock files.</li>
     </ul>
 

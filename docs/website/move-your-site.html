@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Move your site into src/custom/site | Arc CMS docs</title>
+  <meta name="description" content="A site built on an older Arc CMS edited its home page, header, footer and templates in public/. One command moves them into the app's own folder and puts Arc CMS's files back.">
+  <meta name="docs:sources" content="scripts/arc-own-site.mjs, scripts/check-core.mjs, scripts/arc-site.mjs, package.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/move-your-site.html">
+  <main>
+    <h1>Move your site into src/custom/site</h1>
+    <p class="lead">Older versions of Arc CMS had no website folder of the app's own, so a site changed its home page, header, footer, templates and styles by editing files in <code>public/</code>. Those are Arc CMS's files now. <code>npm run arc:own-site</code> moves your changes into <code class="new">src/custom/site/</code> and puts Arc CMS's files back, so later updates merge cleanly.</p>
+
+    <h2>Is this you?</h2>
+    <p>Yes, if your copy has edits in any of these. <code>npm run check:core</code> lists them, and points here.</p>
+    <table>
+      <thead><tr><th>You edited or added</th><th>It moves to</th></tr></thead>
+      <tbody>
+        <tr><td><code class="old">public/index.html</code></td><td><code class="new">src/custom/site/home.html</code>, as a whole HTML page</td></tr>
+        <tr><td><code class="old">public/i18n/{lang}/index.html</code></td><td><code class="new">src/custom/site/home.{lang}.html</code></td></tr>
+        <tr><td><code class="old">public/i18n/{lang}/strings.json</code></td><td><code class="new">src/custom/site/strings/{lang}.json</code>, only the keys you added or reworded</td></tr>
+        <tr><td><code class="old">public/_partials/_header.html</code>, <code>_footer.html</code></td><td><code class="new">src/custom/site/header.html</code>, <code>footer.html</code></td></tr>
+        <tr><td><code class="old">public/templates/{folder}/…</code>, <code class="old">public/pages/…</code></td><td>The same path under <code class="new">src/custom/site/</code></td></tr>
+        <tr><td><code>public/assets/css/main.css</code></td><td><code class="new">src/custom/site/site.css</code>, loaded after Arc CMS's own</td></tr>
+        <tr><td><code>public/favicon.ico</code>, <code>403.html</code>, <code>404.html</code></td><td>The same name under <code class="new">src/custom/site/</code></td></tr>
+        <tr><td>Any file you added, such as <code class="old">public/assets/images/logo.png</code></td><td><code class="new">src/custom/site/assets/images/logo.png</code>, served at <code>/site/images/logo.png</code>. Links to it in the moved files are updated.</td></tr>
+      </tbody>
+    </table>
+    <p>Files you never changed stay Arc CMS's, so you keep getting its improvements to them.</p>
+
+    <h2>Move it</h2>
+    <ol class="steps">
+      <li><p><strong>Merge the newer Arc CMS</strong>, as on <a href="../getting-started/upgrading.html">Upgrade Arc CMS</a>. Leave conflicts in <code>public/</code> open: the command settles them.</p>
+        <pre><code>git merge upstream/main</code></pre></li>
+      <li><p><strong>See the plan.</strong> Nothing changes yet:</p>
+        <pre><code>npm run arc:own-site</code></pre>
+        <p>It lists each file and where it goes, how many of Arc CMS's files it puts back, and what to check by hand.</p></li>
+      <li><p><strong>Do it:</strong></p>
+        <pre><code>npm run arc:own-site -- --write</code></pre>
+        <p>A file that already exists in <code class="new">src/custom/site/</code> is never overwritten; the command names it instead.</p></li>
+      <li><p><strong>Look at the site</strong> with <code>npm run dev</code> next to the live one, and fix what the plan listed under "Check by hand".</p></li>
+      <li><p><strong>Check and commit:</strong></p>
+        <pre><code>npm run check:core</code></pre>
+        <p>No file in <code>public/</code> should be listed now. Finish the merge commit.</p></li>
+      <li><p><strong>Deploy everything, then republish</strong>, so the published pages are built from the new files:</p>
+        <pre><code>npm run deploy</code></pre>
+        <pre><code>npm run seed:prod</code></pre></li>
+    </ol>
+
+    <h2>Your home page</h2>
+    <p>The old home page was an Angular template. The command turns it into a plain HTML page (see <a href="home-page.html">Build your home page</a>):</p>
+    <ul>
+      <li><code>[contentType]="'articles'"</code> becomes <code>content-type="articles"</code>, and the same for other fixed values;</li>
+      <li><code>ngSrc</code> becomes <code>src</code>, and <code>assets/…</code> becomes <code>/assets/…</code>, so images also load at <code>/hi/</code>;</li>
+      <li>it gets a <code>&lt;head&gt;</code> with the title and description it had: from <code>index.html</code>, or for another language from its old home component;</li>
+      <li>the old <code>main.css</code> it was styled with comes along as <code class="new">src/custom/site/assets/home.css</code>, linked from the page. Arc CMS's own <code>main.css</code> now styles only the body, header and footer.</li>
+    </ul>
+    <p>Angular syntax with no plain HTML version, such as <code>{{ … }}</code>, <code>(click)</code> or <code>@if</code>, is left in place and listed with its line number. Replace it with plain HTML, a <code>data-arc-t</code> text or your own script.</p>
+
+    <h2>What it leaves to you</h2>
+    <ul>
+      <li><strong>An edit to an Arc CMS file the site folder cannot replace</strong>, such as <code class="old">public/assets/js/arc-search.js</code>: the command puts Arc CMS's file back and names it. Your version is still in git history. If you need the change, ask for it in Arc CMS as an option (see <a href="../app/check-core-and-upgrade.html">Keep core untouched</a>).</li>
+      <li><strong>Old home components for other languages</strong> in <code class="old">src/app/pages/home-i18n/</code>: delete them and their routes in <code>src/app/app.routes.ts</code>. A home page in another language is now just <code>home.{lang}.html</code>.</li>
+      <li><strong>Template overrides saved in the database</strong> by very old versions are no longer read. The templates in use are the files: <strong>Content</strong>, <strong>Templates</strong> shows them.</li>
+    </ul>
+
+    <div class="trap"><p>Run it from the newer Arc CMS, after the merge. Before the merge the command is not there yet; if you run an older checkout, it stops and asks you to merge first.</p></div>
+
+    <h2>Next</h2>
+    <p>Keep editing the site in its new place: <a href="home-page.html">Build your home page</a> and <a href="templates.html">Design templates</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

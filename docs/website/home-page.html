@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Build your home page | Arc CMS docs</title>
   <meta name="description" content="Write your site's home page as one HTML file with your own styles, scripts and animation, with live cards, signup forms and an install button, published as a fast static page in every language.">
-  <meta name="docs:sources" content="public/_site/home.html, functions/src/pages/deployHomePage.ts, src/app/pages/index.page.ts, public/assets/js/arc-site.js, src/app/core/site/signed-in-hint.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/pages/seedStaticPages.ts, src/app/pages/admin/contents/content-types/index.page.ts, scripts/arc-site.mjs">
+  <meta name="docs:sources" content="public/_site/home.html, functions/src/pages/deployHomePage.ts, src/app/pages/index.page.ts, public/assets/js/arc-site.js, src/app/core/site/signed-in-hint.ts, src/app/core/site/site-drift.ts, scripts/vite-arc-site.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/pages/seedStaticPages.ts, src/app/pages/admin/contents/content-types/index.page.ts, scripts/arc-site.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/home-page.html">
@@ -80,7 +80,7 @@
 
     <h2>Put it live</h2>
     <p>Deploy the website (see <a href="../operations/deploy.html">Deploy</a>). The deploy publishes the home page with every other page. After that, it is published again by itself whenever content it shows changes. To publish it again yourself, for example after changing Settings, <strong>About</strong>, open <strong>Content</strong>, <strong>Content types</strong> and choose <strong>Republish website</strong>.</p>
-    <div class="trap"><p>The live site serves the published page. A change to <code>home.html</code> shows in <code>npm run dev</code> at once, but reaches the live site only after a website deploy.</p></div>
+    <div class="trap"><p>The live site serves the published page. A change to <code>home.html</code> shows in <code>npm run dev</code> at once, but reaches the live site only after a website deploy. Publishing reads the live site's files, not yours: while your site files differ from the live ones, the content editor and <strong>Content types</strong> say <strong>Live site differs</strong> (only in <code>npm run dev</code>; hover for the files).</p></div>
 
     <h2>Next</h2>
     <p>Write the pages that are not content: <a href="static-pages.html">Write static pages</a>.</p>

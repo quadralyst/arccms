@@ -164,6 +164,10 @@ export function main(argv = process.argv.slice(2), log = console.log, cwd = proc
     log(`These Arc CMS core files changed compared with ${against}:\n  ${groups.core.join('\n  ')}`);
     log('Move each change into the custom space (src/custom, functions/src/custom, custom, *.app.rules),');
     log('or build it in Arc CMS as a general feature and pull it. See docs/app/custom-space.html.');
+    if (groups.core.some((path) => path.startsWith('public/'))) {
+        log('Website files in public/ belong in src/custom/site/: npm run arc:own-site moves them there');
+        log('and puts Arc CMS\'s back (docs/website/move-your-site.html).');
+    }
     return 1;
 }
 

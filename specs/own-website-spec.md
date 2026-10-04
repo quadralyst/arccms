@@ -1,6 +1,6 @@
 # An App's Own Website: Build Spec
 
-**Status:** W1 and W2 built and committed 2026-10-04 (446b05e); W3 committed (c4fa603), deployed to the dev project and browser-checked. W4 and W5 built 2026-10-04, uncommitted, not yet deployed. W6 and W7 not built.
+**Status:** W1 and W2 committed (446b05e), W3 (c4fa603), W4 and W5 (fc424dd), all deployed to the dev project and checked. W6 built 2026-10-04, uncommitted. W7 not built.
 **Branch:** `feat/own-website`, cut from `dev` (a41d8b4), in the worktree `../arccms-own-website`.
 **Scope:** an app built on Arc CMS owns its whole public website (home page in every
 language, header, footer, content templates, static pages, styles, favicon, error
@@ -195,6 +195,24 @@ A small script on every published page, no framework:
 
 Without `--write` it prints the plan and changes nothing. `check:core`, when it lists a
 file under `public/`, points to this command.
+
+**As built (W6):**
+- It runs after `git merge upstream/...`, mid-merge with conflicts open or after the merge
+  commit; before the merge it stops and says to merge. It reads the app's old files from
+  its newest commit in the old layout (the one with `public/_partials/_header.html`) and
+  compares them with the Arc CMS version that commit was based on. A file the merge
+  already carried into `public/_site/` with the app's edit is taken from the working copy.
+  `public/` is restored to the Arc CMS version being merged, not the upstream tip.
+- An edited `main.css` becomes `site.css`; otherwise the old `main.css` comes along as
+  `assets/home.css`, linked from the migrated home page, since core `main.css` is slim now.
+- Files the app added under `public/` move to `src/custom/site/assets/` (served at
+  `/site/`), with links in the moved files updated.
+- Step 4 (reporting Firestore template overrides) is not built: the closing message says
+  they are no longer read. Old `src/app/pages/home-i18n/` components are reported for deletion.
+- **Guard (section 8):** the dev server serves the live manifest at `/__arc/live-site.json`
+  (Hosting sends no CORS headers), and `arc-site-drift-notice` shows "Live site differs"
+  beside Publish and on Content types. The site name comes from `hostingSite` in
+  `arc-install.ts`, now written by `arc:configure`; without it, the project's default site.
 
 ## 10. Phases
 

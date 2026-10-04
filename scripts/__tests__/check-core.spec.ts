@@ -81,6 +81,18 @@ describe('check-core', () => {
             expect(out).toContain('docs/app/custom-space.html');
         });
 
+        it('points website files in public/ at arc:own-site', () => {
+            mkdirSync(join(dir, 'public'), { recursive: true });
+            writeFileSync(join(dir, 'public', 'index.html'), '<h1>Our home</h1>\n');
+            const { code, out } = run('--against', 'arc-base');
+            expect(code).toBe(1);
+            expect(out).toContain('npm run arc:own-site');
+            // Other core files get no such hint.
+            rmSync(join(dir, 'public'), { recursive: true });
+            writeFileSync(join(dir, 'firestore.rules'), 'edited\n');
+            expect(run('--against', 'arc-base').out).not.toContain('arc:own-site');
+        });
+
         it('fails, and explains how to add Arc CMS as upstream, when there is nothing to compare with (review F)', () => {
             const { code, out } = run();
             expect(code).toBe(1);

@@ -12,6 +12,7 @@ describe('arc-config (frontend)', () => {
                 storagePrefix: '',
                 adminOnlySignIn: false,
                 functionsRegion: 'us-central1',
+                hostingSite: '',
             });
             expect(resolveArcConfig({})).toEqual(resolveArcConfig(undefined));
             expect(DEFAULT_DATABASE_ID).toBe('(default)');
@@ -38,9 +39,11 @@ describe('arc-config (frontend)', () => {
                 storagePrefix: 'arccms/',
                 adminOnlySignIn: false,
                 functionsRegion: 'us-central1',
+                hostingSite: '',
             });
             expect(resolveArcConfig({ adminOnlySignIn: true }).adminOnlySignIn).toBe(true);
             expect(resolveArcConfig({ functionsRegion: ' asia-south1 ' }).functionsRegion).toBe('asia-south1');
+            expect(resolveArcConfig({ hostingSite: ' acme-arccms ' }).hostingSite).toBe('acme-arccms');
         });
 
         it('treats blank values as unset', () => {

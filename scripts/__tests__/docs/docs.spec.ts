@@ -218,11 +218,11 @@ describe('the checks catch drift', () => {
             const good = fixture({ 'a/one.html': { title: 'One', body: '<p>Create <code class="new">firestore.app.rules</code>.</p>' } });
             expect(checks.checkSources(good, REPO_ROOT)).toEqual([]);
         });
-        it('fails on a path in <code> that does not exist, but not on one marked new, in a block, or with a placeholder', () => {
+        it('fails on a path in <code> that does not exist, but not on one marked new or old, in a block, or with a placeholder', () => {
             const site = fixture({
                 'a/one.html': {
                     title: 'One',
-                    body: '<p><code>src/custom/features.ts</code> <code>src/gone/file.ts</code> <code class="new">src/custom/pages/deals.page.ts</code> <code>src/custom/i18n/{lang}.json</code> <code>package.json</code> <code>nofile.json</code></p><pre><code>src/never/there.ts</code></pre>',
+                    body: '<p><code>src/custom/features.ts</code> <code>src/gone/file.ts</code> <code class="new">src/custom/pages/deals.page.ts</code> <code class="old">public/_partials/_header.html</code> <code>src/custom/i18n/{lang}.json</code> <code>package.json</code> <code>nofile.json</code></p><pre><code>src/never/there.ts</code></pre>',
                 },
             });
             expect(checks.checkSources(site, REPO_ROOT)).toEqual([

@@ -21,6 +21,7 @@ import { GlobalTableComponent, TableColumn } from '../../../../../shared/compone
 import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../../guards/role.guard';
 import { escapeHtml } from '../../../../../shared/utils/escape-html';
+import { SiteDriftNoticeComponent } from '../site-drift-notice/site-drift-notice.component';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 
 export const routeMeta: RouteMeta = {
@@ -43,7 +44,8 @@ export const routeMeta: RouteMeta = {
     ViewContentTypeComponent,
     GlobalTableComponent,
     PageHeaderComponent,
-    TranslocoPipe
+    TranslocoPipe,
+    SiteDriftNoticeComponent,
   ],
   providers: [DatePipe],
   templateUrl: './content-types.html',

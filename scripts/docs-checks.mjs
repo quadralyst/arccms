@@ -129,7 +129,8 @@ const APP_ONLY_FILES = new Set(['firestore.app.rules', 'storage.app.rules', 'fir
 /**
  * Every file a page says it describes (docs:sources) exists, and so does every repo
  * path it writes in <code>. A path the reader is told to create is written
- * <code class="new"> and is not checked.
+ * <code class="new">, and one only older versions have (to move away from) is
+ * written <code class="old">; neither is checked.
  */
 export function checkSources(site, repoRoot = REPO_ROOT) {
     const problems = [];
@@ -141,7 +142,7 @@ export function checkSources(site, repoRoot = REPO_ROOT) {
         }
         if (!page.main) continue;
         for (const code of page.main.querySelectorAll('code')) {
-            if (code.classList.contains('new') || code.closest('.new')) continue;
+            if (code.classList.contains('new') || code.closest('.new') || code.classList.contains('old')) continue;
             if (code.parentElement && code.parentElement.tagName === 'PRE') continue;
             const text = code.textContent.trim().replace(/:\d+(-\d+)?$/, '');
             if (PLACEHOLDER.test(text)) continue;
