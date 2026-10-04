@@ -13,7 +13,6 @@ import { FooterComponent } from './page.parts/footer.component';
 import { ContentPartialsComponent } from './page.parts/content-partials.component';
 import { PublicSearchComponent } from './page.parts/public-search.component';
 import { LanguageSwitcherComponent } from './page.parts/language-switcher.component';
-import { WaitlistFormService } from './page.parts/waitlist-form.service';
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
 import { LocalizationService } from '../core/services/localization.service';
 import { UiStringsService } from '../core/services/ui-strings.service';
@@ -21,6 +20,10 @@ import { applyStringsToElement } from '../core/i18n/apply-strings-dom';
 import { withLangPrefix } from '../core/utils/language-links';
 import { siteManifest } from '../core/site/site';
 import { useSiteStyles } from '../core/site/site-styles';
+import { arcConfig } from '../core/config/arc-config';
+import { ARC_FUNCTION_GROUP } from '../core/config/arc-functions';
+import { buildLegalNoticeElement, legalNoticeLang } from '../../shared/constants/legal-notice';
+import { environment } from '../../environments/environment';
 
 export const routeMeta: RouteMeta = {
     title: 'Home',
@@ -52,7 +55,8 @@ const PARTIALS_INPUTS: Record<string, string> = {
  * page shows the same document in the app: with `npm run dev`, as the preview,
  * and on the live site until the pages are published. It does what publishing
  * does, in the browser: the page's words in its language, its own stylesheets and
- * scripts, the Arc CMS elements as components, the signup forms.
+ * scripts, the Arc CMS elements as components, the terms notice on signup forms,
+ * and arc-site.js, the same script that runs the live parts of the published page.
  */
 @Component({
     selector: 'arc-home',
@@ -77,7 +81,6 @@ export default class HomeComponent implements OnInit, OnDestroy {
     private elementInjector = inject(Injector);
     private localization = inject(LocalizationService);
     private uiStrings = inject(UiStringsService);
-    private waitlistForms = inject(WaitlistFormService);
     private onboarding = inject(OnboardingSetupService);
 
     /** Nodes this page added to <head> and <body>, removed when it goes. */
@@ -137,7 +140,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
             this.host.querySelectorAll('a[href]').forEach((a) => a.setAttribute('href', withLangPrefix(a.getAttribute('href') || '', `/${lang}`)));
         }
         this.mountElements();
-        this.waitlistForms.initWaitlistForms(this.host).catch(() => undefined);
+        this.addLegalNotices();
 
         // The page's scripts, in order, as the published page runs them.
         for (const old of scripts) {
@@ -146,6 +149,33 @@ export default class HomeComponent implements OnInit, OnDestroy {
             script.textContent = old.textContent;
             this.add(this.document.body, script);
         }
+        // The live parts (forms, counts, install, signed-in hint) by the same script
+        // the published page runs, so what you try here is what visitors get.
+        this.add(this.document.body, this.arcSiteScript());
+    }
+
+    /** The terms notice above each signup form's button, as publishing adds it. */
+    private addLegalNotices(): void {
+        for (const form of Array.from(this.host.querySelectorAll<HTMLFormElement>('form[data-waitlist-form]'))) {
+            if (form.querySelector('[data-legal-notice]')) continue;
+            const notice = buildLegalNoticeElement(this.document, legalNoticeLang(this.document.documentElement.lang));
+            const submit = form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
+            if (submit?.parentNode) submit.parentNode.insertBefore(notice, submit);
+            else form.appendChild(notice);
+        }
+    }
+
+    /** arc-site.js with what the published page gives it (arcSiteScript in functions/src/pages/deployHomePage.ts). */
+    private arcSiteScript(): HTMLScriptElement {
+        const projectId = environment.firebaseConfig?.projectId ?? '';
+        const version = siteManifest().files['assets/js/arc-site.js'];
+        const script = this.document.createElement('script');
+        script.src = `/assets/js/arc-site.js${version ? `?v=${version}` : ''}`;
+        script.setAttribute('data-functions', `https://${arcConfig.functionsRegion}-${projectId}.cloudfunctions.net`);
+        script.setAttribute('data-group', ARC_FUNCTION_GROUP);
+        script.setAttribute('data-project', projectId);
+        script.setAttribute('data-database', arcConfig.databaseId);
+        return script;
     }
 
     private mountElements(): void {
@@ -177,7 +207,6 @@ export default class HomeComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
-        this.waitlistForms.cleanup();
         for (const ref of this.mounted) {
             this.appRef.detachView(ref.hostView);
             ref.destroy();

@@ -19,13 +19,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 - Publishing reads templates and site files from the live site's `/_site/`; template overrides stored in Firestore are no longer read.
 - The build no longer prerenders or builds a server bundle.
-- `main.css` styles only the body, header and footer. The old marketing page's styles are in `docs/examples/arc-cms-home.css`.
+- `npm run deploy` keeps the published pages when it deploys the website: the build goes to a preview channel, then one live release holds the build and the published pages. Never deploy the website with a plain `firebase deploy --only hosting`.
+- Publishing keeps every file of a site past 1000 files (the live file list is now read page by page).
+- `main.css` styles only the body, header and footer. The old marketing page's styles are in `docs/examples/arc-cms-home.css`. Its global `section { padding: 100px 0 }` rule is gone too.
+- The published home page republishes itself when Settings it shows change (About, the site address, languages, the powered-by line).
+- Signups from the published home page record the same metadata as the app's forms, and someone already on the list sees "Welcome back".
 
 ### For apps upgrading
 
 1. Merge the new version. If your copy edited files in `public/`, run `npm run arc:own-site`, then `npm run arc:own-site -- --write` (docs/website/move-your-site.html).
-2. Run `npm run arc:configure` once, so `arc-install.ts` names your hosting site.
-3. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`). Until the republish, `/` shows the home page from the app instead of the published file.
+2. Check your own templates and pages for the old marketing classes (`.hero`, `.feature-card`, `.cta-primary`, `.section-headline` and the like) and for sections that relied on the `main.css` padding. `arc:own-site` brings the old styles back for a migrated home page only; elsewhere, copy the rules you use from `docs/examples/arc-cms-home.css` into `src/custom/site/site.css`.
+3. Run `npm run arc:configure` once, so `arc-install.ts` names your hosting site.
+4. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`).
 
 ---
 

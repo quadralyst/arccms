@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Deploy | Arc CMS docs</title>
   <meta name="description" content="Deploy Arc CMS to a Firebase project with npm run deploy: the guided questions, the flags for scripts and CI, deleted functions, the callable check and the static pages.">
-  <meta name="docs:sources" content="scripts/arc-deploy.mjs, functions/src/shared/site-files.ts, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-built-functions.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, firebase.json, package.json">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-hosting-release.mjs, functions/src/shared/site-files.ts, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-built-functions.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, firebase.json, package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/deploy.html">
@@ -140,12 +140,15 @@ npm run deploy:prod</code></pre>
     </table>
 
     <h3>Publish the static pages</h3>
-    <p>Published content is served as static files that Cloud Functions write to Hosting one page at a time. A website deploy uploads only the build, so after one, the pages are published again: the guided deploy and <code>deploy:dev</code>/<code>deploy:prod</code> do it for you. To do it by hand:</p>
+    <p>Published content is served as static files that Cloud Functions write to Hosting one page at a time; none of them is in the build. <code>npm run deploy</code> keeps them: it uploads the build to a preview channel named <code>arc-deploy</code> first, then releases one live version holding the build and every published page, so visitors and search engines never see a page drop out. Every other part (functions, rules, indexes) goes through <code>firebase deploy</code> as before.</p>
+    <p>After a website deploy, the pages are still published again, so they pick up a changed template, header or footer: the guided deploy and <code>deploy:dev</code>/<code>deploy:prod</code> do it for you. To do it by hand:</p>
     <pre><code>npm run seed:dev
 npm run seed:prod</code></pre>
     <p><code>seed:dev</code> publishes to the <code>default</code> alias, <code>seed:prod</code> to <code>production</code>. It republishes the home page in every language, every published content page and list page, every static page the site has, <code>robots.txt</code>, <code>llms.txt</code>, the sitemap and the RSS feeds. It uses your Firebase CLI login (run <code>firebase login</code> first) and does nothing for a project with no website.</p>
 
-    <div class="note"><p>Publishing reads the templates, header, footer and static pages from the live website (<code>/_site/</code>), so the website deploy comes first and the republish after it, as the guided deploy does. Between the two, <code>/</code> shows the home page from the app instead of the published file. A change to the publish functions that reads site files at a new place needs the functions and the website deployed together, then the republish.</p></div>
+    <div class="note"><p>Publishing reads the templates, header, footer and static pages from the live website (<code>/_site/</code>), so the website deploy comes first and the republish after it, as the guided deploy does. A change to the publish functions that reads site files at a new place needs the functions and the website deployed together, then the republish.</p></div>
+
+    <div class="trap"><p>Deploy the website with <code>npm run deploy</code>, never with <code>firebase deploy --only hosting</code>. The plain command releases only the build, so every published page drops out until the republish, and it ignores this install's own config: on a project with two installs it goes to the wrong site.</p></div>
 
     <h2>When the deploy stops</h2>
     <table>

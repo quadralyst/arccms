@@ -143,6 +143,28 @@ describe('signup forms', () => {
         expect(localStorage.getItem('arc_referral')).toBeNull();
     });
 
+    it('sends the visit\'s metadata with the signup, as the app does', async () => {
+        page(FORM, '?utm_source=news&plan=pro');
+        await flush();
+        document.querySelector('form')!.dispatchEvent(new Event('focusin'));
+        await signUp();
+        const metadata = calls[0].data['signupMetadata'] as Record<string, unknown>;
+        expect(metadata).toMatchObject({ utmSource: 'news', queryParams: { plan: 'pro' }, visitCount: 1, formStartCount: 1, isDisposableEmail: false });
+        expect(metadata['deviceType']).toBeTruthy();
+        expect(JSON.parse(localStorage.getItem('arc_session_data')!).visitCount).toBe(1);
+    });
+
+    it('welcomes back someone already on the list, and credits no referral for them', async () => {
+        docs['Settings/email_status'] = { isEnabled: false };
+        callables['finalizeFormSignup'] = () => ({ queuePosition: 3, totalSignups: 0, emailVerified: true, alreadyConfirmed: true });
+        page(FORM, '?ref=FRIEND99');
+        await flush();
+        const form = await signUp();
+        expect(form.querySelector('.waitlist-existing-step')!.textContent).toContain('Welcome back, Asha!');
+        expect(form.querySelector('.waitlist-existing-step')!.textContent).toContain('#3');
+        expect(calls.some((c) => c.name === 'creditReferral')).toBe(false);
+    });
+
     it('shows a closed form and does not sign anyone up', async () => {
         docs['Waitlists/launch'] = { isActive: false, disabledMessage: 'We are full.' };
         page(FORM);
@@ -157,6 +179,19 @@ describe('signup forms', () => {
         page(FORM);
         await flush();
         expect(calls).toEqual([{ name: 'ensureWaitlistExists', data: { waitlistId: 'launch' } }]);
+    });
+
+    it('uses an older install\'s default form instead of starting a new, empty one, as the app does', async () => {
+        docs = {
+            'Waitlists/get-early-access-to-arc-cms': { isActive: true, otpEnabled: false, totalSignups: 2 },
+            'Settings/email_status': { isEnabled: false },
+        };
+        page('<span data-waitlist-count></span><form data-waitlist-form data-waitlist-id="waitlist-form"><input name="email"><button type="submit">Join</button></form>');
+        await flush();
+        expect(document.querySelector('[data-waitlist-count]')!.textContent).toBe('2');
+        await signUp();
+        expect(calls.some((c) => c.name === 'ensureWaitlistExists')).toBe(false);
+        expect(calls.find((c) => c.name === 'joinForm')!.data['waitlistId']).toBe('get-early-access-to-arc-cms');
     });
 
     it('shows the server\'s error when joining fails', async () => {

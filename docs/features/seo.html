@@ -162,7 +162,7 @@
 
     <h2>Troubleshooting</h2>
     <div class="trap"><p>Settings changed but robots.txt did not. <strong>Save</strong> applies on the next publish; the functions also cache the settings for five minutes. Press <strong>Save and apply to site</strong>.</p></div>
-    <div class="trap"><p>Pages and files vanish after <code>firebase deploy --only hosting</code>. A hosting deploy releases only what the CLI uploaded, dropping every file the functions wrote. Rebuild them afterwards with <code>npm run seed:dev</code> (or <code>npm run seed:prod</code>). See <a href="../operations/deploy.html">Deploy</a>.</p></div>
+    <div class="trap"><p>Pages and files vanish after a plain <code>firebase deploy --only hosting</code>, which releases only what the CLI uploaded. <code>npm run deploy</code> keeps every file the functions wrote. If they did vanish, rebuild them with <code>npm run seed:dev</code> (or <code>npm run seed:prod</code>). See <a href="../operations/deploy.html">Deploy</a>.</p></div>
     <table>
       <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
       <tbody>

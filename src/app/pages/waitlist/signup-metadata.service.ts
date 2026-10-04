@@ -327,7 +327,7 @@ export class SignupMetadataService {
   }
 
   /**
-   * Track form interaction (called by WaitlistFormService on first focusin)
+   * Track form interaction (on first focusin in a form; arc-site.js does the same on published pages)
    */
   trackFormInteraction(): void {
     if (!isPlatformBrowser(this.platformId) || this.formInteractedThisSession) return;

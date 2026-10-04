@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content | Arc CMS docs</title>
   <meta name="description" content="Define content types, write and publish entries, and understand how a published entry becomes a static page on Firebase Hosting.">
-  <meta name="docs:sources" content="functions/src/features/content.ts, src/app/pages/admin/contents/site-drift-notice/site-drift-notice.component.ts, src/shared/directives/resizable/resizable.directive.ts, src/app/pages/admin/contents/content-store/published-contents.service.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/_site/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
+  <meta name="docs:sources" content="functions/src/features/content.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, src/app/pages/admin/contents/site-drift-notice/site-drift-notice.component.ts, src/shared/directives/resizable/resizable.directive.ts, src/app/pages/admin/contents/content-store/published-contents.service.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/_site/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/content.html">
@@ -35,7 +35,7 @@
     <ul>
       <li>The <strong>Content</strong> admin menu (content types, entries, authors) goes, and <code>/admin/contents/...</code>, <code>/admin/authors</code> and <code>/p/...</code> show the not-found page.</li>
       <li>The public content routes (<code>/{type}</code>, <code>/{type}/{slug}</code> and their language-prefixed twins) are not registered.</li>
-      <li>The Cloud Functions in <code>functions/src/features/content.ts</code> are not exported, so a full functions deploy deletes them: <code>processPublishQueue</code>, <code>onContentTypeDeleted</code> and <code>seedStaticPages</code>. The draft search queue, which needs both content and search, goes too.</li>
+      <li>The Cloud Functions in <code>functions/src/features/content.ts</code> are not exported, so a full functions deploy deletes them: <code>processPublishQueue</code>, <code>onSiteSettingsWritten</code>, <code>onContentTypeDeleted</code> and <code>seedStaticPages</code>. The draft search queue, which needs both content and search, goes too.</li>
       <li>The setup wizard does not create the Articles type, and data export offers no content collections.</li>
     </ul>
     <p>Firestore data is not deleted. See <a href="../reference/feature-ids.html">Feature ids</a> for every id.</p>
@@ -126,7 +126,7 @@
     <p>To rebuild every published page, the static pages and the SEO files at once, run the seed (it also runs at the end of <code>npm run deploy:dev</code> and <code>npm run deploy:prod</code>):</p>
     <pre><code>npm run seed:dev</code></pre>
     <p>For production: <code>npm run seed:prod</code>.</p>
-    <div class="trap"><p>A <code>firebase deploy --only hosting</code> replaces the Hosting release with only the files it uploaded, so every page publishing wrote disappears, and the app's fallback still answers those addresses, so nothing looks broken at first. After a hosting-only deploy, run <code>npm run seed:dev</code> (or <code>seed:prod</code>) to put the pages back. See <a href="../operations/deploy.html">Deploy</a>.</p></div>
+    <div class="trap"><p>A plain <code>firebase deploy --only hosting</code> replaces the Hosting release with only the files it uploaded, so every page publishing wrote disappears, and the app's fallback still answers those addresses, so nothing looks broken at first. Deploy the website with <code>npm run deploy</code>, which keeps them. After a plain deploy, run <code>npm run seed:dev</code> (or <code>seed:prod</code>) to put the pages back. See <a href="../operations/deploy.html">Deploy</a>.</p></div>
 
     <h3>Bulk import entries</h3>
     <p>On a type's entry list, <strong>Bulk Import</strong> reads the first sheet of an <code>.xlsx</code> or <code>.csv</code> file. It maps columns by header to Title (required), Content, Summary, URL Slug, Tags, Cover Image URL, SEO Title, Meta Description, Canonical URL, Featured, Author and the type's custom fields, and offers a sample file to download. You import as drafts or publish straight away. An author named in the Author column is matched by name, or created. Repeating fields (info cards, gallery, label and value, map location) cannot be imported.</p>
@@ -166,6 +166,7 @@
       <thead><tr><th>Cloud Function</th><th>Kind</th><th>Does</th></tr></thead>
       <tbody>
         <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages</td></tr>
+        <tr><td><code>onSiteSettingsWritten</code></td><td>Firestore trigger on <code>Settings</code></td><td>Queues a home page republish when <code>about</code>, <code>site</code>, <code>localization</code> or <code>misc</code> changes</td></tr>
         <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections and their search entries</td></tr>
         <tr><td><code>seedStaticPages</code></td><td>Callable, also run by the seed script</td><td>Rebuilds every published page, the static pages and the SEO files</td></tr>
       </tbody>

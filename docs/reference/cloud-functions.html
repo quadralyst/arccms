@@ -53,6 +53,7 @@
       <tbody>
         <tr><td><code>processPublishQueue</code></td><td>Firestore trigger: <code>_publish_queue/{queueId}</code> created</td><td>The admin app, on publish, unpublish, update or delete</td><td>Copies the draft to its published collection and releases the static pages to Firebase Hosting, with the home page when it shows that type's cards; with <code>seo</code> on, also the sitemap, feeds and discoverability files, and tells IndexNow.</td></tr>
         <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger: <code>ContentTypes/{contentTypeId}</code> deleted</td><td>Deleting a content type</td><td>Deletes the type's published, draft and <code>Tags_{slug}</code> collections, and their search entries when search is on.</td></tr>
+        <tr><td><code>onSiteSettingsWritten</code></td><td>Firestore trigger: <code>Settings/{settingId}</code> written</td><td>An admin saving Settings, and the setup wizard</td><td>When <code>about</code>, <code>site</code>, <code>localization</code> or <code>misc</code> changed, queues a republish of the home page (a <code>home</code> item on <code>_publish_queue</code>).</td></tr>
         <tr><td><code>seedStaticPages</code></td><td>Callable</td><td>Intended for deploy tooling; <code>npm run seed:dev</code> and <code>seed:prod</code> run the same code directly</td><td>Publishes the home page in every language, every published content page and the static pages to Firebase Hosting as static HTML.</td></tr>
       </tbody>
     </table>

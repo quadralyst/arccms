@@ -23,7 +23,7 @@ import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument, arcHostingSite } from '../arc-config.js';
 
 interface QueueItem {
-    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all';
+    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home';
     contentTypeSlug: string;
     docId: string;
     timestamp: Timestamp;
@@ -247,8 +247,9 @@ export const processPublishQueue = onDocumentCreated({
     const { action, contentTypeSlug, docId } = queueData;
     const queueDocRef = event.data?.ref;
 
-    // 'redeploy-all' is site-wide, so it names no content type and no document.
-    if (!action || (action !== 'redeploy-all' && (!contentTypeSlug || !docId))) {
+    // 'redeploy-all' and 'home' are site-wide, so they name no content type and no document.
+    const siteWide = action === 'redeploy-all' || action === 'home';
+    if (!action || (!siteWide && (!contentTypeSlug || !docId))) {
         console.error('Invalid queue item — missing required fields:', queueData);
         if (queueDocRef) await queueDocRef.delete();
         return;
@@ -262,6 +263,18 @@ export const processPublishQueue = onDocumentCreated({
     const batch = new HostingBatch();
     /** Why this item's own page could not be built, if it could not (recordPageFailure). */
     let pageError: unknown = null;
+
+    // The home page alone, after a setting it shows changed (onSiteSettingsWritten).
+    if (action === 'home') {
+        try {
+            await generateAndDeployHomePage(batch);
+            if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '');
+        } catch (error) {
+            console.error('Home page republish failed:', error);
+        }
+        if (queueDocRef) await queueDocRef.delete();
+        return;
+    }
 
     // Handled ahead of the per-document setup below, which needs a document to
     // point at. This one is about the site, not about a document.

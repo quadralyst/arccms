@@ -1,6 +1,15 @@
 # An App's Own Website: Build Spec
 
 **Status:** All phases built 2026-10-04. W1 and W2 (446b05e), W3 (c4fa603), W4 and W5 (fc424dd) deployed to the dev project and checked; W6 (002b25a) needs no deploy. W7 (final docs pass, example page script, CHANGELOG) uncommitted. Screenshots: the docs have none yet; they come with the developer docs' own screenshot phase (D7, specs/developer-docs-strategy.md).
+
+**Follow-ups after review (2026-10-04, uncommitted):** the website deploy keeps published pages
+(`scripts/arc-hosting-release.mjs`: build to the `arc-deploy` preview channel, then one live
+release of the build plus the published files); publishing pages through the live file list
+(it read only the first 1000 files); the home page republishes when Settings it shows change
+(`onSiteSettingsWritten`, a `home` queue action); the preview runs `arc-site.js` (the Angular
+`WaitlistFormService` is gone); `arc-site.js` sends the app's full signup metadata, shows
+"Welcome back" and resolves a legacy default form id; the placeholder carries Arc CMS branding;
+the server entry files are removed.
 **Branch:** `feat/own-website`, cut from `dev` (a41d8b4), in the worktree `../arccms-own-website`.
 **Scope:** an app built on Arc CMS owns its whole public website (home page in every
 language, header, footer, content templates, static pages, styles, favicon, error

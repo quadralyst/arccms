@@ -13,7 +13,6 @@ import HomeComponent from './index.page';
 import { ContentsStore } from './admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from './admin/contents/content-types/content-types.store';
 import { ContentPartialsComponent } from './page.parts/content-partials.component';
-import { WaitlistFormService } from './page.parts/waitlist-form.service';
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
 import { LocalizationService } from '../core/services/localization.service';
 import { UiStringsService } from '../core/services/ui-strings.service';
@@ -36,7 +35,6 @@ const HOME = `<!doctype html><html lang="en"><head>
 describe('HomeComponent (home page preview)', () => {
     let fixture: ComponentFixture<HomeComponent>;
     let http: { get: ReturnType<typeof vi.fn> };
-    let waitlistForms: { initWaitlistForms: ReturnType<typeof vi.fn>; cleanup: ReturnType<typeof vi.fn> };
     let onboarding: { shouldShowOnboarding: ReturnType<typeof vi.fn> };
     let strings: Record<string, string>;
     const localization = () => ({
@@ -53,7 +51,6 @@ describe('HomeComponent (home page preview)', () => {
                 provideRouter([]),
                 { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (k: string) => (k === 'lang' ? lang || null : null) } }, paramMap: of({ keys: [], get: () => null }), queryParams: of({}) } },
                 { provide: HttpClient, useValue: http },
-                { provide: WaitlistFormService, useValue: waitlistForms },
                 { provide: OnboardingSetupService, useValue: onboarding },
                 { provide: LocalizationService, useValue: localization() },
                 {
@@ -83,7 +80,6 @@ describe('HomeComponent (home page preview)', () => {
     beforeEach(() => {
         (window as unknown as { __homeScriptRan?: number }).__homeScriptRan = 0;
         http = { get: vi.fn().mockReturnValue(of(HOME)) };
-        waitlistForms = { initWaitlistForms: vi.fn().mockResolvedValue(undefined), cleanup: vi.fn() };
         onboarding = { shouldShowOnboarding: vi.fn().mockReturnValue(of(false)) };
         strings = {};
     });
@@ -106,14 +102,18 @@ describe('HomeComponent (home page preview)', () => {
         expect(el.querySelector('arc-header nav, arc-header *')).toBeTruthy();
         const partials = el.querySelector('arc-content-partials') as HTMLElement & { __ngContext__?: unknown };
         expect(partials).toBeTruthy();
-        expect(waitlistForms.initWaitlistForms).toHaveBeenCalledWith(el);
+        // The terms notice above the button, and the live parts by the published page's own script.
+        expect(el.querySelector('form [data-legal-notice] + button')).toBeTruthy();
+        const arcSite = document.body.querySelector('script[data-arc-home][src^="/assets/js/arc-site.js"]')!;
+        expect(arcSite.getAttribute('data-group')).toBe('arccms');
+        expect(arcSite.getAttribute('data-functions')).toMatch(/^https:\/\/[a-z0-9-]+-.+\.cloudfunctions\.net$/);
+        expect(arcSite.getAttribute('data-database')).toBeTruthy();
     });
 
     it('cleans up what it added when it goes', async () => {
         await open();
         fixture.destroy();
         expect(document.querySelector('[data-arc-home]')).toBeNull();
-        expect(waitlistForms.cleanup).toHaveBeenCalled();
     });
 
     it('shows home.html in another language with its strings, and its links in that language', async () => {

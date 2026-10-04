@@ -186,4 +186,15 @@ describe('Arc CMS\'s own site files', () => {
         expect(readSiteFile(repo, '_site/header.html')).toContain('<arc-search>');
         expect(readSiteFile(repo, '_site/footer.html')).not.toBe('');
     });
+
+    it('ship a placeholder home page that says it runs on Arc CMS, in every language it has strings for, and stays out of search', () => {
+        const repo = join(__dirname, '..', '..');
+        const home = readSiteFile(repo, '_site/home.html');
+        expect(home).toContain('<meta name="robots" content="noindex">');
+        expect(home).toContain('href="https://arccms.com"');
+        expect(home).toContain('href="https://github.com/quadralyst/arccms"');
+        const keys = [...home.matchAll(/data-arc-t="([^"]+)"/g)].map((m) => m[1]);
+        const hi = JSON.parse(readSiteFile(repo, '_site/strings/hi.json'));
+        expect(keys.filter((key) => !(key in hi))).toEqual([]);
+    });
 });

@@ -150,6 +150,22 @@ describe('deployFileToHosting', () => {
             expect(calls[2][1].method).toBe('GET');
         });
 
+        it('keeps every file of a site past 1000 files: the file list is read page by page', async () => {
+            mockFetch
+                .mockResolvedValueOnce(jsonResponse({ releases: [{ version: { name: 'sites/my-site/versions/v-old' } }] }))
+                .mockResolvedValueOnce(jsonResponse({ files: [{ path: '/a.html', hash: 'ha' }], nextPageToken: 'p2' }))
+                .mockResolvedValueOnce(jsonResponse({ files: [{ path: '/b.html', hash: 'hb' }] }))
+                .mockResolvedValueOnce(jsonResponse({ config: {} }))
+                .mockResolvedValueOnce(jsonResponse({ name: 'sites/my-site/versions/v-new' }))
+                .mockResolvedValueOnce(jsonResponse({ uploadRequiredHashes: [], uploadUrl: '' }))
+                .mockResolvedValue(jsonResponse({}));
+            await deployFileToHosting('my-site', '/test.html', TEST_CONTENT, 'arc_articles', 'doc1');
+            expect(mockFetch.mock.calls[1][0]).toContain('/versions/v-old/files?pageSize=1000');
+            expect(mockFetch.mock.calls[2][0]).toContain('pageToken=p2');
+            const populate = mockFetch.mock.calls.find(([url]) => String(url).includes(':populateFiles'))!;
+            expect(Object.keys(JSON.parse(populate[1].body).files).sort()).toEqual(['/a.html', '/b.html', '/test.html']);
+        });
+
         it('should create new version with preserved config', async () => {
             setupHappyPathFetch();
             await deployFileToHosting('my-site', '/test.html', TEST_CONTENT, 'arc_articles', 'doc1');

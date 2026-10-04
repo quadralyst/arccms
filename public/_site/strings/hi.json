@@ -36,5 +36,8 @@
   "placeholder_body": "कृपया जल्द ही फिर देखें।",
   "legal_notice": "साइन अप करके, आप हमारी {terms} और {privacy} से, और हमसे ईमेल प्राप्त करने से सहमत होते हैं।",
   "legal_terms": "सेवा की शर्तें",
-  "legal_privacy": "गोपनीयता नीति"
+  "legal_privacy": "गोपनीयता नीति",
+  "placeholder_brand": "यह साइट Arc CMS पर चलती है, जो आपके अपने Firebase प्रोजेक्ट पर लैंडिंग पेज, ब्लॉग और वेटलिस्ट के लिए ओपन सोर्स CMS है।",
+  "placeholder_link_site": "arccms.com देखें",
+  "placeholder_link_github": "GitHub पर Arc CMS"
 }

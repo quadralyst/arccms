@@ -8,12 +8,16 @@
  * public Firestore reads). It provides:
  *
  * - Signup forms, <form data-waitlist-form data-waitlist-id="…">: the same steps
- *   and the same callables as the app's forms (src/app/pages/page.parts/
- *   waitlist-form.service.ts, src/app/pages/waitlist/waitlist.service.ts): join,
- *   the emailed code when the form asks for one, the position and referral link.
- *   The terms notice is added by the publish pipeline.
+ *   and the same callables as the app's own signup (src/app/pages/waitlist/
+ *   waitlist.service.ts): join, the emailed code when the form asks for one, the
+ *   position and referral link. The terms notice is added by the publish pipeline,
+ *   and by the app's preview of the home page (src/app/pages/index.page.ts), which
+ *   runs this same script.
  * - Live counts, <span data-waitlist-count="form-id">: confirmed sign-ups.
  * - Referral codes from ?ref=, kept for the next sign-up (as the app does).
+ * - Signup metadata: the same fields and visitor history as the app's forms
+ *   (device, UTM, visits, scroll depth, time on page), and "Welcome back" for
+ *   someone already on the list.
  * - The installable app, when the page links a manifest: registers the service
  *   worker; <button data-arc-install hidden> appears once the browser offers
  *   installing, and window.arcSite.install() asks.
@@ -41,6 +45,9 @@
     var REFERRAL_HOURS = 24 * 30;
     var SIGNED_IN_KEY = 'arc:signed-in';
     var DEFAULT_FORM = 'waitlist-form';
+    /** Where installs from before the default form id kept their default form (src/shared/constants/waitlist-form.ts). */
+    var LEGACY_DEFAULT_FORMS = ['get-early-access-to-arc-cms', 'default'];
+    var defaultForm = null;
 
     // ─── Server ────────────────────────────────────────────────────────────
 
@@ -128,19 +135,183 @@
         return location.origin + location.pathname + '?ref=' + encodeURIComponent(code || '');
     }
 
-    function signupMetadata() {
+    // ─── Signup metadata ───────────────────────────────────────────────────
+    // The same fields, names and visitor history (localStorage arc_session_data)
+    // as the app's forms (src/app/pages/waitlist/signup-metadata.service.ts), so
+    // a signup from a published page records what one from the app does.
+
+    var SESSION_KEY = 'arc_session_data';
+    var LEGACY_VISIT_COUNT_KEY = 'arc_visit_count';
+    var LEGACY_RETURN_VISITOR_KEY = 'arc_return_visitor';
+    var DISPOSABLE_DOMAINS = ['10minutemail.com', 'guerrillamail.com', 'mailinator.com', 'tempmail.com', 'yopmail.com',
+        'throwaway.email', 'maildrop.cc', 'fakeinbox.com', 'trashmail.com', 'getnada.com', 'temp-mail.org'];
+    var visit = { loadedAt: Date.now(), maxScroll: 0, clicks: 0, tabSwitches: 0, formStarted: false, tracking: false, session: null };
+
+    function detectDeviceType(ua) {
+        if (/iPad|Android(?!.*Mobile)|tablet/i.test(ua)) return 'tablet';
+        if (/Mobile|iPhone|iPod|Android.*Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return 'mobile';
+        return 'desktop';
+    }
+
+    function detectOS(ua) {
+        var m;
+        if (/Windows NT 10/i.test(ua)) return 'Windows 10';
+        if (/Windows NT 6.3/i.test(ua)) return 'Windows 8.1';
+        if (/Windows NT 6.2/i.test(ua)) return 'Windows 8';
+        if (/Windows NT 6.1/i.test(ua)) return 'Windows 7';
+        if (/Windows/i.test(ua)) return 'Windows';
+        if (/Mac OS X/i.test(ua)) return (m = ua.match(/Mac OS X (\d+[._]\d+)/)) ? 'macOS ' + m[1].replace('_', '.') : 'macOS';
+        if (/iPhone|iPad|iPod/i.test(ua)) return (m = ua.match(/OS (\d+_\d+)/)) ? 'iOS ' + m[1].replace('_', '.') : 'iOS';
+        if (/Android/i.test(ua)) return (m = ua.match(/Android (\d+\.?\d*)/)) ? 'Android ' + m[1] : 'Android';
+        if (/Linux/i.test(ua)) return 'Linux';
+        if (/CrOS/i.test(ua)) return 'Chrome OS';
+        return 'Unknown';
+    }
+
+    function detectBrowser(ua) {
+        if (/Edg\//i.test(ua)) return 'Edge';
+        if (/OPR\//i.test(ua) || /Opera/i.test(ua)) return 'Opera';
+        if (/Chrome/i.test(ua) && !/Chromium/i.test(ua)) return 'Chrome';
+        if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) return 'Safari';
+        if (/Firefox/i.test(ua)) return 'Firefox';
+        if (/MSIE|Trident/i.test(ua)) return 'Internet Explorer';
+        return 'Unknown';
+    }
+
+    function detectBrowserVersion(ua) {
+        var m = null;
+        if (/Edg\//i.test(ua)) m = ua.match(/Edg\/(\d+)/);
+        else if (/OPR\//i.test(ua)) m = ua.match(/OPR\/(\d+)/);
+        else if (/Chrome/i.test(ua)) m = ua.match(/Chrome\/(\d+)/);
+        else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) m = ua.match(/Version\/(\d+)/);
+        else if (/Firefox/i.test(ua)) m = ua.match(/Firefox\/(\d+)/);
+        return m ? m[1] : '';
+    }
+
+    function loadSession() {
+        if (visit.session) return visit.session;
+        var fresh = { firstVisitTimestamp: Date.now(), lastVisitTimestamp: Date.now(), visitCount: 0, maxScrollDepthPercent: 0, totalTimeOnPageMs: 0, formStartCount: 0 };
+        try {
+            var stored = localStorage.getItem(SESSION_KEY);
+            if (stored) return (visit.session = JSON.parse(stored));
+            var legacyCount = parseInt(localStorage.getItem(LEGACY_VISIT_COUNT_KEY) || '0', 10);
+            var legacyReturn = localStorage.getItem(LEGACY_RETURN_VISITOR_KEY) === 'true';
+            var migrated = legacyCount > 0 ? legacyCount : legacyReturn ? 1 : 0;
+            fresh.visitCount = migrated;
+            if (migrated > 0) fresh.firstVisitTimestamp = 0;
+            if (legacyCount > 0 || legacyReturn) {
+                localStorage.removeItem(LEGACY_VISIT_COUNT_KEY);
+                localStorage.removeItem(LEGACY_RETURN_VISITOR_KEY);
+            }
+        } catch (e) { /* storage off */ }
+        return (visit.session = fresh);
+    }
+
+    function saveSession() {
+        try { if (visit.session) localStorage.setItem(SESSION_KEY, JSON.stringify(visit.session)); } catch (e) { /* storage off */ }
+    }
+
+    /** Starts counting visits, scroll depth, clicks and tab switches, as the app's forms do. */
+    function startTracking() {
+        if (visit.tracking) return;
+        visit.tracking = true;
+        var data = loadSession();
+        data.visitCount += 1;
+        data.lastVisitTimestamp = Date.now();
+        if (data.firstVisitTimestamp === 0 && data.visitCount === 1) data.firstVisitTimestamp = Date.now();
+        visit.maxScroll = data.maxScrollDepthPercent || 0;
+        saveSession();
+        window.addEventListener('scroll', function () {
+            var top = window.scrollY || document.documentElement.scrollTop;
+            var height = document.documentElement.scrollHeight - window.innerHeight;
+            if (height <= 0) return;
+            var percent = Math.min(Math.round((top / height) * 100), 100);
+            if (percent > visit.maxScroll) {
+                visit.maxScroll = percent;
+                if (percent > data.maxScrollDepthPercent) { data.maxScrollDepthPercent = percent; saveSession(); }
+            }
+        }, { passive: true });
+        window.addEventListener('click', function () { visit.clicks++; }, { passive: true });
+        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') visit.tabSwitches++; });
+        window.addEventListener('beforeunload', function () {
+            data.totalTimeOnPageMs += Date.now() - visit.loadedAt;
+            data.maxScrollDepthPercent = visit.maxScroll;
+            saveSession();
+        });
+    }
+
+    /** Counts a person starting to fill a form, once a page view. */
+    function trackFormStart() {
+        if (visit.formStarted) return;
+        visit.formStarted = true;
+        loadSession().formStartCount += 1;
+        saveSession();
+    }
+
+    function withoutUndefined(object) {
+        var out = {};
+        Object.keys(object).forEach(function (key) {
+            var value = object[key];
+            if (value === undefined) return;
+            out[key] = value && typeof value === 'object' && !Array.isArray(value) ? withoutUndefined(value) : value;
+        });
+        return out;
+    }
+
+    /** What a signup records about the visit: the app's ISignupMetadata. */
+    function signupMetadata(email) {
         var params = new URLSearchParams(location.search);
-        return {
-            userAgent: navigator.userAgent,
-            language: navigator.language,
-            timezone: (Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || '',
-            screen: screen.width + 'x' + screen.height,
-            referrer: document.referrer || '',
+        var ua = navigator.userAgent;
+        var conn = navigator.connection;
+        var utm = {};
+        ['source', 'medium', 'campaign', 'content', 'term'].forEach(function (k) {
+            var value = params.get('utm_' + k);
+            if (value) utm['utm' + k.charAt(0).toUpperCase() + k.slice(1)] = value;
+        });
+        var query = {};
+        params.forEach(function (value, key) { if (!/^utm_(source|medium|campaign|content|term)$|^ref$/.test(key)) query[key] = value; });
+        var fcp;
+        try {
+            var paint = performance.getEntriesByName('first-contentful-paint');
+            if (paint.length) fcp = Math.round(paint[0].startTime);
+        } catch (e) { /* no Performance API */ }
+        var data = loadSession();
+        var now = new Date();
+        var onPage = Date.now() - visit.loadedAt;
+        var domain = String(email || '').split('@')[1];
+        return withoutUndefined(Object.assign({}, utm, {
+            deviceType: detectDeviceType(ua),
+            operatingSystem: detectOS(ua),
+            browser: detectBrowser(ua),
+            browserVersion: detectBrowserVersion(ua),
+            screenResolution: screen.width + 'x' + screen.height,
+            language: navigator.language || undefined,
+            connectionType: (conn && conn.effectiveType) || undefined,
+            downlinkSpeed: (conn && conn.downlink) || undefined,
+            prefersDarkMode: window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : undefined,
+            viewportSize: window.innerWidth + 'x' + window.innerHeight,
+            isTouchDevice: ('ontouchstart' in window) || navigator.maxTouchPoints > 0,
+            timezoneOffset: now.getTimezoneOffset(),
+            signupHour: now.getHours(),
+            signupDayOfWeek: now.getDay(),
+            pageLoadTimeMs: fcp,
+            referrerUrl: document.referrer || undefined,
             landingPage: location.href,
-            utmSource: params.get('utm_source') || '',
-            utmMedium: params.get('utm_medium') || '',
-            utmCampaign: params.get('utm_campaign') || '',
-        };
+            pageLoadTimestamp: visit.loadedAt,
+            queryParams: Object.keys(query).length ? query : undefined,
+            timeOnPageMs: onPage,
+            scrollDepthPercent: visit.maxScroll,
+            isReturnVisitor: data.visitCount > 1,
+            visitCount: data.visitCount,
+            firstVisitTimestamp: data.firstVisitTimestamp || undefined,
+            lastVisitTimestamp: data.lastVisitTimestamp || undefined,
+            totalTimeOnPageMs: data.totalTimeOnPageMs + onPage,
+            maxScrollDepthPercent: visit.maxScroll,
+            formStartCount: data.formStartCount || undefined,
+            clickCount: visit.clicks || undefined,
+            tabSwitchCount: visit.tabSwitches || undefined,
+            isDisposableEmail: !!domain && DISPOSABLE_DOMAINS.indexOf(domain.toLowerCase()) !== -1,
+        }));
     }
 
     function formValues(form) {
@@ -176,14 +347,36 @@
     var STAT = 'font-size:22px;font-weight:700;color:#2563eb;';
     var STAT_LABEL = 'font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-top:4px;';
 
+    /**
+     * The form an id posts to, with its document. Only the default id is looked up
+     * further, as the app does: an install whose default form predates it, under a
+     * legacy id, keeps using that form instead of starting a new, empty one.
+     * Resolves to { id, waitlist } (waitlist null when no such form exists yet).
+     */
+    function resolveForm(requested) {
+        var read = function (id) { return readDoc('Waitlists/' + encodeURIComponent(id)).catch(function () { return null; }); };
+        if (requested !== DEFAULT_FORM) return read(requested).then(function (waitlist) { return { id: requested, waitlist: waitlist }; });
+        if (!defaultForm) {
+            var candidates = [DEFAULT_FORM].concat(LEGACY_DEFAULT_FORMS);
+            defaultForm = candidates.reduce(function (found, id) {
+                return found.then(function (result) {
+                    return result || read(id).then(function (waitlist) { return waitlist ? { id: id, waitlist: waitlist } : null; });
+                });
+            }, Promise.resolve(null)).then(function (result) { return result || { id: DEFAULT_FORM, waitlist: null }; });
+        }
+        return defaultForm;
+    }
+
     function bindForm(form) {
         var requested = form.getAttribute('data-waitlist-id') || DEFAULT_FORM;
         var state = { step: 'signup', waitlistId: requested, original: form.innerHTML, email: '', firstName: '' };
 
-        readDoc('Waitlists/' + encodeURIComponent(requested)).then(function (waitlist) {
+        resolveForm(requested).then(function (found) {
+            state.waitlistId = found.id;
+            var waitlist = found.waitlist;
             if (!waitlist) {
                 // Created by the server on first use, as in the app.
-                return call('ensureWaitlistExists', { waitlistId: requested }).catch(function () { return null; });
+                return call('ensureWaitlistExists', { waitlistId: found.id }).catch(function () { return null; });
             }
             if (waitlist.isActive === false) {
                 form.style.position = 'relative';
@@ -197,6 +390,7 @@
         }).catch(function () { /* a failed read leaves the form usable */ });
 
         form.addEventListener('submit', function (event) { submit(event, form, state); });
+        form.addEventListener('focusin', trackFormStart);
     }
 
     function submit(event, form, state) {
@@ -220,7 +414,7 @@
             source: source,
             referredBy: '',
             formData: data,
-            signupMetadata: signupMetadata(),
+            signupMetadata: signupMetadata(state.email),
             origin: location.origin,
         }).then(function (joined) {
             state.memberId = joined.memberId;
@@ -248,7 +442,8 @@
             .then(function (finalized) {
                 state.queuePosition = finalized.queuePosition;
                 state.totalSignups = finalized.totalSignups;
-                if (referredBy) {
+                state.existing = !!finalized.alreadyConfirmed;
+                if (referredBy && !state.existing) {
                     return call('creditReferral', {
                         waitlistId: state.waitlistId, referrerCode: referredBy, referredEmail: state.email,
                         referredName: state.firstName, referredMemberId: state.memberId, status: 'completed',
@@ -257,8 +452,9 @@
             })
             .then(function () {
                 clearReferral();
-                state.step = 'success';
-                showSuccess(form, state);
+                state.step = state.existing ? 'existing-user' : 'success';
+                if (state.existing) showExisting(form, state);
+                else showSuccess(form, state);
             })
             .catch(function (error) {
                 showError(form, state, (error && error.message) || 'Verification failed. Please try again.');
@@ -320,6 +516,23 @@
             + '<p style="margin:0 0 20px;font-size:14px;color:#666;text-align:center;">Each verified referral moves you up in the queue.</p>'
             + copyRow('Your Referral Code:', state.referralCode || '') + copyRow('Share this link:', state.referralLink || '') + '</div>'
             + '<a href="/leaderboard/' + encodeURIComponent(state.waitlistId) + '/' + encodeURIComponent(state.waitlistedUserId || '') + '" class="waitlist-leaderboard-btn" style="display:block;text-decoration:none;padding:14px;background-color:#f0f4ff;color:#2563eb;border-radius:10px;font-weight:600;font-size:15px;">🏆 View Leaderboard</a></div>');
+        bindCopyButtons(form);
+    }
+
+    /** Someone already on the list, as the app shows them. */
+    function showExisting(form, state) {
+        render(form, '<div class="waitlist-existing-step" style="' + CARD + 'max-width:450px;border-radius:16px;">'
+            + '<div style="width:60px;height:60px;background-color:#2563eb;color:#fff;border-radius:50%;font-size:30px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-style:italic;font-family:serif;">i</div>'
+            + '<h3 style="margin:0 0 10px;font-size:24px;color:#1a1a1a;">Welcome back' + (state.firstName ? ', ' + escapeHtml(state.firstName) : '') + '!</h3>'
+            + '<p style="margin:0 0 25px;font-size:16px;color:#666;">You\'re already on the waitlist.</p>'
+            + '<div style="display:flex;justify-content:space-around;background:#f8f9fa;padding:20px;border-radius:12px;margin-bottom:30px;">'
+            + '<div style="flex:1;"><div class="waitlist-stat-number" style="' + STAT + '">#' + escapeHtml(state.queuePosition || 1) + '</div><div style="' + STAT_LABEL + '">Your Position</div></div></div>'
+            + '<div style="text-align:left;">' + copyRow('Your Referral Code:', state.referralCode || '') + copyRow('Share this link:', state.referralLink || '') + '</div>'
+            + '<a href="/leaderboard/' + encodeURIComponent(state.waitlistId) + '/' + encodeURIComponent(state.waitlistedUserId || '') + '" class="waitlist-leaderboard-btn" style="display:block;text-decoration:none;padding:14px;background-color:#f0f4ff;color:#2563eb;border-radius:10px;font-weight:600;font-size:15px;">🏆 View Leaderboard</a></div>');
+        bindCopyButtons(form);
+    }
+
+    function bindCopyButtons(form) {
         Array.prototype.forEach.call(form.querySelectorAll('.waitlist-copy-btn'), function (btn) {
             btn.addEventListener('click', function () {
                 var done = function () { var t = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(function () { btn.textContent = t; }, 2000); };
@@ -353,9 +566,9 @@
                 var form = (el.closest('section') || document).querySelector('form[data-waitlist-id]') || document.querySelector('form[data-waitlist-id]');
                 id = (form && form.getAttribute('data-waitlist-id')) || DEFAULT_FORM;
             }
-            cache[id] = cache[id] || readDoc('Waitlists/' + encodeURIComponent(id)).catch(function () { return null; });
-            cache[id].then(function (waitlist) {
-                var count = Number((waitlist && waitlist.totalSignups) || 0);
+            cache[id] = cache[id] || resolveForm(id);
+            cache[id].then(function (found) {
+                var count = Number((found.waitlist && found.waitlist.totalSignups) || 0);
                 el.classList.remove('arc-skeleton');
                 el.textContent = String(count);
                 var bar = el.closest('section') && el.closest('section').querySelector('.fc-progress-fill');
@@ -433,12 +646,16 @@
         applySignedIn();
         checkSetup();
         setupInstall();
-        if (config.functions) Array.prototype.forEach.call(document.querySelectorAll('form[data-waitlist-form]'), bindForm);
+        var forms = document.querySelectorAll('form[data-waitlist-form]');
+        if (config.functions && forms.length) {
+            startTracking();
+            Array.prototype.forEach.call(forms, bindForm);
+        }
         if (config.project) updateCounts();
     }
 
     site._internal = {
-        call: call, readDoc: readDoc, plain: plain, storedReferral: storedReferral,
+        call: call, readDoc: readDoc, plain: plain, storedReferral: storedReferral, signupMetadata: signupMetadata,
         redirect: function (url) { location.replace(url); },
     };
 

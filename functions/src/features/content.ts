@@ -5,5 +5,6 @@
 
 // Content: publishing, content types and static pages.
 export * from '../publishQueue/processPublishQueue.js';
+export { onSiteSettingsWritten } from '../publishQueue/onSiteSettingsWritten.js';
 export * from '../content-types/onContentTypeDelete.js';
 export { seedStaticPages } from '../pages/seedStaticPages.js';

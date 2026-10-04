@@ -92,10 +92,11 @@ vi.mock('../pages/generateSitemap', () => ({
     }),
 }));
 
+const { mockGenerateHome } = vi.hoisted(() => ({ mockGenerateHome: vi.fn() }));
 vi.mock('../pages/deployHomePage', () => ({
     // The home page shows no content types unless a test says so.
     homeShowsType: async () => false,
-    generateAndDeployHomePage: async () => undefined,
+    generateAndDeployHomePage: (...args: unknown[]) => mockGenerateHome(...args),
 }));
 
 vi.mock('../pages/generateRssFeed', () => ({
@@ -367,6 +368,26 @@ describe('processPublishQueue', () => {
 
             expect(mockDeployBatchToHosting).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'arc_articles', 'doc1');
             expect(mockUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ deployStatus: 'failed' }));
+        });
+    });
+
+    describe('home action: the home page alone, after a setting it shows changed', () => {
+        it('republishes the home page in one release and removes the queue item', async () => {
+            mockGenerateHome.mockImplementation(async (batch: any) => { batch.add('/index.html', '<html></html>'); });
+            const event = createEvent('home', '', '');
+            await handler(event);
+            expect(mockGenerateHome).toHaveBeenCalledTimes(1);
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('removes the queue item even when the home page cannot be built', async () => {
+            mockGenerateHome.mockRejectedValue(new Error('no home page'));
+            const event = createEvent('home', '', '');
+            await handler(event);
+            expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
         });
     });
 

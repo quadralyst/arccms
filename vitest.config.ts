@@ -33,7 +33,6 @@ export default defineConfig({
                 'src/**/*.spec.ts',
                 'src/test/**',
                 'src/main.ts',
-                'src/main.server.ts',
                 'src/vite-env.d.ts',
             ],
         },

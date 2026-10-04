@@ -43,7 +43,12 @@
  *   access, and every browser call to it then fails with 403 (found 2026-09-23).
  *   Off by default since 2026-09-28: it calls every callable one by one, which
  *   made even a one-function deploy slow. Only a newly created callable can
- *   lose its access; run it after a deploy that adds one, and before a release.
+ *   lose its access; run it after a deploy that adds one, and before a release;
+ * - deploys the website without a gap (scripts/arc-hosting-release.mjs): the
+ *   build goes to a preview channel first, then one live release holds the build
+ *   and the pages the functions published, so the home page and content pages
+ *   never drop to the browser app between the deploy and the republish. Every
+ *   other target goes through `firebase deploy` as before (`--except hosting`).
  *
  *   node scripts/arc-deploy.mjs --only functions --project default
  */
@@ -59,6 +64,7 @@ import { deployedParts, gitHead, readState, recordDeploy, writeState } from './a
 import { builtArccms } from './arc-built-functions.mjs';
 import { main as configure, normalizeConfig } from './arc-configure.mjs';
 import { checkSignInSetup, smsBuilt } from './arc-sign-in-setup.mjs';
+import { channelDeployArgs, hostingSiteOf, releaseWebsite, withoutHosting } from './arc-hosting-release.mjs';
 import {
     DEFAULT_FUNCTIONS_REGION, countArccms, databaseLocation, lookupDatabaseLocation, regionDecision, regionWarning,
 } from './arc-region.mjs';
@@ -405,7 +411,6 @@ export async function runDeploy(args, options = {}) {
         if (!checkFunctionsRegion(projectId, { includesWebsite: deploysWebsite(args) }).proceed) return { status: 1, created: [] };
     }
     const generated = !!projectId && existsSync(generatedConfigPath(projectId));
-    const firebaseArgs = deployArgs(args, generated, projectId);
     // Hosting off (arc:configure --site=none) leaves no hosting in the generated
     // config, so say that plainly rather than pass on the CLI's error (review O2).
     const generatedConfig = generated ? JSON.parse(readFileSync(generatedConfigPath(projectId), 'utf8')) : null;
@@ -420,6 +425,11 @@ export async function runDeploy(args, options = {}) {
             + 'and a bucket has one rules file, so this would replace that app\'s rules. Give Arc CMS its own bucket first (docs/operations/deploy.html).');
         return { status: 1, created: [] };
     }
+    // The website goes its own way, keeping the published pages; the rest through `firebase deploy`.
+    const firebaseConfig = generatedConfig ?? readJsonFile(resolve(ROOT, 'firebase.json'));
+    const website = deploysWebsite(args) && !!firebaseConfig?.hosting;
+    const mainArgs = website ? withoutHosting(args) : args;
+    const firebaseArgs = mainArgs ? deployArgs(mainArgs, generated, projectId) : null;
     if (deploysFunctions(args) && !options.built) {
         console.log('> npm run build --prefix functions');
         const build = spawnSync('npm', ['run', 'build', '--prefix', resolve(ROOT, 'functions')], {
@@ -449,8 +459,11 @@ export async function runDeploy(args, options = {}) {
             toDelete = removed;
         }
     }
-    console.log(`> firebase ${firebaseArgs.join(' ')}`);
-    const deploy = await run('firebase', firebaseArgs);
+    let deploy = { status: 0, output: '' };
+    if (firebaseArgs) {
+        console.log(`> firebase ${firebaseArgs.join(' ')}`);
+        deploy = await run('firebase', firebaseArgs);
+    }
     let status = deploy.status;
     const created = new Set(createdFunctions(deploy.output));
 
@@ -492,6 +505,8 @@ export async function runDeploy(args, options = {}) {
         status = status || 1;
     }
 
+    if (website && status === 0) status = await deployWebsite(projectId, generated ? generatedConfigPath(projectId) : null, firebaseConfig);
+
     if (status === 0 && projectId && deploysFunctions(args) && args.includes('--probe')) {
         console.log(`\n> Checking that every callable is publicly invocable on ${projectId}`);
         const probe = spawnSync('bash', [resolve(ROOT, 'functions/scripts/check-callable-access.sh')], {
@@ -514,6 +529,37 @@ export async function runDeploy(args, options = {}) {
         }
     }
     return { status, created: [...created].sort() };
+}
+
+function readJsonFile(path) {
+    try {
+        return JSON.parse(readFileSync(path, 'utf8'));
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * The website, keeping the published pages: the build to the deploy channel,
+ * then one live release of the build and the published files. Returns the exit status.
+ */
+async function deployWebsite(projectId, configPath, firebaseConfig) {
+    const channelArgs = channelDeployArgs({ projectId, configPath: configPath ? relative(process.cwd(), configPath) || configPath : null });
+    console.log(`> firebase ${channelArgs.join(' ')}`);
+    const channel = await run('firebase', channelArgs);
+    if (channel.status !== 0) {
+        console.error('\nThe website build could not be uploaded; the live site is unchanged.');
+        return channel.status || 1;
+    }
+    const site = hostingSiteOf(firebaseConfig, projectId);
+    try {
+        console.log(`> releasing the build to ${site}, keeping the published pages`);
+        await releaseWebsite({ site });
+        return 0;
+    } catch (error) {
+        console.error(`\nThe website was not released: ${error.message}\nThe live site is unchanged. Run the same deploy again.`);
+        return 1;
+    }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
