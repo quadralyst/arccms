@@ -19,6 +19,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { roleGuard } from '../../../../../guards/role.guard';
 import { ContentTypesStore } from '../content-types.store';
 import { ContentType, ContentTypeField, CollectionReferenceConfig } from '../content-types.model';
+import { ARTICLE_FAMILY, ContentTypeSchema, SCHEMA_TYPES, SchemaProperty, SchemaTypeId, schemaTypeMeta } from '../../../../../../shared/constants/schema-types';
 import { OmitCommonFields } from '../../../../../../shared/models/base-model';
 import { TemplateFolderService, TemplateFolder } from '../../../../../core/services/template-folder.service';
 import { ToastService } from '../../../../../../shared/services/toast.service';
@@ -90,6 +91,9 @@ export default class AddContentTypeComponent extends BaseComponent {
         templateFolder: new FormControl('default'),
         icon: new FormControl('fa-solid fa-folder'),
         order: new FormControl(0),
+        // Structured data (D-D12): the schema.org type and its property → field map.
+        schemaType: new FormControl<SchemaTypeId>('Article', { nonNullable: true }),
+        schemaFields: new FormControl<Record<string, string>>({}, { nonNullable: true }),
         fields: new FormArray([], [duplicateFieldKeyValidator((): string => (this.addForm?.get('slug')?.value as string) || '')]),
     });
 
@@ -159,6 +163,67 @@ export default class AddContentTypeComponent extends BaseComponent {
         const name = (group.get('label')?.value || '').trim().toLowerCase();
         return (!!key && (errors['duplicateKeys'] || []).includes(key))
             || (!!name && (errors['duplicateNames'] || []).includes(name));
+    }
+
+    // ── Structured data (specs/discoverability-spec.md, D-D12) ──────────────
+
+    readonly schemaTypes = SCHEMA_TYPES;
+
+    schemaType(): SchemaTypeId {
+        return (this.addForm.get('schemaType')?.value as SchemaTypeId) || 'Article';
+    }
+
+    /** The properties the chosen type can map; empty for the Article family. */
+    schemaProperties(): SchemaProperty[] {
+        return schemaTypeMeta(this.schemaType())?.properties ?? [];
+    }
+
+    schemaTypeDescription(): string {
+        return schemaTypeMeta(this.schemaType())?.description ?? '';
+    }
+
+    setSchemaType(type: string): void {
+        const control = this.addForm.get('schemaType');
+        control?.setValue((schemaTypeMeta(type)?.id ?? 'Article') as SchemaTypeId);
+        control?.markAsDirty();
+    }
+
+    /** Custom fields (the keys they will be stored under, from the live form) a property may be filled from. */
+    fieldsForProperty(prop: SchemaProperty): Array<{ key: string; label: string }> {
+        const slug = (this.addForm.get('slug')?.value as string) || '';
+        return this.fields.controls
+            .map((control, index) => ({ control, index }))
+            .filter(({ control }) => (prop.fieldTypes as string[]).includes(control.get('type')?.value as string))
+            .map(({ control, index }) => {
+                const bare = bareFieldKey(control.get('key')?.value, slug);
+                const key = bare ? this.fieldKeyPreview(index) : '';
+                return { key, label: (control.get('label')?.value as string) || key };
+            })
+            .filter(field => !!field.key);
+    }
+
+    mappedField(prop: string): string {
+        return ((this.addForm.get('schemaFields')?.value as Record<string, string>) || {})[prop] || '';
+    }
+
+    setMappedField(prop: string, fieldKey: string): void {
+        const control = this.addForm.get('schemaFields');
+        const next = { ...((control?.value as Record<string, string>) || {}) };
+        if (fieldKey) next[prop] = fieldKey; else delete next[prop];
+        control?.setValue(next);
+        control?.markAsDirty();
+    }
+
+    /** What is written to `ContentType.schema`: only mappings to fields that still exist. */
+    private schemaForSave(): ContentTypeSchema {
+        const type = this.schemaType();
+        if ((ARTICLE_FAMILY as readonly string[]).includes(type)) return { type, fields: {} };
+        const fields: Record<string, string> = {};
+        for (const prop of this.schemaProperties()) {
+            const key = this.mappedField(prop.key);
+            if (key && this.fieldsForProperty(prop).some(field => field.key === key)) fields[prop.key] = key;
+        }
+        return { type, fields };
     }
 
     // Existing methods below
@@ -376,6 +441,7 @@ export default class AddContentTypeComponent extends BaseComponent {
             icon: formValue.icon || 'fa-solid fa-folder',
             order: formValue.order || 0,
             hasPublicUrl: formValue.hasPublicUrl !== false,
+            schema: this.schemaForSave(),
             templateFolder: formValue.templateFolder || 'default',
             fields: (formValue.fields || []).map((field: any, index: number) => {
                 const mapped = this.mapFieldWithCollectionRef(field, index);

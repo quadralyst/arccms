@@ -295,6 +295,7 @@ describe('AddContentTypeComponent', () => {
                 icon: 'fa-solid fa-file',
                 order: 1,
                 hasPublicUrl: true,
+                schema: { type: 'Article', fields: {} },
                 templateFolder: 'default',
                 fields: [],
             };
@@ -636,6 +637,62 @@ describe('AddContentTypeComponent', () => {
             component.onSubmit();
             const callArgs = mockStore.add.mock.calls[0][0];
             expect(callArgs.fields[0].key).toBe('articles-author');
+        });
+    });
+    describe('Structured data (D-D12)', () => {
+        const addField = (key: string, type: string, label: string) => {
+            component.addField();
+            component.fields.at(component.fields.length - 1).patchValue({ key, label, type });
+        };
+
+        it('defaults to Article with no properties and saves an empty mapping', () => {
+            component.addForm.patchValue({ name: 'Articles', slug: 'articles' });
+            expect(component.schemaType()).toBe('Article');
+            expect(component.schemaProperties()).toEqual([]);
+            component.onSubmit();
+            expect(mockStore.add.mock.calls[0][0].schema).toEqual({ type: 'Article', fields: {} });
+        });
+
+        it('offers only compatible fields per property, under the keys they will be stored with', () => {
+            component.addForm.patchValue({ name: 'Products', slug: 'products' });
+            addField('price', 'number', 'Price');
+            addField('currency', 'text', 'Currency');
+            addField('photo', 'image', 'Photo');
+            component.setSchemaType('Product');
+
+            const priceProp = component.schemaProperties().find(p => p.key === 'price')!;
+            expect(component.fieldsForProperty(priceProp).map(f => f.key)).toEqual(['products-price', 'products-currency']);
+            const currencyProp = component.schemaProperties().find(p => p.key === 'priceCurrency')!;
+            expect(component.fieldsForProperty(currencyProp).map(f => f.key)).toEqual(['products-currency']);
+        });
+
+        it('saves the type and its mapping to the new content type, dropping mappings to fields that are gone', () => {
+            component.addForm.patchValue({ name: 'Products', slug: 'products' });
+            addField('price', 'number', 'Price');
+            addField('currency', 'text', 'Currency');
+            component.setSchemaType('Product');
+            component.setMappedField('price', 'products-price');
+            component.setMappedField('priceCurrency', 'products-currency');
+            component.setMappedField('sku', 'products-gone');
+            component.onSubmit();
+            expect(mockStore.add.mock.calls[0][0].schema).toEqual({
+                type: 'Product',
+                fields: { price: 'products-price', priceCurrency: 'products-currency' },
+            });
+        });
+
+        it('clears a mapping when set to Not mapped and rejects unknown types', () => {
+            component.setSchemaType('Event');
+            component.setMappedField('startDate', 'x_start');
+            expect(component.mappedField('startDate')).toBe('x_start');
+            component.setMappedField('startDate', '');
+            expect(component.mappedField('startDate')).toBe('');
+            component.setSchemaType('Spaceship');
+            expect(component.schemaType()).toBe('Article');
+        });
+
+        it('shows the section in the form', () => {
+            expect(fixture.nativeElement.querySelector('[data-testid="schema-type"]')).toBeTruthy();
         });
     });
 });
