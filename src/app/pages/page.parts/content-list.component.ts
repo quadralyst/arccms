@@ -6,6 +6,7 @@ import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
+import { DEFAULT_TEMPLATE_FOLDER, siteTemplateUrl, templateFolderFor } from '../../core/site/site';
 import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
@@ -19,7 +20,6 @@ import { PageSpinnerComponent } from './page-spinner.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
-import { ArcTranslateDirective } from '../../core/directives/arc-translate.directive';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import {
     IContentTranslation,
@@ -33,7 +33,7 @@ import {
 @Component({
     selector: 'arc-content-list',
     standalone: true,
-    imports: [CommonModule, HeaderComponent, FooterComponent, PageSpinnerComponent, SafeHtmlPipe, ArcTranslateDirective],
+    imports: [CommonModule, HeaderComponent, FooterComponent, PageSpinnerComponent, SafeHtmlPipe],
     template: `
     <arc-header></arc-header>
     
@@ -57,54 +57,15 @@ import {
                 <a href="/" class="btn btn-primary mt-3">Go Home</a>
             </div>
         </div>
-    } @else if(useCustomTemplate() && templateHtml()) {
-        <!-- Render custom template -->
+    } @else if(templateHtml()) {
+        <!-- The type's list template (its folder's, else the default), hydrated -->
         <div [innerHTML]="templateHtml() | safeHtml"></div>
     } @else {
-        <!-- Default template - Apple-inspired design -->
-        <div class="content-list-page">
-            <!-- Hero Section - Compact -->
-            <section class="content-hero">
-                <div class="container">
-                    <h1 class="content-hero-title">{{ typeName() }}</h1>
-                    <p class="content-hero-subtitle">{{ typeDescription() || 'Discover insights, tutorials, and updates.' }}</p>
-                </div>
-            </section>
-
-            <!-- Content Grid -->
-            <section class="content-grid-section">
-                <div class="container">
-                    @if(filteredContents().length === 0) {
-                        <div class="empty-state">
-                            <i class="fas fa-newspaper"></i>
-                            <h3 data-arc-t="empty_title">No Content Yet</h3>
-                            <p data-arc-t="empty_body">Check back soon for new content.</p>
-                        </div>
-                    } @else {
-                        <div class="content-grid">
-                            @for(content of filteredContents(); track content.id) {
-                                <a [href]="itemUrl(content.urlSlug)" class="content-card">
-                                    <div class="content-card-image" [style.background-image]="content.coverImage ? 'url(' + content.coverImage + ')' : ''">
-                                        @if(!content.coverImage) {
-                                            <div class="content-card-placeholder"></div>
-                                        }
-                                    </div>
-                                    <div class="content-card-body">
-                                        <div class="content-card-meta">
-                                            <time>{{ formatContentDate(content.publishedOn) }}</time>
-                                            <span class="meta-separator">•</span>
-                                            <span data-arc-t="min_read" [data-arc-t-params]="{ readTime: getReadTime(content) }">{{ getReadTime(content) }} min read</span>
-                                        </div>
-                                        <h2 class="content-card-title">{{ content.title }}</h2>
-                                        <p class="content-card-excerpt">{{ getExcerpt(content) }}</p>
-                                        <span class="content-card-read-more"><span data-arc-t="read_more">Read Article</span> <i class="fas fa-arrow-right"></i></span>
-                                    </div>
-                                </a>
-                            }
-                        </div>
-                    }
-                </div>
-            </section>
+        <!-- The template is on its way -->
+        <div class="loading-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
         </div>
     }
     }
@@ -112,202 +73,19 @@ import {
     <arc-footer></arc-footer>
     `,
     styles: [`
-        /* Apple-inspired Content List Styles */
         .loading-container {
             min-height: 60vh;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        
+
         .not-found-container {
             min-height: 60vh;
             display: flex;
             align-items: center;
             justify-content: center;
             background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
-        }
-
-        .content-list-page {
-            min-height: 60vh;
-        }
-
-        /* Hero Section - Compact */
-        .content-hero {
-            padding: 3rem 0 2rem;
-            text-align: center;
-            background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
-        }
-
-        .content-hero-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #1d1d1f;
-            margin-bottom: 0.5rem;
-            letter-spacing: -0.02em;
-        }
-
-        .content-hero-subtitle {
-            font-size: 1rem;
-            color: #6e6e73;
-            max-width: 600px;
-            margin: 0 auto;
-            line-height: 1.4;
-        }
-
-        /* Content Grid Section */
-        .content-grid-section {
-            padding: 2rem 0 4rem;
-            background: #ffffff;
-        }
-
-        .content-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-            gap: 2rem;
-        }
-
-        /* Content Card */
-        .content-card {
-            display: flex;
-            flex-direction: column;
-            background: #ffffff;
-            border-radius: 20px;
-            overflow: hidden;
-            text-decoration: none;
-            color: inherit;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
-            height: 100%;
-        }
-
-        .content-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-        }
-
-        .content-card:hover .content-card-read-more {
-            color: #0066cc;
-        }
-
-        .content-card:hover .content-card-read-more i {
-            transform: translateX(4px);
-        }
-
-        .content-card-image {
-            position: relative;
-            width: 100%;
-            height: 200px;
-            overflow: hidden;
-            background-color: #f5f5f7;
-            background-size: cover;
-            background-position: center;
-        }
-
-        .content-card-placeholder {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #e8e8ed 0%, #d2d2d7 100%);
-        }
-
-        .content-card-body {
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-        }
-
-        .content-card-meta {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            color: #6e6e73;
-            margin-bottom: 0.75rem;
-        }
-
-        .meta-separator {
-            color: #d2d2d7;
-        }
-
-        .content-card-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #1d1d1f;
-            line-height: 1.3;
-            margin-bottom: 0.75rem;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .content-card-excerpt {
-            font-size: 0.95rem;
-            color: #6e6e73;
-            line-height: 1.6;
-            margin-bottom: 1.25rem;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            flex: 1;
-        }
-
-        .content-card-read-more {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: #1d1d1f;
-            transition: color 0.2s ease;
-            margin-top: auto;
-        }
-
-        .content-card-read-more i {
-            font-size: 0.75rem;
-            transition: transform 0.2s ease;
-        }
-
-        /* Empty State */
-        .empty-state {
-            display: block;
-            text-align: center;
-            padding: 6rem 2rem;
-        }
-
-        .empty-state i {
-            font-size: 4rem;
-            color: #d2d2d7;
-            margin-bottom: 1.5rem;
-        }
-
-        .empty-state h3 {
-            font-size: 1.5rem;
-            color: #1d1d1f;
-            margin-bottom: 0.5rem;
-        }
-
-        .empty-state p {
-            color: #6e6e73;
-            font-size: 1rem;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .content-hero {
-                padding: 4rem 0 3rem;
-            }
-
-            .content-hero-title {
-                font-size: 2rem;
-            }
-
-            .content-grid {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
         }
     `],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -335,7 +113,6 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
     contentTypeSlug = signal<string>('');
     templateHtml = signal<string>('');
-    useCustomTemplate = signal<boolean>(false);
 
     /**
      * Hydration guard: stays false until client-side data has loaded.
@@ -459,9 +236,20 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             }
 
             // Only load template when we have content type, not loading, and haven't loaded yet
-            if (contentType && !isLoading && !this.useCustomTemplate()) {
+            if (contentType && !isLoading && !this.templateHtml()) {
                 this.loadCustomTemplate(contentType, contents);
             }
+        });
+
+        // Translations and the page's strings arrive after the template was
+        // first hydrated; hydrate it again with them, without re-running its scripts.
+        effect(() => {
+            const contents = this.filteredContents();
+            this.uiStrings.strings();
+            untracked(() => {
+                if (!this.lastTemplate) return;
+                this.hydrateAndSetTemplate(this.lastTemplate.html, this.lastTemplate.contentType, contents, false);
+            });
         });
     }
 
@@ -547,79 +335,59 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         }
     }
 
-    /**
-     * Load and hydrate custom template when content type and content are ready
-     */
-    /** A template folder whose file turned out not to be a template; never fetched twice. */
+    /** A template folder whose file turned out not to be a template; the default is used instead. */
     private rejectedTemplateFolder: string | null = null;
-    /** The folder whose template request is in flight. */
-    private pendingTemplateFolder: string | null = null;
+    /** The template whose request is in flight. */
+    private pendingTemplateUrl: string | null = null;
+    /** The template as loaded, so it can be hydrated again. */
+    private lastTemplate: { html: string; contentType: ContentType } | null = null;
 
+    /**
+     * Loads the type's list template, its folder's or the default
+     * (siteTemplateUrl), and hydrates it. A folder file that turns out not to be
+     * a template falls back to the default's once.
+     */
     private loadCustomTemplate(contentType: ContentType, contents: IContents[]): void {
-        const templateFolder = contentType.templateFolder;
+        const folder = templateFolderFor(contentType.templateFolder);
+        const url = this.rejectedTemplateFolder === folder
+            ? siteTemplateUrl(DEFAULT_TEMPLATE_FOLDER, 'list')
+            : siteTemplateUrl(folder, 'list');
 
-        // Decided once per folder: the effect that calls this re-runs while
-        // useCustomTemplate stays false, and a rejected folder would be
-        // fetched again on every run.
-        if (templateFolder && templateFolder === this.rejectedTemplateFolder) {
-            this.useCustomTemplate.set(false);
-            return;
-        }
-        // One request per folder at a time; the effect can re-run several
-        // times before the first response lands.
-        if (templateFolder && templateFolder === this.pendingTemplateFolder) return;
+        if (url === this.pendingTemplateUrl) return;
 
-        // Skip if using default template
-        if (!templateFolder || templateFolder === 'default') {
-            this.useCustomTemplate.set(false);
-            return;
-        }
+        // Not while prerendering: a request from the server goes back to the app
+        // itself, not to the static file. The page fills in once in the browser.
+        if (!isPlatformBrowser(this.platformId)) return;
 
-        // During SSR, skip custom template loading and use the default template.
-        // The SSR Cloud Function can't serve static assets via HttpClient (the request
-        // goes back to the SSR handler, which returns the Angular 404 page instead of
-        // the template file). The default template provides good SSR output for SEO.
-        // After client hydration, the custom template loads normally from static assets.
-        if (!isPlatformBrowser(this.platformId)) {
-            this.useCustomTemplate.set(false);
-            return;
-        }
-
-        // Build template URL - using generic filename
-        const templateUrl = `/templates/${templateFolder}/list.html`;
-        const stateKey = makeStateKey<string>(`tpl-list-${templateFolder}`);
-
-        // Check TransferState first (cached from SSR)
+        const stateKey = makeStateKey<string>(`tpl-list-${url}`);
         if (this.transferState.hasKey(stateKey)) {
             const cachedHtml = this.transferState.get(stateKey, '');
             this.transferState.remove(stateKey);
-            if (!isTemplateFragment(cachedHtml)) {
-                this.useCustomTemplate.set(false);
+            if (isTemplateFragment(cachedHtml)) {
+                this.hydrateAndSetTemplate(cachedHtml, contentType, contents);
                 return;
             }
-            this.hydrateAndSetTemplate(cachedHtml, contentType, contents);
-            return;
         }
 
-        this.pendingTemplateFolder = templateFolder;
-        this.http.get(templateUrl, { responseType: 'text' }).subscribe({
+        this.pendingTemplateUrl = url;
+        this.http.get(url, { responseType: 'text' }).subscribe({
             next: (templateHtml) => {
-                this.pendingTemplateFolder = null;
-                // A missing template folder answers with the SPA shell (HTTP
-                // 200, the 404 page); that is not a template. Fall back to
-                // the built-in layout instead of rendering a 404 inside the page.
+                this.pendingTemplateUrl = null;
+                // A missing file answers with the app shell (HTTP 200, the 404
+                // page); that is not a template.
                 if (!isTemplateFragment(templateHtml)) {
-                    console.warn(`[ContentListComponent] /templates/${templateFolder}/list.html is not a template fragment; using the default layout.`);
-                    this.rejectedTemplateFolder = templateFolder;
-                    this.useCustomTemplate.set(false);
+                    console.warn(`[ContentListComponent] ${url} is not a template fragment.`);
+                    if (folder !== DEFAULT_TEMPLATE_FOLDER && this.rejectedTemplateFolder !== folder) {
+                        this.rejectedTemplateFolder = folder;
+                        this.loadCustomTemplate(contentType, contents);
+                    }
                     return;
                 }
                 this.hydrateAndSetTemplate(templateHtml, contentType, contents);
             },
             error: (error) => {
-                this.pendingTemplateFolder = null;
-                console.warn('[ContentListComponent] Failed to load custom template:', error.message);
-                this.useCustomTemplate.set(false);
+                this.pendingTemplateUrl = null;
+                console.warn(`[ContentListComponent] Failed to load ${url}:`, error.message);
             }
         });
     }
@@ -627,7 +395,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     /**
      * Hydrate template HTML with content data and set it for rendering
      */
-    private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, contents: IContents[]): void {
+    private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, contents: IContents[], runScripts = true): void {
+        this.lastTemplate = { html: templateHtml, contentType };
         // Prepare data for template hydration
         const lang = this.pageLang();
         const typeDescription = contentTypeDescription(contentType, lang);
@@ -678,10 +447,9 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
         this.templateHtml.set(hydratedHtml);
-        this.useCustomTemplate.set(true);
 
         // Execute scripts after template is rendered (browser only)
-        if (isPlatformBrowser(this.platformId)) {
+        if (runScripts && isPlatformBrowser(this.platformId)) {
             setTimeout(() => this.runTemplateScripts(), 100);
         }
     }

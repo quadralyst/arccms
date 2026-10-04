@@ -11,6 +11,7 @@ import { CUSTOM_PWA } from './src/custom/pwa';
 import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
 import { oneBuildAtATime } from './scripts/vite-build-order';
+import { arcSite } from './scripts/vite-arc-site';
 
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
@@ -141,6 +142,10 @@ export default defineConfig(({ mode }) => {
     plugins: [
       // Frees a closed dev server (see releaseClosedServer).
       release.plugin,
+      // The public website: core's public/ with the app's src/custom/site/ laid over it,
+      // served from .arc-build/public, and the header, footer and manifest for the app
+      // (scripts/arc-site.mjs, docs/website/overview.html).
+      arcSite(),
       // PWA (docs/features/pwa.html): manifest, icons and service worker, only when the install turns it on.
       // Browser build only: Analog also builds the server bundle with these plugins,
       // and the PWA plugin skips the service worker when it last saw a server build.

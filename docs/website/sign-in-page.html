@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brand the sign-in page | Arc CMS docs</title>
+  <meta name="description" content="Give the sign-in page your site's name, logo, words and colours, from your site folder and Settings, About.">
+  <meta name="docs:sources" content="src/app/pages/(auth)/(signup)/signup.page.html, src/app/pages/(auth)/(signup)/signup.page.scss, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/page.parts/sign-in-panel.component.ts, public/_site/sign-in.html, src/app/core/site/site-styles.ts, src/app/core/services/site-identity.service.ts, scripts/arc-site.mjs">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/sign-in-page.html">
+  <main>
+    <h1>Brand the sign-in page</h1>
+    <p class="lead">The sign-in page at <code>/signup</code>, where visitors sign in or create an account, shows your site's name, logo, words and colours. Three things set them, and none of them is a core file.</p>
+
+    <h2>Name and logo</h2>
+    <p>The page takes them from <strong>Settings</strong>, <strong>About</strong>: the site name and the logo URL you already fill in for search engines. With a name and no logo it shows the name; with neither, it shows Arc CMS's. The browser tab reads "Sign in | <em>your site name</em>".</p>
+
+    <h2>The brand panel</h2>
+    <p>On wide screens a coloured panel sits beside the form. Arc CMS's says only "Welcome" and "Sign in, or create your account, to continue" (<code>public/_site/sign-in.html</code>). Write your own as <code class="new">src/custom/site/sign-in.html</code>, an HTML fragment like the header:</p>
+    <pre><code>&lt;div class="auth-left-content"&gt;
+    &lt;h1 class="auth-left-title" data-arc-t="sign_in_title"&gt;Sanskrit for the whole family&lt;/h1&gt;
+    &lt;p class="auth-left-description" data-arc-t="sign_in_body"&gt;Short daily lessons your child will look forward to.&lt;/p&gt;
+&lt;/div&gt;</code></pre>
+    <p>Keep the <code>auth-left-content</code>, <code>auth-left-title</code> and <code>auth-left-description</code> classes for Arc CMS's layout, or use your own classes and style them in <code class="new">src/custom/site/site.css</code>. Translate the text with <code>data-arc-t</code> keys in <code class="new">src/custom/site/strings/{lang}.json</code> (see <a href="languages.html">Publish in more than one language</a>).</p>
+
+    <h2>Colours and font</h2>
+    <p>The page loads <code class="new">src/custom/site/site.css</code>, your website's stylesheet. Set these in it:</p>
+    <pre><code>:root {
+    --arc-sign-in-panel-background: linear-gradient(135deg, #e8590c, #f59f00);
+    --arc-sign-in-panel-color: #fff;
+    --arc-sign-in-button-background: #e8590c;
+    --arc-sign-in-button-hover-background: #d9480f;
+    --arc-sign-in-accent: #e8590c;
+    --arc-sign-in-font: 'Mukta', sans-serif;
+}</code></pre>
+    <table>
+      <thead><tr><th>Variable</th><th>Sets</th></tr></thead>
+      <tbody>
+        <tr><td><code>--arc-sign-in-panel-background</code></td><td>The brand panel's background, any CSS background</td></tr>
+        <tr><td><code>--arc-sign-in-panel-color</code></td><td>The brand panel's text colour</td></tr>
+        <tr><td><code>--arc-sign-in-button-background</code>, <code>--arc-sign-in-button-hover-background</code></td><td>The main button, and the button under the pointer</td></tr>
+        <tr><td><code>--arc-sign-in-accent</code></td><td>The border of the field being typed in</td></tr>
+        <tr><td><code>--arc-sign-in-font</code></td><td>The page's font; load a web font in <code>site.css</code> with <code>@import</code></td></tr>
+      </tbody>
+    </table>
+    <div class="note"><p>Your website's stylesheets are on only while a page of the website or the sign-in page is shown. The admin area and the member area never get them, so a rule in <code>site.css</code> cannot change how they look.</p></div>
+
+    <h2>Next</h2>
+    <p>Set up images: <a href="media.html">Manage media</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

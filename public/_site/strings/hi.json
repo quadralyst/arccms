@@ -5,6 +5,7 @@
   "reading_time": "{{ readingTime }}",
   "min_read": "{{ readTime }} मिनट का पठन",
   "read_more": "लेख पढ़ें",
+  "view_all": "सभी देखें",
   "empty_title": "अभी कोई लेख नहीं",
   "empty_body": "नई सामग्री के लिए जल्द ही देखें।",
   "previous": " पिछला",
@@ -27,5 +28,7 @@
   "written_by": "लेखक",
   "author_more": "{{ author.name }} के और लेख",
   "sources": "स्रोत",
-  "related_title": "संबंधित"
+  "related_title": "संबंधित",
+  "sign_in_title": "स्वागत है",
+  "sign_in_body": "जारी रखने के लिए साइन इन करें, या अपना खाता बनाएँ।"
 }

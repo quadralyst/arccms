@@ -16,6 +16,13 @@ import { DOCUMENT } from '@angular/common';
 
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
+import { setSiteManifestForTesting, siteManifest } from '../../core/site/site';
+
+/** The built manifest plus a folder of the test's own. */
+function withFolder(name: string): void {
+    const built = siteManifest();
+    setSiteManifestForTesting({ ...built, templates: { ...built.templates, [name]: { list: 'app' } } });
+}
 
 describe('ContentListComponent', () => {
     let component: ContentListComponent;
@@ -215,7 +222,10 @@ describe('ContentListComponent', () => {
     });
 
     describe('Custom Template Loading', () => {
+        afterEach(() => setSiteManifestForTesting());
+
         it('should load custom template when folder is specified', () => {
+            withFolder('custom-folder');
             const contentType = {
                 slug: 'articles',
                 name: 'Articles',
@@ -226,12 +236,12 @@ describe('ContentListComponent', () => {
             fixture.detectChanges();
 
             expect(mockHttpClient.get).toHaveBeenCalledWith(
-                '/templates/custom-folder/list.html',
+                '/_site/templates/custom-folder/list.html',
                 expect.objectContaining({ responseType: 'text' })
             );
         });
 
-        it('should NOT load custom template if folder is default', () => {
+        it('loads the default list template for a type on the default', () => {
             const contentType = {
                 slug: 'articles',
                 name: 'Articles',
@@ -241,8 +251,32 @@ describe('ContentListComponent', () => {
             mockContentTypesStore.items.set([contentType]);
             fixture.detectChanges();
 
-            expect(mockHttpClient.get).not.toHaveBeenCalled();
-            expect(component.useCustomTemplate()).toBe(false);
+            expect(mockHttpClient.get).toHaveBeenCalledWith('/_site/templates/default/list.html', expect.anything());
+        });
+
+        it('uses the default list.html for a folder that has only a detail.html', () => {
+            const built = siteManifest();
+            setSiteManifestForTesting({ ...built, templates: { ...built.templates, recipes: { detail: 'app' } } });
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'recipes' }]);
+            fixture.detectChanges();
+
+            expect(mockHttpClient.get).toHaveBeenCalledWith('/_site/templates/default/list.html', expect.anything());
+        });
+
+        it('hydrates the template again when the list changes', () => {
+            mockHttpClient.get.mockReturnValue(of('<ul data-arc-loop="items"><li>{{ title }}</li></ul>'));
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
+            mockContentsStore.items.set([{ id: '1', type: 'articles', publishedStatus: true, title: 'First', tags: [] }]);
+            fixture.detectChanges();
+            expect(component.templateHtml()).toContain('First');
+
+            mockContentsStore.items.set([
+                { id: '1', type: 'articles', publishedStatus: true, title: 'First', tags: [] },
+                { id: '2', type: 'articles', publishedStatus: true, title: 'Second', tags: [] },
+            ]);
+            fixture.detectChanges();
+            expect(component.templateHtml()).toContain('Second');
+            expect(mockHttpClient.get).toHaveBeenCalledTimes(1);
         });
 
         it('should prepare correct data for template hydration', async () => {
@@ -278,7 +312,6 @@ describe('ContentListComponent', () => {
             // Wait for subscription/effect to run
             await new Promise(resolve => setTimeout(resolve, 0));
 
-            expect(component.useCustomTemplate()).toBe(true);
             expect(component.templateHtml()).toBe('<div>Fully Hydrated</div>');
 
             // Verify data passed to processLoops
@@ -487,7 +520,8 @@ describe('ContentListComponent', () => {
         it('should check TransferState for cached template before HTTP fetch', () => {
             // Pre-populate TransferState with a cached template
             const transferState = (component as any).transferState;
-            const stateKey = makeStateKey<string>('tpl-list-custom-folder');
+            withFolder('custom-folder');
+            const stateKey = makeStateKey<string>('tpl-list-/_site/templates/custom-folder/list.html');
             transferState.set(stateKey, '<div>Cached Template</div>');
 
             const contentType = {
@@ -505,8 +539,8 @@ describe('ContentListComponent', () => {
 
             // In browser mode, TransferState cache is used, so HTTP should NOT be called
             expect(mockHttpClient.get).not.toHaveBeenCalled();
-            // Template should be hydrated and set  
-            expect(component.useCustomTemplate()).toBe(true);
+            // Template should be hydrated and set
+            expect(component.templateHtml()).toContain('Cached Template');
             // TransferState key should be consumed (removed)
             expect(transferState.hasKey(stateKey)).toBe(false);
         });

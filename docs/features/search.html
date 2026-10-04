@@ -52,7 +52,7 @@
 
     <h2>Use it</h2>
     <h3>Public search</h3>
-    <p>The header partial carries <code>&lt;arc-search&gt;</code>. On a published page it becomes a plain form that submits to <code>/search?q=</code> (or <code>/{lang}/search?q=</code>), so it works without JavaScript, and <code>public/assets/js/arc-search.js</code> adds the type-ahead. In the Angular app it is the <code>arc-search-box</code> component. Both search the language being viewed. The box text comes from <code>public/i18n/{lang}/strings.json</code> (keys starting with <code>search_</code>); see <a href="languages.html">Languages</a>.</p>
+    <p>The site header carries <code>&lt;arc-search&gt;</code>. On a published page it becomes a plain form that submits to <code>/search?q=</code> (or <code>/{lang}/search?q=</code>), so it works without JavaScript, and <code>public/assets/js/arc-search.js</code> adds the type-ahead. In the Angular app it is the <code>arc-search-box</code> component. Both search the language being viewed. The box text comes from <code>public/i18n/{lang}/strings.json</code> (keys starting with <code>search_</code>); see <a href="languages.html">Languages</a>.</p>
 
     <h3>Admin search</h3>
     <p>Admins get a search box in the page header. Cmd+K or Ctrl+K focuses it. It searches drafts (not published content, which would show each item twice) and every source admins may read, in every language at once, showing each document once. Enter opens <code>/admin/search</code> with up to 20 results. Without content, the box appears once some source has been rebuilt.</p>

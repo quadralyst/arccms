@@ -27,6 +27,7 @@ import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { buildOrganization, buildWebSite, organizationId, setJsonLd } from '../../../shared/utils/structured-data';
+import { useSiteStyles } from '../../core/site/site-styles';
 
 // A @Component rather than a @Directive: BaseComponent is itself a
 // component, and Angular refuses to let a directive inherit one (NG0903).
@@ -72,6 +73,8 @@ export abstract class HomeBaseComponent extends BaseComponent implements OnInit,
 
   constructor() {
     super();
+    // The website's stylesheets (main.css, site.css), on while the home page is shown.
+    useSiteStyles(['main', 'site']);
     this.localization.load();
     // The switcher only offers languages a page actually exists in, and the
     // home page exists exactly in the languages that have a file under

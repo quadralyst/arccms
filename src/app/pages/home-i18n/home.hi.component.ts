@@ -17,7 +17,6 @@ import { HomeBaseComponent } from '../page.parts/home-base.component';
     selector: 'arc-home-hi',
     standalone: true,
     templateUrl: '../../../../public/i18n/hi/index.html',
-    styleUrl: '../../../../public/assets/css/main.css',
     encapsulation: ViewEncapsulation.None,
     imports: [HeaderComponent, FooterComponent, ContentPartialsComponent, NgOptimizedImage],
 })

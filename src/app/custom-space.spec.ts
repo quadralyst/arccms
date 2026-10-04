@@ -3,7 +3,7 @@
  * app's own files, proven with sample content while the shipped files stay empty.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 // @ts-expect-error: plain ESM script without type declarations
 import { isArcCmsRepository } from '../../scripts/check-core.mjs';
@@ -34,6 +34,14 @@ describe('custom space', () => {
         expect(read('functions/src/custom/index.ts')).toMatch(/^export \{\};$/m);
         expect(read('functions/src/custom/search-sources.ts')).toMatch(/^export const SEARCH_COLLECTIONS: string\[\] = \[\];$/m);
         expect(read('functions/src/custom/search-sources.ts')).toMatch(/^export const CUSTOM_SEARCH_SOURCES: SearchSource\[\] = \[\];$/m);
+        // The app's website: Arc CMS ships nothing there, its defaults live in public/_site/.
+        expect(existsSync(resolve(ROOT, 'src/custom/site'))).toBe(false);
+    });
+
+    it("lays the app's website (src/custom/site/) over Arc CMS's when the dev server and the build start", () => {
+        expect(read('vite.config.ts')).toContain("import { arcSite } from './scripts/vite-arc-site';");
+        expect(read('vite.config.ts')).toMatch(/^\s+arcSite\(\),$/m);
+        expect(read('scripts/arc-site.mjs')).toContain("export const APP_SITE = 'src/custom/site';");
     });
 
     it("keeps the root custom folder for the app's scripts and data, with its tests in the suite", () => {

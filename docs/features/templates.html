@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Templates | Arc CMS docs</title>
   <meta name="description" content="How content pages are rendered from plain HTML templates: folders, how a template is chosen, the data-arc attributes, every binding, partials, header, footer and styles.">
-  <meta name="docs:sources" content="public/templates, public/_partials, public/assets/css/main.css, functions/src/shared/template-hydration.ts, functions/src/shared/html-document.ts, functions/src/shared/template-fragment.ts, functions/src/shared/image-sizes.ts, functions/src/shared/site-settings.ts, functions/src/shared/authors.ts, functions/src/pages/deployContentPage.ts, functions/src/pages/deployContentListPage.ts, src/app/core/services/template-hydration.service.ts, src/app/core/services/template-folder.service.ts, src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/page.parts/footer.component.ts, src/shared/utils/image-sizes.ts">
+  <meta name="docs:sources" content="public/_site/templates, public/_site/header.html, public/_site/footer.html, public/assets/css/main.css, public/assets/css/site.css, scripts/arc-site.mjs, scripts/vite-arc-site.ts, src/app/core/site/site.ts, src/app/pages/page.parts/site-fragment.ts, functions/src/shared/template-hydration.ts, functions/src/shared/html-document.ts, functions/src/shared/template-fragment.ts, functions/src/shared/image-sizes.ts, functions/src/shared/site-settings.ts, functions/src/shared/authors.ts, functions/src/pages/deployContentPage.ts, functions/src/pages/deployContentListPage.ts, src/app/core/services/template-hydration.service.ts, src/app/core/services/template-folder.service.ts, src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/page.parts/footer.component.ts, src/shared/utils/image-sizes.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/templates.html">
@@ -15,22 +15,23 @@
     <p>For the step-by-step path of designing a site's templates, see <a href="../website/templates.html">Design templates</a>. This page is the reference.</p>
 
     <h2>What it is</h2>
-    <p>Each content type points at a <strong>template folder</strong> in <code>public/templates/</code>:</p>
+    <p>Each content type with public pages points at a <strong>template folder</strong>:</p>
     <table>
       <thead><tr><th>File</th><th>Renders</th><th>Required</th></tr></thead>
       <tbody>
-        <tr><td><code>list.html</code></td><td>The type's list page, <code>/{type}</code></td><td>Yes</td></tr>
-        <tr><td><code>detail.html</code></td><td>One entry, <code>/{type}/{slug}</code></td><td>Yes</td></tr>
+        <tr><td><code>list.html</code></td><td>The type's list page, <code>/{type}</code></td><td>No</td></tr>
+        <tr><td><code>detail.html</code></td><td>One entry, <code>/{type}/{slug}</code></td><td>No</td></tr>
         <tr><td><code>partials.html</code></td><td>A block of cards embedded in another app page (see <a href="#partials">Partials</a>)</td><td>No</td></tr>
       </tbody>
     </table>
-    <p>Arc CMS ships three folders: <code>public/templates/default/</code> (used by any type without a folder of its own), <code>public/templates/articles/</code> and <code>public/templates/manuals/</code>. The folders offered in the admin are listed in <code>public/templates/templates.json</code>.</p>
+    <p>A file a folder lacks is taken from the <code>default</code> folder, so a folder can hold just the one file it changes.</p>
+    <p>Arc CMS ships three folders in <code>public/_site/templates/</code>: <code>default</code> (used by any type without a folder of its own, so every type renders), <code>articles</code> and <code>manuals</code>. An app's folders go in <code class="new">src/custom/site/templates/</code>. The build puts both together and serves them at <code>/_site/templates/{folder}/{file}.html</code>; a file in the app's folder at the same path as one of Arc CMS's replaces it. The folders offered in the admin are every folder the site has, listed by the build in <code>/_site/site.json</code> (see <a href="../app/custom-space.html">Use the custom space</a>).</p>
     <p>The same template is filled in two places, and both use the same attributes:</p>
     <table>
       <thead><tr><th>Renderer</th><th>When</th><th>Where the template comes from</th></tr></thead>
       <tbody>
         <tr><td>Publishing (Cloud Functions)</td><td>On publish, and on the seed. Writes the static pages Hosting serves.</td><td>1. A Firestore document <code>templates/{folder}:detail</code> or <code>templates/{folder}:list</code> (field <code>html</code>), if one exists. 2. The file on the live Hosting site. 3. A bare built-in layout.</td></tr>
-        <tr><td>The app (browser)</td><td>For pages not yet on Hosting, previews, and local runs</td><td>The file served by the app. For the <code>default</code> folder the app draws its own built-in layout, which matches <code>public/templates/default/</code>.</td></tr>
+        <tr><td>The app (browser)</td><td>For pages not yet on Hosting, previews, and local runs</td><td>The file served by the app at <code>/_site/templates/</code>, the same one publishing reads once deployed.</td></tr>
       </tbody>
     </table>
     <p>A template is a fragment: no <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code>, <code>&lt;body&gt;</code> or doctype. Publishing wraps it in a full document with the title, meta tags, structured data, language links and site stylesheets.</p>
@@ -40,19 +41,15 @@
 
     <h2>Set it up</h2>
     <ol class="steps">
-      <li><p>Copy a folder to start from, for example <code>public/templates/default/</code> to <code class="new">public/templates/events/</code>.</p></li>
-      <li><p>Add the folder name to <code>public/templates/templates.json</code>:</p>
-        <pre><code>{
-    "folders": ["articles", "manuals", "events"]
-}</code></pre></li>
-      <li><p>Edit <code class="new">public/templates/events/list.html</code> and <code class="new">public/templates/events/detail.html</code>.</p></li>
+      <li><p>Copy a folder to start from, for example <code>public/_site/templates/default/</code> to <code class="new">src/custom/site/templates/events/</code>.</p></li>
+      <li><p>Edit <code class="new">src/custom/site/templates/events/list.html</code> and <code class="new">src/custom/site/templates/events/detail.html</code>. Delete a file you do not change; the default's is used.</p></li>
       <li><p>In <strong>Content &gt; Content types</strong>, edit the type and pick the folder under <strong>Content Template</strong>. Run the app locally and open <code>/events</code> to see the templates filled.</p></li>
       <li><p>Deploy Hosting (see <a href="../operations/deploy.html">Deploy</a>), then rebuild the published pages so they use the new template:</p>
         <pre><code>npm run seed:dev</code></pre>
         <p>For production: <code>npm run seed:prod</code>. The full <code>npm run deploy:dev</code> and <code>npm run deploy:prod</code> run the seed at their end.</p></li>
     </ol>
     <div class="trap"><p>Publishing reads the template from the <strong>live</strong> Hosting site, not from your working copy. A template you changed locally shows in the app at once, but published pages keep the old one until Hosting is deployed and the pages are rebuilt (publish again, or run the seed).</p></div>
-    <div class="trap"><p>Editing <code>public/templates/default/</code> changes published pages but not what the app draws for the default folder, which is its own built-in layout. To change the look, make your own folder instead of editing the default one.</p></div>
+    <div class="note"><p>To change the default look for every type without a folder, put your file at <code class="new">src/custom/site/templates/default/detail.html</code> (or <code>list.html</code>, <code>partials.html</code>). Never edit <code>public/_site/templates/</code>: those are core files.</p></div>
 
     <h2>Use it</h2>
 
@@ -190,18 +187,17 @@
         <tr><td><code>templateFolder</code></td><td>The type's folder</td><td>Another folder's <code>partials.html</code></td></tr>
       </tbody>
     </table>
-    <p>Inside it, <code>data-arc-loop="items"</code> has the list page's item bindings except <code>authorName</code>, <code>tagsDisplay</code>, <code>contentType</code> and <code>cat</code>. With the <code>default</code> folder the component draws its own built-in cards instead of a <code>partials.html</code>. The component works in app pages, such as the home page; publishing removes it from content pages.</p>
+    <p>Inside it, <code>data-arc-loop="items"</code> has the list page's item bindings except <code>authorName</code>, <code>tagsDisplay</code>, <code>contentType</code> and <code>cat</code>; an item's <code>url</code> is in the page's language. The section itself also has <code>listUrl</code> (the type's list page) and <code>hasItems</code>, so <code>data-arc-if="hasItems"</code> hides the block when the type has nothing published. A type without a <code>partials.html</code> of its own uses the default folder's cards. The component works in app pages, such as the home page; publishing removes it from content pages.</p>
 
     <h3>Header, footer and styles</h3>
     <table>
       <thead><tr><th>What</th><th>Edit</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td>Header and footer</td><td><code>public/_partials/_header.html</code>, <code>public/_partials/_footer.html</code></td><td>The app compiles them in. Publishing reads them from the live Hosting site, unless the <code>Settings/partials</code> document has <code>headerHtml</code> or <code>footerHtml</code>, which then win.</td></tr>
-        <tr><td>Site stylesheets</td><td><code>public/assets/css/main.css</code></td><td>Published pages link every URL in <code>cssUrls</code> of <code>Settings/site</code>: by default Bootstrap 5, Font Awesome 6.5.1 and <code>/assets/css/main.css</code>. There is no admin screen for the list; change it in the Firestore console.</td></tr>
+        <tr><td>Header and footer</td><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code> (else Arc CMS's <code>public/_site/header.html</code>, <code>public/_site/footer.html</code>)</td><td>Plain HTML. The app renders them as they are, filling <code>data-arc-t</code>, the language of links, <code>&lt;arc-search&gt;</code> and <code>&lt;arc-language-switcher&gt;</code>. Publishing reads them from the live Hosting site, unless the <code>Settings/partials</code> document has <code>headerHtml</code> or <code>footerHtml</code>, which then win.</td></tr>
+        <tr><td>Site stylesheets</td><td><code class="new">src/custom/site/site.css</code>, served as <code>/assets/css/site.css</code></td><td>Loaded on the website's pages and the sign-in page, never in the admin or member area. Published pages link every URL in <code>cssUrls</code> of <code>Settings/site</code>: by default Bootstrap 5, Font Awesome 6.5.1 and <code>/assets/css/main.css</code>, Arc CMS's own styles (a core file). There is no admin screen for the list; change it in the Firestore console.</td></tr>
         <tr><td>A template's own styles and scripts</td><td><code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> in the template</td><td>Publishing moves them into the page. The app runs a template's scripts after it draws it.</td></tr>
       </tbody>
     </table>
-    <div class="trap"><p>The app compiles the header and footer as Angular templates, so a literal <code>{</code>, <code>}</code> or <code>@</code> in their text stops the build. Write <code>&amp;#123;</code>, <code>&amp;#125;</code> and <code>&amp;#64;</code> instead.</p></div>
     <p>Icons from an <code>icon</code> field need Font Awesome in <code>cssUrls</code>; without it, bind <code>x_svg</code> instead of the class list.</p>
 
     <h2>Extend it</h2>
@@ -216,8 +212,9 @@
     <table>
       <thead><tr><th>Where</th><th>What</th></tr></thead>
       <tbody>
-        <tr><td><code>public/templates/</code></td><td>Template folders and <code>templates.json</code>, deployed with Hosting</td></tr>
-        <tr><td><code>public/_partials/</code></td><td>Header and footer</td></tr>
+        <tr><td><code class="new">src/custom/site/templates/</code>, <code>public/_site/templates/</code></td><td>The app's template folders and Arc CMS's, deployed with Hosting at <code>/_site/templates/</code></td></tr>
+        <tr><td><code class="new">src/custom/site/header.html</code>, <code class="new">footer.html</code></td><td>Header and footer, deployed at <code>/_site/header.html</code> and <code>/_site/footer.html</code></td></tr>
+        <tr><td><code>/_site/site.json</code></td><td>Written by the build: the template folders and the files in each, with a hash of every file</td></tr>
         <tr><td><code>ContentTypes/{id}</code>, field <code>templateFolder</code></td><td>Which folder a type uses (empty or <code>default</code> means the default folder)</td></tr>
         <tr><td><code>templates/{folder}:detail</code>, <code>templates/{folder}:list</code></td><td>Optional overrides, field <code>html</code></td></tr>
         <tr><td><code>Settings/partials</code>, <code>Settings/site</code></td><td>Optional header and footer overrides; the stylesheet list <code>cssUrls</code></td></tr>
@@ -232,7 +229,7 @@
     <table>
       <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
       <tbody>
-        <tr><td>The folder is not in the <strong>Content Template</strong> list</td><td>Add it to <code>public/templates/templates.json</code>.</td></tr>
+        <tr><td>The folder is not in the <strong>Content Template</strong> list</td><td>The folder must sit directly in <code class="new">src/custom/site/templates/</code> and hold at least one of <code>partials.html</code>, <code>list.html</code>, <code>detail.html</code>. Restart <code>npm run dev</code> if it was running, or rebuild.</td></tr>
         <tr><td>Published pages use the bare built-in layout, or the app logs "is not a template fragment"</td><td>The folder or file is missing on the site that was read (a missing file answers with the app's own page, which is rejected). Check the file name, deploy Hosting, then publish again.</td></tr>
         <tr><td>A binding renders empty</td><td>Check the key on the content type's view page under <strong>Template Reference</strong>. A value is empty on a page built before the field was filled: publish again.</td></tr>
         <tr><td>Placeholder text such as "Caption" shows on the page</td><td>Text outside a loop's first child, or a binding with no value, keeps what you wrote. Put placeholder rows inside a loop, and guard optional parts with <code>data-arc-if</code>.</td></tr>

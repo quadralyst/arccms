@@ -28,6 +28,10 @@ export class SiteIdentityService {
     /** Defaults (all empty) until the first load resolves. */
     readonly identity = this.identitySignal.asReadonly();
 
+    private readonly loadedSignal = signal(false);
+    /** Whether the first load has finished, found or not: until then `identity` is only the defaults. */
+    readonly loaded = this.loadedSignal.asReadonly();
+
     /** Loads once; concurrent callers share the read. */
     load(): Promise<IAboutSettings> {
         if (!this.loadPromise) {
@@ -49,9 +53,11 @@ export class SiteIdentityService {
                 organizationType: data.organizationType === 'Person' ? 'Person' : 'Organization',
             };
             this.identitySignal.set(identity);
+            this.loadedSignal.set(true);
             return identity;
         } catch (error) {
             console.error('Error loading site identity:', error);
+            this.loadedSignal.set(true);
             return DEFAULT_ABOUT_SETTINGS;
         }
     }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Plan your content | Arc CMS docs</title>
   <meta name="description" content="Decide what on your website is a content type, a static page or a form, sketch the fields, and see the URL each one gets.">
-  <meta name="docs:sources" content="src/app/app.routes.ts, src/app/pages/[contentTypeSlug], src/app/pages/index.page.ts, functions/src/shared/content-translation.ts, functions/src/pages/generateRssFeed.ts, firebase.json, public/_partials, public/pages, public/index.html">
+  <meta name="docs:sources" content="src/app/app.routes.ts, src/app/pages/[contentTypeSlug], src/app/pages/index.page.ts, functions/src/shared/content-translation.ts, functions/src/pages/generateRssFeed.ts, firebase.json, public/_site, public/index.html">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/plan-content.html">
@@ -18,7 +18,7 @@
       <thead><tr><th>Kind</th><th>Use it for</th><th>Edited in</th></tr></thead>
       <tbody>
         <tr><td><strong>Content type</strong></td><td>Anything you publish more than once with the same shape: articles, guides, case studies, events, team members</td><td>The admin area, by editors</td></tr>
-        <tr><td><strong>Static page</strong></td><td>Pages that rarely change and need no editor: privacy policy, cookie policy</td><td>HTML files in <code>public/pages/</code></td></tr>
+        <tr><td><strong>Static page</strong></td><td>Pages that rarely change and need no editor: privacy policy, cookie policy</td><td>HTML files in <code class="new">src/custom/site/pages/</code></td></tr>
         <tr><td><strong>Home page</strong></td><td>Your landing page, with its signup form</td><td><code>public/index.html</code></td></tr>
         <tr><td><strong>Signup form</strong></td><td>Waitlists, newsletters, early access</td><td>Admin, Signup Forms; the form markup sits on the home page, or visitors use the form's own page</td></tr>
       </tbody>
@@ -49,7 +49,7 @@
     <div class="trap"><p>Arc CMS does not stop you from giving a content type a slug that is already a site address. Never use <code>admin</code>, <code>p</code>, <code>pages</code>, <code>search</code>, <code>waitlist</code>, <code>leaderboard</code>, <code>unsubscribe</code>, <code>signup</code>, <code>onboarding</code>, <code>notifications</code>, <code>pricing</code>, <code>account</code>, <code>user</code>, <code>checkout</code>, <code>assets</code>, <code>templates</code>, <code>i18n</code> or a language code: the content pages and the built-in page then fight over the same URL.</p></div>
 
     <h2>Plan the navigation</h2>
-    <p>The site menu is not built from your content types. It is plain HTML in <code>public/_partials/_header.html</code>, and the footer is <code>public/_partials/_footer.html</code>. List the links you want in each: usually the list page of each main content type, the home page sections, and the legal pages in the footer. The header also holds the search box and the language switcher; keep those two elements where you want them to appear.</p>
+    <p>The site menu is not built from your content types. It is plain HTML in <code class="new">src/custom/site/header.html</code>, and the footer is <code class="new">src/custom/site/footer.html</code>; until you write them, Arc CMS's sample header and footer (<code>public/_site/header.html</code>, <code>public/_site/footer.html</code>) are used. List the links you want in each: usually the list page of each main content type, the home page sections, and the legal pages in the footer. The header also holds the search box and the language switcher; keep those two elements where you want them to appear.</p>
 
     <h2>Plan the templates</h2>
     <p>Each content type uses a template folder with a list layout and a detail layout. Types that look alike can share one folder; a type with no folder of its own uses the built-in default. Note which types need their own design, and which fields each layout shows. <a href="templates.html">Design templates</a> covers the files.</p>

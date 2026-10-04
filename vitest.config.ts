@@ -2,9 +2,11 @@
 import { defineConfig } from 'vitest/config';
 import angular from '@analogjs/vite-plugin-angular';
 import { resolve } from 'node:path';
+import { arcSite } from './scripts/vite-arc-site';
 
 export default defineConfig({
-    plugins: [angular()],
+    // arcSite: the `virtual:arc-site` module (header, footer, manifest) the app imports.
+    plugins: [angular(), arcSite({ assemble: false })],
     test: {
         globals: true,
         environment: 'jsdom',

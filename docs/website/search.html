@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Add search | Arc CMS docs</title>
   <meta name="description" content="Give your website a search box and a results page, choose which fields are searched, and rebuild the index.">
-  <meta name="docs:sources" content="src/app/pages/admin/(settings)/search, src/app/pages/search.page.ts, src/app/pages/page.parts/public-search.component.ts, functions/src/search, public/_partials/_header.html, src/app/pages/admin/(search)">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings)/search, src/app/pages/search.page.ts, src/app/pages/page.parts/public-search.component.ts, functions/src/search, public/_site/header.html, src/app/pages/admin/(search)">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/search.html">
@@ -14,7 +14,7 @@
     <p class="lead">Search is on as soon as Arc CMS is installed: published content is searchable by everyone, from a box in the site header and a results page at <code>/search</code>. Your job is to put the box where you want it and choose which extra fields count. The full reference is <a href="../features/search.html">Search</a>.</p>
 
     <h2>Place the search box</h2>
-    <p>The box is the <code>&lt;arc-search&gt;&lt;/arc-search&gt;</code> element in <code>public/_partials/_header.html</code>. Keep it where it should appear in your header, or remove it if you want no box. On published pages it becomes a plain form that works without JavaScript, with suggestions as you type; either way, it leads to <code>/search</code> (or <code>/{lang}/search</code> on a translated page).</p>
+    <p>The box is the <code>&lt;arc-search&gt;&lt;/arc-search&gt;</code> element in the site header, <code class="new">src/custom/site/header.html</code> (Arc CMS's sample, <code>public/_site/header.html</code>, until you write yours). Keep it where it should appear in your header, or remove it if you want no box. On published pages it becomes a plain form that works without JavaScript, with suggestions as you type; either way, it leads to <code>/search</code> (or <code>/{lang}/search</code> on a translated page).</p>
     <p>The placeholder and messages come from the same <code>strings.json</code> files as other template text (see <a href="languages.html">Publish in more than one language</a>).</p>
 
     <h2>Choose what is searched</h2>

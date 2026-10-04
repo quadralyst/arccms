@@ -7,12 +7,8 @@
                 <div class="auth-container">
                     <!-- Left Panel - Gradient Background -->
                     <div class="auth-left">
-                        <div class="auth-left-content">
-                            <h1 class="auth-left-title">Your Landing Page, Supercharged</h1>
-                            <p class="auth-left-description">Turn static HTML into a growth machine. Waitlist capture,
-                                viral referrals, email automation, and analytics—integrated in minutes. No recurring
-                                fees, complete data ownership. Start validating your startup idea today.</p>
-                        </div>
+                        <!-- The site's own brand panel (src/custom/site/sign-in.html) -->
+                        <arc-sign-in-panel></arc-sign-in-panel>
                     </div>
                 </div>
             </div>
@@ -23,8 +19,11 @@
                     @if (currentStep() === 'request') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <img ngSrc="/assets/images/logo.png" width="190" height="60" alt="Arc CMS Logo"
-                                class="d-inline-block">
+                            @if (brandLogo()) {
+                            <img class="auth-logo-image d-inline-block" [src]="brandLogo()" [alt]="brandName()">
+                            } @else if (brandName()) {
+                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            }
                         </div>
                     </div>
                     <div class="request-container">
@@ -80,7 +79,7 @@
                     </div>
 
                     <div class="copyright">
-                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                        &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
                         <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
                         }
@@ -91,7 +90,7 @@
                     @if (currentStep() === 'login') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">Arc CMS</h2>
+                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
                         </div>
                     </div>
                     <div class="request-container request-height">
@@ -158,7 +157,7 @@
                         </div>
                     </div>
                     <div class="copyright">
-                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                        &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
                         <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
                         }
@@ -169,7 +168,7 @@
                     @if (currentStep() === 'pin') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">Arc CMS</h2>
+                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
                         </div>
                     </div>
                     <div class="request-container request-height">
@@ -220,7 +219,7 @@
                         </div>
                     </div>
                     <div class="copyright">
-                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                        &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
                         <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
                         }
@@ -231,7 +230,7 @@
                     @if (currentStep() === 'verify') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">Arc CMS</h2>
+                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
                         </div>
                     </div>
                     <div class="verification-container request-height">
@@ -291,7 +290,7 @@
                         </div>
                     </div>
                     <div class="copyright">
-                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                        &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
                         <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
                         }
@@ -302,7 +301,7 @@
                     @if (currentStep() === 'signup') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">Arc CMS</h2>
+                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
                         </div>
                     </div>
                     <div class="signup-container request-height">
@@ -407,7 +406,7 @@
                         </div>
                     </div>
                     <div class="copyright">
-                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                        &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
                         <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
                         }
@@ -418,7 +417,7 @@
                     @if (currentStep() === 'newPin') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">Arc CMS</h2>
+                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
                         </div>
                     </div>
                     <div class="request-container request-height">
@@ -449,7 +448,7 @@
                         </div>
                     </div>
                     <div class="copyright">
-                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                        &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
                         <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
                         }
@@ -460,8 +459,11 @@
                     @if (currentStep() === 'disabled' ) {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <img ngSrc="/assets/images/logo.png" width="190" height="60" alt="Arc CMS Logo"
-                                class="d-inline-block">
+                            @if (brandLogo()) {
+                            <img class="auth-logo-image d-inline-block" [src]="brandLogo()" [alt]="brandName()">
+                            } @else if (brandName()) {
+                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            }
                         </div>
                     </div>
                     <div class="request-container">
@@ -479,7 +481,7 @@
                         </div>
                     </div>
                     <div class="copyright">
-                        &copy; {{ currentYear }} {{ constantVariables.APPLICATION_NAME }}
+                        &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
                         <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
                         }

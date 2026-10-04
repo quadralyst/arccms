@@ -37,6 +37,7 @@ window.ARC_DOCS_NAV = [
       { path: "website/content-types.html", title: "Define content types" },
       { path: "website/templates.html", title: "Design templates" },
       { path: "website/static-pages.html", title: "Write static pages" },
+      { path: "website/sign-in-page.html", title: "Brand the sign-in page" },
       { path: "website/media.html", title: "Manage media" },
       { path: "website/authors-and-tags.html", title: "Add authors and tags" },
       { path: "website/seo.html", title: "Get found by search engines and AI" },

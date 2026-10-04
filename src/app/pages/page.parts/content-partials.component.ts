@@ -10,6 +10,8 @@ import { ContentTypesStore } from '../admin/contents/content-types/content-types
 import { ContentType, contentTypeDescription, contentTypeName } from '../admin/contents/content-types/content-types.model';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { IContents } from '../admin/contents/content-store/published-contents.model';
+import { isTemplateFragment } from '../../../shared/utils/template-fragment';
+import { siteTemplateUrl } from '../../core/site/site';
 
 /**
  * Content Partials Component
@@ -33,227 +35,18 @@ import { IContents } from '../admin/contents/content-store/published-contents.mo
                 <span class="visually-hidden">Loading...</span>
             </div>
         </div>
-    } @else if(useCustomTemplate() && templateHtml()) {
-        <!-- Render custom template -->
+    } @else if(templateHtml()) {
+        <!-- The type's partials template (its folder's, else the default), hydrated -->
         <div [innerHTML]="templateHtml() | safeHtml"></div>
-    } @else if(filteredContents().length > 0) {
-        <!-- Default template - Apple-inspired design -->
-        <section class="content-partials-section">
-            <div class="container">
-                <div class="content-partials-header">
-                    <h2 class="content-partials-title">{{ displayTitle() }}</h2>
-                    @if(currentContentType()) {
-                        <a [href]="listUrl()" class="content-partials-view-all">
-                            View All <i class="fas fa-arrow-right"></i>
-                        </a>
-                    }
-                </div>
-                <div class="content-partials-grid">
-                    @for(content of filteredContents(); track content.id) {
-                        <a [href]="itemUrl(content.urlSlug)" class="content-partial-card">
-                            <div class="content-partial-image" 
-                                 [style.background-image]="content.coverImage ? 'url(' + content.coverImage + ')' : ''">
-                                @if(!content.coverImage) {
-                                    <div class="content-partial-placeholder"></div>
-                                }
-                            </div>
-                            <div class="content-partial-body">
-                                <div class="content-partial-meta">
-                                    <time>{{ formatContentDate(content.publishedOn) }}</time>
-                                    <span class="meta-separator">•</span>
-                                    <span>{{ getReadTime(content) }} min read</span>
-                                </div>
-                                <h3 class="content-partial-title">{{ content.title }}</h3>
-                                <p class="content-partial-excerpt">{{ getExcerpt(content) }}</p>
-                                <span class="content-partial-read-more">Read Article <i class="fas fa-arrow-right"></i></span>
-                            </div>
-                        </a>
-                    }
-                </div>
-            </div>
-        </section>
     }
     }
     `,
     styles: [`
-        /* Apple-inspired Content Partials Styles */
         .content-partials-loading {
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 4rem 0;
-        }
-
-        .content-partials-section {
-            padding: 4rem 0;
-            background: #f5f5f7;
-        }
-
-        .content-partials-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .content-partials-title {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #1d1d1f;
-            margin: 0;
-            letter-spacing: -0.02em;
-        }
-
-        .content-partials-view-all {
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: #0066cc;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: color 0.2s;
-        }
-
-        .content-partials-view-all:hover {
-            color: #004499;
-        }
-
-        .content-partials-view-all i {
-            font-size: 0.8rem;
-            transition: transform 0.2s;
-        }
-
-        .content-partials-view-all:hover i {
-            transform: translateX(4px);
-        }
-
-        .content-partials-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .content-partial-card {
-            display: flex;
-            flex-direction: column;
-            background: #ffffff;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            text-decoration: none;
-            color: inherit;
-            height: 100%;
-        }
-
-        .content-partial-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-        }
-
-        .content-partial-card:hover .content-partial-read-more {
-            color: #0066cc;
-        }
-
-        .content-partial-card:hover .content-partial-read-more i {
-            transform: translateX(4px);
-        }
-
-        .content-partial-image {
-            position: relative;
-            width: 100%;
-            height: 160px;
-            overflow: hidden;
-            background-color: #f5f5f7;
-            background-size: cover;
-            background-position: center;
-        }
-
-        .content-partial-placeholder {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #e8e8ed 0%, #d2d2d7 100%);
-        }
-
-        .content-partial-body {
-            padding: 1.25rem;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .content-partial-meta {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.8rem;
-            color: #6e6e73;
-            margin-bottom: 0.5rem;
-        }
-
-        .content-partial-meta .meta-separator {
-            color: #d2d2d7;
-        }
-
-        .content-partial-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #1d1d1f;
-            margin: 0 0 0.5rem 0;
-            line-height: 1.3;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .content-partial-excerpt {
-            font-size: 0.9rem;
-            color: #6e6e73;
-            line-height: 1.5;
-            margin: 0 0 1rem 0;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            flex: 1;
-        }
-
-        .content-partial-read-more {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            font-weight: 500;
-            color: #1d1d1f;
-            transition: color 0.2s ease;
-            margin-top: auto;
-        }
-
-        .content-partial-read-more i {
-            font-size: 0.7rem;
-            transition: transform 0.2s ease;
-        }
-
-        @media (max-width: 768px) {
-            .content-partials-section {
-                padding: 3rem 0;
-            }
-
-            .content-partials-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 1rem;
-            }
-
-            .content-partials-title {
-                font-size: 1.5rem;
-            }
-
-            .content-partials-grid {
-                grid-template-columns: 1fr;
-            }
         }
     `],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -275,7 +68,9 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     templateFolder = input<string>('');
 
     templateHtml = signal<string>('');
-    useCustomTemplate = signal<boolean>(false);
+    /** The template as loaded, so it can be hydrated again. */
+    private lastTemplate: string | null = null;
+    private pendingTemplateUrl: string | null = null;
 
     /**
      * Hydration guard: stays false until client-side data has loaded.
@@ -371,8 +166,19 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             }
 
             // Only load template when we have content type, not loading, and haven't loaded yet
-            if (contentType && !isLoading && !this.useCustomTemplate()) {
+            if (contentType && !isLoading && !this.templateHtml()) {
                 this.loadCustomTemplate(contentType, contents);
+            }
+        });
+
+        // New content and the page's strings arrive after the template was
+        // first hydrated; hydrate it again with them.
+        effect(() => {
+            const contentType = this.currentContentType();
+            const contents = this.filteredContents();
+            this.uiStrings.strings();
+            if (this.lastTemplate && contentType) {
+                this.hydrateAndSetTemplate(this.lastTemplate, contentType, contents);
             }
         });
     }
@@ -391,41 +197,41 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     }
 
     /**
-     * Load and hydrate custom template when content type and content are ready
+     * Loads the partials template: the folder given on the element, else the
+     * type's own, else the default (siteTemplateUrl), and hydrates it.
      */
     private loadCustomTemplate(contentType: ContentType, contents: IContents[]): void {
-        // Use provided templateFolder or fall back to content type's templateFolder
-        const folder = this.templateFolder() || contentType.templateFolder;
-
-        // Skip if using default template or no folder specified
-        if (!folder || folder === 'default') {
-            this.useCustomTemplate.set(false);
-            return;
-        }
-
-        // Build template URL - using generic filename
-        const templateUrl = `/templates/${folder}/partials.html`;
-        const stateKey = makeStateKey<string>(`tpl-partials-${folder}`);
+        const url = siteTemplateUrl(this.templateFolder() || contentType.templateFolder, 'partials');
+        if (url === this.pendingTemplateUrl) return;
+        const stateKey = makeStateKey<string>(`tpl-partials-${url}`);
 
         // Check TransferState first (cached from SSR)
         if (isPlatformBrowser(this.platformId) && this.transferState.hasKey(stateKey)) {
             const cachedHtml = this.transferState.get(stateKey, '');
             this.transferState.remove(stateKey);
-            this.hydrateAndSetTemplate(cachedHtml, contentType, contents);
-            return;
+            if (isTemplateFragment(cachedHtml)) {
+                this.hydrateAndSetTemplate(cachedHtml, contentType, contents);
+                return;
+            }
         }
 
-        this.http.get(templateUrl, { responseType: 'text' }).subscribe({
+        this.pendingTemplateUrl = url;
+        this.http.get(url, { responseType: 'text' }).subscribe({
             next: (templateHtml) => {
+                this.pendingTemplateUrl = null;
+                // A missing file answers with the app shell; that is not a template.
+                if (!isTemplateFragment(templateHtml)) {
+                    console.warn(`[ContentPartialsComponent] ${url} is not a template fragment.`);
+                    return;
+                }
                 // Cache in TransferState for client hydration
                 if (!isPlatformBrowser(this.platformId)) {
                     this.transferState.set(stateKey, templateHtml);
                 }
-
                 this.hydrateAndSetTemplate(templateHtml, contentType, contents);
             },
-            error: (error) => {
-                this.useCustomTemplate.set(false);
+            error: () => {
+                this.pendingTemplateUrl = null;
             }
         });
     }
@@ -434,6 +240,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
      * Hydrate template HTML with content data and set it for rendering
      */
     private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, contents: IContents[]): void {
+        this.lastTemplate = templateHtml;
         // Prepare data for template hydration
         const lang = this.pageLang();
         const templateData = {
@@ -441,6 +248,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             contentTypeSlug: contentType.slug,
             contentTypeDescription: contentTypeDescription(contentType, lang),
             sectionTitle: this.displayTitle(),
+            listUrl: this.listUrl(),
+            hasItems: contents.length > 0,
         };
 
         // Prepare list data for loops - transform content items
@@ -457,7 +266,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
                 id: content.id,
                 title: content.title,
                 urlSlug: content.urlSlug,
-                url: `/${contentType.slug}/${content.urlSlug}`,
+                // In the page's language, like the list link.
+                url: this.itemUrl(content.urlSlug),
                 coverImage: content.coverImage || '',
                 excerpt: this.getExcerpt(content),
                 content: content.content || '',
@@ -469,14 +279,13 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             };
         });
 
-        // First process loops with list data
-        let hydratedHtml = TemplateHydrationService.processLoops(templateHtml, { items: listData });
-
-        // Then hydrate with page-level data
+        // Chrome in the page's language first, then loops, then page-level data:
+        // the same order as the list and detail pages.
+        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings());
+        let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
         this.templateHtml.set(hydratedHtml);
-        this.useCustomTemplate.set(true);
     }
 
     /** Convert Firestore Timestamp, Date, or ISO string to epoch ms for sorting */

@@ -37,13 +37,13 @@
 
     <div class="detail-row">
       <label>Template:</label>
-      @if(currentItem.templateFolder && currentItem.templateFolder !==
-      'default') {
-      <span class="template-path"
-        >/public/templates/{{ currentItem.templateFolder }}</span
-      >
+      @if(templateSource(currentItem.templateFolder); as source) {
+      <span class="template-path">{{ source.path }}</span>
+      @if(source.missing) {
+      <span class="text-warning ms-2">Not on this site: pages use the default templates</span>
+      }
       } @else {
-      <span class="text-muted">Default (built-in)</span>
+      <span class="text-muted">Default</span>
       }
     </div>
 

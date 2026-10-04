@@ -1,0 +1,216 @@
+<!--
+  Default partials template: cards of a content type inside another page, written
+  <arc-content-partials content-type="articles" count="4"></arc-content-partials>.
+
+  Used for any content type without a partials.html of its own. Bindings: the
+  section's sectionTitle, contentType, listUrl and hasItems, plus an `items`
+  loop of cards (url, title, excerpt, coverImage, publishedOn, readTime).
+-->
+<section class="content-partials-section" data-arc-if="hasItems">
+    <div class="container">
+        <div class="content-partials-header">
+            <h2 class="content-partials-title">{{ sectionTitle }}</h2>
+            <a href="{{ listUrl }}" class="content-partials-view-all">
+                <span data-arc-t="view_all">View All</span> <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+        <div class="content-partials-grid" data-arc-loop="items">
+            <a href="{{ url }}" class="content-partial-card">
+                <div class="content-partial-image">
+                    <img src="{{ coverImage }}" alt="{{ title }}" class="content-partial-img" data-arc-if="coverImage">
+                </div>
+                <div class="content-partial-body">
+                    <div class="content-partial-meta">
+                        <time>{{ publishedOn }}</time>
+                        <span class="meta-separator">&#8226;</span>
+                        <span data-arc-t="min_read">{{ readTime }} min read</span>
+                    </div>
+                    <h3 class="content-partial-title">{{ title }}</h3>
+                    <p class="content-partial-excerpt">{{ excerpt }}</p>
+                    <span class="content-partial-read-more"><span data-arc-t="read_more">Read Article</span> <i class="fas fa-arrow-right"></i></span>
+                </div>
+            </a>
+        </div>
+    </div>
+</section>
+
+<style>
+.content-partial-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.content-partials-section {
+    padding: 4rem 0;
+    background: #f5f5f7;
+}
+
+.content-partials-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.content-partials-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.content-partials-view-all {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #0066cc;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: color 0.2s;
+}
+
+.content-partials-view-all:hover {
+    color: #004499;
+}
+
+.content-partials-view-all i {
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+}
+
+.content-partials-view-all:hover i {
+    transform: translateX(4px);
+}
+
+.content-partials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.content-partial-card {
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    text-decoration: none;
+    color: inherit;
+    height: 100%;
+}
+
+.content-partial-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.content-partial-card:hover .content-partial-read-more {
+    color: #0066cc;
+}
+
+.content-partial-card:hover .content-partial-read-more i {
+    transform: translateX(4px);
+}
+
+.content-partial-image {
+    position: relative;
+    width: 100%;
+    height: 160px;
+    overflow: hidden;
+    background-color: #f5f5f7;
+    background-size: cover;
+    background-position: center;
+}
+
+.content-partial-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #e8e8ed 0%, #d2d2d7 100%);
+}
+
+.content-partial-body {
+    padding: 1.25rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.content-partial-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: #6e6e73;
+    margin-bottom: 0.5rem;
+}
+
+.content-partial-meta .meta-separator {
+    color: #d2d2d7;
+}
+
+.content-partial-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.content-partial-excerpt {
+    font-size: 0.9rem;
+    color: #6e6e73;
+    line-height: 1.5;
+    margin: 0 0 1rem 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    flex: 1;
+}
+
+.content-partial-read-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #1d1d1f;
+    transition: color 0.2s ease;
+    margin-top: auto;
+}
+
+.content-partial-read-more i {
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+}
+
+@media (max-width: 768px) {
+    .content-partials-section {
+        padding: 3rem 0;
+    }
+
+    .content-partials-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .content-partials-title {
+        font-size: 1.5rem;
+    }
+
+    .content-partials-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>

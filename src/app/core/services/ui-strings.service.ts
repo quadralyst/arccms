@@ -2,7 +2,8 @@
  * Static UI strings for the SPA.
  *
  * The counterpart of `getUiStrings` in functions/src/shared/site-settings.ts:
- * both read `public/i18n/{lang}/strings.json`, so a page rendered client-side
+ * both read the site's `/_site/strings/{lang}.json` (src/custom/site/strings/
+ * merged over Arc CMS's public/_site/strings/), so a page rendered client-side
  * shows the same chrome as the statically published one.
  *
  * The default language has no file — its text is the English authored into the
@@ -14,6 +15,7 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { siteStringsUrl } from '../site/site';
 
 @Injectable({ providedIn: 'root' })
 export class UiStringsService {
@@ -61,10 +63,14 @@ export class UiStringsService {
     }
 
     private async fetch(lang: string): Promise<Record<string, string>> {
+        const url = siteStringsUrl(lang);
+        if (!url) {
+            // The site has no strings for this language: the authored English stands.
+            this.loaded.set(lang, {});
+            return {};
+        }
         try {
-            const strings = await firstValueFrom(
-                this.http.get<Record<string, string>>(`/i18n/${lang}/strings.json`),
-            );
+            const strings = await firstValueFrom(this.http.get<Record<string, string>>(url));
             const safe = strings && typeof strings === 'object' ? strings : {};
             this.loaded.set(lang, safe);
             return safe;

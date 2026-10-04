@@ -21,7 +21,6 @@ export const routeMeta: RouteMeta = {
   selector: 'arc-home',
   standalone: true,
   templateUrl: '../../../public/index.html',
-  styleUrl: '../../../public/assets/css/main.css',
   encapsulation: ViewEncapsulation.None,
   imports: [HeaderComponent, FooterComponent, ContentPartialsComponent, NgOptimizedImage],
 })

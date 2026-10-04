@@ -9,6 +9,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
+import { setSiteManifestForTesting } from '../../core/site/site';
 
 describe('PublicPageRendererComponent', () => {
     let component: PublicPageRendererComponent;
@@ -41,6 +42,11 @@ describe('PublicPageRendererComponent', () => {
     beforeEach(async () => {
         // Clear mocks before each test
         vi.clearAllMocks();
+        // The pages these tests open, as the site's manifest lists them.
+        setSiteManifestForTesting({
+            version: 1, home: {}, templates: {}, strings: [], files: {},
+            pages: { 'test-page': 'app', 'regression-test': 'app', other: 'app', 'error-page': 'core' },
+        });
 
         paramsSubject = new BehaviorSubject<any>({ fileName: 'test-page' });
         const mockActivatedRoute = {
@@ -73,6 +79,7 @@ describe('PublicPageRendererComponent', () => {
         if (httpMock) {
             httpMock.verify();
         }
+        setSiteManifestForTesting();
     });
 
     function createComponent() {
@@ -85,7 +92,7 @@ describe('PublicPageRendererComponent', () => {
         paramsSubject.next({ fileName: 'test-page' });
         createComponent();
         expect(component).toBeTruthy();
-        const req = httpMock.expectOne('/pages/test-page.html');
+        const req = httpMock.expectOne('/_site/pages/test-page.html');
         req.flush('');
     });
 
@@ -107,7 +114,7 @@ describe('PublicPageRendererComponent', () => {
       </html>
     `;
 
-        const req = httpMock.expectOne('/pages/test-page.html');
+        const req = httpMock.expectOne('/_site/pages/test-page.html');
         req.flush(mockHtml);
 
         expect(titleSpy.setTitle).toHaveBeenCalledWith('Test Title');
@@ -127,7 +134,7 @@ describe('PublicPageRendererComponent', () => {
         const detectChangesSpy = vi.spyOn(cdr, 'detectChanges');
 
         const mockHtml = '<body><p>Updated Content</p></body>';
-        const req = httpMock.expectOne('/pages/regression-test.html');
+        const req = httpMock.expectOne('/_site/pages/regression-test.html');
         req.flush(mockHtml);
 
         expect(detectChangesSpy).toHaveBeenCalled();
@@ -137,7 +144,7 @@ describe('PublicPageRendererComponent', () => {
         paramsSubject.next({ fileName: 'other.html' });
         createComponent();
 
-        const req = httpMock.expectOne('/pages/other.html');
+        const req = httpMock.expectOne('/_site/pages/other.html');
         req.flush('<div>Content</div>');
     });
 
@@ -145,9 +152,17 @@ describe('PublicPageRendererComponent', () => {
         paramsSubject.next({ fileName: 'error-page' });
         createComponent();
 
-        const req = httpMock.expectOne('/pages/error-page.html');
+        const req = httpMock.expectOne('/_site/pages/error-page.html');
         req.flush('Not Found', { status: 404, statusText: 'Not Found' });
 
+        expect(routerSpy.navigate).toHaveBeenCalledWith(['/404']);
+    });
+
+    it('goes to the not-found page without a request for a page the site does not have', () => {
+        paramsSubject.next({ fileName: 'no-such-page' });
+        createComponent();
+
+        httpMock.expectNone('/_site/pages/no-such-page.html');
         expect(routerSpy.navigate).toHaveBeenCalledWith(['/404']);
     });
 });

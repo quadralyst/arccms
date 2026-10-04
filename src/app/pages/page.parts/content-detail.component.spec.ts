@@ -18,6 +18,18 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
 import { Meta, Title } from '@angular/platform-browser';
 import { DOCUMENT } from '@angular/common';
 import { AuthorProfileService } from '../../core/services/author-profile.service';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { setSiteManifestForTesting, siteManifest } from '../../core/site/site';
+
+/** Arc CMS's default detail template, as the site serves it. */
+const DEFAULT_DETAIL = readFileSync(resolve(__dirname, '../../../../public/_site/templates/default/detail.html'), 'utf8');
+
+/** The built manifest plus a folder of the test's own. */
+function withFolder(name: string): void {
+    const built = siteManifest();
+    setSiteManifestForTesting({ ...built, templates: { ...built.templates, [name]: { detail: 'app' } } });
+}
 
 describe('ContentDetailComponent', () => {
     let component: ContentDetailComponent;
@@ -133,6 +145,8 @@ describe('ContentDetailComponent', () => {
         fixture.detectChanges();
     });
 
+    afterEach(() => setSiteManifestForTesting());
+
     it('should create', () => {
         expect(component).toBeTruthy();
     });
@@ -155,6 +169,7 @@ describe('ContentDetailComponent', () => {
                 templateFolder: 'custom-folder'
             };
 
+            withFolder('custom-folder');
             mockContentsStore.items.set([content]);
             mockContentTypesStore.items.set([contentType]);
 
@@ -163,12 +178,35 @@ describe('ContentDetailComponent', () => {
 
             // Check if HTTP get was called with generic filename (not contentType-specific)
             expect(mockHttpClient.get).toHaveBeenCalledWith(
-                '/templates/custom-folder/detail.html',
+                '/_site/templates/custom-folder/detail.html',
                 expect.objectContaining({ responseType: 'text' })
             );
         });
 
-        it('should NOT load custom template if folder is default', () => {
+        it('uses the default detail template for a folder the site does not have', () => {
+            mockContentsStore.items.set([{ id: '1', title: 'A', urlSlug: 'my-article', type: 'articles', publishedStatus: true }]);
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'no-such-folder' }]);
+            fixture.detectChanges();
+
+            expect(mockHttpClient.get).toHaveBeenCalledWith('/_site/templates/default/detail.html', expect.anything());
+        });
+
+        it('falls back to the default once when a folder file is not a template', () => {
+            withFolder('broken');
+            mockHttpClient.get.mockImplementation((url: string) =>
+                of(url.includes('/broken/') ? '<!doctype html><html><arc-root></arc-root></html>' : '<div>{{ title }}</div>'));
+            mockContentsStore.items.set([{ id: '1', title: 'Hello', urlSlug: 'my-article', type: 'articles', publishedStatus: true }]);
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'broken' }]);
+            fixture.detectChanges();
+
+            expect(mockHttpClient.get.mock.calls.map((c: unknown[]) => c[0])).toEqual([
+                '/_site/templates/broken/detail.html',
+                '/_site/templates/default/detail.html',
+            ]);
+            expect(component.templateHtml()).toContain('Hello');
+        });
+
+        it('loads the default detail template for a type on the default', () => {
             // Setup data
             const content = {
                 id: '1',
@@ -189,8 +227,8 @@ describe('ContentDetailComponent', () => {
             // Trigger effect
             fixture.detectChanges();
 
-            expect(mockHttpClient.get).not.toHaveBeenCalled();
-            expect(component.useCustomTemplate()).toBe(false);
+            expect(mockHttpClient.get).toHaveBeenCalledWith('/_site/templates/default/detail.html', expect.anything());
+            expect(component.templateHtml()).toContain('Template');
         });
 
         it('should execute scripts in custom template (manual test)', () => {
@@ -501,7 +539,8 @@ describe('ContentDetailComponent', () => {
         it('should check TransferState for cached template before HTTP fetch', () => {
             // Pre-populate TransferState with a cached template
             const transferState = (component as any).transferState;
-            const stateKey = makeStateKey<string>('tpl-detail-custom-folder');
+            withFolder('custom-folder');
+            const stateKey = makeStateKey<string>('tpl-detail-/_site/templates/custom-folder/detail.html');
             transferState.set(stateKey, '<div>Cached Template</div>');
 
             const content = {
@@ -524,7 +563,7 @@ describe('ContentDetailComponent', () => {
             // In browser mode, TransferState cache is used, so HTTP should NOT be called
             expect(mockHttpClient.get).not.toHaveBeenCalled();
             // Template should be hydrated and set
-            expect(component.useCustomTemplate()).toBe(true);
+            expect(component.templateHtml()).toContain('Cached Template');
             // TransferState key should be consumed (removed)
             expect(transferState.hasKey(stateKey)).toBe(false);
         });
@@ -614,62 +653,64 @@ describe('ContentDetailComponent', () => {
             ...overrides,
         });
 
-        describe('getShareUrl() — default template', () => {
-            it('should use seoTitle when available in share text', () => {
+        describe('share links in the template', () => {
+            // A template that prints the share links the page hands it.
+            const SHARE_TEMPLATE = '<a id="twitter" href="{{ share.twitter }}">t</a><a id="facebook" href="{{ share.facebook }}">f</a>'
+                + '<a id="linkedin" href="{{ share.linkedin }}">l</a><a id="email" href="{{ share.email }}">e</a>';
+
+            function shareUrl(platform: string): string {
+                const host = document.createElement('div');
+                host.innerHTML = component.templateHtml();
+                return host.querySelector(`#${platform}`)?.getAttribute('href') || '';
+            }
+
+            beforeEach(() => {
+                mockHttpClient.get.mockReturnValue(of(SHARE_TEMPLATE));
                 mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
+            });
+
+            it('should use seoTitle when available in share text', () => {
                 mockContentsStore.items.set([buildContent({ seoTitle: 'SEO Optimized Title' })]);
                 fixture.detectChanges();
 
-                const url = component.getShareUrl('twitter');
+                const url = shareUrl('twitter');
                 expect(url).toContain(encodeURIComponent('SEO Optimized Title'));
                 expect(url).not.toContain(encodeURIComponent('Regular Title'));
             });
 
             it('should fall back to title when seoTitle is absent', () => {
-                mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
                 mockContentsStore.items.set([buildContent()]);
                 fixture.detectChanges();
 
-                const url = component.getShareUrl('twitter');
-                expect(url).toContain(encodeURIComponent('Regular Title'));
+                expect(shareUrl('twitter')).toContain(encodeURIComponent('Regular Title'));
             });
 
             it('should use canonicalUrl for share URL when available', () => {
-                mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
                 mockContentsStore.items.set([buildContent({ canonicalUrl: 'https://example.com/articles/my-article' })]);
                 fixture.detectChanges();
 
-                const url = component.getShareUrl('twitter');
-                expect(url).toContain(encodeURIComponent('https://example.com/articles/my-article'));
+                expect(shareUrl('twitter')).toContain(encodeURIComponent('https://example.com/articles/my-article'));
             });
 
             it('should fall back to window.location.href when canonicalUrl is missing', () => {
-                mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
                 mockContentsStore.items.set([buildContent({ canonicalUrl: undefined })]);
                 fixture.detectChanges();
 
-                // window.location.href in jsdom is 'about:blank' or similar non-empty string
-                const url = component.getShareUrl('facebook');
-                // The URL should be a valid share URL
-                expect(url).toContain('facebook.com');
+                expect(shareUrl('facebook')).toContain('facebook.com');
             });
 
             it('should include seoTitle in linkedin share', () => {
-                mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
                 mockContentsStore.items.set([buildContent({ seoTitle: 'LinkedIn SEO Title' })]);
                 fixture.detectChanges();
 
-                const url = component.getShareUrl('linkedin');
-                expect(url).toContain(encodeURIComponent('LinkedIn SEO Title'));
+                expect(shareUrl('linkedin')).toContain(encodeURIComponent('LinkedIn SEO Title'));
             });
 
             it('should include seoTitle as email subject', () => {
-                mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
                 mockContentsStore.items.set([buildContent({ seoTitle: 'Email Subject Title' })]);
                 fixture.detectChanges();
 
-                const url = component.getShareUrl('email');
-                expect(url).toContain(encodeURIComponent('Email Subject Title'));
+                expect(shareUrl('email')).toContain(encodeURIComponent('Email Subject Title'));
             });
         });
 
@@ -826,6 +867,9 @@ describe('ContentDetailComponent', () => {
         }
 
         it('emits block nodes, the abstract and citations, and renders the Sources list', async () => {
+            // The real default template, which carries the Sources list.
+            mockHttpClient.get.mockReturnValue(of(DEFAULT_DETAIL));
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
             showDraft({
                 title: 'A', urlSlug: 'a', type: 'articles', publishedOn: { seconds: 1705334400 },
                 content: '<section data-arc-block="takeaways"><h3>Key takeaways</h3><ul><li>Fast</li></ul></section>'

@@ -104,6 +104,15 @@
                 ]
             },
             {
+                "source": "/_site/**",
+                "headers": [
+                    {
+                        "key": "X-Robots-Tag",
+                        "value": "noindex"
+                    }
+                ]
+            },
+            {
                 "source": "robots.txt",
                 "headers": [
                     {

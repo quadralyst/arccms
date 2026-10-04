@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Banners | Arc CMS docs</title>
   <meta name="description" content="Show a site-wide message banner, a site usage (cookie) banner, and know which status banners the admin area shows by itself.">
-  <meta name="docs:sources" content="src/app/pages/page.parts/global-message-banner.component.ts, src/app/pages/page.parts/site-usage-banner.component.ts, src/app/pages/admin/(settings)/message, src/app/pages/admin/(settings)/site-usage, src/shared/services/email-config-status.service.ts, src/app/pages/admin/(dashboard)/dashboard.html, src/app/pages/admin/(waitlists)/waitlists.page.html, src/app/app.ts, src/app/core/layout/full-screen.service.ts, public/pages/cookie-policy.html, firestore.rules">
+  <meta name="docs:sources" content="src/app/pages/page.parts/global-message-banner.component.ts, src/app/pages/page.parts/site-usage-banner.component.ts, src/app/pages/admin/(settings)/message, src/app/pages/admin/(settings)/site-usage, src/shared/services/email-config-status.service.ts, src/app/pages/admin/(dashboard)/dashboard.html, src/app/pages/admin/(waitlists)/waitlists.page.html, src/app/app.ts, src/app/core/layout/full-screen.service.ts, public/_site/pages/cookie-policy.html, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/banners.html">
@@ -41,7 +41,7 @@
     <ol class="steps">
       <li><p>Open Admin, Settings, Site Usage and click <strong>Enable Banner</strong>.</p></li>
       <li><p>Edit the message and the accept and reject button texts, or keep the defaults.</p></li>
-      <li><p>Set the policy link. The default, <code>/p/cookie-policy</code>, opens the built-in page from <code>public/pages/cookie-policy.html</code>; the built-in page is a sample that names Arc CMS and <code>support@example.com</code>, so point the link at your own policy, or rewrite that page, before launch.</p></li>
+      <li><p>Set the policy link. The default, <code>/p/cookie-policy</code>, opens the built-in page from <code>public/_site/pages/cookie-policy.html</code>; the built-in page is a sample that names Arc CMS and <code>support@example.com</code>, so point the link at your own policy, or write your own as <code class="new">src/custom/site/pages/cookie-policy.html</code>, before launch.</p></li>
       <li><p>Pick a background style and click <strong>Save Settings</strong>.</p></li>
     </ol>
 
