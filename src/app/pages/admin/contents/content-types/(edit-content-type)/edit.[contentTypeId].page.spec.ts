@@ -800,6 +800,18 @@ describe('EditContentTypeComponent', () => {
             });
         });
 
+        it('shows a stored type and mapping in the selects, not the first option', () => {
+            component.editForm.patchValue({ name: 'Products', slug: 'products' });
+            addField('price', 'number', 'Price');
+            component.editForm.patchValue({ schemaType: 'Product', schemaFields: { price: 'products-price' } });
+            fixture.detectChanges();
+            const root: HTMLElement = fixture.nativeElement;
+            const typeSelect = root.querySelector('[data-testid="schema-type"]') as HTMLSelectElement;
+            expect(typeSelect.selectedOptions[0].text).toBe('Product');
+            const priceSelect = root.querySelector('[data-testid="schema-prop-price"] select') as HTMLSelectElement;
+            expect(priceSelect.value).toBe('products-price');
+        });
+
         it('clears a mapping when set to Not mapped and rejects unknown types', () => {
             component.setSchemaType('Event');
             component.setMappedField('startDate', 'x_start');

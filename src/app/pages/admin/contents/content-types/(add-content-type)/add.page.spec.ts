@@ -691,6 +691,19 @@ describe('AddContentTypeComponent', () => {
             expect(component.schemaType()).toBe('Article');
         });
 
+        it('shows the chosen type and mapping in the selects', () => {
+            component.addForm.patchValue({ name: 'Products', slug: 'products' });
+            addField('price', 'number', 'Price');
+            component.setSchemaType('Product');
+            component.setMappedField('price', 'products-price');
+            fixture.detectChanges();
+            const root: HTMLElement = fixture.nativeElement;
+            const typeSelect = root.querySelector('[data-testid="schema-type"]') as HTMLSelectElement;
+            expect(typeSelect.selectedOptions[0].text).toBe('Product');
+            const priceSelect = root.querySelector('[data-testid="schema-prop-price"] select') as HTMLSelectElement;
+            expect(priceSelect.value).toBe('products-price');
+        });
+
         it('shows the section in the form', () => {
             expect(fixture.nativeElement.querySelector('[data-testid="schema-type"]')).toBeTruthy();
         });

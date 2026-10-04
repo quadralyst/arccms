@@ -381,7 +381,7 @@
             <select class="form-select form-select-sm schema-type-select" [value]="schemaType()"
                 (change)="setSchemaType($any($event.target).value)" data-testid="schema-type">
                 @for (type of schemaTypes; track type.id) {
-                    <option [value]="type.id">{{ type.label }}</option>
+                    <option [value]="type.id" [selected]="type.id === schemaType()">{{ type.label }}</option>
                 }
             </select>
             <small class="text-muted d-block mt-1">{{ schemaTypeDescription() }}</small>
@@ -402,7 +402,7 @@
                                     (change)="setMappedField(prop.key, $any($event.target).value)">
                                     <option value="">{{ 'admin.contents.types.form.schema_not_mapped' | transloco }}</option>
                                     @for (field of fieldsForProperty(prop); track field.key) {
-                                        <option [value]="field.key">{{ field.label }} ({{ field.key }})</option>
+                                        <option [value]="field.key" [selected]="field.key === mappedField(prop.key)">{{ field.label }} ({{ field.key }})</option>
                                     }
                                 </select>
                                 @if (!fieldsForProperty(prop).length) {
