@@ -3,15 +3,12 @@ import { db } from '../init.js';
 import { clearSettingsCache, getPartials, getSiteConfig } from '../shared/site-settings.js';
 import { generateAndDeployContentDetailPage } from './deployContentPage.js';
 import { generateAndDeployContentListPage } from './deployContentListPage.js';
-import { generateAndDeployStaticPage } from './deployStaticPage.js';
+import { generateAndDeployStaticPage, staticPageSlugs } from './deployStaticPage.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { generateAndDeployRobotsTxt } from './generateRobotsTxt.js';
 import { generateAndDeployLlmsTxt } from './generateLlmsTxt.js';
 import { generateAndDeploySitemap } from './generateSitemap.js';
 import { generateAndDeployRssFeeds } from './generateRssFeed.js';
-
-/** Known static pages that should be processed and deployed. */
-const STATIC_PAGES = ['privacy-policy', 'cookie-policy'];
 
 interface SeedResult {
     success: boolean;
@@ -52,8 +49,8 @@ export async function runSeed(): Promise<SeedResult> {
     if (!partials.headerHtml) {
         result.success = false;
         result.details.push(
-            'Missing required settings: headerHtml is empty. ' +
-            'Please configure Settings/partials (header HTML) before running seed.',
+            'The live site has no header (/_site/header.html). ' +
+            'Deploy the website before running seed.',
         );
         return result;
     }
@@ -130,10 +127,11 @@ export async function runSeed(): Promise<SeedResult> {
         }
     }
 
-    // 3. Deploy static pages (privacy-policy, cookie-policy, etc.)
-    result.details.push(`\n--- Static pages: ${STATIC_PAGES.length} page(s) ---`);
+    // 3. Deploy static pages: every page the site has (staticPageSlugs)
+    const staticPages = await staticPageSlugs();
+    result.details.push(`\n--- Static pages: ${staticPages.length} page(s) ---`);
 
-    for (const pageSlug of STATIC_PAGES) {
+    for (const pageSlug of staticPages) {
         const startTime = Date.now();
         try {
             await generateAndDeployStaticPage(pageSlug);

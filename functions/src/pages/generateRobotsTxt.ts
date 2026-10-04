@@ -7,14 +7,16 @@ import type { HostingBatch } from './deployToHosting.js';
 /**
  * The robots.txt text for a site (specs/discoverability-spec.md, D-D6).
  *
- * Everything is allowed by default; only crawlers the owner switched off get
- * a `Disallow: /` group of their own. An allowed AI crawler needs no
+ * Everything is allowed by default except the site's source files in /_site/;
+ * only crawlers the owner switched off get a `Disallow: /` group of their own. An allowed AI crawler needs no
  * mention: the `User-agent: *` group already covers it, and listing it with
  * `Allow: /` would only invite copy-paste drift. Pure, for the tests.
  */
 export function renderRobotsTxt(baseUrl: string, settings: DiscoverabilitySettings): string {
     const base = baseUrl.replace(/\/+$/, '');
-    const lines: string[] = ['User-agent: *', 'Allow: /', ''];
+    // /_site/ holds the site's source files (templates, the header, page
+    // sources), never pages to index (specs/own-website-spec.md).
+    const lines: string[] = ['User-agent: *', 'Allow: /', 'Disallow: /_site/', ''];
 
     const denied = CRAWLERS.filter(agent => settings.crawlers[agent.id] === false);
     if (denied.length) {

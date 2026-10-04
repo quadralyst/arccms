@@ -136,4 +136,66 @@ describe('ContentsService', () => {
             expect(mockOnSnapshot).toHaveBeenCalledTimes(1);
         });
     });
+
+    describe('pollDeployStatus reports this publish, not the last one', () => {
+        beforeEach(() => TestBed.resetTestingModule());
+
+        function makeService(platform: 'browser' | 'server'): ContentsService {
+            TestBed.configureTestingModule({
+                providers: [ContentsService, { provide: PLATFORM_ID, useValue: platform }],
+            });
+            return TestBed.inject(ContentsService);
+        }
+
+        type Snap = { deployStatus: string; deployedAt?: { toDate(): Date }; deployError?: string };
+        const at = (iso: string) => ({ toDate: () => new Date(iso) });
+
+        function watch(): { push(data: Snap): void; seen: string[]; done: () => boolean } {
+            mockOnSnapshot.mockReset();
+            let listener: (snap: unknown) => void = () => undefined;
+            mockOnSnapshot.mockImplementation((_ref: unknown, next: (snap: unknown) => void) => {
+                listener = next;
+                return () => undefined;
+            });
+            const seen: string[] = [];
+            let complete = false;
+            makeService('browser').pollDeployStatus('doc1', 'posts').subscribe({
+                next: (status) => seen.push(`${status.deployStatus}${status.deployError ? `: ${status.deployError}` : ''}`),
+                complete: () => { complete = true; },
+            });
+            return {
+                push: (data) => listener({ exists: () => true, data: () => data }),
+                seen,
+                done: () => complete,
+            };
+        }
+
+        it('ignores the result already on the record and waits for the new one', () => {
+            const w = watch();
+            w.push({ deployStatus: 'deployed', deployedAt: at('2026-10-04T09:14:00Z') });
+            expect(w.seen).toEqual([]);
+            expect(w.done()).toBe(false);
+
+            w.push({ deployStatus: 'failed', deployedAt: at('2026-10-04T09:33:00Z'), deployError: 'Template folder missing' });
+            expect(w.seen).toEqual(['failed: Template folder missing']);
+            expect(w.done()).toBe(true);
+        });
+
+        it('ignores a rewrite of the record that keeps the old result', () => {
+            const w = watch();
+            w.push({ deployStatus: 'deployed', deployedAt: at('2026-10-04T09:14:00Z') });
+            w.push({ deployStatus: 'deployed', deployedAt: at('2026-10-04T09:14:00Z') });
+            expect(w.seen).toEqual([]);
+            w.push({ deployStatus: 'deployed', deployedAt: at('2026-10-04T09:40:00Z') });
+            expect(w.seen).toEqual(['deployed']);
+        });
+
+        it('reports the first result of an item never deployed before', () => {
+            const w = watch();
+            w.push({ deployStatus: '' });
+            w.push({ deployStatus: 'deployed', deployedAt: at('2026-10-04T09:40:00Z') });
+            expect(w.seen).toEqual(['null', 'deployed']);
+            expect(w.done()).toBe(true);
+        });
+    });
 });

@@ -9,6 +9,7 @@ describe('renderRobotsTxt (specs/discoverability-spec.md, D-D6)', () => {
         expect(txt).toBe([
             'User-agent: *',
             'Allow: /',
+            'Disallow: /_site/',
             '',
             'Sitemap: https://example.com/sitemap.xml',
             '# LLM-friendly index: https://example.com/llms.txt',

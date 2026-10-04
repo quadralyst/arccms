@@ -21,28 +21,11 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { isTemplateFragment } from '../shared/template-fragment.js';
+import { loadSiteTemplate, pageStylesheets } from '../shared/site-files.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { arcHostingSite } from '../arc-config.js';
-
-// ─── Fallback Template ──────────────────────────────────────────────────────
-
-const FALLBACK_LIST_TEMPLATE = `<section>
-  <h1 data-arc-bind="contentType">Content</h1>
-  <p data-arc-bind="contentTypeDescription">Browse all content.</p>
-  <div data-arc-loop="items">
-    <div>
-      <a href="{{ url }}">
-        <h2>{{ title }}</h2>
-        <time>{{ publishedOn }}</time>
-        <span>{{ readTime }} min read</span>
-        <p>{{ excerpt }}</p>
-      </a>
-    </div>
-  </div>
-</section>`;
 
 // ─── Private Helpers ────────────────────────────────────────────────────────
 
@@ -80,46 +63,6 @@ function getExcerpt(content: Record<string, any>): string {
     return words.length >= 25 ? words.join(' ') + '...' : cleanText;
 }
 
-/**
- * Loads the list template using 3-tier fallback:
- *  Tier 1: Firestore doc `templates/{folder}:list` → field `html` or `originalHtml`
- *  Tier 2: HTTP fetch from hosting `https://{siteId}.web.app/templates/{folder}/list.html`
- *  Tier 3: Built-in FALLBACK_LIST_TEMPLATE
- */
-async function loadListTemplate(templateFolder: string | undefined, siteId: string): Promise<string> {
-    // "default" is a real template folder — see loadDetailTemplate for why.
-    const folder = !templateFolder || templateFolder === 'default' ? 'default' : templateFolder;
-
-    // Tier 1: Firestore
-    try {
-        const docRef = db.doc(`templates/${folder}:list`);
-        const snap = await docRef.get();
-        if (snap.exists) {
-            const data = snap.data();
-            const html = data?.html || data?.originalHtml;
-            if (html) return html;
-        }
-    } catch {
-        // Fall through to Tier 2
-    }
-
-    // Tier 2: Fetch from hosting (none to fetch from when hosting is off)
-    if (siteId) try {
-        const url = `https://${siteId}.web.app/templates/${folder}/list.html`;
-        const res = await fetch(url);
-        if (res.ok) {
-            const text = await res.text();
-            // A missing folder answers with the SPA shell (HTTP 200): not a template.
-            if (isTemplateFragment(text)) return text;
-        }
-    } catch {
-        // Fall through to Tier 3
-    }
-
-    // Tier 3: Built-in fallback
-    return FALLBACK_LIST_TEMPLATE;
-}
-
 // ─── Exported Functions ─────────────────────────────────────────────────────
 
 /**
@@ -129,7 +72,7 @@ async function loadListTemplate(templateFolder: string | undefined, siteId: stri
  *  1. Read ContentType from Firestore
  *  2. Read ALL published content for this type, ordered by publishedOn desc
  *  3. Load partials + site config
- *  4. Load list template (3-tier fallback)
+ *  4. Load the list template from the live site (site-files.ts)
  *  5. Build list data with excerpts, tags, dates
  *  6. Hydrate template: process loops, then page-level bindings
  *  7. Replace arc components, extract styles/scripts
@@ -175,8 +118,13 @@ export async function generateAndDeployContentListPage(
         getAboutConfig(),
     ]);
 
-    // 4. Load list template (3-tier fallback) — one template, every language
-    const templateHtml = await loadListTemplate(contentType.templateFolder, siteId);
+    // The stylesheets every language's page links, versioned (site-files.ts).
+    const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);
+
+    // 4. Load the list template from the live site (site-files.ts): one
+    //    template, every language. The detail page already stopped a publish
+    //    whose folder is missing, with the reason on the item.
+    const templateHtml = await loadSiteTemplate(contentType.templateFolder, 'list');
 
     // 5. Read every item's translations once, up front, so each language pass
     //    is pure assembly.
@@ -332,7 +280,7 @@ export async function generateAndDeployContentListPage(
             ogImage: '',
             ogType: 'website',
             siteName: siteConfig.siteName,
-            cssUrls: siteConfig.cssUrls || [],
+            cssUrls: stylesheets,
             // The feed stays default-language only — per-language RSS is a
             // deliberate non-goal until someone asks for it.
             rssUrl: `${baseUrl}/${contentTypeSlug}/feed.xml`,

@@ -12,6 +12,7 @@ import { ResizableDirective } from './resizable.directive';
             <div
                 class="handle"
                 [arcResizable]="key"
+                [resizeFallbackKey]="fallbackKey"
                 [resizeVar]="'--panel-w'"
                 [resizeEdge]="edge"
                 [resizeMin]="200"
@@ -25,6 +26,7 @@ import { ResizableDirective } from './resizable.directive';
 })
 class HostComponent {
     key = 'spec.panel';
+    fallbackKey = '';
     edge: 'start' | 'end' = 'end';
     committed: number[] = [];
 }
@@ -91,6 +93,29 @@ describe('ResizableDirective', () => {
             localStorage.setItem('arc:resizable:spec.panel', '5000');
             build();
             expect(panelWidth()).toBe(600);
+        });
+
+        it('starts a new key from the shared width, without writing the shared one', () => {
+            localStorage.setItem('arc:resizable:spec.shared', '420');
+            build({ key: 'spec.panel.articles', fallbackKey: 'spec.shared' });
+            expect(panelWidth()).toBe(420);
+
+            drag(500, 460);
+            release();
+            expect(localStorage.getItem('arc:resizable:spec.panel.articles')).toBe('460');
+            expect(localStorage.getItem('arc:resizable:spec.shared')).toBe('420');
+        });
+
+        it('keeps a width per key, and brings each back when the key changes', () => {
+            localStorage.setItem('arc:resizable:spec.panel.articles', '400');
+            localStorage.setItem('arc:resizable:spec.panel.manuals', '520');
+            build({ key: 'spec.panel.articles' });
+            expect(panelWidth()).toBe(400);
+
+            host.key = 'spec.panel.manuals';
+            fixture.componentRef.changeDetectorRef.markForCheck();
+            fixture.detectChanges();
+            expect(panelWidth()).toBe(520);
         });
 
         it('falls back to the default when the stored width is corrupt', () => {

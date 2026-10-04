@@ -43,7 +43,7 @@
     </ol>
     <p>To change one of Arc CMS's folders instead, put a file at the same path in your site folder: <code class="new">src/custom/site/templates/default/detail.html</code> replaces the default detail layout and leaves its list and cards as Arc CMS ships them.</p>
     <p>The header and footer work the same way: <code class="new">src/custom/site/header.html</code> and <code class="new">src/custom/site/footer.html</code> replace Arc CMS's (<code>public/_site/header.html</code>, <code>public/_site/footer.html</code>). They are plain HTML fragments; <code>&lt;arc-search&gt;</code> and <code>&lt;arc-language-switcher&gt;</code> in the header become the search box and the language links.</p>
-    <div class="trap"><p>A template that is a whole HTML document (with a doctype, <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code>) is not used: the app shows the default template instead, and a published page gets a bare built-in layout. If your page does not look like your template, check that first. A file in your site folder that is not a template, page or other site file (say <code>templates/case-studies/card.html</code>) is not served; <code>npm run dev</code> lists it in a warning.</p></div>
+    <div class="trap"><p>A template that is a whole HTML document (with a doctype, <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code>) is not used: the app shows the default template instead, and publishing stops with a message on the item. If your page does not look like your template, check that first. A file in your site folder that is not a template, page or other site file (say <code>templates/case-studies/card.html</code>) is not served; <code>npm run dev</code> lists it in a warning.</p></div>
 
     <h2>Put the content in</h2>
     <p>Four attributes and one placeholder do the work:</p>
@@ -65,7 +65,7 @@
 
     <h2>Put it live</h2>
     <p>Publishing reads the templates, header and footer from the live site, not from your computer. Deploy the website once your templates are ready (see <a href="../operations/deploy.html">Deploy</a>): the website deploy also republishes every page with the new templates.</p>
-    <div class="trap"><p>Publishing an item after editing its template locally, but before deploying the website, produces a page with the old template. Deploy the website first.</p></div>
+    <div class="trap"><p>Publishing an item after editing its template locally, but before deploying the website, produces a page with the old template. Deploy the website first. A type whose folder is new, so not on the live site yet, is not published at all: the editor shows "Template folder 'x' is not on the live site. Deploy the website, then publish again."</p></div>
 
     <h2>Cards on the home page</h2>
     <p>The home page, <code>public/index.html</code>, can show cards of any type with <code>&lt;arc-content-partials [contentType]="'articles'"&gt;&lt;/arc-content-partials&gt;</code>, laid out by that type's <code>partials.html</code> (its folder's, else the default's). This element works on the home page only; content pages and static pages do not render it.</p>

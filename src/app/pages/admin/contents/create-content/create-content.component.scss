@@ -567,10 +567,12 @@
 //     }
 // }
 
-// Sidebar Resize Handle
+// Sidebar Resize Handle: always visible, so people can tell the panel resizes.
+// A divider line the full height, and a grip pill with dots in the middle; both
+// take the accent colour while hovered, focused or dragged.
 .sidebar-resizer {
     flex: 0 0 auto;
-    width: 0.5rem;
+    width: 0.75rem;
     align-self: stretch;
     cursor: col-resize;
     user-select: none;
@@ -578,24 +580,50 @@
     position: relative;
     background: transparent;
 
-    // Thin accent that fades in, so the divider reads as grabbable on hover.
-    &::after {
+    // The divider.
+    &::before {
         content: '';
         position: absolute;
         top: 0;
         bottom: 0;
         left: 50%;
-        width: 2px;
+        width: 1px;
         transform: translateX(-50%);
-        background-color: #4a6cf7;
-        opacity: 0;
-        transition: opacity 0.15s ease;
+        background-color: #cbd5e1;
+        transition: background-color 0.15s ease, width 0.15s ease;
     }
 
-    &:hover::after,
-    &:focus-visible::after,
-    &.arc-resizing::after {
-        opacity: 1;
+    // The grip: a rounded pill with two columns of dots.
+    &::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 12px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+        border-radius: 6px;
+        border: 1px solid #94a3b8;
+        background-color: #fff;
+        background-image: radial-gradient(circle, #64748b 1.3px, transparent 1.5px);
+        background-size: 5px 6px;
+        background-position: center;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    &:hover,
+    &:focus-visible,
+    &.arc-resizing {
+        &::before {
+            width: 2px;
+            background-color: #4a6cf7;
+        }
+
+        &::after {
+            border-color: #4a6cf7;
+            background-image: radial-gradient(circle, #4a6cf7 1.3px, transparent 1.5px);
+        }
     }
 
     &:focus-visible {

@@ -7,6 +7,7 @@ const __dirname = dirname(__filename);
 // ─── Hoisted mocks ──────────────────────────────────────────────────────────
 const {
     mockFetch,
+    mockLoadSiteTemplate,
     mockDeployFileToHosting,
     mockDeployBatchToHosting,
     mockGetPartials,
@@ -16,7 +17,6 @@ const {
     mockGetUiStrings,
     mockGetAboutConfig,
     mockTranslationsGet,
-    mockDocGet,
     mockContentTypeWhere,
     mockContentTypeLimitGet,
     mockContentsOrderBy,
@@ -25,6 +25,7 @@ const {
     mockTopDoc,
 } = vi.hoisted(() => ({
     mockFetch: vi.fn(),
+    mockLoadSiteTemplate: vi.fn(),
     mockDeployFileToHosting: vi.fn(),
     mockDeployBatchToHosting: vi.fn(),
     mockGetPartials: vi.fn(),
@@ -34,7 +35,6 @@ const {
     mockGetUiStrings: vi.fn(),
     mockGetAboutConfig: vi.fn(),
     mockTranslationsGet: vi.fn(),
-    mockDocGet: vi.fn(),
     mockContentTypeWhere: vi.fn(),
     mockContentTypeLimitGet: vi.fn(),
     mockContentsOrderBy: vi.fn(),
@@ -50,6 +50,13 @@ vi.mock('../init', () => ({
         collection: mockCollection,
         doc: mockTopDoc,
     },
+}));
+
+// Templates come from the live site (shared/site-files.ts, tested in siteFiles.spec.ts);
+// here the loader hands each test its template. The error class stays real.
+vi.mock('../shared/site-files', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../shared/site-files.js')>()),
+    loadSiteTemplate: mockLoadSiteTemplate,
 }));
 
 vi.mock('../pages/deployToHosting', async (importOriginal) => {
@@ -199,18 +206,8 @@ function restoreMockImplementations() {
         };
     });
 
-    // Template doc (Tier 1)
-    mockDocGet.mockResolvedValue({
-        exists: true,
-        data: () => ({ html: MOCK_LIST_TEMPLATE }),
-    });
-    mockTopDoc.mockReturnValue({ get: mockDocGet });
-
-    // Tier 2 fetch
-    mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve(MOCK_LIST_TEMPLATE),
-    });
+    // The type's list template, as the live site serves it.
+    mockLoadSiteTemplate.mockResolvedValue(MOCK_LIST_TEMPLATE);
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -250,57 +247,18 @@ describe('deployContentListPage', () => {
         });
     });
 
-    describe('Template 3-tier fallback', () => {
-        it('Tier 1: should load from Firestore html field', async () => {
+    describe('Template from the live site', () => {
+        it('asks for the type\'s list template', async () => {
             await generateAndDeployContentListPage('articles');
 
-            expect(mockTopDoc).toHaveBeenCalledWith('templates/articles:list');
-        });
-
-        it('Tier 1 fallback: should use originalHtml when html missing', async () => {
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ originalHtml: MOCK_LIST_TEMPLATE }),
-            });
-
-            await generateAndDeployContentListPage('articles');
-
-            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            expect(deployedHtml).toContain('Articles');
-        });
-
-        it('Tier 2: should fetch from hosting when Firestore doc missing', async () => {
-            mockDocGet.mockResolvedValue({ exists: false, data: () => null });
-
-            await generateAndDeployContentListPage('articles');
-
-            expect(mockFetch).toHaveBeenCalledWith(
-                'https://test-project.web.app/templates/articles/list.html',
-            );
-        });
-
-        it('Tier 3: should use fallback when Tier 1+2 fail', async () => {
-            mockDocGet.mockRejectedValue(new Error('Firestore error'));
-            mockFetch.mockRejectedValue(new Error('Network error'));
-
-            await generateAndDeployContentListPage('articles');
-
+            expect(mockLoadSiteTemplate).toHaveBeenCalledWith(MOCK_CONTENT_TYPE.templateFolder, 'list');
             expect(mockDeployBatchToHosting).toHaveBeenCalled();
-            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            expect(deployedHtml).toContain('First Article');
         });
 
-        it('should load the shared default template when templateFolder is "default"', async () => {
-            // See deployContentPage.spec — "default" is a real template folder.
-            mockContentTypeLimitGet.mockResolvedValue({
-                empty: false,
-                docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, templateFolder: 'default' }) }],
-            });
-
+        it('reads no template from Firestore', async () => {
             await generateAndDeployContentListPage('articles');
 
-            expect(mockTopDoc).toHaveBeenCalledWith('templates/default:list');
-            expect(mockDeployBatchToHosting).toHaveBeenCalled();
+            expect(mockTopDoc).not.toHaveBeenCalled();
         });
     });
 
@@ -569,10 +527,7 @@ describe('deployContentListPage', () => {
                     { id: 'doc2', data: () => ({ ...MOCK_CONTENTS[1] }) },
                 ],
             });
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: '<ul data-arc-loop="items"><li><span class="by" data-arc-if="authorName">By {{ authorName }}</span>{{ title }}</li></ul>' }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<ul data-arc-loop="items"><li><span class="by" data-arc-if="authorName">By {{ authorName }}</span>{{ title }}</li></ul>');
             await generateAndDeployContentListPage('articles');
             const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(html).toContain('By Jane Doe');

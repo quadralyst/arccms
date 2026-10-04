@@ -29,7 +29,8 @@ vi.mock('../pages/deployToHosting', () => ({
     deployFileToHosting: mockDeployFileToHosting,
 }));
 
-import { generateAndDeployStaticPage } from '../pages/deployStaticPage.js';
+import { generateAndDeployStaticPage, staticPageSlugs } from '../pages/deployStaticPage.js';
+import { clearSiteFilesCache } from '../shared/site-files.js';
 
 // ─── Test Data ──────────────────────────────────────────────────────────────
 
@@ -80,6 +81,7 @@ const MOCK_SITE_CONFIG = {
 describe('deployStaticPage', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        clearSiteFilesCache();
         process.env.GCLOUD_PROJECT = 'test-project';
 
         mockGetPartials.mockResolvedValue(MOCK_PARTIALS);
@@ -95,11 +97,11 @@ describe('deployStaticPage', () => {
     });
 
     describe('happy path', () => {
-        it('should fetch raw HTML from hosting at /pages/{slug}.html', async () => {
+        it('should fetch the page from the live site at /_site/pages/{slug}.html', async () => {
             await generateAndDeployStaticPage('privacy-policy');
 
             expect(mockFetch).toHaveBeenCalledWith(
-                'https://test-project.web.app/pages/privacy-policy.html',
+                'https://test-project.web.app/_site/pages/privacy-policy.html',
             );
         });
 
@@ -196,19 +198,17 @@ describe('deployStaticPage', () => {
 
             await expect(
                 generateAndDeployStaticPage('nonexistent'),
-            ).rejects.toThrow('Failed to fetch static page source');
+            ).rejects.toThrow('The live site has no page nonexistent (/_site/pages/nonexistent.html). Deploy the website first.');
         });
 
-        it('should include HTTP status code in error message', async () => {
+        it('should throw when the live site answers with the app shell (no such page)', async () => {
             mockFetch.mockResolvedValue({
-                ok: false,
-                status: 403,
-                text: () => Promise.resolve('Forbidden'),
+                ok: true,
+                status: 200,
+                text: () => Promise.resolve('<!doctype html><html><body><arc-root></arc-root></body></html>'),
             });
 
-            await expect(
-                generateAndDeployStaticPage('forbidden'),
-            ).rejects.toThrow('HTTP 403');
+            await expect(generateAndDeployStaticPage('terms')).rejects.toThrow('The live site has no page terms');
         });
 
         it('should throw when fetch itself fails (network error)', async () => {
@@ -216,7 +216,7 @@ describe('deployStaticPage', () => {
 
             await expect(
                 generateAndDeployStaticPage('privacy-policy'),
-            ).rejects.toThrow('Network error');
+            ).rejects.toThrow('The live site has no page privacy-policy');
         });
     });
 
@@ -230,7 +230,9 @@ describe('deployStaticPage', () => {
             await generateAndDeployStaticPage('privacy-policy');
 
             const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
-            expect(deployedHtml).not.toContain('stylesheet');
+            // Only the site's own stylesheet, which every page links.
+            expect(deployedHtml.match(/rel="stylesheet"/g)).toHaveLength(1);
+            expect(deployedHtml).toContain('href="/assets/css/site.css"');
             // Should still replace arc components
             expect(deployedHtml).toContain('Site Header');
         });
@@ -255,7 +257,7 @@ describe('deployStaticPage', () => {
             await generateAndDeployStaticPage('privacy-policy');
 
             expect(mockFetch).toHaveBeenCalledWith(
-                'https://my-custom-project.web.app/pages/privacy-policy.html',
+                'https://my-custom-project.web.app/_site/pages/privacy-policy.html',
             );
             expect(mockDeployFileToHosting).toHaveBeenCalledWith(
                 'my-custom-project',
@@ -286,6 +288,28 @@ describe('deployStaticPage', () => {
             const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
             expect(deployedHtml).not.toContain('Powered by');
             expect(deployedHtml).not.toContain('arccms.com');
+        });
+    });
+
+    describe('staticPageSlugs', () => {
+        it('lists every page in the live site\'s manifest, the app\'s own included', async () => {
+            mockFetch.mockResolvedValue({
+                ok: true,
+                status: 200,
+                text: () => Promise.resolve(JSON.stringify({
+                    version: 1, home: {}, templates: {}, strings: [], files: {},
+                    pages: { terms: 'app', 'privacy-policy': 'app', 'cookie-policy': 'core' },
+                })),
+            });
+
+            expect(await staticPageSlugs()).toEqual(['cookie-policy', 'privacy-policy', 'terms']);
+            expect(mockFetch).toHaveBeenCalledWith('https://test-project.web.app/_site/site.json');
+        });
+
+        it('falls back to the two pages Arc CMS has always shipped when the live site has no manifest', async () => {
+            mockFetch.mockResolvedValue({ ok: false, status: 404, text: () => Promise.resolve('') });
+
+            expect(await staticPageSlugs()).toEqual(['privacy-policy', 'cookie-policy']);
         });
     });
 });

@@ -5,9 +5,7 @@ import { deploySeoFileToHosting } from './deploySeoFile.js';
 import { HostingBatch } from './deployToHosting.js';
 import { detailUrl, listUrl } from '../shared/content-translation.js';
 import { lastmodDate } from '../shared/content-dates.js';
-
-/** Known static pages to include in the sitemap. */
-const STATIC_PAGES = ['privacy-policy', 'cookie-policy'];
+import { staticPageSlugs } from './deployStaticPage.js';
 
 /**
  * Escapes special XML characters in a string.
@@ -124,8 +122,8 @@ export async function generateAndDeploySitemap(batch?: HostingBatch): Promise<vo
         }
     }
 
-    // 4. Static pages
-    for (const pageSlug of STATIC_PAGES) {
+    // 4. Static pages: every page the site publishes (staticPageSlugs)
+    for (const pageSlug of await staticPageSlugs()) {
         urls.push(buildUrlEntry(`${baseUrl}/pages/${pageSlug}`, toIsoDate(null), 'monthly', '0.4'));
     }
 

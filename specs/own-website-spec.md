@@ -1,6 +1,6 @@
 # An App's Own Website: Build Spec
 
-**Status:** W1 and W2 built 2026-10-04 on `feat/own-website` (uncommitted); W3 to W7 not built.
+**Status:** W1 and W2 built and committed 2026-10-04 (446b05e); W3 built 2026-10-04, deployed to the dev project (processPublishQueue, seedStaticPages, regenerateSeoFiles, website, seed) and browser-checked; uncommitted. W4 to W7 not built.
 **Branch:** `feat/own-website`, cut from `dev` (a41d8b4), in the worktree `../arccms-own-website`.
 **Scope:** an app built on Arc CMS owns its whole public website (home page in every
 language, header, footer, content templates, static pages, styles, favicon, error
@@ -29,7 +29,7 @@ which is its own task; a visual editor for templates.
 | W-D7 | Home page languages | **Either way** (decided 2026-10-04): `home.{lang}.html` when it exists, otherwise `home.html` published in that language with `data-arc-t` text from `strings/{lang}.json`. Published for every enabled language. |
 | W-D8 | Scripts and animation | **Plain script files** (decided 2026-10-04): libraries from a CDN or from `src/custom/site/assets/`, the app's own `home.js` served as a file. No build step; no npm imports in site scripts. |
 | W-D9 | Placeholder home page | Core's home page is "This site is not set up yet" with a link to the docs, `noindex`. The Arc CMS marketing page becomes a docs example. |
-| W-D10 | System default templates | **One set**, `partials.html`, `list.html`, `detail.html`, used for any public type without its own folder. The SPA's built-in Angular copy of the default layout is removed. The set is also bundled into the functions, so publishing a type on the default never depends on what is live. |
+| W-D10 | System default templates | **One set**, `partials.html`, `list.html`, `detail.html`, used for any public type without its own folder. The SPA's built-in Angular copy of the default layout is removed. Publishing reads the default from the live site like any folder; a copy built into the functions (`functions/src/site-defaults.gen.ts`, gitignored, from `scripts/arc-site-defaults.mjs`) is used only when the live site cannot give it (hosting off, or not yet deployed with `/_site/`), so a type on the default always publishes a full page (refined during W3, 2026-10-04). |
 | W-D11 | Template folders | Reusable folders, listed by the build (no `templates.json` to edit). A content type picks one only when it has public pages (as today); a folder named after the type's slug is preselected. |
 | W-D12 | Header and footer in the SPA | Rendered from the same HTML as published pages, not compiled as Angular templates. The `{`, `}`, `@` escaping rule disappears. |
 | W-D13 | Live parts of published pages | One script, `/assets/js/arc-site.js`, beside `arc-search.js`: signup forms, live counts, the legal notice, PWA install. Published pages work without the SPA. |
@@ -38,6 +38,8 @@ which is its own task; a visual editor for templates.
 | W-D16 | Legal links on signup forms | **No setting.** The notice links to `/p/terms` and `/p/privacy-policy` when the site has those pages; its wording is translatable through `strings/{lang}.json`. `src/shared/constants/legal-notice.ts` keeps only the wording defaults. |
 | W-D18 | Site stylesheets in the app | **On only while a website page is shown** (added 2026-10-04). `main.css` and `site.css` are each one `<link>`, versioned `?v={hash}`, switched on by the website's components (header, footer, home page, sign-in page) and off (`disabled`) when the last goes, so they never style the admin or member area. `main.css` leaves the home page's JS bundle. |
 | W-D19 | The sign-in page is the site's | **Added to W2 on request (2026-10-04).** Name and logo from Settings, About (Arc CMS's when unset); the brand panel is a site file, `sign-in.html` (core ships a neutral one, no marketing); colours and font through CSS variables set in `site.css` (`--arc-sign-in-*`). |
+| W-D20 | Failures found in W3 testing | **Fixed in W3 (2026-10-04).** (a) A release that went out without the item's own page stamped the item "deployed", hiding any build failure: the publish queue now releases the rest unstamped and records the failure on the item. (b) The editor read the previous publish's result as this one's: it now waits for a deploy time that differs from the one on the record when it started watching. |
+| W-D21 | Editor side panel | **Added to W3 on request (2026-10-04).** The resize handle is always visible (divider plus a dotted grip) and the width is remembered per content type in the browser, starting from the shared width. |
 | W-D17 | Migration | **`npm run arc:own-site`**, a plan by default and the move with `--write` (section 9). Quadralyst's own website becomes an app repo of its own and is the first site moved with it. |
 
 ---
@@ -98,8 +100,9 @@ the build output (build). Core's `public/` keeps only plain served files.
 - **System default set:** `public/templates/default/` gains `partials.html`. The SPA renders
   a type on the default from these files, through the same filler as a custom folder; the
   built-in Angular layout in `content-detail` and `content-list` goes.
-- **Publishing:** reads `/_site/templates/{folder}/{file}.html` from the live site. The
-  default set is bundled into the functions build and used directly.
+- **Publishing:** reads `/_site/templates/{folder}/{file}.html` from the live site
+  (`functions/src/shared/site-files.ts`), the default folder included; the copy built
+  into the functions is the last resort (W-D10).
 - **Missing folder:** a type whose folder is not in the live `site.json` fails to publish,
   with the status "Template folder 'x' is not on the live site. Deploy the website, then
   publish again." Today it silently publishes with a bare fallback.

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content | Arc CMS docs</title>
   <meta name="description" content="Define content types, write and publish entries, and understand how a published entry becomes a static page on Firebase Hosting.">
-  <meta name="docs:sources" content="functions/src/features/content.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/_site/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
+  <meta name="docs:sources" content="functions/src/features/content.ts, src/shared/directives/resizable/resizable.directive.ts, src/app/pages/admin/contents/content-store/published-contents.service.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/_site/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/content.html">
@@ -91,8 +91,8 @@
     <ol class="steps">
       <li><p>Open <strong>Content &gt; {your type}</strong> and choose <strong>Add {type}</strong>, such as <strong>Add Article</strong>.</p></li>
       <li><p>Write the title and body in the rich editor (TipTap: headings, lists, tables, task lists, links, images from the media library, YouTube embeds, text color and alignment). Fill in the cover image, summary, tags, author, SEO fields and custom fields.</p></li>
-      <li><p>The editor saves the draft as you work. Use <strong>Preview</strong> to see the draft rendered on the site.</p></li>
-      <li><p>Choose <strong>Publish</strong>. The editor shows the deploy status of the page (<strong>Deploying to hosting...</strong>, then <strong>Deployed to hosting</strong>) and offers a retry if the release failed.</p></li>
+      <li><p>The editor saves the draft as you work. Use <strong>Preview</strong> to see the draft rendered on the site. Drag the grip on the divider between the writing area and the settings panel to make the panel wider or narrower; the editor remembers the width for each content type on this computer, and a double-click puts it back.</p></li>
+      <li><p>Choose <strong>Publish</strong>. The editor shows the deploy status of this publish (<strong>Deploying to hosting...</strong>, then <strong>Deployed to hosting</strong> or <strong>Deploy failed</strong>, with the reason when you point at it) and offers a retry if the release failed. A page whose template folder is not on the live site yet fails with "Template folder 'x' is not on the live site. Deploy the website, then publish again."</p></li>
     </ol>
     <p>Other actions:</p>
     <table>
@@ -112,7 +112,7 @@
       <li><p>The editor saves the draft to <code>arc_{slug}_drafts</code> and writes a queue item (<code>publish</code>, <code>unpublish</code> or <code>delete</code>) to <code>_publish_queue</code>.</p></li>
       <li><p>The <code>processPublishQueue</code> function (<code>functions/src/publishQueue/processPublishQueue.ts</code>) copies the draft to <code>arc_{slug}</code> with <code>publishedOn</code> set to the time of publishing, adds a version to <code>PublishedHistory</code>, copies translations and updates the search index.</p></li>
       <li><p>It renders the detail page in every language the entry has, the Markdown twin, and the type's list page, from the type's template (see <a href="templates.html">Templates</a>). With the <code>seo</code> feature on, it also rebuilds the sitemap, feeds, <code>robots.txt</code> and <code>llms.txt</code>.</p></li>
-      <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows.</p></li>
+      <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows. When the entry's own page cannot be built, the rest of the release (list page, sitemap, feeds) still goes out, and the entry is marked failed with the reason rather than deployed.</p></li>
     </ol>
     <table>
       <thead><tr><th>Page</th><th>File on Hosting</th></tr></thead>

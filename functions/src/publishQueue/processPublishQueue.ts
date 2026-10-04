@@ -2,6 +2,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
+import { MissingTemplateFolderError } from '../shared/site-files.js';
 import { generateAndDeployContentDetailPage, removeContentPage } from '../pages/deployContentPage.js';
 import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
@@ -213,6 +214,25 @@ async function addDiscoverabilityFiles(batch: HostingBatch): Promise<void> {
     }
 }
 
+/**
+ * Marks an item whose page could not be built as failed, with the reason, for the
+ * editor to show (its deploy status badge). A template folder the live site does
+ * not have says so in words an editor can act on (MissingTemplateFolderError).
+ */
+async function recordPageFailure(collectionName: string, docId: string, error: unknown): Promise<void> {
+    const err = error as { message?: string; code?: string };
+    try {
+        await db.collection(collectionName).doc(docId).update({
+            deployStatus: 'failed',
+            deployedAt: new Date(),
+            deployError: err?.message || 'The page could not be built.',
+            deployErrorCode: error instanceof MissingTemplateFolderError ? 'TEMPLATE_FOLDER_MISSING' : (err?.code || 'PAGE_BUILD_FAILED'),
+        });
+    } catch (stampErr) {
+        console.error(`Could not record the failed deploy on ${collectionName}/${docId}:`, stampErr);
+    }
+}
+
 export const processPublishQueue = onDocumentCreated({
     ...arcDocument('_publish_queue/{queueId}'),
     // A 'redeploy-all' rebuilds every published page in one invocation —
@@ -239,6 +259,8 @@ export const processPublishQueue = onDocumentCreated({
     // a release list that had not caught up and silently drop an earlier
     // file, which cost a translated page (specs/_todo.md item 3c).
     const batch = new HostingBatch();
+    /** Why this item's own page could not be built, if it could not (recordPageFailure). */
+    let pageError: unknown = null;
 
     // Handled ahead of the per-document setup below, which needs a document to
     // point at. This one is about the site, not about a document.
@@ -309,6 +331,7 @@ export const processPublishQueue = onDocumentCreated({
                         await generateAndDeployContentDetailPage(contentTypeSlug, docId, batch);
                         await generateAndDeployContentListPage(contentTypeSlug, batch);
                     } catch (deployErr) {
+                        pageError = deployErr;
                         console.error(`Static HTML deployment failed for publish ${contentTypeSlug}/${docId}:`, deployErr);
                     }
                 }
@@ -387,6 +410,7 @@ export const processPublishQueue = onDocumentCreated({
                         await generateAndDeployContentDetailPage(contentTypeSlug, docId, batch);
                         await generateAndDeployContentListPage(contentTypeSlug, batch);
                     } catch (deployErr) {
+                        pageError = deployErr;
                         console.error(`Static HTML deployment failed for update ${contentTypeSlug}/${docId}:`, deployErr);
                     }
                 }
@@ -486,13 +510,16 @@ export const processPublishQueue = onDocumentCreated({
         console.error(`Error processing queue item (${action} ${publishedCollection}/${docId}):`, error);
     }
 
-    // Single release for the whole queue item.
+    // Single release for the whole queue item. When the item's own page could
+    // not be built, the rest (list page, sitemap, feeds) still goes out, but the
+    // release must not stamp the item "deployed": its failure is recorded below.
     if (!batch.isEmpty) {
         try {
             // First argument is the Hosting *site*, not the collection — the
             // deploy silently targets a site that does not exist otherwise.
             const siteId = arcHostingSite();
-            const released = await deployBatchToHosting(siteId, batch, publishedCollection, docId);
+            const released = await deployBatchToHosting(
+                siteId, batch, pageError ? '' : publishedCollection, pageError ? '' : docId);
             // Only after the release succeeded: a ping for pages that never
             // went live would send the engines to a 404 (D-D9). deployBatchToHosting
             // records a failure (or hosting being off) rather than throwing, so the
@@ -505,6 +532,8 @@ export const processPublishQueue = onDocumentCreated({
             console.error(`Hosting release failed for ${action} ${contentTypeSlug}/${docId}:`, deployErr);
         }
     }
+
+    if (pageError) await recordPageFailure(publishedCollection, docId, pageError);
 
     // Always clean up the queue document
     if (queueDocRef) {

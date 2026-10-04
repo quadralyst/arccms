@@ -86,7 +86,10 @@ vi.mock('../pages/deployContentListPage', () => ({
 }));
 
 vi.mock('../pages/generateSitemap', () => ({
-    generateAndDeploySitemap: vi.fn().mockResolvedValue(undefined),
+    // Adds the sitemap to the release, as the real one does.
+    generateAndDeploySitemap: vi.fn(async (batch?: { add(path: string, content: string): void }) => {
+        batch?.add('/sitemap.xml', '<urlset/>');
+    }),
 }));
 
 vi.mock('../pages/generateRssFeed', () => ({
@@ -118,6 +121,7 @@ vi.mock('firebase-admin/firestore', () => ({
 }));
 
 import { processPublishQueue } from '../publishQueue/processPublishQueue.js';
+import { MissingTemplateFolderError } from '../shared/site-files.js';
 
 // The mock of onDocumentCreated returns the handler directly,
 // so processPublishQueue IS the handler function.
@@ -311,6 +315,52 @@ describe('processPublishQueue', () => {
             expect(mockBatchCommit).toHaveBeenCalled();
             // Queue doc should still be cleaned up
             expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+    });
+
+    describe('a page that cannot be built', () => {
+        beforeEach(() => {
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Test', content: '<p>body</p>', urlSlug: 'test' }),
+            });
+        });
+
+        it('releases the rest without stamping the item deployed, and records why on it', async () => {
+            mockGenerateDetailPage.mockRejectedValue(new MissingTemplateFolderError('recipes', true));
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            // The sitemap still goes out, but the release names no item to stamp.
+            expect(mockDeployBatchToHosting).toHaveBeenCalledWith(expect.anything(), expect.anything(), '', '');
+            expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+                deployStatus: 'failed',
+                deployErrorCode: 'TEMPLATE_FOLDER_MISSING',
+                deployError: "Template folder 'recipes' is not on the live site. Deploy the website, then publish again.",
+            }));
+        });
+
+        it('records any other build failure too, rather than reporting it deployed', async () => {
+            mockGenerateDetailPage.mockRejectedValue(Object.assign(new Error('Content type configuration not found'), { code: 'CONTENT_TYPE_NOT_FOUND' }));
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+                deployStatus: 'failed',
+                deployErrorCode: 'CONTENT_TYPE_NOT_FOUND',
+                deployError: 'Content type configuration not found',
+            }));
+        });
+
+        it('stamps the item as before when its page was built', async () => {
+            mockGenerateDetailPage.mockImplementation(async (_slug: string, _id: string, batch: any) => {
+                batch.add('/articles/test.html', '<html></html>');
+            });
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockDeployBatchToHosting).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'arc_articles', 'doc1');
+            expect(mockUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ deployStatus: 'failed' }));
         });
     });
 

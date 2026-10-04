@@ -58,6 +58,8 @@ vi.mock('../pages/deployContentListPage', () => ({
 
 vi.mock('../pages/deployStaticPage', () => ({
     generateAndDeployStaticPage: mockGenerateStaticPage,
+    // The pages the live site lists; the two Arc CMS ships, as on a fresh install.
+    staticPageSlugs: vi.fn().mockResolvedValue(['cookie-policy', 'privacy-policy']),
 }));
 
 vi.mock('../pages/generateRobotsTxt', () => ({
@@ -453,7 +455,7 @@ describe('seedStaticPages', () => {
             expect(result.success).toBe(false);
             expect(result.deployed).toBe(0);
             expect(result.details).toEqual(expect.arrayContaining([
-                expect.stringContaining('headerHtml is empty'),
+                expect.stringContaining('The live site has no header'),
             ]));
             expect(mockGenerateDetailPage).not.toHaveBeenCalled();
             expect(mockGenerateListPage).not.toHaveBeenCalled();
@@ -481,12 +483,13 @@ describe('seedStaticPages', () => {
             expect(result.details[0]).toContain('Settings/site');
         });
 
-        it('should include helpful guidance in the headerHtml error message', async () => {
+        it('says to deploy the website when the live site has no header', async () => {
             mockGetPartials.mockResolvedValue({ headerHtml: '', footerHtml: '' });
 
             const result = await handler({});
 
-            expect(result.details[0]).toContain('Settings/partials');
+            expect(result.details[0]).toContain('/_site/header.html');
+            expect(result.details[0]).toContain('Deploy the website');
         });
     });
 });

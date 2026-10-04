@@ -30,7 +30,7 @@
     <table>
       <thead><tr><th>Renderer</th><th>When</th><th>Where the template comes from</th></tr></thead>
       <tbody>
-        <tr><td>Publishing (Cloud Functions)</td><td>On publish, and on the seed. Writes the static pages Hosting serves.</td><td>1. A Firestore document <code>templates/{folder}:detail</code> or <code>templates/{folder}:list</code> (field <code>html</code>), if one exists. 2. The file on the live Hosting site. 3. A bare built-in layout.</td></tr>
+        <tr><td>Publishing (Cloud Functions)</td><td>On publish, and on the seed. Writes the static pages Hosting serves.</td><td>The same file, read from the live site at <code>/_site/templates/</code>. A folder the live site does not have stops the publish with a message (see Troubleshooting). Only when the live site cannot give the default folder's file (hosting off, or not deployed since <code>/_site/</code> existed) is the copy of the default templates built into the functions used.</td></tr>
         <tr><td>The app (browser)</td><td>For pages not yet on Hosting, previews, and local runs</td><td>The file served by the app at <code>/_site/templates/</code>, the same one publishing reads once deployed.</td></tr>
       </tbody>
     </table>
@@ -193,8 +193,8 @@
     <table>
       <thead><tr><th>What</th><th>Edit</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td>Header and footer</td><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code> (else Arc CMS's <code>public/_site/header.html</code>, <code>public/_site/footer.html</code>)</td><td>Plain HTML. The app renders them as they are, filling <code>data-arc-t</code>, the language of links, <code>&lt;arc-search&gt;</code> and <code>&lt;arc-language-switcher&gt;</code>. Publishing reads them from the live Hosting site, unless the <code>Settings/partials</code> document has <code>headerHtml</code> or <code>footerHtml</code>, which then win.</td></tr>
-        <tr><td>Site stylesheets</td><td><code class="new">src/custom/site/site.css</code>, served as <code>/assets/css/site.css</code></td><td>Loaded on the website's pages and the sign-in page, never in the admin or member area. Published pages link every URL in <code>cssUrls</code> of <code>Settings/site</code>: by default Bootstrap 5, Font Awesome 6.5.1 and <code>/assets/css/main.css</code>, Arc CMS's own styles (a core file). There is no admin screen for the list; change it in the Firestore console.</td></tr>
+        <tr><td>Header and footer</td><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code> (else Arc CMS's <code>public/_site/header.html</code>, <code>public/_site/footer.html</code>)</td><td>Plain HTML. The app renders them as they are, filling <code>data-arc-t</code>, the language of links, <code>&lt;arc-search&gt;</code> and <code>&lt;arc-language-switcher&gt;</code>. Publishing reads the same files from the live Hosting site at <code>/_site/</code>.</td></tr>
+        <tr><td>Site stylesheets</td><td><code class="new">src/custom/site/site.css</code>, served as <code>/assets/css/site.css</code></td><td>Loaded on the website's pages and the sign-in page, never in the admin or member area. Published pages link every URL in <code>cssUrls</code> of <code>Settings/site</code> (by default Bootstrap 5, Font Awesome 6.5.1 and <code>/assets/css/main.css</code>, Arc CMS's own styles, a core file), then <code>/assets/css/site.css</code>, both stylesheets with a version that changes with the file. There is no admin screen for the list; change it in the Firestore console.</td></tr>
         <tr><td>A template's own styles and scripts</td><td><code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> in the template</td><td>Publishing moves them into the page. The app runs a template's scripts after it draws it.</td></tr>
       </tbody>
     </table>
@@ -203,8 +203,6 @@
     <h2>Extend it</h2>
     <ul>
       <li><strong>A new look for one type:</strong> a new folder, as in <a href="#set-it-up">Set it up</a>.</li>
-      <li><strong>Change a template without a Hosting deploy:</strong> write the HTML to the Firestore document <code>templates/{folder}:detail</code> or <code>templates/{folder}:list</code>, field <code>html</code>, from the Firebase console. Publishing prefers it over the file; the app does not read it. Arc CMS has no screen for these documents.</li>
-      <li><strong>Header and footer that differ from the files:</strong> the <code>Settings/partials</code> document, as above.</li>
       <li>New attributes or bindings are a core change: the two renderers, <code>functions/src/shared/template-hydration.ts</code> and <code>src/app/core/services/template-hydration.service.ts</code>, must stay the same. See <a href="../contributing/keep-core-generic.html">Keep core generic</a>.</li>
     </ul>
 
@@ -216,21 +214,21 @@
         <tr><td><code class="new">src/custom/site/header.html</code>, <code class="new">footer.html</code></td><td>Header and footer, deployed at <code>/_site/header.html</code> and <code>/_site/footer.html</code></td></tr>
         <tr><td><code>/_site/site.json</code></td><td>Written by the build: the template folders and the files in each, with a hash of every file</td></tr>
         <tr><td><code>ContentTypes/{id}</code>, field <code>templateFolder</code></td><td>Which folder a type uses (empty or <code>default</code> means the default folder)</td></tr>
-        <tr><td><code>templates/{folder}:detail</code>, <code>templates/{folder}:list</code></td><td>Optional overrides, field <code>html</code></td></tr>
-        <tr><td><code>Settings/partials</code>, <code>Settings/site</code></td><td>Optional header and footer overrides; the stylesheet list <code>cssUrls</code></td></tr>
+        <tr><td><code>Settings/site</code></td><td>The stylesheet list <code>cssUrls</code></td></tr>
       </tbody>
     </table>
     <p>Templates have no Cloud Functions of their own; the content feature's functions render them (see <a href="content.html">Content</a>).</p>
 
     <h2>Who can do what</h2>
-    <p>Template files are changed by whoever can edit the repository and deploy Hosting. Choosing a type's folder is an admin action in the content type screen. The <code>templates</code> collection has no security rule, so only the Firebase console and Cloud Functions can read or write it; <code>Settings/partials</code> and <code>Settings/site</code> are admin only. See <a href="../operations/security-rules.html">Security rules</a>.</p>
+    <p>Template files are changed by whoever can edit the repository and deploy Hosting. Choosing a type's folder is an admin action in the content type screen. Nothing about templates is kept in Firestore: earlier versions also read a <code>templates</code> collection and a <code>Settings/partials</code> document, set by hand in the Firebase console, and Arc CMS no longer reads either. <code>Settings/site</code> is admin only. See <a href="../operations/security-rules.html">Security rules</a>.</p>
 
     <h2>Troubleshooting</h2>
     <table>
       <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
       <tbody>
         <tr><td>The folder is not in the <strong>Content Template</strong> list</td><td>The folder must sit directly in <code class="new">src/custom/site/templates/</code> and hold at least one of <code>partials.html</code>, <code>list.html</code>, <code>detail.html</code>. Restart <code>npm run dev</code> if it was running, or rebuild.</td></tr>
-        <tr><td>Published pages use the bare built-in layout, or the app logs "is not a template fragment"</td><td>The folder or file is missing on the site that was read (a missing file answers with the app's own page, which is rejected). Check the file name, deploy Hosting, then publish again.</td></tr>
+        <tr><td>Publishing fails with "Template folder 'x' is not on the live site. Deploy the website, then publish again."</td><td>The type names a folder the live site does not have yet, or its file there is not a template (a whole HTML document). The editor shows the message on the item. Deploy the website, then publish again.</td></tr>
+        <tr><td>The app logs "is not a template fragment"</td><td>A file of the folder is a whole HTML document, or missing (a missing file answers with the app's own page, which is rejected). The app shows the default template instead. Make the file a fragment.</td></tr>
         <tr><td>A binding renders empty</td><td>Check the key on the content type's view page under <strong>Template Reference</strong>. A value is empty on a page built before the field was filled: publish again.</td></tr>
         <tr><td>Placeholder text such as "Caption" shows on the page</td><td>Text outside a loop's first child, or a binding with no value, keeps what you wrote. Put placeholder rows inside a loop, and guard optional parts with <code>data-arc-if</code>.</td></tr>
         <tr><td>Changes show locally but not on the live site</td><td>Deploy Hosting, then rebuild the pages (<code>npm run seed:dev</code> or <code>npm run seed:prod</code>).</td></tr>

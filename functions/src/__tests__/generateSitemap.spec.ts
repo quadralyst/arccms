@@ -25,6 +25,10 @@ vi.mock('../shared/site-settings', () => ({
     getSiteConfig: mockGetSiteConfig,
     getLocalizationSettings: mockGetLocalizationSettings,
 }));
+// The static pages the live site lists (its manifest), an app's own among them.
+vi.mock('../pages/deployStaticPage', () => ({
+    staticPageSlugs: async () => ['cookie-policy', 'privacy-policy', 'terms'],
+}));
 
 import { generateAndDeploySitemap } from '../pages/generateSitemap.js';
 
@@ -87,6 +91,14 @@ describe('generateAndDeploySitemap', () => {
         });
         mockGetLocalizationSettings.mockResolvedValue(SINGLE_LANGUAGE);
         wireFirestore([]);
+    });
+
+    it('lists every static page the site has, the app\'s own included', async () => {
+        await generateAndDeploySitemap();
+        const xml: string = mockDeploySeoFileToHosting.mock.calls[0][1];
+        for (const page of ['cookie-policy', 'privacy-policy', 'terms']) {
+            expect(xml).toContain(`/pages/${page}</loc>`);
+        }
     });
 
     it('should deploy to /sitemap.xml', async () => {

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Per-document mocks for cleaner testing
-const mockPartialsGet = vi.fn();
 const mockAboutGet = vi.fn();
 const mockSiteGet = vi.fn();
 const mockLocalizationGet = vi.fn();
@@ -9,7 +8,6 @@ const mockLocalizationGet = vi.fn();
 vi.mock('../init', () => ({
     db: {
         doc: vi.fn((path: string) => {
-            if (path === 'Settings/partials') return { get: mockPartialsGet };
             if (path === 'Settings/about') return { get: mockAboutGet };
             if (path === 'Settings/site') return { get: mockSiteGet };
             if (path === 'Settings/localization') return { get: mockLocalizationGet };
@@ -18,7 +16,7 @@ vi.mock('../init', () => ({
     },
 }));
 
-// Mock global fetch for hosting fallback tests
+// The live site's files (/_site/), fetched over HTTP
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
@@ -44,116 +42,54 @@ describe('site-settings', () => {
     // ─── getPartials ───────────────────────────────────────────────────────
 
     describe('getPartials', () => {
-        it('should return headerHtml and footerHtml from Firestore', async () => {
-            mockPartialsGet.mockResolvedValueOnce({
-                data: () => ({
-                    headerHtml: '<header>Test</header>',
-                    footerHtml: '<footer>Test</footer>',
-                }),
-            });
-
-            const result = await getPartials();
-
-            expect(db.doc).toHaveBeenCalledWith('Settings/partials');
-            expect(result).toEqual({
-                headerHtml: '<header>Test</header>',
-                footerHtml: '<footer>Test</footer>',
-            });
-            // Should NOT fetch from hosting when Firestore has values
-            expect(mockFetch).not.toHaveBeenCalled();
+        const respond = (byPath: Record<string, string>) => mockFetch.mockImplementation(async (url: string) => {
+            const path = url.replace('https://test-project.web.app', '');
+            return path in byPath
+                ? { ok: true, text: async () => byPath[path] }
+                : { ok: true, text: async () => '<!doctype html><html><body><arc-root></arc-root></body></html>' };
         });
 
-        it('should fall back to hosting when Firestore document is empty', async () => {
-            mockPartialsGet.mockResolvedValueOnce({
-                data: () => undefined,
-            });
-            mockFetch
-                .mockResolvedValueOnce({ ok: true, text: async () => '<nav>Header from hosting</nav>' })
-                .mockResolvedValueOnce({ ok: true, text: async () => '<footer>Footer from hosting</footer>' });
+        it('reads the header and footer from the live site\'s /_site/', async () => {
+            respond({ '/_site/header.html': ' <nav>Header</nav>\n', '/_site/footer.html': '<footer>Footer</footer>' });
 
-            const result = await getPartials();
-
-            expect(mockFetch).toHaveBeenCalledWith('https://test-project.web.app/_partials/_header.html');
-            expect(mockFetch).toHaveBeenCalledWith('https://test-project.web.app/_partials/_footer.html');
-            expect(result).toEqual({
-                headerHtml: '<nav>Header from hosting</nav>',
-                footerHtml: '<footer>Footer from hosting</footer>',
-            });
+            expect(await getPartials()).toEqual({ headerHtml: '<nav>Header</nav>', footerHtml: '<footer>Footer</footer>' });
+            expect(mockFetch).toHaveBeenCalledWith('https://test-project.web.app/_site/header.html');
+            expect(mockFetch).toHaveBeenCalledWith('https://test-project.web.app/_site/footer.html');
         });
 
-        it('should return empty strings when both Firestore and hosting fail', async () => {
-            mockPartialsGet.mockResolvedValueOnce({
-                data: () => undefined,
-            });
-            mockFetch.mockResolvedValue({ ok: false });
-
-            const result = await getPartials();
-
-            expect(result).toEqual({
-                headerHtml: '',
-                footerHtml: '',
-            });
-        });
-
-        it('should only fetch missing partial from hosting (partial fallback)', async () => {
-            mockPartialsGet.mockResolvedValueOnce({
-                data: () => ({ headerHtml: '<header>From Firestore</header>' }),
-            });
-            mockFetch.mockResolvedValueOnce({ ok: true, text: async () => '<footer>From hosting</footer>' });
-
-            const result = await getPartials();
-
-            expect(result.headerHtml).toBe('<header>From Firestore</header>');
-            expect(result.footerHtml).toBe('<footer>From hosting</footer>');
-            // Should only fetch footer, not header
-            expect(mockFetch).toHaveBeenCalledTimes(1);
-            expect(mockFetch).toHaveBeenCalledWith('https://test-project.web.app/_partials/_footer.html');
-        });
-
-        it('should handle hosting fetch errors gracefully', async () => {
-            mockPartialsGet.mockResolvedValueOnce({
-                data: () => undefined,
-            });
-            mockFetch.mockRejectedValue(new Error('Network error'));
-
-            const result = await getPartials();
-
-            expect(result).toEqual({
-                headerHtml: '',
-                footerHtml: '',
-            });
-        });
-
-        it('should cache results and not re-query within 5 minutes', async () => {
-            mockPartialsGet.mockResolvedValueOnce({
-                data: () => ({
-                    headerHtml: '<header>Cached</header>',
-                    footerHtml: '<footer>Cached</footer>',
-                }),
-            });
-
-            const first = await getPartials();
-            const second = await getPartials();
-
-            expect(first).toEqual(second);
-            expect(mockPartialsGet).toHaveBeenCalledTimes(1);
-        });
-
-        it('should re-query after clearSettingsCache', async () => {
-            mockPartialsGet
-                .mockResolvedValueOnce({
-                    data: () => ({ headerHtml: 'v1', footerHtml: 'v1' }),
-                })
-                .mockResolvedValueOnce({
-                    data: () => ({ headerHtml: 'v2', footerHtml: 'v2' }),
-                });
-
+        it('never reads Settings/partials', async () => {
+            respond({ '/_site/header.html': '<nav/>', '/_site/footer.html': '<footer/>' });
             await getPartials();
-            clearSettingsCache();
-            const result = await getPartials();
+            expect(db.doc).not.toHaveBeenCalledWith('Settings/partials');
+        });
 
-            expect(mockPartialsGet).toHaveBeenCalledTimes(2);
-            expect(result.headerHtml).toBe('v2');
+        it('returns empty strings when the live site has no such files (the app shell answers)', async () => {
+            respond({});
+            expect(await getPartials()).toEqual({ headerHtml: '', footerHtml: '' });
+        });
+
+        it('returns empty strings when the fetch fails or hosting is off', async () => {
+            mockFetch.mockRejectedValue(new Error('Network error'));
+            expect(await getPartials()).toEqual({ headerHtml: '', footerHtml: '' });
+
+            clearSettingsCache();
+            process.env.ARC_HOSTING_SITE = 'none';
+            try {
+                expect(await getPartials()).toEqual({ headerHtml: '', footerHtml: '' });
+            } finally {
+                delete process.env.ARC_HOSTING_SITE;
+            }
+        });
+
+        it('caches for five minutes and reads again after clearSettingsCache', async () => {
+            respond({ '/_site/header.html': '<nav/>', '/_site/footer.html': '<footer/>' });
+            await getPartials();
+            await getPartials();
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+
+            clearSettingsCache();
+            await getPartials();
+            expect(mockFetch).toHaveBeenCalledTimes(4);
         });
     });
 
