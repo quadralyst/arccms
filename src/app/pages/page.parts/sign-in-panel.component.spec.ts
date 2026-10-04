@@ -6,8 +6,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { signIn } from 'virtual:arc-site';
 import { ARC_CMS_LOGO, signInBrand } from './sign-in-panel.component';
+
+// Arc CMS's own panel, not the app's (src/custom/site/sign-in.html may replace it).
+const signIn = readFileSync(resolve(__dirname, '../../../../public/_site/sign-in.html'), 'utf8');
 
 const page = (file: string) => readFileSync(resolve(__dirname, '../(auth)/(signup)', file), 'utf8');
 

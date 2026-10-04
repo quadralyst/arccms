@@ -116,7 +116,9 @@ vi.mock('../feature-flags.js', () =&gt; ({ isFeatureOn: (id: string) =&gt; !feat
       <li>The route list: a route may group <code>children</code> without a component of its own, and the app's routes in <code>src/custom/routes.ts</code> are left out of the check that gives every URL to a feature or to core.</li>
       <li>The admin menu: an item that links to one of the app's routes opens the app's page, so the menu check accepts it whatever feature the item names. <code>explicitRouteUrls()</code> and <code>isServedBy()</code> in <code>src/test/route-urls.ts</code> read the app's routes for both checks.</li>
       <li>A file the check should not find: use a throwaway folder as the repo root, because an app has files such as <code class="new">firestore.app.rules</code> that Arc CMS does not.</li>
+      <li>The website: a spec about Arc CMS's own header, footer, sign-in panel, placeholder home page or templates reads them from <code>public/_site/</code>, never from <code>virtual:arc-site</code>, <code>readSiteFile()</code> or the built <code>siteManifest()</code>, which show the app's site when <code class="new">src/custom/site/</code> has one. A spec about pages the app may supply (the legal notice's terms and privacy links) passes its own answer, such as <code>legalNoticeUrls(() =&gt; false)</code>, or sets one with <code>setSiteManifestForTesting()</code>.</li>
     </ul>
+    <p>To check a change against an app's site, put a few files in <code class="new">src/custom/site/</code> (a header without a search box, a home page, a terms page) and run the suite: only the check that Arc CMS ships its starter files empty may fail, and it is skipped in an app.</p>
 
     <h2>Rules tests</h2>
     <p>The security rules are tested against the Firestore and Storage emulators:</p>

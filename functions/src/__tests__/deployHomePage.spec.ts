@@ -39,6 +39,7 @@ import {
     addLegalNotices, generateAndDeployHomePage, homeContentTypes, homeFilePath, homeShowsType, homeUrl, setupState,
 } from '../pages/deployHomePage.js';
 import { loadHtml } from '../shared/lazy-cheerio.js';
+import { clearPublicContentTypesCache } from '../shared/public-content-types.js';
 
 const HOME = `<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
@@ -47,7 +48,7 @@ const HOME = `<!doctype html><html lang="en"><head>
 </head><body>
 <arc-header></arc-header>
 <h1 data-arc-t="home_heading">Hello</h1>
-<a class="more" href="/articles">More</a><a class="terms" href="/p/terms">Terms</a>
+<a class="more" href="/articles">More</a><a class="terms" href="/p/terms">Terms</a><a class="learn" href="/learn">Learn</a><a class="notes" href="/notes">Notes</a>
 <arc-content-partials content-type="articles" count="2" section-title="From the blog"></arc-content-partials>
 <form data-waitlist-form data-waitlist-id="waitlist-form"><input name="email"><button type="submit">Join</button></form>
 <arc-footer></arc-footer>
@@ -68,7 +69,10 @@ function wireDb(): void {
             return { limit: () => ({ get: async () => ({ empty: emailLookupEmpty }) }) };
         }
         if (name === 'ContentTypes') {
-            return { where: () => ({ limit: () => ({ get: async () => ({ empty: false, docs: [{ data: () => ({ slug: 'articles', name: 'Articles', templateFolder: '' }) }] }) }) }) };
+            return {
+                where: () => ({ limit: () => ({ get: async () => ({ empty: false, docs: [{ data: () => ({ slug: 'articles', name: 'Articles', templateFolder: '' }) }] }) }) }),
+                get: async () => ({ docs: [{ data: () => ({ slug: 'articles' }) }, { data: () => ({ slug: 'notes', hasPublicUrl: false }) }] }),
+            };
         }
         return {
             orderBy: () => ({ limit: () => ({ get: async () => ({ docs: [
@@ -88,6 +92,7 @@ function released(): Record<string, string> {
 describe('deployHomePage', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        clearPublicContentTypesCache();
         process.env.GCLOUD_PROJECT = 'test-project';
         delete process.env.ARC_HOSTING_SITE;
         mockGetSiteManifest.mockResolvedValue(MANIFEST);
@@ -139,6 +144,14 @@ describe('deployHomePage', () => {
             expect($('script[type="application/ld+json"]').length).toBeGreaterThan(0);
             expect($('meta[name="robots"]').attr('content')).toBe('index, follow');
             expect($('html').attr('lang')).toBe('en');
+        });
+
+        it('links the site\'s own files with their version, so returning visitors get a changed file', async () => {
+            mockGetSiteManifest.mockResolvedValue({ ...MANIFEST, files: { ...MANIFEST.files, 'site/home.css': 'c9', 'site/home.js': 'j9' } });
+            await generateAndDeployHomePage();
+            const $ = loadHtml(released()['/index.html'], { xmlMode: false });
+            expect($('link[href^="/site/home.css"]').attr('href')).toBe('/site/home.css?v=c9');
+            expect($('script[src^="/site/home.js"]').attr('src')).toBe('/site/home.js?v=j9');
         });
 
         it('links Arc CMS\'s stylesheets before the page\'s own, so the page\'s win', async () => {
@@ -194,6 +207,9 @@ describe('deployHomePage', () => {
             expect($('title').text()).toBe('संस्कृत सीखें');
             expect($('a.more').attr('href')).toBe('/hi/articles');
             expect($('a.terms').attr('href')).toBe('/p/terms');
+            // Pages that exist once keep their address: an app's own page, and a type without public pages.
+            expect($('a.learn').attr('href')).toBe('/learn');
+            expect($('a.notes').attr('href')).toBe('/notes');
             expect($('nav.site-nav a').attr('href')).toBe('/hi/articles');
             expect($('a.card').attr('href')).toBe('/hi/articles/first-post');
             expect($('a.card').text()).toBe('पहला लेख');

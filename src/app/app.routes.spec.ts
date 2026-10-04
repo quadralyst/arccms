@@ -3,6 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { Router, provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 
 describe('App Routes', () => {
@@ -24,8 +26,14 @@ describe('App Routes', () => {
 
 
     describe('Route Structure', () => {
+        it('is a configuration Angular accepts (the router checks it when it starts)', () => {
+            TestBed.configureTestingModule({ providers: [provideRouter(routes)] });
+            expect(() => TestBed.inject(Router)).not.toThrow();
+        });
+
         it('should not have any duplicate paths', () => {
-            const paths = routes.map(r => r.path);
+            // Routes that match by function (a feature that is off, the language redirect) have no path.
+            const paths = routes.map(r => r.path).filter((path) => path !== undefined);
             const uniquePaths = new Set(paths);
             expect(uniquePaths.size).toBe(paths.length);
         });

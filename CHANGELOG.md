@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed
 
+- On a translated page, only links to pages that exist in every language take the language prefix: the home page, search and public content types. Sign-in, the member area, an app's own pages, static pages and files keep their address, and a stray `/hi/signup` redirects to `/signup`.
+- The app's own files in `src/custom/site/assets/` are linked with their version (`/site/home.css?v=…`) on published pages, in the preview and in `url()` of the app's stylesheets, so a changed file reaches returning visitors.
 - Publishing reads templates and site files from the live site's `/_site/`; template overrides stored in Firestore are no longer read.
 - The build no longer prerenders or builds a server bundle.
 - `npm run deploy` keeps the published pages when it deploys the website: the build goes to a preview channel, then one live release holds the build and the published pages. Never deploy the website with a plain `firebase deploy --only hosting`.

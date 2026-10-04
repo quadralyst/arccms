@@ -19,6 +19,12 @@ Hosting, in every enabled language, with every SEO tag. Core ships a placeholder
 page and one system default template set, so a site with nothing of its own still
 renders every content type.
 
+**App report fixes (2026-10-04, branch fix/app-site-links-versions):** language prefixes only for
+localized addresses (home, search, public content types; `isLocalizedPath`), a
+`languageRedirect` route for stray prefixed addresses; every `/site/` file in `site.json`
+with links versioned on published pages, in the preview (`siteFilesInterceptor`) and in the
+app's CSS `url()` at build time; core specs read `public/_site/` directly.
+
 **Out of scope:** switching the home page at run time (dropped 2026-10-04); merging the
 two copies of the template filler (SPA and functions, about 700 lines each) into one,
 which is its own task; a visual editor for templates.

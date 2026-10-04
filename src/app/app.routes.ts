@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { roleGuard } from './guards/role.guard';
-import { languageRouteGuard } from './guards/language.guard';
+import { languageRedirect, languageRouteGuard } from './guards/language.guard';
+import { publicContentTypeGuard } from './core/site/public-content-types';
 import { userGuard, entitledGuard } from './pages/user/user.guards';
 import { CUSTOM_ROUTES } from '../custom/routes';
 import { CUSTOM_USER_DASHBOARD } from '../custom/user-dashboard';
@@ -612,16 +613,20 @@ export const routes: Routes = [
   }]),
   ...whenOn('content', [{
     path: ':lang/:contentTypeSlug/:urlSlug',
-    canMatch: [languageRouteGuard],
+    canMatch: [languageRouteGuard, publicContentTypeGuard],
     loadComponent: () =>
       import('./pages/page.parts/content-detail.component').then((m) => m.ContentDetailComponent),
   },
   {
     path: ':lang/:contentTypeSlug',
-    canMatch: [languageRouteGuard],
+    canMatch: [languageRouteGuard, publicContentTypeGuard],
     loadComponent: () =>
       import('./pages/page.parts/content-list.component').then((m) => m.ContentListComponent),
   }]),
+
+  // Any other address under a language prefix exists once, without it: /hi/signup
+  // is /signup. Links are written that way (isLocalizedPath); this catches the rest.
+  languageRedirect,
 
   // The app's own routes (src/custom/routes.ts, docs/app/custom-space.html). After every
   // core route, so an app page never replaces a core one by accident; still

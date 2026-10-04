@@ -12,6 +12,8 @@ import { renderJsonLdScripts } from '../shared/structured-data.js';
 import { buildLanguageSwitcher, replaceArcComponents, toOgLocale, POWERED_BY_HTML } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
+import { publicContentTypeSlugs } from '../shared/public-content-types.js';
+import { versionSiteUrls } from '../shared/site-urls.js';
 import { loadHtml } from '../shared/lazy-cheerio.js';
 import { buildSearchWidget } from '../search/widget.js';
 import { isFeatureOn } from '../feature-flags.js';
@@ -230,8 +232,9 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
     }
     const target = batch ?? new HostingBatch();
 
-    const [manifest, partials, siteConfig, miscSettings, localization, about, setup] = await Promise.all([
+    const [manifest, partials, siteConfig, miscSettings, localization, about, setup, contentTypes] = await Promise.all([
         getSiteManifest(), getPartials(), getSiteConfig(), getMiscSettings(), getLocalizationSettings(), getAboutConfig(), setupState(),
+        publicContentTypeSlugs(),
     ]);
     const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);
     const defaultLang = localization.defaultLanguage;
@@ -256,7 +259,7 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         await renderContentPartials($body, lang, defaultLang, strings);
         addLegalNotices($body, strings, manifest);
         html = $body.html();
-        const chrome = (part: string) => prefixAnchorHrefs(TemplateHydrationService.applyStrings(part, strings), prefix);
+        const chrome = (part: string) => prefixAnchorHrefs(TemplateHydrationService.applyStrings(part, strings), prefix, contentTypes);
         html = replaceArcComponents(
             html,
             chrome(partials.headerHtml),
@@ -264,7 +267,7 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
             buildLanguageSwitcher(switcherLinks, lang, labels),
             buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings }),
         );
-        html = prefixAnchorHrefs(html, prefix);
+        html = prefixAnchorHrefs(html, prefix, contentTypes);
 
         // Head: what the page does not say itself.
         const $ = loadHtml(html, { xmlMode: false });
@@ -310,7 +313,8 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         $('body').append(`\n${arcSiteScript(versionedUrl('/assets/js/arc-site.js', manifest), setup)}`);
         if (miscSettings.showPoweredBy) $('body').append(`\n${POWERED_BY_HTML}`);
 
-        const out = $.html();
+        // Links to the site's files (the page's own CSS, scripts, images) carry their version.
+        const out = versionSiteUrls($.html(), manifest?.files);
         target.add(homeFilePath(lang, defaultLang), out.startsWith('<!DOCTYPE') || out.startsWith('<!doctype') ? out : `<!DOCTYPE html>\n${out}`);
     }
 

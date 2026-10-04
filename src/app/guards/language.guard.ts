@@ -14,7 +14,7 @@
  */
 
 import { inject } from '@angular/core';
-import { CanMatchFn, Route, UrlSegment } from '@angular/router';
+import { CanMatchFn, Route, Router, UrlSegment } from '@angular/router';
 import { LocalizationService } from '../core/services/localization.service';
 
 export const languageRouteGuard: CanMatchFn = async (_route: Route, segments: UrlSegment[]) => {
@@ -30,4 +30,29 @@ export const languageRouteGuard: CanMatchFn = async (_route: Route, segments: Ur
     if (first === settings.defaultLanguage) return false;
 
     return settings.enabledLanguages.some(language => language.code === first);
+};
+
+/**
+ * /{lang}/{anything else}: an address that exists once, reached with a language
+ * prefix it does not have, such as /hi/signup or /hi/learn. Redirects to the
+ * address without the prefix, query and fragment kept. The redirect is the
+ * guard's answer, since Angular runs `redirectTo` before any guard. Listed after
+ * every language route (home, search, content), so it only sees what they did not match.
+ */
+export const languageRedirectGuard: CanMatchFn = async (route: Route, segments: UrlSegment[]) => {
+    // Before any await: inject() works only while the guard starts.
+    const router = inject(Router);
+    if (!(await languageRouteGuard(route, segments))) return false;
+    const current = router.getCurrentNavigation()?.extractedUrl;
+    return router.createUrlTree(['/', ...segments.slice(1).map((segment) => segment.path)], {
+        queryParams: current?.queryParams,
+        fragment: current?.fragment ?? undefined,
+    });
+};
+
+export const languageRedirect: Route = {
+    matcher: (segments) => (segments.length >= 2 ? { consumed: segments } : null),
+    canMatch: [languageRedirectGuard],
+    // Never reached: the guard either redirects or lets the next route try.
+    children: [],
 };

@@ -21,8 +21,10 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { loadSiteTemplate, pageStylesheets } from '../shared/site-files.js';
+import { getSiteManifest, loadSiteTemplate, pageStylesheets } from '../shared/site-files.js';
+import { versionSiteUrls } from '../shared/site-urls.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
+import { publicContentTypeSlugs } from '../shared/public-content-types.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { arcHostingSite } from '../arc-config.js';
@@ -172,8 +174,9 @@ export async function generateAndDeployContentListPage(
         // The partials are one file shared by every language, so their links
         // are root-relative and have to be pointed at this language — without
         // it the page reads in Hindi and its chrome navigates to English.
+        const contentTypes = await publicContentTypeSlugs();
         const chrome = (html: string) =>
-            prefixAnchorHrefs(TemplateHydrationService.applyStrings(html, uiStrings), prefix);
+            prefixAnchorHrefs(TemplateHydrationService.applyStrings(html, uiStrings), prefix, contentTypes);
 
         hydratedHtml = replaceArcComponents(
             hydratedHtml,
@@ -227,7 +230,8 @@ export async function generateAndDeployContentListPage(
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
         const fullHtml = buildHtmlDocument(body, meta, '', '', styles, scripts, poweredBy);
 
-        target.add(listFilePath(lang, defaultLang, contentTypeSlug), fullHtml);
+        // Links to the site's files carry their version (shared/site-urls.ts).
+        target.add(listFilePath(lang, defaultLang, contentTypeSlug), versionSiteUrls(fullHtml, (await getSiteManifest())?.files));
     }
 
     if (!batch) {

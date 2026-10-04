@@ -5,6 +5,7 @@ import { buildSearchWidget } from '../search/widget.js';
 import { deployFileToHosting } from './deployToHosting.js';
 import { arcHostingSite } from '../arc-config.js';
 import { getSiteFile, getSiteManifest, LEGACY_STATIC_PAGES, pageStylesheets } from '../shared/site-files.js';
+import { versionSiteUrls } from '../shared/site-urls.js';
 
 /**
  * Generates and deploys a processed static page (e.g., privacy-policy, terms).
@@ -79,6 +80,9 @@ export async function generateAndDeployStaticPage(
 
         processedHtml = $.html();
     }
+
+    // Links to the site's files carry their version (shared/site-urls.ts).
+    processedHtml = versionSiteUrls(processedHtml, (await getSiteManifest())?.files);
 
     // 7. Deploy to /pages/{pageSlug}/index.html
     const filePath = `/pages/${pageSlug}/index.html`;

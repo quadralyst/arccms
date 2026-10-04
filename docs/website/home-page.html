@@ -20,7 +20,7 @@
     <ol class="steps">
       <li><p>Start from an example, or from your designer's page. <code>docs/examples/arc-cms-home.html</code> is Arc CMS's own marketing page written this way; copy it to <code class="new">src/custom/site/home.html</code> and its stylesheet and script, <code>docs/examples/arc-cms-home.css</code> and <code>docs/examples/arc-cms-home.js</code>, to <code class="new">src/custom/site/assets/</code>.</p></li>
       <li><p>Keep it a whole document: <code>&lt;head&gt;</code> with your <code>&lt;title&gt;</code>, <code>&lt;meta name="description"&gt;</code>, fonts and stylesheets, then <code>&lt;body&gt;</code>. Any HTML works; there are no special rules for <code>{</code>, <code>}</code> or <code>@</code>.</p></li>
-      <li><p>Put your own files in <code class="new">src/custom/site/assets/</code>; they are served at <code>/site/</code>. Link them as <code>/site/home.css</code>, <code>/site/home.js</code>, <code>/site/hero.webp</code>.</p></li>
+      <li><p>Put your own files in <code class="new">src/custom/site/assets/</code>; they are served at <code>/site/</code>. Link them as <code>/site/home.css</code>, <code>/site/home.js</code>, <code>/site/hero.webp</code>. Arc CMS adds each file's version to those links (<code>/site/home.css?v=…</code>), in your pages and in the <code>url()</code> of your stylesheets, so a changed file reaches visitors whose browser kept the old one.</p></li>
       <li><p>Run <code>npm run dev</code> and open <code>/</code>. The page is shown from your file, live parts included; save the file and reload.</p></li>
     </ol>
     <pre><code>&lt;!doctype html&gt;
@@ -66,6 +66,7 @@
     <h2>Styles, scripts and animation</h2>
     <p>Your stylesheets and scripts are yours. Arc CMS's stylesheets (Bootstrap, <code>main.css</code> and your <code class="new">src/custom/site/site.css</code>) are linked before them, so your rules win. <code>main.css</code> styles only the page body and the site header and footer, so your class names are free. Scripts are plain files: load a library such as GSAP or ScrollTrigger from a CDN, or keep its file in <code class="new">src/custom/site/assets/</code>, and write your own in <code>/site/home.js</code>. A script cannot <code>import</code> an npm package, because the page is served as it is, without a build step.</p>
     <p>Start animations when the page has loaded, for example with <code>defer</code> on your script tag. The page works the same in <code>npm run dev</code> and on the live site.</p>
+    <div class="trap"><p>An address your script builds itself, such as <code>fetch('/site/words.json')</code>, gets no version, and a returning visitor's browser may keep the old file for a year. Fetch it with <code>{ cache: 'no-cache' }</code>, or give the file a new name when it changes.</p></div>
 
     <h2>What Arc CMS adds when it publishes</h2>
     <p>Everything your page does not set itself: <code>&lt;html lang&gt;</code>, the canonical address, links to the other languages (<code>hreflang</code>), Open Graph and Twitter tags (the logo from Settings, <strong>About</strong> as the image when you set none), the site's structured data (Organization and WebSite), the app manifest when the installable app is on, and the small script that runs the live parts (<code>/assets/js/arc-site.js</code>). While the setup wizard is still to do, that script also sends the site's owner to <code>/onboarding</code>, as the app does. Your own title, description and social tags are kept. The home page is listed in the sitemap in every language.</p>
@@ -76,7 +77,7 @@
       <li><code class="new">src/custom/site/home.hi.html</code> when you write one: a whole page in that language, best for long marketing text;</li>
       <li>otherwise <code>home.html</code>, with every <code>data-arc-t</code> text replaced from <code class="new">src/custom/site/strings/hi.json</code>.</li>
     </ul>
-    <p>Links that start with <code>/</code> point at the page's language (<code>/articles</code> becomes <code>/hi/articles</code>), except static pages (<code>/p/…</code>) and files (<code>/site/…</code>, <code>/assets/…</code>), which exist once.</p>
+    <p>Links to pages that exist in every language point at the page's language: the home page (<code>/</code> becomes <code>/hi</code>), search and your content types (<code>/articles</code> becomes <code>/hi/articles</code>). Everything else exists once and keeps its address: sign-in, the member area, your app's own pages (<code>/learn</code>), static pages (<code>/p/…</code>) and files (<code>/site/…</code>, <code>/assets/…</code>).</p>
 
     <h2>Put it live</h2>
     <p>Deploy the website (see <a href="../operations/deploy.html">Deploy</a>). The deploy publishes the home page with every other page. After that, it is published again by itself whenever content it shows changes, and when you save Settings it uses (<strong>About</strong>, the site address, languages, the powered-by line). To publish the whole site again yourself, for example after changing a template, open <strong>Content</strong>, <strong>Content types</strong> and choose <strong>Republish website</strong>.</p>

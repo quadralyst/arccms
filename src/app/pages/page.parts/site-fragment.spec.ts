@@ -7,7 +7,14 @@ import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { renderSiteFragment } from './site-fragment';
 import { UiStringsService } from '../../core/services/ui-strings.service';
-import { header, footer } from 'virtual:arc-site';
+import { PublicContentTypesService } from '../../core/site/public-content-types';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+// Arc CMS's own header and footer, not the app's (src/custom/site/ may replace them).
+const coreSiteFile = (name: string) => readFileSync(join(__dirname, '../../../../public/_site', name), 'utf8');
+const header = coreSiteFile('header.html');
+const footer = coreSiteFile('footer.html');
 
 @Component({ selector: 'arc-stub-search', standalone: true, template: '<input class="stub-search">' })
 class StubSearchComponent {}
@@ -16,6 +23,7 @@ const HTML = `
     <nav>
         <a href="/articles" data-arc-t="nav_articles">Articles</a>
         <a href="https://example.com/x">Out</a>
+        <a href="/signup">Sign in</a>
         <span class="braces">{ not a binding } and @home</span>
         <arc-search></arc-search>
     </nav>`;
@@ -30,12 +38,21 @@ class FragmentHostComponent {
 describe('renderSiteFragment', () => {
     let activeLang: ReturnType<typeof signal<string>>;
     let strings: ReturnType<typeof signal<Record<string, string>>>;
+    let types: ReturnType<typeof signal<ReadonlySet<string>>>;
 
     beforeEach(() => {
         activeLang = signal('');
         strings = signal<Record<string, string>>({});
+        types = signal<ReadonlySet<string>>(new Set());
         TestBed.configureTestingModule({
-            providers: [{ provide: UiStringsService, useValue: { activeLang, strings } }],
+            providers: [
+                { provide: UiStringsService, useValue: { activeLang, strings } },
+                {
+                    provide: PublicContentTypesService,
+                    // Like the service: the list arrives once, whatever the number of calls.
+                    useValue: { slugs: types, load: () => { if (!types().size) types.set(new Set(['articles'])); return Promise.resolve(types()); } },
+                },
+            ],
         });
     });
 
@@ -65,16 +82,19 @@ describe('renderSiteFragment', () => {
         strings.set({ nav_articles: 'लेख' });
         fixture.detectChanges();
 
-        const [inner, outer] = Array.from(el.querySelectorAll('a'));
+        fixture.detectChanges(); // the public content types arrived
+        const [inner, outer, signIn] = Array.from(el.querySelectorAll('a'));
         expect(inner.textContent).toBe('लेख');
         expect(inner.getAttribute('href')).toBe('/hi/articles');
         expect(outer.getAttribute('href')).toBe('https://example.com/x');
+        // Sign-in exists once, so it keeps its address on a Hindi page.
+        expect(signIn.getAttribute('href')).toBe('/signup');
         expect(el.querySelector('arc-search .stub-search')).toBeTruthy();
     });
 });
 
-describe('the header and footer files', () => {
-    it('are the site\'s own HTML, with no Angular syntax left to compile', () => {
+describe('Arc CMS\'s header and footer files', () => {
+    it('are plain HTML, with no Angular syntax left to compile', () => {
         for (const html of [header, footer]) {
             expect(html.trim()).not.toBe('');
             expect(html).not.toMatch(/\[[a-zA-Z.]+\]=|\([a-z]+\)=|\*ng|@if|@for/);

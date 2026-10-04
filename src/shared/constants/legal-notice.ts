@@ -72,12 +72,12 @@ export function legalNoticeParts(lang: LegalNoticeLang = 'en', notice = LEGAL_NO
  * The notice as a DOM element, for forms the app does not render itself (the
  * landing-page signup forms). Built with DOM calls, not innerHTML.
  */
-export function buildLegalNoticeElement(doc: Document, lang: LegalNoticeLang): HTMLElement {
+export function buildLegalNoticeElement(doc: Document, lang: LegalNoticeLang, notice = LEGAL_NOTICE): HTMLElement {
     const p = doc.createElement('p');
     p.className = 'arc-legal-notice';
     p.setAttribute('data-legal-notice', '');
     p.style.cssText = 'font-size: 0.8rem; opacity: 0.75; margin: 0.5rem 0; line-height: 1.4;';
-    for (const part of legalNoticeParts(lang)) {
+    for (const part of legalNoticeParts(lang, notice)) {
         if (part.href) {
             const a = doc.createElement('a');
             a.href = part.href;
