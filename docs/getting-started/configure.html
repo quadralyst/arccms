@@ -45,7 +45,7 @@
         <tr><td><code>src/environments/environment.ts</code></td><td><code>npm run dev</code>, and website builds for the <code>default</code> alias (the build sets <code>USE_DEV_ENV=true</code>)</td></tr>
         <tr><td><code>src/environments/environment.prod.ts</code></td><td><code>npm run build</code>, and website builds for the <code>production</code> alias</td></tr>
         <tr><td><code>src/environments/environment.example.ts</code></td><td>Nothing: the template to copy from</td></tr>
-        <tr><td><code>src/environments/arc-install.ts</code></td><td>The app, for the database, bucket and upload folder of each project. Written by <code>npm run arc:configure</code>; never edit it by hand</td></tr>
+        <tr><td><code>src/environments/arc-install.ts</code></td><td>The app, for the database, bucket, upload folder and hosting site of each project. Written by <code>npm run arc:configure</code>; never edit it by hand</td></tr>
         <tr><td><code>src/environments/index.ts</code></td><td>Re-exports <code>environment.ts</code></td></tr>
       </tbody>
     </table>
@@ -123,7 +123,7 @@
     <table>
       <thead><tr><th>File</th><th>What it holds</th><th>In git</th></tr></thead>
       <tbody>
-        <tr><td><code>src/environments/arc-install.ts</code></td><td>For every configured project that differs from the defaults: its database id, bucket, upload folder and admin-only sign-in. The website build reads it.</td><td>Yes: commit it</td></tr>
+        <tr><td><code>src/environments/arc-install.ts</code></td><td>For every configured project that differs from the defaults: its database id, bucket, upload folder, admin-only sign-in, functions region and hosting site. The website build reads it.</td><td>Yes: commit it</td></tr>
         <tr><td><code>functions/.env.{projectId}</code></td><td>The same settings for the Cloud Functions: <code>ARC_DATABASE_ID</code> (always), <code>ARC_APP_USERS_DATABASE</code> and <code>ARC_APP_USERS_PATH</code> (always), and <code>ARC_HOSTING_SITE</code>, <code>ARC_STORAGE_BUCKET</code>, <code>ARC_STORAGE_PREFIX</code> when set. Other lines in the file are kept.</td><td>No</td></tr>
         <tr><td><code>firebase.{projectId}.json</code></td><td>A copy of <code>firebase.json</code> with the named database, own bucket or own site filled in, and without Hosting when the site is <code>none</code>. Removed when the project uses none of these. <code>npm run deploy</code> uses it for that project.</td><td>No</td></tr>
       </tbody>

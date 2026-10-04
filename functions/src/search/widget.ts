@@ -19,7 +19,7 @@ import { arcFunctionsRegion } from '../arc-config.js';
 export const SEARCH_WIDGET_SCRIPT = '/assets/js/arc-search.js';
 export const SEARCH_WIDGET_STYLESHEET = '/assets/css/arc-search.css';
 
-/** Strings the widget shows, with the keys used in public/i18n/{lang}/strings.json. */
+/** Strings the widget shows, with the keys used in the site's /_site/strings/{lang}.json. */
 export const SEARCH_WIDGET_DEFAULT_STRINGS = {
     search_placeholder: 'Search',
     search_empty: 'No results',

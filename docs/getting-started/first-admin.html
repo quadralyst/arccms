@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Create the first admin | Arc CMS docs</title>
   <meta name="description" content="Run the setup wizard on a fresh install to create the first admin account, and know what to do after you sign in.">
-  <meta name="docs:sources" content="src/app/pages/(onboarding), src/app/pages/(auth), src/app/pages/auth-checker.page.ts, src/app/pages/page.parts/home-base.component.ts, functions/src/users/syncUserRole.ts, functions/src/users/claims.ts, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, firestore.rules, src/app/core/home/home.ts, src/custom/home.ts">
+  <meta name="docs:sources" content="src/app/pages/(onboarding), src/app/pages/(auth), src/app/pages/auth-checker.page.ts, src/app/pages/index.page.ts, public/assets/js/arc-site.js, functions/src/pages/deployHomePage.ts, functions/src/users/syncUserRole.ts, functions/src/users/claims.ts, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, firestore.rules, src/app/core/home/home.ts, src/custom/home.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="getting-started/first-admin.html">
@@ -21,7 +21,7 @@
 
     <h2>Run the setup wizard</h2>
     <ol class="steps">
-      <li><p>Open the site, locally at <code>http://localhost:5173</code> or at its live address. A fresh install sends you to <code>/onboarding</code>.</p></li>
+      <li><p>Open the site, locally at <code>http://localhost:5173</code> or at its live address. A fresh install sends you to <code>/onboarding</code>, from the home page in <code>npm run dev</code> and from the published one alike.</p></li>
       <li><p><strong>Create Admin Account:</strong> enter your name and your email, twice, then <strong>Continue</strong>. Use an address you read: it is how you sign in and reset your password.</p></li>
       <li><p><strong>Set Your Password:</strong> at least 8 characters, twice, then <strong>Create Admin Account</strong>. The wizard creates the account, makes it the admin and waits until your session carries the admin role. This can take a few seconds.</p></li>
       <li><p><strong>About Your Site:</strong> <strong>Site Name</strong> and <strong>Final Site URL</strong>, then <strong>Continue</strong>. This also saves the starting settings: sign-ups open with the <code>user</code> role, uploads converted to WebP, and visitor location lookup on.</p></li>

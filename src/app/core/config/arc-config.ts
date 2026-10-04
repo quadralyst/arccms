@@ -38,6 +38,11 @@ export interface ArcInstallConfig {
      * `arc:configure` (docs/operations/deploy.html#regions). Default us-central1.
      */
     functionsRegion?: string;
+    /**
+     * The install's own Firebase Hosting site, or `none` when it publishes no
+     * website. Set by `arc:configure`. Default: the project's default site.
+     */
+    hostingSite?: string;
 }
 
 export interface ResolvedArcConfig {
@@ -48,6 +53,8 @@ export interface ResolvedArcConfig {
     storagePrefix: string;
     adminOnlySignIn: boolean;
     functionsRegion: string;
+    /** The install's own Hosting site, `none` for no website, or '' for the project's default site. */
+    hostingSite: string;
 }
 
 /** Fills in the defaults and normalises what was given. */
@@ -60,6 +67,7 @@ export function resolveArcConfig(raw: ArcInstallConfig | undefined): ResolvedArc
         storagePrefix: prefix && !prefix.endsWith('/') ? `${prefix}/` : prefix,
         adminOnlySignIn: raw?.adminOnlySignIn === true,
         functionsRegion: raw?.functionsRegion?.trim() || DEFAULT_FUNCTIONS_REGION,
+        hostingSite: raw?.hostingSite?.trim() || '',
     };
 }
 

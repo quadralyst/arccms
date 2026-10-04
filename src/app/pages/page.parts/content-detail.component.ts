@@ -6,6 +6,7 @@ import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
+import { DEFAULT_TEMPLATE_FOLDER, siteTemplateUrl, templateFolderFor } from '../../core/site/site';
 import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
@@ -22,7 +23,6 @@ import { PageSpinnerComponent } from './page-spinner.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
-import { ArcTranslateDirective } from '../../core/directives/arc-translate.directive';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
@@ -59,7 +59,7 @@ const MAX_BLOCK_NODES = 12;
 @Component({
     selector: 'arc-content-detail',
     standalone: true,
-    imports: [CommonModule, HeaderComponent, FooterComponent, PageSpinnerComponent, SafeHtmlPipe, ArcTranslateDirective],
+    imports: [CommonModule, HeaderComponent, FooterComponent, PageSpinnerComponent, SafeHtmlPipe],
     template: `
     <arc-header></arc-header>
     
@@ -73,8 +73,8 @@ const MAX_BLOCK_NODES = 12;
                 <span class="visually-hidden">Loading...</span>
             </div>
         </div>
-    } @else if(useCustomTemplate() && templateHtml()) {
-        <!-- Render custom template -->
+    } @else if(templateHtml()) {
+        <!-- The type's detail template (its folder's, else the default), hydrated -->
         <div [innerHTML]="templateHtml() | safeHtml"></div>
     } @else if(!currentContent() && showNotFound()) {
         <!-- Content not found — shown after 3-second delay to prevent flash -->
@@ -94,481 +94,31 @@ const MAX_BLOCK_NODES = 12;
             </div>
         </div>
     } @else {
-        <!-- Content Detail - Apple/Medium-inspired design -->
-        <article class="article-detail">
-            <!-- Article Header -->
-            <header class="article-header">
-                <div class="container">
-                    <a class="article-back-link" [href]="listUrl()">
-                        <i class="fas fa-arrow-left"></i> <span data-arc-t="back_to" [data-arc-t-params]="{ contentType: typeName() }">Back to {{ typeName() }}</span>
-                    </a>
-                    <h1 class="article-title">{{ currentContent()?.title }}</h1>
-                    <div class="article-meta">
-                        @if (currentContent()?.authorName) {
-                        <span class="article-author">
-                            <i class="far fa-user"></i> {{ currentContent()?.authorName }}
-                            <span class="meta-divider">•</span>
-                        </span>
-                        }
-                        <span class="article-date">
-                            <i class="far fa-calendar"></i> {{ formatContentDate(currentContent()?.publishedOn) }}
-                        </span>
-                        <span class="meta-divider">•</span>
-                        <span class="article-read-time">
-                            <i class="far fa-clock"></i> <span data-arc-t="min_read" [data-arc-t-params]="{ readTime: getReadTime() }">{{ getReadTime() }} min read</span>
-                        </span>
-                        @if (updatedOnDisplay()) {
-                        <span class="article-updated">
-                            <span class="meta-divider">•</span>
-                            <i class="fas fa-pen"></i> <span data-arc-t="updated_on" [data-arc-t-params]="{ updatedOnDisplay: updatedOnDisplay() }">Updated {{ updatedOnDisplay() }}</span>
-                        </span>
-                        }
-                    </div>
-                </div>
-            </header>
-
-            <!-- Cover Image -->
-            @if(currentContent()?.coverImage) {
-                <div class="article-cover">
-                    <img [src]="currentContent()?.coverImage" [attr.alt]="currentContent()?.title || ''" class="article-cover-image">
-                </div>
-            }
-
-            <!-- Article Content -->
-            <div class="article-body">
-                <div class="container">
-                    <div class="article-content" [innerHTML]="(currentContent()?.content || '') | safeHtml"></div>
-
-                    <!-- Sources (D-D11); mirrors public/templates/default/detail.html -->
-                    @if (references().length) {
-                    <section class="article-sources">
-                        <h2 class="article-sources-title" data-arc-t="sources">Sources</h2>
-                        <ol class="article-sources-list">
-                            @for (ref of references(); track ref.url) {
-                            <li><a [href]="ref.url" target="_blank" rel="noopener">{{ ref.title || ref.url }}</a></li>
-                            }
-                        </ol>
-                    </section>
-                    }
-
-                    <!-- Tags -->
-                    @if(currentContent()?.tags && currentContent()!.tags.length > 0) {
-                        <div class="article-tags">
-                            @for(tag of currentContent()!.tags; track tag) {
-                                <span class="article-tag">{{ tag }}</span>
-                            }
-                        </div>
-                    }
-
-                    <!-- Share Buttons -->
-                    <!-- Related items (D-D15); mirrors public/templates/default/detail.html -->
-                    @if (related().length) {
-                    <section class="article-related">
-                        <h2 class="article-related-title" data-arc-t="related_title">Related</h2>
-                        <div class="article-related-grid">
-                            @for (item of related(); track item.url) {
-                            <a class="article-related-card" [href]="item.url">
-                                <span class="article-related-badge">{{ item.badge }}</span>
-                                <span class="article-related-name">{{ item.title }}</span>
-                                <span class="article-related-snippet">{{ item.snippet }}</span>
-                            </a>
-                            }
-                        </div>
-                    </section>
-                    }
-
-                    <!-- Author box (D2); mirrors public/templates/default/detail.html -->
-                    @if (author(); as a) {
-                    <aside class="article-author-box">
-                        @if (a.photoUrl) {
-                        <img class="article-author-photo" [src]="a.photoUrl" [attr.alt]="a.name">
-                        }
-                        <div class="article-author-body">
-                            <span class="article-author-label" data-arc-t="written_by">Written by</span>
-                            <h3 class="article-author-name">{{ a.name }}</h3>
-                            @if (a.jobTitle) { <p class="article-author-title">{{ a.jobTitle }}</p> }
-                            @if (a.bio) { <p class="article-author-bio">{{ a.bio }}</p> }
-                            @if (a.url) {
-                            <a class="article-author-link" [href]="a.url" target="_blank" rel="noopener author">
-                                <span data-arc-t="author_more" [data-arc-t-params]="{ author: a }">More from {{ a.name }}</span> <i class="fas fa-arrow-right"></i>
-                            </a>
-                            }
-                        </div>
-                    </aside>
-                    }
-
-                    <div class="article-share">
-                        <span class="share-label" data-arc-t="share_this_article">Share this article</span>
-                        <div class="share-buttons">
-                            <a class="share-btn share-twitter" [href]="getShareUrl('twitter')" target="_blank" rel="noopener">
-                                <i class="fab fa-twitter"></i>
-                            </a>
-                            <a class="share-btn share-facebook" [href]="getShareUrl('facebook')" target="_blank" rel="noopener">
-                                <i class="fab fa-facebook-f"></i>
-                            </a>
-                            <a class="share-btn share-linkedin" [href]="getShareUrl('linkedin')" target="_blank" rel="noopener">
-                                <i class="fab fa-linkedin-in"></i>
-                            </a>
-                            <a class="share-btn share-email" [href]="getShareUrl('email')">
-                                <i class="fas fa-envelope"></i>
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Navigation -->
-                    <nav class="article-navigation">
-                        <a [href]="listUrl()" class="nav-back">
-                            <i class="fas fa-th-large"></i>
-                            <span data-arc-t="all_of_type" [data-arc-t-params]="{ contentType: typeName() }">All {{ typeName() }}</span>
-                        </a>
-                    </nav>
-                </div>
+        <!-- The template is on its way -->
+        <div class="loading-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
             </div>
-        </article>
+        </div>
     }
     }
     
     <arc-footer></arc-footer>
     `,
     styles: [`
-        /* Apple/Medium-inspired Article Detail Styles */
         .loading-container {
             min-height: 60vh;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        
+
         .not-found-container {
             min-height: 60vh;
             display: flex;
             align-items: center;
             justify-content: center;
             background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
-        }
-
-        .article-detail {
-            min-height: 60vh;
-            background: #ffffff;
-        }
-
-        /* Article Header */
-        .article-header {
-            padding: 3rem 0 2rem;
-            text-align: center;
-            background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
-        }
-
-        .article-back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-            color: #0066cc;
-            text-decoration: none;
-            margin-bottom: 1.5rem;
-            transition: color 0.2s;
-        }
-
-        .article-back-link:hover {
-            color: #004499;
-        }
-
-        .article-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #1d1d1f;
-            line-height: 1.2;
-            margin-bottom: 1.5rem;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-            letter-spacing: -0.02em;
-        }
-
-        .article-meta {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.95rem;
-            color: #6e6e73;
-        }
-
-        .article-meta i {
-            margin-right: 0.35rem;
-        }
-
-        .meta-divider {
-            color: #d2d2d7;
-        }
-
-        /* Cover Image */
-        .article-cover {
-            max-width: 1000px;
-            margin: 0 auto 2rem;
-            padding: 0 1rem;
-        }
-
-        .article-cover-image {
-            width: 100%;
-            height: auto;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Article Body */
-        .article-body {
-            padding: 2rem 0 4rem;
-        }
-
-        .article-content {
-            max-width: 720px;
-            margin: 0 auto;
-            font-size: 1.125rem;
-            line-height: 1.8;
-            color: #1d1d1f;
-        }
-
-        .article-content h2 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin-top: 3rem;
-            margin-bottom: 1rem;
-            color: #1d1d1f;
-            letter-spacing: -0.01em;
-        }
-
-        .article-content h3 {
-            font-size: 1.375rem;
-            font-weight: 600;
-            margin-top: 2.5rem;
-            margin-bottom: 0.75rem;
-            color: #1d1d1f;
-        }
-
-        .article-content p {
-            margin-bottom: 1.5rem;
-        }
-
-        .article-content img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 12px;
-            margin: 2rem 0;
-        }
-
-        .article-content blockquote {
-            border-left: 3px solid #0066cc;
-            padding-left: 1.5rem;
-            margin: 2rem 0;
-            font-style: italic;
-            color: #6e6e73;
-            font-size: 1.1rem;
-        }
-
-        .article-content code {
-            background: #f5f5f7;
-            padding: 0.2rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.9em;
-            font-family: 'SF Mono', Menlo, monospace;
-        }
-
-        .article-content pre {
-            background: #1d1d1f;
-            color: #f5f5f7;
-            padding: 1.5rem;
-            border-radius: 12px;
-            overflow-x: auto;
-            margin: 2rem 0;
-            font-size: 0.9rem;
-        }
-
-        .article-content pre code {
-            background: none;
-            padding: 0;
-            color: inherit;
-        }
-
-        .article-content ul,
-        .article-content ol {
-            margin-bottom: 1.5rem;
-            padding-left: 1.5rem;
-        }
-
-        .article-content li {
-            margin-bottom: 0.5rem;
-        }
-
-        /* Tags */
-        .article-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 3rem;
-            padding-top: 2rem;
-            border-top: 1px solid #e8e8ed;
-            max-width: 720px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .article-tag {
-            background: #f5f5f7;
-            color: #1d1d1f;
-            padding: 0.5rem 1rem;
-            border-radius: 100px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: background 0.2s;
-        }
-
-        .article-tag:hover {
-            background: #e8e8ed;
-        }
-
-        /* Share Buttons */
-        .article-content .arc-block { margin: 2rem 0; padding: 1.25rem 1.5rem; border-radius: 12px; background: #f5f5f7; }
-        .article-content .arc-block > h2, .article-content .arc-block > h3, .article-content .arc-block > h4 { margin-top: 1rem; font-size: 1.125rem; }
-        .article-content .arc-block > h2:first-child, .article-content .arc-block > h3:first-child, .article-content .arc-block > h4:first-child { margin-top: 0; }
-        .article-content .arc-block[data-arc-block="takeaways"] { border-left: 4px solid #0066cc; }
-        .article-content .arc-block[data-arc-block="definition"] > p:first-of-type { font-size: 1.0625rem; font-weight: 500; }
-        .article-content .arc-block > :last-child { margin-bottom: 0; }
-        .article-sources { max-width: 720px; margin: 2.5rem auto 0; padding-top: 1.5rem; border-top: 1px solid #e8e8ed; }
-        .article-sources-title { font-size: 1rem; font-weight: 600; margin: 0 0 .75rem; color: #1d1d1f; }
-        .article-sources-list { margin: 0; padding-left: 1.25rem; font-size: .9375rem; line-height: 1.7; }
-        .article-sources-list a { color: #0066cc; text-decoration: none; word-break: break-word; }
-        .article-sources-list a:hover { text-decoration: underline; }
-
-        .article-related { max-width: 720px; margin: 2.5rem auto 0; padding-top: 1.5rem; border-top: 1px solid #e8e8ed; }
-        .article-related-title { font-size: 1rem; font-weight: 600; margin: 0 0 1rem; color: #1d1d1f; }
-        .article-related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
-        .article-related-card { display: flex; flex-direction: column; gap: .25rem; padding: 1rem; border-radius: 12px; background: #f5f5f7; text-decoration: none; color: inherit; }
-        .article-related-card:hover { background: #ebebf0; }
-        .article-related-badge { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: #6e6e73; }
-        .article-related-name { font-weight: 600; color: #1d1d1f; line-height: 1.35; }
-        .article-related-snippet { font-size: .875rem; color: #6e6e73; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-        .article-author-box {
-            display: flex;
-            gap: 1.25rem;
-            align-items: flex-start;
-            margin: 2rem auto 0;
-            padding: 1.5rem;
-            max-width: 720px;
-            background: #f5f5f7;
-            border-radius: 12px;
-        }
-        .article-author-photo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-        .article-author-label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6e6e73; margin-bottom: 0.25rem; }
-        .article-author-name { font-size: 1.125rem; font-weight: 600; margin: 0; color: #1d1d1f; }
-        .article-author-title { margin: 0.125rem 0 0; font-size: 0.875rem; color: #6e6e73; }
-        .article-author-bio { margin: 0.75rem 0 0; font-size: 0.9375rem; line-height: 1.6; color: #424245; }
-        .article-author-link { display: inline-block; margin-top: 0.75rem; font-size: 0.875rem; font-weight: 500; color: #0066cc; text-decoration: none; }
-        .article-author-link:hover { text-decoration: underline; }
-
-        .article-share {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 1px solid #e8e8ed;
-            max-width: 720px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .share-label {
-            font-size: 0.9rem;
-            color: #6e6e73;
-            font-weight: 500;
-        }
-
-        .share-buttons {
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        .share-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            color: #ffffff;
-            text-decoration: none;
-            transition: transform 0.2s, opacity 0.2s;
-        }
-
-        .share-btn:hover {
-            transform: scale(1.1);
-            opacity: 0.9;
-        }
-
-        .share-twitter { background: #1DA1F2; }
-        .share-facebook { background: #4267B2; }
-        .share-linkedin { background: #0A66C2; }
-        .share-email { background: #6e6e73; }
-
-        /* Navigation */
-        .article-navigation {
-            display: flex;
-            justify-content: center;
-            margin-top: 3rem;
-            padding-top: 2rem;
-            border-top: 1px solid #e8e8ed;
-            max-width: 720px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .nav-back {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            background: #f5f5f7;
-            color: #1d1d1f;
-            border-radius: 100px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: background 0.2s;
-        }
-
-        .nav-back:hover {
-            background: #e8e8ed;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .article-header {
-                padding: 2rem 0 1.5rem;
-            }
-
-            .article-title {
-                font-size: 1.75rem;
-            }
-
-            .article-meta {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-
-            .meta-divider {
-                display: none;
-            }
-
-            .article-content {
-                font-size: 1rem;
-            }
-
-            .article-share {
-                flex-direction: column;
-                align-items: flex-start;
-            }
         }
     `],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -612,7 +162,6 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     contentTypeSlug = signal<string>('');
     urlSlug = signal<string>('');
     templateHtml = signal<string>('');
-    useCustomTemplate = signal<boolean>(false);
     isPreview = signal<boolean>(false);
     draftContent = signal<IDraftContents | null>(null);
     user = toSignal(authState(this.auth));
@@ -800,16 +349,21 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                     this.author.set(null);
                     return;
                 }
-                this.authorProfiles.load(authorId).then(author => {
-                    this.author.set(author);
-                    // A custom template hydrated before the author document
-                    // arrived has no byline yet; hydrate it again, without
-                    // re-running its scripts.
-                    if (author && this.lastTemplate && this.useCustomTemplate()) {
-                        const { html, contentType, content } = this.lastTemplate;
-                        this.hydrateAndSetTemplate(html, contentType, content, false);
-                    }
-                });
+                this.authorProfiles.load(authorId).then(author => this.author.set(author));
+            });
+        });
+
+        // The author, the related items and the page's strings arrive after the
+        // template was first hydrated; hydrate it again with them, without
+        // re-running its scripts.
+        effect(() => {
+            this.author();
+            this.related();
+            this.uiStrings.strings();
+            untracked(() => {
+                if (!this.lastTemplate) return;
+                const { html, contentType, content } = this.lastTemplate;
+                this.hydrateAndSetTemplate(html, contentType, content, false);
             });
         });
 
@@ -850,7 +404,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             }
 
             // Only load template when we have content type, content, not loading, and haven't loaded yet
-            if (contentType && content && !isLoading && !this.useCustomTemplate()) {
+            if (contentType && content && !isLoading && !this.templateHtml()) {
                 this.loadCustomTemplate(contentType, content);
             }
         });
@@ -990,37 +544,6 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         const content = this.currentContent();
         if (!content) return 0;
         return content.readTime || calculateReadingTime(content.content);
-    }
-
-    getShareUrl(platform: string): string {
-        const content = this.currentContent();
-        if (!content) return '';
-
-        // Track share click
-        this.gaTracking.trackShareClick(platform, content.urlSlug);
-
-        // Prefer canonicalUrl when available; fall back to current URL.
-        // This ensures share links point to the correct canonical address.
-        const shareUrl = content.canonicalUrl ||
-            (typeof window !== 'undefined' ? window.location.href : '');
-        // Prefer seoTitle for share text — consistent with what OG tags use,
-        // but never across languages: an untranslated seoTitle must not put the
-        // base language back on a translated page.
-        const shareTitle = localizedPageTitle(content, this.translation());
-        const shareSummary = content.metaDescription || '';
-
-        switch (platform) {
-            case 'twitter':
-                return `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`;
-            case 'facebook':
-                return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-            case 'linkedin':
-                return `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(shareTitle)}&summary=${encodeURIComponent(shareSummary)}`;
-            case 'email':
-                return `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareUrl)}`;
-            default:
-                return '';
-        }
     }
 
     /**
@@ -1204,73 +727,53 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     }
 
     /**
-     * Load and hydrate custom template
+     * Loads the type's detail template, its folder's or the default
+     * (siteTemplateUrl), and hydrates it. A folder file that turns out not to be
+     * a template falls back to the default's once.
      */
     private loadCustomTemplate(contentType: ContentType, content: IContents): void {
-        const templateFolder = contentType.templateFolder;
+        const folder = templateFolderFor(contentType.templateFolder);
+        const url = this.rejectedTemplateFolder === folder
+            ? siteTemplateUrl(DEFAULT_TEMPLATE_FOLDER, 'detail')
+            : siteTemplateUrl(folder, 'detail');
 
-        // Decided once per folder: the effect that calls this re-runs while
-        // useCustomTemplate stays false, and a rejected folder would be
-        // fetched again on every run.
-        if (templateFolder && templateFolder === this.rejectedTemplateFolder) {
-            this.useCustomTemplate.set(false);
-            return;
-        }
-        // One request per folder at a time; the effect can re-run several
+        // One request per template at a time; the effect can re-run several
         // times before the first response lands.
-        if (templateFolder && templateFolder === this.pendingTemplateFolder) return;
+        if (url === this.pendingTemplateUrl) return;
 
-        // Skip if using default template
-        if (!templateFolder || templateFolder === 'default') {
-            this.useCustomTemplate.set(false);
-            return;
-        }
+        // Not while prerendering: a request from the server goes back to the app
+        // itself, not to the static file. The page fills in once in the browser.
+        if (!isPlatformBrowser(this.platformId)) return;
 
-        // During SSR, skip custom template loading and use the default template.
-        // The SSR Cloud Function can't serve static assets via HttpClient (the request
-        // goes back to the SSR handler, which returns the Angular 404 page instead of
-        // the template file). The default template provides good SSR output for SEO.
-        // After client hydration, the custom template loads normally from static assets.
-        if (!isPlatformBrowser(this.platformId)) {
-            this.useCustomTemplate.set(false);
-            return;
-        }
-
-        // Build template URL - using generic filename
-        const templateUrl = `/templates/${templateFolder}/detail.html`;
-        const stateKey = makeStateKey<string>(`tpl-detail-${templateFolder}`);
-
-        // Check TransferState first (cached from SSR)
+        const stateKey = makeStateKey<string>(`tpl-detail-${url}`);
         if (this.transferState.hasKey(stateKey)) {
             const cachedHtml = this.transferState.get(stateKey, '');
             this.transferState.remove(stateKey);
-            if (!isTemplateFragment(cachedHtml)) {
-                this.useCustomTemplate.set(false);
+            if (isTemplateFragment(cachedHtml)) {
+                this.hydrateAndSetTemplate(cachedHtml, contentType, content);
                 return;
             }
-            this.hydrateAndSetTemplate(cachedHtml, contentType, content);
-            return;
         }
 
-        this.pendingTemplateFolder = templateFolder;
-        this.http.get(templateUrl, { responseType: 'text' }).subscribe({
+        this.pendingTemplateUrl = url;
+        this.http.get(url, { responseType: 'text' }).subscribe({
             next: (templateHtml) => {
-                this.pendingTemplateFolder = null;
-                // A missing template folder answers with the SPA shell (HTTP
-                // 200, the 404 page); that is not a template. Fall back to
-                // the built-in layout instead of rendering a 404 inside the page.
+                this.pendingTemplateUrl = null;
+                // A missing file answers with the app shell (HTTP 200, the 404
+                // page); that is not a template.
                 if (!isTemplateFragment(templateHtml)) {
-                    console.warn(`[ContentDetailComponent] /templates/${templateFolder}/detail.html is not a template fragment; using the default layout.`);
-                    this.rejectedTemplateFolder = templateFolder;
-                    this.useCustomTemplate.set(false);
+                    console.warn(`[ContentDetailComponent] ${url} is not a template fragment.`);
+                    if (folder !== DEFAULT_TEMPLATE_FOLDER && this.rejectedTemplateFolder !== folder) {
+                        this.rejectedTemplateFolder = folder;
+                        this.loadCustomTemplate(contentType, content);
+                    }
                     return;
                 }
                 this.hydrateAndSetTemplate(templateHtml, contentType, content);
             },
             error: (error) => {
-                this.pendingTemplateFolder = null;
-                console.warn('[ContentDetailComponent] Failed to load custom template:', error.message);
-                this.useCustomTemplate.set(false);
+                this.pendingTemplateUrl = null;
+                console.warn(`[ContentDetailComponent] Failed to load ${url}:`, error.message);
             }
         });
     }
@@ -1278,10 +781,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     /**
      * Hydrate template HTML with content data and set it for rendering
      */
-    /** A template folder whose file turned out not to be a template; never fetched twice. */
+    /** A template folder whose file turned out not to be a template; the default is used instead. */
     private rejectedTemplateFolder: string | null = null;
-    /** The folder whose template request is in flight. */
-    private pendingTemplateFolder: string | null = null;
+    /** The template whose request is in flight. */
+    private pendingTemplateUrl: string | null = null;
 
     /** The last custom template as loaded, so it can be re-hydrated when the author arrives. */
     private lastTemplate: { html: string; contentType: ContentType; content: IContents } | null = null;
@@ -1381,7 +884,6 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
         this.templateHtml.set(hydratedHtml);
-        this.useCustomTemplate.set(true);
         
         // Execute scripts after view update (browser only). Skipped on a
         // re-hydration: the scripts already ran against this page.

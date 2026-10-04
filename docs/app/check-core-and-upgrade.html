@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Keep core untouched | Arc CMS docs</title>
   <meta name="description" content="Run npm run check:core before every commit, move a change out of core into the custom space or into Arc CMS itself, and keep taking Arc CMS updates cleanly.">
-  <meta name="docs:sources" content="scripts/check-core.mjs, scripts/arc-upgrade.mjs, src/custom, functions/src/custom, custom">
+  <meta name="docs:sources" content="scripts/check-core.mjs, scripts/arc-upgrade.mjs, scripts/arc-own-site.mjs, src/custom, functions/src/custom, custom">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/check-core-and-upgrade.html">
@@ -53,6 +53,7 @@
         <tr><td>Wording or translations</td><td><code>src/custom/i18n/</code>, which can also reword core text</td></tr>
         <tr><td>Styles</td><td><code>src/custom/styles.css</code>, loaded after every core stylesheet</td></tr>
         <tr><td>Features on or off</td><td><code>src/custom/features.ts</code>: <a href="choose-features.html">Choose your app's features</a></td></tr>
+        <tr><td>The home page, a content template, the site header or footer, the sign-in page's brand panel, a static page, the site's styles, favicon or error pages (anything in <code>public/_site/</code> or <code>public/</code>)</td><td><code class="new">src/custom/site/</code>, at the same path: <a href="../website/templates.html">Design templates</a>. When the check lists files in <code>public/</code>, it points to <code>npm run arc:own-site</code>, which moves them for you: <a href="../website/move-your-site.html">Move your site into src/custom/site</a></td></tr>
         <tr><td>A Cloud Function or trigger</td><td><code>functions/src/custom/index.ts</code>: <a href="functions.html">Write your own Cloud Functions</a></td></tr>
         <tr><td>A command-line script, its data, or design files</td><td><code>custom/</code>: <a href="scripts-and-data.html">Run scripts and keep data</a></td></tr>
         <tr><td>Security rules or indexes</td><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code>: <a href="rules-and-indexes.html">Set security rules and indexes</a></td></tr>

@@ -159,6 +159,11 @@ describe('arc-configure', () => {
             expect(rendered).not.toContain('acme-dev');
         });
 
+        it('tells the app its hosting site, or that it has none, so the admin can compare site files with it', () => {
+            expect(configure.appValues(config).hostingSite).toBe('acme-admin');
+            expect(configure.appValues(configure.normalizeConfig({ hostingSite: 'none' }))).toEqual({ hostingSite: 'none' });
+        });
+
         it('sets the ARC_* keys in functions/.env, replacing old values', () => {
             expect(configure.updateFunctionsEnv('RESEND_KEY=x\nARC_DATABASE_ID=old\n', config))
                 .toBe(`RESEND_KEY=x\nARC_DATABASE_ID=arccms\nARC_FUNCTIONS_REGION=us-central1\nARC_HOSTING_SITE=acme-admin\n${APP_USERS_DEFAULTS}ARC_STORAGE_BUCKET=acme-arccms\n`);

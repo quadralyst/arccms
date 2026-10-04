@@ -27,8 +27,15 @@ describe('UiStringsService', () => {
     it('loads a language file and activates it', async () => {
         await service.use('hi');
 
-        expect(get).toHaveBeenCalledWith('/i18n/hi/strings.json');
+        expect(get).toHaveBeenCalledWith('/_site/strings/hi.json');
         expect(service.translate('read_more', 'Read Article')).toBe('लेख पढ़ें');
+    });
+
+    it('requests nothing for a language the site has no strings for', async () => {
+        await service.use('ta');
+
+        expect(get).not.toHaveBeenCalled();
+        expect(service.translate('read_more', 'Read Article')).toBe('Read Article');
     });
 
     it('falls back to the caller default for a missing key', async () => {

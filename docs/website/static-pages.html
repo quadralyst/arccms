@@ -4,32 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Write static pages | Arc CMS docs</title>
-  <meta name="description" content="Write the privacy and cookie policy pages as HTML files, publish them with the website, and choose a content type for other fixed pages.">
-  <meta name="docs:sources" content="public/pages, src/app/pages/public-page-renderer, functions/src/pages/deployStaticPage.ts, functions/src/pages/seedStaticPages.ts, functions/src/pages/generateSitemap.ts, firebase.json, src/app/pages/admin/(settings)/site-usage">
+  <meta name="description" content="Write your privacy and cookie policy pages as HTML files in your site folder, publish them with the website, and choose a content type for other fixed pages.">
+  <meta name="docs:sources" content="public/_site/pages, scripts/arc-site.mjs, src/shared/constants/legal-notice.ts, src/app/pages/public-page-renderer, functions/src/pages/deployStaticPage.ts, functions/src/pages/seedStaticPages.ts, functions/src/pages/generateSitemap.ts, firebase.json, src/app/pages/admin/(settings)/site-usage">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/static-pages.html">
   <main>
     <h1>Write static pages</h1>
-    <p class="lead">Static pages are HTML files in <code>public/pages/</code>, served at <code>/p/{name}</code>. Arc CMS ships two, the privacy policy and the cookie policy; rewrite both with your own text before launch.</p>
+    <p class="lead">Static pages are HTML files served at <code>/p/{name}</code>. Yours go in <code class="new">src/custom/site/pages/</code>. Arc CMS ships two examples, a privacy policy and a cookie policy, in <code>public/_site/pages/</code>; put your own in their place before launch.</p>
 
-    <h2>Edit the legal pages</h2>
+    <h2>Write the legal pages</h2>
     <ol class="steps">
-      <li><p>Open <code>public/pages/privacy-policy.html</code> and <code>public/pages/cookie-policy.html</code>. They hold Arc CMS's own policies as an example.</p></li>
+      <li><p>Copy <code>public/_site/pages/privacy-policy.html</code> and <code>public/_site/pages/cookie-policy.html</code> to <code class="new">src/custom/site/pages/</code>. They hold Arc CMS's own policies as an example; your copies replace them at the same addresses.</p></li>
       <li><p>Replace the <code>&lt;title&gt;</code>, the <code>&lt;meta name="description"&gt;</code> and the body text with yours. Keep the page a whole HTML document.</p></li>
       <li><p>Keep <code>&lt;arc-header&gt;&lt;/arc-header&gt;</code> at the top of <code>&lt;body&gt;</code> and <code>&lt;arc-footer&gt;&lt;/arc-footer&gt;</code> at the end: they become the site header and footer. Use the site's classes (Bootstrap is loaded) rather than your own stylesheet.</p></li>
       <li><p>Check them locally: with <code>npm run dev</code> running, open <code>/p/privacy-policy</code> and <code>/p/cookie-policy</code>.</p></li>
       <li><p>Deploy the website (see <a href="../operations/deploy.html">Deploy</a>). The website deploy publishes both pages with your header, footer, styles and search box filled in, and lists them in the sitemap.</p></li>
     </ol>
     <p>On the live site <code>/p/{name}</code> redirects to <code>/pages/{name}</code>, so either address works in your links. The cookie banner (Settings, <strong>Site Usage</strong>) links to <code>/p/cookie-policy</code> unless you change it.</p>
+    <p>The terms notice on every signup form links to your pages by name: <code class="new">src/custom/site/pages/terms.html</code> becomes the link on "Terms of Service" and <code class="new">src/custom/site/pages/privacy-policy.html</code> the link on "Privacy Policy". Until you supply a page, its words show as plain text; Arc CMS's sample policy is never linked.</p>
 
     <h2>Other fixed pages: use a content type</h2>
-    <p>For About, Contact, Terms and similar pages, create a content type, for example Company with the slug <code>company</code>, and write each page as an item. You get the editor, drafts, SEO fields, the sitemap, search and translations, and the page is live the moment you publish it: <code>/company/about</code>.</p>
-    <div class="trap"><p>Only <code>privacy-policy</code> and <code>cookie-policy</code> are processed when the website is deployed. Any other file you add to <code>public/pages/</code> works on your computer, but the live site serves it exactly as written: its <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code> stay empty tags, the site styles are missing, and it is not in the sitemap. Use a content type for those pages instead.</p></div>
+    <p>For About, Contact and similar pages, create a content type, for example Company with the slug <code>company</code>, and write each page as an item. You get the editor, drafts, SEO fields, the sitemap, search and translations, and the page is live the moment you publish it: <code>/company/about</code>.</p>
+    <p>A page you add, such as <code class="new">src/custom/site/pages/terms.html</code>, is published the same way at <code>/p/terms</code> on the next website deploy, and listed in the sitemap. Keep such pages for text that rarely changes and needs no editor; anything editors update belongs in a content type.</p>
     <div class="note"><p>Static pages exist in the default language only. A page you need in several languages belongs in a content type.</p></div>
 
     <h2>Next</h2>
-    <p>Set up images: <a href="media.html">Manage media</a>. The full reference for content, including static pages, is <a href="../features/content.html">Content</a>.</p>
+    <p>Give the sign-in page your brand: <a href="sign-in-page.html">Brand the sign-in page</a>. The full reference for content, including static pages, is <a href="../features/content.html">Content</a>.</p>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

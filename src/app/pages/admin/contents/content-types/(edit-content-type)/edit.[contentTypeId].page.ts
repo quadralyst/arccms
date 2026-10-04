@@ -397,28 +397,16 @@ export default class EditContentTypeComponent extends BaseComponent implements O
      */
     private loadTemplateFolders(): void {
         this.templatesLoading.set(true);
-        this.templateFolderService.loadAndValidateTemplates().subscribe({
-            next: (folders) => {
-                this.templateFolders.set(folders);
-                this.templatesLoading.set(false);
-                this.templatesLoaded = true;
+        this.templateFolderService.loadAndValidateTemplates().subscribe((folders) => {
+            this.templateFolders.set(folders);
+            this.templatesLoading.set(false);
+            this.templatesLoaded = true;
 
-                // Re-apply pending templateFolder value now that options are available
-                const pending = this.pendingTemplateFolder;
-                if (pending) {
-                    this.editForm.patchValue({ templateFolder: pending });
-                }
-            },
-            error: (error) => {
-                console.error('Error loading template folders:', error);
-                this.templatesLoading.set(false);
-                // Set default as fallback
-                this.templateFolders.set([{
-                    name: 'default',
-                    displayName: 'Default Template',
-                    isValid: true,
-                }]);
-            },
+            // Re-apply pending templateFolder value now that options are available
+            const pending = this.pendingTemplateFolder;
+            if (pending) {
+                this.editForm.patchValue({ templateFolder: pending });
+            }
         });
     }
 

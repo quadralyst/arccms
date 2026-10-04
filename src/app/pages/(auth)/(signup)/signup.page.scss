@@ -1,3 +1,8 @@
+// The site's font on the sign-in page (docs/website/sign-in-page.html).
+.arc-signup {
+    font-family: var(--arc-sign-in-font, inherit);
+}
+
 .verification-container,
 .signup-container,
 .request-container {
@@ -227,6 +232,8 @@ input:focus {
 
 .auth-logo {
     text-align: center;
+    // Room for the logo before the site's identity arrives, so nothing shifts.
+    min-height: 60px;
     // margin-bottom: 1.5rem;
 }
 
@@ -234,6 +241,7 @@ input:focus {
     width: 120px;
     height: 60px;
     margin-right: 10px;
+    object-fit: contain;
 }
 
 .auth-logo-text {
@@ -274,7 +282,7 @@ input:focus {
 }
 
 .form-control:focus {
-    border-color: #3C76F5;
+    border-color: var(--arc-sign-in-accent, #3C76F5);
     box-shadow: 0 0 0 4px rgba(60, 118, 245, 0.15);
     background-color: #fff;
 }
@@ -289,7 +297,7 @@ input:focus {
     border-radius: 8px;
     font-weight: 500;
     font-size: 0.95rem;
-    background: linear-gradient(135deg, #3C76F5, #24C6DC);
+    background: var(--arc-sign-in-button-background, linear-gradient(135deg, #3C76F5, #24C6DC));
     border: none;
     transition: all 0.3s;
     box-shadow: 0 2px 5px rgba(60, 118, 245, 0.2);
@@ -299,7 +307,7 @@ input:focus {
 .btn-primary:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 10px rgba(60, 118, 245, 0.3);
-    background: linear-gradient(135deg, #2654BD, #20b2c7);
+    background: var(--arc-sign-in-button-hover-background, linear-gradient(135deg, #2654BD, #20b2c7));
 }
 
 .btn-secondary {
@@ -522,39 +530,19 @@ input:focus {
 }
 
 @media (min-width: 992px) {
+    // The brand panel's look; a site sets these in src/custom/site/site.css
+    // (docs/website/sign-in-page.html). Its content is styled by SignInPanelComponent.
     .auth-left {
         display: block;
-        background:
+        background: var(--arc-sign-in-panel-background,
             radial-gradient(circle at 10% 10%, #2654BD 0%, transparent 50%),
             radial-gradient(circle at 90% 20%, #24C6DC 0%, transparent 60%),
             radial-gradient(circle at 50% 50%, #3C76F5 0%, transparent 70%),
             radial-gradient(circle at 80% 80%, #1D47A3 0%, transparent 50%),
             radial-gradient(circle at 20% 90%, #1B429A 0%, transparent 60%),
-            linear-gradient(135deg, #1D47A3 0%, #24C6DC 100%);
+            linear-gradient(135deg, #1D47A3 0%, #24C6DC 100%));
+        color: var(--arc-sign-in-panel-color, #fff);
         position: relative;
-    }
-
-    .auth-left-content {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-        text-align: center;
-        width: 80%;
-        max-width: 500px;
-    }
-
-    .auth-left-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 1.5rem;
-    }
-
-    .auth-left-description {
-        font-size: 1.1rem;
-        line-height: 1.6;
-        opacity: 0.9;
     }
 
     .customPadding {

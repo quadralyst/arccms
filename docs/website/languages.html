@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Publish in more than one language | Arc CMS docs</title>
   <meta name="description" content="Add languages to your website, translate content types, items and template text, and publish each language under its own URL prefix.">
-  <meta name="docs:sources" content="src/app/pages/admin/(settings)/localization, public/i18n, functions/src/shared/content-translation.ts, src/app/pages/admin/contents/draft-content-store/content-translation.model.ts, src/app/pages/page.parts/language-switcher.component.ts, src/app/pages/home-i18n">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings)/localization, public/_site/strings, scripts/arc-site.mjs, functions/src/pages/deployHomePage.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents/draft-content-store/content-translation.model.ts, src/app/pages/page.parts/language-switcher.component.ts, src/app/pages/index.page.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/languages.html">
@@ -25,14 +25,14 @@
     <ol class="steps">
       <li><p><strong>Content type names.</strong> Edit each type under <strong>Content types</strong> and fill in the language tabs: the plural and singular name, the description and the custom field labels. They appear on the public list page and in headings such as "Back to Articles".</p></li>
       <li><p><strong>Items.</strong> In the editor, switch to a language tab and translate. Empty fields fall back to the default language. The URL, cover image, tags and dates are shared by all languages, and <strong>Save as draft</strong> and <strong>Publish</strong> apply to every language at once.</p></li>
-      <li><p><strong>Fixed template text</strong>, such as "Read more": mark it in your templates and in <code>public/_partials/</code> with <code>data-arc-t="read_more"</code>, leaving the default wording inside, and add the key to each other language's <code>strings.json</code>, for example <code>public/i18n/hi/strings.json</code>. A missing key shows the default wording.</p></li>
+      <li><p><strong>Fixed template text</strong>, such as "Read more": mark it in your templates, header and footer with <code>data-arc-t="read_more"</code>, leaving the default wording inside, and add the key to that language's strings file in your site folder, for example <code class="new">src/custom/site/strings/hi.json</code>. Your keys are merged over Arc CMS's (<code>public/_site/strings/hi.json</code>), so write only the keys you add or reword. A missing key shows the default wording.</p></li>
     </ol>
-    <p>The <code>&lt;arc-language-switcher&gt;</code> element in the header partial becomes links to the page's other languages, and disappears on a single-language site. Deploy the website after changing templates or <code>strings.json</code>, so pages are written again with the new text.</p>
+    <p>The <code>&lt;arc-language-switcher&gt;</code> element in the site header becomes links to the page's other languages, and disappears on a single-language site. Deploy the website after changing templates or <code>strings.json</code>, so pages are written again with the new text.</p>
 
     <h2>What stays in one language</h2>
     <ul>
-      <li>Static pages in <code>public/pages/</code> exist in the default language only. Put pages you need translated in a content type.</li>
-      <li>A translated home page is a separate file, <code>public/i18n/{lang}/index.html</code>, and needs its own component and route; see <a href="../features/languages.html">Languages</a>.</li>
+      <li>Static pages (<code class="new">src/custom/site/pages/</code>) exist in the default language only. Put pages you need translated in a content type.</li>
+      <li>The home page is published in every language: from <code class="new">src/custom/site/home.{lang}.html</code> when you write one, else from <code>home.html</code> with its <code>data-arc-t</code> text translated; see <a href="home-page.html">Build your home page</a>.</li>
     </ul>
     <div class="note"><p>Removing a language stops new pages being published for it. Pages already published in that language stay online until the item is republished or unpublished.</p></div>
 

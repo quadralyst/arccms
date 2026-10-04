@@ -50,6 +50,16 @@ describe('withLangPrefix', () => {
         expect(withLangPrefix(withLangPrefix('/#features', '/hi'), '/hi')).toBe('/hi#features');
     });
 
+    it('never prefixes a page or file that exists in one language only, in the app or on a published page', () => {
+        for (const href of ['/p/terms', '/pages/privacy-policy', '/site/brochure.pdf', '/assets/img/logo.png', '/_site/site.json', '/site']) {
+            expect(withLangPrefix(href, '/hi')).toBe(href);
+            expect(withLangPrefixServer(href, '/hi')).toBe(href);
+        }
+        // Only those folders: a path that merely starts with the same letters is a page.
+        expect(withLangPrefix('/press', '/hi')).toBe('/hi/press');
+        expect(withLangPrefix('/sites-we-love', '/hi')).toBe('/hi/sites-we-love');
+    });
+
     it('does not confuse a path that merely starts with the code', () => {
         expect(withLangPrefix('/hindi-guide', '/hi')).toBe('/hi/hindi-guide');
     });

@@ -87,6 +87,29 @@ export function findCredentials(env = process.env, home = homedir()) {
     return { label: 'your Firebase CLI login', refreshToken };
 }
 
+/**
+ * An OAuth access token for Google's REST APIs (Firebase Hosting, for one), from
+ * the same credentials runAdminScript uses: the Firebase CLI login, exchanged
+ * for a token, or GOOGLE_APPLICATION_CREDENTIALS through google-auth-library.
+ */
+export async function accessToken({ env = process.env, home = homedir(), fetchImpl = fetch } = {}) {
+    const credentials = findCredentials(env, home);
+    if (credentials.refreshToken) {
+        const res = await fetchImpl('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ ...FIREBASE_CLI_CLIENT, refresh_token: credentials.refreshToken, grant_type: 'refresh_token' }).toString(),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.access_token) throw new Error(`Could not sign in with your Firebase CLI login (${body.error_description || res.status}). Run \`firebase login --reauth\`.`);
+        return body.access_token;
+    }
+    const { GoogleAuth } = require('google-auth-library');
+    const token = await new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] }).getAccessToken();
+    if (!token) throw new Error('Could not get an access token from GOOGLE_APPLICATION_CREDENTIALS.');
+    return token;
+}
+
 /** The storage bucket the app's environment file names for this project, if any. */
 export function storageBucketFor(projectId, root = ROOT) {
     for (const file of ['environment.ts', 'environment.prod.ts']) {

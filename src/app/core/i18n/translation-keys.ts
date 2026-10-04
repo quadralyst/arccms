@@ -271,6 +271,10 @@ export type TranslationKey =
     | 'admin.contents.list.view_history'
     | 'admin.contents.list.view_save_failed'
     | 'admin.contents.list.visible_columns'
+    | 'admin.contents.site_drift.files'
+    | 'admin.contents.site_drift.label'
+    | 'admin.contents.site_drift.message'
+    | 'admin.contents.site_drift.missing'
     | 'admin.contents.types.add'
     | 'admin.contents.types.col_fields'
     | 'admin.contents.types.col_public_pages'
@@ -353,6 +357,10 @@ export type TranslationKey =
     | 'admin.contents.types.no_action'
     | 'admin.contents.types.page_subtitle'
     | 'admin.contents.types.page_title'
+    | 'admin.contents.types.republish_failed'
+    | 'admin.contents.types.republish_site'
+    | 'admin.contents.types.republish_site_hint'
+    | 'admin.contents.types.republish_started'
     | 'admin.contents.types.slug_exists'
     | 'admin.contents.types.update_failed'
     | 'admin.contents.types.updated'
@@ -1742,6 +1750,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.list.view_history',
     'admin.contents.list.view_save_failed',
     'admin.contents.list.visible_columns',
+    'admin.contents.site_drift.files',
+    'admin.contents.site_drift.label',
+    'admin.contents.site_drift.message',
+    'admin.contents.site_drift.missing',
     'admin.contents.types.add',
     'admin.contents.types.col_fields',
     'admin.contents.types.col_public_pages',
@@ -1824,6 +1836,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.no_action',
     'admin.contents.types.page_subtitle',
     'admin.contents.types.page_title',
+    'admin.contents.types.republish_failed',
+    'admin.contents.types.republish_site',
+    'admin.contents.types.republish_site_hint',
+    'admin.contents.types.republish_started',
     'admin.contents.types.slug_exists',
     'admin.contents.types.update_failed',
     'admin.contents.types.updated',

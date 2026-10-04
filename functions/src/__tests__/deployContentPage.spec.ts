@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ─── Hoisted mocks ──────────────────────────────────────────────────────────
 const {
     mockFetch,
+    mockLoadSiteTemplate,
     mockDeployFileToHosting,
     mockDeployBatchToHosting,
     mockRemoveFileFromHosting,
@@ -16,7 +17,6 @@ const {
     mockFindRelated,
     mockTranslationsGet,
     // Firestore mocks
-    mockDocGet,
     mockCollectionDocGet,
     mockContentTypeWhere,
     mockContentTypeLimitGet,
@@ -24,6 +24,7 @@ const {
     mockTopDoc,
 } = vi.hoisted(() => ({
     mockFetch: vi.fn(),
+    mockLoadSiteTemplate: vi.fn(),
     mockDeployFileToHosting: vi.fn(),
     mockDeployBatchToHosting: vi.fn(),
     mockRemoveFileFromHosting: vi.fn(),
@@ -37,7 +38,6 @@ const {
     mockFindRelated: vi.fn(),
     mockTranslationsGet: vi.fn(),
     // Firestore chain mocks
-    mockDocGet: vi.fn(),
     mockCollectionDocGet: vi.fn(),
     mockContentTypeWhere: vi.fn(),
     mockContentTypeLimitGet: vi.fn(),
@@ -54,6 +54,13 @@ vi.mock('../init', () => ({
         collection: mockCollection,
         doc: mockTopDoc,
     },
+}));
+
+// Templates come from the live site (shared/site-files.ts, tested in siteFiles.spec.ts);
+// here the loader hands each test its template. The error class stays real.
+vi.mock('../shared/site-files', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../shared/site-files.js')>()),
+    loadSiteTemplate: mockLoadSiteTemplate,
 }));
 
 vi.mock('../pages/deployToHosting', async (importOriginal) => {
@@ -93,6 +100,7 @@ import {
     generateAndDeployContentDetailPage,
     removeContentPage,
 } from '../pages/deployContentPage.js';
+import { MissingTemplateFolderError } from '../shared/site-files.js';
 
 // ─── Test Data ──────────────────────────────────────────────────────────────
 
@@ -214,20 +222,8 @@ function restoreMockImplementations() {
         };
     });
 
-    // Firestore: db.doc('templates/articles:detail').get() — Tier 1 template
-    mockDocGet.mockResolvedValue({
-        exists: true,
-        data: () => ({ html: MOCK_TEMPLATE_HTML }),
-    });
-    mockTopDoc.mockReturnValue({
-        get: mockDocGet,
-    });
-
-    // Global fetch — Tier 2 template (not needed by default, Tier 1 succeeds)
-    mockFetch.mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve(MOCK_TEMPLATE_HTML),
-    });
+    // The type's detail template, as the live site serves it.
+    mockLoadSiteTemplate.mockResolvedValue(MOCK_TEMPLATE_HTML);
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -257,101 +253,29 @@ describe('deployContentPage', () => {
         });
     });
 
-    // --- Template 3-tier fallback ---
+    // --- Template from the live site ---
 
-    describe('Template 3-tier fallback', () => {
-        it('Tier 1: should load template from Firestore html field', async () => {
-            const customTemplate = '<div data-arc-bind="title">Custom</div>';
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: customTemplate }),
-            });
-
+    describe('Template from the live site', () => {
+        it('asks for the type\'s detail template', async () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            // Verify template doc was read
-            expect(mockTopDoc).toHaveBeenCalledWith('templates/articles:detail');
-            // Verify the deployed HTML contains hydrated content from the custom template
+            expect(mockLoadSiteTemplate).toHaveBeenCalledWith(MOCK_CONTENT_TYPE.templateFolder, 'detail');
             const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Test Article');
         });
 
-        it('Tier 1 fallback: should use originalHtml when html field is missing', async () => {
-            const originalTemplate = '<div data-arc-bind="title">Original</div>';
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ originalHtml: originalTemplate }),
-            });
-
+        it('reads no template from Firestore', async () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
-            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            expect(deployedHtml).toContain('Test Article');
+            expect(mockTopDoc).not.toHaveBeenCalled();
         });
 
-        it('Tier 2: should fetch from hosting when Firestore doc missing', async () => {
-            // Tier 1 fails (doc doesn't exist)
-            mockDocGet.mockResolvedValue({
-                exists: false,
-                data: () => null,
-            });
+        it('stops, deploying nothing, when the live site lacks the folder', async () => {
+            mockLoadSiteTemplate.mockRejectedValue(new MissingTemplateFolderError('recipes', true));
 
-            // Tier 2 succeeds
-            const hostingTemplate = '<h2 data-arc-bind="title">Hosting</h2>';
-            mockFetch.mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve(hostingTemplate),
-            });
-
-            await generateAndDeployContentDetailPage('articles', 'doc123');
-
-            expect(mockFetch).toHaveBeenCalledWith(
-                'https://test-project.web.app/templates/articles/detail.html',
-            );
-            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            expect(deployedHtml).toContain('Test Article');
-        });
-
-        it('Tier 3: should use built-in fallback when Tier 1+2 fail', async () => {
-            // Tier 1 fails
-            mockDocGet.mockRejectedValue(new Error('Firestore error'));
-
-            // Tier 2 fails
-            mockFetch.mockRejectedValue(new Error('Network error'));
-
-            await generateAndDeployContentDetailPage('articles', 'doc123');
-
-            const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            // Fallback template has data-arc-bind="title" which gets hydrated
-            expect(deployedHtml).toContain('Test Article');
-        });
-
-        it('should load the shared default template when templateFolder is "default"', async () => {
-            // "default" names a real template folder — public/templates/default —
-            // rather than meaning "no template". It used to short-circuit to the
-            // bare built-in skeleton, which is why a deployed page looked
-            // nothing like the same content previewed locally.
-            mockContentTypeLimitGet.mockResolvedValue({
-                empty: false,
-                docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, templateFolder: 'default' }) }],
-            });
-
-            await generateAndDeployContentDetailPage('articles', 'doc123');
-
-            expect(mockTopDoc).toHaveBeenCalledWith('templates/default:detail');
-            expect(mockDeployBatchToHosting).toHaveBeenCalled();
-        });
-
-        it('should fall back to the default folder when templateFolder is empty', async () => {
-            mockContentTypeLimitGet.mockResolvedValue({
-                empty: false,
-                docs: [{ data: () => ({ ...MOCK_CONTENT_TYPE, templateFolder: '' }) }],
-            });
-
-            await generateAndDeployContentDetailPage('articles', 'doc123');
-
-            expect(mockTopDoc).toHaveBeenCalledWith('templates/default:detail');
-            expect(mockDeployBatchToHosting).toHaveBeenCalled();
+            await expect(generateAndDeployContentDetailPage('articles', 'doc123')).rejects.toThrow(
+                "Template folder 'recipes' is not on the live site. Deploy the website, then publish again.");
+            expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
         });
     });
 
@@ -769,10 +693,7 @@ describe('deployContentPage', () => {
             });
             // The switcher lives inside the header partial, so the template
             // must actually place the header.
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: `<arc-header></arc-header>${MOCK_TEMPLATE_HTML}` }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue(`<arc-header></arc-header>${MOCK_TEMPLATE_HTML}`);
             withHindiTranslation();
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
@@ -784,10 +705,7 @@ describe('deployContentPage', () => {
             );
         });
         it('should translate static template chrome on the translated page only', async () => {
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: '<article><span data-arc-t="read_more">Read Article</span></article>' }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><span data-arc-t="read_more">Read Article</span></article>');
             mockGetUiStrings.mockImplementation(async (lang: string) =>
                 lang === 'hi' ? { read_more: 'लेख पढ़ें' } : {});
             withHindiTranslation();
@@ -802,10 +720,7 @@ describe('deployContentPage', () => {
         });
 
         it('should keep English chrome when a key is untranslated', async () => {
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: '<article><span data-arc-t="read_more">Read Article</span></article>' }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><span data-arc-t="read_more">Read Article</span></article>');
             mockGetUiStrings.mockResolvedValue({ other_key: 'x' });
             withHindiTranslation();
 
@@ -817,10 +732,7 @@ describe('deployContentPage', () => {
         it('should resolve interpolation carried by a translated string', async () => {
             // Strings are applied before hydration, so "back_to" can hold its own
             // {{ contentType }} and still end up with the real value.
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: '<article><span data-arc-t="back_to">Back to {{ contentType }}</span></article>' }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><span data-arc-t="back_to">Back to {{ contentType }}</span></article>');
             mockGetUiStrings.mockImplementation(async (lang: string) =>
                 lang === 'hi' ? { back_to: 'वापस {{ contentType }} पर' } : {});
             withHindiTranslation();
@@ -842,10 +754,7 @@ describe('deployContentPage', () => {
                     }),
                 }],
             });
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: '<article><span>{{ contentType }}</span></article>' }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><span>{{ contentType }}</span></article>');
             withHindiTranslation();
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
@@ -855,10 +764,7 @@ describe('deployContentPage', () => {
         });
 
         it('should keep the default name when the type is untranslated', async () => {
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: '<article><span>{{ contentType }}</span></article>' }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><span>{{ contentType }}</span></article>');
             withHindiTranslation();
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
@@ -948,12 +854,7 @@ describe('deployContentPage', () => {
         });
 
         it('shows the Updated line in the template only for a real revision', async () => {
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({
-                    html: '<article><h1>{{ title }}</h1><span data-arc-if="updatedOnDisplay">Updated {{ updatedOnDisplay }}</span></article>',
-                }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><h1>{{ title }}</h1><span data-arc-if="updatedOnDisplay">Updated {{ updatedOnDisplay }}</span></article>');
             await generateAndDeployContentDetailPage('articles', 'doc123');
             expect(mockDeployBatchToHosting.mock.calls[0][1].files[0].content).not.toContain('Updated');
 
@@ -999,13 +900,8 @@ describe('deployContentPage', () => {
                 photoUrl: 'https://example.com/jane.jpg', jobTitle: 'Founder', url: 'https://jane.dev',
                 sameAs: ['https://x.com/jane'],
             });
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({
-                    html: '<article><h1>{{ title }}</h1><span data-arc-if="authorName">By {{ authorName }}</span>'
-                        + '<aside data-arc-if="author.name"><b>{{ author.name }}</b><i>{{ author.jobTitle }}</i></aside></article>',
-                }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><h1>{{ title }}</h1><span data-arc-if="authorName">By {{ authorName }}</span>'
+                        + '<aside data-arc-if="author.name"><b>{{ author.name }}</b><i>{{ author.jobTitle }}</i></aside></article>');
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
@@ -1026,10 +922,7 @@ describe('deployContentPage', () => {
                 data: () => ({ ...MOCK_CONTENT, authorId: 'gone', authorName: 'Old Name' }),
             });
             mockGetAuthor.mockResolvedValue(null);
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: '<article><span data-arc-if="authorName">By {{ authorName }}</span><aside data-arc-if="author.name">box</aside></article>' }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><span data-arc-if="authorName">By {{ authorName }}</span><aside data-arc-if="author.name">box</aside></article>');
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
@@ -1101,12 +994,7 @@ describe('deployContentPage', () => {
                     ],
                 }),
             });
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({
-                    html: '<article><h1>{{ title }}</h1><section data-arc-if="hasReferences"><ul data-arc-loop="references"><li><a href="{{ url }}">{{ title }}</a></li></ul></section></article>',
-                }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><h1>{{ title }}</h1><section data-arc-if="hasReferences"><ul data-arc-loop="references"><li><a href="{{ url }}">{{ title }}</a></li></ul></section></article>');
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
             expect(nodeOfType('Article')!.citation).toEqual([
@@ -1122,27 +1010,11 @@ describe('deployContentPage', () => {
         });
 
         it('hides the Sources section when there are none', async () => {
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: '<article><section data-arc-if="hasReferences">sources</section></article>' }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><section data-arc-if="hasReferences">sources</section></article>');
             await generateAndDeployContentDetailPage('articles', 'doc123');
             const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(html).not.toContain('sources');
             expect(nodeOfType('Article')).not.toHaveProperty('citation');
-        });
-
-        it('does not treat the SPA shell served for a missing template folder as the template', async () => {
-            mockDocGet.mockResolvedValue({ exists: false, data: () => undefined });
-            mockFetch.mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('<!DOCTYPE html><html><head></head><body><arc-root><arc-not-found>404</arc-not-found></arc-root></body></html>'),
-            });
-            await generateAndDeployContentDetailPage('articles', 'doc123');
-            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            expect(html).not.toContain('arc-not-found');
-            // Tier 3, the built-in fallback, rendered the title instead.
-            expect(html).toContain('Test Article');
         });
 
         it('publishes a mapped content type as its schema.org type instead of Article (D-D12)', async () => {
@@ -1189,10 +1061,7 @@ describe('deployContentPage', () => {
                 { title: 'Second', snippet: 'About second', url: '/articles/second', badge: 'Articles' },
                 { title: 'Third', snippet: '', url: '/articles/third', badge: 'Articles' },
             ]);
-            mockDocGet.mockResolvedValue({
-                exists: true,
-                data: () => ({ html: '<article><h1>{{ title }}</h1><nav data-arc-if="hasRelated"><ul data-arc-loop="related"><li><a href="{{ url }}">{{ title }}</a></li></ul></nav></article>' }),
-            });
+            mockLoadSiteTemplate.mockResolvedValue('<article><h1>{{ title }}</h1><nav data-arc-if="hasRelated"><ul data-arc-loop="related"><li><a href="{{ url }}">{{ title }}</a></li></ul></nav></article>');
             await generateAndDeployContentDetailPage('articles', 'doc123');
             expect(mockFindRelated).toHaveBeenCalledWith(expect.objectContaining({
                 title: 'Test Article', tags: ['javascript', 'testing'], contentType: 'articles', urlSlug: 'test-article', lang: 'en',

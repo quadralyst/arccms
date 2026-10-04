@@ -29,7 +29,7 @@
     <h2>How pages are served</h2>
     <p>No server runs when someone opens a page. Firebase Hosting serves files:</p>
     <ul>
-      <li><strong>Published content</strong> (content pages, list pages, static pages, the sitemap, the feeds, <code>robots.txt</code> and <code>llms.txt</code>) is HTML and text that Cloud Functions render from the templates in <code>public/templates/</code> and write to Hosting whenever something is published.</li>
+      <li><strong>Published content</strong> (content pages, list pages, static pages, the sitemap, the feeds, <code>robots.txt</code> and <code>llms.txt</code>) is HTML and text that Cloud Functions render from the site's templates (Arc CMS's in <code>public/_site/templates/</code>, the app's in <code class="new">src/custom/site/templates/</code>) and write to Hosting whenever something is published.</li>
       <li><strong>The home page</strong> is rendered once, at build time.</li>
       <li><strong>Two email addresses</strong>, <code>/unsubscribe</code> and <code>/email-preferences</code>, are sent to Cloud Functions by Hosting rewrites, so the links in emails stay on the site's own address.</li>
       <li><strong>Every other address</strong> that is not a file gets the app shell, <code>__shell.html</code>, and Angular renders the page in the browser. That covers the admin area, the member area, and any content page not published as a file yet.</li>

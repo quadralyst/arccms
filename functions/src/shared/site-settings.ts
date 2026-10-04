@@ -1,5 +1,6 @@
 import { db } from '../init.js';
 import { arcHostingOrigin, arcHostingSite } from '../arc-config.js';
+import { clearSiteFilesCache, getSiteFile } from './site-files.js';
 
 export interface Partials {
     headerHtml: string;
@@ -78,28 +79,10 @@ function isCacheValid(cache: { timestamp: number } | null): boolean {
 }
 
 /**
- * Fetches a partial HTML file from the deployed hosting site.
- * Used as fallback when Firestore Settings/partials is empty.
- */
-async function fetchPartialFromHosting(filename: string): Promise<string> {
-    if (!arcHostingSite()) return '';
-
-    const url = `${arcHostingOrigin()}/_partials/${filename}`;
-    try {
-        const response = await fetch(url);
-        if (!response.ok) return '';
-        return (await response.text()).trim();
-    } catch {
-        return '';
-    }
-}
-
-/**
- * Reads header and footer HTML.
- *
- * Priority:
- *  1. Firestore Settings/partials document (admin-configured overrides)
- *  2. Hosting fallback: /_partials/_header.html and /_partials/_footer.html
+ * The site header and footer: the live site's /_site/header.html and
+ * /_site/footer.html, the same files the app renders (src/custom/site/ over
+ * public/_site/, scripts/arc-site.mjs). Empty strings when the live site has
+ * none (hosting off, or not yet deployed with /_site/).
  *
  * Cached for 5 minutes per Cloud Function instance.
  */
@@ -108,23 +91,8 @@ export async function getPartials(): Promise<Partials> {
         return partialsCache!.data;
     }
 
-    const doc = await db.doc('Settings/partials').get();
-    const data = doc.data();
-
-    let headerHtml = data?.headerHtml || '';
-    let footerHtml = data?.footerHtml || '';
-
-    // Fallback: fetch from hosting if Firestore is empty
-    if (!headerHtml || !footerHtml) {
-        const [hostingHeader, hostingFooter] = await Promise.all([
-            !headerHtml ? fetchPartialFromHosting('_header.html') : Promise.resolve(headerHtml),
-            !footerHtml ? fetchPartialFromHosting('_footer.html') : Promise.resolve(footerHtml),
-        ]);
-        headerHtml = headerHtml || hostingHeader;
-        footerHtml = footerHtml || hostingFooter;
-    }
-
-    const partials: Partials = { headerHtml, footerHtml };
+    const [header, footer] = await Promise.all([getSiteFile('header.html'), getSiteFile('footer.html')]);
+    const partials: Partials = { headerHtml: (header ?? '').trim(), footerHtml: (footer ?? '').trim() };
 
     partialsCache = { data: partials, timestamp: Date.now() };
     return partials;
@@ -164,7 +132,8 @@ export async function getAboutConfig(): Promise<AboutConfig> {
  * Priority chain:
  *  - siteName: Settings/about.name → Settings/site.siteName → ''
  *  - baseUrl:  Settings/about.finalUrl → Settings/site.baseUrl → https://{hosting site}.web.app
- *  - cssUrls:  Settings/site.cssUrls → ['/assets/css/main.css']
+ *  - cssUrls:  Settings/site.cssUrls → Bootstrap, Font Awesome, main.css
+ *              (a published page links them through pageStylesheets in site-files.ts)
  *
  * Cached for 5 minutes per Cloud Function instance.
  */
@@ -303,9 +272,9 @@ export async function getLocalizationSettings(): Promise<LocalizationSettings> {
 
 /**
  * Static UI strings for a language, used by `data-arc-t` in templates and
- * partials. Committed to the repo at `public/i18n/{lang}/strings.json` and
- * therefore served from hosting — they ship with the templates and must exist
- * at publish time (decision M-D18).
+ * partials: the live site's /_site/strings/{lang}.json (the app's
+ * src/custom/site/strings/ merged over public/_site/strings/). They ship with the
+ * templates and must exist at publish time (decision M-D18).
  *
  * The default language has no file: its text is the English authored into the
  * templates, which doubles as the fallback for any missing key.
@@ -320,11 +289,11 @@ export async function getUiStrings(lang: string): Promise<Record<string, string>
 
     let strings: Record<string, string> = {};
 
-    if (arcHostingSite()) {
+    {
         try {
-            const res = await fetch(`${arcHostingOrigin()}/i18n/${lang}/strings.json`);
-            if (res.ok) {
-                const parsed = await res.json();
+            const text = await getSiteFile(`strings/${lang}.json`);
+            if (text) {
+                const parsed = JSON.parse(text);
                 if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
                     strings = parsed as Record<string, string>;
                 }
@@ -364,4 +333,5 @@ export function clearSettingsCache(): void {
     miscSettingsCache = null;
     localizationCache = null;
     uiStringsCache.clear();
+    clearSiteFilesCache();
 }

@@ -1,268 +1,70 @@
 /**
- * Tests for Template Folder Service
- *
- * Tests verify the TemplateFolderService functionality including:
- * - Available templates fetching
- * - Template folder validation
- * - Display name formatting
+ * The template folders a content type can pick come from the site's manifest
+ * (/_site/site.json, bundled through virtual:arc-site): the default first, then
+ * core's and the app's folders, with nothing to fetch or register.
  */
-
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { TemplateFolderService, TemplateFolder } from './template-folder.service';
+import { firstValueFrom } from 'rxjs';
+import { TemplateFolderService } from './template-folder.service';
+import { SiteManifest, setSiteManifestForTesting, siteManifest } from '../site/site';
+
+const MANIFEST: SiteManifest = {
+    version: 1,
+    home: {},
+    templates: {
+        default: { partials: 'core', list: 'core', detail: 'core' },
+        articles: { partials: 'core', list: 'core', detail: 'core' },
+        'case-studies': { detail: 'app' },
+    },
+    pages: {},
+    strings: [],
+    files: {},
+};
 
 describe('TemplateFolderService', () => {
     let service: TemplateFolderService;
-    let httpMock: HttpTestingController;
 
     beforeEach(() => {
-        TestBed.configureTestingModule({
-            imports: [HttpClientTestingModule],
-            providers: [TemplateFolderService]
-        });
-
+        setSiteManifestForTesting(MANIFEST);
         service = TestBed.inject(TemplateFolderService);
-        httpMock = TestBed.inject(HttpTestingController);
     });
 
-    afterEach(() => {
-        httpMock.verify();
+    afterEach(() => setSiteManifestForTesting());
+
+    it('lists the default first, then every folder of the site, sorted', () => {
+        expect(service.folders().map((f) => f.name)).toEqual(['default', 'articles', 'case-studies']);
     });
 
-    describe('Service Creation', () => {
-        it('should be created', () => {
-            expect(service).toBeTruthy();
-        });
-
-        it('should have initial empty template folders', () => {
-            expect(service.templateFolders()).toEqual([]);
-        });
-
-        it('should have initial isLoading as false', () => {
-            expect(service.isLoading()).toBe(false);
-        });
+    it('says which folders are the app\'s own', () => {
+        const byName = Object.fromEntries(service.folders().map((f) => [f.name, f.from]));
+        expect(byName).toEqual({ default: 'core', articles: 'core', 'case-studies': 'app' });
     });
 
-    describe('getAvailableTemplates', () => {
-        it('should fetch templates from API', () => {
-            const mockFolders = ['articles', 'blog'];
-
-            service.getAvailableTemplates().subscribe((templates) => {
-                expect(templates.length).toBe(3); // 2 + default
-                expect(templates[0].name).toBe('default');
-                expect(templates[1].name).toBe('articles');
-                expect(templates[2].name).toBe('blog');
-            });
-
-            const req = httpMock.expectOne('/api/templates');
-            expect(req.request.method).toBe('GET');
-            req.flush(mockFolders);
-        });
-
-        it('should add default template at the beginning', () => {
-            const mockFolders = ['custom'];
-
-            service.getAvailableTemplates().subscribe((templates) => {
-                expect(templates[0]).toEqual({
-                    name: 'default',
-                    displayName: 'Default Template',
-                    isValid: true
-                });
-            });
-
-            const req = httpMock.expectOne('/api/templates');
-            req.flush(mockFolders);
-        });
-
-        it('should format display names correctly', () => {
-            const mockFolders = ['blog-modern', 'simple-clean'];
-
-            service.getAvailableTemplates().subscribe((templates) => {
-                expect(templates[1].displayName).toBe('Blog Modern');
-                expect(templates[2].displayName).toBe('Simple Clean');
-            });
-
-            const req = httpMock.expectOne('/api/templates');
-            req.flush(mockFolders);
-        });
-
-        it('should update templateFolders signal', () => {
-            const mockFolders = ['test'];
-
-            service.getAvailableTemplates().subscribe(() => {
-                expect(service.templateFolders().length).toBe(2);
-            });
-
-            const req = httpMock.expectOne('/api/templates');
-            req.flush(mockFolders);
-        });
-
-        it('should handle API errors gracefully', () => {
-            service.getAvailableTemplates().subscribe((templates) => {
-                expect(templates.length).toBe(1);
-                expect(templates[0].name).toBe('default');
-            });
-
-            const req = httpMock.expectOne('/api/templates');
-            req.error(new ErrorEvent('Network error'));
-        });
-
-        it('should set isLoading to true during fetch', () => {
-            service.getAvailableTemplates().subscribe();
-
-            expect(service.isLoading()).toBe(true);
-
-            const req = httpMock.expectOne('/api/templates');
-            req.flush([]);
-
-            expect(service.isLoading()).toBe(false);
-        });
+    it('formats display names', () => {
+        expect(service.folders().find((f) => f.name === 'case-studies')!.displayName).toBe('Case Studies');
+        expect(service.folders().find((f) => f.name === 'articles')!.displayName).toBe('Articles');
     });
 
-    describe('validateTemplateFolder', () => {
-        it('should return valid for default template', () => {
-            service.validateTemplateFolder('default').subscribe((result) => {
-                expect(result).toEqual({
-                    name: 'default',
-                    displayName: 'Default Template',
-                    isValid: true
-                });
-            });
-
-            // No HTTP requests expected for 'default'
-            httpMock.expectNone('/templates/default/default-list.html');
-        });
-
-        it('should validate custom template folder with required files', () => {
-            service.validateTemplateFolder('articles').subscribe((result) => {
-                expect(result.name).toBe('articles');
-                expect(result.isValid).toBe(true);
-            });
-
-            const listReq = httpMock.expectOne('/templates/articles/articles-list.html');
-            listReq.flush(null);
-
-            const detailReq = httpMock.expectOne('/templates/articles/articles-detail.html');
-            detailReq.flush(null);
-        });
-
-        it('should return invalid when list file is missing', () => {
-            service.validateTemplateFolder('broken').subscribe((result) => {
-                expect(result.isValid).toBe(false);
-                expect(result.invalidReason).toContain('broken-list.html');
-            });
-
-            const listReq = httpMock.expectOne('/templates/broken/broken-list.html');
-            listReq.error(new ErrorEvent('Not found'));
-
-            const detailReq = httpMock.expectOne('/templates/broken/broken-detail.html');
-            detailReq.flush(null);
-        });
-
-        it('should return invalid when detail file is missing', () => {
-            service.validateTemplateFolder('incomplete').subscribe((result) => {
-                expect(result.isValid).toBe(false);
-                expect(result.invalidReason).toContain('incomplete-detail.html');
-            });
-
-            const listReq = httpMock.expectOne('/templates/incomplete/incomplete-list.html');
-            listReq.flush(null);
-
-            const detailReq = httpMock.expectOne('/templates/incomplete/incomplete-detail.html');
-            detailReq.error(new ErrorEvent('Not found'));
-        });
+    it('marks every listed folder valid', () => {
+        expect(service.folders().every((f) => f.isValid)).toBe(true);
     });
 
-    describe('loadAndValidateTemplates', () => {
-        it('should load templates from manifest', () => {
-            service.loadAndValidateTemplates().subscribe((templates) => {
-                expect(templates.length).toBeGreaterThan(0);
-            });
-
-            const req = httpMock.expectOne('/templates/templates.json');
-            req.flush({ folders: ['articles', 'manuals'] });
-        });
-
-        it('should update templateFolders signal on success', () => {
-            service.loadAndValidateTemplates().subscribe(() => {
-                expect(service.templateFolders().length).toBe(3);
-            });
-
-            const req = httpMock.expectOne('/templates/templates.json');
-            req.flush({ folders: ['articles', 'manuals'] });
-        });
-
-        it('should return default only on error', () => {
-            service.loadAndValidateTemplates().subscribe((templates) => {
-                expect(templates.length).toBe(1);
-                expect(templates[0].name).toBe('default');
-            });
-
-            const req = httpMock.expectOne('/templates/templates.json');
-            req.error(new ErrorEvent('Network error'));
-        });
-
-        it('should set isLoading during operation', () => {
-            service.loadAndValidateTemplates().subscribe();
-
-            expect(service.isLoading()).toBe(true);
-
-            const req = httpMock.expectOne('/templates/templates.json');
-            req.flush({ folders: [] });
-
-            expect(service.isLoading()).toBe(false);
-        });
+    it('loads the folders for the pickers and keeps them in the signal', async () => {
+        const folders = await firstValueFrom(service.loadAndValidateTemplates());
+        expect(folders.map((f) => f.name)).toEqual(['default', 'articles', 'case-studies']);
+        expect(service.templateFolders()).toEqual(folders);
     });
 
-    describe('formatDisplayName', () => {
-        it('should format hyphenated names', () => {
-            // Testing via getAvailableTemplates since formatDisplayName is private
-            const mockFolders = ['blog-modern-style'];
-
-            service.getAvailableTemplates().subscribe((templates) => {
-                expect(templates[1].displayName).toBe('Blog Modern Style');
-            });
-
-            const req = httpMock.expectOne('/api/templates');
-            req.flush(mockFolders);
-        });
-
-        it('should capitalize single word names', () => {
-            const mockFolders = ['simple'];
-
-            service.getAvailableTemplates().subscribe((templates) => {
-                expect(templates[1].displayName).toBe('Simple');
-            });
-
-            const req = httpMock.expectOne('/api/templates');
-            req.flush(mockFolders);
-        });
+    it('knows whether the site has a folder', () => {
+        expect(service.hasFolder('articles')).toBe(true);
+        expect(service.hasFolder('recipes')).toBe(false);
+        expect(service.hasFolder('')).toBe(false);
     });
 
-    describe('TemplateFolder Interface', () => {
-        it('should have required properties', () => {
-            const template: TemplateFolder = {
-                name: 'test',
-                displayName: 'Test',
-                isValid: true
-            };
-
-            expect(template.name).toBe('test');
-            expect(template.displayName).toBe('Test');
-            expect(template.isValid).toBe(true);
-            expect(template.invalidReason).toBeUndefined();
-        });
-
-        it('should allow optional invalidReason', () => {
-            const template: TemplateFolder = {
-                name: 'broken',
-                displayName: 'Broken',
-                isValid: false,
-                invalidReason: 'Missing files'
-            };
-
-            expect(template.invalidReason).toBe('Missing files');
-        });
+    it('reads the manifest this build serves, with Arc CMS\'s shipped folders in it', () => {
+        setSiteManifestForTesting();
+        expect(Object.keys(siteManifest().templates)).toEqual(expect.arrayContaining(['default', 'articles', 'manuals']));
+        expect(siteManifest().templates['default']).toEqual({ detail: 'core', list: 'core', partials: 'core' });
     });
 });

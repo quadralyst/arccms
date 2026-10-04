@@ -85,6 +85,6 @@ describe('arc-features generator', () => {
 
     it('runs before every functions build', () => {
         const pkg = JSON.parse(readFileSync(resolve(SRC, '../package.json'), 'utf8'));
-        expect(pkg.scripts.prebuild).toBe('node ../scripts/arc-features.mjs');
+        expect(pkg.scripts.prebuild).toContain('node ../scripts/arc-features.mjs');
     });
 });

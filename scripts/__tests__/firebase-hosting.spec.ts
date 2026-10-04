@@ -35,3 +35,11 @@ describe('firebase.json hosting rewrites for public email links', () => {
         expect(source).toContain('}email-preferences?e=');
     });
 });
+
+describe('firebase.json hosting headers for the site\'s source files', () => {
+    it('keeps /_site/ (raw templates, header, home page source) out of search engines', () => {
+        const rule = (firebase.hosting.headers as Array<{ source: string; headers: Array<{ key: string; value: string }> }>)
+            .find((h) => h.source === '/_site/**');
+        expect(rule?.headers).toContainEqual({ key: 'X-Robots-Tag', value: 'noindex' });
+    });
+});

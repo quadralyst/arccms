@@ -21,6 +21,7 @@ export const routeMeta: RouteMeta = {
     providers: [],
 };
 
+import { siteManifest } from '../../../../../core/site/site';
 @Component({
     selector: 'arc-view-content-type',
     standalone: true,
@@ -55,6 +56,19 @@ export class ViewContentTypeComponent extends BaseComponent {
     /** Copy a template attribute syntax to the clipboard */
     copiedKey: string | null = null;
     private cdr = inject(ChangeDetectorRef);
+
+    /**
+     * Where a content type's templates come from, for the Template row: the app's
+     * own folder (src/custom/site/templates/), an Arc CMS folder, or the default
+     * because the site has no folder of that name.
+     */
+    templateSource(folder: string | null | undefined): { path: string; missing: boolean } | null {
+        if (!folder || folder === 'default') return null;
+        const files = siteManifest().templates[folder];
+        if (!files) return { path: `templates/${folder}`, missing: true };
+        const own = Object.values(files).includes('app');
+        return { path: own ? `src/custom/site/templates/${folder}` : `public/_site/templates/${folder}`, missing: false };
+    }
     copyToClipboard(syntax: string, key: string) {
         navigator.clipboard.writeText(syntax).then(() => {
             this.copiedKey = key;

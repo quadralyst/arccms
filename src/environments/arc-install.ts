@@ -15,5 +15,6 @@ export const arcInstall: Record<string, ArcInstallConfig> = {
         databaseId: "arccms",
         storageBucket: "xlm-project-864ff-arccms",
         storagePrefix: "arccms/",
+        hostingSite: "xlm-project-864ff-arccms",
     },
 };

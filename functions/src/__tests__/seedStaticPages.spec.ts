@@ -58,6 +58,13 @@ vi.mock('../pages/deployContentListPage', () => ({
 
 vi.mock('../pages/deployStaticPage', () => ({
     generateAndDeployStaticPage: mockGenerateStaticPage,
+    // The pages the live site lists; the two Arc CMS ships, as on a fresh install.
+    staticPageSlugs: vi.fn().mockResolvedValue(['cookie-policy', 'privacy-policy']),
+}));
+
+const { mockGenerateHomePage } = vi.hoisted(() => ({ mockGenerateHomePage: vi.fn() }));
+vi.mock('../pages/deployHomePage', () => ({
+    generateAndDeployHomePage: (...args: unknown[]) => mockGenerateHomePage(...args),
 }));
 
 vi.mock('../pages/generateRobotsTxt', () => ({
@@ -191,7 +198,7 @@ describe('seedStaticPages', () => {
 
             // 3 detail pages + 2 list pages + 2 static pages + 3 SEO files = 10
             // SEO files: robots.txt, llms.txt (D3), sitemap.xml, RSS.
-            expect(result.deployed).toBe(11);
+            expect(result.deployed).toBe(12);
             expect(result.errors).toBe(0);
             expect(result.success).toBe(true);
         });
@@ -212,8 +219,8 @@ describe('seedStaticPages', () => {
 
             const result = await handler({});
 
-            // 0 content pages + 2 static pages + 3 SEO files = 5
-            expect(result.deployed).toBe(6);
+            // the home page + 2 static pages + 4 SEO files
+            expect(result.deployed).toBe(7);
             expect(result.errors).toBe(0);
             expect(result.success).toBe(true);
             expect(mockGenerateStaticPage).toHaveBeenCalledTimes(2);
@@ -235,7 +242,7 @@ describe('seedStaticPages', () => {
             // 0 detail pages + 1 list page + 2 static pages + 3 SEO files = 6
             expect(mockGenerateDetailPage).not.toHaveBeenCalled();
             expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
-            expect(result.deployed).toBe(7);
+            expect(result.deployed).toBe(8);
         });
 
         it('should skip content types without a slug but still deploy static pages', async () => {
@@ -249,7 +256,7 @@ describe('seedStaticPages', () => {
             expect(mockGenerateDetailPage).not.toHaveBeenCalled();
             expect(mockGenerateListPage).not.toHaveBeenCalled();
             expect(mockGenerateStaticPage).toHaveBeenCalledTimes(2);
-            expect(result.deployed).toBe(6); // 2 static pages + 4 SEO files
+            expect(result.deployed).toBe(7); // home page + 2 static pages + 4 SEO files
             expect(result.details).toEqual(expect.arrayContaining([
                 expect.stringContaining('no slug'),
             ]));
@@ -280,7 +287,7 @@ describe('seedStaticPages', () => {
             // Should still call for second article + list page + 2 static pages + 3 SEO files
             expect(mockGenerateDetailPage).toHaveBeenCalledTimes(2);
             expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
-            expect(result.deployed).toBe(8); // second article + list + 2 static + 4 SEO
+            expect(result.deployed).toBe(9); // home page + second article + list + 2 static + 4 SEO
             expect(result.errors).toBe(1);
             expect(result.success).toBe(false);
             expect(result.errorDetails).toEqual(expect.arrayContaining([
@@ -318,7 +325,7 @@ describe('seedStaticPages', () => {
             const result = await handler({});
 
             // All detail pages + second list page + 2 static pages + 3 SEO files
-            expect(result.deployed).toBe(10); // 3 detail + 1 list + 2 static + 4 SEO
+            expect(result.deployed).toBe(11); // home page + 3 detail + 1 list + 2 static + 4 SEO
             expect(result.errors).toBe(1);
             expect(result.success).toBe(false);
         });
@@ -333,7 +340,7 @@ describe('seedStaticPages', () => {
 
             const result = await handler({});
 
-            expect(result.deployed).toBe(5); // cookie-policy + 4 SEO files
+            expect(result.deployed).toBe(6); // home page + cookie-policy + 4 SEO files
             expect(result.errors).toBe(1);
             expect(result.success).toBe(false);
             expect(result.errorDetails).toEqual(expect.arrayContaining([
@@ -386,7 +393,7 @@ describe('seedStaticPages', () => {
             expect(mockGenerateDetailPage).toHaveBeenCalledWith('manuals', 'm1');
             expect(mockGenerateListPage).toHaveBeenCalledWith('manuals');
             // 1 manual detail + 1 manual list + 2 static + 3 SEO = 7
-            expect(result.deployed).toBe(8);
+            expect(result.deployed).toBe(9);
             expect(result.details).toEqual(expect.arrayContaining([
                 expect.stringContaining('no public URL'),
             ]));
@@ -407,7 +414,7 @@ describe('seedStaticPages', () => {
             expect(mockGenerateDetailPage).toHaveBeenCalledTimes(2);
             expect(mockGenerateListPage).toHaveBeenCalledWith('articles');
             // 2 detail + 1 list + 2 static + 3 SEO = 8
-            expect(result.deployed).toBe(9);
+            expect(result.deployed).toBe(10);
         });
 
         it('should still deploy static pages when all ContentTypes have hasPublicUrl=false', async () => {
@@ -424,7 +431,7 @@ describe('seedStaticPages', () => {
             expect(mockGenerateListPage).not.toHaveBeenCalled();
             expect(mockGenerateStaticPage).toHaveBeenCalledTimes(2);
             // 2 static pages + 3 SEO files = 5
-            expect(result.deployed).toBe(6);
+            expect(result.deployed).toBe(7);
         });
     });
 
@@ -453,7 +460,7 @@ describe('seedStaticPages', () => {
             expect(result.success).toBe(false);
             expect(result.deployed).toBe(0);
             expect(result.details).toEqual(expect.arrayContaining([
-                expect.stringContaining('headerHtml is empty'),
+                expect.stringContaining('The live site has no header'),
             ]));
             expect(mockGenerateDetailPage).not.toHaveBeenCalled();
             expect(mockGenerateListPage).not.toHaveBeenCalled();
@@ -468,7 +475,7 @@ describe('seedStaticPages', () => {
 
             // Passes validation, deploys static pages + SEO files
             expect(result.success).toBe(true);
-            expect(result.deployed).toBe(6); // 2 static + 4 SEO
+            expect(result.deployed).toBe(7); // home page + 2 static + 4 SEO
             expect(mockGenerateStaticPage).toHaveBeenCalledTimes(2);
         });
 
@@ -481,12 +488,24 @@ describe('seedStaticPages', () => {
             expect(result.details[0]).toContain('Settings/site');
         });
 
-        it('should include helpful guidance in the headerHtml error message', async () => {
+        it('says to deploy the website when the live site has no header', async () => {
             mockGetPartials.mockResolvedValue({ headerHtml: '', footerHtml: '' });
 
             const result = await handler({});
 
-            expect(result.details[0]).toContain('Settings/partials');
+            expect(result.details[0]).toContain('/_site/header.html');
+            expect(result.details[0]).toContain('Deploy the website');
+        });
+    });
+
+    describe('home page', () => {
+        it('publishes the home page, and carries on when it fails', async () => {
+            mockCollectionGet.mockResolvedValueOnce({ empty: true, docs: [] });
+            mockGenerateHomePage.mockRejectedValueOnce(new Error('The live site has no home page (/_site/home.html). Deploy the website first.'));
+            const result = await handler({});
+            expect(mockGenerateHomePage).toHaveBeenCalled();
+            expect(result.errorDetails).toContain('Failed to deploy the home page: The live site has no home page (/_site/home.html). Deploy the website first.');
+            expect(mockGenerateStaticPage).toHaveBeenCalled();
         });
     });
 });

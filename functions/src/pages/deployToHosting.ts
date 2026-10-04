@@ -69,6 +69,23 @@ async function apiFetch(url: string, token: string, options: RequestInit): Promi
     return res.json();
 }
 
+/**
+ * Every file of a version as { path: hash }. The API returns at most 1000 files a
+ * page; reading only the first page dropped every file past it from the next
+ * release, so a site past 1000 files lost pages on each publish.
+ */
+export async function listVersionFiles(versionName: string, token: string): Promise<Record<string, string>> {
+    const files: Record<string, string> = {};
+    let pageToken = '';
+    do {
+        const query = `pageSize=1000${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
+        const page = await apiFetch(`${API_BASE}/${versionName}/files?${query}`, token, { method: 'GET' });
+        for (const f of page.files || []) files[f.path] = f.hash;
+        pageToken = page.nextPageToken || '';
+    } while (pageToken);
+    return files;
+}
+
 function gzipAndHash(content: string): { gzipped: Buffer; hash: string } {
     try {
         const gzipped = zlib.gzipSync(Buffer.from(content, 'utf-8'), { level: 9 });
@@ -234,17 +251,9 @@ export async function deployBatchToHosting(
             currentVersionName ? `version: ${currentVersionName}` : 'No existing releases');
 
         // Step 3: Get current version files
-        let fileHashes: Record<string, string> = {};
-        if (currentVersionName) {
-            const filesData = await apiFetch(
-                `${API_BASE}/${currentVersionName}/files`,
-                token,
-                { method: 'GET' },
-            );
-            for (const f of filesData.files || []) {
-                fileHashes[f.path] = f.hash;
-            }
-        }
+        const fileHashes: Record<string, string> = currentVersionName
+            ? await listVersionFiles(currentVersionName, token)
+            : {};
         addStep(steps, 3, 'Retrieve existing files', 'success',
             `${Object.keys(fileHashes).length} files`);
 
@@ -425,15 +434,7 @@ export async function removeFileFromHosting(
     if (!currentVersionName) return; // nothing to remove from
 
     // Step 3: Get current version files
-    const filesData = await apiFetch(
-        `${API_BASE}/${currentVersionName}/files`,
-        token,
-        { method: 'GET' },
-    );
-    const fileHashes: Record<string, string> = {};
-    for (const f of filesData.files || []) {
-        fileHashes[f.path] = f.hash;
-    }
+    const fileHashes = await listVersionFiles(currentVersionName, token);
 
     // Check if file exists
     if (!fileHashes[filePath]) {

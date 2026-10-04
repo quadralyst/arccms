@@ -12,6 +12,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../../shared/services/global.service';
 import { ToastService } from '../../../shared/services/toast.service';
 
+import { setSiteManifestForTesting, siteManifest } from '../../core/site/site';
+
+/** The built manifest plus a folder of the test's own. */
+function withFolder(name: string): void {
+    const built = siteManifest();
+    setSiteManifestForTesting({ ...built, templates: { ...built.templates, [name]: { partials: 'app' } } });
+}
+
 describe('ContentPartialsComponent', () => {
     let component: ContentPartialsComponent;
     let fixture: ComponentFixture<ContentPartialsComponent>;
@@ -112,9 +120,9 @@ describe('ContentPartialsComponent', () => {
             expect(component.count()).toBe(10);
         });
 
-        it('should have default sectionTitle of "Latest Updates"', () => {
+        it('should have no sectionTitle by default, so the title comes from the type', () => {
             fixture.detectChanges();
-            expect(component.sectionTitle()).toBe('Latest Updates');
+            expect(component.sectionTitle()).toBe('');
         });
 
         it('should accept sectionTitle input', () => {
@@ -142,15 +150,14 @@ describe('ContentPartialsComponent', () => {
             expect(component.displayTitle()).toBe('My Custom Title');
         });
 
-        it('should use default sectionTitle if not provided', () => {
+        it('should title the cards with the type\'s name if no sectionTitle is provided', () => {
             fixture.componentRef.setInput('contentType', 'articles');
-            // No sectionTitle provided, should use default 'Latest Updates'
 
             const contentType = { slug: 'articles', name: 'Articles' };
             mockContentTypesStore.items.set([contentType]);
             fixture.detectChanges();
 
-            expect(component.displayTitle()).toBe('Latest Updates');
+            expect(component.displayTitle()).toBe('Latest Articles');
         });
 
         it('should generate title from content type name if sectionTitle is explicitly cleared', () => {
@@ -174,7 +181,10 @@ describe('ContentPartialsComponent', () => {
     });
 
     describe('Custom Template Loading', () => {
+        afterEach(() => setSiteManifestForTesting());
+
         it('should load custom template when templateFolder is specified', () => {
+            withFolder('custom-folder');
             fixture.componentRef.setInput('contentType', 'articles');
             fixture.componentRef.setInput('templateFolder', 'custom-folder');
 
@@ -188,7 +198,7 @@ describe('ContentPartialsComponent', () => {
             fixture.detectChanges();
 
             expect(mockHttpClient.get).toHaveBeenCalledWith(
-                '/templates/custom-folder/partials.html',
+                '/_site/templates/custom-folder/partials.html',
                 expect.objectContaining({ responseType: 'text' })
             );
         });
@@ -206,12 +216,12 @@ describe('ContentPartialsComponent', () => {
             fixture.detectChanges();
 
             expect(mockHttpClient.get).toHaveBeenCalledWith(
-                '/templates/articles/partials.html',
+                '/_site/templates/articles/partials.html',
                 expect.objectContaining({ responseType: 'text' })
             );
         });
 
-        it('should NOT load custom template if folder is default', () => {
+        it('loads the default partials template for a type on the default', () => {
             fixture.componentRef.setInput('contentType', 'articles');
 
             const contentType = { slug: 'articles', name: 'Articles', templateFolder: 'default' };
@@ -223,11 +233,10 @@ describe('ContentPartialsComponent', () => {
             mockContentsStore.items.set(contents);
             fixture.detectChanges();
 
-            expect(mockHttpClient.get).not.toHaveBeenCalled();
-            expect(component.useCustomTemplate()).toBe(false);
+            expect(mockHttpClient.get).toHaveBeenCalledWith('/_site/templates/default/partials.html', expect.anything());
         });
 
-        it('should fall back to default template on HTTP error', () => {
+        it('renders nothing when the template cannot be loaded', () => {
             fixture.componentRef.setInput('contentType', 'articles');
             fixture.componentRef.setInput('templateFolder', 'nonexistent');
             mockHttpClient.get.mockReturnValue(throwError(() => new Error('Not found')));
@@ -241,7 +250,8 @@ describe('ContentPartialsComponent', () => {
             mockContentsStore.items.set(contents);
             fixture.detectChanges();
 
-            expect(component.useCustomTemplate()).toBe(false);
+            expect(mockHttpClient.get).toHaveBeenCalledWith('/_site/templates/default/partials.html', expect.anything());
+            expect(component.templateHtml()).toBe('');
         });
     });
 
@@ -464,7 +474,8 @@ describe('ContentPartialsComponent', () => {
         it('should check TransferState for cached template before HTTP fetch', () => {
             // Pre-populate TransferState with a cached template
             const transferState = (component as any).transferState;
-            const stateKey = makeStateKey<string>('tpl-partials-custom-folder');
+            withFolder('custom-folder');
+            const stateKey = makeStateKey<string>('tpl-partials-/_site/templates/custom-folder/partials.html');
             transferState.set(stateKey, '<div>Cached Template</div>');
 
             fixture.componentRef.setInput('contentType', 'articles');
@@ -482,7 +493,7 @@ describe('ContentPartialsComponent', () => {
             // In browser mode, TransferState cache is used, so HTTP should NOT be called
             expect(mockHttpClient.get).not.toHaveBeenCalled();
             // Template should be hydrated and set
-            expect(component.useCustomTemplate()).toBe(true);
+            expect(component.templateHtml()).toContain('Cached Template');
             // TransferState key should be consumed (removed)
             expect(transferState.hasKey(stateKey)).toBe(false);
         });

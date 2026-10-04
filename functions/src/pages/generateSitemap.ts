@@ -5,9 +5,8 @@ import { deploySeoFileToHosting } from './deploySeoFile.js';
 import { HostingBatch } from './deployToHosting.js';
 import { detailUrl, listUrl } from '../shared/content-translation.js';
 import { lastmodDate } from '../shared/content-dates.js';
-
-/** Known static pages to include in the sitemap. */
-const STATIC_PAGES = ['privacy-policy', 'cookie-policy'];
+import { staticPageSlugs } from './deployStaticPage.js';
+import { homeUrl } from './deployHomePage.js';
 
 /**
  * Escapes special XML characters in a string.
@@ -35,7 +34,7 @@ function toIsoDate(date: any): string {
  * Generates and deploys a sitemap.xml file to Firebase Hosting.
  *
  * Includes:
- *  - Home page (priority 1.0)
+ *  - Home page, every language (priority 1.0)
  *  - Content list pages for each content type (priority 0.6)
  *  - Individual published content pages (priority 0.8)
  *  - Known static pages (priority 0.4)
@@ -46,8 +45,15 @@ export async function generateAndDeploySitemap(batch?: HostingBatch): Promise<vo
 
     const urls: string[] = [];
 
-    // 1. Home page
-    urls.push(buildUrlEntry(baseUrl, new Date().toISOString().split('T')[0], 'daily', '1.0'));
+    // 1. Home page, in every enabled language (deployHomePage.ts publishes them all)
+    {
+        const { defaultLanguage, enabledLanguages } = await getLocalizationSettings();
+        const homeAlternates = enabledLanguages.map((l) => ({ lang: l.code, url: homeUrl(baseUrl, l.code, defaultLanguage) }));
+        const today = new Date().toISOString().split('T')[0];
+        for (const alternate of homeAlternates) {
+            urls.push(buildUrlEntry(alternate.url, today, 'daily', '1.0', homeAlternates));
+        }
+    }
 
     // 2. Read all ContentTypes with public URLs
     const contentTypesSnap = await db.collection('ContentTypes').get();
@@ -124,8 +130,8 @@ export async function generateAndDeploySitemap(batch?: HostingBatch): Promise<vo
         }
     }
 
-    // 4. Static pages
-    for (const pageSlug of STATIC_PAGES) {
+    // 4. Static pages: every page the site publishes (staticPageSlugs)
+    for (const pageSlug of await staticPageSlugs()) {
         urls.push(buildUrlEntry(`${baseUrl}/pages/${pageSlug}`, toIsoDate(null), 'monthly', '0.4'));
     }
 

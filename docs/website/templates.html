@@ -4,36 +4,46 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Design templates | Arc CMS docs</title>
-  <meta name="description" content="Give each content type its own list and detail layout with plain HTML templates, preview them, and put them live.">
-  <meta name="docs:sources" content="public/templates, public/_partials, src/app/core/services/template-hydration.service.ts, functions/src/shared/template-hydration.ts, src/app/core/services/template-folder.service.ts, src/shared/utils/template-fragment.ts, src/app/pages/admin/contents/content-types/(view-content-type), src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, functions/src/pages/deployContentPage.ts, functions/src/shared/html-document.ts">
+  <meta name="description" content="Give each content type its own partials, list and detail layout with plain HTML templates in your site folder, preview them, and put them live.">
+  <meta name="docs:sources" content="public/_site/templates, public/_site/header.html, scripts/arc-site.mjs, src/app/core/site/site.ts, src/app/core/services/template-hydration.service.ts, functions/src/shared/template-hydration.ts, src/app/core/services/template-folder.service.ts, src/shared/utils/template-fragment.ts, src/app/pages/admin/contents/content-types/(view-content-type), src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, functions/src/pages/deployContentPage.ts, functions/src/shared/html-document.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/templates.html">
   <main>
     <h1>Design templates</h1>
-    <p class="lead">A template is your own HTML with a few Arc CMS attributes that say where the content goes. Copy a folder, change the markup, register it, and pick it on the content type. The full syntax is in <a href="../features/templates.html">Templates</a>.</p>
+    <p class="lead">A template is your own HTML with a few Arc CMS attributes that say where the content goes. Copy a folder into your site folder, change the markup, and pick it on the content type. The full syntax is in <a href="../features/templates.html">Templates</a>.</p>
 
     <h2>Start from a shipped folder</h2>
-    <p>Arc CMS ships three folders in <code>public/templates/</code>:</p>
+    <p>Each content type with public pages has three templates:</p>
     <table>
-      <thead><tr><th>Folder</th><th>Files</th><th>Use it as</th></tr></thead>
+      <thead><tr><th>File</th><th>Renders</th></tr></thead>
       <tbody>
-        <tr><td><code>public/templates/default/</code></td><td><code>list.html</code>, <code>detail.html</code></td><td>The layout of any content type without a folder of its own. It already shows sources, related items, the author box and the common repeating fields.</td></tr>
-        <tr><td><code>public/templates/articles/</code></td><td><code>list.html</code>, <code>detail.html</code>, <code>partials.html</code></td><td>A blog layout</td></tr>
-        <tr><td><code>public/templates/manuals/</code></td><td><code>list.html</code>, <code>detail.html</code>, <code>partials.html</code></td><td>A documentation layout</td></tr>
+        <tr><td><code>list.html</code></td><td>The list of the type, <code>/{type}</code></td></tr>
+        <tr><td><code>detail.html</code></td><td>One item, <code>/{type}/{item}</code></td></tr>
+        <tr><td><code>partials.html</code></td><td>Cards of the type inside another page, such as the latest articles on the home page</td></tr>
       </tbody>
     </table>
-    <p><code>list.html</code> renders <code>/{type}</code>, <code>detail.html</code> renders <code>/{type}/{item}</code>, and the optional <code>partials.html</code> renders cards of a type inside another page.</p>
+    <p>Arc CMS ships three folders of them in <code>public/_site/templates/</code>:</p>
+    <table>
+      <thead><tr><th>Folder</th><th>Use it as</th></tr></thead>
+      <tbody>
+        <tr><td><code>public/_site/templates/default/</code></td><td>The layout of any content type without a folder of its own, so every type renders even if you write no template. It already shows sources, related items, the author box and the common repeating fields.</td></tr>
+        <tr><td><code>public/_site/templates/articles/</code></td><td>A blog layout</td></tr>
+        <tr><td><code>public/_site/templates/manuals/</code></td><td>A documentation layout</td></tr>
+      </tbody>
+    </table>
+    <p>These are core files: read and copy them, never edit them.</p>
 
     <h2>Make your own</h2>
     <ol class="steps">
-      <li><p>Copy the folder closest to your design, for example <code>public/templates/articles/</code> to <code class="new">public/templates/case-studies/</code>.</p></li>
-      <li><p>Add the folder name to the <code>folders</code> list in <code>public/templates/templates.json</code>. Only listed folders appear in the admin; <code>default</code> is always offered.</p></li>
-      <li><p>Replace the markup and styles with your design. Keep each file an HTML fragment: no doctype and no <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code>. Styles can sit in a <code>&lt;style&gt;</code> block in the file.</p></li>
-      <li><p>Keep <code>&lt;arc-header&gt;&lt;/arc-header&gt;</code> and <code>&lt;arc-footer&gt;&lt;/arc-footer&gt;</code> in the list and detail files; they become the site header and footer from <code>public/_partials/</code>. Leave them out of <code>partials.html</code>.</p></li>
-      <li><p>In the admin, open <strong>Content</strong>, <strong>Content types</strong>, edit the type, and choose the folder under <strong>Content Template</strong>.</p></li>
+      <li><p>Copy the folder closest to your design into your site folder under a new name, for example <code>public/_site/templates/articles/</code> to <code class="new">src/custom/site/templates/case-studies/</code>. Keep only the files you change: a file your folder lacks is taken from <code>default</code>, so a folder with just <code>detail.html</code> is complete.</p></li>
+      <li><p>Replace the markup and styles with your design. Keep each file an HTML fragment: no doctype and no <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code>. Styles can sit in a <code>&lt;style&gt;</code> block in the file, or in <code class="new">src/custom/site/site.css</code> for styles every page shares.</p></li>
+      <li><p>Keep <code>&lt;arc-header&gt;&lt;/arc-header&gt;</code> and <code>&lt;arc-footer&gt;&lt;/arc-footer&gt;</code> in the list and detail files; they become the site header and footer. Leave them out of <code>partials.html</code>.</p></li>
+      <li><p>In the admin, open <strong>Content</strong>, <strong>Content types</strong>, edit the type, and choose the folder under <strong>Content Template</strong>. The list shows every folder your site has, with nothing to register. A new type whose slug matches a folder name, such as <code>case-studies</code>, gets that folder picked for it.</p></li>
     </ol>
-    <div class="trap"><p>A template that is a whole HTML document (with a doctype, <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code>) is not used: the app shows the default layout instead, and a published page gets a bare built-in layout. So is a folder that does not exist on the site. If your page does not look like your template, check both.</p></div>
+    <p>To change one of Arc CMS's folders instead, put a file at the same path in your site folder: <code class="new">src/custom/site/templates/default/detail.html</code> replaces the default detail layout and leaves its list and cards as Arc CMS ships them.</p>
+    <p>The header and footer work the same way: <code class="new">src/custom/site/header.html</code> and <code class="new">src/custom/site/footer.html</code> replace Arc CMS's (<code>public/_site/header.html</code>, <code>public/_site/footer.html</code>). They are plain HTML fragments; <code>&lt;arc-search&gt;</code> and <code>&lt;arc-language-switcher&gt;</code> in the header become the search box and the language links.</p>
+    <div class="trap"><p>A template that is a whole HTML document (with a doctype, <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code>) is not used: the app shows the default template instead, and publishing stops with a message on the item. If your page does not look like your template, check that first. A file in your site folder that is not a template, page or other site file (say <code>templates/case-studies/card.html</code>) is not served; <code>npm run dev</code> lists it in a warning.</p></div>
 
     <h2>Put the content in</h2>
     <p>Four attributes and one placeholder do the work:</p>
@@ -54,14 +64,14 @@
     <p>Run <code>npm run dev</code>, open an item in the editor and press <strong>Preview</strong>. The page opens at <code>/{type}/{item}?preview=true</code>, rendered with your local template files, so you can edit the HTML and reload. The list page is at <code>/{type}</code>. Test with long titles, a missing cover image and empty fields.</p>
 
     <h2>Put it live</h2>
-    <p>Publishing reads the template from the live site, not from your computer. Deploy the website once your templates are ready (see <a href="../operations/deploy.html">Deploy</a>): the website deploy also republishes every page with the new templates. The same applies after you change the header or footer in <code>public/_partials/</code>.</p>
-    <div class="trap"><p>Publishing an item after editing its template locally, but before deploying the website, produces a page with the old template. Deploy the website first.</p></div>
+    <p>Publishing reads the templates, header and footer from the live site, not from your computer. Deploy the website once your templates are ready (see <a href="../operations/deploy.html">Deploy</a>): the website deploy also republishes every page with the new templates.</p>
+    <div class="trap"><p>Publishing an item after editing its template locally, but before deploying the website, produces a page with the old template. Deploy the website first. A type whose folder is new, so not on the live site yet, is not published at all: the editor shows "Template folder 'x' is not on the live site. Deploy the website, then publish again."</p></div>
 
     <h2>Cards on the home page</h2>
-    <p>The home page, <code>public/index.html</code>, can show cards of any type with <code>&lt;arc-content-partials [contentType]="'articles'"&gt;&lt;/arc-content-partials&gt;</code>, laid out by that type's <code>partials.html</code> (a type on the <code>default</code> folder gets built-in cards). This element works on the home page only; content pages and static pages do not render it.</p>
+    <p>The home page can show cards of any type with <code>&lt;arc-content-partials content-type="articles"&gt;&lt;/arc-content-partials&gt;</code>, laid out by that type's <code>partials.html</code> (its folder's, else the default's), and republished whenever that type's content changes. See <a href="home-page.html">Build your home page</a>. Content pages and static pages do not render it.</p>
 
     <h2>Next</h2>
-    <p>Write the pages that are not content: <a href="static-pages.html">Write static pages</a>.</p>
+    <p>Write the front door of your site: <a href="home-page.html">Build your home page</a>.</p>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

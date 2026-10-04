@@ -1,7 +1,7 @@
 /**
  * Guards the shipped default detail template.
  *
- * `public/templates/default/detail.html` is the layout every content type gets
+ * `public/_site/templates/default/detail.html` is the layout every content type gets
  * without a folder of its own, and it is plain HTML — nothing type-checks it
  * and no unit test renders it. A mistyped loop name or binding there fails
  * silently: the page publishes, just without the section.
@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { TemplateHydrationService } from '../app/core/services/template-hydration.service';
 
 const TEMPLATE = readFileSync(
-    join(__dirname, '../../public/templates/default/detail.html'),
+    join(__dirname, '../../public/_site/templates/default/detail.html'),
     'utf8',
 );
 
@@ -241,5 +241,44 @@ describe('default detail template', () => {
     it('has no leftover Angular styles-array syntax', () => {
         // The file began life as a component's `styles: [\`...\`]` block.
         expect(TEMPLATE).not.toContain('`]');
+    });
+});
+
+describe('default partials template', () => {
+    const PARTIALS = readFileSync(join(__dirname, '../../public/_site/templates/default/partials.html'), 'utf8');
+    const ITEMS = [
+        { url: '/hi/articles/one', title: 'First', excerpt: 'One', coverImage: 'https://example.com/a.jpg', publishedOn: 'Jan 1, 2026', readTime: 3 },
+        { url: '/hi/articles/two', title: 'Second', excerpt: 'Two', coverImage: '', publishedOn: 'Jan 2, 2026', readTime: 5 },
+    ];
+
+    function renderCards(items: typeof ITEMS): string {
+        const looped = TemplateHydrationService.processLoops(PARTIALS, { items });
+        return TemplateHydrationService.hydrateTemplate(looped, {
+            sectionTitle: 'Latest Articles', listUrl: '/hi/articles', hasItems: items.length > 0,
+        });
+    }
+
+    it('renders one card per item, linked in the page\'s language', () => {
+        const html = renderCards(ITEMS);
+        expect(html.match(/class="content-partial-card"/g)).toHaveLength(2);
+        expect(html).toContain('href="/hi/articles/one"');
+        expect(html).toContain('href="/hi/articles"');
+        expect(html).toContain('Latest Articles');
+    });
+
+    it('drops the image of an item without one', () => {
+        const html = renderCards(ITEMS);
+        expect(html.match(/<img /g)).toHaveLength(1);
+    });
+
+    it('renders nothing of the section when there are no items', () => {
+        expect(renderCards([])).not.toContain('<section class="content-partials-section"');
+        expect(renderCards(ITEMS)).toContain('<section class="content-partials-section"');
+    });
+
+    it('leaves no unresolved bindings and carries its own styles', () => {
+        expect(renderCards(ITEMS).replace(/<!--[\s\S]*?-->/g, '').match(/\{\{[^}]*\}\}/g) ?? []).toEqual([]);
+        expect(PARTIALS).toContain('.content-partial-card');
+        expect(PARTIALS).not.toContain('`]');
     });
 });

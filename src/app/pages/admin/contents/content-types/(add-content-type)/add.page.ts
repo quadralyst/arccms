@@ -240,7 +240,20 @@ export default class AddContentTypeComponent extends BaseComponent {
         });
 
         this.loadTemplateFolders();
+        this.preselectTemplateFolder();
         this.contentTypesStore.getAll();
+    }
+
+    /**
+     * A template folder named after the type (templates/recipes/ for the slug
+     * `recipes`) is picked for it, until the admin picks one themselves.
+     */
+    private preselectTemplateFolder(): void {
+        const folder = this.addForm.get('templateFolder');
+        this.addForm.get('slug')?.valueChanges.subscribe((slug) => {
+            if (!folder || folder.dirty) return;
+            folder.setValue(this.templateFolderService.hasFolder(slug) ? slug : 'default', { emitEvent: false });
+        });
     }
 
     // Removed loadAvailableCollections as we use computed directly.
@@ -290,23 +303,10 @@ export default class AddContentTypeComponent extends BaseComponent {
 
     private loadTemplateFolders(): void {
         this.templatesLoading.set(true);
-        this.templateFolderService.loadAndValidateTemplates().subscribe({
-            next: (folders) => {
-                // Filter out default since it's hardcoded in the HTML
-                const filteredFolders = folders.filter(f => f.name !== 'default');
-                this.templateFolders.set(filteredFolders);
-                this.templatesLoading.set(false);
-            },
-            error: (error: any) => {
-                console.error('Error loading template folders:', error);
-                this.templatesLoading.set(false);
-                // Set default as fallback
-                this.templateFolders.set([{
-                    name: 'default',
-                    displayName: 'Default Template',
-                    isValid: true,
-                }]);
-            },
+        this.templateFolderService.loadAndValidateTemplates().subscribe((folders) => {
+            // The default is its own option in the markup.
+            this.templateFolders.set(folders.filter(f => f.name !== 'default'));
+            this.templatesLoading.set(false);
         });
     }
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content | Arc CMS docs</title>
   <meta name="description" content="Define content types, write and publish entries, and understand how a published entry becomes a static page on Firebase Hosting.">
-  <meta name="docs:sources" content="functions/src/features/content.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
+  <meta name="docs:sources" content="functions/src/features/content.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, src/app/pages/admin/contents/site-drift-notice/site-drift-notice.component.ts, src/shared/directives/resizable/resizable.directive.ts, src/app/pages/admin/contents/content-store/published-contents.service.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/_site/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/content.html">
@@ -24,7 +24,7 @@
       </tbody>
     </table>
     <p>Every entry has a draft and, once published, a published copy. You edit the draft; publishing copies it to the published copy and rebuilds the pages. The admin list shows each entry as <strong>Draft</strong>, <strong>Published</strong> or <strong>Edited</strong> (published, with changes since).</p>
-    <p>Static pages are a separate, simpler thing: hand-written HTML files in <code>public/pages/</code> (the privacy and cookie policies ship there). See <a href="#static-pages">Static pages</a>.</p>
+    <p>Static pages are a separate, simpler thing: hand-written HTML files in <code class="new">src/custom/site/pages/</code> (Arc CMS ships sample privacy and cookie policies in <code>public/_site/pages/</code>). See <a href="#static-pages">Static pages</a>.</p>
 
     <h2>Turn it on or off</h2>
     <p>Content is a switchable feature with the id <code>content</code>. It is on by default and needs no other feature. To turn it off, list it in <code>src/custom/features.ts</code>:</p>
@@ -35,7 +35,7 @@
     <ul>
       <li>The <strong>Content</strong> admin menu (content types, entries, authors) goes, and <code>/admin/contents/...</code>, <code>/admin/authors</code> and <code>/p/...</code> show the not-found page.</li>
       <li>The public content routes (<code>/{type}</code>, <code>/{type}/{slug}</code> and their language-prefixed twins) are not registered.</li>
-      <li>The Cloud Functions in <code>functions/src/features/content.ts</code> are not exported, so a full functions deploy deletes them: <code>processPublishQueue</code>, <code>onContentTypeDeleted</code> and <code>seedStaticPages</code>. The draft search queue, which needs both content and search, goes too.</li>
+      <li>The Cloud Functions in <code>functions/src/features/content.ts</code> are not exported, so a full functions deploy deletes them: <code>processPublishQueue</code>, <code>onSiteSettingsWritten</code>, <code>onContentTypeDeleted</code> and <code>seedStaticPages</code>. The draft search queue, which needs both content and search, goes too.</li>
       <li>The setup wizard does not create the Articles type, and data export offers no content collections.</li>
     </ul>
     <p>Firestore data is not deleted. See <a href="../reference/feature-ids.html">Feature ids</a> for every id.</p>
@@ -56,7 +56,7 @@
       <tbody>
         <tr><td>Name, singular name, description</td><td>Shown in the admin and on the public list page (heading and subtitle). Each can be translated per language.</td></tr>
         <tr><td>Slug</td><td>The URL segment and the collection names</td></tr>
-        <tr><td>Content Template</td><td>The folder in <code>public/templates/</code> whose <code>list.html</code> and <code>detail.html</code> render this type</td></tr>
+        <tr><td>Content Template</td><td>The template folder whose <code>partials.html</code>, <code>list.html</code> and <code>detail.html</code> render this type; offered only when the type has public pages (see <a href="templates.html">Templates</a>)</td></tr>
         <tr><td>Generate public pages</td><td>Off: entries are stored and published in Firestore, but no HTML page, list page, sitemap entry or feed is generated. Use it for data an app reads, or for items only shown inside other pages.</td></tr>
         <tr><td>Searchable custom fields</td><td>Plain text custom fields that search also indexes (see <a href="search.html">Search</a>). Shown when you edit the type.</td></tr>
         <tr><td>Structured data</td><td>Which schema.org type the page's structured data uses, and which fields fill it (see <a href="seo.html">SEO and discoverability</a>). Shown when you add a type and when you edit it.</td></tr>
@@ -91,8 +91,8 @@
     <ol class="steps">
       <li><p>Open <strong>Content &gt; {your type}</strong> and choose <strong>Add {type}</strong>, such as <strong>Add Article</strong>.</p></li>
       <li><p>Write the title and body in the rich editor (TipTap: headings, lists, tables, task lists, links, images from the media library, YouTube embeds, text color and alignment). Fill in the cover image, summary, tags, author, SEO fields and custom fields.</p></li>
-      <li><p>The editor saves the draft as you work. Use <strong>Preview</strong> to see the draft rendered on the site.</p></li>
-      <li><p>Choose <strong>Publish</strong>. The editor shows the deploy status of the page (<strong>Deploying to hosting...</strong>, then <strong>Deployed to hosting</strong>) and offers a retry if the release failed.</p></li>
+      <li><p>The editor saves the draft as you work. Use <strong>Preview</strong> to see the draft rendered on the site. Drag the dotted grip in the gap between the writing area and the settings panel to make the panel wider or narrower; the editor remembers the width for each content type on this computer, and a double-click puts it back.</p></li>
+      <li><p>Choose <strong>Publish</strong>. The editor shows the deploy status of this publish (<strong>Deploying to hosting...</strong>, then <strong>Deployed to hosting</strong> or <strong>Deploy failed</strong>, with the reason when you point at it) and offers a retry if the release failed. A page whose template folder is not on the live site yet fails with "Template folder 'x' is not on the live site. Deploy the website, then publish again." In <code>npm run dev</code>, <strong>Live site differs</strong> beside <strong>Publish</strong> means your site files are not the live ones yet, so the page would be built from the old ones: deploy the website first.</p></li>
     </ol>
     <p>Other actions:</p>
     <table>
@@ -112,7 +112,7 @@
       <li><p>The editor saves the draft to <code>arc_{slug}_drafts</code> and writes a queue item (<code>publish</code>, <code>unpublish</code> or <code>delete</code>) to <code>_publish_queue</code>.</p></li>
       <li><p>The <code>processPublishQueue</code> function (<code>functions/src/publishQueue/processPublishQueue.ts</code>) copies the draft to <code>arc_{slug}</code> with <code>publishedOn</code> set to the time of publishing, adds a version to <code>PublishedHistory</code>, copies translations and updates the search index.</p></li>
       <li><p>It renders the detail page in every language the entry has, the Markdown twin, and the type's list page, from the type's template (see <a href="templates.html">Templates</a>). With the <code>seo</code> feature on, it also rebuilds the sitemap, feeds, <code>robots.txt</code> and <code>llms.txt</code>.</p></li>
-      <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows.</p></li>
+      <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows. When the entry's own page cannot be built, the rest of the release (list page, sitemap, feeds) still goes out, and the entry is marked failed with the reason rather than deployed.</p></li>
     </ol>
     <table>
       <thead><tr><th>Page</th><th>File on Hosting</th></tr></thead>
@@ -126,14 +126,14 @@
     <p>To rebuild every published page, the static pages and the SEO files at once, run the seed (it also runs at the end of <code>npm run deploy:dev</code> and <code>npm run deploy:prod</code>):</p>
     <pre><code>npm run seed:dev</code></pre>
     <p>For production: <code>npm run seed:prod</code>.</p>
-    <div class="trap"><p>A <code>firebase deploy --only hosting</code> replaces the Hosting release with only the files it uploaded, so every page publishing wrote disappears, and the app's fallback still answers those addresses, so nothing looks broken at first. After a hosting-only deploy, run <code>npm run seed:dev</code> (or <code>seed:prod</code>) to put the pages back. See <a href="../operations/deploy.html">Deploy</a>.</p></div>
+    <div class="trap"><p>A plain <code>firebase deploy --only hosting</code> replaces the Hosting release with only the files it uploaded, so every page publishing wrote disappears, and the app's fallback still answers those addresses, so nothing looks broken at first. Deploy the website with <code>npm run deploy</code>, which keeps them. After a plain deploy, run <code>npm run seed:dev</code> (or <code>seed:prod</code>) to put the pages back. See <a href="../operations/deploy.html">Deploy</a>.</p></div>
 
     <h3>Bulk import entries</h3>
     <p>On a type's entry list, <strong>Bulk Import</strong> reads the first sheet of an <code>.xlsx</code> or <code>.csv</code> file. It maps columns by header to Title (required), Content, Summary, URL Slug, Tags, Cover Image URL, SEO Title, Meta Description, Canonical URL, Featured, Author and the type's custom fields, and offers a sample file to download. You import as drafts or publish straight away. An author named in the Author column is matched by name, or created. Repeating fields (info cards, gallery, label and value, map location) cannot be imported.</p>
     <p>For moving whole collections between projects, see <a href="data.html">Data import and export</a>.</p>
 
     <h3 id="static-pages">Static pages</h3>
-    <p>A static page is an HTML file in <code>public/pages/</code>, such as <code>public/pages/privacy-policy.html</code>. It can carry <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code>, a <code>&lt;title&gt;</code> and meta tags.</p>
+    <p>A static page is an HTML file in <code class="new">src/custom/site/pages/</code>, such as <code class="new">src/custom/site/pages/privacy-policy.html</code>, served at <code>/p/privacy-policy</code>. One with the same name as an Arc CMS sample in <code>public/_site/pages/</code> replaces it. It can carry <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code>, a <code>&lt;title&gt;</code> and meta tags.</p>
     <ul>
       <li>In the app, <code>/p/{name}</code> fetches <code>/pages/{name}.html</code>, adds the site header and footer, and applies the title and meta tags.</li>
       <li>On Hosting, <code>/p/{name}</code> redirects (301) to <code>/pages/{name}</code>.</li>
@@ -166,6 +166,7 @@
       <thead><tr><th>Cloud Function</th><th>Kind</th><th>Does</th></tr></thead>
       <tbody>
         <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages</td></tr>
+        <tr><td><code>onSiteSettingsWritten</code></td><td>Firestore trigger on <code>Settings</code></td><td>Queues a home page republish when <code>about</code>, <code>site</code>, <code>localization</code> or <code>misc</code> changes</td></tr>
         <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections and their search entries</td></tr>
         <tr><td><code>seedStaticPages</code></td><td>Callable, also run by the seed script</td><td>Rebuilds every published page, the static pages and the SEO files</td></tr>
       </tbody>

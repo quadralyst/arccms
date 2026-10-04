@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **The app owns its website.** Home page, header, footer, sign-in panel, content templates, static pages, strings, site styles, favicon and error pages live in `src/custom/site/`, laid over Arc CMS's defaults in `public/_site/`. See docs/website/overview.html.
+- **The home page is published as a static page** in every language, from `src/custom/site/home.html` (or `home.{lang}.html`), with SEO tags and live parts run by `/assets/js/arc-site.js`. **Republish website** on the Content types page publishes everything again.
+- **`npm run arc:own-site`** moves a site an app edited in `public/` into `src/custom/site/`.
+- In `npm run dev`, the editor says **Live site differs** when your site files are not the live ones yet.
+
+### Changed
+
+- Publishing reads templates and site files from the live site's `/_site/`; template overrides stored in Firestore are no longer read.
+- The build no longer prerenders or builds a server bundle.
+- `npm run deploy` keeps the published pages when it deploys the website: the build goes to a preview channel, then one live release holds the build and the published pages. Never deploy the website with a plain `firebase deploy --only hosting`.
+- Publishing keeps every file of a site past 1000 files (the live file list is now read page by page).
+- `main.css` styles only the body, header and footer. The old marketing page's styles are in `docs/examples/arc-cms-home.css`. Its global `section { padding: 100px 0 }` rule is gone too.
+- The published home page republishes itself when Settings it shows change (About, the site address, languages, the powered-by line).
+- Signups from the published home page record the same metadata as the app's forms, and someone already on the list sees "Welcome back".
+
+### For apps upgrading
+
+1. Merge the new version. If your copy edited files in `public/`, run `npm run arc:own-site`, then `npm run arc:own-site -- --write` (docs/website/move-your-site.html).
+2. Check your own templates and pages for the old marketing classes (`.hero`, `.feature-card`, `.cta-primary`, `.section-headline` and the like) and for sections that relied on the `main.css` padding. `arc:own-site` brings the old styles back for a migrated home page only; elsewhere, copy the rules you use from `docs/examples/arc-cms-home.css` into `src/custom/site/site.css`.
+3. Run `npm run arc:configure` once, so `arc-install.ts` names your hosting site.
+4. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`).
+
+---
+
 ## [1.0.0] - 2026-03-06
 
 ### Added

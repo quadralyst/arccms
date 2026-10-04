@@ -61,7 +61,7 @@ describe('renderLlmsTxt (D-D7)', () => {
         expect(txt.startsWith('# Acme\n\n> Acme builds things.\n\n')).toBe(true);
         expect(txt).toContain('## Articles\n\nBlog posts\n\n- [Post 3](https://x.com/articles/post-3.md): Summary 3\n- [Post 2](https://x.com/articles/post-2.md): Summary 2\n- [Post 1](https://x.com/articles/post-1.md): Summary 1\n');
         expect(txt).not.toContain('## Manuals');
-        expect(txt).toContain('## Optional\n\n- [Sitemap](https://x.com/sitemap.xml)');
+        expect(txt).toContain('## Optional\n\n- [Home page](https://x.com/)\n- [Sitemap](https://x.com/sitemap.xml)');
     });
 
     it('caps the number of links', () => {

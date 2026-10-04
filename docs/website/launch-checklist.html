@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Launch checklist | Arc CMS docs</title>
   <meta name="description" content="Everything to check before your Arc CMS website goes live: accounts, email, forms, legal pages, search engines, analytics, rules and the domain.">
-  <meta name="docs:sources" content="src/app/pages/admin/(settings), src/app/pages/admin/users, src/app/pages/admin/(email-brand), src/shared/constants/legal-notice.ts, public/pages, public/_partials, public/index.html, functions/src/email-core/handleUnsubscribe.ts, functions/src/email-core/handleEmailPreferences.ts, functions/src/pages/generateSitemap.ts, functions/src/pages/generateRobotsTxt.ts, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, index.html, src/app/app.config.ts, functions/src/shared/html-document.ts, firestore.rules, storage.rules">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings), src/app/pages/admin/users, src/app/pages/admin/(email-brand), src/shared/constants/legal-notice.ts, public/_site, functions/src/pages/deployHomePage.ts, functions/src/email-core/handleUnsubscribe.ts, functions/src/email-core/handleEmailPreferences.ts, functions/src/pages/generateSitemap.ts, functions/src/pages/generateRobotsTxt.ts, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, index.html, src/app/app.config.ts, functions/src/shared/html-document.ts, firestore.rules, storage.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/launch-checklist.html">
@@ -38,8 +38,8 @@
       <thead><tr><th>Check</th><th>Where</th></tr></thead>
       <tbody>
         <tr><td>[ ] Signing up on the live home page with your own address sends the code and the welcome email, and you then appear in the form's Users and in Contacts.</td><td>Your home page; <a href="forms.html">Collect sign-ups</a></td></tr>
-        <tr><td>[ ] The terms notice on every signup form links to your terms and privacy policy. Its links are empty as shipped, so the words show as plain text.</td><td><code>termsUrl</code> and <code>privacyUrl</code> in <code>src/shared/constants/legal-notice.ts</code> (a core file you edit in place)</td></tr>
-        <tr><td>[ ] The home page, its browser title, the header and the footer show your brand and links, not the Arc CMS sample text and sections.</td><td><code>public/index.html</code>, the <code>&lt;title&gt;</code> in <code>index.html</code>, <code>public/_partials/_header.html</code>, <code>public/_partials/_footer.html</code></td></tr>
+        <tr><td>[ ] The terms notice on every signup form links to your terms and privacy policy. It links only pages you supply, so until then the words show as plain text.</td><td><code class="new">src/custom/site/pages/terms.html</code> and <code class="new">src/custom/site/pages/privacy-policy.html</code>; <a href="static-pages.html">Write static pages</a></td></tr>
+        <tr><td>[ ] The home page, its title, the header and the footer show your brand and links, not Arc CMS's "not set up yet" placeholder.</td><td><code class="new">src/custom/site/home.html</code>, <code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code>; <a href="home-page.html">Build your home page</a></td></tr>
       </tbody>
     </table>
 
@@ -47,8 +47,9 @@
     <table>
       <thead><tr><th>Check</th><th>Where</th></tr></thead>
       <tbody>
-        <tr><td>[ ] The privacy and cookie policies are yours, not the shipped Arc CMS text.</td><td><code>public/pages/privacy-policy.html</code>, <code>public/pages/cookie-policy.html</code>; <a href="static-pages.html">Write static pages</a></td></tr>
-        <tr><td>[ ] Terms, About and Contact exist as published content items.</td><td>A content type; <a href="static-pages.html#other-fixed-pages-use-a-content-type">Other fixed pages</a></td></tr>
+        <tr><td>[ ] The privacy and cookie policies are yours, not the shipped Arc CMS text.</td><td><code class="new">src/custom/site/pages/privacy-policy.html</code>, <code class="new">src/custom/site/pages/cookie-policy.html</code>; <a href="static-pages.html">Write static pages</a></td></tr>
+        <tr><td>[ ] The sign-in page shows your name, logo and colours, not Arc CMS's.</td><td>Settings, <strong>About</strong>; <code class="new">src/custom/site/sign-in.html</code>, <code class="new">src/custom/site/site.css</code>; <a href="sign-in-page.html">Brand the sign-in page</a></td></tr>
+        <tr><td>[ ] About and Contact exist as published content items.</td><td>A content type; <a href="static-pages.html#other-fixed-pages-use-a-content-type">Other fixed pages</a></td></tr>
         <tr><td>[ ] The cookie banner has your wording and links to your cookie policy.</td><td>Settings, <strong>Site Usage</strong></td></tr>
         <tr><td>[ ] You have chosen whether to show "Powered by Arc CMS" on pages and emails.</td><td>Settings, <strong>Miscellaneous</strong>, <strong>Branding</strong></td></tr>
       </tbody>

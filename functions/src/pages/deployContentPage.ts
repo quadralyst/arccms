@@ -31,23 +31,11 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { isTemplateFragment } from '../shared/template-fragment.js';
+import { loadSiteTemplate, pageStylesheets } from '../shared/site-files.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { HostingBatch, deployBatchToHosting, removeFileFromHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { arcHostingSite } from '../arc-config.js';
-
-// ─── Fallback Template ──────────────────────────────────────────────────────
-
-const FALLBACK_DETAIL_TEMPLATE = `<article>
-  <header>
-    <h1 data-arc-bind="title">Title</h1>
-    <time data-arc-bind="publishedOn">Date</time>
-    <span data-arc-bind="readTime">0</span> min read
-  </header>
-  <img data-arc-bind="coverImage" alt="" style="max-width:100%">
-  <div [innerHTML]="content">Content</div>
-</article>`;
 
 // ─── Private Helpers ────────────────────────────────────────────────────────
 
@@ -94,50 +82,6 @@ async function loadTranslations(
         console.error(`Could not read translations for ${collectionName}/${docId}:`, error);
     }
     return translations;
-}
-
-/**
- * Loads the detail template using 3-tier fallback:
- *  Tier 1: Firestore doc `templates/{folder}:detail` → field `html` or `originalHtml`
- *  Tier 2: HTTP fetch from hosting `https://{siteId}.web.app/templates/{folder}/detail.html`
- *  Tier 3: Built-in FALLBACK_DETAIL_TEMPLATE
- */
-async function loadDetailTemplate(templateFolder: string | undefined, siteId: string): Promise<string> {
-    // "default" is a real template folder, not an absence of one. It used to
-    // short-circuit to the bare built-in skeleton below, while the Angular
-    // renderer drew its own full-featured default layout — so the same content
-    // looked completely different served statically vs. previewed locally.
-    // public/templates/default/ now holds that layout, and both renderers use it.
-    const folder = !templateFolder || templateFolder === 'default' ? 'default' : templateFolder;
-
-    // Tier 1: Firestore
-    try {
-        const docRef = db.doc(`templates/${folder}:detail`);
-        const snap = await docRef.get();
-        if (snap.exists) {
-            const data = snap.data();
-            const html = data?.html || data?.originalHtml;
-            if (html) return html;
-        }
-    } catch {
-        // Fall through to Tier 2
-    }
-
-    // Tier 2: Fetch from hosting (none to fetch from when hosting is off)
-    if (siteId) try {
-        const url = `https://${siteId}.web.app/templates/${folder}/detail.html`;
-        const res = await fetch(url);
-        if (res.ok) {
-            const text = await res.text();
-            // A missing folder answers with the SPA shell (HTTP 200): not a template.
-            if (isTemplateFragment(text)) return text;
-        }
-    } catch {
-        // Fall through to Tier 3
-    }
-
-    // Tier 3: Built-in fallback
-    return FALLBACK_DETAIL_TEMPLATE;
 }
 
 /**
@@ -307,7 +251,7 @@ export function buildDetailJsonLd(input: {
  *  1. Read published content from Firestore
  *  2. Read ContentType from Firestore
  *  3. Load partials + site config
- *  4. Load detail template (3-tier fallback)
+ *  4. Load the detail template from the live site (site-files.ts)
  *  5. Build template data + hydrate
  *  6. Replace arc components, extract styles/scripts
  *  7. Build full HTML document
@@ -356,9 +300,14 @@ export async function generateAndDeployContentDetailPage(
         getAuthor(content.authorId),
     ]);
 
-    // 4. Load detail template (3-tier fallback). The same template renders
-    //    every language — only the data differs.
-    const templateHtml = await loadDetailTemplate(contentType.templateFolder, siteId);
+    // The stylesheets every language's page links, versioned (site-files.ts).
+    const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);
+
+    // 4. Load the detail template from the live site (site-files.ts). The same
+    //    template renders every language; only the data differs. A folder the
+    //    live site does not have throws MissingTemplateFolderError, which the
+    //    publish queue records on the item for the editor to show.
+    const templateHtml = await loadSiteTemplate(contentType.templateFolder, 'detail');
 
     // 5. Work out which languages this item is published in: the default
     //    language always, plus every enabled language that has a translation.
@@ -491,7 +440,7 @@ export async function generateAndDeployContentDetailPage(
             ogImage: localizedContent.coverImage || '',
             ogType: 'article',
             siteName: siteConfig.siteName,
-            cssUrls: siteConfig.cssUrls || [],
+            cssUrls: stylesheets,
             lang,
             rtl: language.rtl,
             alternates,

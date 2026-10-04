@@ -36,7 +36,7 @@
     <table>
       <thead><tr><th>Who</th><th>How the rules know</th></tr></thead>
       <tbody>
-        <tr><td>Anyone, signed in or not</td><td>No check. Static pages and server rendering read published content without signing in</td></tr>
+        <tr><td>Anyone, signed in or not</td><td>No check. Published pages and the browser app read published content without signing in</td></tr>
         <tr><td>A signed-in person</td><td><code>request.auth != null</code></td></tr>
         <tr><td>The owner of a <code>users</code> record</td><td>The <code>arccms_uid</code> claim equals the record id, or the record's <code>uid</code> field equals the Auth uid</td></tr>
         <tr><td>Staff (an admin or an editor)</td><td>The <code>arccms_role</code> claim is <code>admin</code> or <code>editor</code></td></tr>

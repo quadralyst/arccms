@@ -567,10 +567,12 @@
 //     }
 // }
 
-// Sidebar Resize Handle
+// Sidebar Resize Handle: the gap between the writing area and the panel is the
+// divider; a grip of dots sits in it, always visible, so people can tell the
+// panel resizes. It takes the accent colour while hovered, focused or dragged.
 .sidebar-resizer {
     flex: 0 0 auto;
-    width: 0.5rem;
+    width: 0.75rem;
     align-self: stretch;
     cursor: col-resize;
     user-select: none;
@@ -578,24 +580,28 @@
     position: relative;
     background: transparent;
 
-    // Thin accent that fades in, so the divider reads as grabbable on hover.
+    // The grip: a soft pill with two columns of dots.
     &::after {
         content: '';
         position: absolute;
-        top: 0;
-        bottom: 0;
+        top: 50%;
         left: 50%;
-        width: 2px;
-        transform: translateX(-50%);
-        background-color: #4a6cf7;
-        opacity: 0;
-        transition: opacity 0.15s ease;
+        width: 8px;
+        height: 40px;
+        transform: translate(-50%, -50%);
+        border-radius: 4px;
+        background-color: #e5e7eb;
+        background-image: radial-gradient(circle, #94a3b8 1.1px, transparent 1.3px);
+        background-size: 4px 5px;
+        background-position: center;
+        transition: background-color 0.15s ease;
     }
 
     &:hover::after,
     &:focus-visible::after,
     &.arc-resizing::after {
-        opacity: 1;
+        background-color: #dfe5fe;
+        background-image: radial-gradient(circle, #4a6cf7 1.1px, transparent 1.3px);
     }
 
     &:focus-visible {

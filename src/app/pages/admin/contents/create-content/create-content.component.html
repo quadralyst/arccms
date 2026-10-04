@@ -46,6 +46,8 @@
                 }
             </button>
 
+            <arc-site-drift-notice [compact]="true" />
+
             <button type="button" class="btn btn-primary btn-sm" (click)="directPublishContent()"
                 [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
                 <i class="fa-solid fa-upload"></i> <span class="btn-text">{{ 'admin.contents.editor.publish' | transloco }}</span>
@@ -245,7 +247,9 @@
         }
 
         <!-- Drag handle — resizes the settings sidebar -->
-        <div class="sidebar-resizer" arcResizable="admin.contentEditor.sidebar"
+        <!-- Remembered per content type; a type not resized yet starts from the shared width -->
+        <div class="sidebar-resizer" [arcResizable]="'admin.contentEditor.sidebar.' + contentTypeSlug"
+            resizeFallbackKey="admin.contentEditor.sidebar"
             resizeVar="--sidebar-w" [resizeMin]="280" [resizeMax]="640" [resizeDefault]="320"
             [attr.aria-label]="'admin.contents.editor.resize_sidebar' | transloco"
             [title]="'admin.contents.editor.resize_sidebar' | transloco"></div>

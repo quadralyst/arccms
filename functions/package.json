@@ -1,7 +1,7 @@
 {
   "name": "functions",
   "scripts": {
-    "prebuild": "node ../scripts/arc-features.mjs",
+    "prebuild": "node ../scripts/arc-features.mjs && node ../scripts/arc-site-defaults.mjs",
     "build": "tsc",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildLegalNoticeElement, LEGAL_NOTICE, legalNoticeLang, legalNoticeParts } from './legal-notice';
+import { buildLegalNoticeElement, LEGAL_NOTICE, legalNoticeLang, legalNoticeParts, legalNoticeUrls } from './legal-notice';
 
 describe('legal notice', () => {
     it('reads as plain text while no URLs are set', () => {
@@ -8,6 +8,17 @@ describe('legal notice', () => {
             'By signing up, you agree to our Terms of Service and Privacy Policy, and to receive emails from us.',
         );
         expect(parts.some((p) => p.href)).toBe(false);
+    });
+
+    it('links the terms and privacy pages the app supplies, and only those', () => {
+        expect(legalNoticeUrls(() => false)).toEqual({ termsUrl: '', privacyUrl: '' });
+        expect(legalNoticeUrls((name) => name === 'terms')).toEqual({ termsUrl: '/p/terms', privacyUrl: '' });
+        expect(legalNoticeUrls(() => true)).toEqual({ termsUrl: '/p/terms', privacyUrl: '/p/privacy-policy' });
+    });
+
+    it('never links Arc CMS\'s own sample policy', () => {
+        // Arc CMS ships public/_site/pages/privacy-policy.html; this build has no app pages.
+        expect(LEGAL_NOTICE.privacyUrl).toBe('');
     });
 
     it('links a label once its URL is set', () => {

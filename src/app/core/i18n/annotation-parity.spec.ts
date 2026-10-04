@@ -1,22 +1,18 @@
 /**
  * The three `data-arc-t` annotations mean the same thing in all three renderers.
  *
- * There are three places a translated public string is produced: the Angular
- * directives (the shared header/footer partials), the SPA hydrator, and the
- * publish pipeline. They used to support overlapping-but-different subsets —
- * `data-arc-t-attr` worked in the hydrators but not the directive,
- * `data-arc-t-params` the other way round — so an annotation could silently do
- * nothing in one renderer only.
+ * There are three places a translated public string is produced: the app's
+ * header and footer (applyStringsToElement, on live DOM), the SPA hydrator of
+ * templates, and the publish pipeline. They used to support overlapping but
+ * different subsets, so an annotation could silently do nothing in one renderer
+ * only.
  *
  * This spec is what keeps them symmetric. A renderer that stops supporting one
  * of the three fails here rather than in production, in one language.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { Component, signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
-import { ArcTranslateDirective, ArcTranslateAttrDirective } from '../directives/arc-translate.directive';
-import { UiStringsService } from '../services/ui-strings.service';
+import { describe, it, expect } from 'vitest';
+import { applyStringsToElement } from './apply-strings-dom';
 import { TemplateHydrationService } from '../services/template-hydration.service';
 import { TemplateHydrationService as ServerHydration } from '../../../../functions/src/shared/template-hydration';
 
@@ -26,63 +22,15 @@ const STRINGS: Record<string, string> = {
     min_read: '{{ count }} मिनट का पठन',
 };
 
-@Component({
-    standalone: true,
-    imports: [ArcTranslateDirective, ArcTranslateAttrDirective],
-    template: `
-        <span id="text" data-arc-t="read_more">Read Article</span>
-        <input id="attr" data-arc-t-attr="placeholder:search_placeholder" placeholder="Search">
-        <span id="params" data-arc-t="min_read" [data-arc-t-params]="{ count: 5 }">5 min read</span>
-    `,
-})
-class HostComponent {}
+/** The header and footer renderer, as a string-in, string-out function. */
+function onDom(html: string, strings: Record<string, string>): string {
+    const host = document.createElement('div');
+    host.innerHTML = html;
+    applyStringsToElement(host, strings);
+    return host.innerHTML;
+}
 
 describe('data-arc-t annotations', () => {
-    describe('in Angular templates (the shared partials)', () => {
-        let strings: ReturnType<typeof signal<Record<string, string>>>;
-
-        beforeEach(() => {
-            strings = signal<Record<string, string>>(STRINGS);
-            TestBed.configureTestingModule({
-                providers: [{
-                    provide: UiStringsService,
-                    useValue: {
-                        strings,
-                        translate: (key: string, fallback: string) => {
-                            const value = strings()[key];
-                            return typeof value === 'string' && value.trim() ? value : fallback;
-                        },
-                    },
-                }],
-            });
-        });
-
-        function render() {
-            const fixture = TestBed.createComponent(HostComponent);
-            fixture.detectChanges();
-            return fixture.nativeElement as HTMLElement;
-        }
-
-        it('translates text', () => {
-            expect(render().querySelector('#text')!.textContent).toBe('लेख पढ़ें');
-        });
-
-        it('translates an attribute', () => {
-            expect(render().querySelector('#attr')!.getAttribute('placeholder')).toBe('खोजें');
-        });
-
-        it('fills {{ }} from params', () => {
-            expect(render().querySelector('#params')!.textContent).toBe('5 मिनट का पठन');
-        });
-
-        it('keeps the authored English for a key with no translation', () => {
-            strings.set({});
-            const host = render();
-            expect(host.querySelector('#text')!.textContent).toBe('Read Article');
-            expect(host.querySelector('#attr')!.getAttribute('placeholder')).toBe('Search');
-        });
-    });
-
     describe('in hydrated templates', () => {
         const HTML = `
             <span data-arc-t="read_more">Read Article</span>
@@ -90,8 +38,9 @@ describe('data-arc-t annotations', () => {
             <span data-arc-t="min_read" data-arc-t-params='{"count": 5}'>5 min read</span>
         `;
 
-        // Both hydrators, so a divergence between them fails too.
+        // Every renderer, so a divergence between any two fails too.
         const renderers: Array<[string, (html: string, s: Record<string, string>) => string]> = [
+            ['header and footer', onDom],
             ['SPA', (html, s) => TemplateHydrationService.applyStrings(html, s)],
             ['publish pipeline', (html, s) => ServerHydration.applyStrings(html, s)],
         ];

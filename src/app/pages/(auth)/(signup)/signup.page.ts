@@ -9,7 +9,7 @@
  */
 
 import { RouteMeta } from '@analogjs/router';
-import { CommonModule, isPlatformBrowser, NgOptimizedImage } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectorRef,
   Component,
@@ -43,6 +43,10 @@ import { readSignInError, SignInService } from '../sign-in.service';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
 import { homeFor, safeRedirect } from '../../../core/home/home';
+import { SiteIdentityService } from '../../../core/services/site-identity.service';
+import { useSiteStyles } from '../../../core/site/site-styles';
+import { SignInPanelComponent, signInBrand } from '../../page.parts/sign-in-panel.component';
+import { Title } from '@angular/platform-browser';
 
 export const routeMeta: RouteMeta = {
   title: 'Signup | Arc CMS',
@@ -54,7 +58,7 @@ type Channel = 'email' | 'phone';
 @Component({
   selector: 'arc-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterModule, NgOptimizedImage, LegalNoticeComponent, CodeInputComponent],
+  imports: [ReactiveFormsModule, CommonModule, RouterModule, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent],
   templateUrl: './signup.page.html',
   styleUrls: ['./signup.page.scss'],
 })
@@ -62,6 +66,19 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   override constantVariables = inject(ConstantVariables);
   private platformId = inject(PLATFORM_ID);
   currentYear = new Date().getFullYear();
+
+  /**
+   * The site's own name and logo (Settings, About), so the page is the site's and
+   * not Arc CMS's (signInBrand).
+   */
+  private siteIdentity = inject(SiteIdentityService);
+  // Nothing until the identity is in, so Arc CMS's logo never flashes before the site's.
+  private readonly brand = computed(() => this.siteIdentity.loaded()
+    ? signInBrand(this.siteIdentity.identity(), this.constantVariables.APPLICATION_NAME)
+    : { name: '', logo: '' });
+  readonly brandName = computed(() => this.brand().name);
+  readonly brandLogo = computed(() => this.brand().logo);
+  private titleService = inject(Title);
   authStore = inject(AuthState);
   private authService = inject(AuthService);
   private setupService = inject(OnboardingSetupService);
@@ -124,6 +141,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   constructor() {
     super();
+    // The site's styles (src/custom/site/site.css) and its name in the tab.
+    useSiteStyles(['site']);
+    // In the browser only: a server render may read another database than the browser's.
+    if (isPlatformBrowser(this.platformId)) {
+      this.siteIdentity.load().then(() => this.titleService.setTitle(`Sign in | ${this.brandName()}`)).catch(() => undefined);
+    }
     this.initForm();
 
     // Track auth state changes

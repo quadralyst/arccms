@@ -2,7 +2,7 @@
  * Is this string a page template fragment, as opposed to a whole HTML
  * document?
  *
- * A template lives at /templates/{folder}/detail.html. When the folder does
+ * A template lives at /_site/templates/{folder}/detail.html. When the file does
  * not exist, Hosting (and the dev server) answer that URL with the SPA
  * shell, HTTP 200, whose SSR output for the path is the 404 page. Both
  * renderers used to hydrate that page as if it were the template, so a

@@ -139,6 +139,27 @@ describe('AddContentTypeComponent', () => {
         });
     });
 
+    describe('template folder', () => {
+        it('lists the site\'s folders, the default being its own option', () => {
+            expect(component.templateFolders().map((f) => f.name)).toEqual(expect.arrayContaining(['articles', 'manuals']));
+            expect(component.templateFolders().some((f) => f.name === 'default')).toBe(false);
+        });
+
+        it('picks the folder named after the type, until the admin picks one', () => {
+            const folder = component.addForm.get('templateFolder')!;
+            component.addForm.get('slug')!.setValue('articles');
+            expect(folder.value).toBe('articles');
+
+            component.addForm.get('slug')!.setValue('recipes');
+            expect(folder.value).toBe('default');
+
+            folder.setValue('manuals');
+            folder.markAsDirty();
+            component.addForm.get('slug')!.setValue('articles');
+            expect(folder.value).toBe('manuals');
+        });
+    });
+
     describe('Field Management', () => {
         it('should add a new field to the form', () => {
             const initialLength = component.fields.length;

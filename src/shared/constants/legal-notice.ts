@@ -1,15 +1,31 @@
+import { appHasPage } from '../../app/core/site/site';
+
+/**
+ * The static pages the notice links to, at /p/{name}, when the app supplies them
+ * (src/custom/site/pages/terms.html, privacy-policy.html). Arc CMS's own sample
+ * policy is never linked from someone else's site.
+ */
+export const LEGAL_PAGES = { terms: 'terms', privacy: 'privacy-policy' } as const;
+
+/** The notice's links: a page the app supplies, else none. */
+export function legalNoticeUrls(hasPage: (name: string) => boolean = appHasPage): { termsUrl: string; privacyUrl: string } {
+    return {
+        termsUrl: hasPage(LEGAL_PAGES.terms) ? `/p/${LEGAL_PAGES.terms}` : '',
+        privacyUrl: hasPage(LEGAL_PAGES.privacy) ? `/p/${LEGAL_PAGES.privacy}` : '',
+    };
+}
+
 /**
  * The notice shown on every signup form: waitlist and landing-page forms, the
  * account sign-up page and the onboarding wizard (decided 2026-09-23). Plain
  * text for now, no checkbox; signing up is agreeing to it, marketing email
  * included.
  *
- * Edit the wording and the links here. A link is drawn only when its URL is
- * set; with an empty URL the label reads as plain text.
+ * Its links come from the site's pages (legalNoticeUrls). A link is drawn only
+ * when its URL is set; with an empty URL the label reads as plain text.
  */
 export const LEGAL_NOTICE = {
-    termsUrl: '',
-    privacyUrl: '',
+    ...legalNoticeUrls(),
     /** `{terms}` and `{privacy}` mark where the two labels go. */
     text: {
         en: {

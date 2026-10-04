@@ -121,9 +121,26 @@ export class ContentsService extends DbService<IContents> {
                 unsubscribe();
             }, 60_000);
 
+            // The record still holds the previous publish's result when the
+            // watch begins. That is not this publish's answer: a finished
+            // status counts only once its deploy time differs from the one
+            // first seen. Compared with the record's own times, not the
+            // browser clock, which may be off.
+            let firstStamp: number | null | undefined;
+
             const unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(docRef, (snap) => {
                 if (!snap.exists()) return;
                 const data = snap.data() as Partial<IContents>;
+                const rawStamp = (data as any).deployedAt;
+                const stampDate: Date | null = rawStamp?.toDate?.() ?? (rawStamp ? new Date(rawStamp) : null);
+                const stamp = stampDate && !isNaN(stampDate.getTime()) ? stampDate.getTime() : null;
+                const finished = ['deployed', 'failed', 'skipped'].includes(String(data.deployStatus));
+                if (firstStamp === undefined) {
+                    firstStamp = stamp;
+                    if (finished && stamp !== null) return;
+                } else if (finished && stamp === firstStamp) {
+                    return;
+                }
 
                 const status: DeployStatusUpdate = {
                     deployStatus: (data.deployStatus as DeployStatusUpdate['deployStatus']) || null,

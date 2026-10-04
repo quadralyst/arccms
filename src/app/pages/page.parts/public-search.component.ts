@@ -19,7 +19,7 @@ import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { isOn } from '../../core/features/features';
 
-/** English defaults; public/i18n/{lang}/strings.json overrides them per language. */
+/** English defaults; the site's /_site/strings/{lang}.json overrides them per language. */
 export const PUBLIC_SEARCH_STRINGS = {
     search_placeholder: 'Search',
     search_empty: 'No results',

@@ -191,6 +191,8 @@ export function appValues(config) {
     if (config.storagePrefix) values.storagePrefix = config.storagePrefix;
     if (config.adminOnlySignIn === 'yes') values.adminOnlySignIn = true;
     if (ownFunctionsRegion(config)) values.functionsRegion = config.functionsRegion;
+    // The admin compares local site files with this site's (docs/website/home-page.html).
+    if (config.hostingSite) values.hostingSite = config.hostingSite;
     return Object.keys(values).length ? values : null;
 }
 

@@ -19,6 +19,7 @@ import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page'
 import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
 import { FieldRepeaterComponent } from '../../../../../shared/components/field-repeater/field-repeater.component';
 import { ResizableDirective } from '../../../../../shared/directives/resizable/resizable.directive';
+import { SiteDriftNoticeComponent } from '../site-drift-notice/site-drift-notice.component';
 import {
   isRepeaterType,
   normalizeRepeaterRows,
@@ -118,6 +119,7 @@ const COVER_IMAGE_SIZE: ImageSize = 'xl';
     FieldRepeaterComponent,
     ResizableDirective,
     RouterLink,
+    SiteDriftNoticeComponent,
   ],
   templateUrl: './create-content.component.html',
   styleUrl: './create-content.component.scss',

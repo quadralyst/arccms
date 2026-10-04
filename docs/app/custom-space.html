@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Use the custom space | Arc CMS docs</title>
   <meta name="description" content="Know every file and folder of the custom space, what each is for, and where Arc CMS reads it, so your app never edits a core file.">
-  <meta name="docs:sources" content="src/custom, functions/src/custom, docs/custom, custom, scripts/check-core.mjs, scripts/arc-admin-script.mjs, vitest.config.ts, scripts/arc-rules-build.mjs, scripts/arc-features.mjs, src/app/app.routes.ts, src/app/custom-space.spec.ts, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/home/home.ts, src/app/core/i18n/translation.loader.ts, src/app/core/pwa/pwa.service.ts, src/app/core/features/features.ts, functions/src/all.ts, vite.config.ts, index.html, vitest.rules.config.ts">
+  <meta name="docs:sources" content="src/custom, scripts/arc-site.mjs, scripts/vite-arc-site.ts, functions/src/custom, docs/custom, custom, scripts/check-core.mjs, scripts/arc-admin-script.mjs, vitest.config.ts, scripts/arc-rules-build.mjs, scripts/arc-features.mjs, src/app/app.routes.ts, src/app/custom-space.spec.ts, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/home/home.ts, src/app/core/i18n/translation.loader.ts, src/app/core/pwa/pwa.service.ts, src/app/core/features/features.ts, functions/src/all.ts, vite.config.ts, index.html, vitest.rules.config.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/custom-space.html">
@@ -27,6 +27,7 @@
         <tr><td><code>src/custom/i18n/en.json</code>, <code>src/custom/i18n/hi.json</code></td><td>The app's translations, and new wording for core ones</td><td><a href="../features/languages.html">Languages</a></td></tr>
         <tr><td><code>src/custom/styles.css</code></td><td>The app's global styles</td><td>This page</td></tr>
         <tr><td><code>src/custom/pwa.ts</code>, <code class="new">src/custom/pwa-icon.svg</code> (or <code class="new">src/custom/pwa-icon.png</code>)</td><td><code>CUSTOM_PWA</code>: the installable app's name, colors, start page, and its icon</td><td><a href="pwa.html">Make it installable</a></td></tr>
+        <tr><td><code class="new">src/custom/site/</code></td><td>The public website: the home page (<code>home.html</code>, <code>home.{lang}.html</code>), header, footer, the sign-in page's brand panel (<code>sign-in.html</code>), content templates, static pages, site styles, translations of template text, images and scripts, favicon and error pages. Every file optional; Arc CMS ships none</td><td><a href="../website/home-page.html">Build your home page</a>, <a href="../website/templates.html">Design templates</a>, <a href="../website/static-pages.html">Write static pages</a></td></tr>
       </tbody>
     </table>
     <p>In the Cloud Functions, <code>functions/src/custom/</code>:</p>
@@ -63,6 +64,7 @@
         <tr><td><code>src/custom/i18n/</code></td><td><code>src/app/core/i18n/translation.loader.ts</code></td><td>Merged over the core translation file key by key: new keys are added, existing keys are reworded</td></tr>
         <tr><td><code>src/custom/styles.css</code></td><td><code>index.html</code></td><td>Loaded as the last stylesheet, so its rules win</td></tr>
         <tr><td><code>src/custom/pwa.ts</code> and the icon</td><td><code>vite.config.ts</code>, <code>src/app/core/pwa/pwa.service.ts</code></td><td>Laid over the core defaults at build time; the icon is found by its file name</td></tr>
+        <tr><td><code class="new">src/custom/site/</code></td><td><code>scripts/arc-site.mjs</code>, through <code>scripts/vite-arc-site.ts</code> in <code>vite.config.ts</code></td><td>Laid over Arc CMS's <code>public/</code> and <code>public/_site/</code> when <code>npm run dev</code> and <code>npm run build</code> start, file by file: a file at the same served path replaces Arc CMS's, strings files are merged key by key. The result is served at <code>/_site/</code> and listed in <code>/_site/site.json</code>; the app and the publish functions read only that</td></tr>
         <tr><td><code>src/custom/features.ts</code></td><td><code>vite.config.ts</code>, <code>src/app/core/features/features.ts</code>, <code>scripts/arc-features.mjs</code></td><td>Checked when the build starts, then decides which pages, menu items and functions exist</td></tr>
         <tr><td><code>functions/src/custom/index.ts</code></td><td><code>functions/src/all.ts</code></td><td>Exported as the <code>custom</code> group, so each function deploys as <code>arccms-custom-</code> plus its name</td></tr>
         <tr><td><code>functions/src/custom/public-callables.txt</code></td><td><code>functions/scripts/check-callable-access.sh</code>, <code>scripts/arc-deploy-menu.mjs</code></td><td>The listed callables are checked for public access after a deploy</td></tr>
@@ -74,7 +76,7 @@
     </table>
 
     <h2>Styles and translations</h2>
-    <p>Put global styles in <code>src/custom/styles.css</code>. Styles for one page belong in that page's component.</p>
+    <p>Put global styles in <code>src/custom/styles.css</code>. Styles for one page belong in that page's component. Styles for the public website (header, footer, templates) go in <code class="new">src/custom/site/site.css</code>, and the words of the website's templates in <code class="new">src/custom/site/strings/</code> (see <a href="../website/languages.html">Publish in more than one language</a>).</p>
     <p>Add the app's words to <code>src/custom/i18n/en.json</code> under a <code>custom</code> key, and the same keys to every other language file. A key that already exists in core is reworded for the whole admin:</p>
     <pre><code>{
   "custom": { "nav": { "lessons": "Lessons" } },

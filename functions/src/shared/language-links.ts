@@ -18,6 +18,13 @@
 const ANCHOR_HREF = /(<a\b[^>]*?\shref\s*=\s*)(["'])(.*?)\2/gi;
 
 /**
+ * Paths that exist once, whatever the language: static pages (default language
+ * only), files (/site/, /assets/) and the site's source files (/_site/). A
+ * link to them is never prefixed.
+ */
+const UNPREFIXED = /^\/(p|pages|site|assets|_site)(\/|$)/;
+
+/**
  * Rewrites one root-relative href for a language.
  *
  * `prefix` is '' for the default language, '/{code}' otherwise — the same
@@ -30,6 +37,7 @@ const ANCHOR_HREF = /(<a\b[^>]*?\shref\s*=\s*)(["'])(.*?)\2/gi;
 export function withLangPrefix(href: string, prefix: string): string {
     if (!prefix || !href) return href;
     if (!href.startsWith('/') || href.startsWith('//')) return href;
+    if (UNPREFIXED.test(href)) return href;
     if (href === prefix || href.startsWith(`${prefix}/`) || href.startsWith(`${prefix}#`)) {
         return href;
     }

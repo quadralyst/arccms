@@ -88,8 +88,10 @@ describe('oneBuildAtATime with the real Analog plugins', () => {
 describe('vite.config.ts build memory settings', () => {
     const vite = readFileSync(join(ROOT, 'vite.config.ts'), 'utf8');
 
-    it('prerenders without building the server bundle firebase.json never deploys', () => {
+    it('builds only the browser bundle: no server rendering, no server firebase.json would deploy', () => {
+        expect(vite).toContain('ssr: false,');
         expect(vite).toContain('static: true,');
+        expect(vite).toMatch(/prerender: \{\s*routes: \[\],\s*\}/);
         const firebase = readFileSync(join(ROOT, 'firebase.json'), 'utf8');
         expect(firebase).toContain('"public": "dist/analog/public"');
         expect(firebase).not.toContain('analog/server');

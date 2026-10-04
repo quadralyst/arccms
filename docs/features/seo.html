@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SEO and discoverability | Arc CMS docs</title>
   <meta name="description" content="What Arc CMS gives search engines and AI assistants: structured data, sitemap, robots.txt, llms.txt, Markdown twins, RSS, IndexNow and the editor's Checks tab.">
-  <meta name="docs:sources" content="functions/src/features/seo.ts, functions/src/pages/regenerateSeoFiles.ts, functions/src/pages/generateSitemap.ts, functions/src/pages/generateRobotsTxt.ts, functions/src/pages/generateLlmsTxt.ts, functions/src/pages/generateRssFeed.ts, functions/src/pages/indexNow.ts, functions/src/pages/deploySeoFile.ts, functions/src/pages/deployContentPage.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/shared/discoverability-settings.ts, functions/src/shared/crawlers.ts, functions/src/shared/structured-data.ts, functions/src/shared/site-jsonld.ts, functions/src/shared/schema-types.ts, functions/src/shared/schema-mapping.ts, functions/src/shared/content-blocks.ts, functions/src/shared/markdown-twin.ts, functions/src/shared/html-to-markdown.ts, functions/src/shared/html-document.ts, functions/src/shared/authors.ts, functions/src/shared/references.ts, functions/src/shared/related-content.ts, functions/src/shared/ai-referrers.ts, src/app/pages/admin/(settings)/discoverability, src/shared/utils/discoverability-checklist.ts, src/shared/constants/crawlers.ts, src/shared/constants/schema-types.ts, src/shared/utils/schema-mapping.ts, src/shared/utils/content-blocks.ts, src/shared/models/discoverability.model.ts, src/shared/components/tiptap-editor/service/arc-block-extension.ts, src/app/pages/admin/contents/create-content/create-content.component.ts, public/templates/default/detail.html, firestore.rules">
+  <meta name="docs:sources" content="functions/src/features/seo.ts, functions/src/pages/regenerateSeoFiles.ts, functions/src/pages/generateSitemap.ts, functions/src/pages/generateRobotsTxt.ts, functions/src/pages/generateLlmsTxt.ts, functions/src/pages/generateRssFeed.ts, functions/src/pages/indexNow.ts, functions/src/pages/deploySeoFile.ts, functions/src/pages/deployContentPage.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/shared/discoverability-settings.ts, functions/src/shared/crawlers.ts, functions/src/shared/structured-data.ts, functions/src/shared/site-jsonld.ts, functions/src/shared/schema-types.ts, functions/src/shared/schema-mapping.ts, functions/src/shared/content-blocks.ts, functions/src/shared/markdown-twin.ts, functions/src/shared/html-to-markdown.ts, functions/src/shared/html-document.ts, functions/src/shared/authors.ts, functions/src/shared/references.ts, functions/src/shared/related-content.ts, functions/src/shared/ai-referrers.ts, src/app/pages/admin/(settings)/discoverability, src/shared/utils/discoverability-checklist.ts, src/shared/constants/crawlers.ts, src/shared/constants/schema-types.ts, src/shared/utils/schema-mapping.ts, src/shared/utils/content-blocks.ts, src/shared/models/discoverability.model.ts, src/shared/components/tiptap-editor/service/arc-block-extension.ts, src/app/pages/admin/contents/create-content/create-content.component.ts, public/_site/templates/default/detail.html, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/seo.html">
@@ -14,7 +14,7 @@
     <p class="lead">Every published page tells search engines and AI assistants what it is, who wrote it and where its sources are, and the site publishes the files crawlers look for. Authors get a Checks tab that scores each draft for being found and quoted.</p>
 
     <h2>What it is</h2>
-    <p>The publish pipeline writes these with every published page. Nothing has to be switched on.</p>
+    <p>The publish pipeline writes these with every published page. Nothing has to be switched on. The home page gets the head tags and the site's structured data too, without overwriting the ones it sets itself (see <a href="../website/home-page.html">Build your home page</a>).</p>
     <table>
       <thead><tr><th>Part</th><th>What it gives</th></tr></thead>
       <tbody>
@@ -30,9 +30,9 @@
     <table>
       <thead><tr><th>File</th><th>What it holds</th></tr></thead>
       <tbody>
-        <tr><td><code>/sitemap.xml</code></td><td>The home page, each content type's list page, every published page in every language it exists in (with <code>hreflang</code> alternates), and the privacy and cookie policy pages. <code>lastmod</code> is the updated date, else the publish date.</td></tr>
-        <tr><td><code>/robots.txt</code></td><td>Everything allowed, a <code>Disallow: /</code> group for each AI crawler switched off, and the sitemap address.</td></tr>
-        <tr><td><code>/llms.txt</code></td><td>A Markdown index of the site (llmstxt.org): the site name and description, then a section per content type linking its pages' Markdown twins in the default language, newest first, up to 500 pages in all.</td></tr>
+        <tr><td><code>/sitemap.xml</code></td><td>The home page, each content type's list page, every published page in every language it exists in (with <code>hreflang</code> alternates), and every static page (Arc CMS's privacy and cookie policies and the app's own, see <a href="../website/static-pages.html">Write static pages</a>). <code>lastmod</code> is the updated date, else the publish date.</td></tr>
+        <tr><td><code>/robots.txt</code></td><td>Everything allowed except <code>/_site/</code> (the site's source files: templates, header, page sources), a <code>Disallow: /</code> group for each AI crawler switched off, and the sitemap address.</td></tr>
+        <tr><td><code>/llms.txt</code></td><td>A Markdown index of the site (llmstxt.org): the site name and description, then a section per content type linking its pages' Markdown twins in the default language, newest first, up to 500 pages in all, then links to the home page and the sitemap.</td></tr>
         <tr><td><code>/llms-full.txt</code></td><td>Every default-language Markdown twin in one file, newest first, up to 2 MB.</td></tr>
         <tr><td><code>/{type}/feed.xml</code></td><td>An RSS 2.0 feed per content type with its 20 newest items.</td></tr>
         <tr><td><code>/{key}.txt</code></td><td>The IndexNow key file, which proves the site to the engines.</td></tr>
@@ -120,7 +120,7 @@
     <p>An app extends discoverability through its own content and templates:</p>
     <ul>
       <li><strong>Structured data for your content:</strong> map a content type to a schema.org type and its custom fields in the type editor (above). No code.</li>
-      <li><strong>Templates:</strong> a custom detail template can show the author box, the "Last updated" date, the Sources list and Related items with the same bindings as <code>public/templates/default/detail.html</code>. See <a href="templates.html#detail-page-bindings">Detail page bindings</a>.</li>
+      <li><strong>Templates:</strong> a custom detail template can show the author box, the "Last updated" date, the Sources list and Related items with the same bindings as <code>public/_site/templates/default/detail.html</code>. See <a href="templates.html#detail-page-bindings">Detail page bindings</a>.</li>
     </ul>
     <p>New schema.org types, content blocks, crawlers, AI referrers and checks are changes to Arc CMS itself, not to an app (see <a href="../contributing/keep-core-generic.html">Keep core generic</a>). Types, blocks and crawlers live in a functions file with a browser copy; change both, since a static page and its in-app twin must agree (a test compares the two lists for types and crawlers):</p>
     <table>
@@ -162,7 +162,7 @@
 
     <h2>Troubleshooting</h2>
     <div class="trap"><p>Settings changed but robots.txt did not. <strong>Save</strong> applies on the next publish; the functions also cache the settings for five minutes. Press <strong>Save and apply to site</strong>.</p></div>
-    <div class="trap"><p>Pages and files vanish after <code>firebase deploy --only hosting</code>. A hosting deploy releases only what the CLI uploaded, dropping every file the functions wrote. Rebuild them afterwards with <code>npm run seed:dev</code> (or <code>npm run seed:prod</code>). See <a href="../operations/deploy.html">Deploy</a>.</p></div>
+    <div class="trap"><p>Pages and files vanish after a plain <code>firebase deploy --only hosting</code>, which releases only what the CLI uploaded. <code>npm run deploy</code> keeps every file the functions wrote. If they did vanish, rebuild them with <code>npm run seed:dev</code> (or <code>npm run seed:prod</code>). See <a href="../operations/deploy.html">Deploy</a>.</p></div>
     <table>
       <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
       <tbody>

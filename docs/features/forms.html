@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Signup forms | Arc CMS docs</title>
   <meta name="description" content="Collect sign-ups with verified signup forms and waitlists, with referral links, a leaderboard and per-form emails, straight into your audience.">
-  <meta name="docs:sources" content="functions/src/features/forms.ts, functions/src/waitlists, functions/src/email-core/syncOtpEnabledFlag.ts, functions/src/email-core/defaultTemplates.ts, functions/src/email-core/contactSync.ts, functions/src/utils/referralHelper.ts, src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/app/pages/page.parts/waitlist-form.service.ts, src/shared/constants/waitlist-form.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, firestore.rules">
+  <meta name="docs:sources" content="functions/src/features/forms.ts, functions/src/waitlists, functions/src/email-core/syncOtpEnabledFlag.ts, functions/src/email-core/defaultTemplates.ts, functions/src/email-core/contactSync.ts, functions/src/utils/referralHelper.ts, src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/shared/constants/waitlist-form.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/forms.html">
@@ -54,7 +54,7 @@
     </ol>
 
     <h3>Put a form on the home page</h3>
-    <p>The home page (<code>public/index.html</code>, and its translations in <code>public/i18n/</code>) binds every form that has <code>data-waitlist-form</code>:</p>
+    <p>The home page (<code class="new">src/custom/site/home.html</code> and its translations, see <a href="../website/home-page.html">Build your home page</a>) binds every form that has <code>data-waitlist-form</code>, in the app and on the published page, where <code>public/assets/js/arc-site.js</code> runs the same steps through the same functions:</p>
     <pre><code>&lt;form data-waitlist-form data-waitlist-id="beta"&gt;
   &lt;input name="firstName" placeholder="Your name"&gt;
   &lt;input type="email" name="email" required&gt;
@@ -66,7 +66,7 @@
       <thead><tr><th>Markup</th><th>Meaning</th></tr></thead>
       <tbody>
         <tr><td><code>data-waitlist-form</code></td><td>Arc CMS handles this form. A <code>&lt;form&gt;</code> on the home page without it gets a warning overlay</td></tr>
-        <tr><td><code>data-waitlist-id</code></td><td>The form's id. Without it, the default form <code>waitlist-form</code></td></tr>
+        <tr><td><code>data-waitlist-id</code></td><td>The form's id. Without it, the default form <code>waitlist-form</code>. On an install whose default form is older and has another id, <code>waitlist-form</code> uses that form until a form with the id <code>waitlist-form</code> exists.</td></tr>
         <tr><td><code>name="email"</code> or <code>data-waitlist-email</code></td><td>The address (required)</td></tr>
         <tr><td><code>name="firstName"</code>, <code>name="name"</code> or <code>data-waitlist-name</code></td><td>The name</td></tr>
         <tr><td><code>name="source"</code> or <code>data-waitlist-source</code></td><td>Where they came from (default <code>direct</code>)</td></tr>

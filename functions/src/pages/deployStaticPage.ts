@@ -3,21 +3,22 @@ import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings } 
 import { replaceArcComponents, POWERED_BY_HTML } from '../shared/html-document.js';
 import { buildSearchWidget } from '../search/widget.js';
 import { deployFileToHosting } from './deployToHosting.js';
-import { arcHostingOrigin, arcHostingSite } from '../arc-config.js';
+import { arcHostingSite } from '../arc-config.js';
+import { getSiteFile, getSiteManifest, LEGACY_STATIC_PAGES, pageStylesheets } from '../shared/site-files.js';
 
 /**
- * Generates and deploys a processed static page (e.g., privacy-policy, cookie-policy).
+ * Generates and deploys a processed static page (e.g., privacy-policy, terms).
  *
  * Pipeline:
- *  1. Fetch raw HTML from hosting at /pages/{pageSlug}.html
+ *  1. Fetch raw HTML from the live site at /_site/pages/{pageSlug}.html
  *  2. Load partials (header/footer) and site config (CSS URLs)
  *  3. Replace <arc-header> and <arc-footer> with actual HTML
  *  4. Inject site CSS <link> tags into <head>
  *  5. Add arc-served-by / arc-deployed-at meta tags
  *  6. Deploy processed HTML to /pages/{pageSlug}/index.html
  *
- * The raw .html files in public/pages/ serve as the source.
- * The processed versions at /pages/{slug}/index.html take priority for serving.
+ * The source is the site's page (src/custom/site/pages/ over public/_site/pages/,
+ * scripts/arc-site.mjs). The processed version is served at /pages/{slug}.
  */
 export async function generateAndDeployStaticPage(
     pageSlug: string,
@@ -28,15 +29,11 @@ export async function generateAndDeployStaticPage(
         return;
     }
 
-    // 1. Fetch raw HTML from hosting
-    const rawUrl = `${arcHostingOrigin()}/pages/${pageSlug}.html`;
-    const response = await fetch(rawUrl);
-    if (!response.ok) {
-        throw new Error(
-            `Failed to fetch static page source: ${rawUrl} (HTTP ${response.status})`,
-        );
+    // 1. Fetch raw HTML from the live site
+    const rawHtml = await getSiteFile(`pages/${pageSlug}.html`);
+    if (!rawHtml) {
+        throw new Error(`The live site has no page ${pageSlug} (/_site/pages/${pageSlug}.html). Deploy the website first.`);
     }
-    const rawHtml = await response.text();
 
     // 2. Load partials + site config + misc settings
     const [partials, siteConfig, miscSettings, localization] = await Promise.all([
@@ -58,9 +55,10 @@ export async function generateAndDeployStaticPage(
     {
         const $ = loadHtml(processedHtml, { xmlMode: false });
 
-        // Inject site CSS <link> tags into <head>
-        if (siteConfig.cssUrls && siteConfig.cssUrls.length > 0) {
-            const cssLinks = siteConfig.cssUrls
+        // Inject site CSS <link> tags into <head>, versioned, the site's site.css last
+        const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);
+        if (stylesheets.length > 0) {
+            const cssLinks = stylesheets
                 .map(url => `<link rel="stylesheet" href="${url}">`)
                 .join('\n    ');
             $('head').append(`\n    ${cssLinks}`);
@@ -85,4 +83,14 @@ export async function generateAndDeployStaticPage(
     // 7. Deploy to /pages/{pageSlug}/index.html
     const filePath = `/pages/${pageSlug}/index.html`;
     await deployFileToHosting(siteId, filePath, processedHtml, 'static_pages', pageSlug);
+}
+
+/**
+ * The static pages to publish: every page in the live site's manifest (Arc CMS's
+ * samples and the app's own, such as terms), or the two Arc CMS has always
+ * shipped when the live site predates the manifest.
+ */
+export async function staticPageSlugs(): Promise<string[]> {
+    const manifest = await getSiteManifest();
+    return manifest ? Object.keys(manifest.pages).sort() : [...LEGACY_STATIC_PAGES];
 }

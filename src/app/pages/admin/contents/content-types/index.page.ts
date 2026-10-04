@@ -21,6 +21,8 @@ import { GlobalTableComponent, TableColumn } from '../../../../../shared/compone
 import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../../guards/role.guard';
 import { escapeHtml } from '../../../../../shared/utils/escape-html';
+import { SiteDriftNoticeComponent } from '../site-drift-notice/site-drift-notice.component';
+import { PublishQueueService } from '../publish-queue/publish-queue.service';
 
 export const routeMeta: RouteMeta = {
   title: 'Content Types | Arc CMS',
@@ -42,7 +44,8 @@ export const routeMeta: RouteMeta = {
     ViewContentTypeComponent,
     GlobalTableComponent,
     PageHeaderComponent,
-    TranslocoPipe
+    TranslocoPipe,
+    SiteDriftNoticeComponent,
   ],
   providers: [DatePipe],
   templateUrl: './content-types.html',
@@ -58,6 +61,27 @@ export default class ContentTypeComponent {
   toastService = inject(ToastService);
   notify = inject(NotifyService);
   transloco = inject(TranslocoService);
+  private publishQueue = inject(PublishQueueService);
+
+  /** True from the click until the request is queued. */
+  republishing = signal(false);
+
+  /**
+   * Publishes the whole website again (every page, the home page, the sitemap
+   * and feeds) in one release: after editing the home page or templates and
+   * deploying the website, or to repair the live site.
+   */
+  async republishSite(): Promise<void> {
+    this.republishing.set(true);
+    try {
+      await this.publishQueue.redeployAll();
+      this.notify.success('admin.contents.types.republish_started');
+    } catch {
+      this.notify.error('admin.contents.types.republish_failed');
+    } finally {
+      this.republishing.set(false);
+    }
+  }
   @ViewChild('drawer') drawer!: MatDrawer;
 
   currentAction = signal<'add' | 'edit' | 'view' | ''>('');

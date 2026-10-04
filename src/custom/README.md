@@ -16,6 +16,7 @@ app: see docs/app/custom-space.html, and run `npm run check:core`.
 | `styles.css` | the app's global styles, loaded after everything else |
 | `pwa.ts`, `pwa-icon.svg` or `.png` | the installable app: name, colours, icon (docs/features/pwa.html) |
 | `features.ts` | the Arc CMS features the app turns off, and the PWA on |
+| `site/` | the public website: `home.html` and `home.{lang}.html` (docs/website/home-page.html), `header.html`, `footer.html`, `sign-in.html` (the sign-in page's brand panel), `site.css`, `templates/{folder}/`, `pages/`, `strings/{lang}.json`, `assets/` (served at `/site/`), `favicon.ico`, `403.html`, `404.html`. Each file replaces Arc CMS's at the same place in `public/_site/` or `public/`; strings are merged (docs/website/overview.html) |
 
 The app's Cloud Functions go in `functions/src/custom/`, its security rules in
 `firestore.app.rules` and `storage.app.rules` (docs/app/rules-and-indexes.html).

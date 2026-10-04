@@ -578,14 +578,16 @@ export const routes: Routes = [
       import('./pages/public-page-renderer/public-page-renderer.component').then((m) => m.PublicPageRendererComponent),
   },
 
-  // Translated home pages. Declared per language rather than through the
-  // language guard: a home page exists only where someone has written one, and
-  // that is a file in the repo, not a Firestore setting. Listed before the
-  // language content routes so the single-segment path wins.
+  // The home page in another language, /{lang}: the same page as '/', which
+  // renders the site's home.{lang}.html or home.html in that language
+  // (specs/own-website-spec.md, W4). Published sites serve the static
+  // /{lang}/index.html instead; this is the preview and the fallback. Listed
+  // before the language content routes so the single-segment path wins.
   {
-    path: 'hi',
-    loadComponent: () =>
-      import('./pages/home-i18n/home.hi.component').then((m) => m.default),
+    path: ':lang',
+    pathMatch: 'full',
+    canMatch: [languageRouteGuard],
+    loadComponent: () => import('./pages/index.page').then((m) => m.default),
   },
 
   // Translated public content: /{lang}/{contentTypeSlug}[/{urlSlug}].

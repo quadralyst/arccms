@@ -1,7 +1,6 @@
 /**
  * Firestore, Storage and Functions handles for the install's database, bucket and functions region
- * (specs/coexistence-spec.md, CO2). Used by both `app.config.ts` and
- * `app.config.server.ts` so the browser and SSR always agree.
+ * (specs/coexistence-spec.md, CO2). Used by `app.config.ts`.
  *
  * With the default config these are exactly `getFirestore()` and `getStorage()`,
  * the calls every install made before CO2.

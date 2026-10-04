@@ -29,7 +29,7 @@
         </tr>
         <tr>
           <td><code>npm run build</code> stops with "JavaScript heap out of memory"</td>
-          <td>The build compiles the whole app twice, for the browser and for prerendering the home pages. Core Arc CMS needs about 2.5 GB of Node's heap, and <code>npm run build</code> allows 8 GB, so an app needs far more code than core to reach it, or the machine has too little memory</td>
+          <td>The build compiles the whole app for the browser. Core Arc CMS needs well under 2.5 GB of Node's heap, and <code>npm run build</code> allows 8 GB, so an app needs far more code than core to reach it, or the machine has too little memory</td>
           <td>Give the build a bigger heap, which wins over the script's 8 GB: <code>NODE_OPTIONS=--max-old-space-size=12288 npm run build</code>, and the same in front of <code>npm run deploy</code>. The machine needs that much free memory</td>
         </tr>
         <tr>

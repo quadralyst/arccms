@@ -6,6 +6,7 @@ import { DomSanitizer, Meta, SafeHtml, Title } from '@angular/platform-browser';
 import { catchError, map, of, switchMap } from 'rxjs';
 import { HeaderComponent } from '../page.parts/header.component';
 import { FooterComponent } from '../page.parts/footer.component';
+import { siteManifest, sitePageUrl } from '../../core/site/site';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 
 @Component({
@@ -65,10 +66,12 @@ export class PublicPageRendererComponent implements OnInit {
                 // Track public page view
                 this.gaTracking.trackPublicPageView(cleanFileName);
 
-                // In SSR, relative URLs might need a base URL.
-                // However, Analog/Angular Universal often handles this if properly configured.
-                // Assuming client-side hydration or correct server interceptor for now.
-                return this.http.get(`/pages/${cleanFileName}.html`, { responseType: 'text' }).pipe(
+                // A page the site does not have would answer with the app shell
+                // (HTTP 200), so only pages in the site's manifest are fetched.
+                if (!siteManifest().pages[cleanFileName]) {
+                    return of(null);
+                }
+                return this.http.get(sitePageUrl(cleanFileName), { responseType: 'text' }).pipe(
                     catchError(err => {
                         console.error('Error loading page:', err);
                         return of(null);

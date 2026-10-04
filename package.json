@@ -11,6 +11,7 @@
     "export-indexes": "mkdir -p .arc-build && firebase firestore:indexes --database=\"$(node scripts/arc-install-config.mjs --database-id)\" > .arc-build/live.indexes.json && node scripts/arc-rules-build.mjs --split-indexes .arc-build/live.indexes.json",
     "rules:build": "node scripts/arc-rules-build.mjs",
     "check:core": "node scripts/check-core.mjs",
+    "arc:own-site": "node scripts/arc-own-site.mjs",
     "check:docs": "vitest run scripts/__tests__/docs",
     "docs": "node scripts/docs-serve.mjs",
     "docs:index": "node scripts/docs-index.mjs",

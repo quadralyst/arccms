@@ -6,9 +6,11 @@ import {
     HostListener,
     inject,
     Input,
+    OnChanges,
     OnInit,
     Output,
     PLATFORM_ID,
+    SimpleChanges,
 } from '@angular/core';
 
 /** Namespace for the remembered widths so the keys stay recognisable. */
@@ -47,9 +49,16 @@ const STORAGE_PREFIX = 'arc:resizable:';
         '[class.arc-resizing]': 'dragging',
     },
 })
-export class ResizableDirective implements OnInit {
+export class ResizableDirective implements OnInit, OnChanges {
     /** localStorage key for the remembered width. Empty disables persistence. */
     @Input('arcResizable') storageKey = '';
+
+    /**
+     * Read when `storageKey` has nothing stored yet, so a narrower key (one per
+     * content type, say) starts from the width remembered under a shared one.
+     * Never written.
+     */
+    @Input() resizeFallbackKey = '';
 
     /** Custom property written onto the parent element. */
     @Input() resizeVar = '--arc-panel-w';
@@ -86,10 +95,20 @@ export class ResizableDirective implements OnInit {
     private previousUserSelect = '';
     private previousCursor = '';
 
+    private initialised = false;
+
     ngOnInit(): void {
         // Re-clamp on read, not only on write: a width stored from a wider
         // monitor (or a corrupted entry) must not come back out of bounds.
         this.apply(this.restore() ?? this.resizeDefault);
+        this.initialised = true;
+    }
+
+    /** A new key (the editor moving to another content type) brings back that key's width. */
+    ngOnChanges(changes: SimpleChanges): void {
+        if (this.initialised && changes['storageKey'] && !changes['storageKey'].firstChange) {
+            this.apply(this.restore() ?? this.resizeDefault);
+        }
     }
 
     @HostListener('pointerdown', ['$event'])
@@ -208,9 +227,13 @@ export class ResizableDirective implements OnInit {
     }
 
     private restore(): number | null {
-        if (!this.storageKey || !isPlatformBrowser(this.platformId)) return null;
+        return this.read(this.storageKey) ?? this.read(this.resizeFallbackKey);
+    }
+
+    private read(key: string): number | null {
+        if (!key || !isPlatformBrowser(this.platformId)) return null;
         try {
-            const stored = localStorage.getItem(STORAGE_PREFIX + this.storageKey);
+            const stored = localStorage.getItem(STORAGE_PREFIX + key);
             if (stored === null) return null;
             const parsed = Number(stored);
             return Number.isFinite(parsed) ? parsed : null;
