@@ -331,7 +331,7 @@ With the `contact` feature off, publishing removes `[data-arc-contact-form]` ele
 
 ### Docs
 
-New `docs/features/contact-form.html`; `docs/reference/feature-ids.html`, `docs/reference/cloud-functions.html`, `docs/reference/data-model.html`, `docs/features/notifications.html` (the new alert type), `docs/website/home-page.html` and `docs/website/forms.html` (forms now work on every published page); screenshots of the Messages page and a sent form.
+A new page `contact-form.html` in `docs/features/`; `docs/reference/feature-ids.html`, `docs/reference/cloud-functions.html`, `docs/reference/data-model.html`, `docs/features/notifications.html` (the new alert type), `docs/website/home-page.html` and `docs/website/forms.html` (forms now work on every published page); screenshots of the Messages page and a sent form.
 
 ---
 
@@ -401,7 +401,7 @@ Name, email and address come from Settings, About where set (SS-D30).
 
 ## 8. SS7: Docs walkthrough and changelog
 
-- New page `docs/website/editable-sections.html`, *Let editors change your home page*: converts four mockup sections step by step: services (data-only type, card template, your own order, redirect URL field), hero (data-only type, one entry, `count="1"`), FAQ (the FAQ page, and a home page block from a data-only type) and a footer with contact details and social links. Linked from `docs/website/overview.html` and `docs/website/convert-a-site.html`.
+- New page `editable-sections.html` in `docs/website/`, *Let editors change your home page*: converts four mockup sections step by step: services (data-only type, card template, your own order, redirect URL field), hero (data-only type, one entry, `count="1"`), FAQ (the FAQ page, and a home page block from a data-only type) and a footer with contact details and social links. Linked from `docs/website/overview.html` and `docs/website/convert-a-site.html`.
 - Example files under `docs/examples/sections/`: `partials.html` for services and hero, a footer fragment using `data-arc-site`.
 - `npm run docs:affected` after every phase; `npm run check:docs` clean.
 - `CHANGELOG.md` entry.
