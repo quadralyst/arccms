@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Let editors change your home page | Arc CMS docs</title>
+  <meta name="description" content="Turn the hard-coded sections of a mockup (services, a hero, questions and contact details) into content that admins edit, with no page of its own for each item.">
+  <meta name="docs:sources" content="docs/examples/sections, functions/src/pages/deployHomePage.ts, functions/src/shared/content-cards.ts, functions/src/shared/display-order.ts, functions/src/shared/site-info.ts, functions/src/shared/site-info-source.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/admin/contents/entry-order, src/app/pages/admin/contents/content-types, public/_site/footer.html">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/editable-sections.html">
+  <main>
+    <h1>Let editors change your home page</h1>
+    <p class="lead">A designer's mockup hard-codes its services, its hero, its questions and its contact details. This page turns each of them into something admins edit in the admin area, so changing a service or a phone number never needs a developer.</p>
+
+    <h2>What you build</h2>
+    <table>
+      <thead><tr><th>Mockup section</th><th>Becomes</th><th>Editors change it in</th></tr></thead>
+      <tbody>
+        <tr><td>Services: an icon, a name, a line of text and a link each</td><td>A content type without public pages, in your own order, shown as cards</td><td><strong>Content</strong>, <strong>Services</strong></td></tr>
+        <tr><td>Hero: a heading, a line, a picture and a button</td><td>A content type without public pages, with one entry</td><td><strong>Content</strong>, <strong>Hero</strong></td></tr>
+        <tr><td>Questions and answers</td><td>The ready-made FAQ page, and if you want them on the home page too, a small Questions type</td><td><strong>Content</strong>, <strong>Pages</strong> or <strong>Questions</strong></td></tr>
+        <tr><td>A footer with email, phone, address and social icons</td><td><code>data-arc-site</code> attributes in your footer</td><td>Settings, <strong>About</strong></td></tr>
+      </tbody>
+    </table>
+    <p>Every file on this page is in <code>docs/examples/sections/</code>. It assumes your home page is already <code class="new">src/custom/site/home.html</code> (see <a href="home-page.html">Build your home page</a>) and that <code>npm run dev</code> is running.</p>
+
+    <h2>Why a content type without public pages</h2>
+    <p>A content type normally gives every entry a page of its own, a list page and a sitemap entry. A service card or a hero needs none of those. With <strong>Generate public pages</strong> off, a type's entries are edited, drafted and published like any other, but they show only where you put a card block, <code>&lt;arc-content-partials&gt;</code>, laid out by the type's <code>partials.html</code>. Their cards have no links: <code>{{ url }}</code> and the block's <code>{{ listUrl }}</code> are empty. Publishing one of its entries publishes the home page again, when the home page shows the type.</p>
+
+    <h2>1. Services</h2>
+    <ol class="steps">
+      <li><p>Open <strong>Content</strong>, <strong>Content types</strong> and choose <strong>Add Content Type</strong>. Name it Services (singular Service), slug <code>services</code>.</p></li>
+      <li><p>Turn <strong>Generate public pages</strong> off, and set <strong>Entry order</strong> to <strong>Your own order</strong>.</p></li>
+      <li><p>Add three fields: <strong>Icon</strong> (<code>icon</code>), <strong>Short description</strong> (<code>text</code>) and <strong>Link</strong> (<code>text</code>), for where a card sends people. The cover image is already there for a picture.</p></li>
+      <li><p>Copy <code>docs/examples/sections/templates/services/partials.html</code> to <code class="new">src/custom/site/templates/services/partials.html</code>, and restyle it to match your mockup. Save the type: a template folder named after the slug is picked as its <strong>Card template</strong> for you.</p></li>
+      <li><p>Put the block where the services were in <code>home.html</code>:</p>
+        <pre><code>&lt;arc-content-partials content-type="services" count="12" section-title="What we do"&gt;&lt;/arc-content-partials&gt;</code></pre></li>
+      <li><p>Add a few services and publish them, then choose <strong>Arrange</strong> on the Services list and drag them into the order the page should show.</p></li>
+    </ol>
+    <p>The template reads the fields by their short names: <code>{{ icon }}</code>, <code>{{ short-description }}</code>, <code>{{ link }}</code>.</p>
+    <pre><code>&lt;section class="services" data-arc-if="hasItems"&gt;
+    &lt;h2&gt;{{ sectionTitle }}&lt;/h2&gt;
+    &lt;div class="service-grid" data-arc-loop="items"&gt;
+        &lt;article class="service"&gt;
+            &lt;i data-arc-if="icon" class="{{ icon }}" aria-hidden="true"&gt;&lt;/i&gt;
+            &lt;img data-arc-if="coverImage" src="{{ coverImage_m }}" alt=""&gt;
+            &lt;h3&gt;{{ title }}&lt;/h3&gt;
+            &lt;p&gt;{{ short-description }}&lt;/p&gt;
+            &lt;a data-arc-if="link" href="{{ link }}"&gt;Learn more&lt;/a&gt;
+        &lt;/article&gt;
+    &lt;/div&gt;
+&lt;/section&gt;</code></pre>
+    <p>To hide a service for a while, unpublish it; it stays in the admin as a draft.</p>
+
+    <h2>2. The hero</h2>
+    <ol class="steps">
+      <li><p>Add a content type Hero, slug <code>hero</code>, with <strong>Generate public pages</strong> off.</p></li>
+      <li><p>Add the fields <strong>Subtitle</strong>, <strong>Button text</strong> and <strong>Button link</strong>, all <code>text</code>. The entry's title is the heading and its cover image the picture.</p></li>
+      <li><p>Copy <code>docs/examples/sections/templates/hero/partials.html</code> to <code class="new">src/custom/site/templates/hero/partials.html</code>.</p></li>
+      <li><p>Replace the mockup's hero in <code>home.html</code> with a block of one card:</p>
+        <pre><code>&lt;arc-content-partials content-type="hero" count="1"&gt;&lt;/arc-content-partials&gt;</code></pre></li>
+      <li><p>Write one Hero entry and publish it.</p></li>
+    </ol>
+    <p>With <code>count="1"</code> the block shows the newest published entry, so an editor can prepare next month's hero as a draft and publish it when the time comes. Keep the hero's heading in the entry's title, so it is still the page's main heading.</p>
+
+    <h2>3. Questions and answers</h2>
+    <p>The setup wizard already made a <strong>Frequently asked questions</strong> page at <code>/info/faq</code> (see <a href="static-pages.html">Write static pages</a>). Its <strong>FAQ</strong> field holds the questions as rows that editors add, edit and drag into order, and the page publishes them with FAQPage structured data. For most sites, fill in that page and link to it.</p>
+    <p>To show a few questions on the home page as well, use a small type, because a card cannot loop over a repeating field such as FAQ:</p>
+    <ol class="steps">
+      <li><p>Add a content type Questions, slug <code>questions</code>, with <strong>Generate public pages</strong> off and <strong>Your own order</strong>. It needs no fields: the title is the question and the body is the answer.</p></li>
+      <li><p>Copy <code>docs/examples/sections/templates/questions/partials.html</code> to <code class="new">src/custom/site/templates/questions/partials.html</code>. It binds the answer with <code>data-arc-bind="content"</code>, so its formatting and links are kept.</p></li>
+      <li><p>Add the block to <code>home.html</code>, with a link to the full page:</p>
+        <pre><code>&lt;arc-content-partials content-type="questions" count="6" section-title="Questions"&gt;&lt;/arc-content-partials&gt;</code></pre></li>
+    </ol>
+    <p>Only the FAQ page carries FAQPage structured data; the home page block is plain HTML. Since 2023 Google shows FAQ results only for some government and health sites, so the structured data mainly helps AI assistants.</p>
+
+    <h2>4. Contact details and social links</h2>
+    <ol class="steps">
+      <li><p>In Settings, <strong>About</strong>, fill in the contact email, the public phone, the address and the <strong>Social and profile links</strong>, one URL per line. They also go into your structured data.</p></li>
+      <li><p>Copy <code>docs/examples/sections/footer.html</code> to <code class="new">src/custom/site/footer.html</code>, or add its parts to the footer you have.</p></li>
+    </ol>
+    <pre><code>&lt;div data-arc-site-if="contact"&gt;
+    &lt;p data-arc-site-if="email"&gt;&lt;i class="fa-solid fa-envelope"&gt;&lt;/i&gt; &lt;a data-arc-site="email"&gt;&lt;/a&gt;&lt;/p&gt;
+    &lt;p data-arc-site-if="phone"&gt;&lt;i class="fa-solid fa-phone"&gt;&lt;/i&gt; &lt;a data-arc-site="phone"&gt;&lt;/a&gt;&lt;/p&gt;
+    &lt;ul class="footer-social" data-arc-site-loop="social"&gt;
+        &lt;li&gt;&lt;a href="{{ url }}" aria-label="{{ label }}"&gt;&lt;i class="{{ icon }}"&gt;&lt;/i&gt;&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+&lt;/div&gt;</code></pre>
+    <p><code>data-arc-site="email"</code> on a link prints the address and makes it a <code>mailto:</code> link; <code>phone</code> makes a <code>tel:</code> link. <code>data-arc-site-if</code> keeps an element, with its icon or label, only when the site has that detail, and <code>contact</code> is true when it has any of them. The social loop repeats its first child per link, with the icon of the site the link points at. The same attributes work in the header, on the home page, in templates and in static pages: the whole list is in <a href="../features/templates.html#site-info">Site info</a>.</p>
+    <p>The example footer also keeps the default footer's list of the published standard pages (<code>data-arc-site-loop="pages"</code>) and its copyright line.</p>
+
+    <h2>5. Put it live</h2>
+    <ol class="steps">
+      <li><p>Check the home page in <code>npm run dev</code>: the blocks fill from the published entries, and the footer from About.</p></li>
+      <li><p>Deploy the website with <code>npm run deploy</code>, choosing <strong>Website</strong> or <strong>Everything</strong> (see <a href="../operations/deploy.html">Deploy</a>). Publishing reads the templates from the live site, so the new <code>partials.html</code> files must be there before the home page is built with them.</p></li>
+    </ol>
+    <p>After that, editors need no deploy:</p>
+    <table>
+      <thead><tr><th>An editor</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td>Publishes, edits or unpublishes a service, the hero or a question</td><td>The home page is published again, in every language</td></tr>
+        <tr><td>Arranges the services or questions</td><td>The home page is published again in the new order</td></tr>
+        <tr><td>Changes the phone or a social link in About</td><td>Every page that prints it is published again</td></tr>
+        <tr><td>Edits the FAQ page</td><td>That page is published again when they publish it</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Limits</h2>
+    <ul>
+      <li>Card blocks work on the home page only, not in templates or static pages.</li>
+      <li>A card cannot loop over a repeating field (Info Cards, Gallery, FAQ). Use one entry per item, as the Questions type does.</li>
+      <li>The header menu is still plain HTML in <code class="new">src/custom/site/header.html</code>; there is no menu editor yet.</li>
+      <li>A block shows at most 50 cards.</li>
+    </ul>
+
+    <h2>Next</h2>
+    <p>Fill in the About, Contact and policy pages: <a href="static-pages.html">Write static pages</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

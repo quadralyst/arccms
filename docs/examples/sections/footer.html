@@ -1,0 +1,22 @@
+<!-- A site footer that prints the contact details and social links from
+     Settings, About, and lists the published standard pages. A detail the
+     site does not have is left out, with its label. -->
+<footer class="site-footer">
+    <div class="container footer-columns">
+        <div>
+            <p class="footer-name" data-arc-site="name"></p>
+            <p data-arc-site-if="address" data-arc-site="address"></p>
+        </div>
+        <div data-arc-site-if="contact">
+            <p data-arc-site-if="email"><i class="fa-solid fa-envelope" aria-hidden="true"></i> <a data-arc-site="email"></a></p>
+            <p data-arc-site-if="phone"><i class="fa-solid fa-phone" aria-hidden="true"></i> <a data-arc-site="phone"></a></p>
+            <ul class="footer-social" data-arc-site-loop="social">
+                <li><a href="{{ url }}" aria-label="{{ label }}" target="_blank" rel="noopener"><i class="{{ icon }}" aria-hidden="true"></i></a></li>
+            </ul>
+        </div>
+        <ul class="footer-pages" data-arc-site-if="pages" data-arc-site-loop="pages">
+            <li><a href="{{ url }}">{{ title }}</a></li>
+        </ul>
+    </div>
+    <p class="footer-copyright">&copy; <span data-arc-site="year"></span> <span data-arc-site="name"></span></p>
+</footer>

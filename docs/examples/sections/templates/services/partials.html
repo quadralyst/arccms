@@ -1,0 +1,16 @@
+<!-- Cards for <arc-content-partials content-type="services">: a Services type
+     with Generate public pages off and Your own order. Its fields: Icon (icon),
+     Short description (text) and Link (text). Cards have no page of their own,
+     so {{ url }} is empty; Link sends a card where the editor chose. -->
+<section class="services" data-arc-if="hasItems">
+    <h2>{{ sectionTitle }}</h2>
+    <div class="service-grid" data-arc-loop="items">
+        <article class="service">
+            <i data-arc-if="icon" class="{{ icon }}" aria-hidden="true"></i>
+            <img data-arc-if="coverImage" src="{{ coverImage_m }}" alt="">
+            <h3>{{ title }}</h3>
+            <p>{{ short-description }}</p>
+            <a data-arc-if="link" href="{{ link }}" data-arc-t="learn_more">Learn more</a>
+        </article>
+    </div>
+</section>

@@ -1,6 +1,6 @@
 # Editable Site Sections: Build Spec
 
-**Status:** Spec only, not built. Written 2026-10-05; standard pages and the contact form added and every decision settled the same day. Checked against `dev` at 17d7ae1 (after the website docs backlog, 824ce0b).
+**Status:** Built 2026-10-05 on `feat/site-sections` (SS1 to SS7), functions and hosting deployed to the xlm dev project and browser-checked phase by phase; not merged into `dev`. Screenshots are not taken yet (SS7 updated the text only). Where the build differs from this spec, section 11 says so. Spec written 2026-10-05 against `dev` at 17d7ae1.
 **Branch:** `feat/site-sections`, to be cut from `dev`, in a worktree (`../arccms-site-sections`) so the main checkout's dev server keeps running.
 **Codes:** phases are SS1 to SS7 and decisions SS-D1 onwards. (The website docs backlog in `specs/website-docs-review.md` already uses B1 to B7.)
 
@@ -426,3 +426,21 @@ Hosting is the user's own deploy (the `info` template folder and the new `arc-si
 ## 10. Order of work
 
 SS1, SS2, SS3, SS4, SS5, SS6, SS7. SS1 and SS2 share the card block and the queue; SS6 needs SS2 to SS5, so the Contact and FAQ pages are complete when they are created. Each phase: build, tests, docs, full suite (`npm run test`, plus `npm run test:rules` for SS5), report, one deploy, browser check.
+
+---
+
+## 11. As built: where the build differs
+
+| Phase | Spec | Built |
+|---|---|---|
+| SS2 | A new entry goes last (SS-D6). | Same result by a different route: a new entry gets no `sortOrder`, and display order puts numbered entries first (by `sortOrder`, ties newest first), then unnumbered ones oldest first. **Arrange** numbers everything it saves. The Arrange dialog warns above 200 entries that the list page shows the first 100. |
+| SS5 | Rate limits in `_contact_limits/{hash}`. | No new collection: `submitContactMessage` reuses `consumeRateLimit` and `callerKey` from `functions/src/auth/accounts.ts`, so the counters live in `_rate_limits` (keys `contact-ip-*`, `contact-email-*`). Bot traffic (the `website` honeypot, or under 3 seconds on the page) is answered as sent and dropped. |
+| SS5 | One alert per message. | Alerts are capped at 10 an hour (`contact-alerts` in `_rate_limits`); beyond that, messages are saved without an alert. |
+| SS5 | A docs page named `contact-form.html`. | `docs/features/contact.html`, named after the feature id like the other feature pages. |
+| SS6 | Five standard pages. | Six: a Frequently asked questions page (`/info/faq`, with three FAQ rows) joins About, Contact, Privacy Policy, Terms and Cookie Policy. |
+| SS3, SS6 | `data-arc-site` keys name, description, email, phone, address, logo; `-if` and `-loop` for social. | Also `year` (always set, for the copyright line), `-if="pages"` and `-loop="pages"` (the published standard pages, titled in the page's language), and `-if="contact"` (any email, phone, address or social link). |
+| SS6 | Footer links to the standard pages. | The default footer is now the `pages` loop plus `© {year} {name}`; the Documentation, GitHub and Community links are gone. Publishing or unpublishing a standard page, changing any of their titles, or arranging them queues `redeploy-all`, so every footer agrees. |
+| SS6 | (not in spec) | `main.css` footer rules are scoped to the site footer (`body > footer`, `arc-footer > footer`, `.arc-cms-template > footer`, `footer.site-footer`), after the old global `footer` rule stretched the Feedback dialog's footer. |
+| SS7 | Example files: services and hero `partials.html`, a footer. | Also a `questions/partials.html` (a home page FAQ block from a data-only type) and a `home.html` fragment. `functions/src/__tests__/docsSectionsExamples.spec.ts` fills every example as publishing does. |
+| All | Screenshots per phase. | Not taken yet. |
+

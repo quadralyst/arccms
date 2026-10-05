@@ -44,13 +44,13 @@
       <li>Arc CMS ships a strings file for Hindi only (<code>public/_site/strings/hi.json</code>). For Hindi, your file is merged over it key by key, so write only the keys you add or reword. For any other language, your file is the whole list.</li>
       <li>A file for the default language is not used: the default wording is what is written in the HTML.</li>
       <li>A missing key, or one whose text is empty, shows the default wording.</li>
-      <li>Some keys are used without <code>data-arc-t</code>: <code>min_read</code> for the reading time ("5 min read"), <code>latest_of_type</code> for a card block's default heading, and the <code>signup_*</code> keys for the signup panels on the home page. Arc CMS's <code>hi.json</code> lists them all; copy it as the start of another language's file.</li>
+      <li>Some keys are used without <code>data-arc-t</code>: <code>min_read</code> for the reading time ("5 min read"), <code>latest_of_type</code> for a card block's default heading, the <code>signup_*</code> keys for the signup panels, the <code>contact_*</code> keys for the contact form's messages, and <code>legal_*</code> and <code>contact_notice</code> for the notices under the forms. Arc CMS's <code>hi.json</code> lists them all; copy it as the start of another language's file.</li>
       <li>A file that is not valid JSON stops <code>npm run dev</code> and <code>npm run build</code> with a message naming it.</li>
     </ul>
 
     <h2>What stays in one language</h2>
     <ul>
-      <li>Static pages (<code class="new">src/custom/site/pages/</code>) exist in the default language only. Put pages you need translated in a content type.</li>
+      <li>Hand-written static pages (<code class="new">src/custom/site/pages/</code>) exist in the default language only. The standard pages (About, Contact, the policies) are content, so translate them in the editor like any item; the footer lists them with their titles in the page's language.</li>
       <li>The home page is published in every language: from <code class="new">src/custom/site/home.{lang}.html</code> when you write one, else from <code>home.html</code> with its <code>data-arc-t</code> text translated; see <a href="home-page.html">Build your home page</a>.</li>
     </ul>
     <div class="note"><p>Removing a language stops new pages being published for it. Pages already published in that language stay online until the item is republished or unpublished.</p></div>

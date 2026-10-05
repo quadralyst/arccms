@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Contact form | Arc CMS docs</title>
   <meta name="description" content="A contact form on any published page, with spam checks, and a Messages inbox for the replies.">
-  <meta name="docs:sources" content="functions/src/contact, functions/src/features/contact.ts, functions/src/shared/live-parts.ts, public/assets/js/arc-site.js, src/app/pages/admin/(messages), src/app/core/site/live-parts.ts, firestore.rules, firestore.indexes.json">
+  <meta name="docs:sources" content="functions/src/contact, functions/src/features/contact.ts, functions/src/shared/live-parts.ts, public/assets/js/arc-site.js, src/app/pages/admin/(messages), src/app/core/site/live-parts.ts, src/shared/constants/legal-notice.ts, public/_site/templates/info, firestore.rules, firestore.indexes.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/contact.html">
@@ -15,6 +15,7 @@
 
     <h2>What it is</h2>
     <p>A plain HTML form marked <code>data-arc-contact-form</code>, on any published page. The site's script, <code>arc-site.js</code>, sends it to the <code>submitContactMessage</code> function, which checks it for spam and stores it. Admins read the messages under <strong>Messages</strong> and reply from their own email client. Arc CMS sends nothing to the person who wrote, and does not add them to your audience.</p>
+    <p>The standard Contact page (<code>/info/contact</code>, see <a href="content.html#standard-pages">Standard pages</a>) already has the form: its <strong>Show contact form</strong> switch shows it. You only write a form yourself to put one somewhere else, such as the home page or your own template.</p>
 
     <h2>Turn it on or off</h2>
     <p>The contact form is a switchable feature, id <code>contact</code>. It is on by default and needs no other feature. To turn it off, list it in <code>src/custom/features.ts</code>:</p>
@@ -26,7 +27,7 @@
     <h2>Set it up</h2>
     <ol>
       <li>Deploy the functions, the Firestore rules and the indexes.</li>
-      <li>Add a form to a page of your site:
+      <li>Publish the Contact page, or add a form to any page of your site (the home page, a template or a static page):
         <pre><code>&lt;form data-arc-contact-form&gt;
     &lt;input name="name" placeholder="Your name"&gt;
     &lt;input name="email" type="email" required placeholder="Your email"&gt;
@@ -38,14 +39,40 @@
     </ol>
 
     <h2>Use it</h2>
-    <p>The form may have inputs named <code>name</code>, <code>email</code>, <code>phone</code>, <code>subject</code> and <code>message</code>; email and message are required, and other inputs are ignored. Publishing adds a line under the form ("We use your details only to reply.") with a link to your privacy page when you have one. After sending, the form is replaced by a thank-you.</p>
-    <p>Under <strong>Messages</strong>, messages are in three tabs: <strong>New</strong>, <strong>Done</strong> and <strong>Possible spam</strong>. <strong>Reply</strong> opens your email client with the message quoted. <strong>Mark done</strong>, <strong>Not spam</strong> and <strong>Delete</strong> do what they say.</p>
+    <h3>The form</h3>
+    <table>
+      <thead><tr><th>Input name</th><th>Required</th><th>Longest</th></tr></thead>
+      <tbody>
+        <tr><td><code>name</code></td><td>No</td><td>100 characters</td></tr>
+        <tr><td><code>email</code></td><td>Yes, a valid address</td><td>254 characters</td></tr>
+        <tr><td><code>phone</code></td><td>No</td><td>40 characters</td></tr>
+        <tr><td><code>subject</code></td><td>No</td><td>200 characters</td></tr>
+        <tr><td><code>message</code></td><td>Yes</td><td>5,000 characters</td></tr>
+      </tbody>
+    </table>
+    <p>Other inputs are ignored. Publishing adds a line above the submit button ("We use your details only to reply.") with a link to your privacy page: the published <code>/info/privacy-policy</code>, else your own static page at <code>/p/privacy-policy</code>, else no link. A form that already holds an element with <code>data-contact-notice</code> keeps its own line. After sending, the form is replaced by a thank-you; a problem shows a message in the form.</p>
+    <h3>Spam checks</h3>
+    <ul>
+      <li>A hidden input that people never see catches bots that fill every field, and so does a form sent less than three seconds after the page opened. Both are answered as if sent, and nothing is stored.</li>
+      <li>Five messages an hour from one network address, and five from one email address. The sixth gets "You have sent several messages already".</li>
+      <li>A message with more than three links is kept under <strong>Possible spam</strong> and raises no alert.</li>
+    </ul>
+    <h3>Read and answer messages</h3>
+    <p>Under <strong>Messages</strong>, messages are in three tabs: <strong>New</strong>, <strong>Done</strong> and <strong>Possible spam</strong>. Each shows who wrote, when, and the page they sent it from. <strong>Reply</strong> opens your email client with the message quoted. <strong>Mark done</strong>, <strong>Move to new</strong>, <strong>Not spam</strong> and <strong>Delete</strong> do what they say.</p>
+    <p>Every admin gets a bell alert and an email (the <code>admin_contact_message</code> notification, see <a href="notifications.html">Notifications</a>), at most ten an hour: beyond that, messages are still saved, without an alert.</p>
 
     <h2>Extend it</h2>
     <p>Style the form with your site's CSS; the thank-you is <code>.arc-contact-sent</code>, an error <code>.arc-contact-error</code> and the privacy line <code>.arc-contact-notice</code>. Its text can be translated through <code>strings/{lang}.json</code> with the <code>contact_*</code> keys.</p>
 
     <h2>What it stores</h2>
-    <p>One document per message in <code>ContactMessages</code>: <code>name</code>, <code>email</code>, <code>phone</code>, <code>subject</code>, <code>message</code>, <code>page</code>, <code>lang</code>, <code>status</code> (<code>new</code>, <code>done</code> or <code>spam</code>) and <code>createdAt</code>. Messages are kept until an admin deletes them. See <a href="../reference/data-model.html">Data model</a>.</p>
+    <table>
+      <thead><tr><th>Cloud Function</th><th>Kind</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>submitContactMessage</code></td><td>Callable, open to anyone</td><td>Checks a message and stores it</td></tr>
+        <tr><td><code>onContactMessageCreated</code></td><td>Firestore trigger on <code>ContactMessages</code></td><td>Alerts the admins about a new message</td></tr>
+      </tbody>
+    </table>
+    <p>One document per message in <code>ContactMessages</code>: <code>name</code>, <code>email</code>, <code>phone</code>, <code>subject</code>, <code>message</code>, <code>page</code>, <code>lang</code>, <code>status</code> (<code>new</code>, <code>done</code> or <code>spam</code>) and <code>createdAt</code>. Messages are kept until an admin deletes them. The hourly limits are counted in <code>_rate_limits</code>, as sign-in's are. See <a href="../reference/data-model.html">Data model</a>.</p>
 
     <h2>Who can do what</h2>
     <p>Anyone can send a message through the function; nobody can write <code>ContactMessages</code> from a browser. Admins read messages, change their status and delete them.</p>
@@ -54,7 +81,9 @@
     <table>
       <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
       <tbody>
-        <tr><td>The form does nothing</td><td>The page has no <code>arc-site.js</code> (deploy the website), or <code>submitContactMessage</code> is not deployed.</td></tr>
+        <tr><td>The form does nothing</td><td>The page has no <code>arc-site.js</code> (deploy the website and publish the page again), or <code>submitContactMessage</code> is not deployed.</td></tr>
+        <tr><td>The form is not on the published page</td><td>The <code>contact</code> feature is off, so publishing removed it. On the Contact page, check <strong>Show contact form</strong>.</td></tr>
+        <tr><td>No email about a new message</td><td>Check the notification settings for admins, and the email setup (see <a href="email.html">Email</a>). More than ten messages in an hour send no more alerts that hour.</td></tr>
         <tr><td>"You have sent several messages already"</td><td>Five messages an hour from one address or one email. It resets within the hour.</td></tr>
         <tr><td>A message is not under New</td><td>Look under Possible spam: a message with more than three links goes there and raises no alert.</td></tr>
       </tbody>

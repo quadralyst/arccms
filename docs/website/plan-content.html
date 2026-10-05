@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Plan your content | Arc CMS docs</title>
-  <meta name="description" content="Decide what on your website is a content type, a static page or a form, sketch the fields, and see the URL each one gets.">
+  <meta name="description" content="Decide what on your website is a content type, a standard page, a static page or a form, sketch the fields, and see the URL each one gets.">
   <meta name="docs:sources" content="src/app/app.routes.ts, src/app/pages/[contentTypeSlug], src/app/pages/index.page.ts, functions/src/shared/content-translation.ts, functions/src/pages/generateRssFeed.ts, firebase.json, public/_site, functions/src/pages/deployHomePage.ts, src/shared/utils/url-slug.ts, src/app/pages/admin/contents/create-content/create-content.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, functions/src/shared/content-cards.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
@@ -13,18 +13,19 @@
     <h1>Plan your content</h1>
     <p class="lead">Before you create anything, sort every page of your site into one of four kinds, and write down the fields of each content type. Ten minutes on paper saves renaming slugs later, which breaks links.</p>
 
-    <h2>Sort your pages into four kinds</h2>
+    <h2>Sort your pages into five kinds</h2>
     <table>
       <thead><tr><th>Kind</th><th>Use it for</th><th>Edited in</th></tr></thead>
       <tbody>
         <tr><td><strong>Content type</strong></td><td>Anything you publish more than once with the same shape: articles, guides, case studies, events, team members</td><td>The admin area, by editors</td></tr>
-        <tr><td><strong>Static page</strong></td><td>Pages that rarely change and need no editor: privacy policy, cookie policy</td><td>HTML files in <code class="new">src/custom/site/pages/</code></td></tr>
+        <tr><td><strong>Standard page</strong></td><td>About, Contact, FAQ, Privacy Policy, Terms, Cookie Policy: ready-made, with the contact form and your contact details on the Contact page</td><td>The admin area, by editors, under <strong>Content</strong>, <strong>Pages</strong> (<a href="static-pages.html">Write static pages</a>)</td></tr>
+        <tr><td><strong>Static page</strong></td><td>Hand-written pages that never change and need no editor</td><td>HTML files in <code class="new">src/custom/site/pages/</code></td></tr>
         <tr><td><strong>Home page</strong></td><td>Your landing page, with its signup form</td><td><code class="new">src/custom/site/home.html</code>, published as a static page (<a href="home-page.html">Build your home page</a>)</td></tr>
-        <tr><td><strong>Signup form</strong></td><td>Waitlists, newsletters, early access</td><td>Admin, Signup Forms; the form markup sits on the home page, or visitors use the form's own page</td></tr>
+        <tr><td><strong>Signup form</strong></td><td>Waitlists, newsletters, early access</td><td>Admin, Signup Forms; the form markup sits on a page of your site, or visitors use the form's own page</td></tr>
       </tbody>
     </table>
-    <p>When in doubt, make it a content type. Content types get the editor, drafts, version history, SEO fields, the sitemap, search and translations. Static pages get none of those. A single page such as About can be a content type with one item.</p>
-    <p>A content type does not have to have pages of its own. Turn <strong>Generate public pages</strong> off for data that only your app's own pages read, such as items a page in <code class="new">src/custom/</code> loads itself. Such a type shows nowhere on the published site: no item or list pages, no cards in a card block, no sitemap, feed or search entry. Testimonials or partner logos shown as cards on your home page need public pages on.</p>
+    <p>When in doubt, make it a content type. Content types get the editor, drafts, version history, SEO fields, the sitemap, search and translations. Static pages get none of those. About, Contact and the policies are already a content type, the standard pages.</p>
+    <p>A content type does not have to have pages of its own. Turn <strong>Generate public pages</strong> off for parts of a page that editors change, such as services, a hero, testimonials or partner logos: they show as cards on your home page, with no item or list pages and no sitemap, feed or search entry (see <a href="editable-sections.html">Let editors change your home page</a>). The same setting suits data that only your app's own pages read. Give such a type <strong>Your own order</strong> when the order matters.</p>
 
     <h2>Sketch each content type</h2>
     <p>For each type write down its plural and singular name (Articles, Article), its slug (<code>articles</code>), and the fields it adds. Every item already has a title, a URL slug, a cover image, a body, a summary, a published date, tags, an author and a read time worked out from the body, so list only what is extra, such as a price, an event date or a gallery. The field types are listed in <a href="content-types.html">Define content types</a>.</p>
@@ -39,6 +40,7 @@
         <tr><td>The same item in another language</td><td><code>/{lang}/{type-slug}/{url-slug}</code>; the default language has no prefix</td></tr>
         <tr><td>An item as Markdown, for AI tools</td><td><code>/{type-slug}/{url-slug}.md</code></td></tr>
         <tr><td>RSS feed of a content type</td><td><code>/{type-slug}/feed.xml</code>, with the <code>seo</code> feature on, in the default language only</td></tr>
+        <tr><td>Standard page</td><td><code>/info/{page}</code>, for example <code>/info/about</code> and <code>/info/contact</code></td></tr>
         <tr><td>Static page</td><td><code>/p/{file}</code>, which redirects to <code>/pages/{file}</code> on the live site</td></tr>
         <tr><td>Home page</td><td><code>/</code></td></tr>
         <tr><td>Standalone signup form and its leaderboard</td><td><code>/waitlist/{form-slug}</code> and <code>/leaderboard/{form-slug}</code></td></tr>
@@ -50,10 +52,10 @@
       <li><strong>A content type slug</strong> also names the place its items are stored (<code>arc_{slug}</code>). Changing it later hides every existing item of the type, in the admin area and on the site, not only the links to it.</li>
       <li><strong>An item's URL slug</strong> is made from its title when you first write it. A slug you type by hand is cleaned the same way: lowercase letters a to z, digits and single hyphens, so <code>My Post!</code> becomes <code>my-post</code>. Other letters are dropped, so give an item with a title in another script a slug in English. When the slug is taken, <code>-2</code>, <code>-3</code> and so on are added. Changing it later breaks every link to the old address.</li>
     </ul>
-    <div class="trap"><p>Arc CMS does not stop you from giving a content type a slug that is already a site address. Never use <code>admin</code>, <code>p</code>, <code>pages</code>, <code>search</code>, <code>waitlist</code>, <code>leaderboard</code>, <code>unsubscribe</code>, <code>signup</code>, <code>onboarding</code>, <code>notifications</code>, <code>pricing</code>, <code>account</code>, <code>user</code>, <code>checkout</code>, <code>assets</code>, <code>templates</code>, <code>i18n</code>, <code>profile</code>, <code>email-preferences</code>, <code>site</code>, <code>_site</code>, <code>checkout-success</code>, <code>tiptap-test</code> or a language code: the content pages and the built-in page then fight over the same URL.</p></div>
+    <div class="trap"><p>Arc CMS does not stop you from giving a content type a slug that is already a site address. Never use <code>admin</code>, <code>p</code>, <code>pages</code>, <code>search</code>, <code>waitlist</code>, <code>leaderboard</code>, <code>unsubscribe</code>, <code>signup</code>, <code>onboarding</code>, <code>notifications</code>, <code>pricing</code>, <code>account</code>, <code>user</code>, <code>checkout</code>, <code>assets</code>, <code>templates</code>, <code>i18n</code>, <code>profile</code>, <code>email-preferences</code>, <code>site</code>, <code>_site</code>, <code>info</code> (the standard pages), <code>checkout-success</code>, <code>tiptap-test</code> or a language code: the content pages and the built-in page then fight over the same URL.</p></div>
 
     <h2>Plan the navigation</h2>
-    <p>The site menu is not built from your content types. It is plain HTML in <code class="new">src/custom/site/header.html</code>, and the footer is <code class="new">src/custom/site/footer.html</code>; until you write them, Arc CMS's sample header and footer (<code>public/_site/header.html</code>, <code>public/_site/footer.html</code>) are used. List the links you want in each: usually the list page of each main content type, the home page sections, and the legal pages in the footer. The header also holds the search box and the language switcher; keep those two elements where you want them to appear.</p>
+    <p>The site menu is not built from your content types. It is plain HTML in <code class="new">src/custom/site/header.html</code>, and the footer is <code class="new">src/custom/site/footer.html</code>; until you write them, Arc CMS's sample header and footer (<code>public/_site/header.html</code>, <code>public/_site/footer.html</code>) are used. List the links you want in each: usually the list page of each main content type and the home page sections. The default footer already lists the published standard pages; your own footer can keep that list with <code>data-arc-site-loop="pages"</code>, and print your contact details and social links with <code>data-arc-site</code> (see <a href="templates.html">Design templates</a>). The header also holds the search box and the language switcher; keep those two elements where you want them to appear.</p>
 
     <h2>Plan the templates</h2>
     <p>Each content type uses a template folder with a list layout and a detail layout. Types that look alike can share one folder: give their fields the same names, and use the short key in the shared files (<code>{{ price }}</code> rather than <code>{{ events-price }}</code>), which works on detail pages and in list and card loops alike. A type with no folder of its own uses the built-in default. Note which types need their own design, and which fields each layout shows. <a href="templates.html">Design templates</a> covers the files.</p>

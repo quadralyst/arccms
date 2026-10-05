@@ -55,7 +55,8 @@
       <li><p><a href="content-types.html">Define content types</a>: create them in the admin area with their fields.</p></li>
       <li><p><a href="templates.html">Design templates</a>: give each content type its list and detail layout.</p></li>
       <li><p><a href="home-page.html">Build your home page</a>: your front door, with your own design, animation and signup form.</p></li>
-      <li><p><a href="static-pages.html">Write static pages</a>: the legal pages and anything else that rarely changes.</p></li>
+      <li><p><a href="editable-sections.html">Let editors change your home page</a>: services, a hero, questions and contact details that admins edit without touching HTML.</p></li>
+      <li><p><a href="static-pages.html">Write static pages</a>: fill in the ready-made About, Contact, FAQ and policy pages, and hand-write anything that never changes.</p></li>
       <li><p><a href="sign-in-page.html">Brand the sign-in page</a>: your name, logo, words and colours where people sign in.</p></li>
       <li><p><a href="media.html">Manage media</a>: set image sizes and upload images.</p></li>
       <li><p><a href="authors-and-tags.html">Add authors and tags</a>: bylines and topics.</p></li>
@@ -68,7 +69,7 @@
     </ol>
 
     <h2>Recommended features</h2>
-    <p>A content website with lead generation uses content, templates, media, authors and tags, SEO, search, signup forms, audience and email. Keep them all on. Switch off payments and SMS unless you sell or use phone sign-in; <a href="choose-features.html">Choose your website's features</a> shows how. The full list is in <a href="../features/overview.html">All features</a>.</p>
+    <p>A content website with lead generation uses content, templates, media, authors and tags, SEO, search, signup forms, the contact form, audience and email. Keep them all on. Switch off payments and SMS unless you sell or use phone sign-in; <a href="choose-features.html">Choose your website's features</a> shows how. The full list is in <a href="../features/overview.html">All features</a>.</p>
 
     <h2>How you work</h2>
     <p>Most of the work happens in the admin area at <code>/admin</code>. The rest is your website's own files, which live in one folder, <code class="new">src/custom/site/</code>. It is part of the custom space: Arc CMS never ships or changes anything in it, so an upgrade never conflicts with your site.</p>
@@ -78,7 +79,7 @@
         <tr><td><code class="new">src/custom/site/home.html</code></td><td>The home page: one HTML file with your own styles, scripts and animation, published in every language (<a href="home-page.html">Build your home page</a>)</td></tr>
         <tr><td><code class="new">src/custom/site/templates/</code></td><td>The partials, list and detail layouts of your content types, one folder each</td></tr>
         <tr><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code></td><td>The site header (menu, search box, language switcher) and footer</td></tr>
-        <tr><td><code class="new">src/custom/site/pages/</code></td><td>Static pages such as your privacy policy and terms</td></tr>
+        <tr><td><code class="new">src/custom/site/pages/</code></td><td>Hand-written static pages, for text that never changes (About, Contact and the policies are standard pages edited in the admin)</td></tr>
         <tr><td><code class="new">src/custom/site/sign-in.html</code></td><td>The brand panel of the sign-in page</td></tr>
         <tr><td><code class="new">src/custom/site/site.css</code></td><td>Styles for every public page and the sign-in page</td></tr>
         <tr><td><code class="new">src/custom/site/strings/</code></td><td>The translations of your header, footer and templates</td></tr>

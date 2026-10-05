@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content | Arc CMS docs</title>
   <meta name="description" content="Define content types, write and publish entries, and understand how a published entry becomes a static page on Firebase Hosting.">
-  <meta name="docs:sources" content="functions/src/features/content.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, src/app/pages/admin/contents/site-drift-notice/site-drift-notice.component.ts, src/shared/directives/resizable/resizable.directive.ts, src/app/pages/admin/contents/content-store/published-contents.service.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, functions/src/shared/content-cards.ts, src/shared/models/repeater.model.ts, src/shared/utils/url-slug.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/_site/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
+  <meta name="docs:sources" content="functions/src/features/content.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, src/app/pages/admin/contents/site-drift-notice/site-drift-notice.component.ts, src/shared/directives/resizable/resizable.directive.ts, src/app/pages/admin/contents/content-store/published-contents.service.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, functions/src/shared/content-cards.ts, functions/src/shared/display-order.ts, functions/src/shared/plain-text.ts, src/app/core/utils/display-order.ts, src/app/pages/admin/contents/entry-order, src/app/pages/admin/contents/standard-pages, public/_site/templates/info, src/shared/models/repeater.model.ts, src/shared/utils/url-slug.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/_site/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/content.html">
@@ -24,6 +24,7 @@
       </tbody>
     </table>
     <p>Every entry has a draft and, once published, a published copy. You edit the draft; publishing copies it to the published copy and rebuilds the pages. The admin list shows each entry as <strong>Draft</strong>, <strong>Published</strong> or <strong>Edited</strong> (published, with changes since).</p>
+    <p>The <strong>standard pages</strong> (About, Contact, FAQ, Privacy Policy, Terms, Cookie Policy) are entries too, of a built-in type called Pages at <code>/info</code>, so admins edit them like any entry. See <a href="#standard-pages">Standard pages</a>.</p>
     <p>Static pages are a separate, simpler thing: hand-written HTML files in <code class="new">src/custom/site/pages/</code> (Arc CMS ships sample privacy and cookie policies in <code>public/_site/pages/</code>). See <a href="#static-pages">Static pages</a>.</p>
 
     <h2>Turn it on or off</h2>
@@ -36,12 +37,12 @@
       <li>The <strong>Content</strong> admin menu (content types, entries, authors) goes, and <code>/admin/contents/...</code>, <code>/admin/authors</code> and <code>/p/...</code> show the not-found page.</li>
       <li>The public content routes (<code>/{type}</code>, <code>/{type}/{slug}</code> and their language-prefixed twins) are not registered.</li>
       <li>The Cloud Functions in <code>functions/src/features/content.ts</code> are not exported, so a full functions deploy deletes them: <code>processPublishQueue</code>, <code>onSiteSettingsWritten</code>, <code>onContentTypeDeleted</code> and <code>seedStaticPages</code>. The draft search queue, which needs both content and search, goes too.</li>
-      <li>The setup wizard does not create the Articles type, and data export offers no content collections.</li>
+      <li>The setup wizard does not create the Articles type or the standard pages, and data export offers no content collections.</li>
     </ul>
     <p>Firestore data is not deleted. See <a href="../reference/feature-ids.html">Feature ids</a> for every id.</p>
 
     <h2>Set it up</h2>
-    <p>The setup wizard creates one content type, <strong>Articles</strong> (slug <code>articles</code>, default template). To add your own:</p>
+    <p>The setup wizard creates <strong>Articles</strong> (slug <code>articles</code>, default template) and the <strong>Pages</strong> type with the standard pages as drafts (see <a href="#standard-pages">Standard pages</a>). To add your own type:</p>
     <ol class="steps">
       <li><p>Open <strong>Content &gt; Content types</strong> and choose <strong>Add Content Type</strong>.</p></li>
       <li><p>Give it a plural name, a singular name and a slug. The slug is the URL (<code>/events</code>) and the Firestore collection names (<code>arc_events</code>, <code>arc_events_drafts</code>), so pick it once.</p></li>
@@ -57,8 +58,9 @@
         <tr><td>Name, singular name, description</td><td>Shown in the admin and on the public list page (heading and subtitle). Each can be translated per language.</td></tr>
         <tr><td>Slug</td><td>The URL segment and the collection names. Changing it later hides every existing entry, which stays in the old collections.</td></tr>
         <tr><td>Icon</td><td>The Font Awesome icon beside the type in the admin menu</td></tr>
-        <tr><td>Content Template</td><td>The template folder whose <code>partials.html</code>, <code>list.html</code> and <code>detail.html</code> render this type; offered only when the type has public pages (see <a href="templates.html">Templates</a>)</td></tr>
-        <tr><td>Generate public pages</td><td>Off: entries are stored and published in Firestore, but the type shows nowhere on the published site: no HTML page, list page, sitemap entry, feed or search entry, and a card block of the type on the published home page is removed. Slug and Content Template are hidden while it is off. Use it for data that only your app's own pages read.</td></tr>
+        <tr><td>Content Template</td><td>The template folder whose <code>partials.html</code>, <code>list.html</code> and <code>detail.html</code> render this type (see <a href="templates.html">Templates</a>). With public pages off it is labelled <strong>Card template</strong>, and only its <code>partials.html</code> is used, for the type's cards on the home page.</td></tr>
+        <tr><td>Generate public pages</td><td>Off: entries are stored and published in Firestore, but no entry gets a page of its own: no HTML page, list page, sitemap entry, feed or search entry. The type can still show as cards on the home page, through its card template, with no links on them (see <a href="../website/home-page.html">Build your home page</a>). Use it for parts of a page that editors change, such as services, a hero or testimonials, and for data that only your app's own pages read. The slug is hidden while it is off.</td></tr>
+        <tr><td>Entry order</td><td><strong>Newest first</strong> (the default) or <strong>Your own order</strong>, which admins set by dragging. The list page and the home page cards follow it; the sitemap, feeds and <code>llms.txt</code> stay newest first. See <a href="#your-own-order">Put entries in your own order</a>.</td></tr>
         <tr><td>Searchable custom fields</td><td>Plain text custom fields that search also indexes (see <a href="search.html">Search</a>). Shown when you edit the type.</td></tr>
         <tr><td>Structured data</td><td>Which schema.org type the page's structured data uses, and which fields fill it (see <a href="seo.html">SEO and discoverability</a>). Shown when you add a type and when you edit it.</td></tr>
       </tbody>
@@ -90,10 +92,11 @@
         <tr><td><code>infocard</code></td><td>Repeating cards, each an icon or image, a headline and a short text</td><td>A list of rows</td><td>A loop: <code>data-arc-loop="info-cards"</code>, with <code>{{ headline }}</code> in each row</td></tr>
         <tr><td><code>gallery</code></td><td>Repeating photos or YouTube videos with captions; <strong>Add photos</strong> picks several at once</td><td>A list of rows</td><td>A loop: <code>data-arc-loop="gallery"</code>, with <code>{{ caption }}</code> in each row</td></tr>
         <tr><td><code>labelvalue</code></td><td>Repeating label and value pairs side by side, under a section heading</td><td>A list of rows; the heading beside it, under the key plus <code>_heading</code></td><td><code>{{ details_heading }}</code>, then a loop: <code>data-arc-loop="details"</code>, with <code>{{ label }}</code> and <code>{{ value }}</code></td></tr>
+        <tr><td><code>faq</code></td><td>Repeating questions, each a question and a plain text answer, under a section heading</td><td>A list of rows; the heading under the key plus <code>_heading</code></td><td><code>{{ faq_heading }}</code>, then a loop: <code>data-arc-loop="faq"</code>, with <code>{{ question }}</code> and <code>&lt;div data-arc-bind="answer_html"&gt;</code> in each row. A page with FAQ rows also gets FAQPage structured data (see <a href="seo.html">SEO and discoverability</a>).</td></tr>
         <tr><td><code>maplocation</code></td><td>Repeating places, each a name and an address found on a map with a pin you can drag, under a section heading</td><td>A list of rows with the address and its coordinates; the heading under the key plus <code>_heading</code></td><td><code>{{ locations_heading }}</code>, then a loop: <code>data-arc-loop="locations"</code>, with <code>&lt;iframe data-arc-bind="map_embed"&gt;</code> in each row</td></tr>
       </tbody>
     </table>
-    <p>The four repeating types (<code>infocard</code>, <code>gallery</code>, <code>labelvalue</code>, <code>maplocation</code>) render only on detail pages, not inside the <code>items</code> loop of a list or card block. Every key their rows carry is listed under <a href="templates.html#custom-field-bindings">Custom field bindings</a>.</p>
+    <p>The five repeating types (<code>infocard</code>, <code>gallery</code>, <code>labelvalue</code>, <code>faq</code>, <code>maplocation</code>) render only on detail pages, not inside the <code>items</code> loop of a list or card block. Every key their rows carry is listed under <a href="templates.html#custom-field-bindings">Custom field bindings</a>.</p>
 
     <h3 id="options-from-another-content-type">Options from another content type</h3>
     <p>A <code>dropdown</code>, <code>radio</code> or <code>checkbox</code> field with <strong>Use data from another collection</strong> on offers the published entries of another content type:</p>
@@ -112,7 +115,7 @@
       <li><strong>Deleting a field</strong> takes it out of the editor, but its values stay in each entry's <code>customFields</code>, and a template that names the key still shows them.</li>
       <li><strong>The key</strong> is locked once the type is saved, because entries refer to it.</li>
     </ul>
-    <p>In a second language the editor translates only prose: <code>text</code> and <code>richtext</code> fields, the headline and text of an <code>infocard</code>, a <code>gallery</code> caption, the heading, labels and values of a <code>labelvalue</code>, and the heading, names and addresses of a <code>maplocation</code>. Every other field, including options, dates, images, icons and the rows' order and pictures, is shared by all languages and edited on the default language's tab.</p>
+    <p>In a second language the editor translates only prose: <code>text</code> and <code>richtext</code> fields, the headline and text of an <code>infocard</code>, a <code>gallery</code> caption, the heading, labels and values of a <code>labelvalue</code>, the heading, questions and answers of a <code>faq</code>, and the heading, names and addresses of a <code>maplocation</code>. Every other field, including options, dates, images, icons and the rows' order and pictures, is shared by all languages and edited on the default language's tab.</p>
 
     <h2>Use it</h2>
 
@@ -132,15 +135,43 @@
         <tr><td>Delete</td><td>Entry list</td><td>The draft, the published copy with its translations, and its pages are removed</td></tr>
         <tr><td>Version history</td><td>Editor, <strong>History</strong> tab</td><td>Every publish is kept. Preview an old version and restore it into the editor, then publish.</td></tr>
         <tr><td>Bulk Import</td><td>Entry list</td><td>Create many entries from an Excel or CSV file (below)</td></tr>
+        <tr><td>Arrange</td><td>Entry list, for a type in your own order</td><td>Drag entries into the order the site shows them (below)</td></tr>
       </tbody>
     </table>
-    <p>There is no scheduled publishing: an entry goes live when you publish it.</p>
+    <p>There is no scheduled publishing: an entry goes live when you publish it. An entry that still holds outline text starting with <code>[Replace:</code> (the standard pages start with it) asks before it is published.</p>
+
+    <h3 id="your-own-order">Put entries in your own order</h3>
+    <p>Newest first suits articles and news. For services, team members or FAQs you choose the order:</p>
+    <ol class="steps">
+      <li><p>Add or edit the type and set <strong>Entry order</strong> to <strong>Your own order</strong>. The entries keep the order they had, newest first, until you change it.</p></li>
+      <li><p>On the type's entry list, choose <strong>Arrange</strong> (it shows only for a type in your own order).</p></li>
+      <li><p>Drag the entries into place, or use the arrows, and save. Drafts are listed too and keep their place for when they are published.</p></li>
+    </ol>
+    <p>Saving republishes the type's list page and, when it shows the type, the home page, in one release. Moving an entry does not mark it <strong>Edited</strong>. A new entry goes after the arranged ones until you arrange it. Above 200 entries the dialog reminds you that the list page shows the first 100.</p>
+
+    <h3 id="standard-pages">Standard pages</h3>
+    <p>Every site needs an About page, a way to get in touch and its policies. The setup wizard creates a content type called <strong>Pages</strong> (slug <code>info</code>, template folder <code>info</code>, your own order) with six drafts, in this order:</p>
+    <table>
+      <thead><tr><th>Page</th><th>Address</th><th>Starts with</th></tr></thead>
+      <tbody>
+        <tr><td>About</td><td><code>/info/about</code></td><td>Who you are, what you do, why</td></tr>
+        <tr><td>Contact</td><td><code>/info/contact</code></td><td>A line on how you reply; <strong>Show contact details</strong> and <strong>Show contact form</strong> on</td></tr>
+        <tr><td>Frequently asked questions</td><td><code>/info/faq</code></td><td>Three FAQ rows</td></tr>
+        <tr><td>Privacy Policy</td><td><code>/info/privacy-policy</code></td><td>An outline of the usual sections, with your name, email and address from Settings, About</td></tr>
+        <tr><td>Terms</td><td><code>/info/terms</code></td><td>An outline of the usual sections</td></tr>
+        <tr><td>Cookie Policy</td><td><code>/info/cookie-policy</code></td><td>What cookies are and the visitor's choices, with a prompt to list the cookies your site uses</td></tr>
+      </tbody>
+    </table>
+    <p>Every prompt to fill in starts with <code>[Replace:</code>, and the editor asks before publishing a page that still has one. The outlines are not legal advice: have the policies checked for where you work.</p>
+    <p>The Pages type has four fields that each page turns on as it needs: <strong>Locations</strong> (a map), <strong>FAQ</strong>, <strong>Show contact details</strong> (the email, phone, address and social links from Settings, About) and <strong>Show contact form</strong> (only with the <code>contact</code> feature on, see <a href="contact.html">Contact form</a>). The <code>info</code> template folder shows each section only when it is set.</p>
+    <p>Once published, the pages are linked from the default footer in their arranged order, and the signup terms notice, the contact form's privacy line and the cookie banner link to <code>/info/terms</code>, <code>/info/privacy-policy</code> and <code>/info/cookie-policy</code>. Publishing or unpublishing a page, changing its title or arranging the pages republishes the whole site, so every footer agrees.</p>
+    <p>An install from before the standard pages existed adds them with <strong>Add standard pages</strong> on <strong>Content &gt; Content types</strong>. It only adds what is missing, so it is safe to use again, and it adds nothing when a type of your own already uses the slug <code>info</code>. Delete a page you do not need, or leave it unpublished.</p>
 
     <h3>How publishing works</h3>
     <ol class="steps">
       <li><p>The editor saves the draft to <code>arc_{slug}_drafts</code> and writes a queue item (<code>publish</code>, <code>unpublish</code> or <code>delete</code>) to <code>_publish_queue</code>.</p></li>
       <li><p>The <code>processPublishQueue</code> function (<code>functions/src/publishQueue/processPublishQueue.ts</code>) copies the draft to <code>arc_{slug}</code> with <code>publishedOn</code> set to the time of publishing, adds a version to <code>PublishedHistory</code>, copies translations and updates the search index.</p></li>
-      <li><p>It renders the detail page in every language the entry has, the Markdown twin, and the type's list page, from the type's template (see <a href="templates.html">Templates</a>). With the <code>seo</code> feature on, it also rebuilds the sitemap, feeds, <code>robots.txt</code> and <code>llms.txt</code>.</p></li>
+      <li><p>It renders the detail page in every language the entry has, the Markdown twin, and the type's list page (and the home page when it shows the type), from the type's template (see <a href="templates.html">Templates</a>). With the <code>seo</code> feature on, it also rebuilds the sitemap, feeds, <code>robots.txt</code> and <code>llms.txt</code>.</p></li>
       <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows. When the entry's own page cannot be built, the rest of the release (list page, sitemap, feeds) still goes out, and the entry is marked failed with the reason rather than deployed.</p></li>
     </ol>
     <table>
@@ -158,7 +189,7 @@
     <div class="trap"><p>A plain <code>firebase deploy --only hosting</code> replaces the Hosting release with only the files it uploaded, so every page publishing wrote disappears, and the app's fallback still answers those addresses, so nothing looks broken at first. Deploy the website with <code>npm run deploy</code>, which keeps them. After a plain deploy, run <code>npm run seed:dev</code> (or <code>seed:prod</code>) to put the pages back. See <a href="../operations/deploy.html">Deploy</a>.</p></div>
 
     <h3>Bulk import entries</h3>
-    <p>On a type's entry list, <strong>Bulk Import</strong> reads the first sheet of an <code>.xlsx</code> or <code>.csv</code> file. It maps columns by header to Title (required), Content, Summary, URL Slug, Tags, Cover Image URL, SEO Title, Meta Description, Canonical URL, Featured, Author and the type's custom fields, and offers a sample file to download. You import as drafts or publish straight away. An author named in the Author column is matched by name, or created. Repeating fields (info cards, gallery, label and value, map location) cannot be imported.</p>
+    <p>On a type's entry list, <strong>Bulk Import</strong> reads the first sheet of an <code>.xlsx</code> or <code>.csv</code> file. It maps columns by header to Title (required), Content, Summary, URL Slug, Tags, Cover Image URL, SEO Title, Meta Description, Canonical URL, Featured, Author and the type's custom fields, and offers a sample file to download. You import as drafts or publish straight away. An author named in the Author column is matched by name, or created. Repeating fields (info cards, gallery, label and value, FAQ, map location) cannot be imported.</p>
     <p>For moving whole collections between projects, see <a href="data.html">Data import and export</a>.</p>
 
     <h3 id="static-pages">Static pages</h3>
@@ -182,8 +213,8 @@
     <table>
       <thead><tr><th>Where</th><th>What</th></tr></thead>
       <tbody>
-        <tr><td><code>ContentTypes/{id}</code></td><td>Type definitions: name, slug, fields, template folder, settings, translations of names and field labels</td></tr>
-        <tr><td><code>arc_{slug}_drafts/{id}</code></td><td>Drafts, with <code>lastPublishedAt</code> once published. Subcollection <code>translations/{lang}</code>.</td></tr>
+        <tr><td><code>ContentTypes/{id}</code></td><td>Type definitions: name, slug, fields, template folder, settings (including <code>entryOrder</code>, and <code>standard: 'pages'</code> on the Pages type), translations of names and field labels</td></tr>
+        <tr><td><code>arc_{slug}_drafts/{id}</code></td><td>Drafts, with <code>lastPublishedAt</code> once published, and <code>sortOrder</code> in a type in your own order (publishing copies it). Subcollection <code>translations/{lang}</code>.</td></tr>
         <tr><td><code>arc_{slug}/{id}</code></td><td>Published copies, with <code>publishedOn</code> and the deploy status fields. Subcollections <code>translations/{lang}</code>, <code>PublishedHistory</code> (one document per publish) and <code>DeploymentLogs</code>.</td></tr>
         <tr><td><code>Tags_{slug}/{id}</code></td><td>The type's tags (see <a href="authors-and-tags.html">Authors and tags</a>)</td></tr>
         <tr><td><code>_publish_queue/{id}</code></td><td>Queue items, deleted once processed</td></tr>
@@ -194,8 +225,8 @@
     <table>
       <thead><tr><th>Cloud Function</th><th>Kind</th><th>Does</th></tr></thead>
       <tbody>
-        <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages</td></tr>
-        <tr><td><code>onSiteSettingsWritten</code></td><td>Firestore trigger on <code>Settings</code></td><td>Queues a home page republish when <code>about</code>, <code>site</code>, <code>localization</code> or <code>misc</code> changes</td></tr>
+        <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages, and applies a new entry order</td></tr>
+        <tr><td><code>onSiteSettingsWritten</code></td><td>Firestore trigger on <code>Settings</code></td><td>Queues a home page republish when <code>about</code>, <code>site</code>, <code>localization</code> or <code>misc</code> changes, or a whole site republish when an <code>about</code> change shows on other pages through <code>data-arc-site</code></td></tr>
         <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections and their search entries</td></tr>
         <tr><td><code>seedStaticPages</code></td><td>Callable, also run by the seed script</td><td>Rebuilds every published page, the static pages and the SEO files</td></tr>
       </tbody>
@@ -221,7 +252,9 @@
         <tr><td>Published, but the page is not on the site</td><td>Check the deploy status in the editor. <strong>Website publishing off</strong> means the install publishes nothing to Hosting (<code>ARC_HOSTING_SITE=none</code>). On <strong>Deploy failed</strong>, hover it for the error and read the <code>processPublishQueue</code> logs; the retry button beside it re-queues the publish. If <code>processPublishQueue</code> is not deployed, nothing happens at all.</td></tr>
         <tr><td>All generated pages vanished after a deploy</td><td>A hosting-only deploy dropped them. Run <code>npm run seed:dev</code> or <code>npm run seed:prod</code>.</td></tr>
         <tr><td>Preview on the live site shows the published version</td><td>Hosting serves the static file for a published address before the app loads, whatever the query string. Preview edits to a published entry from a local run (<a href="../getting-started/run-locally.html">Run it locally</a>).</td></tr>
-        <tr><td>An older entry is missing from the list page</td><td>The generated list page holds the 100 newest published entries.</td></tr>
+        <tr><td>An older entry is missing from the list page</td><td>The generated list page holds the 100 newest published entries (the first 100 in your own order).</td></tr>
+        <tr><td>A new entry shows last, not first</td><td>The type is in your own order, where a new entry goes after the arranged ones. Use <strong>Arrange</strong>.</td></tr>
+        <tr><td><strong>Add standard pages</strong> says the address /info is taken</td><td>A type of your own already has the slug <code>info</code>. Nothing was added. Rename your type's slug, or build those pages in your own type.</td></tr>
         <tr><td>A deleted content type's pages are still online</td><td>Deleting a type deletes its Firestore data, not its files on Hosting. Unpublish its entries first, then delete the type.</td></tr>
         <tr><td>"URL slug already exists"</td><td>Slugs are unique within a type. Change the slug in the editor.</td></tr>
       </tbody>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Signup forms | Arc CMS docs</title>
   <meta name="description" content="Collect sign-ups with verified signup forms and waitlists, with referral links, a leaderboard and per-form emails, straight into your audience.">
-  <meta name="docs:sources" content="functions/src/features/forms.ts, functions/src/waitlists, functions/src/email-core/syncOtpEnabledFlag.ts, functions/src/email-core/defaultTemplates.ts, functions/src/email-core/contactSync.ts, functions/src/utils/referralHelper.ts, src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/shared/constants/waitlist-form.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, firestore.rules">
+  <meta name="docs:sources" content="functions/src/features/forms.ts, functions/src/waitlists, functions/src/email-core/syncOtpEnabledFlag.ts, functions/src/email-core/defaultTemplates.ts, functions/src/email-core/contactSync.ts, functions/src/utils/referralHelper.ts, src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/shared/constants/waitlist-form.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, src/app/core/site/live-parts.ts, functions/src/shared/live-parts.ts, src/shared/constants/legal-notice.ts, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/forms.html">
@@ -17,7 +17,7 @@
     <p>Each form is a document in <code>Waitlists</code>. Its members live under it, one document per address. A form can be used in two ways:</p>
     <ul>
       <li><strong>Its own page</strong> at <code>/waitlist/{form}</code>, which Arc CMS renders from the form's settings.</li>
-      <li><strong>Your own markup</strong> on the home page: a plain HTML <code>&lt;form&gt;</code> marked with <code>data-waitlist-form</code>, which Arc CMS takes over when the page loads.</li>
+      <li><strong>Your own markup</strong> on any page of your site: a plain HTML <code>&lt;form&gt;</code> marked with <code>data-waitlist-form</code>, which Arc CMS takes over when the page loads.</li>
     </ul>
     <p>Every sign-up becomes a <a href="audience.html">contact</a> that joins the form's own list and any other lists the form feeds. From there, broadcasts and sequences reach them (<a href="email-marketing.html">Email marketing</a>).</p>
     <table>
@@ -50,11 +50,11 @@
       <li><p>Set up email in Settings, Email Settings (see <a href="email.html">Email engine</a>). Without a working provider no code can be sent, so every form confirms people without one.</p></li>
       <li><p>Open <strong>Signup Forms</strong> and click the add button. Give it a name. The slug is filled in from the name and becomes the form's id, the <code>{form}</code> in every address above. Editing the slug later changes the slug only, never the id, and breaks links that used the old slug.</p></li>
       <li><p>Creating the form also creates its list under Audience, Lists and its two email templates. Open the form's <strong>Email Templates</strong> to adjust them.</p></li>
-      <li><p>Link to <code>/waitlist/{form}</code>, or put the form on your home page (next section).</p></li>
+      <li><p>Link to <code>/waitlist/{form}</code>, or put the form on a page of your site (next section).</p></li>
     </ol>
 
-    <h3>Put a form on the home page</h3>
-    <p>The home page (<code class="new">src/custom/site/home.html</code> and its translations, see <a href="../website/home-page.html">Build your home page</a>) binds every form that has <code>data-waitlist-form</code>, in the app and on the published page, where <code>public/assets/js/arc-site.js</code> runs the same steps through the same functions:</p>
+    <h3>Put a form on a page</h3>
+    <p>Every page of your site binds every form that has <code>data-waitlist-form</code>: the home page (<code class="new">src/custom/site/home.html</code> and its translations, see <a href="../website/home-page.html">Build your home page</a>), content pages and list pages from your templates, and static pages. It works in the app and on the published page, where <code>public/assets/js/arc-site.js</code> runs the same steps through the same functions:</p>
     <pre><code>&lt;form data-waitlist-form data-waitlist-id="beta"&gt;
   &lt;input name="firstName" placeholder="Your name"&gt;
   &lt;input type="email" name="email" required&gt;
@@ -72,7 +72,7 @@
         <tr><td><code>name="source"</code> or <code>data-waitlist-source</code></td><td>Where they came from (default <code>direct</code>)</td></tr>
         <tr><td>Any other named input</td><td>Saved with the member as a form answer, and on the contact if mapped to a field</td></tr>
         <tr><td><code>data-waitlist-count</code></td><td>Shows the number of confirmed members</td></tr>
-        <tr><td><code>data-legal-notice</code></td><td>Your own terms notice. Without one, a standard notice is added above the submit button</td></tr>
+        <tr><td><code>data-legal-notice</code></td><td>Your own terms notice. Without one, a standard notice is added above the submit button. It links to your terms and privacy pages: the published standard pages <code>/info/terms</code> and <code>/info/privacy-policy</code> (see <a href="content.html#standard-pages">Standard pages</a>), else your own static pages at <code>/p/terms</code> and <code>/p/privacy-policy</code>, else no link</td></tr>
       </tbody>
     </table>
     <p>If no form has the given id, the first visit creates one with default settings. The code step, the success panel with the referral link, and the error messages are drawn inside the form.</p>
@@ -183,7 +183,7 @@
         <tr><td>No code arrives</td><td>Open Email Logs: a skipped log names the reason, such as <code>email_disabled</code> or <code>feature_disabled</code>. See <a href="email.html">Email engine</a>.</td></tr>
         <tr><td>"This form has no verification email template, so signups cannot be confirmed"</td><td>Email is on but the form's code template could not be found or made. Open the form's Email Templates page to restore the defaults.</td></tr>
         <tr><td>"This email has not been verified"</td><td>The form needs a code and none was verified for that address. Request a new code.</td></tr>
-        <tr><td>A home page form does nothing</td><td>It lacks <code>data-waitlist-form</code>, the form is not Active, or <code>forms</code> is off.</td></tr>
+        <tr><td>A form on the site does nothing</td><td>It lacks <code>data-waitlist-form</code>, the published page was built before the form was added (publish it again), the form is not Active, or <code>forms</code> is off.</td></tr>
         <tr><td>A referral was not counted</td><td>The code belongs to another form, it is a self-referral or repeat, or more than 24 hours passed between the click and the sign-up in that browser.</td></tr>
         <tr><td>"Save form answers as" is missing from the form's settings</td><td>It lists the input names held in the form document's <code>fields</code> list, and nothing fills that list for you. The mapping itself is the form's <code>fieldMap</code> (input name to contact field key), which an admin can also write directly.</td></tr>
       </tbody>

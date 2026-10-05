@@ -14,6 +14,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **The home page is published as a static page** in every language, from `src/custom/site/home.html` (or `home.{lang}.html`), with SEO tags and live parts run by `/assets/js/arc-site.js`. **Republish website** on the Content types page publishes everything again.
 - **`npm run arc:own-site`** moves a site an app edited in `public/` into `src/custom/site/`.
 - In `npm run dev`, the editor says **Live site differs** when your site files are not the live ones yet.
+- **Cards from content types without public pages.** A type with **Generate public pages** off shows in the home page's card block, through its **Card template**, with no links. Services, a hero or testimonials are edited in the admin without each item getting a page. See docs/website/editable-sections.html.
+- **Your own entry order.** A content type can be set to **Your own order**; **Arrange** on the entry list drags entries into place, and the list page and home page cards follow it.
+- **Site info on pages.** `data-arc-site`, `data-arc-site-if` and `data-arc-site-loop` print the site's name, email, phone, address, logo, social links, standard pages and the year from Settings, About, in the header, footer, home page, templates and static pages. About gains a public **Phone**, published as `telephone`.
+- **FAQ custom field.** Repeating questions and answers, with FAQPage structured data on the page.
+- **Contact form** (feature `contact`, on by default). `<form data-arc-contact-form>` on any published page, spam checks, a **Messages** inbox and an alert to admins (`admin_contact_message`). New functions `submitContactMessage` and `onContactMessageCreated`, a `ContactMessages` collection with its rules and index.
+- **Standard pages.** A built-in **Pages** type at `/info` with About, Contact, FAQ, Privacy Policy, Terms and Cookie Policy as drafts, created by the setup wizard or **Add standard pages**. A new `info` template folder shows a map, questions, contact details and the contact form per page. Structured data type **Web page**.
 
 ### Changed
 
@@ -26,6 +32,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `main.css` styles only the body, header and footer. The old marketing page's styles are in `docs/examples/arc-cms-home.css`. Its global `section { padding: 100px 0 }` rule is gone too.
 - The published home page republishes itself when Settings it shows change (About, the site address, languages, the powered-by line).
 - Signups from the published home page record the same metadata as the app's forms, and someone already on the list sees "Welcome back".
+- `arc-site.js` runs on every published page (content, list and static pages too), so signup and contact forms work anywhere on the site.
+- The signup terms notice, the contact form's privacy line and the cookie banner link to the published standard pages (`/info/terms`, `/info/privacy-policy`, `/info/cookie-policy`) when they exist.
+- The default footer lists the published standard pages and a copyright line instead of the Documentation, GitHub and Community links. Its `main.css` rules apply only to the site footer, so a `<footer>` inside a card or dialog keeps its own look.
+- The About setting **Profiles elsewhere (sameAs)** is now **Social and profile links**.
 
 ### For apps upgrading
 
@@ -33,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 2. Check your own templates and pages for the old marketing classes (`.hero`, `.feature-card`, `.cta-primary`, `.section-headline` and the like) and for sections that relied on the `main.css` padding. `arc:own-site` brings the old styles back for a migrated home page only; elsewhere, copy the rules you use from `docs/examples/arc-cms-home.css` into `src/custom/site/site.css`.
 3. Run `npm run arc:configure` once, so `arc-install.ts` names your hosting site.
 4. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`).
+5. On an install set up before the standard pages, open **Content types** and choose **Add standard pages**. If your own footer listed the old Documentation, GitHub or Community links from Arc CMS's footer, they are gone from the default one; keep your own footer as it is.
 
 ---
 
