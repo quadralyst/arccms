@@ -58,9 +58,21 @@ footer a:hover {
   color: #06c;
 }
 
-.footer-coming-soon {
-  font-size: 0.8rem;
+/* The default footer's links to the standard pages (SS6). */
+.footer-pages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.5rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.footer-copyright {
+  margin: 0;
   color: #86868b;
+  font-size: 0.9rem;
 }
 
 .heart-icon {

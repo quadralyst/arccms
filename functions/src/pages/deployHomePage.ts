@@ -2,7 +2,6 @@ import type * as cheerio from 'cheerio';
 import { db } from '../init.js';
 import {
     getAboutConfig, getLocalizationSettings, getMiscSettings, getPartials, getSiteConfig, getUiStrings,
-    type AboutConfig,
 } from '../shared/site-settings.js';
 import { getSiteFile, getSiteManifest, loadSiteTemplate, pageStylesheets, versionedUrl, type SiteManifest } from '../shared/site-files.js';
 import { langPrefix, mergeTranslation, type ContentTranslation } from '../shared/content-translation.js';
@@ -22,6 +21,8 @@ import { isFeatureOn } from '../feature-flags.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { readPublishedInDisplayOrder } from './published-entries.js';
+import { siteInfoFor } from '../shared/site-info-source.js';
+import type { SiteInfoSource } from '../shared/site-info.js';
 import { arcSiteScript, prepareLiveParts, setupState } from '../shared/live-parts.js';
 
 import { arcHostingSite } from '../arc-config.js';
@@ -121,7 +122,7 @@ async function renderContentPartials(
     lang: string,
     defaultLang: string,
     strings: Record<string, string>,
-    about: AboutConfig | null = null,
+    about: SiteInfoSource | null = null,
 ): Promise<void> {
     const prefix = langPrefix(lang, defaultLang);
     for (const element of $('arc-content-partials').toArray()) {
@@ -210,15 +211,16 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         const prefix = langPrefix(lang, defaultLang);
         const strings = lang === defaultLang ? {} : await getUiStrings(lang);
 
-        // Body: words, the site's details (SS3), cards, chrome, links, notices.
-        let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(source.html, strings), about);
+        // Body: words, the site's details (SS3) and standard pages (SS6), cards, chrome, links, notices.
+        const siteInfo = await siteInfoFor(lang, defaultLang);
+        let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(source.html, strings), siteInfo);
         const $body = loadHtml(html, { xmlMode: false });
-        await renderContentPartials($body, lang, defaultLang, strings, about);
+        await renderContentPartials($body, lang, defaultLang, strings, siteInfo);
         // Signup and contact forms: their notices, and contact forms only with the feature (SS5).
-        prepareLiveParts($body, strings, manifest);
+        prepareLiveParts($body, strings, manifest, siteInfo.pages);
         html = $body.html();
         const chrome = (part: string) => prefixAnchorHrefs(
-            TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(part, strings), about), prefix, contentTypes);
+            TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(part, strings), siteInfo), prefix, contentTypes);
         html = replaceArcComponents(
             html,
             chrome(partials.headerHtml),

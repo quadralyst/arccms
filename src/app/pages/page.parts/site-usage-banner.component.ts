@@ -1,9 +1,10 @@
-import { Component, inject, OnInit, signal, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
+import { Component, computed, inject, OnInit, signal, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { SiteUsageService } from '../admin/(settings)/site-usage/site-usage.service';
-import { getGradientById, ISiteUsageSettings } from '../admin/(settings)/site-usage/site-usage.model';
+import { DEFAULT_SITE_USAGE_SETTINGS, getGradientById, ISiteUsageSettings } from '../admin/(settings)/site-usage/site-usage.model';
+import { SitePagesService } from '../../core/site/site-pages.service';
 
 /**
  * Site Usage Banner Component
@@ -20,8 +21,8 @@ import { getGradientById, ISiteUsageSettings } from '../admin/(settings)/site-us
             <div class="arc-site-usage-banner__content" [style.color]="getTextColor()">
                 <div class="arc-site-usage-banner__text">
                     <span class="arc-site-usage-banner__message">{{ settings()?.bannerText }}</span>
-                    @if (settings()?.privacyPolicyLink) {
-                    <a [href]="settings()?.privacyPolicyLink" 
+                    @if (policyLink()) {
+                    <a [href]="policyLink()" 
                        class="arc-site-usage-banner__link"
                        [style.color]="getTextColor()">
                         Learn more
@@ -167,6 +168,18 @@ export class SiteUsageBannerComponent implements OnInit {
 
     settings = signal<ISiteUsageSettings | null>(null);
     showBanner = signal(false);
+    private sitePages = inject(SitePagesService);
+
+    /**
+     * The policy link. While it is still the default, the published Cookie
+     * Policy standard page takes its place (specs/site-sections-spec.md, SS6);
+     * a link an admin set is kept.
+     */
+    policyLink = computed(() => {
+        const link = this.settings()?.privacyPolicyLink || '';
+        if (link !== DEFAULT_SITE_USAGE_SETTINGS.privacyPolicyLink) return link;
+        return this.sitePages.pages().find((page) => page.url.split('/').pop() === 'cookie-policy')?.url || link;
+    });
     private isAdminRoute = signal(false);
 
     ngOnInit(): void {
@@ -184,6 +197,8 @@ export class SiteUsageBannerComponent implements OnInit {
         ).subscribe((event: NavigationEnd) => {
             this.checkRoute(event.urlAfterRedirects);
         });
+
+        void this.sitePages.load();
 
         // Subscribe to real-time settings updates
         this.siteUsageService.settings$.subscribe((settings) => {

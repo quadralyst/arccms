@@ -5,6 +5,7 @@ import { ARC_FUNCTION_GROUP } from '../function-names.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { loadHtml } from './lazy-cheerio.js';
 import { versionedUrl, type SiteManifest } from './site-files.js';
+import type { SitePageLink } from './site-info.js';
 
 /**
  * The live parts of every published page: what arc-site.js
@@ -30,10 +31,23 @@ function words(strings: Record<string, string>) {
     return (key: keyof typeof NOTICE_DEFAULTS) => (strings[key]?.trim() ? strings[key] : NOTICE_DEFAULTS[key]);
 }
 
-/** A link to one of the app's own static pages, or the label alone when the app has none. */
-function pageLink(label: string, page: string, manifest: SiteManifest | null): string {
-    return manifest?.pages[page] === 'app'
-        ? `<a href="/p/${page}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${escapeHtml(label)}</a>`
+/**
+ * Where a notice links for one of the site's pages (`terms`, `privacy-policy`):
+ * the published standard page when there is one (/info/terms, SS6), else the
+ * app's own static page (/p/terms), else nowhere. Arc CMS's sample policy is
+ * never linked from someone else's site.
+ */
+export function noticePageUrl(page: string, manifest: SiteManifest | null, pages: readonly SitePageLink[] = []): string {
+    const standard = pages.find((p) => p.url.split('/').pop() === page);
+    if (standard) return standard.url;
+    return manifest?.pages[page] === 'app' ? `/p/${page}` : '';
+}
+
+/** The label as a link to that page, or the label alone. */
+function pageLink(label: string, page: string, manifest: SiteManifest | null, pages: readonly SitePageLink[]): string {
+    const url = noticePageUrl(page, manifest, pages);
+    return url
+        ? `<a href="${escapeAttr(url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${escapeHtml(label)}</a>`
         : escapeHtml(label);
 }
 
@@ -51,11 +65,13 @@ function beforeSubmit($: cheerio.CheerioAPI, form: Parameters<cheerio.CheerioAPI
  * to its forms (src/shared/constants/legal-notice.ts). Its links go to the app's
  * own terms and privacy pages, and only when the app has them.
  */
-export function addLegalNotices($: cheerio.CheerioAPI, strings: Record<string, string>, manifest: SiteManifest | null): void {
+export function addLegalNotices(
+    $: cheerio.CheerioAPI, strings: Record<string, string>, manifest: SiteManifest | null, pages: readonly SitePageLink[] = [],
+): void {
     const t = words(strings);
     const sentence = escapeHtml(t('legal_notice'))
-        .replace('{terms}', pageLink(t('legal_terms'), 'terms', manifest))
-        .replace('{privacy}', pageLink(t('legal_privacy'), 'privacy-policy', manifest));
+        .replace('{terms}', pageLink(t('legal_terms'), 'terms', manifest, pages))
+        .replace('{privacy}', pageLink(t('legal_privacy'), 'privacy-policy', manifest, pages));
     const notice = `<p class="arc-legal-notice" data-legal-notice style="${NOTICE_STYLE}">${sentence}</p>`;
     $('form[data-waitlist-form]').each((_, form) => {
         if ($(form).find('[data-legal-notice]').length) return;
@@ -68,9 +84,11 @@ export function addLegalNotices($: cheerio.CheerioAPI, strings: Record<string, s
  * ([data-contact-notice]): "We use your details only to reply.", with a link to
  * the app's privacy page when it has one.
  */
-export function addContactNotices($: cheerio.CheerioAPI, strings: Record<string, string>, manifest: SiteManifest | null): void {
+export function addContactNotices(
+    $: cheerio.CheerioAPI, strings: Record<string, string>, manifest: SiteManifest | null, pages: readonly SitePageLink[] = [],
+): void {
     const t = words(strings);
-    const sentence = escapeHtml(t('contact_notice')).replace('{privacy}', pageLink(t('legal_privacy'), 'privacy-policy', manifest));
+    const sentence = escapeHtml(t('contact_notice')).replace('{privacy}', pageLink(t('legal_privacy'), 'privacy-policy', manifest, pages));
     const notice = `<p class="arc-contact-notice" data-contact-notice style="${NOTICE_STYLE}">${sentence}</p>`;
     $('form[data-arc-contact-form]').each((_, form) => {
         if ($(form).find('[data-contact-notice]').length) return;
@@ -83,17 +101,21 @@ export function addContactNotices($: cheerio.CheerioAPI, strings: Record<string,
  * are removed when the app has no contact form feature (so no dead form shows),
  * and signup and contact forms get their notices.
  */
-export function prepareLiveParts($: cheerio.CheerioAPI, strings: Record<string, string>, manifest: SiteManifest | null): void {
+export function prepareLiveParts(
+    $: cheerio.CheerioAPI, strings: Record<string, string>, manifest: SiteManifest | null, pages: readonly SitePageLink[] = [],
+): void {
     if (!isFeatureOn('contact')) $('form[data-arc-contact-form]').remove();
-    addLegalNotices($, strings, manifest);
-    addContactNotices($, strings, manifest);
+    addLegalNotices($, strings, manifest, pages);
+    addContactNotices($, strings, manifest, pages);
 }
 
 /** The same on an HTML string; a page without forms is returned as it was. */
-export function withLiveParts(html: string, strings: Record<string, string>, manifest: SiteManifest | null): string {
+export function withLiveParts(
+    html: string, strings: Record<string, string>, manifest: SiteManifest | null, pages: readonly SitePageLink[] = [],
+): string {
     if (!html.includes('data-waitlist-form') && !html.includes('data-arc-contact-form')) return html;
     const $ = loadHtml(html, { xmlMode: false });
-    prepareLiveParts($, strings, manifest);
+    prepareLiveParts($, strings, manifest, pages);
     return $.html();
 }
 

@@ -232,6 +232,7 @@ export type TranslationKey =
     | 'admin.contents.editor.repeater.video'
     | 'admin.contents.editor.repeater.video_invalid'
     | 'admin.contents.editor.repeater.video_url'
+    | 'admin.contents.editor.replace_prompt_confirm'
     | 'admin.contents.editor.required_marker'
     | 'admin.contents.editor.resize_sidebar'
     | 'admin.contents.editor.restore_version'
@@ -384,6 +385,11 @@ export type TranslationKey =
     | 'admin.contents.types.republish_site_hint'
     | 'admin.contents.types.republish_started'
     | 'admin.contents.types.slug_exists'
+    | 'admin.contents.types.standard_pages'
+    | 'admin.contents.types.standard_pages_added'
+    | 'admin.contents.types.standard_pages_failed'
+    | 'admin.contents.types.standard_pages_hint'
+    | 'admin.contents.types.standard_pages_taken'
     | 'admin.contents.types.update_failed'
     | 'admin.contents.types.updated'
     | 'admin.dashboard.active'
@@ -1754,6 +1760,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.repeater.video',
     'admin.contents.editor.repeater.video_invalid',
     'admin.contents.editor.repeater.video_url',
+    'admin.contents.editor.replace_prompt_confirm',
     'admin.contents.editor.required_marker',
     'admin.contents.editor.resize_sidebar',
     'admin.contents.editor.restore_version',
@@ -1906,6 +1913,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.republish_site_hint',
     'admin.contents.types.republish_started',
     'admin.contents.types.slug_exists',
+    'admin.contents.types.standard_pages',
+    'admin.contents.types.standard_pages_added',
+    'admin.contents.types.standard_pages_failed',
+    'admin.contents.types.standard_pages_hint',
+    'admin.contents.types.standard_pages_taken',
     'admin.contents.types.update_failed',
     'admin.contents.types.updated',
     'admin.dashboard.active',

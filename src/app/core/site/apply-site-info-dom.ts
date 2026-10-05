@@ -8,7 +8,7 @@
  * needs no HTML parser. See specs/site-sections-spec.md, SS3.
  */
 import {
-    addressHtml, fillSocialRow, hasSiteInfo, mailHref, siteInfoValue, SiteInfoSource, socialLinks, telHref,
+    addressHtml, hasSiteInfo, mailHref, siteInfoValue, SiteInfoSource, siteLoopRows, telHref,
 } from '../../../shared/utils/site-info';
 
 /** Fills the site's details under `root` from Settings, About. */
@@ -23,8 +23,7 @@ export function applySiteInfoToElement(root: ParentNode, source: SiteInfoSource 
         const rowHtml = element.firstElementChild?.outerHTML || '';
         element.replaceChildren();
         element.removeAttribute('data-arc-site-loop');
-        if (name !== 'social' || !rowHtml) return;
-        element.innerHTML = socialLinks(source?.sameAs).map((link) => fillSocialRow(rowHtml, link)).join('');
+        if (rowHtml) element.innerHTML = siteLoopRows(rowHtml, name, source);
     });
 
     root.querySelectorAll<HTMLElement>('[data-arc-site]').forEach((element) => {

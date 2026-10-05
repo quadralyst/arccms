@@ -23,10 +23,20 @@ export interface SiteInfoSource {
     address?: string;
     logoUrl?: string;
     sameAs?: string[];
+    /** The year a copyright line prints; this year when missing. */
+    year?: string | number;
+    /** The published standard pages, in their order, for the footer (SS6). */
+    pages?: SitePageLink[];
+}
+
+/** One published standard page: its title in the page's language and its address. */
+export interface SitePageLink {
+    title: string;
+    url: string;
 }
 
 /** The values `data-arc-site` and `data-arc-site-if` accept; `social` is for -if and -loop. */
-export const SITE_INFO_KEYS = ['name', 'description', 'email', 'phone', 'address', 'logo', 'social'] as const;
+export const SITE_INFO_KEYS = ['name', 'description', 'email', 'phone', 'address', 'logo', 'year', 'social', 'pages', 'contact'] as const;
 export type SiteInfoKey = (typeof SITE_INFO_KEYS)[number];
 
 export interface SocialLink {
@@ -87,13 +97,36 @@ export function siteInfoValue(source: SiteInfoSource | null | undefined, key: st
         case 'phone': return text(source?.phone);
         case 'address': return text(source?.address);
         case 'logo': return text(source?.logoUrl);
+        case 'year': return String(source?.year || new Date().getFullYear());
         default: return '';
     }
 }
 
-/** Whether the site has this value; `social` has one when any profile URL is usable. */
+/**
+ * Whether the site has this value; `social` and `pages` have one when their list
+ * is not empty, and `contact` when the site has any way to reach it (an email,
+ * phone, address or social link), for a "How to reach us" block.
+ */
 export function hasSiteInfo(source: SiteInfoSource | null | undefined, key: string): boolean {
-    return key === 'social' ? socialLinks(source?.sameAs).length > 0 : siteInfoValue(source, key) !== '';
+    if (key === 'contact') return ['email', 'phone', 'address', 'social'].some((k) => hasSiteInfo(source, k));
+    if (key === 'social') return socialLinks(source?.sameAs).length > 0;
+    if (key === 'pages') return sitePages(source).length > 0;
+    return siteInfoValue(source, key) !== '';
+}
+
+/** The standard pages to list, without any missing a title or an address. */
+export function sitePages(source: SiteInfoSource | null | undefined): SitePageLink[] {
+    return (source?.pages || []).filter((page) => text(page?.title) && text(page?.url));
+}
+
+/** A loop's rows: one per social link (`social`) or published standard page (`pages`); none for any other name. */
+export function siteLoopRows(rowHtml: string, name: string | null | undefined, source: SiteInfoSource | null | undefined): string {
+    if (name === 'social') return socialLinks(source?.sameAs).map((link) => fillSocialRow(rowHtml, link)).join('');
+    if (name === 'pages') {
+        return sitePages(source).map((page) => rowHtml.replace(/\{\{\s*(url|title)\s*\}\}/g,
+            (_match, key: 'url' | 'title') => escapeSiteInfo(text(page[key])))).join('');
+    }
+    return '';
 }
 
 /** `tel:` link for a phone number as typed: digits and a leading +; '' without digits. */

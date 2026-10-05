@@ -1,4 +1,5 @@
 import { parseHexColor } from '../../../../../shared/utils/color';
+import { hasReplacePrompt } from '../standard-pages/standard-pages';
 import { nextUrlSlug, toUrlSlug } from '../../../../../shared/utils/url-slug';
 import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
@@ -2143,6 +2144,13 @@ export class CreateContentComponent extends BaseComponent {
 
     // Check for duplicate URL slug (excluding current item if editing)
     if (urlSlug && !this.validateSlugUniqueness(urlSlug)) {
+      return;
+    }
+
+    // Outline text still to replace, as the standard pages start with (SS6):
+    // ask before it goes live. A warning, not a block.
+    if (hasReplacePrompt(this.buildDraftFormValues())
+      && !window.confirm(this.transloco.translate('admin.contents.editor.replace_prompt_confirm'))) {
       return;
     }
 

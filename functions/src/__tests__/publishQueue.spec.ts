@@ -399,6 +399,49 @@ describe('processPublishQueue', () => {
     });
 
     // SS2 (specs/site-sections-spec.md): entries put in a new order.
+    // SS6: every page's footer lists the standard pages.
+    describe('standard pages in the footer', () => {
+        const queueAdd = vi.fn();
+        function wire(type: Record<string, unknown>) {
+            buildChain(type);
+            const base = mockCollection.getMockImplementation()!;
+            mockCollection.mockImplementation((name: string) => (name === '_publish_queue' ? { add: queueAdd } : base(name)));
+            queueAdd.mockResolvedValue(undefined);
+        }
+        const published = (title: string) => ({ exists: true, data: () => ({ title, urlSlug: 'about', content: '<p>x</p>' }) });
+        const redeployQueued = () => queueAdd.mock.calls.some(([item]) => item.action === 'redeploy-all');
+
+        beforeEach(() => queueAdd.mockReset());
+
+        it('republishes the whole site when a standard page goes live', async () => {
+            wire({ hasPublicUrl: true, standard: 'pages' });
+            mockGet.mockResolvedValueOnce({ exists: false, data: () => undefined }).mockResolvedValue(published('About'));
+            await handler(createEvent('publish', 'info', 'about'));
+            expect(redeployQueued()).toBe(true);
+        });
+
+        it('republishes it when a standard page\'s title changes', async () => {
+            wire({ hasPublicUrl: true, standard: 'pages' });
+            mockGet.mockResolvedValueOnce(published('About')).mockResolvedValue(published('About us'));
+            await handler(createEvent('update', 'info', 'about'));
+            expect(redeployQueued()).toBe(true);
+        });
+
+        it('leaves the rest of the site alone for an edit the footer does not show', async () => {
+            wire({ hasPublicUrl: true, standard: 'pages' });
+            mockGet.mockResolvedValue(published('About'));
+            await handler(createEvent('update', 'info', 'about'));
+            expect(redeployQueued()).toBe(false);
+        });
+
+        it('never for other content types', async () => {
+            wire({ hasPublicUrl: true });
+            mockGet.mockResolvedValueOnce({ exists: false, data: () => undefined }).mockResolvedValue(published('Post'));
+            await handler(createEvent('publish', 'articles', 'p1'));
+            expect(redeployQueued()).toBe(false);
+        });
+    });
+
     describe('order action: a content type\'s entries in a new order', () => {
         const ref = (id: string) => ({ id });
         function wireOrder(type: Record<string, unknown> | null) {

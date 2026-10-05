@@ -34,6 +34,7 @@ import {
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { getSiteManifest, loadSiteTemplate, pageStylesheets } from '../shared/site-files.js';
+import { siteInfoFor } from '../shared/site-info-source.js';
 import { liveSiteScript, withLiveParts } from '../shared/live-parts.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
@@ -388,9 +389,11 @@ export async function generateAndDeployContentDetailPage(
         // Applied before hydration so a translated value may carry its own
         // interpolation — "Back to {{ contentType }}" — and before loops so a
         // repeated item template is translated once rather than per item.
-        // Then the site's own details (SS3), before hydration can touch a social row's {{ url }}.
+        // Then the site's own details (SS3) and its standard pages (SS6), before
+        // hydration can touch a loop row's {{ url }}.
+        const siteInfo = await siteInfoFor(lang, defaultLang);
         const localizedTemplate = TemplateHydrationService.applySiteInfo(
-            TemplateHydrationService.applyStrings(templateHtml, pageStrings), about);
+            TemplateHydrationService.applyStrings(templateHtml, pageStrings), siteInfo);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, {
             // Repeating custom fields (Info Cards) become named loops, so a
@@ -415,7 +418,7 @@ export async function generateAndDeployContentDetailPage(
         const contentTypes = await publicContentTypeSlugs();
         const chrome = (html: string) =>
             prefixAnchorHrefs(
-                TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, pageStrings), about),
+                TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, pageStrings), siteInfo),
                 langPrefix(lang, defaultLang),
                 contentTypes,
             );
@@ -471,7 +474,7 @@ export async function generateAndDeployContentDetailPage(
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
         // The live parts (SS5): signup and contact forms work here as on the home page.
         const manifest = await getSiteManifest();
-        const liveBody = withLiveParts(body, pageStrings, manifest);
+        const liveBody = withLiveParts(body, pageStrings, manifest, siteInfo.pages);
         const liveScripts = [scripts, await liveSiteScript(manifest, pageStrings)].filter(Boolean).join('\n');
         const fullHtml = buildHtmlDocument(liveBody, meta, '', '', styles, liveScripts, poweredBy);
 

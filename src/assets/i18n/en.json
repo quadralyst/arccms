@@ -963,7 +963,12 @@
         "republish_site": "Republish website",
         "republish_site_hint": "Publish every page, the home page and the sitemap again, from the live website's templates",
         "republish_started": "Republishing the website. It takes a minute or two.",
-        "republish_failed": "Could not start republishing the website."
+        "republish_failed": "Could not start republishing the website.",
+        "standard_pages": "Add standard pages",
+        "standard_pages_hint": "Adds About, Contact, FAQ, Privacy Policy, Terms and Cookie Policy as drafts, ready to fill in.",
+        "standard_pages_added": "Added {{ count }} pages as drafts. Replace the outline text, then publish each one.",
+        "standard_pages_taken": "A content type already uses the address /info, so the standard pages were not added.",
+        "standard_pages_failed": "Could not add the standard pages. Please try again."
       },
       "editor": {
         "preview": "Preview",
@@ -1055,7 +1060,8 @@
         "references_hint": "Pages this piece draws on. Shown as a Sources list at the end and told to search engines as citations, which is a credibility signal for both Google and AI assistants.",
         "reference_title_placeholder": "Title (optional)",
         "add_reference": "Add source",
-        "tab_checks": "Checks"
+        "tab_checks": "Checks",
+        "replace_prompt_confirm": "This page still has text to replace (it starts with \"[Replace:\"). Publish anyway?"
       },
       "list": {
         "type_not_found": "Content Type Not Found",

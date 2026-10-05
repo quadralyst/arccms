@@ -1,4 +1,5 @@
 import { RouteMeta } from '@analogjs/router';
+import { StandardPagesService } from '../standard-pages/standard-pages.service';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Component, inject, signal, ViewChild, TemplateRef, computed } from '@angular/core';
 import { MatSidenavModule, MatDrawer } from '@angular/material/sidenav';
@@ -62,6 +63,33 @@ export default class ContentTypeComponent {
   notify = inject(NotifyService);
   transloco = inject(TranslocoService);
   private publishQueue = inject(PublishQueueService);
+  private standardPages = inject(StandardPagesService);
+
+  /** The site has the standard pages' type (SS6); until it does, the page offers to add it. */
+  hasStandardPages = computed(() => this.contentTypesStore.items().some((type) => type.standard === 'pages'));
+  addingStandardPages = signal(false);
+
+  /**
+   * Adds the Pages type and its six draft pages (specs/site-sections-spec.md,
+   * SS6), then opens them. Adds only what is missing.
+   */
+  async addStandardPages(): Promise<void> {
+    this.addingStandardPages.set(true);
+    try {
+      const result = await this.standardPages.ensure();
+      if (result.foreignType) {
+        this.notify.error('admin.contents.types.standard_pages_taken');
+        return;
+      }
+      this.notify.success('admin.contents.types.standard_pages_added', { count: result.createdPages.length });
+      await this.router.navigate(['/admin/contents/info']);
+    } catch (error) {
+      console.error('Could not add the standard pages:', error);
+      this.notify.error('admin.contents.types.standard_pages_failed');
+    } finally {
+      this.addingStandardPages.set(false);
+    }
+  }
 
   /** True from the click until the request is queued. */
   republishing = signal(false);

@@ -14,9 +14,11 @@ describe('schema type registry (D-D12)', () => {
         }
     });
 
-    it('the Article family maps nothing and everything else maps something', () => {
-        for (const id of ARTICLE_FAMILY) expect(schemaTypeMeta(id)!.properties).toEqual([]);
-        for (const type of CLIENT.filter(t => !ARTICLE_FAMILY.includes(t.id))) expect(type.properties.length).toBeGreaterThan(0);
+    it('the Article family and Web page map nothing, everything else maps something', () => {
+        // Web page (SS6) is a plain page: its node needs only the built-in fields.
+        const unmapped = [...ARTICLE_FAMILY, 'WebPage'];
+        for (const id of unmapped) expect(schemaTypeMeta(id)!.properties).toEqual([]);
+        for (const type of CLIENT.filter(t => !unmapped.includes(t.id))) expect(type.properties.length).toBeGreaterThan(0);
         expect(schemaTypeMeta('Nope')).toBeUndefined();
     });
 });

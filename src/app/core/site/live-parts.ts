@@ -10,7 +10,8 @@ import { arcConfig } from '../config/arc-config';
 import { environment } from '../../../environments/environment';
 import { isOn } from '../features/features';
 import { siteManifest } from './site';
-import { buildContactNoticeElement, buildLegalNoticeElement, legalNoticeLang } from '../../../shared/constants/legal-notice';
+import { buildContactNoticeElement, buildLegalNoticeElement, legalNoticeLang, legalNoticeWithPages } from '../../../shared/constants/legal-notice';
+import type { SitePageLink } from '../../../shared/utils/site-info';
 
 const SUBMIT = 'button[type="submit"], input[type="submit"], button:not([type])';
 
@@ -25,14 +26,15 @@ function beforeSubmit(form: HTMLFormElement, notice: HTMLElement): void {
  * privacy line on contact forms that carry none. Returns whether the page has
  * any form left for arc-site.js to run.
  */
-export function prepareLiveParts(root: ParentNode, doc: Document): boolean {
+export function prepareLiveParts(root: ParentNode, doc: Document, pages: readonly SitePageLink[] = []): boolean {
     if (!isOn('contact')) root.querySelectorAll('form[data-arc-contact-form]').forEach((form) => form.remove());
     const lang = legalNoticeLang(doc.documentElement.lang);
+    const notice = legalNoticeWithPages(pages);
     for (const form of Array.from(root.querySelectorAll<HTMLFormElement>('form[data-waitlist-form]'))) {
-        if (!form.querySelector('[data-legal-notice]')) beforeSubmit(form, buildLegalNoticeElement(doc, lang));
+        if (!form.querySelector('[data-legal-notice]')) beforeSubmit(form, buildLegalNoticeElement(doc, lang, notice));
     }
     for (const form of Array.from(root.querySelectorAll<HTMLFormElement>('form[data-arc-contact-form]'))) {
-        if (!form.querySelector('[data-contact-notice]')) beforeSubmit(form, buildContactNoticeElement(doc, lang));
+        if (!form.querySelector('[data-contact-notice]')) beforeSubmit(form, buildContactNoticeElement(doc, lang, notice));
     }
     return !!root.querySelector('form[data-waitlist-form], form[data-arc-contact-form]');
 }
@@ -54,8 +56,8 @@ export function arcSiteScriptElement(doc: Document): HTMLScriptElement {
  * Prepares the forms under `root` and, when it has any, runs arc-site.js for
  * them. Returns the script element so the page can remove it when it goes.
  */
-export function attachLiveParts(root: ParentNode, doc: Document): HTMLScriptElement | null {
-    if (!prepareLiveParts(root, doc)) return null;
+export function attachLiveParts(root: ParentNode, doc: Document, pages: readonly SitePageLink[] = []): HTMLScriptElement | null {
+    if (!prepareLiveParts(root, doc, pages)) return null;
     const script = arcSiteScriptElement(doc);
     doc.body.appendChild(script);
     return script;

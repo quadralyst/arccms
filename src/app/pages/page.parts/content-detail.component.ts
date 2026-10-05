@@ -1,4 +1,6 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { SitePagesService } from '../../core/site/site-pages.service';
+import { siteInfoOf } from '../../core/site/site-info-source';
 import { attachLiveParts } from '../../core/site/live-parts';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
@@ -136,6 +138,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private titleService = inject(Title);
     private metaService = inject(Meta);
     private siteIdentity = inject(SiteIdentityService);
+    private sitePages = inject(SitePagesService);
     private authorProfiles = inject(AuthorProfileService);
 
     /** The credited author, once loaded (D2). Null when the item has none. */
@@ -300,8 +303,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         super();
         // Image size bindings fit the configured maximum, as when published.
         void this.mediaSettings.load();
-        // The site's own details for data-arc-site (SS3); the template redraws when they arrive.
+        // The site's own details for data-arc-site (SS3) and its standard pages (SS6);
+        // the template redraws when they arrive.
         void this.siteIdentity.load();
+        void this.sitePages.load(this.uiStrings.activeLang());
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
@@ -373,6 +378,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             this.uiStrings.strings();
             this.mediaSettings.maxSize();
             this.siteIdentity.identity();
+            this.sitePages.pages();
             untracked(() => {
                 if (!this.lastTemplate) return;
                 const { html, contentType, content } = this.lastTemplate;
@@ -900,7 +906,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // translated once. Mirrors the publish pipeline's order.
         hydratedHtml = TemplateHydrationService.applyStrings(hydratedHtml, this.uiStrings.strings());
         // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
-        hydratedHtml = TemplateHydrationService.applySiteInfo(hydratedHtml, this.siteIdentity.identity());
+        hydratedHtml = TemplateHydrationService.applySiteInfo(hydratedHtml, siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
 
         // Always processing loops to ensure cleanup of placeholders if empty
         hydratedHtml = TemplateHydrationService.processLoops(hydratedHtml, {
@@ -936,7 +942,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private refreshLiveParts(): void {
         this.liveScript?.remove();
         const host = this.document.querySelector('arc-content-detail');
-        this.liveScript = host ? attachLiveParts(host, this.document) : null;
+        this.liveScript = host ? attachLiveParts(host, this.document, this.sitePages.pages()) : null;
     }
 
     /**

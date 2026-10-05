@@ -1,4 +1,6 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { SitePagesService } from '../../core/site/site-pages.service';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BehaviorSubject } from 'rxjs';
 import { provideRouter, Router } from '@angular/router';
@@ -22,7 +24,10 @@ describe('SiteUsageBannerComponent', () => {
         gradientId: 'ocean-teal',
     };
 
+    const sitePages = signal<{ title: string; url: string }[]>([]);
+
     beforeEach(async () => {
+        sitePages.set([]);
         mockSettingsSubject = new BehaviorSubject<ISiteUsageSettings>(DEFAULT_SITE_USAGE_SETTINGS);
         mockSiteUsageService = {
             settings$: mockSettingsSubject.asObservable(),
@@ -36,12 +41,32 @@ describe('SiteUsageBannerComponent', () => {
             providers: [
                 provideRouter([]),
                 { provide: SiteUsageService, useValue: mockSiteUsageService },
+                { provide: SitePagesService, useValue: { pages: sitePages, load: async () => sitePages() } },
             ],
         }).compileComponents();
 
         router = TestBed.inject(Router);
         fixture = TestBed.createComponent(SiteUsageBannerComponent);
         component = fixture.componentInstance;
+    });
+
+    // SS6: the published Cookie Policy page replaces the default link only.
+    describe('policy link', () => {
+        it('goes to the published Cookie Policy page while the link is the default', () => {
+            fixture.detectChanges();
+            component.ngOnInit();
+            expect(component.policyLink()).toBe('/p/cookie-policy');
+            sitePages.set([{ title: 'Cookie Policy', url: '/info/cookie-policy' }]);
+            expect(component.policyLink()).toBe('/info/cookie-policy');
+        });
+
+        it('keeps a link an admin set', () => {
+            mockSettingsSubject.next({ ...DEFAULT_SITE_USAGE_SETTINGS, privacyPolicyLink: '/legal/cookies' });
+            sitePages.set([{ title: 'Cookie Policy', url: '/info/cookie-policy' }]);
+            fixture.detectChanges();
+            component.ngOnInit();
+            expect(component.policyLink()).toBe('/legal/cookies');
+        });
     });
 
     describe('Component Creation', () => {

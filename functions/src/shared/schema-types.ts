@@ -13,7 +13,7 @@
 
 export type SchemaTypeId =
     | 'Article' | 'BlogPosting' | 'NewsArticle'
-    | 'Product' | 'Service' | 'Event' | 'Person' | 'Recipe' | 'HowTo';
+    | 'Product' | 'Service' | 'Event' | 'Person' | 'Recipe' | 'HowTo' | 'WebPage';
 
 /** Custom-field types (ContentTypeFieldType) a property accepts. */
 export type MappableFieldType = 'text' | 'number' | 'richtext' | 'date' | 'datetime' | 'image' | 'dropdown' | 'radio' | 'maplocation';
@@ -45,6 +45,8 @@ export const SCHEMA_TYPES: readonly SchemaTypeMeta[] = [
     { id: 'Article', label: 'Article', description: 'The default: any written page. Uses title, summary, cover image, dates and author.', properties: [] },
     { id: 'BlogPosting', label: 'Blog post', description: 'An Article subtype for blog entries.', properties: [] },
     { id: 'NewsArticle', label: 'News article', description: 'An Article subtype for news; Google may show it in Top Stories.', properties: [] },
+    // A plain page such as About, Contact or a policy (specs/site-sections-spec.md, SS6).
+    { id: 'WebPage', label: 'Web page', description: 'A plain page such as About, Contact or a policy: no author and no article date.', properties: [] },
     {
         id: 'Product', label: 'Product', description: 'Something for sale or on offer. Google shows price and availability in results.',
         properties: [

@@ -31,6 +31,8 @@ import { UiStringsService } from '../../core/services/ui-strings.service';
 import { applyStringsToElement } from '../../core/i18n/apply-strings-dom';
 import { applySiteInfoToElement } from '../../core/site/apply-site-info-dom';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { SitePagesService } from '../../core/site/site-pages.service';
+import { siteInfoOf } from '../../core/site/site-info-source';
 import { withLangPrefix } from '../../core/utils/language-links';
 import { PublicContentTypesService } from '../../core/site/public-content-types';
 import { siteManifest } from '../../core/site/site';
@@ -45,6 +47,7 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
     const uiStrings = inject(UiStringsService);
     const contentTypes = inject(PublicContentTypesService);
     const siteIdentity = inject(SiteIdentityService);
+    const sitePages = inject(SitePagesService);
     const appRef = inject(ApplicationRef);
     const environmentInjector = inject(EnvironmentInjector);
     const elementInjector = inject(Injector);
@@ -76,7 +79,7 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
         unmount();
         host.innerHTML = versionSiteUrls(html, siteManifest().files);
         applyStringsToElement(host, strings);
-        applySiteInfoToElement(host, siteIdentity.identity());
+        applySiteInfoToElement(host, siteInfoOf(siteIdentity.identity(), sitePages.pages()));
         const prefix = lang ? `/${lang}` : '';
         if (prefix) {
             host.querySelectorAll('a[href]').forEach((anchor) => {
@@ -97,13 +100,26 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
     // the public content types (which links take the language) or the site's
     // details arrive or change. The details are read only when the fragment
     // asks for them.
-    if (html.includes('data-arc-site')) void siteIdentity.load();
-    let shown = { lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs(), identity: siteIdentity.identity() };
+    const usesSiteInfo = html.includes('data-arc-site');
+    if (usesSiteInfo) {
+        void siteIdentity.load();
+        void sitePages.load(uiStrings.activeLang());
+    }
+    let shown = {
+        lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs(),
+        identity: siteIdentity.identity(), pages: sitePages.pages(),
+    };
     render(shown.lang, shown.strings, shown.types);
     if (shown.lang) void contentTypes.load();
     effect(() => {
-        const next = { lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs(), identity: siteIdentity.identity() };
-        if (next.lang === shown.lang && next.strings === shown.strings && next.types === shown.types && next.identity === shown.identity) return;
+        const next = {
+            lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs(),
+            identity: siteIdentity.identity(), pages: sitePages.pages(),
+        };
+        if (next.lang === shown.lang && next.strings === shown.strings && next.types === shown.types
+            && next.identity === shown.identity && next.pages === shown.pages) return;
+        // The footer's page titles follow the page's language.
+        if (usesSiteInfo && next.lang !== shown.lang) void untracked(() => sitePages.load(next.lang));
         shown = next;
         if (next.lang) void contentTypes.load();
         untracked(() => render(next.lang, next.strings, next.types));

@@ -1,4 +1,6 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { SitePagesService } from '../../core/site/site-pages.service';
+import { siteInfoOf } from '../../core/site/site-info-source';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
 import { QueryParams } from '../../../shared/models/queries.model';
@@ -70,6 +72,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     private localization = inject(LocalizationService);
     private mediaSettings = inject(MediaSettingsService);
     private siteIdentity = inject(SiteIdentityService);
+    private sitePages = inject(SitePagesService);
     contentsStore = inject(ContentsStore);
 
     // Inputs - support both property binding and attribute binding
@@ -173,8 +176,10 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         super();
         // Image size bindings fit the configured maximum, as when published.
         void this.mediaSettings.load();
-        // The site's own details for data-arc-site (SS3); the template redraws when they arrive.
+        // The site's own details for data-arc-site (SS3) and its standard pages (SS6);
+        // the template redraws when they arrive.
         void this.siteIdentity.load();
+        void this.sitePages.load(this.uiStrings.activeLang());
 
         // A type in its own order shows its arranged entries, whatever their
         // age: read them all, not only the newest 50 (SS2).
@@ -229,6 +234,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             this.uiStrings.strings();
             this.mediaSettings.maxSize();
             this.siteIdentity.identity();
+            this.sitePages.pages();
             if (this.lastTemplate && contentType) {
                 this.hydrateAndSetTemplate(this.lastTemplate, contentType, contents);
             }
@@ -323,7 +329,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         // the same order as the list and detail pages.
         // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
         const localizedTemplate = TemplateHydrationService.applySiteInfo(
-            TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), this.siteIdentity.identity());
+            TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 

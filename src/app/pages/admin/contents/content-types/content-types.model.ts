@@ -57,6 +57,12 @@ export interface ContentType extends IBaseModel {
      */
     entryOrder?: EntryOrder;
     /**
+     * Set on a content type Arc CMS created for a purpose: 'pages' is the
+     * standard pages (About, Contact, policies) at /info, whose published entries
+     * the site footer lists (specs/site-sections-spec.md, SS6).
+     */
+    standard?: 'pages';
+    /**
      * Which schema.org type this content publishes as, and which custom
      * fields fill its properties (specs/discoverability-spec.md, D-D12), e.g.
      * `{ type: 'Product', fields: { price: 'products_price', priceCurrency: 'products_currency' } }`.

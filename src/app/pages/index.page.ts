@@ -1,4 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
+import { SitePagesService } from '../core/site/site-pages.service';
+import { siteInfoOf } from '../core/site/site-info-source';
+import type { SitePageLink } from '../../shared/utils/site-info';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
@@ -85,6 +88,9 @@ export default class HomeComponent implements OnInit, OnDestroy {
     private onboarding = inject(OnboardingSetupService);
     private contentTypes = inject(PublicContentTypesService);
     private siteIdentity = inject(SiteIdentityService);
+    private sitePages = inject(SitePagesService);
+    /** The published standard pages of the page being shown (SS6). */
+    private pages: SitePageLink[] = [];
 
     /** Nodes this page added to <head> and <body>, removed when it goes. */
     private added: Element[] = [];
@@ -115,18 +121,24 @@ export default class HomeComponent implements OnInit, OnDestroy {
             // The site's own details for data-arc-site (SS3).
             this.siteIdentity.load(),
         ]);
+        // The published standard pages, for the footer and the notice links (SS6).
+        const pages = await this.sitePages.load(lang);
         // The home page exists in every enabled language (home.{lang}.html, or
         // home.html translated), so the switcher offers them all.
         this.localization.languageVariants.set(settings.enabledLanguages.map((l) => l.code));
 
         const ownFile = !!lang && !!siteManifest().home[lang];
         const html = await firstValueFrom(this.http.get(ownFile ? `/_site/home.${lang}.html` : '/_site/home.html', { responseType: 'text' }));
-        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types, about);
+        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types, about, pages);
     }
 
-    private render(page: Document, lang: string, strings: Record<string, string>, types: ReadonlySet<string>, about: IAboutSettings): void {
+    private render(
+        page: Document, lang: string, strings: Record<string, string>, types: ReadonlySet<string>,
+        about: IAboutSettings, pages: SitePageLink[],
+    ): void {
         applyStringsToElement(page.documentElement, strings);
-        applySiteInfoToElement(page.documentElement, about);
+        applySiteInfoToElement(page.documentElement, siteInfoOf(about, pages));
+        this.pages = pages;
 
         // Head: title, description, language, the page's own stylesheets.
         if (page.title.trim()) this.title.setTitle(page.title.trim());
@@ -149,7 +161,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
         }
         this.mountElements();
         // Signup and contact forms: their notices, contact forms only with the feature (SS5).
-        prepareLiveParts(this.host, this.document);
+        prepareLiveParts(this.host, this.document, this.pages);
 
         // The page's scripts, in order, as the published page runs them.
         for (const old of scripts) {

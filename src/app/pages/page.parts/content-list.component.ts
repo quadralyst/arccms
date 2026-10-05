@@ -1,4 +1,6 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { SitePagesService } from '../../core/site/site-pages.service';
+import { siteInfoOf } from '../../core/site/site-info-source';
 import { attachLiveParts } from '../../core/site/live-parts';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
@@ -114,6 +116,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     private uiStrings = inject(UiStringsService);
     private mediaSettings = inject(MediaSettingsService);
     private siteIdentity = inject(SiteIdentityService);
+    private sitePages = inject(SitePagesService);
     tagsStore = inject(TagsStore);
     private gaTracking = inject(GaTrackingService);
     private trackedContentTypes = new Set<string>();
@@ -203,8 +206,10 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         super();
         // Image size bindings fit the configured maximum, as when published.
         void this.mediaSettings.load();
-        // The site's own details for data-arc-site (SS3); the template redraws when they arrive.
+        // The site's own details for data-arc-site (SS3) and its standard pages (SS6);
+        // the template redraws when they arrive.
         void this.siteIdentity.load();
+        void this.sitePages.load(this.uiStrings.activeLang());
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
@@ -271,6 +276,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             this.uiStrings.strings();
             this.mediaSettings.maxSize();
             this.siteIdentity.identity();
+            this.sitePages.pages();
             untracked(() => {
                 if (!this.lastTemplate) return;
                 this.hydrateAndSetTemplate(this.lastTemplate.html, this.lastTemplate.contentType, contents, false);
@@ -451,7 +457,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         // See ContentDetailComponent — chrome before loops and bindings.
         // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
         const localizedTemplate = TemplateHydrationService.applySiteInfo(
-            TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), this.siteIdentity.identity());
+            TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
 
         // Then hydrate with page-level data
@@ -473,7 +479,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     private refreshLiveParts(): void {
         this.liveScript?.remove();
         const host = this.document.querySelector('arc-content-list');
-        this.liveScript = host ? attachLiveParts(host, this.document) : null;
+        this.liveScript = host ? attachLiveParts(host, this.document, this.sitePages.pages()) : null;
     }
 
     /**

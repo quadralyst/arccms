@@ -5,6 +5,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import * as cheerio from 'cheerio';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { hasSiteInfo, mailHref, siteInfoValue, socialLinks, telHref, SiteInfoSource } from './site-info';
 import * as published from '../../../functions/src/shared/site-info';
 import { TemplateHydrationService as AppHydration } from '../../app/core/services/template-hydration.service';
@@ -58,6 +60,10 @@ describe('site info', () => {
             expect(siteInfoValue(null, 'name')).toBe('');
             expect(hasSiteInfo(ABOUT, 'social')).toBe(true);
             expect(hasSiteInfo({ sameAs: ['nope'] }, 'social')).toBe(false);
+            // SS6: any way to reach the site.
+            expect(hasSiteInfo({ phone: '1' }, 'contact')).toBe(true);
+            expect(hasSiteInfo({ sameAs: ['https://x.com/a'] }, 'contact')).toBe(true);
+            expect(hasSiteInfo({ name: 'Only a name' }, 'contact')).toBe(false);
         });
 
         it('makes tel: and mailto: links', () => {
@@ -114,6 +120,30 @@ describe('site info', () => {
             expect($('p').length).toBe(0); // description, the phone line and "Follow us"
             expect($('address').length).toBe(0);
             expect($('ul').children().length).toBe(0);
+        });
+
+        // SS6: the standard pages and the year, as the default footer uses them.
+        it('lists the published standard pages and prints the year', () => {
+            const html = '<ul data-arc-site-if="pages" data-arc-site-loop="pages"><li><a href="{{ url }}">{{ title }}</a></li></ul>'
+                + '<p>&copy; <span data-arc-site="year"></span> <span data-arc-site="name"></span></p>';
+            const source = { name: 'Kumar', year: 2027, pages: [{ title: 'About <us>', url: '/info/about' }, { title: 'Terms', url: '/info/terms' }, { title: '', url: '/info/x' }] };
+            const $ = cheerio.load(AppHydration.applySiteInfo(html, source));
+            expect($('li a').toArray().map((a) => [$(a).attr('href'), $(a).text()])).toEqual([['/info/about', 'About <us>'], ['/info/terms', 'Terms']]);
+            expect($('p').text()).toBe('© 2027 Kumar');
+            expect(serialize(PublishHydration.applySiteInfo(html, source))).toBe(serialize(AppHydration.applySiteInfo(html, source)));
+            expect(viaDom(html, source)).toBe(serialize(AppHydration.applySiteInfo(html, source)));
+
+            const none = cheerio.load(AppHydration.applySiteInfo(html, { name: 'Kumar' }));
+            expect(none('ul').length).toBe(0);
+            expect(none('p').text()).toBe(`© ${new Date().getFullYear()} Kumar`);
+        });
+
+        it('gives Arc CMS\'s default footer the site\'s pages and name, and nothing of Arc CMS\'s own', () => {
+            const footer = readFileSync(join(__dirname, '../../../public/_site/footer.html'), 'utf8');
+            expect(footer).not.toMatch(/Coming Soon|GitHub|Documentation|Community/);
+            const $ = cheerio.load(AppHydration.applySiteInfo(footer, { name: 'Kumar', year: 2026, pages: [{ title: 'Privacy Policy', url: '/info/privacy-policy' }] }));
+            expect($('.footer-pages a').attr('href')).toBe('/info/privacy-policy');
+            expect($('.footer-copyright').text().replace(/\s+/g, ' ').trim()).toBe('© 2026 Kumar');
         });
 
         it('leaves a page that does not ask exactly as it was', () => {

@@ -6,7 +6,7 @@ import { parseHexColor } from './color.js';
 import { DEFAULT_MAX_IMAGE_SIZE, imageSizeUrls, IMAGE_SIZES } from './image-sizes.js';
 import { renderLocation } from './geo.js';
 import { plainTextHtml } from './plain-text.js';
-import { addressHtml, fillSocialRow, hasSiteInfo, mailHref, siteInfoValue, type SiteInfoSource, socialLinks, telHref } from './site-info.js';
+import { addressHtml, hasSiteInfo, mailHref, siteInfoValue, type SiteInfoSource, siteLoopRows, telHref } from './site-info.js';
 
 /**
  * Template Hydration Service
@@ -475,6 +475,8 @@ export class TemplateHydrationService {
    *   <p data-arc-site-if="address">…</p>       → kept only when the site has an address
    *   <ul data-arc-site-loop="social"><li>…</li></ul> → the first child once per social link,
    *                                               with {{ url }}, {{ platform }}, {{ label }}, {{ icon }}
+   *   <ul data-arc-site-loop="pages"><li>…</li></ul>  → once per published standard page (SS6),
+   *                                               with {{ url }} and {{ title }}
    *
    * An element bound to a value the site does not have is removed. Runs before
    * hydrateTemplate, so a page's own {{ url }} cannot reach the social rows.
@@ -498,8 +500,7 @@ export class TemplateHydrationService {
       const row = $el.children().first();
       const rowHtml = row.length ? $.html(row) : '';
       $el.empty().removeAttr('data-arc-site-loop');
-      if (name !== 'social' || !rowHtml) return;
-      $el.append(socialLinks(source?.sameAs).map((link) => fillSocialRow(rowHtml, link)).join(''));
+      if (rowHtml) $el.append(siteLoopRows(rowHtml, name, source));
     });
 
     $('[data-arc-site]').each((_, element) => {

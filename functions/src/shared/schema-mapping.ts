@@ -160,6 +160,15 @@ export function buildMappedNode(input: MappedNodeInput): JsonLd | null {
             if (cost !== undefined && currency) base['estimatedCost'] = { '@type': 'MonetaryAmount', currency, value: cost };
             return base;
         }
+        case 'WebPage': {
+            // A plain page (About, Contact, a policy; SS6): the page itself, with
+            // no author and no article date, published by the site's owner.
+            delete base['mainEntityOfPage'];
+            base['url'] = input.article.url;
+            setIf(base, 'dateModified', input.article.dateModified);
+            if (input.publisherId) base['publisher'] = { '@id': input.publisherId };
+            return base;
+        }
         default:
             return buildArticle(input.article);
     }

@@ -17,6 +17,8 @@ const {
 
 vi.stubGlobal('fetch', mockFetch);
 
+// The site's details and standard pages for data-arc-site (SS3, SS6), read in site-info-source.ts.
+vi.mock('../shared/site-info-source', () => ({ siteInfoFor: async () => ({ name: 'Kumar Studio', phone: '+91 98765 43210', contactEmail: 'hi@kumar.example', sameAs: [], year: 2026, pages: [] }) }));
 vi.mock('../shared/site-settings', () => ({
     getPartials: mockGetPartials,
     getSiteConfig: mockGetSiteConfig,

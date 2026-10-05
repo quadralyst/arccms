@@ -43,6 +43,20 @@ export const LEGAL_NOTICE = {
 
 export type LegalNoticeLang = keyof typeof LEGAL_NOTICE.text;
 
+/** A notice's links: the terms and privacy pages, '' for none. */
+export type LegalNotice = Omit<typeof LEGAL_NOTICE, 'termsUrl' | 'privacyUrl'> & { termsUrl: string; privacyUrl: string };
+
+/**
+ * The notice linking the published standard pages (/info/terms,
+ * /info/privacy-policy; specs/site-sections-spec.md, SS6) when the site has
+ * them, else the app's static pages as before. Publishing does the same
+ * (noticePageUrl in functions/src/shared/live-parts.ts).
+ */
+export function legalNoticeWithPages(pages: readonly { url: string }[], notice: LegalNotice = LEGAL_NOTICE): LegalNotice {
+    const find = (page: string) => pages.find((p) => p.url.split('/').pop() === page)?.url;
+    return { ...notice, termsUrl: find('terms') || notice.termsUrl, privacyUrl: find('privacy-policy') || notice.privacyUrl };
+}
+
 /** One run of the notice: plain text, or a label with a link when its URL is set. */
 export interface LegalNoticePart {
     text: string;
@@ -56,7 +70,7 @@ export function legalNoticeLang(pageLang: string | null | undefined): LegalNotic
 }
 
 /** The notice split into runs, in the given language. */
-export function legalNoticeParts(lang: LegalNoticeLang = 'en', notice = LEGAL_NOTICE): LegalNoticePart[] {
+export function legalNoticeParts(lang: LegalNoticeLang = 'en', notice: LegalNotice = LEGAL_NOTICE): LegalNoticePart[] {
     const t = notice.text[lang] ?? notice.text.en;
     const links: Record<string, LegalNoticePart> = {
         terms: { text: t.terms, ...(notice.termsUrl ? { href: notice.termsUrl } : {}) },
@@ -72,7 +86,7 @@ export function legalNoticeParts(lang: LegalNoticeLang = 'en', notice = LEGAL_NO
  * The notice as a DOM element, for forms the app does not render itself (the
  * landing-page signup forms). Built with DOM calls, not innerHTML.
  */
-export function buildLegalNoticeElement(doc: Document, lang: LegalNoticeLang, notice = LEGAL_NOTICE): HTMLElement {
+export function buildLegalNoticeElement(doc: Document, lang: LegalNoticeLang, notice: LegalNotice = LEGAL_NOTICE): HTMLElement {
     const p = doc.createElement('p');
     p.className = 'arc-legal-notice';
     p.setAttribute('data-legal-notice', '');
@@ -105,7 +119,7 @@ export const CONTACT_NOTICE = {
     hi: 'हम आपकी जानकारी सिर्फ़ जवाब देने के लिए इस्तेमाल करते हैं। {privacy}',
 } as const;
 
-export function buildContactNoticeElement(doc: Document, lang: LegalNoticeLang, notice = LEGAL_NOTICE): HTMLElement {
+export function buildContactNoticeElement(doc: Document, lang: LegalNoticeLang, notice: LegalNotice = LEGAL_NOTICE): HTMLElement {
     const p = doc.createElement('p');
     p.className = 'arc-contact-notice';
     p.setAttribute('data-contact-notice', '');

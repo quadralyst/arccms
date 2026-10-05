@@ -1,4 +1,6 @@
 import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit, PLATFORM_ID, ViewEncapsulation } from '@angular/core';
+import { SitePagesService } from '../../core/site/site-pages.service';
+import { siteInfoOf } from '../../core/site/site-info-source';
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -50,6 +52,7 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
     private metaService = inject(Meta);
     private gaTracking = inject(GaTrackingService);
     private siteIdentity = inject(SiteIdentityService);
+    private sitePages = inject(SitePagesService);
     private cdr = inject(ChangeDetectorRef);
     private document = inject(DOCUMENT);
     private platformId = inject(PLATFORM_ID);
@@ -93,14 +96,19 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
         ).subscribe(async htmlContent => {
             if (htmlContent) {
                 // The site's own details for data-arc-site (SS3), read only when the page asks.
-                const about = htmlContent.includes('data-arc-site') ? await this.siteIdentity.load() : null;
-                this.processHtml(applySiteInfoToHtml(htmlContent, about));
+                // Read only for a page that asks: the site's details (SS3), and the
+                // standard pages (SS6) for its forms' notice links and site loops.
+                const usesSiteInfo = htmlContent.includes('data-arc-site');
+                const hasForms = htmlContent.includes('data-arc-contact-form') || htmlContent.includes('data-waitlist-form');
+                const pages = usesSiteInfo || hasForms ? await this.sitePages.load() : [];
+                const about = usesSiteInfo ? await this.siteIdentity.load() : null;
+                this.processHtml(applySiteInfoToHtml(htmlContent, siteInfoOf(about, pages)));
                 this.cdr.detectChanges();
                 // Signup and contact forms on the page work as when published (SS5).
                 if (isPlatformBrowser(this.platformId)) {
                     this.liveScript?.remove();
                     const content = this.document.querySelector('.public-page-content');
-                    this.liveScript = content ? attachLiveParts(content, this.document) : null;
+                    this.liveScript = content ? attachLiveParts(content, this.document, pages) : null;
                 }
             } else {
                 this.router.navigate(['/404']);

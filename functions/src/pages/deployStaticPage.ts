@@ -1,5 +1,6 @@
 import { loadHtml } from '../shared/lazy-cheerio.js';
-import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getAboutConfig } from '../shared/site-settings.js';
+import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings } from '../shared/site-settings.js';
+import { siteInfoFor } from '../shared/site-info-source.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { replaceArcComponents, POWERED_BY_HTML } from '../shared/html-document.js';
 import { buildSearchWidget } from '../search/widget.js';
@@ -41,11 +42,12 @@ export async function generateAndDeployStaticPage(
     }
 
     // 2. Load partials + site config + misc settings
-    const [partials, siteConfig, miscSettings, localization, about] = await Promise.all([
-        getPartials(), getSiteConfig(), getMiscSettings(), getLocalizationSettings(), getAboutConfig(),
+    const [partials, siteConfig, miscSettings, localization] = await Promise.all([
+        getPartials(), getSiteConfig(), getMiscSettings(), getLocalizationSettings(),
     ]);
-    // The site's own details (SS3) in the page, its header and its footer.
-    const withSiteInfo = (html: string) => TemplateHydrationService.applySiteInfo(html, about);
+    // The site's own details (SS3) and standard pages (SS6) in the page, its header and its footer.
+    const siteInfo = await siteInfoFor(localization.defaultLanguage, localization.defaultLanguage);
+    const withSiteInfo = (html: string) => TemplateHydrationService.applySiteInfo(html, siteInfo);
 
     // 3. Replace arc components. Static pages exist in the default language
     //    only, so the search widget is built for that language.
@@ -66,7 +68,7 @@ export async function generateAndDeployStaticPage(
         const $ = loadHtml(processedHtml, { xmlMode: false });
 
         // The live parts (SS5): signup and contact forms work here as on the home page.
-        prepareLiveParts($, {}, manifest);
+        prepareLiveParts($, {}, manifest, siteInfo.pages);
         $('body').append(`\n${await liveSiteScript(manifest)}`);
 
         // Inject site CSS <link> tags into <head>, versioned, the site's site.css last

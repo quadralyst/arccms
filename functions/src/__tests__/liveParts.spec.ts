@@ -9,7 +9,7 @@ const { featureOn } = vi.hoisted(() => ({ featureOn: { contact: true } as Record
 vi.mock('../init', () => ({ db: {} }));
 vi.mock('../feature-flags', () => ({ isFeatureOn: (id: string) => featureOn[id] !== false }));
 
-import { arcSiteScript, prepareLiveParts, withLiveParts } from '../shared/live-parts.js';
+import { arcSiteScript, noticePageUrl, prepareLiveParts, withLiveParts } from '../shared/live-parts.js';
 import { loadHtml } from '../shared/lazy-cheerio.js';
 import type { SiteManifest } from '../shared/site-files.js';
 
@@ -51,6 +51,17 @@ describe('live parts', () => {
     it('still gives signup forms their terms notice', () => {
         const html = withLiveParts('<form data-waitlist-form><input name="email"><button type="submit">Join</button></form>', {}, MANIFEST);
         expect(html).toContain('data-legal-notice');
+    });
+
+    // SS6: a published standard page wins over the app's static file.
+    it('links the published standard page first, then the app\'s own page, else nothing', () => {
+        const pages = [{ title: 'Privacy Policy', url: '/info/privacy-policy' }];
+        expect(noticePageUrl('privacy-policy', MANIFEST, pages)).toBe('/info/privacy-policy');
+        expect(noticePageUrl('privacy-policy', MANIFEST, [])).toBe('/p/privacy-policy');
+        expect(noticePageUrl('terms', MANIFEST, pages)).toBe('');
+        const $ = loadHtml(CONTACT, { xmlMode: false });
+        prepareLiveParts($, {}, MANIFEST, pages);
+        expect($('[data-contact-notice] a').attr('href')).toBe('/info/privacy-policy');
     });
 
     it('leaves a page without forms exactly as it was', () => {

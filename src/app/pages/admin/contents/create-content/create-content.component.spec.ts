@@ -569,6 +569,27 @@ describe('CreateContentComponent', () => {
             expect(updateCall.publishedOn).toEqual(originalDate);
         });
 
+        // SS6: the standard pages start with outline text to replace.
+        it('asks before publishing outline text, and publishes only on yes', () => {
+            const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+            component.pageTitle = '[Replace: a title]';
+            component.directPublishContent();
+            expect(confirm).toHaveBeenCalledTimes(1);
+            expect(mockDraftContentsStore.add).not.toHaveBeenCalled();
+
+            component.directPublishContent();
+            expect(mockDraftContentsStore.add).toHaveBeenCalled();
+            confirm.mockRestore();
+        });
+
+        it('publishes without asking when nothing is left to replace', () => {
+            const confirm = vi.spyOn(window, 'confirm');
+            component.pageTitle = 'Finished page';
+            component.directPublishContent();
+            expect(confirm).not.toHaveBeenCalled();
+            confirm.mockRestore();
+        });
+
         it('should NOT publish when title is empty', () => {
             component.pageTitle = '';
             component.directPublishContent();

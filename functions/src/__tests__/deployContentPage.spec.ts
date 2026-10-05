@@ -85,6 +85,8 @@ vi.mock('../shared/related-content', async (importOriginal) => {
     return { ...actual, findRelated: mockFindRelated };
 });
 
+// The site's details and standard pages for data-arc-site (SS3, SS6), read in site-info-source.ts.
+vi.mock('../shared/site-info-source', () => ({ siteInfoFor: async () => ({ name: 'Test Site', sameAs: [], year: 2026, pages: [] }) }));
 vi.mock('../shared/site-settings', () => ({
     getPartials: mockGetPartials,
     getSiteConfig: mockGetSiteConfig,

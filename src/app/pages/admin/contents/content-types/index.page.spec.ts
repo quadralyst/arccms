@@ -9,6 +9,7 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ContentTypesStore } from './content-types.store';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { NotifyService } from '../../../../../shared/services/notify.service';
+import { StandardPagesService } from '../standard-pages/standard-pages.service';
 
 describe('ContentTypesPage', () => {
     let component: ContentTypesPage;
@@ -16,6 +17,7 @@ describe('ContentTypesPage', () => {
     let mockRouter: any;
     let mockActivatedRoute: any;
 
+    const mockStandardPages = { ensure: vi.fn() };
     const mockStore = {
         items: signal([]),
         getAll: vi.fn(() => of([])),
@@ -49,6 +51,7 @@ describe('ContentTypesPage', () => {
                 { provide: ActivatedRoute, useValue: mockActivatedRoute },
                 { provide: PublishQueueService, useValue: mockPublishQueue },
                 { provide: NotifyService, useValue: mockNotify },
+                { provide: StandardPagesService, useValue: mockStandardPages },
             ]
         })
             .compileComponents();
@@ -75,6 +78,43 @@ describe('ContentTypesPage', () => {
             await component.republishSite();
             expect(mockNotify.error).toHaveBeenCalledWith('admin.contents.types.republish_failed');
             expect(component.republishing()).toBe(false);
+        });
+    });
+
+    // SS6: the standard pages, for a site that does not have them yet.
+    describe('Add standard pages', () => {
+        const button = () => (fixture.nativeElement as HTMLElement).querySelector('[data-testid="add-standard-pages"]');
+
+        it('is offered until the site has the Pages type', () => {
+            mockStore.items.set([]);
+            fixture.detectChanges();
+            expect(button()).not.toBeNull();
+            mockStore.items.set([{ slug: 'info', name: 'Pages', standard: 'pages' }] as never);
+            fixture.detectChanges();
+            expect(button()).toBeNull();
+            mockStore.items.set([]);
+        });
+
+        it('adds them, says how many, and opens them', async () => {
+            mockStandardPages.ensure.mockResolvedValue({ createdType: true, createdPages: ['about', 'contact'], foreignType: false });
+            await component.addStandardPages();
+            expect(mockNotify.success).toHaveBeenCalledWith('admin.contents.types.standard_pages_added', { count: 2 });
+            expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/contents/info']);
+            expect(component.addingStandardPages()).toBe(false);
+        });
+
+        it('says so when another type already uses /info, and adds nothing', async () => {
+            mockStandardPages.ensure.mockResolvedValue({ createdType: false, createdPages: [], foreignType: true });
+            await component.addStandardPages();
+            expect(mockNotify.error).toHaveBeenCalledWith('admin.contents.types.standard_pages_taken');
+            expect(mockRouter.navigate).not.toHaveBeenCalledWith(['/admin/contents/info']);
+        });
+
+        it('says when it failed', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            mockStandardPages.ensure.mockRejectedValue(new Error('denied'));
+            await component.addStandardPages();
+            expect(mockNotify.error).toHaveBeenCalledWith('admin.contents.types.standard_pages_failed');
         });
     });
 

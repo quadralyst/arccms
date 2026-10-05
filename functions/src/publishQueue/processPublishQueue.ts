@@ -1,4 +1,4 @@
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
@@ -31,6 +31,24 @@ interface QueueItem {
 }
 
 /**
+ * What a standard page shows in the site's footer: whether it is published, and
+ * its title in every language. A change to it changes every page.
+ */
+export async function footerSignature(publishedRef: DocumentReference): Promise<string> {
+    const snap = await publishedRef.get();
+    if (!snap.exists) return '';
+    const translations = await publishedRef.collection('translations').get();
+    const titles = translations.docs.map((doc) => `${doc.id}:${doc.data()?.['title'] ?? ''}`).sort();
+    return JSON.stringify([snap.data()?.['title'] ?? '', titles]);
+}
+
+/** Queues a whole-site republish. */
+async function queueRedeployAll(reason: string): Promise<void> {
+    console.log(`Republishing the whole site: ${reason}`);
+    await db.collection('_publish_queue').add({ action: 'redeploy-all', contentTypeSlug: '', docId: '', timestamp: Timestamp.now() });
+}
+
+/**
  * Copies each draft's `sortOrder` to its published copy (removing it where the
  * draft has none), then rebuilds the pages that show the type's entries: its
  * list page when it has public pages, and the home page when it shows the type.
@@ -54,9 +72,12 @@ export async function applyEntryOrder(slug: string, batch: HostingBatch): Promis
         await chunk.commit();
     }
 
-    const hasPublicUrl = typeSnap.empty || typeSnap.docs[0].data().hasPublicUrl !== false;
+    const typeData = typeSnap.empty ? null : typeSnap.docs[0].data();
+    const hasPublicUrl = typeData?.hasPublicUrl !== false;
     if (hasPublicUrl) await generateAndDeployContentListPage(slug, batch);
     if (await homeShowsType(slug).catch(() => false)) await generateAndDeployHomePage(batch);
+    // The footer lists the standard pages in this order (SS6).
+    if (typeData?.standard === 'pages' && writes.length) await queueRedeployAll(`standard pages put in a new order`);
     console.log(`Entry order applied to ${slug}: ${writes.length} published entr${writes.length === 1 ? 'y' : 'ies'} changed`);
 }
 
@@ -376,6 +397,11 @@ export const processPublishQueue = onDocumentCreated({
         .where('slug', '==', contentTypeSlug).limit(1).get();
     const contentTypeData = contentTypeSnap.empty ? null : contentTypeSnap.docs[0].data();
     const hasPublicUrl = contentTypeData?.hasPublicUrl !== false;
+    // A standard page (SS6) is linked from every page's footer, and the terms
+    // notice and cookie banner link to some of them: note what the footer shows
+    // of it now, to republish the site if that changes.
+    const isStandardPage = contentTypeData?.standard === 'pages';
+    const footerBefore = isStandardPage ? await footerSignature(publishedRef) : '';
 
     try {
         switch (action) {
@@ -619,6 +645,13 @@ export const processPublishQueue = onDocumentCreated({
     }
 
     if (pageError) await recordPageFailure(publishedCollection, docId, pageError);
+
+    // The footer of every page lists the standard pages: when this one went live,
+    // came down or changed its title, every page is republished, in a queue item
+    // of its own so its release cannot race this one.
+    if (isStandardPage && (await footerSignature(publishedRef)) !== footerBefore) {
+        await queueRedeployAll(`standard page ${docId} changed in the footer`);
+    }
 
     // Always clean up the queue document
     if (queueDocRef) {
