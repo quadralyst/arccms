@@ -578,6 +578,20 @@ describe('EditContentTypeComponent', () => {
     });
 
     describe('Template Folder', () => {
+        // SS1: a type without public pages still picks a folder, for its home page cards.
+        it('offers the folder as a card template when public pages are off', () => {
+            const root: HTMLElement = fixture.nativeElement;
+            const label = () => root.querySelector('[data-testid="template-picker"] label')?.textContent?.trim();
+            fixture.detectChanges();
+            expect(label()).toBe('Content Template');
+            // A click, as an admin switches it: the form redraws on the event.
+            (root.querySelector('#hasPublicUrlToggle') as HTMLInputElement).click();
+            fixture.detectChanges();
+            expect(component.editForm.get('hasPublicUrl')!.value).toBe(false);
+            expect(label()).toBe('Card template');
+            expect(root.querySelector('[data-testid="template-picker"] select, [data-testid="template-picker"] .spinner-border')).not.toBeNull();
+        });
+
         it('should have templateFolder form control', () => {
             expect(component.editForm.get('templateFolder')).toBeDefined();
         });

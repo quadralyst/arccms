@@ -288,6 +288,8 @@ export type TranslationKey =
     | 'admin.contents.types.fix_slug'
     | 'admin.contents.types.form.add_field'
     | 'admin.contents.types.form.add_title'
+    | 'admin.contents.types.form.card_template'
+    | 'admin.contents.types.form.card_template_hint'
     | 'admin.contents.types.form.custom_field_labels'
     | 'admin.contents.types.form.custom_fields'
     | 'admin.contents.types.form.default_badge'
@@ -1767,6 +1769,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.fix_slug',
     'admin.contents.types.form.add_field',
     'admin.contents.types.form.add_title',
+    'admin.contents.types.form.card_template',
+    'admin.contents.types.form.card_template_hint',
     'admin.contents.types.form.custom_field_labels',
     'admin.contents.types.form.custom_fields',
     'admin.contents.types.form.default_badge',

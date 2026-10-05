@@ -32,13 +32,18 @@ export function getExcerpt(content: Record<string, any>): string {
     return words.length >= 25 ? words.join(' ') + '...' : cleanText;
 }
 
-/** A (translated) item's card data; `prefix` is '' or '/{lang}'. */
+/**
+ * A (translated) item's card data; `prefix` is '' or '/{lang}'. A type without
+ * public pages (Generate public pages off) has no page to link to, so its cards'
+ * `url` is empty and templates hide their links with data-arc-if="url".
+ */
 export function cardData(
     localized: Record<string, any>,
     typeSlug: string,
     typeName: string,
     lang: string,
     prefix: string,
+    hasPublicPages = true,
 ): Record<string, any> {
     const tagsData = localized['tagsWithColors'] ||
         (localized['tags'] || []).map((t: string) => ({ name: t, color: '#6b7280' }));
@@ -51,7 +56,7 @@ export function cardData(
         id: localized['id'],
         title: localized['title'] || '',
         urlSlug: localized['urlSlug'] || '',
-        url: `${prefix}/${typeSlug}/${localized['urlSlug']}`,
+        url: hasPublicPages ? `${prefix}/${typeSlug}/${localized['urlSlug']}` : '',
         coverImage: localized['coverImage'] || '',
         excerpt: getExcerpt(localized),
         content: localized['content'] || '',

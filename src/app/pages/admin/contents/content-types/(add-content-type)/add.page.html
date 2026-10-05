@@ -101,8 +101,11 @@
       }
     </div>
 
-    <div class="form-group">
-      <label class="form-label">{{ 'admin.contents.types.form.template' | transloco }}</label>
+    }
+
+    <!-- Shown with public pages off too: such a type's cards on the home page use the folder's partials.html. -->
+    <div class="form-group" data-testid="template-picker">
+      <label class="form-label">{{ (addForm.get('hasPublicUrl')?.value === false ? 'admin.contents.types.form.card_template' : 'admin.contents.types.form.template') | transloco }}</label>
       @if(templatesLoading()) {
       <div class="d-flex align-items-center">
         <span
@@ -121,11 +124,10 @@
         }
       </select>
       <small class="text-muted"
-        >{{ 'admin.contents.types.form.template_hint' | transloco }}</small
+        >{{ (addForm.get('hasPublicUrl')?.value === false ? 'admin.contents.types.form.card_template_hint' : 'admin.contents.types.form.template_hint') | transloco }}</small
       >
       }
     </div>
-    }
 
     <hr />
 

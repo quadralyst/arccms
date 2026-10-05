@@ -113,8 +113,9 @@ export function addLegalNotices($: cheerio.CheerioAPI, strings: Record<string, s
 
 /**
  * What partials.html binds outside the items loop. The default heading is the
- * page's `latest_of_type` string, else "Latest {type}". Pure; the admin's
- * Template Reference is checked against it.
+ * page's `latest_of_type` string, else "Latest {type}". A type without public
+ * pages has no list page, so `listUrl` is empty. Pure; the admin's Template
+ * Reference is checked against it.
  */
 export function partialPageData(
     type: Record<string, any>, lang: string, prefix: string, sectionTitle: string, itemCount: number,
@@ -127,7 +128,7 @@ export function partialPageData(
         contentTypeSlug: type.slug,
         contentTypeDescription: contentTypeDescription(type, lang),
         sectionTitle: sectionTitle.trim() || latest,
-        listUrl: `${prefix}/${type.slug}`,
+        listUrl: type.hasPublicUrl === false ? '' : `${prefix}/${type.slug}`,
         hasItems: itemCount > 0,
         lang,
         langPrefix: prefix,
@@ -137,7 +138,9 @@ export function partialPageData(
 /**
  * Replaces each <arc-content-partials content-type="…" count="…" section-title="…"
  * template-folder="…"> with cards of that type, laid out by its partials.html,
- * as the app's content-partials component draws them.
+ * as the app's content-partials component draws them. A type without public
+ * pages shows its cards too, without links (specs/site-sections-spec.md, SS1);
+ * only a type that does not exist is removed.
  */
 async function renderContentPartials(
     $: cheerio.CheerioAPI,
@@ -154,7 +157,7 @@ async function renderContentPartials(
             ? await db.collection('ContentTypes').where('slug', '==', slug).limit(1).get()
             : null;
         const type = typeSnap && !typeSnap.empty ? typeSnap.docs[0].data() : null;
-        if (!type || type.hasPublicUrl === false) {
+        if (!type) {
             $el.remove();
             continue;
         }
@@ -169,7 +172,7 @@ async function renderContentPartials(
                 const tr = await db.collection(collectionName).doc(doc.id).collection('translations').doc(lang).get();
                 if (tr.exists) translation = { ...(tr.data() as ContentTranslation), lang };
             }
-            return cardData({ id: doc.id, ...mergeTranslation(content, translation) }, slug, typeName, lang, prefix);
+            return cardData({ id: doc.id, ...mergeTranslation(content, translation) }, slug, typeName, lang, prefix, type.hasPublicUrl !== false);
         }));
 
         const template = await loadSiteTemplate(($el.attr('template-folder') || '').trim() || type.templateFolder, 'partials');

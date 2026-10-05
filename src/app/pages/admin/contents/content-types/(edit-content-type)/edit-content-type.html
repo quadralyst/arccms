@@ -177,8 +177,11 @@
             }
         </div>
 
-        <div class="form-group">
-            <label class="form-label">{{ 'admin.contents.types.form.template' | transloco }}</label>
+        }
+
+        <!-- Shown with public pages off too: such a type's cards on the home page use the folder's partials.html. -->
+        <div class="form-group" data-testid="template-picker">
+            <label class="form-label">{{ (editForm.get('hasPublicUrl')?.value === false ? 'admin.contents.types.form.card_template' : 'admin.contents.types.form.template') | transloco }}</label>
             @if(templatesLoading()) {
             <div class="d-flex align-items-center">
                 <span class="spinner-border spinner-border-sm me-2" role="status"></span>
@@ -195,10 +198,9 @@
                 </option>
                 }
             </select>
-            <small class="text-muted">{{ 'admin.contents.types.form.template_hint' | transloco }}</small>
+            <small class="text-muted">{{ (editForm.get('hasPublicUrl')?.value === false ? 'admin.contents.types.form.card_template_hint' : 'admin.contents.types.form.template_hint') | transloco }}</small>
             }
         </div>
-        }
 
         <hr />
 

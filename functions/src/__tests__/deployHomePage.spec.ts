@@ -60,6 +60,8 @@ const MANIFEST = { version: 1, home: { default: 'app' }, templates: {}, pages: {
 
 let onboarding: Record<string, unknown> | null;
 let emailLookupEmpty: boolean;
+/** The content types the home page's card blocks find, by slug. */
+let types: Record<string, Record<string, unknown>>;
 
 function wireDb(): void {
     mockCollection.mockImplementation((name: string) => {
@@ -71,7 +73,9 @@ function wireDb(): void {
         }
         if (name === 'ContentTypes') {
             return {
-                where: () => ({ limit: () => ({ get: async () => ({ empty: false, docs: [{ data: () => ({ slug: 'articles', name: 'Articles', templateFolder: '' }) }] }) }) }),
+                where: (_field: string, _op: string, slug: string) => ({ limit: () => ({ get: async () => (types[slug]
+                    ? { empty: false, docs: [{ data: () => types[slug] }] }
+                    : { empty: true, docs: [] }) }) }),
                 get: async () => ({ docs: [{ data: () => ({ slug: 'articles' }) }, { data: () => ({ slug: 'notes', hasPublicUrl: false }) }] }),
             };
         }
@@ -104,6 +108,7 @@ describe('deployHomePage', () => {
         mockDeployBatch.mockResolvedValue(true);
         onboarding = { completed: true };
         emailLookupEmpty = false;
+        types = { articles: { slug: 'articles', name: 'Articles', templateFolder: '' } };
         wireDb();
     });
 
@@ -183,6 +188,27 @@ describe('deployHomePage', () => {
             expect(site.attr('data-database')).toBe('(default)');
             expect($('script[src="/site/home.js"]').length).toBe(1);
             expect(site.attr('data-setup')).toBeUndefined(); // set up: no check, no read
+        });
+
+        // SS1 (specs/site-sections-spec.md): data kept for the home page only.
+        it('shows cards of a type without public pages, with no links', async () => {
+            mockGetSiteFile.mockImplementation(async (path: string) => (path === 'home.html'
+                ? HOME.replace('content-type="articles"', 'content-type="services"') : null));
+            types = { services: { slug: 'services', name: 'Services', templateFolder: '', hasPublicUrl: false } };
+            await generateAndDeployHomePage();
+            const $ = loadHtml(released()['/index.html'], { xmlMode: false });
+            expect($('h2').text()).toBe('From the blog');
+            expect($('a.card').text()).toBe('First post');
+            expect($('a.card').attr('href')).toBe('');
+            expect($('a.all').attr('href')).toBe('');
+        });
+
+        it('removes a card block whose content type does not exist', async () => {
+            types = {};
+            await generateAndDeployHomePage();
+            const html = released()['/index.html'];
+            expect(html).not.toContain('arc-content-partials');
+            expect(loadHtml(html, { xmlMode: false })('a.card').length).toBe(0);
         });
 
         it('asks the page to check the setup wizard while it is still to do', async () => {
@@ -277,6 +303,11 @@ describe('deployHomePage', () => {
             expect(partialPageData(type, 'hi', '/hi', '', 2, { latest_of_type: 'नवीनतम {{ contentType }}' }).sectionTitle).toBe('नवीनतम लेख');
             expect(partialPageData(type, 'en', '', '', 2).sectionTitle).toBe('Latest Articles');
             expect(partialPageData(type, 'hi', '/hi', 'Fresh', 2, { latest_of_type: 'x' }).sectionTitle).toBe('Fresh');
+        });
+
+        it('gives a type without public pages no list link', () => {
+            expect(partialPageData({ slug: 'articles', name: 'Articles' }, 'hi', '/hi', '', 2).listUrl).toBe('/hi/articles');
+            expect(partialPageData({ slug: 'services', name: 'Services', hasPublicUrl: false }, 'hi', '/hi', '', 2).listUrl).toBe('');
         });
     });
 });

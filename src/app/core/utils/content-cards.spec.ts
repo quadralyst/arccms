@@ -29,6 +29,12 @@ describe('content cards', () => {
         expect(getExcerpt(entry)).toBe(published.getExcerpt(entry));
     });
 
+    it('have no link for a type without public pages, in both copies (SS1)', () => {
+        expect(cardData(ENTRY, 'services', 'Services', 'hi', '/hi', false)['url']).toBe('');
+        expect(published.cardData(ENTRY, 'services', 'Services', 'hi', '/hi', false)).toEqual(cardData(ENTRY, 'services', 'Services', 'hi', '/hi', false));
+        expect(cardData(ENTRY, 'services', 'Services', 'en', '')['title']).toBe('Spring fair');
+    });
+
     it('link and date in the page\'s language', () => {
         const card = cardData(ENTRY, 'events', 'कार्यक्रम', 'hi', '/hi');
         expect(card['url']).toBe('/hi/events/spring-fair');

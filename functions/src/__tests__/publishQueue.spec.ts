@@ -92,14 +92,16 @@ vi.mock('../pages/generateSitemap', () => ({
     }),
 }));
 
-const { mockGenerateHome, mockGenerateStaticPage } = vi.hoisted(() => ({ mockGenerateHome: vi.fn(), mockGenerateStaticPage: vi.fn() }));
+const { mockGenerateHome, mockGenerateStaticPage, mockHomeShowsType } = vi.hoisted(() => ({
+    mockGenerateHome: vi.fn(), mockGenerateStaticPage: vi.fn(), mockHomeShowsType: vi.fn(async () => false),
+}));
 vi.mock('../pages/deployStaticPage', () => ({
     staticPageSlugs: async () => ['privacy-policy', 'terms'],
     generateAndDeployStaticPage: (...args: unknown[]) => mockGenerateStaticPage(...args),
 }));
 vi.mock('../pages/deployHomePage', () => ({
     // The home page shows no content types unless a test says so.
-    homeShowsType: async () => false,
+    homeShowsType: (...args: unknown[]) => mockHomeShowsType(...(args as [])),
     generateAndDeployHomePage: (...args: unknown[]) => mockGenerateHome(...args),
 }));
 
@@ -651,6 +653,29 @@ describe('processPublishQueue', () => {
 
             expect(mockGenerateDetailPage).not.toHaveBeenCalled();
             expect(mockGenerateListPage).not.toHaveBeenCalled();
+        });
+
+        // SS1 (specs/site-sections-spec.md): the home page can show cards of a
+        // type without public pages, so publishing one republishes it.
+        it('republishes the home page for a type without public pages when the home page shows it', async () => {
+            buildChain({ hasPublicUrl: false });
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Design', urlSlug: 'design' }) });
+            mockHomeShowsType.mockResolvedValueOnce(true);
+
+            await handler(createEvent('publish', 'services', 'doc1'));
+
+            expect(mockGenerateHome).toHaveBeenCalledTimes(1);
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
+        });
+
+        it('leaves the home page alone for a type it does not show', async () => {
+            buildChain({ hasPublicUrl: false });
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Design', urlSlug: 'design' }) });
+
+            await handler(createEvent('publish', 'services', 'doc1'));
+
+            expect(mockGenerateHome).not.toHaveBeenCalled();
         });
 
         it('should deploy static HTML when ContentType.hasPublicUrl is undefined (backward compat)', async () => {

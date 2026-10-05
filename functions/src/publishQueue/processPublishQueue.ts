@@ -517,8 +517,9 @@ export const processPublishQueue = onDocumentCreated({
                 console.warn(`Unknown action: ${action}`);
         }
 
-        // The home page shows cards of some types: republish it with them.
-        if (hasPublicUrl && (await homeShowsType(contentTypeSlug).catch(() => false))) {
+        // The home page shows cards of some types, public pages or not: republish
+        // it with them.
+        if (await homeShowsType(contentTypeSlug).catch(() => false)) {
             try {
                 await generateAndDeployHomePage(batch);
             } catch (homeErr) {

@@ -284,12 +284,14 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         this.lastTemplate = templateHtml;
         // Prepare data for template hydration
         const lang = this.pageLang();
+        // A type without public pages still shows cards, with nothing to link to.
+        const hasPublicPages = contentType.hasPublicUrl !== false;
         const templateData = {
             contentType: contentTypeName(contentType, lang),
             contentTypeSlug: contentType.slug,
             contentTypeDescription: contentTypeDescription(contentType, lang),
             sectionTitle: this.displayTitle(),
-            listUrl: this.listUrl(),
+            listUrl: hasPublicPages ? this.listUrl() : '',
             hasItems: contents.length > 0,
             // The page's language and URL prefix, as when published.
             lang: lang || this.localization.defaultLanguage(),
@@ -299,7 +301,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         // The same cards as a published card block (core/utils/content-cards.ts).
         const typeName = contentTypeName(contentType, lang);
         const listData = contents.map(content =>
-            cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', this.langPrefix()));
+            cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', this.langPrefix(), hasPublicPages));
 
         // Chrome in the page's language first, then loops, then page-level data:
         // the same order as the list and detail pages.

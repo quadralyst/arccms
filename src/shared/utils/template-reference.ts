@@ -81,7 +81,7 @@ export const LIST_FIELDS: TemplateAttr[] = [
 export const PARTIALS_FIELDS: TemplateAttr[] = [
     bind('items', 'Cards', 'data-arc-loop="items"', 'Count from the count attribute'),
     bind('sectionTitle', 'Section title', '{{ sectionTitle }}', 'section-title attribute, else "Latest {type}"'),
-    bind('listUrl', 'List page link', 'href="{{ listUrl }}"'),
+    bind('listUrl', 'List page link', '<a data-arc-if="listUrl" href="{{ listUrl }}">', 'Empty for a type without public pages'),
     bind('hasItems', 'Has entries', 'data-arc-if="hasItems"'),
     bind('contentType', 'Type name'),
     bind('contentTypeSlug', 'Type slug'),
@@ -93,7 +93,7 @@ export const PARTIALS_FIELDS: TemplateAttr[] = [
 /** Each row of the items loop, in lists and partials alike. */
 export const ITEM_FIELDS: TemplateAttr[] = [
     bind('title', 'Title'),
-    bind('url', 'Link', 'href="{{ url }}"', 'In the page\'s language'),
+    bind('url', 'Link', '<a data-arc-if="url" href="{{ url }}">', 'In the page\'s language; empty for a type without public pages'),
     bind('coverImage', 'Cover image', '<img data-arc-bind="coverImage" alt="">', 'Sizes: coverImage_s, _m, _l, _xl'),
     bind('excerpt', 'Excerpt', '{{ excerpt }}', 'Meta description or body, first 25 words'),
     bind('publishedOn', 'Published date', '{{ publishedOn }}', 'Short date'),
