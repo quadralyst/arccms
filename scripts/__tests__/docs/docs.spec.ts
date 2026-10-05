@@ -455,6 +455,6 @@ describe('the checks catch drift', () => {
             expect(slug('Q&A: what?')).toBe('q-and-a-what');
             expect(slug('???')).toBe('section');
             expect(assignIds([{ text: 'Steps' }, { text: 'Steps' }, { id: 'steps-3', text: 'x' }, { text: 'Steps' }])).toEqual(['steps', 'steps-2', 'steps-3', 'steps-4']);
-        });
+        }, 30_000); // loads every docs page into jsdom first: slow when the whole suite runs
     });
 });
