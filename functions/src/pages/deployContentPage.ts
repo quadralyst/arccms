@@ -22,6 +22,8 @@ import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../shared/con
 import { buildMappedNode } from '../shared/schema-mapping.js';
 import { findRelated } from '../shared/related-content.js';
 import { cleanReferences } from '../shared/references.js';
+import { refreshLinkedEntries } from '../shared/linked-entries.js';
+import { interpolate } from '../shared/interpolate.js';
 import {
     buildHtmlDocument,
     buildLanguageSwitcher,
@@ -88,9 +90,10 @@ async function loadTranslations(
 
 /**
  * Build the template data object from content, content type, and site config.
- * Mirrors the pattern used in the Angular content-detail.component.ts.
+ * Mirrors the pattern used in the Angular content-detail.component.ts. Exported
+ * for the tests (the admin's Template Reference is checked against it).
  */
-function buildTemplateData(
+export function buildTemplateData(
     content: Record<string, any>,
     contentType: Record<string, any>,
     siteConfig: { siteName: string; baseUrl: string },
@@ -291,6 +294,8 @@ export async function generateAndDeployContentDetailPage(
         throw err;
     }
     const contentType = contentTypeQuery.docs[0].data();
+    // Fields from another content type show that entry as published now.
+    content.customFields = await refreshLinkedEntries(content.customFields, contentType.fields);
 
     // 3. Load partials + site config + misc settings + languages (all cached)
     const [partials, siteConfig, miscSettings, localization, about, author] = await Promise.all([
@@ -301,6 +306,8 @@ export async function generateAndDeployContentDetailPage(
         getAboutConfig(),
         getAuthor(content.authorId),
     ]);
+    // Image size bindings fit the configured maximum (Settings, Misc).
+    TemplateHydrationService.setMaxImageSize(miscSettings.mediaMaxSize);
 
     // The stylesheets every language's page links, versioned (site-files.ts).
     const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);
@@ -368,14 +375,16 @@ export async function generateAndDeployContentDetailPage(
         });
         templateData['related'] = related;
         templateData['hasRelated'] = related.length > 0;
+        // "5 min read" in the page's language, from its min_read string.
+        const pageStrings = lang === defaultLang ? {} : await getUiStrings(lang);
+        if (pageStrings['min_read']) templateData['readingTime'] = interpolate(pageStrings['min_read'], { readTime: templateData['readTime'] });
 
         // Hydrate template: process loops first, then bindings
         // Static chrome baked into the template ("Read Article", "min read").
         // Applied before hydration so a translated value may carry its own
         // interpolation — "Back to {{ contentType }}" — and before loops so a
         // repeated item template is translated once rather than per item.
-        const uiStrings = lang === defaultLang ? {} : await getUiStrings(lang);
-        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, uiStrings);
+        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, pageStrings);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, {
             // Repeating custom fields (Info Cards) become named loops, so a
@@ -400,7 +409,7 @@ export async function generateAndDeployContentDetailPage(
         const contentTypes = await publicContentTypeSlugs();
         const chrome = (html: string) =>
             prefixAnchorHrefs(
-                TemplateHydrationService.applyStrings(html, uiStrings),
+                TemplateHydrationService.applyStrings(html, pageStrings),
                 langPrefix(lang, defaultLang),
                 contentTypes,
             );
@@ -410,7 +419,7 @@ export async function generateAndDeployContentDetailPage(
             chrome(partials.headerHtml),
             chrome(partials.footerHtml),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
-            buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings: uiStrings }),
+            buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings: pageStrings }),
         );
 
         // Extract inline styles/scripts from template

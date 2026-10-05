@@ -44,6 +44,7 @@
       <li>Arc CMS ships a strings file for Hindi only (<code>public/_site/strings/hi.json</code>). For Hindi, your file is merged over it key by key, so write only the keys you add or reword. For any other language, your file is the whole list.</li>
       <li>A file for the default language is not used: the default wording is what is written in the HTML.</li>
       <li>A missing key, or one whose text is empty, shows the default wording.</li>
+      <li>Some keys are used without <code>data-arc-t</code>: <code>min_read</code> for the reading time ("5 min read"), <code>latest_of_type</code> for a card block's default heading, and the <code>signup_*</code> keys for the signup panels on the home page. Arc CMS's <code>hi.json</code> lists them all; copy it as the start of another language's file.</li>
       <li>A file that is not valid JSON stops <code>npm run dev</code> and <code>npm run build</code> with a message naming it.</li>
     </ul>
 

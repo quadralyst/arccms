@@ -1,13 +1,15 @@
-import { calculateReadingTime } from './reading-time.js';
+import { calculateReadingTime } from './reading-time.util';
 
 /**
  * One content item as a card: what a list page's `items` loop and a partials
  * template's `items` loop bind (title, url, excerpt, coverImage, publishedOn,
  * readTime, tags...). Shared by the list pages and the home page's
- * <arc-content-partials>, so a card reads the same everywhere.
+ * <arc-content-partials>, published or rendered in the app, so a card reads the
+ * same everywhere.
  *
- * Source of truth: src/app/core/utils/content-cards.ts (the app renders the same
- * cards). Keep in sync manually; src/app/core/utils/content-cards.spec.ts checks it.
+ * Source of truth; functions/src/shared/content-cards.ts is a mirror for the
+ * Cloud Functions build, which cannot import from src/. content-cards.spec.ts
+ * checks that the two give the same cards.
  */
 
 /** "Jan 15, 2024" in the page's language; English when the locale is unknown. */

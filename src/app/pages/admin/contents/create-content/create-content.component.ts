@@ -34,7 +34,7 @@ import {
 import { MatDialog } from '@angular/material/dialog';
 import { CollectionRefSyncService } from '../content-store/collection-ref-sync.service';
 import { DraftContentsService } from '../draft-content-store/draft-contents.service';
-import { getDocs, query, orderBy, limit } from '@angular/fire/firestore';
+import { getDocs, query, limit } from '@angular/fire/firestore';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { ContentsService, DeployStatusUpdate } from '../content-store/published-contents.service';
 import { FullscreenEditorDialogComponent } from './fullscreen-editor-dialog/fullscreen-editor-dialog.component';
@@ -684,22 +684,17 @@ export class CreateContentComponent extends BaseComponent {
         }
         
         try {
-            // Fetch all draft items from the referenced collection's per-type collection
-            const collectionRef = this.draftContentsService.getCollectionRef(field.collectionRef!.collectionSlug);
-            const q = runInInjectionContext(this.injector, () => query(
-                collectionRef,
-                orderBy(field.collectionRef!.displayField || 'title', 'asc'),
-                limit(1000)
-            ));
+            // Published entries only: a draft has no page to link to. Read
+            // unordered and sorted here, since the display field may be a
+            // custom field, which a Firestore orderBy on the top level skips.
+            const collectionRef = this.contentsService.getCollectionRef(field.collectionRef!.collectionSlug);
+            const q = runInInjectionContext(this.injector, () => query(collectionRef, limit(1000)));
 
             const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
-            const data = snapshot.docs.map(doc => {
-                const docData = doc.data() as any;
-                // Exclude id from docData if it exists to avoid "id specified more than once" error
-                // when spreading. doc.id is the source of truth.
-                const { id, ...rest } = docData;
-                return { id: doc.id, ...rest };
-            });
+            const displayField = field.collectionRef!.displayField || 'title';
+            const data = snapshot.docs
+                .map(doc => referenceOption(doc.id, doc.data() as Record<string, any>))
+                .sort((a, b) => String(a[displayField] ?? '').localeCompare(String(b[displayField] ?? '')));
             
             options[field.key] = data;
         } catch (error) {
@@ -2750,4 +2745,15 @@ export class CreateContentComponent extends BaseComponent {
     this.deployStatusSubscription?.unsubscribe();
     this.autoSaveSubscription?.unsubscribe();
   }
+}
+
+/**
+ * One entry of another content type as a reference option: its custom fields
+ * beside its built-in fields, so a custom field works as the display field and
+ * as a copied field like `title` does. Built-in fields win a clash; `id` is the
+ * document's.
+ */
+export function referenceOption(id: string, data: Record<string, any>): Record<string, any> {
+    const { id: _ignored, customFields, ...rest } = data;
+    return { ...((customFields as Record<string, any>) || {}), ...rest, id };
 }

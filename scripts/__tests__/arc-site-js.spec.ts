@@ -165,6 +165,24 @@ describe('signup forms', () => {
         expect(calls.some((c) => c.name === 'creditReferral')).toBe(false);
     });
 
+    // B2: a translated page's panels are in its language; a missing key stays English.
+    it('shows the panels in the page\'s language from the strings publishing put on the script', async () => {
+        const strings = { signup_check_email: 'अपना ईमेल देखें', signup_welcome_back_name: 'फिर से स्वागत है, {{ name }}!' };
+        const attr = ` data-strings="${JSON.stringify(strings).replace(/"/g, '&quot;')}"`;
+        page(FORM, '', '', attr);
+        await flush();
+        let form = await signUp();
+        expect(form.querySelector('.waitlist-verify-step')!.textContent).toContain('अपना ईमेल देखें');
+        expect(form.querySelector('.waitlist-verify-btn')!.textContent).toBe('Verify Email');
+
+        docs['Settings/email_status'] = { isEnabled: false };
+        callables['finalizeFormSignup'] = () => ({ queuePosition: 3, totalSignups: 0, emailVerified: true, alreadyConfirmed: true });
+        page(FORM, '', '', attr);
+        await flush();
+        form = await signUp();
+        expect(form.querySelector('.waitlist-existing-step')!.textContent).toContain('फिर से स्वागत है, Asha!');
+    });
+
     it('shows a closed form and does not sign anyone up', async () => {
         docs['Waitlists/launch'] = { isActive: false, disabledMessage: 'We are full.' };
         page(FORM);

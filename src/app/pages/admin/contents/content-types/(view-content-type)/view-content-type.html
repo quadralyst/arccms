@@ -103,131 +103,30 @@
     <div class="template-ref">
       <div class="form-section-title">Template Reference</div>
 
-      <!-- Loop Containers -->
+      <div class="attr-subsection-hint mb-2">
+        Click a binding to copy it. The full syntax is in the developer docs under Templates.
+      </div>
+      @for(section of referenceSections; track section.id) {
       <div class="attr-subsection">
         <div class="attr-subsection-title">
-          <i class="fas fa-repeat me-1"></i> Loop Containers
+          <i [class]="section.icon + ' me-1'"></i> {{ section.title }}
         </div>
-        @for(attr of loopAttributes; track attr.key) {
+        @if(section.hint) {
+        <div class="attr-subsection-hint">{{ section.hint }}</div>
+        }
+        @for(attr of section.rows; track attr.key + attr.syntax) {
         <div class="attr-row">
           <span class="attr-label">{{ attr.label }}</span>
-          <code class="attr-code" [class.copied]="copiedKey === attr.key"
-            (click)="copyToClipboard(attr.syntax, attr.key)"
-            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
+          <code class="attr-code" [class.copied]="copiedKey === section.id + attr.key"
+            (click)="copyToClipboard(attr.syntax, section.id + attr.key)"
+            title="Click to copy">{{ copiedKey === section.id + attr.key ? 'Copied!' : attr.syntax }}</code>
           @if(attr.note) {
           <span class="attr-note">{{ attr.note }}</span>
           }
         </div>
         }
       </div>
-
-      <!-- Content Fields (built-in + custom) -->
-      <div class="attr-subsection">
-        <div class="attr-subsection-title">
-          <i class="fas fa-database me-1"></i> Content Fields
-        </div>
-        <div class="attr-subsection-hint">
-          Available inside <code>data-arc-loop="items"</code> and on detail pages
-        </div>
-        @for(attr of builtInContentFields; track attr.key) {
-        <div class="attr-row">
-          <span class="attr-label">{{ attr.label }}</span>
-          <code class="attr-code" [class.copied]="copiedKey === attr.key"
-            (click)="copyToClipboard(attr.syntax, attr.key)"
-            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
-          @if(attr.note) {
-          <span class="attr-note">{{ attr.note }}</span>
-          }
-        </div>
-        }
-
-        @if(customFieldEntries.length > 0) {
-        <div class="attr-custom-divider">Custom Fields</div>
-        @for(attr of customFieldEntries; track attr.key) {
-        <div class="attr-row">
-          <span class="attr-label">{{ attr.label }}</span>
-          <code class="attr-code" [class.copied]="copiedKey === attr.key"
-            (click)="copyToClipboard(attr.syntax, attr.key)"
-            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
-          @if(attr.note) {
-          <span class="attr-note">{{ attr.note }}</span>
-          }
-        </div>
-        }
-        }
-      </div>
-
-      <!-- Page-Level Fields -->
-      <div class="attr-subsection">
-        <div class="attr-subsection-title">
-          <i class="fas fa-file-alt me-1"></i> Page-Level Fields
-        </div>
-        @for(attr of pageFields; track attr.key) {
-        <div class="attr-row">
-          <span class="attr-label">{{ attr.label }}</span>
-          <code class="attr-code" [class.copied]="copiedKey === attr.key"
-            (click)="copyToClipboard(attr.syntax, attr.key)"
-            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
-          @if(attr.note) {
-          <span class="attr-note">{{ attr.note }}</span>
-          }
-        </div>
-        }
-      </div>
-
-      <!-- Detail Page Only -->
-      <div class="attr-subsection">
-        <div class="attr-subsection-title">
-          <i class="fas fa-file-lines me-1"></i> Detail Page Only
-        </div>
-        @for(attr of detailOnlyFields; track attr.key) {
-        <div class="attr-row">
-          <span class="attr-label">{{ attr.label }}</span>
-          <code class="attr-code" [class.copied]="copiedKey === attr.key"
-            (click)="copyToClipboard(attr.syntax, attr.key)"
-            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
-          @if(attr.note) {
-          <span class="attr-note">{{ attr.note }}</span>
-          }
-        </div>
-        }
-      </div>
-
-      <!-- Tag Loop Fields -->
-      <div class="attr-subsection">
-        <div class="attr-subsection-title">
-          <i class="fas fa-tags me-1"></i> Tag Fields
-        </div>
-        <div class="attr-subsection-hint">
-          Available inside <code>data-arc-loop="tags"</code>
-        </div>
-        @for(attr of tagLoopFields; track attr.key) {
-        <div class="attr-row">
-          <span class="attr-label">{{ attr.label }}</span>
-          <code class="attr-code" [class.copied]="copiedKey === attr.key"
-            (click)="copyToClipboard(attr.syntax, attr.key)"
-            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
-        </div>
-        }
-      </div>
-
-      <!-- Directives -->
-      <div class="attr-subsection">
-        <div class="attr-subsection-title">
-          <i class="fas fa-code me-1"></i> Directives
-        </div>
-        @for(attr of directives; track attr.key) {
-        <div class="attr-row">
-          <span class="attr-label">{{ attr.label }}</span>
-          <code class="attr-code" [class.copied]="copiedKey === attr.key"
-            (click)="copyToClipboard(attr.syntax, attr.key)"
-            title="Click to copy">{{ copiedKey === attr.key ? 'Copied!' : attr.syntax }}</code>
-          @if(attr.note) {
-          <span class="attr-note">{{ attr.note }}</span>
-          }
-        </div>
-        }
-      </div>
+      }
     </div>
 
     <hr />

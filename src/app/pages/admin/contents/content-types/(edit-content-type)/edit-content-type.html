@@ -312,7 +312,7 @@
                             <label class="form-label">{{ 'admin.contents.types.form.denormalize' | transloco }}</label>
                             <small class="text-muted d-block mb-2">
                                 Select which fields from "{{ field.get('collectionRefSlug')?.value }}"
-                                to store in this collection. These will be kept in sync automatically.
+                                to store in this collection. Published pages show the linked entry as it is published now.
                             </small>
                             <div class="sync-fields-list">
                                 @for(f of getCollectionFields(field.get('collectionRefSlug')?.value || ''); track f.key) {

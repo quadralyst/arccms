@@ -42,8 +42,19 @@ function liveSite(files: Record<string, string>) {
     });
 }
 
+/** How often the live site was asked for `path`. */
+const reads = (path: string) => mockFetch.mock.calls.filter(([url]) => url === `${ORIGIN}${path}`).length;
+
+let clock = 0;
+/** Moves the clock the caches read forward. */
+function later(ms: number) {
+    clock += ms;
+}
+
 describe('site-files', () => {
     beforeEach(() => {
+        clock = Date.now();
+        vi.spyOn(Date, 'now').mockImplementation(() => clock);
         vi.clearAllMocks();
         clearSiteFilesCache();
         process.env.GCLOUD_PROJECT = 'test-project';
@@ -81,10 +92,39 @@ describe('site-files', () => {
             liveSite({ '/_site/footer.html': '<footer/>' });
             await getSiteFile('footer.html');
             await getSiteFile('footer.html');
-            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(reads('/_site/footer.html')).toBe(1);
             clearSiteFilesCache();
             await getSiteFile('footer.html');
-            expect(mockFetch).toHaveBeenCalledTimes(2);
+            expect(reads('/_site/footer.html')).toBe(2);
+        });
+
+        // B6: "deploy the website, then publish again" must see the deploy at once.
+        it('keeps a listed file until a deploy changes its hash', async () => {
+            const site: Record<string, string> = {
+                '/_site/site.json': JSON.stringify({ ...MANIFEST, files: { '_site/header.html': 'h1' } }),
+                '/_site/header.html': '<nav>old</nav>',
+            };
+            liveSite(site);
+            expect(await getSiteFile('header.html')).toBe('<nav>old</nav>');
+            later(60_000);
+            expect(await getSiteFile('header.html')).toBe('<nav>old</nav>');
+            expect(reads('/_site/header.html')).toBe(1);
+
+            site['/_site/site.json'] = JSON.stringify({ ...MANIFEST, files: { '_site/header.html': 'h2' } });
+            site['/_site/header.html'] = '<nav>new</nav>';
+            later(11_000);
+            expect(await getSiteFile('header.html')).toBe('<nav>new</nav>');
+        });
+
+        it('forgets a missing file as soon as the manifest is read again', async () => {
+            const site: Record<string, string> = { '/_site/site.json': JSON.stringify(MANIFEST) };
+            liveSite(site);
+            expect(await getSiteFile('pages/terms.html')).toBeNull();
+
+            site['/_site/site.json'] = JSON.stringify({ ...MANIFEST, files: { '_site/pages/terms.html': 't1' } });
+            site['/_site/pages/terms.html'] = '<p>terms</p>';
+            later(11_000);
+            expect(await getSiteFile('pages/terms.html')).toBe('<p>terms</p>');
         });
     });
 
@@ -128,6 +168,17 @@ describe('site-files', () => {
             await expect(loadSiteTemplate('events', 'detail')).rejects.toThrow(MissingTemplateFolderError);
             await expect(loadSiteTemplate('events', 'detail')).rejects.toThrow(
                 "Template folder 'events' is not on the live site. Deploy the website, then publish again.");
+        });
+
+        it('reads the manifest again before refusing, so a folder deployed a moment ago is found', async () => {
+            const site: Record<string, string> = {
+                '/_site/site.json': JSON.stringify(MANIFEST),
+                '/_site/templates/events/detail.html': '<div>events detail</div>',
+            };
+            liveSite(site);
+            await loadSiteTemplate('default', 'detail'); // the manifest is now cached
+            site['/_site/site.json'] = JSON.stringify({ ...MANIFEST, templates: { ...MANIFEST.templates, events: { detail: 'app' } } });
+            expect(await loadSiteTemplate('events', 'detail')).toBe('<div>events detail</div>');
         });
 
         it('refuses a listed folder whose file is not a template (a whole document or the app shell)', async () => {

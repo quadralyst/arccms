@@ -8,7 +8,7 @@ import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { DEFAULT_TEMPLATE_FOLDER, siteTemplateUrl, templateFolderFor } from '../../core/site/site';
-import { calculateReadingTime } from '../../core/utils/reading-time.util';
+import { cardData } from '../../core/utils/content-cards';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
@@ -21,6 +21,7 @@ import { PageSpinnerComponent } from './page-spinner.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
+import { MediaSettingsService } from '../../core/services/media-settings.service';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import {
     IContentTranslation,
@@ -108,6 +109,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     private injector = inject(Injector);
     private localization = inject(LocalizationService);
     private uiStrings = inject(UiStringsService);
+    private mediaSettings = inject(MediaSettingsService);
     tagsStore = inject(TagsStore);
     private gaTracking = inject(GaTrackingService);
     private trackedContentTypes = new Set<string>();
@@ -195,6 +197,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
     constructor() {
         super();
+        // Image size bindings fit the configured maximum, as when published.
+        void this.mediaSettings.load();
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
@@ -247,6 +251,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         effect(() => {
             const contents = this.filteredContents();
             this.uiStrings.strings();
+            this.mediaSettings.maxSize();
             untracked(() => {
                 if (!this.lastTemplate) return;
                 this.hydrateAndSetTemplate(this.lastTemplate.html, this.lastTemplate.contentType, contents, false);
@@ -410,42 +415,17 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             contentTypeSlug: contentType.slug,
             contentTypeDescription: typeDescription,
             description: typeDescription, // Keep for backward compatibility
+            // The page's language and URL prefix, as when published.
+            lang: lang || this.localization.defaultLanguage(),
+            langPrefix: lang ? `/${lang}` : '',
         };
 
-        // Prepare list data for loops - transform content items
-        const listData = contents.map(content => {
-            const tagsData = (content as any).tagsWithColors ||
-                (content.tags || []).map((t: string) => ({ name: t, color: '#6b7280' }));
-
-            // Pre-render tags HTML for colored pills (since nested loops aren't supported)
-            const tagsHtml = tagsData.slice(0, 3).map((tag: { name: string; color: string }) =>
-                `<span class="tag-pill" style="background-color: ${tag.color}; color: #333;">${tag.name}</span>`
-            ).join('');
-
-
-            return {
-                id: content.id,
-                title: content.title,
-                urlSlug: content.urlSlug,
-                url: `/${contentType.slug}/${content.urlSlug}`,
-                coverImage: content.coverImage || '',
-                excerpt: this.getExcerpt(content),
-                content: content.content || '',
-                publishedOn: this.formatContentDate(content.publishedOn),
-                readTime: this.getReadTime(content),
-                // The same names as a published card (functions/src/shared/content-cards.ts).
-                authorName: (content as any).authorName || '',
-                author: (content as any).authorName || (content as any).author || '',
-                tags: tagsData,
-                tagsHtml: tagsHtml, // Pre-rendered HTML for colored pills
-                tagsDisplay: (content.tags || []).slice(0, 3).join(', '), // Fallback text
-                contentType: contentType.name, // Add content type name for cards
-                cat: contentType.name, // Backward compatibility alias
-                // Lets a custom field answer to its short key, as on the detail page.
-                contentTypeSlug: contentType.slug,
-                ...((content as any).customFields || {}), // Include any custom fields
-            };
-        });
+        // The same cards as the published list (core/utils/content-cards.ts), in
+        // the page's language: links, dates and the type's name.
+        const prefix = lang ? `/${lang}` : '';
+        const typeName = contentTypeName(contentType, lang);
+        const listData = contents.map(content =>
+            cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', prefix));
 
         // First process loops with list data
         // See ContentDetailComponent — chrome before loops and bindings.
@@ -545,26 +525,5 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     getGradient(contentId: string): string {
         const index = contentId.charCodeAt(0) % this.gradients.length;
         return this.gradients[index];
-    }
-
-    formatContentDate(date: any): string {
-        if (!date) return '';
-        const dateObj = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-        return dateObj.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    }
-
-    getReadTime(content: IContents): number {
-        return content.readTime || calculateReadingTime(content.content);
-    }
-
-    getExcerpt(content: IContents): string {
-        const text = content.metaDescription || content.content || '';
-        const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        const words = cleanText.split(' ').slice(0, 25);
-        return words.length >= 25 ? words.join(' ') + '...' : cleanText;
     }
 }

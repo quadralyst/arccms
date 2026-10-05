@@ -1,16 +1,21 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, Input, input, OnInit, PLATFORM_ID, signal, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, Injector, Input, input, OnInit, PLATFORM_ID, signal, TransferState, makeStateKey, untracked, ViewEncapsulation } from '@angular/core';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
-import { calculateReadingTime } from '../../core/utils/reading-time.util';
+import { cardData } from '../../core/utils/content-cards';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
 import { ContentType, contentTypeDescription, contentTypeName } from '../admin/contents/content-types/content-types.model';
 import { UiStringsService } from '../../core/services/ui-strings.service';
+import { LocalizationService } from '../../core/services/localization.service';
+import { interpolate } from '../../core/i18n/interpolate';
+import { MediaSettingsService } from '../../core/services/media-settings.service';
 import { IContents } from '../admin/contents/content-store/published-contents.model';
+import { ContentsService } from '../admin/contents/content-store/published-contents.service';
+import { IContentTranslation, mergeTranslation } from '../admin/contents/draft-content-store/content-translation.model';
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { siteTemplateUrl } from '../../core/site/site';
 
@@ -60,6 +65,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
 
     contentTypesStore = inject(ContentTypesStore);
     private uiStrings = inject(UiStringsService);
+    private localization = inject(LocalizationService);
+    private mediaSettings = inject(MediaSettingsService);
     contentsStore = inject(ContentsStore);
 
     // Inputs - support both property binding and attribute binding
@@ -70,6 +77,13 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     templateFolder = input<string>('');
 
     templateHtml = signal<string>('');
+    private host = inject(ElementRef<HTMLElement>);
+    private injector = inject(Injector);
+    /** Each shown entry's translation into the page's language, by id. */
+    private translations = signal<Record<string, IContentTranslation>>({});
+    private translationsFor = '';
+    /** The template's scripts run once, after its first render, as on a published page. */
+    private scriptsRun = false;
     /** The template as loaded, so it can be hydrated again. */
     private lastTemplate: string | null = null;
     private pendingTemplateUrl: string | null = null;
@@ -126,16 +140,22 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         const customTitle = this.sectionTitle();
         if (customTitle) return customTitle;
         const contentType = this.currentContentType();
-        return contentType ? `Latest ${contentTypeName(contentType, this.pageLang())}` : 'Latest Content';
+        if (!contentType) return 'Latest Content';
+        const typeName = contentTypeName(contentType, this.pageLang());
+        const latest = this.uiStrings.strings()['latest_of_type'];
+        return latest ? interpolate(latest, { contentType: typeName }) : `Latest ${typeName}`;
     });
 
     filteredContents = computed(() => {
         const contentTypeSlug = this.contentType();
         if (!contentTypeSlug) return [];
 
-        const items = this.contentsStore.items().filter((content: IContents) =>
-            content.type === contentTypeSlug && content.publishedStatus
-        );
+        const lang = this.pageLang();
+        const translations = this.translations();
+        const items = this.contentsStore.items()
+            .filter((content: IContents) => content.type === contentTypeSlug && content.publishedStatus)
+            // A translated entry shows its translation, as on a published home page.
+            .map((content: IContents): IContents => (lang ? mergeTranslation(content, translations[content.id] ?? null) : content));
 
         // Sort by publishedOn descending (newest first) and limit.
         // Handles Firestore Timestamps ({seconds, nanoseconds}), Date objects, and ISO strings.
@@ -150,11 +170,24 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
 
     constructor() {
         super();
+        // Image size bindings fit the configured maximum, as when published.
+        void this.mediaSettings.load();
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
             this.hydrated.set(true);
         }
+
+        // The shown entries' translations, once the store has filled and the page
+        // has a language other than the default.
+        effect(() => {
+            const lang = this.pageLang();
+            const slug = this.contentType();
+            const items = this.contentsStore.items().filter((content: IContents) => content.type === slug);
+            if (!lang || !items.length || this.translationsFor === `${lang}:${slug}`) return;
+            this.translationsFor = `${lang}:${slug}`;
+            untracked(() => void this.loadTranslations(lang, slug, items));
+        });
 
         // Watch for content type and contents to load, then trigger template loading
         effect(() => {
@@ -179,6 +212,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             const contentType = this.currentContentType();
             const contents = this.filteredContents();
             this.uiStrings.strings();
+            this.mediaSettings.maxSize();
             if (this.lastTemplate && contentType) {
                 this.hydrateAndSetTemplate(this.lastTemplate, contentType, contents);
             }
@@ -257,42 +291,15 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             sectionTitle: this.displayTitle(),
             listUrl: this.listUrl(),
             hasItems: contents.length > 0,
+            // The page's language and URL prefix, as when published.
+            lang: lang || this.localization.defaultLanguage(),
+            langPrefix: this.langPrefix(),
         };
 
-        // Prepare list data for loops - transform content items
-        const listData = contents.map(content => {
-            const tagsData = (content as any).tagsWithColors ||
-                (content.tags || []).map((t: string) => ({ name: t, color: '#6b7280' }));
-
-            // Pre-render tags HTML for colored pills
-            const tagsHtml = tagsData.slice(0, 3).map((tag: { name: string; color: string }) =>
-                `<span class="tag-pill" style="background-color: ${tag.color}; color: #333;">${tag.name}</span>`
-            ).join('');
-
-            return {
-                id: content.id,
-                title: content.title,
-                urlSlug: content.urlSlug,
-                // In the page's language, like the list link.
-                url: this.itemUrl(content.urlSlug),
-                coverImage: content.coverImage || '',
-                excerpt: this.getExcerpt(content),
-                content: content.content || '',
-                publishedOn: this.formatContentDate(content.publishedOn),
-                readTime: this.getReadTime(content),
-                // The same names as a published card (functions/src/shared/content-cards.ts).
-                authorName: (content as any).authorName || '',
-                author: (content as any).authorName || (content as any).author || '',
-                tags: tagsData,
-                tagsHtml: tagsHtml,
-                tagsDisplay: (content.tags || []).slice(0, 3).join(', '),
-                contentType: contentTypeName(contentType, lang),
-                cat: contentTypeName(contentType, lang),
-                // Lets a custom field answer to its short key, as on the detail page.
-                contentTypeSlug: contentType.slug,
-                ...((content as any).customFields || {}),
-            };
-        });
+        // The same cards as a published card block (core/utils/content-cards.ts).
+        const typeName = contentTypeName(contentType, lang);
+        const listData = contents.map(content =>
+            cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', this.langPrefix()));
 
         // Chrome in the page's language first, then loops, then page-level data:
         // the same order as the list and detail pages.
@@ -301,6 +308,37 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
         this.templateHtml.set(hydratedHtml);
+
+        if (!this.scriptsRun && isPlatformBrowser(this.platformId)) {
+            this.scriptsRun = true;
+            setTimeout(() => this.runTemplateScripts(), 100);
+        }
+    }
+
+    /** Runs the template's script tags, which [innerHTML] leaves inert. */
+    private runTemplateScripts(): void {
+        const host = this.host.nativeElement as HTMLElement;
+        host.querySelectorAll('script').forEach(oldScript => {
+            const newScript = document.createElement('script');
+            Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+            oldScript.parentNode?.replaceChild(newScript, oldScript);
+        });
+    }
+
+    private async loadTranslations(lang: string, typeSlug: string, items: IContents[]): Promise<void> {
+        try {
+            const service = this.injector.get(ContentsService);
+            const loaded: Record<string, IContentTranslation> = {};
+            await Promise.all(items.slice(0, 50).map(async (content: IContents) => {
+                const translation = await service.getTranslation(typeSlug, content.id, lang);
+                if (translation) loaded[content.id] = translation;
+            }));
+            this.translations.set(loaded);
+        } catch (error) {
+            // The cards stay in the default language.
+            console.error('Error loading card translations:', error);
+        }
     }
 
     /** Convert Firestore Timestamp, Date, or ISO string to epoch ms for sorting */
@@ -314,27 +352,5 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     getGradient(contentId: string): string {
         const index = contentId.charCodeAt(0) % this.gradients.length;
         return this.gradients[index];
-    }
-
-    formatContentDate(date: any): string {
-        if (!date) return '';
-        const dateObj = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-        return dateObj.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    }
-
-    getReadTime(content: IContents): number {
-        return content.readTime || calculateReadingTime(content.content);
-    }
-
-    getExcerpt(content: IContents): string {
-        const text = content.metaDescription || content.content || '';
-        const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        // 25 words, like a published card (functions/src/shared/content-cards.ts).
-        const words = cleanText.split(' ').slice(0, 25);
-        return words.length >= 25 ? words.join(' ') + '...' : cleanText;
     }
 }

@@ -41,6 +41,23 @@
         setup: (script && script.getAttribute('data-setup')) || '',
     };
 
+    /**
+     * The signup panels' text in the page's language: the `signup_*` keys of
+     * strings/{lang}.json, put on the script tag by publishing. English when a key
+     * is missing, which is always the case on the default language's pages.
+     */
+    var STRINGS = (function () {
+        try { return JSON.parse((script && script.getAttribute('data-strings')) || '{}') || {}; } catch (e) { return {}; }
+    })();
+
+    /** A signup panel string, with {{ name }} placeholders filled from params. */
+    function t(key, english, params) {
+        var text = typeof STRINGS[key] === 'string' && STRINGS[key] ? STRINGS[key] : english;
+        return text.replace(/\{\{\s*(\w+)\s*\}\}/g, function (match, name) {
+            return params && params[name] !== undefined ? String(params[name]) : match;
+        });
+    }
+
     var REFERRAL_KEY = 'arc_referral';
     var REFERRAL_HOURS = 24 * 30;
     var SIGNED_IN_KEY = 'arc:signed-in';
@@ -382,8 +399,8 @@
                 form.style.position = 'relative';
                 form.insertAdjacentHTML('beforeend', '<div class="waitlist-disabled-overlay" style="position:absolute;inset:0;background:rgba(255,255,255,.95);display:flex;align-items:center;justify-content:center;z-index:10;border-radius:12px;">'
                     + '<div style="text-align:center;padding:30px;"><div style="font-size:3rem;margin-bottom:15px;">🔒</div>'
-                    + '<h3 style="color:#1a202c;margin:0 0 10px;font-size:1.5rem;font-weight:700;">Waitlist Closed</h3>'
-                    + '<p style="color:#64748b;margin:0;line-height:1.5;">' + escapeHtml(waitlist.disabledMessage || 'This waitlist is currently full. Please check back later for updates.') + '</p></div></div>');
+                    + '<h3 style="color:#1a202c;margin:0 0 10px;font-size:1.5rem;font-weight:700;">' + escapeHtml(t('signup_closed_title', 'Waitlist Closed')) + '</h3>'
+                    + '<p style="color:#64748b;margin:0;line-height:1.5;">' + escapeHtml(waitlist.disabledMessage || t('signup_closed_body', 'This waitlist is currently full. Please check back later for updates.')) + '</p></div></div>');
                 state.closed = true;
             }
             state.otpEnabled = waitlist.otpEnabled !== false;
@@ -400,12 +417,12 @@
         var emailInput = form.querySelector('[data-waitlist-email], [name="email"]');
         var nameInput = form.querySelector('[data-waitlist-name], [name="firstName"], [name="name"]');
         var sourceInput = form.querySelector('[data-waitlist-source], [name="source"]');
-        if (!emailInput || !emailInput.value.trim()) return showError(form, state, 'Email is required');
+        if (!emailInput || !emailInput.value.trim()) return showError(form, state, t('signup_email_required', 'Email is required'));
 
         state.email = emailInput.value.trim().toLowerCase();
         state.firstName = (nameInput && nameInput.value.trim()) || firstNameFrom(state.email);
         var source = (sourceInput && sourceInput.value) || 'direct';
-        loading(form, 'Signing you up...');
+        loading(form, t('signup_loading', 'Signing you up...'));
 
         call('joinForm', {
             waitlistId: state.waitlistId,
@@ -431,13 +448,13 @@
             state.step = 'verify';
             showVerify(form, state);
         }).catch(function (error) {
-            showError(form, state, (error && error.message) || 'Failed to sign up. Please try again.');
+            showError(form, state, (error && error.message) || t('signup_failed', 'Failed to sign up. Please try again.'));
         });
     }
 
     /** Completes a signup whose code was checked, or that needed none. */
     function confirm(form, state, referredBy) {
-        loading(form, 'Verifying...');
+        loading(form, t('signup_verifying', 'Verifying...'));
         return call('finalizeFormSignup', { waitlistId: state.waitlistId, userId: state.memberId, referredBy: referredBy || undefined })
             .then(function (finalized) {
                 state.queuePosition = finalized.queuePosition;
@@ -457,65 +474,65 @@
                 else showSuccess(form, state);
             })
             .catch(function (error) {
-                showError(form, state, (error && error.message) || 'Verification failed. Please try again.');
+                showError(form, state, (error && error.message) || t('signup_verify_failed', 'Verification failed. Please try again.'));
             });
     }
 
     function showVerify(form, state) {
         var hasReferral = !!storedReferral();
         render(form, '<div class="waitlist-verify-step" style="' + CARD + '">'
-            + '<h3 style="margin-top:0;color:#1a1a1a;font-size:24px;font-weight:700;">Check Your Email</h3>'
-            + '<p style="color:#666;line-height:1.5;font-size:15px;margin-bottom:25px;">We sent a 6-digit verification code to<br><strong style="color:#1a1a1a;">' + escapeHtml(state.email) + '</strong></p>'
+            + '<h3 style="margin-top:0;color:#1a1a1a;font-size:24px;font-weight:700;">' + escapeHtml(t('signup_check_email', 'Check Your Email')) + '</h3>'
+            + '<p style="color:#666;line-height:1.5;font-size:15px;margin-bottom:25px;">' + escapeHtml(t('signup_code_sent_to', 'We sent a 6-digit verification code to')) + '<br><strong style="color:#1a1a1a;">' + escapeHtml(state.email) + '</strong></p>'
             + '<div style="margin-bottom:15px;"><input type="text" class="waitlist-otp-input" placeholder="000000" maxlength="6" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:12px;font-size:24px;letter-spacing:8px;text-align:center;border:2px solid #ddd;border-radius:8px;box-sizing:border-box;"></div>'
-            + (hasReferral ? '' : '<div style="margin-bottom:20px;"><input type="text" class="waitlist-referral-input" placeholder="Referral code (optional)" maxlength="10" style="width:100%;padding:10px;font-size:14px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;"></div>')
+            + (hasReferral ? '' : '<div style="margin-bottom:20px;"><input type="text" class="waitlist-referral-input" placeholder="' + escapeHtml(t('signup_referral_placeholder', 'Referral code (optional)')) + '" maxlength="10" style="width:100%;padding:10px;font-size:14px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;"></div>')
             + '<div class="waitlist-inline-message" style="margin-bottom:15px;color:#d93025;font-size:13px;min-height:18px;"></div>'
-            + '<button type="button" class="waitlist-verify-btn" style="' + BUTTON + '">Verify Email</button>'
+            + '<button type="button" class="waitlist-verify-btn" style="' + BUTTON + '">' + escapeHtml(t('signup_verify_button', 'Verify Email')) + '</button>'
             + '<div style="margin-top:20px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:10px;">'
-            + '<button type="button" class="waitlist-resend-btn" style="' + LINK + 'color:#007bff;text-decoration:underline;">Resend code</button><span style="color:#ccc;">|</span>'
-            + '<button type="button" class="waitlist-back-btn" style="' + LINK + 'color:#666;">Change email</button></div></div>');
+            + '<button type="button" class="waitlist-resend-btn" style="' + LINK + 'color:#007bff;text-decoration:underline;">' + escapeHtml(t('signup_resend', 'Resend code')) + '</button><span style="color:#ccc;">|</span>'
+            + '<button type="button" class="waitlist-back-btn" style="' + LINK + 'color:#666;">' + escapeHtml(t('signup_change_email', 'Change email')) + '</button></div></div>');
 
         var otp = form.querySelector('.waitlist-otp-input');
         form.querySelector('.waitlist-verify-btn').addEventListener('click', function () {
             var code = (otp.value || '').trim();
-            if (!/^\d{6}$/.test(code)) return inline(form, 'Please enter a 6-digit code');
+            if (!/^\d{6}$/.test(code)) return inline(form, t('signup_code_format', 'Please enter a 6-digit code'));
             var referralInput = form.querySelector('.waitlist-referral-input');
             var referredBy = (referralInput && referralInput.value.trim()) || storedReferral();
-            loading(form, 'Verifying...');
+            loading(form, t('signup_verifying', 'Verifying...'));
             call('verifyFormOtp', { waitlistId: state.waitlistId, email: state.email, code: code }).then(function (result) {
-                if (!result || !result.verified) throw new Error('Invalid or expired code');
+                if (!result || !result.verified) throw new Error(t('signup_code_invalid', 'Invalid or expired code'));
                 return confirm(form, state, referredBy);
             }).catch(function (error) {
                 showVerify(form, state);
-                inline(form, (error && error.message) || 'Invalid verification code');
+                inline(form, (error && error.message) || t('signup_code_invalid', 'Invalid or expired code'));
             });
         });
         form.querySelector('.waitlist-resend-btn').addEventListener('click', function () {
             call('requestFormOtp', { waitlistId: state.waitlistId, email: state.email, name: state.firstName })
-                .then(function () { inline(form, 'New code sent to your email!', true); })
-                .catch(function (error) { inline(form, (error && error.message) || 'Failed to resend code'); });
+                .then(function () { inline(form, t('signup_code_resent', 'New code sent to your email!'), true); })
+                .catch(function (error) { inline(form, (error && error.message) || t('signup_resend_failed', 'Failed to resend code')); });
         });
         form.querySelector('.waitlist-back-btn').addEventListener('click', function () { reset(form, state); });
         if (otp) otp.focus();
     }
 
     function copyRow(label, value) {
-        return '<div style="margin-bottom:15px;"><label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:#444;">' + label + '</label>'
+        return '<div style="margin-bottom:15px;"><label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:#444;">' + escapeHtml(label) + '</label>'
             + '<div style="display:flex;gap:8px;"><input type="text" readonly value="' + escapeHtml(value) + '" class="waitlist-copy-input" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-family:monospace;font-size:14px;">'
-            + '<button type="button" class="waitlist-copy-btn" data-copy="' + escapeHtml(value) + '" style="padding:10px 16px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">📋 Copy</button></div></div>';
+            + '<button type="button" class="waitlist-copy-btn" data-copy="' + escapeHtml(value) + '" style="padding:10px 16px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">📋 ' + escapeHtml(t('signup_copy', 'Copy')) + '</button></div></div>';
     }
 
     function showSuccess(form, state) {
         render(form, '<div class="waitlist-success-step" style="' + CARD + 'max-width:550px;border-radius:16px;">'
             + '<div style="width:60px;height:60px;background-color:#4BB543;color:#fff;border-radius:50%;font-size:30px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;">✓</div>'
-            + '<h3 style="margin:0 0 25px;font-size:24px;color:#1a1a1a;">You\'re on the list!</h3>'
+            + '<h3 style="margin:0 0 25px;font-size:24px;color:#1a1a1a;">' + escapeHtml(t('signup_on_list', 'You\'re on the list!')) + '</h3>'
             + '<div style="display:flex;justify-content:space-around;background:#f8f9fa;padding:20px;border-radius:12px;margin-bottom:30px;">'
-            + '<div style="flex:1;"><div class="waitlist-stat-number" style="' + STAT + '">#' + escapeHtml(state.queuePosition || 1) + '</div><div style="' + STAT_LABEL + '">Your Position</div></div>'
-            + '<div style="flex:1;border-left:1px solid #e0e0e0;"><div class="waitlist-stat-number" style="' + STAT + '">' + escapeHtml(state.totalSignups || 1) + '</div><div style="' + STAT_LABEL + '">Total Signups</div></div></div>'
+            + '<div style="flex:1;"><div class="waitlist-stat-number" style="' + STAT + '">#' + escapeHtml(state.queuePosition || 1) + '</div><div style="' + STAT_LABEL + '">' + escapeHtml(t('signup_position', 'Your Position')) + '</div></div>'
+            + '<div style="flex:1;border-left:1px solid #e0e0e0;"><div class="waitlist-stat-number" style="' + STAT + '">' + escapeHtml(state.totalSignups || 1) + '</div><div style="' + STAT_LABEL + '">' + escapeHtml(t('signup_total', 'Total Signups')) + '</div></div></div>'
             + '<div style="border-top:1px solid #eee;padding-top:25px;text-align:left;">'
-            + '<h4 style="margin:0 0 8px;font-size:18px;text-align:center;">🚀 Move up faster!</h4>'
-            + '<p style="margin:0 0 20px;font-size:14px;color:#666;text-align:center;">Each verified referral moves you up in the queue.</p>'
-            + copyRow('Your Referral Code:', state.referralCode || '') + copyRow('Share this link:', state.referralLink || '') + '</div>'
-            + '<a href="/leaderboard/' + encodeURIComponent(state.waitlistId) + '/' + encodeURIComponent(state.waitlistedUserId || '') + '" class="waitlist-leaderboard-btn" style="display:block;text-decoration:none;padding:14px;background-color:#f0f4ff;color:#2563eb;border-radius:10px;font-weight:600;font-size:15px;">🏆 View Leaderboard</a></div>');
+            + '<h4 style="margin:0 0 8px;font-size:18px;text-align:center;">🚀 ' + escapeHtml(t('signup_move_up', 'Move up faster!')) + '</h4>'
+            + '<p style="margin:0 0 20px;font-size:14px;color:#666;text-align:center;">' + escapeHtml(t('signup_move_up_body', 'Each verified referral moves you up in the queue.')) + '</p>'
+            + copyRow(t('signup_referral_code', 'Your Referral Code:'), state.referralCode || '') + copyRow(t('signup_share_link', 'Share this link:'), state.referralLink || '') + '</div>'
+            + '<a href="/leaderboard/' + encodeURIComponent(state.waitlistId) + '/' + encodeURIComponent(state.waitlistedUserId || '') + '" class="waitlist-leaderboard-btn" style="display:block;text-decoration:none;padding:14px;background-color:#f0f4ff;color:#2563eb;border-radius:10px;font-weight:600;font-size:15px;">🏆 ' + escapeHtml(t('signup_leaderboard', 'View Leaderboard')) + '</a></div>');
         bindCopyButtons(form);
     }
 
@@ -523,19 +540,19 @@
     function showExisting(form, state) {
         render(form, '<div class="waitlist-existing-step" style="' + CARD + 'max-width:450px;border-radius:16px;">'
             + '<div style="width:60px;height:60px;background-color:#2563eb;color:#fff;border-radius:50%;font-size:30px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-style:italic;font-family:serif;">i</div>'
-            + '<h3 style="margin:0 0 10px;font-size:24px;color:#1a1a1a;">Welcome back' + (state.firstName ? ', ' + escapeHtml(state.firstName) : '') + '!</h3>'
-            + '<p style="margin:0 0 25px;font-size:16px;color:#666;">You\'re already on the waitlist.</p>'
+            + '<h3 style="margin:0 0 10px;font-size:24px;color:#1a1a1a;">' + escapeHtml(state.firstName ? t('signup_welcome_back_name', 'Welcome back, {{ name }}!', { name: state.firstName }) : t('signup_welcome_back', 'Welcome back!')) + '</h3>'
+            + '<p style="margin:0 0 25px;font-size:16px;color:#666;">' + escapeHtml(t('signup_already', 'You\'re already on the waitlist.')) + '</p>'
             + '<div style="display:flex;justify-content:space-around;background:#f8f9fa;padding:20px;border-radius:12px;margin-bottom:30px;">'
             + '<div style="flex:1;"><div class="waitlist-stat-number" style="' + STAT + '">#' + escapeHtml(state.queuePosition || 1) + '</div><div style="' + STAT_LABEL + '">Your Position</div></div></div>'
-            + '<div style="text-align:left;">' + copyRow('Your Referral Code:', state.referralCode || '') + copyRow('Share this link:', state.referralLink || '') + '</div>'
-            + '<a href="/leaderboard/' + encodeURIComponent(state.waitlistId) + '/' + encodeURIComponent(state.waitlistedUserId || '') + '" class="waitlist-leaderboard-btn" style="display:block;text-decoration:none;padding:14px;background-color:#f0f4ff;color:#2563eb;border-radius:10px;font-weight:600;font-size:15px;">🏆 View Leaderboard</a></div>');
+            + '<div style="text-align:left;">' + copyRow(t('signup_referral_code', 'Your Referral Code:'), state.referralCode || '') + copyRow(t('signup_share_link', 'Share this link:'), state.referralLink || '') + '</div>'
+            + '<a href="/leaderboard/' + encodeURIComponent(state.waitlistId) + '/' + encodeURIComponent(state.waitlistedUserId || '') + '" class="waitlist-leaderboard-btn" style="display:block;text-decoration:none;padding:14px;background-color:#f0f4ff;color:#2563eb;border-radius:10px;font-weight:600;font-size:15px;">🏆 ' + escapeHtml(t('signup_leaderboard', 'View Leaderboard')) + '</a></div>');
         bindCopyButtons(form);
     }
 
     function bindCopyButtons(form) {
         Array.prototype.forEach.call(form.querySelectorAll('.waitlist-copy-btn'), function (btn) {
             btn.addEventListener('click', function () {
-                var done = function () { var t = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(function () { btn.textContent = t; }, 2000); };
+                var done = function () { var before = btn.textContent; btn.textContent = '✓ ' + t('signup_copied', 'Copied!'); setTimeout(function () { btn.textContent = before; }, 2000); };
                 if (navigator.clipboard) navigator.clipboard.writeText(btn.getAttribute('data-copy') || '').then(done, function () {});
             });
         });
@@ -545,9 +562,9 @@
         state.step = 'error';
         render(form, '<div class="waitlist-error-step" style="padding:20px;border-radius:12px;background:#fffafb;border:1px solid #f8d7da;text-align:center;font-family:sans-serif;">'
             + '<div style="font-size:48px;color:#dc3545;margin-bottom:15px;line-height:1;">⚠</div>'
-            + '<h3 style="margin:0 0 10px;color:#721c24;font-size:22px;font-weight:700;">Something went wrong</h3>'
+            + '<h3 style="margin:0 0 10px;color:#721c24;font-size:22px;font-weight:700;">' + escapeHtml(t('signup_error_title', 'Something went wrong')) + '</h3>'
             + '<p class="waitlist-error-text" style="margin:0 0 25px;color:#842029;font-size:15px;line-height:1.5;">' + escapeHtml(message) + '</p>'
-            + '<button type="button" class="waitlist-retry-btn" style="padding:12px 24px;background-color:#dc3545;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">Try Again</button></div>');
+            + '<button type="button" class="waitlist-retry-btn" style="padding:12px 24px;background-color:#dc3545;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">' + escapeHtml(t('signup_try_again', 'Try Again')) + '</button></div>');
         form.querySelector('.waitlist-retry-btn').addEventListener('click', function () { reset(form, state); });
     }
 

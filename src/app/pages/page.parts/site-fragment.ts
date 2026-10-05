@@ -14,7 +14,10 @@
  * - links to pages that exist in every language pointed at the page's language
  *   (`/articles` becomes `/hi/articles` on a Hindi page; `/signup` stays);
  * - the Arc CMS elements in the HTML, such as `<arc-search>` and
- *   `<arc-language-switcher>`, become the real components.
+ *   `<arc-language-switcher>`, become the real components;
+ * - its scripts run, as on a published page. An inline script runs again each
+ *   time the fragment is drawn again (for the page's language), so it binds to
+ *   the elements it finds; a script file is loaded once.
  *
  * It renders again when the page's language or its strings change.
  */
@@ -41,6 +44,20 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
     const environmentInjector = inject(EnvironmentInjector);
     const elementInjector = inject(Injector);
     let mounted: ComponentRef<unknown>[] = [];
+    const loadedScripts = new Set<string>();
+
+    /** Runs the fragment's scripts, which innerHTML leaves inert. */
+    const runScripts = () => {
+        host.querySelectorAll('script').forEach((inert) => {
+            const src = inert.getAttribute('src');
+            if (src && loadedScripts.has(src)) return;
+            if (src) loadedScripts.add(src);
+            const script = document.createElement('script');
+            Array.from(inert.attributes).forEach((attr) => script.setAttribute(attr.name, attr.value));
+            script.textContent = inert.textContent;
+            inert.replaceWith(script);
+        });
+    };
 
     const unmount = () => {
         for (const ref of mounted) {
@@ -67,6 +84,7 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
                 mounted.push(ref);
             });
         }
+        runScripts();
     };
 
     // Rendered at once, then again whenever the page's language, its strings or

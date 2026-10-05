@@ -30,7 +30,7 @@
     <table>
       <thead><tr><th>Renderer</th><th>When</th><th>Where the template comes from</th></tr></thead>
       <tbody>
-        <tr><td>Publishing (Cloud Functions)</td><td>On publish, on <strong>Republish website</strong>, and on the seed. Writes the static pages Hosting serves.</td><td>The same file, read from the live site at <code>/_site/templates/</code> and kept for about five minutes. A folder the live site does not have, or a file of it that is not a template, stops the publish with a message (see Troubleshooting). When the live site cannot give the default folder's file (hosting off, not deployed since <code>/_site/</code> existed, or the file is not a template), the copy of Arc CMS's default templates built into the functions is used.</td></tr>
+        <tr><td>Publishing (Cloud Functions)</td><td>On publish, on <strong>Republish website</strong>, and on the seed. Writes the static pages Hosting serves.</td><td>The same file, read from the live site at <code>/_site/templates/</code> and kept until a deploy changes it (the functions check <code>/_site/site.json</code>, which holds a hash of every file, at most every 10 seconds). A folder the live site does not have, or a file of it that is not a template, stops the publish with a message (see Troubleshooting). When the live site cannot give the default folder's file (hosting off, not deployed since <code>/_site/</code> existed, or the file is not a template), the copy of Arc CMS's default templates built into the functions is used.</td></tr>
         <tr><td>The app (browser)</td><td>For pages not yet on Hosting, previews, and local runs</td><td>The file served by the app at <code>/_site/templates/</code>, the same one publishing reads once deployed. A folder the site does not have, or a list or detail file that is not a template, falls back to the default folder's. A <code>partials.html</code> that is not a template shows nothing, and a default folder file of your own that is not a template leaves the page loading.</td></tr>
       </tbody>
     </table>
@@ -48,7 +48,7 @@
         <pre><code>npm run seed:dev</code></pre>
         <p>For production: <code>npm run seed:prod</code>. The full <code>npm run deploy:dev</code> and <code>npm run deploy:prod</code> run the seed at their end. <strong>Republish website</strong> in <strong>Content &gt; Content types</strong> also rebuilds every page.</p></li>
     </ol>
-    <div class="trap"><p>Publishing reads the template from the <strong>live</strong> Hosting site, not from your working copy, and the functions keep each live file for about five minutes. A template you changed locally shows in the app at once, but published pages keep the old one until Hosting is deployed and the pages are rebuilt. Publishing or <strong>Republish website</strong> in the first five minutes after a deploy can still use the old file; the seed always reads the files fresh.</p></div>
+    <div class="trap"><p>Publishing reads the template from the <strong>live</strong> Hosting site, not from your working copy. A template you changed locally shows in the app at once, but published pages keep the old one until Hosting is deployed and the pages are rebuilt. Publishing sees a deploy within about 10 seconds.</p></div>
     <div class="note"><p>To change the default look for every type without a folder, put your file at <code class="new">src/custom/site/templates/default/detail.html</code> (or <code>list.html</code>, <code>partials.html</code>). Never edit <code>public/_site/templates/</code>: those are core files.</p></div>
 
     <h2>Use it</h2>
@@ -58,7 +58,7 @@
       <thead><tr><th>Syntax</th><th>Does</th></tr></thead>
       <tbody>
         <tr><td><code>{{ key }}</code></td><td>Inserts a value as text, in text or in any attribute (<code>href="/{{ contentTypeSlug }}"</code>). Dots reach inside objects (<code>{{ author.name }}</code>) and lists (<code>{{ tags.0 }}</code>). A missing value prints nothing. See <a href="#syntax-details">Syntax details</a>.</td></tr>
-        <tr><td><code>data-arc-bind="key"</code></td><td>Fills the element. On <code>&lt;img&gt;</code> it sets <code>src</code>, and <code>alt</code> to the data's <code>title</code> when there is one (replacing the <code>alt</code> you wrote). On <code>&lt;iframe&gt;</code> it sets <code>src</code>, on <code>&lt;a&gt;</code> <code>href</code> (the link text stays), on <code>&lt;input&gt;</code>, <code>&lt;textarea&gt;</code> and <code>&lt;select&gt;</code> the value. On <code>&lt;time&gt;</code>, <code>datetime</code> gets the value as it is and the text becomes a long English date such as "January 5, 2026" (a value that is not a date is printed as it is). Any other element gets the value as its content: a value that looks like HTML is kept as HTML, anything else is text. With no value, the element keeps what you wrote.</td></tr>
+        <tr><td><code>data-arc-bind="key"</code></td><td>Fills the element. On <code>&lt;img&gt;</code> it sets <code>src</code>, and <code>alt</code> to the data's <code>title</code> when there is one (replacing the <code>alt</code> you wrote). On <code>&lt;iframe&gt;</code> it sets <code>src</code>, on <code>&lt;a&gt;</code> <code>href</code> (the link text stays), on <code>&lt;input&gt;</code>, <code>&lt;textarea&gt;</code> and <code>&lt;select&gt;</code> the value. On <code>&lt;time&gt;</code>, <code>datetime</code> gets the value as it is and the text becomes a long date in the page's language, such as "January 5, 2026" (English in the app) (a value that is not a date is printed as it is). Any other element gets the value as its content: a value that looks like HTML is kept as HTML, anything else is text. With no value, the element keeps what you wrote.</td></tr>
         <tr><td><code>[innerHTML]="key"</code></td><td>Sets the element's HTML (used for the body: <code>[innerHTML]="content"</code>). Reads top-level keys only: <code>[innerHTML]="author.bio"</code> does not work. With no value, the element keeps what you wrote.</td></tr>
         <tr><td><code>[attr]="key"</code></td><td>Sets any attribute from a value: <code>[src]</code>, <code>[href]</code>, <code>[title]</code>, <code>[data-id]</code>. Dots work. With no value, the attribute is not added.</td></tr>
         <tr><td><code>data-arc-if="key"</code></td><td>Removes the element when the value is missing, empty, <code>0</code> or <code>false</code>. Dots work (<code>data-arc-if="author.name"</code>).</td></tr>
@@ -98,13 +98,13 @@
       <tbody>
         <tr><td><code>&lt;arc-header&gt;&lt;/arc-header&gt;</code></td><td>Replaced with the site header, where the tag is</td><td>The app draws the header at the top of the page, wherever the tag is</td></tr>
         <tr><td><code>&lt;arc-footer&gt;&lt;/arc-footer&gt;</code></td><td>Replaced with the site footer, where the tag is</td><td>The app draws the footer at the bottom of the page</td></tr>
-        <tr><td><code>&lt;arc-search&gt;&lt;/arc-search&gt;</code></td><td>Replaced with the search box (see <a href="search.html">Search</a>) anywhere in the page; removed when there is none</td><td>In a template, works only inside the header</td></tr>
-        <tr><td><code>&lt;arc-language-switcher&gt;&lt;/arc-language-switcher&gt;</code></td><td>Replaced with links to the page's other languages. Removed when the page exists in fewer than two languages: a detail page exists in the languages it is translated into, a list page in every enabled language.</td><td>In a template, works only inside the header</td></tr>
+        <tr><td><code>&lt;arc-search&gt;&lt;/arc-search&gt;</code></td><td>Replaced with the search box (see <a href="search.html">Search</a>) anywhere in the page; removed when there is none</td><td>Works in the header and the footer; does nothing in a template</td></tr>
+        <tr><td><code>&lt;arc-language-switcher&gt;&lt;/arc-language-switcher&gt;</code></td><td>Replaced with links to the page's other languages. Removed when the page exists in fewer than two languages: a detail page exists in the languages it is translated into, a list page in every enabled language.</td><td>Works in the header and the footer; does nothing in a template</td></tr>
         <tr><td><code>&lt;arc-content-partials&gt;</code></td><td>Filled with cards on the home page (see <a href="#partials">Partials</a>); removed from content pages</td><td>Filled on the home page; does nothing in a template</td></tr>
         <tr><td><code>&lt;arc-admin-edit-button&gt;</code></td><td>An old tag, always removed</td><td>Does nothing</td></tr>
       </tbody>
     </table>
-    <p>Put <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code> in <code>list.html</code> and <code>detail.html</code>, never in <code>partials.html</code>. Keep the search box and language switcher in the header, so they work in the app too.</p>
+    <p>Put <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code> in <code>list.html</code> and <code>detail.html</code>, never in <code>partials.html</code>. Keep the search box and language switcher in the header or footer, so they work in the app too.</p>
 
     <h3>Detail page bindings</h3>
     <p>Everything <code>detail.html</code> can use outside a loop. Every other field saved on the entry is there too, under its own name.</p>
@@ -117,11 +117,11 @@
         <tr><td><code>coverImage</code></td><td>URL</td><td>https://…/cover.jpg</td><td>Plus <code>coverImage_s</code> to <code>coverImage_xl</code> (see <a href="#image-sizes">Image sizes</a>)</td></tr>
         <tr><td><code>metaDescription</code>, <code>seoTitle</code>, <code>canonicalUrl</code></td><td>Text</td><td>Ten tips for…</td><td>The SEO fields as entered</td></tr>
         <tr><td><code>content</code></td><td>HTML</td><td>&lt;p&gt;…&lt;/p&gt;</td><td>The body. Bind with <code>[innerHTML]="content"</code>.</td></tr>
-        <tr><td><code>publishedOn</code>, <code>date</code></td><td>Text</td><td>January 5, 2026</td><td>A long date in the page's language. App: always English.</td></tr>
+        <tr><td><code>publishedOn</code>, <code>date</code></td><td>Text</td><td>January 5, 2026</td><td>A long date in the page's language</td></tr>
         <tr><td><code>updatedOn</code>, <code>updatedOnDisplay</code></td><td>Text</td><td>February 2, 2026</td><td>The revision date, empty unless the editor marked a revision after publishing</td></tr>
         <tr><td><code>readTime</code></td><td>Number</td><td>5</td><td>Minutes to read</td></tr>
-        <tr><td><code>readingTime</code></td><td>Text</td><td>5 min read</td><td>Always English, also on translated pages. For a translated line, write <code>&lt;span data-arc-t="min_read"&gt;{{ readTime }} min read&lt;/span&gt;</code>.</td></tr>
-        <tr><td><code>contentType</code>, <code>cat</code></td><td>Text</td><td>Articles</td><td>The type's name in the page's language. App: the default language's name.</td></tr>
+        <tr><td><code>readingTime</code></td><td>Text</td><td>5 min read</td><td>On a translated page, the <code>min_read</code> string with <code>{{ readTime }}</code> filled in; English when that string is missing.</td></tr>
+        <tr><td><code>contentType</code>, <code>cat</code></td><td>Text</td><td>Articles</td><td>The type's name in the page's language</td></tr>
         <tr><td><code>contentTypeSlug</code></td><td>Text</td><td>articles</td><td></td></tr>
         <tr><td><code>author.name</code>, <code>author.bio</code>, <code>author.photoUrl</code>, <code>author.jobTitle</code>, <code>author.url</code></td><td>Text, URL</td><td>Asha Rao</td><td>From the author's profile (see <a href="authors-and-tags.html">Authors and tags</a>). All empty when there is no profile: no author, or a deleted one. Show the author box with <code>data-arc-if="author.name"</code>.</td></tr>
         <tr><td><code>authorName</code></td><td>Text</td><td>Asha Rao</td><td>The profile's name; without a profile, the name stored on the entry, so a byline survives a deleted author</td></tr>
@@ -131,7 +131,7 @@
         <tr><td><code>nextContent.url</code>, <code>previousContent.url</code></td><td>Text</td><td>/articles/part-two</td><td>App only: empty on a published page (see the warning below)</td></tr>
         <tr><td><code>hasReferences</code>, <code>hasRelated</code></td><td>Flag</td><td>true</td><td>For <code>data-arc-if</code> around the sources and related blocks</td></tr>
         <tr><td><code>references</code>, <code>related</code></td><td>List</td><td></td><td>The rows of the loops below. Always set, so test the flags instead.</td></tr>
-        <tr><td><code>lang</code>, <code>langPrefix</code></td><td>Text</td><td>hi, /hi</td><td>The page's language and its URL prefix (empty for the default language). Published pages only: empty in the app.</td></tr>
+        <tr><td><code>lang</code>, <code>langPrefix</code></td><td>Text</td><td>hi, /hi</td><td>The page's language and its URL prefix (empty for the default language)</td></tr>
         <tr><td>A custom field's key</td><td>Depends on the field</td><td>events-price, price</td><td>By its stored key and by its short key (see <a href="#custom-field-bindings">Custom field bindings</a>)</td></tr>
         <tr><td><code>ref_{key}</code></td><td>Object</td><td><code>{{ ref_events-venue.title }}</code></td><td>A collection reference field, by its stored key: the chosen entry's id and the fields copied with it (see <a href="content.html">Content</a>)</td></tr>
       </tbody>
@@ -156,7 +156,7 @@
         <tr><td><code>contentType</code></td><td>Text</td><td>Articles</td><td>The type's name, in the page's language</td></tr>
         <tr><td><code>contentTypeSlug</code></td><td>Text</td><td>articles</td><td></td></tr>
         <tr><td><code>contentTypeDescription</code>, <code>description</code></td><td>Text</td><td>Notes from the team</td><td>The type's description, in the page's language</td></tr>
-        <tr><td><code>lang</code>, <code>langPrefix</code></td><td>Text</td><td>hi, /hi</td><td>Published pages only: empty in the app</td></tr>
+        <tr><td><code>lang</code>, <code>langPrefix</code></td><td>Text</td><td>hi, /hi</td><td>The page's language and its URL prefix</td></tr>
       </tbody>
     </table>
     <p id="card-bindings">Inside <code>data-arc-loop="items"</code>, one row per published entry, newest first, at most the 100 newest. A list's rows and a partial's cards have the same bindings:</p>
@@ -164,18 +164,18 @@
       <thead><tr><th>Binding</th><th>Type</th><th>Example</th><th>Notes</th></tr></thead>
       <tbody>
         <tr><td><code>title</code>, <code>urlSlug</code>, <code>id</code></td><td>Text</td><td>My first post</td><td>The entry's title, slug and document id</td></tr>
-        <tr><td><code>url</code></td><td>Text</td><td>/articles/my-post, /hi/articles/my-post</td><td>Its address, in the page's language. App: on a list page, always the default language's address.</td></tr>
+        <tr><td><code>url</code></td><td>Text</td><td>/articles/my-post, /hi/articles/my-post</td><td>Its address, in the page's language</td></tr>
         <tr><td><code>coverImage</code></td><td>URL</td><td>https://…/cover.jpg</td><td>Plus its sizes (see <a href="#image-sizes">Image sizes</a>)</td></tr>
         <tr><td><code>excerpt</code></td><td>Text</td><td>Ten tips for a calmer…</td><td>The meta description, or else the body, cut to its first 25 words with "..."</td></tr>
         <tr><td><code>content</code></td><td>HTML</td><td>&lt;p&gt;…&lt;/p&gt;</td><td>The full body</td></tr>
-        <tr><td><code>publishedOn</code></td><td>Text</td><td>Jan 5, 2026</td><td>A short date in the page's language. App: always English.</td></tr>
+        <tr><td><code>publishedOn</code></td><td>Text</td><td>Jan 5, 2026</td><td>A short date in the page's language</td></tr>
         <tr><td><code>readTime</code></td><td>Number</td><td>5</td><td>Minutes to read</td></tr>
         <tr><td><code>authorName</code></td><td>Text</td><td>Asha Rao</td><td>The name stored on the entry</td></tr>
         <tr><td><code>author</code></td><td>Text</td><td>Asha Rao</td><td>The same name as text, not an object: <code>{{ author.name }}</code> is empty in a card</td></tr>
         <tr><td><code>tags</code></td><td>List</td><td></td><td>Tag objects with <code>name</code> and <code>color</code>. A loop cannot run inside a row; use the next two.</td></tr>
         <tr><td><code>tagsHtml</code></td><td>HTML</td><td>&lt;span class="tag-pill"…&gt;</td><td>The first three tags as colored pills. Bind with <code>data-arc-bind="tagsHtml"</code>: <code>{{ tagsHtml }}</code> would print the markup as text.</td></tr>
         <tr><td><code>tagsDisplay</code></td><td>Text</td><td>News, Tips, Guides</td><td>The first three tag names</td></tr>
-        <tr><td><code>contentType</code>, <code>cat</code></td><td>Text</td><td>Articles</td><td>The type's name in the page's language. App: on a list page, the default language's name.</td></tr>
+        <tr><td><code>contentType</code>, <code>cat</code></td><td>Text</td><td>Articles</td><td>The type's name in the page's language</td></tr>
         <tr><td><code>contentTypeSlug</code></td><td>Text</td><td>articles</td><td></td></tr>
         <tr><td>A custom field's key</td><td>Depends on the field</td><td>events-price, price</td><td>By stored key and short key, with the derived keys below. A repeating field cannot be looped inside a row.</td></tr>
       </tbody>
@@ -212,7 +212,7 @@
     <pre><code>&lt;img src="{{ coverImage_m }}"
      srcset="{{ coverImage_s }} 300w, {{ coverImage_m }} 600w, {{ coverImage_l }} 900w, {{ coverImage_xl }} 1200w"
      sizes="(max-width: 600px) 100vw, 600px" alt="{{ title }}"&gt;</code></pre>
-    <p>The widths above are for the default maximum of 1200px. Unsplash photos get the sizes from Unsplash; an image pasted from elsewhere gets none.</p>
+    <p>The widths above are for the default maximum of 1200px; they follow the maximum set in <strong>Settings</strong>, <strong>Misc</strong>. Unsplash photos are resized by Unsplash to the same limits; an image pasted from elsewhere gets none.</p>
 
     <h3 id="partials">Partials</h3>
     <p><code>partials.html</code> renders a block of cards (such as "Latest articles") on the home page, where it is written as an element:</p>
@@ -222,7 +222,7 @@
       <tbody>
         <tr><td><code>content-type</code></td><td>The type's slug. Required: with no type, an unknown one, or a type whose public pages are off, the element is removed.</td><td><code>articles</code> when left out</td></tr>
         <tr><td><code>count</code></td><td>How many cards, a whole number from 1 to 50 (a larger number gives 50). Default <code>4</code>, also for <code>0</code> or text that is not a number.</td><td>Default <code>4</code>, from the 50 newest entries</td></tr>
-        <tr><td><code>section-title</code></td><td>The heading, bound as <code>sectionTitle</code>. Default "Latest {type name}", always with the English word "Latest".</td><td>The same</td></tr>
+        <tr><td><code>section-title</code></td><td>The heading, bound as <code>sectionTitle</code>. Default "Latest {type name}", or the page's <code>latest_of_type</code> string, such as <code>"नवीनतम {{ contentType }}"</code>.</td><td>The same</td></tr>
         <tr><td><code>template-folder</code></td><td>Another folder's <code>partials.html</code>. Default: the type's folder, else the default folder. A folder the live site does not have stops the home page's publish.</td><td>The same. A file that is not a template shows nothing.</td></tr>
       </tbody>
     </table>
@@ -234,16 +234,16 @@
         <tr><td><code>listUrl</code></td><td>Text</td><td>/articles, /hi/articles</td><td>The type's list page, in the page's language</td></tr>
         <tr><td><code>hasItems</code></td><td>Flag</td><td>true</td><td><code>data-arc-if="hasItems"</code> hides the block when the type has nothing published</td></tr>
         <tr><td><code>contentType</code>, <code>contentTypeSlug</code>, <code>contentTypeDescription</code></td><td>Text</td><td>Articles</td><td>As on a list page</td></tr>
-        <tr><td><code>lang</code>, <code>langPrefix</code></td><td>Text</td><td>hi, /hi</td><td>Published pages only: empty in the app</td></tr>
+        <tr><td><code>lang</code>, <code>langPrefix</code></td><td>Text</td><td>hi, /hi</td><td>The page's language and its URL prefix</td></tr>
       </tbody>
     </table>
-    <p>Inside <code>data-arc-loop="items"</code>, each card has the <a href="#card-bindings">list item bindings</a>, newest first, with <code>url</code> in the page's language in the app too. A published card shows its translation on a translated home page; the app shows partials in the default language. A type without a <code>partials.html</code> of its own uses the default folder's cards. A partial's <code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> stay where they are in the home page; in the app, a partial's scripts do not run. The element works on the home page only; publishing removes it from content pages.</p>
+    <p>Inside <code>data-arc-loop="items"</code>, each card has the <a href="#card-bindings">list item bindings</a>, newest first. A card shows its translation on a translated home page, in the app too. A type without a <code>partials.html</code> of its own uses the default folder's cards. A partial's <code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> stay where they are in the home page; in the app they run once, after the cards are first drawn. The element works on the home page only; publishing removes it from content pages.</p>
 
     <h3>Header, footer and styles</h3>
     <table>
       <thead><tr><th>What</th><th>Edit</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td>Header and footer</td><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code> (else Arc CMS's <code>public/_site/header.html</code>, <code>public/_site/footer.html</code>)</td><td>Plain HTML: no <code>{{ }}</code> or other bindings, only <code>data-arc-t</code>. The app renders them as they are, filling <code>data-arc-t</code> and the language of links; only the header turns <code>&lt;arc-search&gt;</code> and <code>&lt;arc-language-switcher&gt;</code> into the search box and the language links. Scripts in the header and footer never run in the app; on a published page they do. Publishing reads the same files from the live Hosting site at <code>/_site/</code>.</td></tr>
+        <tr><td>Header and footer</td><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code> (else Arc CMS's <code>public/_site/header.html</code>, <code>public/_site/footer.html</code>)</td><td>Plain HTML: no <code>{{ }}</code> or other bindings, only <code>data-arc-t</code>. The app renders them as they are, filling <code>data-arc-t</code> and the language of links; both turn <code>&lt;arc-search&gt;</code> and <code>&lt;arc-language-switcher&gt;</code> into the search box and the language links. Their scripts run in the app too, each time they are drawn (again when the page's language arrives), so a script binds to the elements it finds; a script file is loaded once. Publishing reads the same files from the live Hosting site at <code>/_site/</code>.</td></tr>
         <tr><td>Site stylesheets</td><td><code class="new">src/custom/site/site.css</code>, served as <code>/assets/css/site.css</code></td><td>Loaded on the website's pages and the sign-in page, never in the admin or member area. Published pages link every URL in <code>cssUrls</code> of <code>Settings/site</code> (by default Bootstrap 5, Font Awesome 6.5.1 and <code>/assets/css/main.css</code>, Arc CMS's own styles, a core file), then <code>/assets/css/site.css</code>, both stylesheets with a version that changes with the file. There is no admin screen for the list; change it in the Firestore console. The app always loads Bootstrap and Font Awesome, whatever the list says.</td></tr>
         <tr><td>The site's own files</td><td><code class="new">src/custom/site/assets/</code>, served at <code>/site/</code></td><td>Every one is listed with a hash in <code>/_site/site.json</code>. Published pages and the app's preview add it to links (<code>versionSiteUrls</code> in <code>functions/src/shared/site-urls.ts</code> and <code>src/app/core/site/site-urls.ts</code>: <code>src</code>, <code>href</code>, <code>poster</code>, <code>srcset</code>), and the build adds it to <code>url()</code> in the app's stylesheets (<code>scripts/arc-site.mjs</code>), so a changed file is never served from a year-long browser cache.</td></tr>
         <tr><td>A template's own styles and scripts</td><td><code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> in the template</td><td>On a published list or detail page, every <code>&lt;style&gt;</code> moves into the head and every <code>&lt;script&gt;</code> to the end of the body. The app runs a list or detail template's scripts once it has drawn it; it never runs a partial's.</td></tr>
@@ -280,9 +280,9 @@
         <tr><td>The folder is not in the <strong>Content Template</strong> list</td><td>The folder must sit directly in <code class="new">src/custom/site/templates/</code>, have a name of lowercase letters, digits, hyphens and underscores that starts with a letter or digit, and hold at least one of <code>partials.html</code>, <code>list.html</code>, <code>detail.html</code>. Restart <code>npm run dev</code> if it was running, or rebuild.</td></tr>
         <tr><td>Publishing fails with "Template folder 'x' is not on the live site. Deploy the website, then publish again."</td><td>The type names a folder the live site does not have yet, or its file there is not a template (a whole HTML document). The editor shows the message on the item. Deploy the website, then publish again.</td></tr>
         <tr><td>The app logs "is not a template fragment"</td><td>A file of the folder is a whole HTML document, or missing (a missing file answers with the app's own page, which is rejected). For a list or detail file the app shows the default template instead; a partial shows nothing; a default folder file of your own leaves the page loading. Make the file a fragment.</td></tr>
-        <tr><td>A binding renders empty</td><td>Check the key against the tables on this page. The admin's <strong>Template Reference</strong> on a content type's view page is not fully accurate: it lists <code>summary</code> and <code>isFeatured</code> for cards, which cards do not have, and <code>nextContent.url</code>, which published pages do not have; it offers <code>{{ key }}</code> for every custom field, which is wrong for rich text, repeating, checkbox and reference fields; and it leaves out <code>references</code>, <code>related</code>, repeating field loops and <code>langPrefix</code>. A value is also empty on a page built before the field was filled: publish again.</td></tr>
+        <tr><td>A binding renders empty</td><td>Check the key against the tables on this page. The admin's <strong>Template Reference</strong> on a content type's view page lists the same bindings by page, and the type's own fields with the snippet each needs. A binding that works on a detail page may not exist in a card (<code>summary</code>, <code>author.name</code>), and repeating fields render on detail pages only. A value is also empty on a page built before the field was filled: publish again.</td></tr>
         <tr><td>Placeholder text such as "Caption" shows on the page</td><td>An element with <code>data-arc-bind</code> whose value is missing keeps the text you wrote (in the app it shows as a grey shimmer). Loops do the opposite: they keep only the first child as the row and drop the rest. Use <code>{{ }}</code>, which prints nothing when the value is missing, or guard optional parts with <code>data-arc-if</code>.</td></tr>
-        <tr><td>Changes show locally but not on the live site</td><td>Deploy Hosting, then rebuild the pages (<code>npm run seed:dev</code> or <code>npm run seed:prod</code>). Publishing in the first five minutes after a deploy can still read the old file.</td></tr>
+        <tr><td>Changes show locally but not on the live site</td><td>Deploy Hosting, then rebuild the pages (<code>npm run seed:dev</code> or <code>npm run seed:prod</code>).</td></tr>
         <tr><td>Icons show as empty boxes</td><td>Font Awesome is not in <code>cssUrls</code>. Add it back, or bind the <code>_svg</code> form.</td></tr>
       </tbody>
     </table>

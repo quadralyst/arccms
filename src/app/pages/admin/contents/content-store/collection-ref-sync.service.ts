@@ -98,7 +98,7 @@ export class CollectionRefSyncService {
     ): Record<string, any> {
         const syncData: Record<string, any> = {
             id: sourceDocId,
-            [field.collectionRef!.displayField]: updatedData[field.collectionRef!.displayField] || updatedData['title'] || sourceDocId
+            [field.collectionRef!.displayField]: this.getValue(updatedData, field.collectionRef!.displayField) || updatedData['title'] || sourceDocId
         };
 
         for (const syncKey of field.collectionRef!.syncFields ?? []) {

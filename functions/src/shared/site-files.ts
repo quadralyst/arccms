@@ -11,7 +11,8 @@ import { DEFAULT_TEMPLATES } from '../site-defaults.gen.js';
  * publishing reads the same ones from the live site, so a published page is the
  * page the app previews. Nothing is read from Firestore.
  *
- * Cached for 5 minutes per instance, like the other site settings;
+ * Each file is cached under its build hash from /_site/site.json, and the
+ * manifest itself for a few seconds, so a deploy is seen at once;
  * clearSiteFilesCache() (called by clearSettingsCache) empties it.
  */
 
@@ -46,11 +47,17 @@ export class MissingTemplateFolderError extends Error {
     }
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
+/**
+ * How long the manifest is trusted before it is read again. Short, so "deploy the
+ * website, then publish" works at once; long enough that one publish run, which
+ * reads many files, reads the manifest once.
+ */
+const MANIFEST_TTL_MS = 10 * 1000;
+/** Files by path and build hash: a deploy that changes a file changes its key. */
 const fileCache = new Map<string, { text: string | null; timestamp: number }>();
 let manifestCache: { data: SiteManifest | null; timestamp: number } | null = null;
 
-const fresh = (timestamp: number) => Date.now() - timestamp < CACHE_TTL_MS;
+const fresh = (timestamp: number) => Date.now() - timestamp < MANIFEST_TTL_MS;
 
 /** Empties the cache, for a run that needs what is live now (the seed). */
 export function clearSiteFilesCache(): void {
@@ -59,37 +66,52 @@ export function clearSiteFilesCache(): void {
 }
 
 /**
- * A file under /_site/ on the live site, or null when there is none (hosting off,
- * not deployed, or a path the site does not have: Hosting answers those with the
- * app shell, which is recognised and refused).
+ * A file under /_site/ on the live site as it is now, or null when there is none
+ * (hosting off, not deployed, or a path the site does not have: Hosting answers
+ * those with the app shell, which is recognised and refused).
+ */
+async function fetchSiteFile(path: string): Promise<string | null> {
+    if (!arcHostingSite()) return null;
+    try {
+        const res = await fetch(`${arcHostingOrigin()}/_site/${path}`);
+        if (!res.ok) return null;
+        const body = await res.text();
+        // The app shell (and the not-found page it renders) carries <arc-root>;
+        // no site file does.
+        return /<arc-root[\s>]/.test(body) ? null : body;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * A file under /_site/ on the live site, or null when there is none.
+ *
+ * A file the manifest lists is cached under its build hash, so it is read again
+ * only after a deploy changed it. A file it does not list, or any file of a site
+ * without a manifest, is kept no longer than the manifest.
  */
 export async function getSiteFile(path: string): Promise<string | null> {
-    const cached = fileCache.get(path);
-    if (cached && fresh(cached.timestamp)) return cached.text;
+    const manifest = await getSiteManifest();
+    const hash = manifest?.files[`_site/${path}`];
+    const key = `${path}#${hash ?? ''}`;
+    const cached = fileCache.get(key);
+    if (cached && (hash || fresh(cached.timestamp))) return cached.text;
 
-    let text: string | null = null;
-    if (arcHostingSite()) {
-        try {
-            const res = await fetch(`${arcHostingOrigin()}/_site/${path}`);
-            if (res.ok) {
-                const body = await res.text();
-                // The app shell (and the not-found page it renders) carries
-                // <arc-root>; no site file does.
-                text = /<arc-root[\s>]/.test(body) ? null : body;
-            }
-        } catch {
-            text = null;
-        }
-    }
-    fileCache.set(path, { text, timestamp: Date.now() });
+    const text = await fetchSiteFile(path);
+    fileCache.set(key, { text, timestamp: Date.now() });
     return text;
 }
 
-/** The live site's manifest, or null when the live site has none (not yet deployed with /_site/). */
-export async function getSiteManifest(): Promise<SiteManifest | null> {
-    if (manifestCache && fresh(manifestCache.timestamp)) return manifestCache.data;
+/**
+ * The live site's manifest, or null when the live site has none (not yet deployed
+ * with /_site/). `reread` skips the cache, for a check that must not act on a
+ * manifest from before the last deploy.
+ */
+export async function getSiteManifest(reread = false): Promise<SiteManifest | null> {
+    if (!reread && manifestCache && fresh(manifestCache.timestamp)) return manifestCache.data;
     let data: SiteManifest | null = null;
-    const text = await getSiteFile('site.json');
+    const text = await fetchSiteFile('site.json');
     if (text) {
         try {
             const parsed = JSON.parse(text);
@@ -116,7 +138,9 @@ export async function loadSiteTemplate(folder: string | null | undefined, file: 
     // Hosting off: the page is built but never deployed (the deploy records a
     // skip), so there is no live site to read and nothing to guard.
     if (!arcHostingSite()) return DEFAULT_TEMPLATES[file];
-    const manifest = await getSiteManifest();
+    let manifest = await getSiteManifest();
+    // A folder the cached manifest lacks may have been deployed since it was read.
+    if (wanted !== DEFAULT_TEMPLATE_FOLDER && !manifest?.templates[wanted]) manifest = await getSiteManifest(true);
 
     if (wanted !== DEFAULT_TEMPLATE_FOLDER && !manifest?.templates[wanted]) {
         throw new MissingTemplateFolderError(wanted, !!manifest);

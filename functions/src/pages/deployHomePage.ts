@@ -6,6 +6,7 @@ import {
 import { getSiteFile, getSiteManifest, loadSiteTemplate, pageStylesheets, versionedUrl, type SiteManifest } from '../shared/site-files.js';
 import { langPrefix, mergeTranslation, type ContentTranslation } from '../shared/content-translation.js';
 import { contentTypeDescription, contentTypeName } from '../shared/content-type-names.js';
+import { interpolate } from '../shared/interpolate.js';
 import { cardData } from '../shared/content-cards.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
 import { renderJsonLdScripts } from '../shared/structured-data.js';
@@ -111,6 +112,29 @@ export function addLegalNotices($: cheerio.CheerioAPI, strings: Record<string, s
 }
 
 /**
+ * What partials.html binds outside the items loop. The default heading is the
+ * page's `latest_of_type` string, else "Latest {type}". Pure; the admin's
+ * Template Reference is checked against it.
+ */
+export function partialPageData(
+    type: Record<string, any>, lang: string, prefix: string, sectionTitle: string, itemCount: number,
+    strings: Record<string, string> = {},
+): Record<string, any> {
+    const typeName = contentTypeName(type, lang);
+    const latest = strings['latest_of_type'] ? interpolate(strings['latest_of_type'], { contentType: typeName }) : `Latest ${typeName}`;
+    return {
+        contentType: typeName,
+        contentTypeSlug: type.slug,
+        contentTypeDescription: contentTypeDescription(type, lang),
+        sectionTitle: sectionTitle.trim() || latest,
+        listUrl: `${prefix}/${type.slug}`,
+        hasItems: itemCount > 0,
+        lang,
+        langPrefix: prefix,
+    };
+}
+
+/**
  * Replaces each <arc-content-partials content-type="…" count="…" section-title="…"
  * template-folder="…"> with cards of that type, laid out by its partials.html,
  * as the app's content-partials component draws them.
@@ -151,26 +175,19 @@ async function renderContentPartials(
         const template = await loadSiteTemplate(($el.attr('template-folder') || '').trim() || type.templateFolder, 'partials');
         let html = TemplateHydrationService.applyStrings(template, strings);
         html = TemplateHydrationService.processLoops(html, { items });
-        html = TemplateHydrationService.hydrateTemplate(html, {
-            contentType: typeName,
-            contentTypeSlug: slug,
-            contentTypeDescription: contentTypeDescription(type, lang),
-            sectionTitle: ($el.attr('section-title') || '').trim() || `Latest ${typeName}`,
-            listUrl: `${prefix}/${slug}`,
-            hasItems: items.length > 0,
-            lang,
-            langPrefix: prefix,
-        });
+        html = TemplateHydrationService.hydrateTemplate(html, partialPageData({ ...type, slug }, lang, prefix, $el.attr('section-title') || '', items.length, strings));
         $el.replaceWith(html);
     }
 }
 
 /**
  * The <script> for arc-site.js (public/assets/js/arc-site.js), with what it needs
- * to reach the functions and the public Firestore documents.
+ * to reach the functions and the public Firestore documents, and the signup
+ * panels' text in the page's language (the `signup_*` keys of its strings).
  */
-export function arcSiteScript(src: string, setup: SetupState = ''): string {
+export function arcSiteScript(src: string, setup: SetupState = '', strings: Record<string, string> = {}): string {
     const project = process.env.GCLOUD_PROJECT || '';
+    const signup = Object.fromEntries(Object.entries(strings).filter(([key, value]) => key.startsWith('signup_') && typeof value === 'string'));
     const attrs = [
         `src="${escapeAttr(src)}"`,
         `data-functions="${escapeAttr(`https://${arcFunctionsRegion()}-${project}.cloudfunctions.net`)}"`,
@@ -178,6 +195,7 @@ export function arcSiteScript(src: string, setup: SetupState = ''): string {
         `data-project="${escapeAttr(project)}"`,
         `data-database="${escapeAttr(arcDatabaseId())}"`,
         ...(setup ? [`data-setup="${setup}"`] : []),
+        ...(Object.keys(signup).length ? [`data-strings="${escapeAttr(JSON.stringify(signup))}"`] : []),
         'defer',
     ];
     return `<script ${attrs.join(' ')}></script>`;
@@ -236,6 +254,8 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         getSiteManifest(), getPartials(), getSiteConfig(), getMiscSettings(), getLocalizationSettings(), getAboutConfig(), setupState(),
         publicContentTypeSlugs(),
     ]);
+    // Image size bindings fit the configured maximum (Settings, Misc).
+    TemplateHydrationService.setMaxImageSize(miscSettings.mediaMaxSize);
     const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);
     const defaultLang = localization.defaultLanguage;
     const languages = localization.enabledLanguages;
@@ -310,7 +330,7 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         else $('head').prepend('<meta charset="UTF-8">\n');
 
         // The live parts of a published page: forms, counts, install, setup (W5).
-        $('body').append(`\n${arcSiteScript(versionedUrl('/assets/js/arc-site.js', manifest), setup)}`);
+        $('body').append(`\n${arcSiteScript(versionedUrl('/assets/js/arc-site.js', manifest), setup, strings)}`);
         if (miscSettings.showPoweredBy) $('body').append(`\n${POWERED_BY_HTML}`);
 
         // Links to the site's files (the page's own CSS, scripts, images) carry their version.

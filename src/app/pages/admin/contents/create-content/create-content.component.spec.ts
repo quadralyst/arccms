@@ -263,6 +263,24 @@ describe('CreateContentComponent', () => {
         });
     });
 
+    describe('fields from another content type', () => {
+        it('offer the other entry\'s custom fields beside its built-in ones, so either can label or be copied', async () => {
+            const { referenceOption } = await import('./create-content.component');
+            expect(referenceOption('s1', { id: 'stale', title: 'Dr Mehta', customFields: { 'speakers-role': 'Chef', title: 'shadow' } }))
+                .toEqual({ id: 's1', title: 'Dr Mehta', 'speakers-role': 'Chef' });
+        });
+
+        it('copy a custom display field when an entry is picked', () => {
+            vi.spyOn(component, 'currentFields', 'get').mockReturnValue([{
+                key: 'events-speaker', label: 'Speaker', type: 'dropdown', required: false, order: 0, useCollectionRef: true,
+                collectionRef: { collectionSlug: 'speakers', collectionName: 'Speakers', displayField: 'speakers-name', valueField: 'id', syncFields: ['speakers-role'] },
+            }] as any);
+            component.referenceOptions.set({ 'events-speaker': [{ id: 's1', title: 'x', 'speakers-name': 'Asha', 'speakers-role': 'Chef' }] });
+            component.onReferenceChange('events-speaker', 's1');
+            expect(component.customFieldValues['_ref_events-speaker']).toEqual({ id: 's1', 'speakers-name': 'Asha', 'speakers-role': 'Chef' });
+        });
+    });
+
     describe('Slug Generation', () => {
         it('should create slug from title', () => {
             component.pageTitle = 'Test Article Title';
