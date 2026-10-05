@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Turn an HTML site into an Arc CMS site | Arc CMS docs</title>
+  <meta name="description" content="A worked example: a small blog site of three HTML pages becomes an Arc CMS site with a home page, a header and footer, a content type with custom fields, list, post and card templates, and a second language.">
+  <meta name="docs:sources" content="docs/examples/blog, scripts/arc-site.mjs, src/app/pages/index.page.ts, functions/src/pages/deployHomePage.ts, functions/src/pages/deployContentPage.ts, functions/src/pages/deployContentListPage.ts, functions/src/shared/content-cards.ts, functions/src/shared/template-hydration.ts, public/assets/js/arc-site.js, functions/src/shared/site-files.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/convert-a-site.html">
+  <main>
+    <h1>Turn an HTML site into an Arc CMS site</h1>
+    <p class="lead">This page converts a finished HTML site, step by step: a home page, a blog list and a blog post. At the end the home page shows the latest posts and a signup form, the blog is a content type with its own fields that editors fill in the admin, and the site works in a second language. Every file is in <code>docs/examples/blog/</code>, before and after.</p>
+
+    <h2>Before you start</h2>
+    <ul>
+      <li>An install that runs with <code>npm run dev</code>, and an admin account (see <a href="../getting-started/run-locally.html">Run it locally</a>).</li>
+      <li>A first deploy done (see <a href="../getting-started/first-deploy.html">Deploy for the first time</a>). Publishing reads templates from the live site, so the website has to be deployed before posts can publish.</li>
+      <li>The ideas on <a href="overview.html">Build a website</a>: your site lives in <code class="new">src/custom/site/</code>, and it replaces Arc CMS's own files only where you have one.</li>
+    </ul>
+
+    <h2>What you start with</h2>
+    <p>The example site, <strong>Slow Kitchen</strong>, is in <code>docs/examples/blog/original/</code>:</p>
+    <table>
+      <thead><tr><th>File</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>docs/examples/blog/original/index.html</code></td><td>The home page: a hero, a signup form and three post cards written by hand</td></tr>
+        <tr><td><code>docs/examples/blog/original/blog.html</code></td><td>The blog list: every post as a card</td></tr>
+        <tr><td><code>docs/examples/blog/original/post.html</code></td><td>One post: a cover image, the title, date, author, reading time, the body and a "Read next" list</td></tr>
+        <tr><td><code>docs/examples/blog/original/style.css</code>, <code>docs/examples/blog/original/main.js</code></td><td>One stylesheet and one script that every page loads</td></tr>
+      </tbody>
+    </table>
+    <p>Each page repeats the same navigation and footer, and the cards and post are written by hand. After the conversion they are filled from content an editor writes in the admin.</p>
+
+    <h2>1. Sort the pieces</h2>
+    <p>Decide where each part of the old site goes. This is the whole plan:</p>
+    <table>
+      <thead><tr><th>Part of the old site</th><th>Becomes</th><th>Kind of file</th></tr></thead>
+      <tbody>
+        <tr><td>The navigation bar</td><td><code class="new">src/custom/site/header.html</code></td><td>HTML fragment, on every page</td></tr>
+        <tr><td>The footer</td><td><code class="new">src/custom/site/footer.html</code></td><td>HTML fragment, on every page</td></tr>
+        <tr><td>Styles every page shares</td><td><code class="new">src/custom/site/site.css</code></td><td>Loaded on every website page and the sign-in page</td></tr>
+        <tr><td>The home page</td><td><code class="new">src/custom/site/home.html</code></td><td>A whole HTML document</td></tr>
+        <tr><td>The home page's own styles, the script</td><td><code class="new">src/custom/site/assets/home.css</code>, <code class="new">src/custom/site/assets/main.js</code></td><td>Files, served at <code>/site/home.css</code> and <code>/site/main.js</code></td></tr>
+        <tr><td>The blog list</td><td><code class="new">src/custom/site/templates/blog/list.html</code></td><td>Template fragment</td></tr>
+        <tr><td>One post</td><td><code class="new">src/custom/site/templates/blog/detail.html</code></td><td>Template fragment</td></tr>
+        <tr><td>A post card on the home page</td><td><code class="new">src/custom/site/templates/blog/partials.html</code></td><td>Template fragment</td></tr>
+        <tr><td>Fixed text in Hindi</td><td><code class="new">src/custom/site/strings/hi.json</code></td><td>Translations</td></tr>
+      </tbody>
+    </table>
+    <div class="note"><p>The home page is a whole document, with its own <code>&lt;head&gt;</code>. Templates are fragments: no <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code>. Arc CMS writes the page around them, with the title, description and search tags of each post. The folder name, <code>blog</code>, matches the content type's slug, so the admin picks it for you.</p></div>
+
+    <h2>2. Header, footer and shared styles</h2>
+    <p>Cut the navigation and the footer out of the old pages into their own files. Links start with <code>/</code> (the home page is <code>/</code>, the blog is <code>/blog</code>), not <code>index.html</code>. <code>data-arc-t</code> marks text a second language will translate, and <code>&lt;arc-language-switcher&gt;</code> becomes links to the page's other languages (it disappears while the site has one).</p>
+    <pre><code>&lt;!-- The site header on every page: home, blog list, posts, static pages.
+     Root-relative links (/ and /blog) point at the page&#x27;s language on
+     translated pages. --&gt;
+&lt;nav class=&quot;site-nav&quot;&gt;
+    &lt;a class=&quot;logo&quot; href=&quot;/&quot;&gt;Slow Kitchen&lt;/a&gt;
+    &lt;ul&gt;
+        &lt;li&gt;&lt;a href=&quot;/&quot; data-arc-t=&quot;nav_home&quot;&gt;Home&lt;/a&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;a href=&quot;/blog&quot; data-arc-t=&quot;nav_blog&quot;&gt;Blog&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;arc-language-switcher&gt;&lt;/arc-language-switcher&gt;
+&lt;/nav&gt;</code></pre>
+    <pre><code>&lt;footer class=&quot;site-footer&quot; data-arc-t=&quot;footer_note&quot;&gt;Slow Kitchen. Cooked and written at home.&lt;/footer&gt;</code></pre>
+    <p>Move the styles every page shares into <code class="new">src/custom/site/site.css</code>. Arc CMS links Bootstrap and its own <code>main.css</code> first, then <code>site.css</code>, so your rules win. The card styles go here too, because the home page and the blog list both show cards.</p>
+    <pre><code>/* Styles every page of the site shares: loaded on the home page, the blog
+   list and posts, static pages and the sign-in page (after Bootstrap and
+   Arc CMS&#x27;s main.css, so these rules win). */
+:root { --ink: #1f2933; --muted: #616e7c; --brand: #c2410c; --paper: #fffaf5; }
+body { margin: 0; font-family: Georgia, &#x27;Times New Roman&#x27;, serif; color: var(--ink); background: var(--paper); }
+a { color: var(--brand); }
+
+.site-nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 2rem; border-bottom: 1px solid #f0e4d7; }
+.site-nav .logo { font-weight: 700; font-size: 1.25rem; color: var(--ink); text-decoration: none; }
+.site-nav ul { display: flex; gap: 1.5rem; list-style: none; margin: 0 0 0 auto; padding: 0; }
+.site-nav ul a { color: var(--ink); text-decoration: none; }
+
+.site-footer { padding: 2rem; text-align: center; color: var(--muted); border-top: 1px solid #f0e4d7; margin-top: 4rem; }
+
+/* Cards: the home page&#x27;s latest posts and the blog list. */
+.posts { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+.post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+.card { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+.card img { width: 100%; height: 180px; object-fit: cover; display: block; }
+.card .body { padding: 1rem 1.25rem 1.25rem; }
+.card h3 { margin: 0 0 .5rem; font-size: 1.2rem; }
+.card h3 a { color: var(--ink); text-decoration: none; }
+.card .meta { color: var(--muted); font-size: .85rem; }</code></pre>
+
+    <h2>3. The home page</h2>
+    <p>Copy <code>docs/examples/blog/original/index.html</code> to <code class="new">src/custom/site/home.html</code> and change four things:</p>
+    <ol>
+      <li>The navigation and footer become <code>&lt;arc-header&gt;&lt;/arc-header&gt;</code> and <code>&lt;arc-footer&gt;&lt;/arc-footer&gt;</code>.</li>
+      <li>The three hand-written cards become one element, <code>&lt;arc-content-partials content-type="blog" count="3" section-title="Latest from the blog"&gt;</code>. It shows the newest three posts, drawn by <code>partials.html</code> (step 6).</li>
+      <li>The signup form gets <code>data-waitlist-form</code> and <code>data-waitlist-id="newsletter"</code>. Arc CMS sends each sign-up to the form named <code>newsletter</code>, asks for the emailed code, and adds the terms notice above the button. If no form with that id exists, it is created the first time the page runs, so check the spelling, or create it first under <strong>Signup Forms</strong> with the slug <code>newsletter</code>.</li>
+      <li>Styles and the script move to <code class="new">src/custom/site/assets/</code> and are linked as <code>/site/home.css</code> and <code>/site/main.js</code>. Arc CMS adds each file's version to the link, so a change reaches returning visitors.</li>
+    </ol>
+    <pre><code>&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;utf-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+    &lt;title data-arc-t=&quot;home_title&quot;&gt;Slow Kitchen: simple seasonal cooking&lt;/title&gt;
+    &lt;meta name=&quot;description&quot; content=&quot;Recipes and notes on cooking with what is in season.&quot;&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;/site/home.css&quot;&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;arc-header&gt;&lt;/arc-header&gt;
+
+    &lt;section class=&quot;hero&quot;&gt;
+        &lt;h1 data-arc-t=&quot;home_heading&quot;&gt;Cook with the season&lt;/h1&gt;
+        &lt;p data-arc-t=&quot;home_lead&quot;&gt;Short, honest recipes for whatever the market has this week.&lt;/p&gt;
+        &lt;form class=&quot;signup&quot; data-waitlist-form data-waitlist-id=&quot;newsletter&quot;&gt;
+            &lt;input type=&quot;email&quot; name=&quot;email&quot; placeholder=&quot;Your email&quot; data-arc-t-attr=&quot;placeholder:signup_email&quot;&gt;
+            &lt;button type=&quot;submit&quot; data-arc-t=&quot;signup_button&quot;&gt;Get the weekly letter&lt;/button&gt;
+        &lt;/form&gt;
+    &lt;/section&gt;
+
+    &lt;arc-content-partials content-type=&quot;blog&quot; count=&quot;3&quot; section-title=&quot;Latest from the blog&quot;
+        data-arc-t-attr=&quot;section-title:latest_posts&quot;&gt;&lt;/arc-content-partials&gt;
+
+    &lt;arc-footer&gt;&lt;/arc-footer&gt;
+    &lt;script src=&quot;/site/main.js&quot; defer&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+    <pre><code>/* The home page only: linked from home.html as /site/home.css. */
+.hero { padding: 5rem 2rem; text-align: center; }
+.hero h1 { font-size: 3rem; margin: 0 0 1rem; }
+.hero p { color: var(--muted); font-size: 1.25rem; }
+.signup { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
+.signup input { padding: .75rem 1rem; border: 1px solid #e4d5c5; border-radius: 6px; min-width: 260px; }
+.signup button { padding: .75rem 1.25rem; border: 0; border-radius: 6px; background: var(--brand); color: #fff; }
+/* Arc CMS adds the terms notice just before the button: give it its own line, under the form. */
+.signup .arc-legal-notice { flex-basis: 100%; order: 3; text-align: center; }</code></pre>
+    <p>The last rule in <code>home.css</code> puts the terms notice on its own line: Arc CMS inserts it just before the button, which in a one-line form squeezes it between the field and the button.</p>
+    <p>The script now starts either way, whether the page is still loading or already loaded. In <code>npm run dev</code> your scripts run after the page has loaded, so a script that waits for <code>DOMContentLoaded</code> would never start there:</p>
+    <pre><code>// Fades cards in as they scroll into view. Runs whether the page is still
+// loading (the published page) or already loaded (the preview in npm run dev).
+(function () {
+    function start() {
+        if (!(&#x27;IntersectionObserver&#x27; in window)) return;
+        var seen = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) { entry.target.style.opacity = 1; seen.unobserve(entry.target); }
+            });
+        });
+        document.querySelectorAll(&#x27;.card&#x27;).forEach(function (card) {
+            card.style.opacity = 0;
+            card.style.transition = &#x27;opacity .6s&#x27;;
+            seen.observe(card);
+        });
+    }
+    if (document.readyState === &#x27;loading&#x27;) document.addEventListener(&#x27;DOMContentLoaded&#x27;, start);
+    else start();
+})();</code></pre>
+    <p>Run <code>npm run dev</code> and open <code>/</code>: the header, hero, form and footer appear from your files. The cards stay empty until the blog has a published post.</p>
+
+    <h2>4. The Blog content type</h2>
+    <p>Do this after the template files exist in <code class="new">src/custom/site/templates/blog/</code> (steps 5 to 7), so the admin offers the folder. In the admin, open <strong>Content</strong>, <strong>Content types</strong>, <strong>Add Content Type</strong>:</p>
+    <table>
+      <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Content Type Name (Plural)</td><td>Blog</td></tr>
+        <tr><td>Singular Name</td><td>Post</td></tr>
+        <tr><td>Description</td><td>Every recipe and kitchen note, newest first. (The list page shows it as <code>{{ contentTypeDescription }}</code>.)</td></tr>
+        <tr><td>Generate public pages</td><td>On</td></tr>
+        <tr><td>Content Type Slug</td><td><code>blog</code>, filled in from the name. It is the address (<code>/blog</code>) and the name the content is stored under, so do not change it once posts exist.</td></tr>
+        <tr><td>Content Template</td><td>Blog, picked for you because the folder has the slug's name</td></tr>
+        <tr><td>Field 1</td><td>Name <strong>Hero Image</strong>, type <code>image</code>. Its key is <code>blog-hero-image</code>.</td></tr>
+        <tr><td>Field 2</td><td>Name <strong>Related Links</strong>, type <code>labelvalue</code> (rows of a label and a value). Its key is <code>blog-related-links</code>.</td></tr>
+        <tr><td>Structured data</td><td>Blog post</td></tr>
+      </tbody>
+    </table>
+    <p>Title, body, summary, author, tags, dates and the reading time are built in, so the old page's date, author and "6 min read" need no fields. A template writes a custom field by its key (<code>{{ blog-hero-image }}</code>) or by the key without the type's slug (<code>{{ hero-image }}</code>); this example uses the short form. An image field also has four sizes: <code>{{ hero-image_s }}</code>, <code>_m</code>, <code>_l</code> and <code>_xl</code>. Every field type and what a template gets from it is in the <a href="../features/content.html#field-types-reference">field types reference</a>.</p>
+
+    <h2>5. The blog list</h2>
+    <p>Copy the middle of <code>docs/examples/blog/original/blog.html</code> into <code class="new">src/custom/site/templates/blog/list.html</code>: no doctype, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code>. Then keep one card and turn it into the pattern every post repeats:</p>
+    <table>
+      <thead><tr><th>Old</th><th>New</th></tr></thead>
+      <tbody>
+        <tr><td>Navigation and footer</td><td><code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code>, where they should appear</td></tr>
+        <tr><td>"The blog", the intro line</td><td><code>{{ contentType }}</code>, <code>{{ contentTypeDescription }}</code>: the type's name and description, translated with the type</td></tr>
+        <tr><td>Two hand-written cards</td><td>One card inside <code>data-arc-loop="items"</code>. The loop repeats its first child once per post, newest first (up to 100)</td></tr>
+        <tr><td><code>post.html</code>, the title, date, "6 min read", the teaser</td><td><code>{{ url }}</code>, <code>{{ title }}</code>, <code>{{ publishedOn }}</code>, <code>{{ readTime }}</code>, <code>{{ excerpt }}</code> (the meta description, or the start of the body)</td></tr>
+        <tr><td><code>images/squash.jpg</code></td><td><code>{{ hero-image_m }}</code>, with <code>data-arc-if="hero-image"</code> so a post without one shows no broken image</td></tr>
+      </tbody>
+    </table>
+    <pre><code>&lt;!-- The blog list page, /blog. A fragment: publishing wraps it in a page with
+     the type&#x27;s name as the title and its description. --&gt;
+&lt;arc-header&gt;&lt;/arc-header&gt;
+
+&lt;section class=&quot;posts&quot;&gt;
+    &lt;h1&gt;{{ contentType }}&lt;/h1&gt;
+    &lt;p class=&quot;intro&quot;&gt;{{ contentTypeDescription }}&lt;/p&gt;
+    &lt;div class=&quot;post-grid&quot; data-arc-loop=&quot;items&quot;&gt;
+        &lt;article class=&quot;card&quot;&gt;
+            &lt;img data-arc-if=&quot;hero-image&quot; src=&quot;{{ hero-image_m }}&quot; alt=&quot;&quot;&gt;
+            &lt;div class=&quot;body&quot;&gt;
+                &lt;h3&gt;&lt;a href=&quot;{{ url }}&quot;&gt;{{ title }}&lt;/a&gt;&lt;/h3&gt;
+                &lt;p class=&quot;meta&quot;&gt;{{ publishedOn }} · &lt;span data-arc-t=&quot;min_read&quot;&gt;{{ readTime }} min read&lt;/span&gt;&lt;/p&gt;
+                &lt;p&gt;{{ excerpt }}&lt;/p&gt;
+            &lt;/div&gt;
+        &lt;/article&gt;
+    &lt;/div&gt;
+&lt;/section&gt;
+
+&lt;arc-footer&gt;&lt;/arc-footer&gt;
+&lt;script src=&quot;/site/main.js&quot; defer&gt;&lt;/script&gt;</code></pre>
+    <p>Publishing puts the list in a page whose title is the type's name and whose description is the type's description. The <code>&lt;script&gt;</code> moves to the end of the page.</p>
+
+    <h2>6. The cards</h2>
+    <p><code class="new">src/custom/site/templates/blog/partials.html</code> draws the cards for <code>&lt;arc-content-partials content-type="blog"&gt;</code> on the home page. It has the same items as the list, plus <code>{{ sectionTitle }}</code> (the element's <code>section-title</code>), <code>{{ listUrl }}</code> (the list page, in the page's language) and <code>hasItems</code>, which hides the whole block while there are no posts:</p>
+    <pre><code>&lt;!-- Cards for &lt;arc-content-partials content-type=&quot;blog&quot;&gt;: the home page&#x27;s
+     latest posts. A fragment: no &lt;html&gt;, &lt;head&gt; or &lt;body&gt;. --&gt;
+&lt;section class=&quot;posts&quot; data-arc-if=&quot;hasItems&quot;&gt;
+    &lt;h2&gt;{{ sectionTitle }}&lt;/h2&gt;
+    &lt;div class=&quot;post-grid&quot; data-arc-loop=&quot;items&quot;&gt;
+        &lt;article class=&quot;card&quot;&gt;
+            &lt;img data-arc-if=&quot;hero-image&quot; src=&quot;{{ hero-image_m }}&quot; alt=&quot;&quot;&gt;
+            &lt;div class=&quot;body&quot;&gt;
+                &lt;h3&gt;&lt;a href=&quot;{{ url }}&quot;&gt;{{ title }}&lt;/a&gt;&lt;/h3&gt;
+                &lt;p class=&quot;meta&quot;&gt;{{ publishedOn }}&lt;/p&gt;
+            &lt;/div&gt;
+        &lt;/article&gt;
+    &lt;/div&gt;
+    &lt;p&gt;&lt;a href=&quot;{{ listUrl }}&quot; data-arc-t=&quot;all_posts&quot;&gt;All posts&lt;/a&gt;&lt;/p&gt;
+&lt;/section&gt;</code></pre>
+
+    <h2>7. One post</h2>
+    <p><code class="new">src/custom/site/templates/blog/detail.html</code> is the middle of <code>docs/examples/blog/original/post.html</code>, with the post's values in place of the written ones:</p>
+    <table>
+      <thead><tr><th>Old</th><th>New</th></tr></thead>
+      <tbody>
+        <tr><td>The cover image</td><td><code>{{ hero-image_l }}</code>, inside <code>data-arc-if="hero-image"</code></td></tr>
+        <tr><td>Date, author, reading time</td><td><code>{{ publishedOn }}</code>, <code>{{ authorName }}</code>, <code>{{ readTime }}</code></td></tr>
+        <tr><td>The article's paragraphs</td><td><code>&lt;div [innerHTML]="content"&gt;&lt;/div&gt;</code>. The body is HTML; <code>{{ content }}</code> would show its tags as text. The same goes for any rich text field.</td></tr>
+        <tr><td>The "Read next" list</td><td>One <code>&lt;li&gt;</code> inside <code>data-arc-loop="related-links"</code>, with <code>{{ label }}</code> and <code>{{ value }}</code> from each row</td></tr>
+        <tr><td><code>blog.html</code></td><td><code>{{ langPrefix }}/blog</code>, so a Hindi post links back to the Hindi list</td></tr>
+        <tr><td>The post's own styles</td><td>A <code>&lt;style&gt;</code> block in the template; publishing moves it into the page's head</td></tr>
+      </tbody>
+    </table>
+    <pre><code>&lt;!-- One blog post, /blog/{slug}. A fragment: publishing wraps it in a page
+     with the post&#x27;s SEO title, description and structured data. --&gt;
+&lt;arc-header&gt;&lt;/arc-header&gt;
+
+&lt;article class=&quot;post&quot;&gt;
+    &lt;img class=&quot;cover&quot; data-arc-if=&quot;hero-image&quot; src=&quot;{{ hero-image_l }}&quot; alt=&quot;{{ title }}&quot;&gt;
+    &lt;h1&gt;{{ title }}&lt;/h1&gt;
+    &lt;p class=&quot;meta&quot;&gt;
+        {{ publishedOn }}
+        &lt;span data-arc-if=&quot;authorName&quot;&gt;· &lt;span data-arc-t=&quot;by_author&quot;&gt;by {{ authorName }}&lt;/span&gt;&lt;/span&gt;
+        · &lt;span data-arc-t=&quot;min_read&quot;&gt;{{ readTime }} min read&lt;/span&gt;
+    &lt;/p&gt;
+    &lt;!-- The body is HTML: [innerHTML], never {{ content }}, which would show the tags. --&gt;
+    &lt;div class=&quot;content&quot; [innerHTML]=&quot;content&quot;&gt;&lt;/div&gt;
+
+    &lt;aside class=&quot;related&quot; data-arc-if=&quot;related-links&quot;&gt;
+        &lt;strong data-arc-t=&quot;read_next&quot;&gt;Read next&lt;/strong&gt;
+        &lt;ul data-arc-loop=&quot;related-links&quot;&gt;
+            &lt;li&gt;&lt;a href=&quot;{{ value }}&quot;&gt;{{ label }}&lt;/a&gt;&lt;/li&gt;
+        &lt;/ul&gt;
+    &lt;/aside&gt;
+
+    &lt;p&gt;&lt;a href=&quot;{{ langPrefix }}/blog&quot; data-arc-t=&quot;back_to_blog&quot;&gt;Back to the blog&lt;/a&gt;&lt;/p&gt;
+&lt;/article&gt;
+
+&lt;arc-footer&gt;&lt;/arc-footer&gt;
+
+&lt;style&gt;
+    /* Posts only: publishing moves this into the page&#x27;s &lt;head&gt;. */
+    .post { max-width: 720px; margin: 0 auto; padding: 2rem; }
+    .post .cover { width: 100%; border-radius: 10px; }
+    .post h1 { font-size: 2.5rem; margin: 1.5rem 0 .5rem; }
+    .post .meta { color: var(--muted); }
+    .post .content { font-size: 1.15rem; line-height: 1.7; }
+    .related { margin-top: 3rem; padding: 1.25rem; background: #fff; border-radius: 10px; }
+    .related ul { margin: .5rem 0 0; padding-left: 1.25rem; }
+&lt;/style&gt;</code></pre>
+
+    <h2>8. Try it in npm run dev</h2>
+    <ol class="steps">
+      <li><p>Open <strong>Content</strong>, <strong>Blog</strong>, <strong>Add Post</strong>. Write the title and body, pick a hero image with <strong>Select image</strong>, and add two <strong>Related Links</strong> rows (a label, and the link as the value). The URL slug is made from the title.</p></li>
+      <li><p>Press <strong>Save as draft</strong>, then open <code>/blog/{{ your-slug }}?preview=true</code>. You see the post drawn by your <code>detail.html</code>: the cover, title, date, author, reading time, body and links.</p></li>
+      <li><p>The editor says <strong>Live site differs</strong> beside <strong>Publish</strong>: your new files are not on the live site yet, and publishing reads the live ones. Publishing now fails with "Template folder 'blog' is not on the live site. Deploy the website, then publish again." The post is still saved as published, so <code>/blog</code> and the home page's cards show it in <code>npm run dev</code>.</p></li>
+    </ol>
+
+    <h2>9. Put it live</h2>
+    <ol class="steps">
+      <li><p>Deploy the website: <code>npm run deploy</code> and choose <strong>Website</strong> (see <a href="../operations/deploy.html">Deploy</a>). It puts your files on the live site, keeps the pages already published, and then publishes every page again, your posts included.</p></li>
+      <li><p>Open the live site: <code>/</code> shows the newest posts as cards, <code>/blog</code> the list, and each post its own page with its title and description in the page's head.</p></li>
+      <li><p>From now on, publishing a post updates its page, the list, the home page's cards, the sitemap and the feeds. A change to your files reaches the live site with the next website deploy.</p></li>
+    </ol>
+
+    <h2>10. Add a second language</h2>
+    <ol class="steps">
+      <li><p>Turn the language on under <strong>Settings</strong>, <strong>Languages</strong> (see <a href="languages.html">Publish in more than one language</a>).</p></li>
+      <li><p>Put the translations of every <code>data-arc-t</code> key in <code class="new">src/custom/site/strings/hi.json</code>. A translation may hold a value, such as <code>{{ readTime }}</code>, which is filled in afterwards. <code>data-arc-t-attr="placeholder:signup_email"</code> translates an attribute; the home page uses it for the field's placeholder and for the cards' <code>section-title</code>.</p><pre><code>{
+  &quot;nav_home&quot;: &quot;होम&quot;,
+  &quot;nav_blog&quot;: &quot;ब्लॉग&quot;,
+  &quot;footer_note&quot;: &quot;स्लो किचन। घर पर पकाया और लिखा गया।&quot;,
+  &quot;home_title&quot;: &quot;स्लो किचन: मौसम के साथ सादा खाना&quot;,
+  &quot;home_heading&quot;: &quot;मौसम के साथ पकाइए&quot;,
+  &quot;home_lead&quot;: &quot;इस हफ़्ते बाज़ार में जो मिले, उसके लिए छोटी और सच्ची रेसिपी।&quot;,
+  &quot;signup_email&quot;: &quot;आपका ईमेल&quot;,
+  &quot;signup_button&quot;: &quot;हर हफ़्ते की चिट्ठी पाइए&quot;,
+  &quot;latest_posts&quot;: &quot;ब्लॉग से नया&quot;,
+  &quot;all_posts&quot;: &quot;सभी पोस्ट&quot;,
+  &quot;min_read&quot;: &quot;{{ readTime }} मिनट में पढ़ें&quot;,
+  &quot;by_author&quot;: &quot;{{ authorName }} द्वारा&quot;,
+  &quot;read_next&quot;: &quot;आगे पढ़ें&quot;,
+  &quot;back_to_blog&quot;: &quot;ब्लॉग पर लौटें&quot;
+}</code></pre></li>
+      <li><p>Translate the type's name and description in the content type's language tab, and each post in the editor's language tab. A post you do not translate shows in the default language.</p></li>
+      <li><p>Deploy the website. <code>/hi</code>, <code>/hi/blog</code> and <code>/hi/blog/{{ your-slug }}</code> appear, linked to each other by the language switcher. Links to the home page, the blog and posts take the language; links to sign-in or your app's own pages keep their address.</p></li>
+    </ol>
+    <p>The Hindi text is only an example; have yours checked by a native speaker.</p>
+
+    <h2>Common mistakes</h2>
+    <table>
+      <thead><tr><th>You see</th><th>Why, and what to do</th></tr></thead>
+      <tbody>
+        <tr><td>"Template folder 'blog' is not on the live site"</td><td>The website was not deployed after adding the folder. Deploy it, then publish again.</td></tr>
+        <tr><td>The post shows the default design</td><td>The type's <strong>Content Template</strong> is still Default, or your template file is a whole document (it has <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code> tags). Keep templates fragments.</td></tr>
+        <tr><td>The body shows tags such as <code>&lt;p&gt;</code></td><td>It was written <code>{{ content }}</code>. Use <code>[innerHTML]="content"</code>.</td></tr>
+        <tr><td>A list shows one post only, or the cards are empty</td><td>The loop keeps only its first child as the pattern: wrap each card in one element. Cards also need <code>hasItems</code> true, that is, a published post.</td></tr>
+        <tr><td>An empty form appears under <strong>Signup Forms</strong></td><td>The page's <code>data-waitlist-id</code> named a form that did not exist, so one was created. Fix the spelling, and delete the extra form.</td></tr>
+        <tr><td>An icon disappears from a translated button</td><td><code>data-arc-t</code> replaces the element's text, children included. Put icons outside the element that has <code>data-arc-t</code>.</td></tr>
+        <tr><td>A script works live but not in <code>npm run dev</code></td><td>It waits for <code>DOMContentLoaded</code>, which has already happened in the app. Start it as <code>main.js</code> does.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Next</h2>
+    <p>The full template reference is <a href="../features/templates.html">Templates</a>, and the home page's details are on <a href="home-page.html">Build your home page</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

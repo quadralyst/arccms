@@ -1,4 +1,5 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, ViewEncapsulation, effect, TransferState, makeStateKey } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -471,8 +472,13 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             orderByField: { field: 'slug', direction: 'asc' },
             limitCount: 1,
         });
-        // Load published contents from the per-type collection
-        this.contentsStore.getAll(undefined, typeSlug || undefined);
+        // This page's item only, by its URL slug. The store's default is a first
+        // page of ten in no useful order, so an item outside those ten read as
+        // "not found" on a site with more.
+        this.contentsStore.getAll(
+            { whereConditions: [{ field: 'urlSlug', operator: '==', value: contentSlug }], limitCount: 1 } as QueryParams,
+            typeSlug || undefined,
+        );
     }
 
     /**
@@ -516,17 +522,19 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     /** `author.*` bindings and `authorName` for custom templates; empty without an author. */
     private authorTemplateData(): { author: Record<string, string>; authorName: string } {
         const author = this.author();
-        const name = author?.name || this.currentContent()?.authorName || '';
-        if (!name) return { author: {}, authorName: '' };
+        // Without a profile (a deleted author) the stored name stays as plain
+        // text: the byline keeps it, the author box stays empty. The same rule
+        // as publishing (functions/src/shared/authors.ts authorTemplateData).
+        if (!author?.name) return { author: {}, authorName: this.currentContent()?.authorName || '' };
         return {
             author: {
-                name,
-                bio: author?.bio || '',
-                photoUrl: author?.photoUrl || '',
-                jobTitle: author?.jobTitle || '',
-                url: author?.url || '',
+                name: author.name,
+                bio: author.bio || '',
+                photoUrl: author.photoUrl || '',
+                jobTitle: author.jobTitle || '',
+                url: author.url || '',
             },
-            authorName: name,
+            authorName: author.name,
         };
     }
 

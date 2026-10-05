@@ -20,20 +20,42 @@
     <p>The first-run wizard already created a form named Waitlist, with the slug <code>waitlist-form</code>. Use it, or add one per campaign:</p>
     <ol class="steps">
       <li><p>Open <strong>Signup Forms</strong> in the admin menu. The page it opens is titled <strong>Waitlists</strong>: press <strong>Add Waitlist</strong> (or <strong>Edit</strong> on an existing form).</p></li>
-      <li><p>Fill in the <strong>Name</strong>; the <strong>Slug</strong> is filled in from it, such as <code>product-launch</code>. The slug is the form's id in URLs and in your page's markup. Choose it once: changing it later breaks existing links.</p></li>
+      <li><p>Fill in the <strong>Name</strong>; the <strong>Slug</strong> is filled in from it, such as <code>product-launch</code>. The slug you create the form with becomes its id for good: in URLs and in your page's markup. Editing the slug later does not change the id, and a form on your home page that uses the new slug fails. Choose it once and keep it.</p></li>
       <li><p>Under <strong>Feeds lists</strong>, tick any lists everyone who signs up should also join (the form always has its own list). Once the form has tags of its own (its <strong>Tags</strong> item in the menu), <strong>Edit</strong> also offers a <strong>Default Tag</strong> for every new sign-up.</p></li>
       <li><p><strong>Gamification (referrals &amp; leaderboard)</strong> is on, so people move up by inviting others. Turn it off for a plain signup form.</p></li>
       <li><p>Leave it <strong>Active</strong>. When you close it, the message you set is shown over the form. Press <strong>Create</strong>.</p></li>
     </ol>
 
     <h2>3. Put the form on a page</h2>
-    <p>Add the form to your home page, <code class="new">src/custom/site/home.html</code> (see <a href="home-page.html">Build your home page</a>). Any form with these two attributes and an <code>email</code> field works, styled however you like:</p>
+    <p>Add the form to your home page, <code class="new">src/custom/site/home.html</code> (see <a href="home-page.html">Build your home page</a>). Any form with <code>data-waitlist-form</code> and an email field works, styled however you like:</p>
     <pre><code>&lt;form data-waitlist-form data-waitlist-id="product-launch"&gt;
   &lt;input type="text" name="name" placeholder="Your name"&gt;
   &lt;input type="email" name="email" required placeholder="Your email"&gt;
+  &lt;input type="text" name="company" placeholder="Company"&gt;
   &lt;button type="submit"&gt;Join the waitlist&lt;/button&gt;
-&lt;/form&gt;</code></pre>
-    <p>Arc CMS takes over the submit: it asks for the emailed code, then shows the person's place in the queue and their referral link. On the home page this panel always shows both; the <strong>Gamification</strong> switch applies to the form's own page. It adds the terms notice above the button, linked to your terms and privacy pages once you write them (see <a href="static-pages.html">Write static pages</a>). Put <code>&lt;span data-waitlist-count="product-launch"&gt;&lt;/span&gt;</code> anywhere on the page to show the number of confirmed sign-ups. The full markup reference is in <a href="../features/forms.html#put-a-form-on-the-home-page">Signup forms</a>.</p>
+&lt;/form&gt;
+&lt;p&gt;&lt;span data-waitlist-count="product-launch"&gt;&lt;/span&gt; people have joined&lt;/p&gt;</code></pre>
+    <table>
+      <thead><tr><th>Markup</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>data-waitlist-form</code></td><td>Arc CMS handles this form.</td></tr>
+        <tr><td><code>data-waitlist-id="…"</code></td><td>The form's id: the slug you created it with. Optional: without it, the default form <code>waitlist-form</code> is used. On an older install whose default form has another id, that form is used instead. An id that matches no form creates a new, empty form on the first visit, so check the spelling.</td></tr>
+        <tr><td><code>name="email"</code> or <code>data-waitlist-email</code></td><td>The email address. Required: without it the form shows "Email is required".</td></tr>
+        <tr><td><code>name="firstName"</code>, <code>name="name"</code> or <code>data-waitlist-name</code></td><td>The person's name. Optional: without it, the name is taken from the start of the email address.</td></tr>
+        <tr><td><code>name="source"</code> or <code>data-waitlist-source</code></td><td>Where the person came from. Optional: <code>direct</code> when missing. A hidden input works well here.</td></tr>
+        <tr><td>Any other field with a <code>name</code></td><td>Sent with the sign-up as a form answer, such as <code>company</code> above.</td></tr>
+        <tr><td><code>data-waitlist-count="…"</code></td><td>Shows the number of sign-ups on that form. Left empty, it counts the form in the same <code>&lt;section&gt;</code>, else the first form on the page.</td></tr>
+        <tr><td><code>data-legal-notice</code></td><td>Your own terms notice, on any element inside the form (below).</td></tr>
+      </tbody>
+    </table>
+    <p>Arc CMS takes over the submit: it asks for the emailed code, then shows the person's place in the queue and their referral link. On the home page this panel always shows both; the <strong>Gamification</strong> switch applies to the form's own page. While email is not set up (step 1), there is no code step: the person is signed up at once. These panels and their messages are in English on every page, translated pages included.</p>
+    <p>A visitor who arrives through a referral link (<code>?ref=</code> in the address) keeps that code in their browser for 30 days, so the referrer is credited even if they sign up on a later visit.</p>
+
+    <h3>The terms notice</h3>
+    <p>Arc CMS adds a terms notice above the form's button: "By signing up, you agree to our Terms of Service and Privacy Policy, and to receive emails from us." The two names link to your terms and privacy pages once you write them (see <a href="static-pages.html">Write static pages</a>). On a translated page it uses the <code>legal_notice</code>, <code>legal_terms</code> and <code>legal_privacy</code> keys of that language's strings file (see <a href="languages.html">Publish in more than one language</a>).</p>
+    <p>To write your own, put an element with <code>data-legal-notice</code> inside the form. Arc CMS then adds nothing:</p>
+    <pre><code>&lt;p data-legal-notice&gt;By joining you accept our &lt;a href="/p/terms"&gt;terms&lt;/a&gt;.&lt;/p&gt;</code></pre>
+    <p>The full markup reference is in <a href="../features/forms.html#put-a-form-on-the-home-page">Signup forms</a>.</p>
     <p><strong>Alternative:</strong> link to the ready-made form page at <code>/waitlist/{form-slug}</code>, for example from a button in an article or an email.</p>
     <div class="trap"><p>A <code>data-waitlist-form</code> form only works on the home page (and translated home pages). Pasted into a content item, a template or a static page, Arc CMS does not handle it, and nobody is signed up. Link to <code>/waitlist/{form-slug}</code> from those pages instead.</p></div>
 

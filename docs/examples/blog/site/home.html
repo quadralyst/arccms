@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title data-arc-t="home_title">Slow Kitchen: simple seasonal cooking</title>
+    <meta name="description" content="Recipes and notes on cooking with what is in season.">
+    <link rel="stylesheet" href="/site/home.css">
+</head>
+<body>
+    <arc-header></arc-header>
+
+    <section class="hero">
+        <h1 data-arc-t="home_heading">Cook with the season</h1>
+        <p data-arc-t="home_lead">Short, honest recipes for whatever the market has this week.</p>
+        <form class="signup" data-waitlist-form data-waitlist-id="newsletter">
+            <input type="email" name="email" placeholder="Your email" data-arc-t-attr="placeholder:signup_email">
+            <button type="submit" data-arc-t="signup_button">Get the weekly letter</button>
+        </form>
+    </section>
+
+    <arc-content-partials content-type="blog" count="3" section-title="Latest from the blog"
+        data-arc-t-attr="section-title:latest_posts"></arc-content-partials>
+
+    <arc-footer></arc-footer>
+    <script src="/site/main.js" defer></script>
+</body>
+</html>

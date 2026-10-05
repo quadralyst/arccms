@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Manage media | Arc CMS docs</title>
   <meta name="description" content="Set image sizes and upload limits, upload images to the Media Manager, and use them in content and templates.">
-  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/utils/image-sizes.ts, src/app/pages/admin/(settings)/misc, src/app/pages/admin/(settings)/integrations-setting">
+  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/utils/image-sizes.ts, src/shared/services/file-upload.service.ts, src/app/pages/admin/(settings)/misc, src/app/pages/admin/(settings)/integrations-setting">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/media.html">
@@ -16,7 +16,7 @@
     <h2>Set the sizes first</h2>
     <ol class="steps">
       <li><p>Open <strong>Settings</strong>, then <strong>Miscellaneous</strong>.</p></li>
-      <li><p>Under <strong>Media Upload</strong>, set <strong>Max image size (px, longest side)</strong> to the widest image your design shows. The default, 1200, gives S 300, M 600, L 900 and XL 1200 pixels on the longest side. Images are never enlarged.</p></li>
+      <li><p>Under <strong>Media Upload</strong>, set <strong>Max image size (px, longest side)</strong> to the widest image your design shows. The default, 1200, gives S 300, M 600, L 900 and XL 1200 pixels on the longest side. Images are never enlarged: a size the image is too small for stores it at its own size, under that size's name.</p></li>
       <li><p>Set <strong>Max File Size (MB)</strong> (5 by default). Leave <strong>Convert all images to WebP</strong> on, as it is by default, for smaller pages (GIFs are left alone).</p></li>
       <li><p>Press <strong>Save Media Settings</strong>.</p></li>
     </ol>
@@ -34,9 +34,10 @@
     </ul>
 
     <h2>Use sizes in templates</h2>
-    <p>In a template, any image from the Media Manager, except a GIF, also has its four sizes: add <code>_s</code>, <code>_m</code>, <code>_l</code> or <code>_xl</code> to the name. For a list card, the small or medium size is enough:</p>
+    <p>In a template, any image from the Media Manager also has its four sizes: add <code>_s</code>, <code>_m</code>, <code>_l</code> or <code>_xl</code> to the name. Each size bounds the longest side, so M fits a 600 pixel box whether the photo is wide or tall. For a list card, the small or medium size is enough:</p>
     <pre><code>&lt;img src="{{ coverImage_m }}" alt=""&gt;</code></pre>
-    <p>The plain name, such as <code>{{ coverImage }}</code>, gives the image as it was picked. See <a href="templates.html">Design templates</a>.</p>
+    <p>The plain name, such as <code>{{ coverImage }}</code>, gives the image as it was picked. A GIF is stored once, so its four sizes all give the original file. See <a href="templates.html">Design templates</a>.</p>
+    <div class="note"><p>Every image uploaded now is stored under all four size names. An image uploaded with an older version that was smaller than the maximum may lack some sizes, so a size name can point at a file that does not exist. To fix one, upload it again and pick the new copy where it is used.</p></div>
 
     <h2>Next</h2>
     <p>Set up bylines and topics: <a href="authors-and-tags.html">Add authors and tags</a>.</p>

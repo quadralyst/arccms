@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Build a website | Arc CMS docs</title>
   <meta name="description" content="The steps, in order, to build a content website with sign-up forms on Arc CMS, and what to prepare before you start.">
-  <meta name="docs:sources" content="src/shared/components/side-navbar/side-navbar.component.ts, src/app/pages/(onboarding)/onboarding-defaults.ts, src/custom/features.ts, src/custom/README.md, public/_site, scripts/arc-site.mjs, functions/src/pages/deployHomePage.ts, src/shared/constants/legal-notice.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/index.page.ts, scripts/check-core.mjs">
+  <meta name="docs:sources" content="src/shared/components/side-navbar/side-navbar.component.ts, src/app/pages/(onboarding)/onboarding-defaults.ts, src/custom/features.ts, src/custom/README.md, public/_site, scripts/arc-site.mjs, functions/src/pages/deployHomePage.ts, src/shared/constants/legal-notice.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/index.page.ts, scripts/check-core.mjs, scripts/vite-arc-site.ts, scripts/arc-deploy-menu.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/overview.html">
@@ -24,7 +24,7 @@
     </ul>
 
     <h2>Before you start</h2>
-    <p>You need an installed Arc CMS with its first admin. If you have not done that yet, follow <a href="../getting-started/install.html">Install</a>, <a href="../getting-started/configure.html">Configure a project</a> and <a href="../getting-started/first-admin.html">Create the first admin</a>. The first-run wizard creates an Articles content type and a default signup form, so you do not start from nothing.</p>
+    <p>You need an installed Arc CMS with its first admin, deployed once. If you have not done that yet, follow <a href="../getting-started/install.html">Install</a>, <a href="../getting-started/configure.html">Configure a project</a>, <a href="../getting-started/first-admin.html">Create the first admin</a> and <a href="../getting-started/first-deploy.html">Deploy for the first time</a>. Publishing builds each page from the files on the live site, so a template folder of your own must be deployed before an item that uses it can be published. The first-run wizard creates an Articles content type and a default signup form, so you do not start from nothing.</p>
     <p>Have these ready:</p>
     <table>
       <thead><tr><th>What</th><th>Why</th></tr></thead>
@@ -38,7 +38,18 @@
       </tbody>
     </table>
 
+    <div class="note">
+      <p>Decide these before you publish your first item, because changing them later is slow:</p>
+      <ul>
+        <li><strong>The default language.</strong> Its pages have no prefix in their address. Changing it later changes the addresses of your pages.</li>
+        <li><strong>Image sizes.</strong> The sizes are made when an image is uploaded, so images uploaded before a change keep the old sizes.</li>
+        <li><strong>Authors.</strong> The default author is set on new items only. Items written before you add authors must be edited one by one.</li>
+        <li><strong>Each content type's slug.</strong> The slug names where the type's items are stored, not only their address. Changing it later hides every item of that type.</li>
+      </ul>
+    </div>
+
     <h2>The steps</h2>
+    <p>Converting an HTML site you already have? <a href="convert-a-site.html">Turn an HTML site into an Arc CMS site</a> walks through every step below on a small blog, with the files before and after.</p>
     <ol class="steps">
       <li><p><a href="plan-content.html">Plan your content</a>: decide what is a content type, a static page or a form, and what each URL looks like.</p></li>
       <li><p><a href="content-types.html">Define content types</a>: create them in the admin area with their fields.</p></li>
@@ -75,12 +86,29 @@
         <tr><td><code>src/custom/features.ts</code></td><td>The features you switch off</td></tr>
       </tbody>
     </table>
-    <p>Every file is optional. Where you have none, Arc CMS's own is used (from <code>public/_site/</code>), and it keeps improving with each upgrade. Where you have one, yours replaces Arc CMS's. The build puts the two together and serves them at <code>/_site/</code>, and the app and the publish functions both read from there, so what you see locally is what publishes. The full list is in <a href="templates.html">Design templates</a> and <a href="../app/custom-space.html">Use the custom space</a>.</p>
-    <p>None of these is a core file, so <code>npm run check:core</code> stays clean and an Arc CMS upgrade never conflicts with your site. All of them are plain HTML, CSS and JavaScript: there are no special rules for <code>{</code>, <code>}</code> or <code>@</code>.</p>
-    <p>Run the site locally with <code>npm run dev</code> while you build; it reads and writes your real Firebase project (see <a href="../getting-started/run-locally.html">Run it locally</a>). Publishing an item puts its page on the live site straight away. Changes to files reach the live site when you deploy the website (see <a href="../operations/deploy.html">Deploy</a>).</p>
+    <p>Every file is optional. Where you have none, Arc CMS's own is used (from <code>public/_site/</code>), and it keeps improving with each upgrade. Where you have one, yours replaces Arc CMS's. The build puts the two together, and the app and the publish functions both read the result, so what you see locally is what publishes. The full list is in <a href="templates.html">Design templates</a> and <a href="../app/custom-space.html">Use the custom space</a>.</p>
+    <p>None of these is a core file, so <code>npm run check:core</code> stays clean and an Arc CMS upgrade never conflicts with your site. All of them are plain HTML, CSS and JavaScript. The home page, header, footer and static pages have no special rules for <code>{</code>, <code>}</code> or <code>@</code>. Templates are different: in them <code>{{ }}</code> marks a value to fill in (see <a href="templates.html">Design templates</a>).</p>
+
+    <h3>Which files are served, and where</h3>
+    <p>Only files with these names and places are part of the website:</p>
+    <table>
+      <thead><tr><th>File in <code class="new">src/custom/site/</code></th><th>Served at</th></tr></thead>
+      <tbody>
+        <tr><td><code>home.html</code>, <code>home.{lang}.html</code>, <code>header.html</code>, <code>footer.html</code>, <code>sign-in.html</code></td><td><code>/_site/</code>, under the same name</td></tr>
+        <tr><td><code>templates/{folder}/partials.html</code>, <code>list.html</code>, <code>detail.html</code></td><td><code>/_site/templates/{folder}/</code></td></tr>
+        <tr><td><code>pages/{name}.html</code></td><td><code>/_site/pages/</code>, and published at <code>/p/{name}</code></td></tr>
+        <tr><td><code>strings/{lang}.json</code></td><td><code>/_site/strings/</code></td></tr>
+        <tr><td><code>site.css</code></td><td><code>/assets/css/site.css</code></td></tr>
+        <tr><td><code>assets/</code> and anything inside it</td><td><code>/site/</code>, so <code>assets/images/logo.png</code> is <code>/site/images/logo.png</code></td></tr>
+        <tr><td><code>favicon.ico</code>, <code>403.html</code>, <code>404.html</code></td><td>The root: <code>/favicon.ico</code>, <code>/403.html</code>, <code>/404.html</code></td></tr>
+      </tbody>
+    </table>
+    <p>Folder and page names use lowercase letters, digits, <code>-</code> and <code>_</code>, and start with a letter or digit, such as <code>case-studies</code> or <code>terms</code>. A language is its code, such as <code>hi</code> or <code>pt-br</code>. A template folder holds only those three files. Anything else, such as <code>robots.txt</code>, <code>pages/About.html</code> or <code>templates/articles/card.html</code>, is not served: <code>npm run dev</code> and <code>npm run build</code> name each such file in a warning. A <code>README.md</code> is allowed and stays quiet.</p>
+    <p>Run the site locally with <code>npm run dev</code> while you build; it reads and writes your real Firebase project (see <a href="../getting-started/run-locally.html">Run it locally</a>). A change to any of these files shows in <code>npm run dev</code> at once: the page reloads by itself for the header, footer and sign-in panel; reload it yourself for the rest. A strings file that is not valid JSON stops <code>npm run dev</code> and <code>npm run build</code> with a message; while <code>npm run dev</code> runs, it keeps the last good copy.</p>
+    <p>On the live site, publishing an item puts its page there straight away. A change to a file reaches the live site only when you deploy the website with <code>npm run deploy</code>, which then publishes every page again so they all use the new files (see <a href="../operations/deploy.html">Deploy</a>).</p>
 
     <h2>Next</h2>
-    <p>Start with <a href="plan-content.html">Plan your content</a>.</p>
+    <p>Start with <a href="plan-content.html">Plan your content</a>, or follow the worked example, <a href="convert-a-site.html">Turn an HTML site into an Arc CMS site</a>.</p>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

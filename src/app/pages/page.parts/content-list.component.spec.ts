@@ -122,6 +122,14 @@ describe('ContentListComponent', () => {
         expect(component).toBeTruthy();
     });
 
+    it('loads the newest 100 items, as the published list does, not the store\'s first ten', () => {
+        fixture.detectChanges();
+        expect(mockContentsStore.getAll).toHaveBeenCalledWith(
+            expect.objectContaining({ orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 100 }),
+            'articles',
+        );
+    });
+
     describe('SEO Meta Tags', () => {
         it('should set page title and meta description from content type', () => {
             const contentType = {

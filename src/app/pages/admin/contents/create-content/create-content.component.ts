@@ -1,4 +1,5 @@
 import { parseHexColor } from '../../../../../shared/utils/color';
+import { nextUrlSlug, toUrlSlug } from '../../../../../shared/utils/url-slug';
 import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -89,6 +90,16 @@ export function toDateInputValue(value: unknown): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+/**
+ * A date custom field's value for an <input type="date">: the day of a stored
+ * 'YYYY-MM-DD' or (from before date fields asked for a day only)
+ * 'YYYY-MM-DDTHH:mm', read as written so no time zone moves it.
+ */
+export function customDateValue(value: unknown): string {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  return toDateInputValue(value);
+}
+
 /** 'YYYY-MM-DD' → Date at local midnight, or null for blank/invalid. */
 export function fromDateInputValue(value: unknown): Date | null {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -125,6 +136,9 @@ const COVER_IMAGE_SIZE: ImageSize = 'xl';
   styleUrl: './create-content.component.scss',
 })
 export class CreateContentComponent extends BaseComponent {
+  /** For the template: a date custom field's value for <input type="date">. */
+  readonly customDateValue = customDateValue;
+
   public isToolbarInitialized = false;
   public editor: any;
   public checkingSlug: boolean = false;
@@ -1715,16 +1729,8 @@ export class CreateContentComponent extends BaseComponent {
 
     this.seoForm.get('seoTitle')?.setValue(this.pageTitle);
 
-    const slugify = (str: any) =>
-      str
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/[\s_-]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-    const titleVal = this.pageTitle || '';
-    const newSlag = slugify(titleVal);
-    this.checkExist(newSlag);
+    this.count = 0;
+    this.checkExist(toUrlSlug(this.pageTitle || ''));
   }
 
   public checkExist(newSlug?: string): void {
@@ -1735,10 +1741,7 @@ export class CreateContentComponent extends BaseComponent {
     this.draftContentStore.checkExistingSlugUrl(newGeneratedSlug, this.contentTypeSlug).then(
       (res) => {
         if (res && res.exists) {
-          if (res.slug === newSlug) {
-            const baseSlug = this.getBaseSlug(res.slug);
-            this.incrementAndCheck(baseSlug);
-          }
+          if (res.slug === newSlug) this.incrementAndCheck(res.slug);
         } else {
           this.setSlugValue(newGeneratedSlug);
         }
@@ -1749,18 +1752,13 @@ export class CreateContentComponent extends BaseComponent {
     );
   }
 
-  private getBaseSlug(slug: string): string {
-    const match = slug.match(/(.*)-(\\d+)$/);
-    return match ? match[1] : slug;
-  }
-
-  private incrementAndCheck(baseSlug: string): void {
+  /** Tries the next numbered form of a taken slug (`guide`, `guide-2`, `guide-3`), up to ten times. */
+  private incrementAndCheck(takenSlug: string): void {
     this.count++;
-    const newSlug = `${baseSlug} -${this.count} `;
     if (this.count < 10) {
-      this.checkExist(newSlug);
+      this.checkExist(nextUrlSlug(takenSlug));
     } else {
-      this.setSlugValue(baseSlug);
+      this.setSlugValue(takenSlug);
       this.checkingSlug = false;
       this.errorSlug = true;
     }
@@ -1794,8 +1792,11 @@ export class CreateContentComponent extends BaseComponent {
   }
 
   saveSlug(): void {
-    const currentSlug = this.publishForm.get('urlSlug')?.value;
+    // A typed slug follows the same rule as a generated one: no spaces or capitals.
+    const currentSlug = toUrlSlug(this.publishForm.get('urlSlug')?.value);
     if (currentSlug) {
+      this.publishForm.get('urlSlug')?.setValue(currentSlug);
+      this.count = 0;
       this.checkExist(currentSlug);
       this.isEditingSlug.set(false);
     }

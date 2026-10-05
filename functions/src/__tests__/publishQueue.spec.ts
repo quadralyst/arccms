@@ -92,7 +92,11 @@ vi.mock('../pages/generateSitemap', () => ({
     }),
 }));
 
-const { mockGenerateHome } = vi.hoisted(() => ({ mockGenerateHome: vi.fn() }));
+const { mockGenerateHome, mockGenerateStaticPage } = vi.hoisted(() => ({ mockGenerateHome: vi.fn(), mockGenerateStaticPage: vi.fn() }));
+vi.mock('../pages/deployStaticPage', () => ({
+    staticPageSlugs: async () => ['privacy-policy', 'terms'],
+    generateAndDeployStaticPage: (...args: unknown[]) => mockGenerateStaticPage(...args),
+}));
 vi.mock('../pages/deployHomePage', () => ({
     // The home page shows no content types unless a test says so.
     homeShowsType: async () => false,
@@ -427,6 +431,18 @@ describe('processPublishQueue', () => {
             await handler(createEvent('redeploy-all', '', ''));
 
             expect(mockGenerateDetailPage).not.toHaveBeenCalledWith('notes', expect.anything(), expect.anything());
+        });
+
+        it('rebuilds the static pages too, in the same release', async () => {
+            mockGenerateStaticPage.mockImplementation(async (slug: string, batch: any) => {
+                batch.add(`/pages/${slug}/index.html`, '<html></html>');
+            });
+            await handler(createEvent('redeploy-all', '', ''));
+            expect(mockGenerateStaticPage).toHaveBeenCalledWith('privacy-policy', expect.anything());
+            expect(mockGenerateStaticPage).toHaveBeenCalledWith('terms', expect.anything());
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+            const paths = mockDeployBatchToHosting.mock.calls[0][1].files.map((f: { path: string }) => f.path);
+            expect(paths).toEqual(expect.arrayContaining(['/pages/privacy-policy/index.html', '/pages/terms/index.html']));
         });
 
         it('should release everything as a single Hosting version', async () => {

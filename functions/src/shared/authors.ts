@@ -82,8 +82,15 @@ export function authorToPerson(author: AuthorProfile | null): PersonInput | unde
  * `{{ author.name }}` and gate the box on `data-arc-if="author.name"`;
  * `authorName` is the flat form for lists and one-line bylines.
  */
-export function authorTemplateData(author: AuthorProfile | null): { author: Record<string, string>; authorName: string } {
-    if (!author) return { author: {}, authorName: '' };
+export function authorTemplateData(
+    author: AuthorProfile | null,
+    storedName = '',
+): { author: Record<string, string>; authorName: string } {
+    // Without a profile (the author was deleted), the name stored on the item
+    // stays as plain text: `authorName` keeps it for the byline, while
+    // `author.*` (the author box) stays empty. The same rule as the app
+    // (content-detail.component.ts authorTemplateData).
+    if (!author) return { author: {}, authorName: storedName || '' };
     return {
         author: {
             name: author.name,

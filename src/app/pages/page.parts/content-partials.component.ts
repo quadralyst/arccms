@@ -1,4 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, Input, input, OnInit, PLATFORM_ID, signal, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
@@ -193,8 +194,13 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         // partial per type against the same root store, and per-slug queries
         // would overwrite each other. limitCount 0 means no limit in DbService.
         this.subscribeToData(this.contentTypesStore, { limitCount: 0 });
-        // Load published contents from the per-type collection
-        this.contentsStore.getAll(undefined, this.contentType() || undefined);
+        // The newest items, up to the 50 a card block can show (as when
+        // published, deployHomePage.ts). The store's default was a first page of
+        // ten in no useful order. This component has its own store.
+        this.contentsStore.getAll(
+            { orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 50 } as QueryParams,
+            this.contentType() || undefined,
+        );
     }
 
     /**
@@ -260,7 +266,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
 
             // Pre-render tags HTML for colored pills
             const tagsHtml = tagsData.slice(0, 3).map((tag: { name: string; color: string }) =>
-                `<span class="tag-pill arc-skeleton" style="background-color: ${tag.color}; color: #333;">${tag.name}</span>`
+                `<span class="tag-pill" style="background-color: ${tag.color}; color: #333;">${tag.name}</span>`
             ).join('');
 
             return {
@@ -274,8 +280,16 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
                 content: content.content || '',
                 publishedOn: this.formatContentDate(content.publishedOn),
                 readTime: this.getReadTime(content),
+                // The same names as a published card (functions/src/shared/content-cards.ts).
+                authorName: (content as any).authorName || '',
+                author: (content as any).authorName || (content as any).author || '',
                 tags: tagsData,
                 tagsHtml: tagsHtml,
+                tagsDisplay: (content.tags || []).slice(0, 3).join(', '),
+                contentType: contentTypeName(contentType, lang),
+                cat: contentTypeName(contentType, lang),
+                // Lets a custom field answer to its short key, as on the detail page.
+                contentTypeSlug: contentType.slug,
                 ...((content as any).customFields || {}),
             };
         });
@@ -319,7 +333,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     getExcerpt(content: IContents): string {
         const text = content.metaDescription || content.content || '';
         const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        const words = cleanText.split(' ').slice(0, 20);
-        return words.length >= 20 ? words.join(' ') + '...' : cleanText;
+        // 25 words, like a published card (functions/src/shared/content-cards.ts).
+        const words = cleanText.split(' ').slice(0, 25);
+        return words.length >= 25 ? words.join(' ') + '...' : cleanText;
     }
 }

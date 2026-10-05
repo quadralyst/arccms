@@ -64,6 +64,26 @@ describe('FileUploadService', () => {
         });
     });
 
+    describe('uploadFile', () => {
+        it('stores a file under every size name, so each size a template derives exists', async () => {
+            // A 500px photo with a 1200 maximum: M, L and XL are all 500px, S is 300px.
+            vi.spyOn(service as any, 'loadImageFromFile').mockResolvedValue({ naturalWidth: 500, naturalHeight: 400 });
+            const encode = vi.spyOn(service as any, 'encodeImage').mockImplementation(async (_img: any, w: number) => new Blob([`img-${w}`]));
+            const paths: string[] = [];
+            vi.spyOn(service as any, 'uploadBlob').mockImplementation(async (path: string) => { paths.push(path); return `url:${path}`; });
+
+            const file = new File(['x'], 'Team Photo.jpg', { type: 'image/jpeg' });
+            const result = await service.uploadFile(file, { maxFileSize: 5, maxSize: 1200, convertToWebp: true }, () => {});
+
+            expect(paths.map((p) => p.replace(/^.*-(s|m|l|xl)\.webp$/, '$1')).sort()).toEqual(['l', 'm', 's', 'xl']);
+            // Encoded once per distinct pixel size: 500px and 300px.
+            expect(encode).toHaveBeenCalledTimes(2);
+            expect(result.variants!.l.url).toMatch(/-l\.webp$/);
+            expect(result.variants!.l.width).toBe(500);
+            expect(result.variants!.s.width).toBe(300);
+        });
+    });
+
     describe('generateUniqueImageName', () => {
         it('should generate a unique name with timestamp', () => {
             const name = service.generateUniqueImageName();

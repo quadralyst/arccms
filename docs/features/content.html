@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Content | Arc CMS docs</title>
   <meta name="description" content="Define content types, write and publish entries, and understand how a published entry becomes a static page on Firebase Hosting.">
-  <meta name="docs:sources" content="functions/src/features/content.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, src/app/pages/admin/contents/site-drift-notice/site-drift-notice.component.ts, src/shared/directives/resizable/resizable.directive.ts, src/app/pages/admin/contents/content-store/published-contents.service.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/_site/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
+  <meta name="docs:sources" content="functions/src/features/content.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, src/app/pages/admin/contents/site-drift-notice/site-drift-notice.component.ts, src/shared/directives/resizable/resizable.directive.ts, src/app/pages/admin/contents/content-store/published-contents.service.ts, functions/src/publishQueue, functions/src/content-types, functions/src/draftContent, functions/src/pages, functions/src/shared/template-hydration.ts, functions/src/shared/content-translation.ts, functions/src/shared/content-cards.ts, src/shared/models/repeater.model.ts, src/shared/utils/url-slug.ts, src/app/pages/admin/contents, src/app/pages/[contentTypeSlug], src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/public-page-renderer, src/shared/components/tiptap-editor, src/shared/components/field-repeater, src/app/core/features/feature-routes.ts, public/_site/pages, firestore.rules, firebase.json, functions/scripts/call-seed.cjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/content.html">
@@ -55,9 +55,10 @@
       <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
       <tbody>
         <tr><td>Name, singular name, description</td><td>Shown in the admin and on the public list page (heading and subtitle). Each can be translated per language.</td></tr>
-        <tr><td>Slug</td><td>The URL segment and the collection names</td></tr>
+        <tr><td>Slug</td><td>The URL segment and the collection names. Changing it later hides every existing entry, which stays in the old collections.</td></tr>
+        <tr><td>Icon</td><td>The Font Awesome icon beside the type in the admin menu</td></tr>
         <tr><td>Content Template</td><td>The template folder whose <code>partials.html</code>, <code>list.html</code> and <code>detail.html</code> render this type; offered only when the type has public pages (see <a href="templates.html">Templates</a>)</td></tr>
-        <tr><td>Generate public pages</td><td>Off: entries are stored and published in Firestore, but no HTML page, list page, sitemap entry or feed is generated. Use it for data an app reads, or for items only shown inside other pages.</td></tr>
+        <tr><td>Generate public pages</td><td>Off: entries are stored and published in Firestore, but the type shows nowhere on the published site: no HTML page, list page, sitemap entry, feed or search entry, and a card block of the type on the published home page is removed. Slug and Content Template are hidden while it is off. Use it for data that only your app's own pages read.</td></tr>
         <tr><td>Searchable custom fields</td><td>Plain text custom fields that search also indexes (see <a href="search.html">Search</a>). Shown when you edit the type.</td></tr>
         <tr><td>Structured data</td><td>Which schema.org type the page's structured data uses, and which fields fill it (see <a href="seo.html">SEO and discoverability</a>). Shown when you add a type and when you edit it.</td></tr>
       </tbody>
@@ -65,25 +66,53 @@
     <p>Which columns the entry list shows is chosen with <strong>Columns</strong> on the entry list itself, and saved on the type for every admin.</p>
 
     <h3>Custom field types</h3>
-    <p>You type a field's name; its key is derived and fixed once the type is saved. The key is the slug, a hyphen, then the name in lowercase with hyphens: "Card Icon" on <code>events</code> is <code>events-card-icon</code>. A detail template can use the full key or the bare name (<code>card-icon</code>); list and partial templates use the full key. The content type's view page lists every key under <strong>Template Reference</strong>, click to copy.</p>
+    <p>You type a field's name; its key is made from it and fixed once the type is saved, so renaming the field later changes only its label. The key is the slug, a hyphen, then the name in lowercase with hyphens: "Card Icon" on <code>events</code> is <code>events-card-icon</code>. Types made with older versions may have an underscore after the slug (<code>events_card_icon</code>). A template can use the full key or the short name (<code>card-icon</code>), on a detail page and inside the <code>items</code> loop of a list or card block alike. The short name never replaces a built-in: a field named "Title" does not shadow <code>title</code>.</p>
+    <p>The content type's view page has a <strong>Template Reference</strong> with keys to click and copy. It is not exact for every field type, so check a binding against the table below and <a href="templates.html">Templates</a>.</p>
+
+    <h3 id="field-types-reference">Field types reference</h3>
+    <p>Every custom field value is stored in the entry's <code>customFields</code> map under the field's key. The examples use the short name of a field on an <code>events</code> type.</p>
     <table>
-      <thead><tr><th>Type</th><th>Stores</th></tr></thead>
+      <thead><tr><th>Type</th><th>The editor shows</th><th>Stored</th><th>In a template</th></tr></thead>
       <tbody>
-        <tr><td><code>text</code>, <code>number</code></td><td>A single value</td></tr>
-        <tr><td><code>richtext</code></td><td>HTML from the rich editor</td></tr>
-        <tr><td><code>date</code>, <code>datetime</code></td><td>A date, or a date and time</td></tr>
-        <tr><td><code>boolean</code></td><td>Yes or no</td></tr>
-        <tr><td><code>dropdown</code>, <code>radio</code>, <code>checkbox</code></td><td>One or several options. Options are a comma-separated list, or come from entries of another content type (a collection reference, with chosen fields copied onto this entry).</td></tr>
-        <tr><td><code>image</code></td><td>An image URL picked from the media library</td></tr>
-        <tr><td><code>icon</code></td><td>A Font Awesome icon (class list, inline SVG, label, name)</td></tr>
-        <tr><td><code>color</code></td><td>A hex color</td></tr>
-        <tr><td><code>infocard</code></td><td>Repeating rows: icon or image, headline, text</td></tr>
-        <tr><td><code>gallery</code></td><td>Repeating rows: photo or YouTube video, caption</td></tr>
-        <tr><td><code>labelvalue</code></td><td>Repeating label and value pairs, with a heading</td></tr>
-        <tr><td><code>maplocation</code></td><td>Repeating places: name, address, coordinates</td></tr>
+        <tr><td><code>text</code></td><td>A one-line text box</td><td>The text</td><td><code>&lt;p&gt;{{ subtitle }}&lt;/p&gt;</code></td></tr>
+        <tr><td><code>number</code></td><td>A number box</td><td>The number as text, such as <code>"25"</code></td><td><code>&lt;span&gt;{{ price }}&lt;/span&gt;</code>. As it is text, <code>data-arc-if</code> hides only an empty value: <code>0</code> still shows.</td></tr>
+        <tr><td><code>richtext</code></td><td>A rich editor, with <strong>Expand</strong> for a full-screen one</td><td>HTML</td><td><code>&lt;div [innerHTML]="agenda"&gt;&lt;/div&gt;</code> or <code>&lt;div data-arc-bind="agenda"&gt;&lt;/div&gt;</code>. <code>{{ agenda }}</code> shows the tags as text.</td></tr>
+        <tr><td><code>date</code></td><td>A date picker, for a day only</td><td><code>YYYY-MM-DD</code>, such as <code>2026-10-05</code>. A value saved with an older version may include a time.</td><td><code>{{ deadline }}</code> prints the value as stored. <code>&lt;time data-arc-bind="deadline"&gt;&lt;/time&gt;</code> sets <code>datetime</code> and shows "October 5, 2026", in English.</td></tr>
+        <tr><td><code>datetime</code></td><td>A date and time picker</td><td><code>YYYY-MM-DDTHH:mm</code>, such as <code>2026-10-05T18:30</code></td><td><code>{{ starts }}</code> prints the value as stored. In <code>&lt;time data-arc-bind="starts"&gt;</code> it shows the date only, in English.</td></tr>
+        <tr><td><code>boolean</code></td><td>An on and off switch</td><td><code>true</code> or <code>false</code>; nothing until it is first switched</td><td><code>&lt;span data-arc-if="featured"&gt;Featured&lt;/span&gt;</code>. <code>{{ featured }}</code> prints <code>true</code> or <code>false</code>.</td></tr>
+        <tr><td><code>dropdown</code></td><td>A select list of the options you typed, separated by commas</td><td>The chosen option's text</td><td><code>{{ level }}</code> prints "Beginner"</td></tr>
+        <tr><td><code>radio</code></td><td>One radio button per option</td><td>The chosen option's text</td><td><code>{{ format }}</code> prints "Online"</td></tr>
+        <tr><td><code>checkbox</code></td><td>One tick box per option</td><td>A list of the ticked options</td><td><code>{{ topics }}</code> prints them joined with commas and no space ("Design,Code"). The list cannot be looped, and <code>data-arc-if</code> counts an empty list as set.</td></tr>
+        <tr><td><code>dropdown</code>, <code>radio</code> or <code>checkbox</code> with <strong>Use data from another collection</strong></td><td>The entries of another content type, drafts included, labelled by the chosen display field</td><td>The chosen entry's id (a list of ids for a checkbox), plus a copy of the fields ticked under <strong>Additional Fields to Save</strong></td><td><code>{{ speaker }}</code> prints the id. On a detail page, <code>{{ ref_events-speaker.title }}</code> (always the full key) gives the copy; see <a href="#options-from-another-content-type">Options from another content type</a>.</td></tr>
+        <tr><td><code>image</code></td><td>A picker that opens the Media Manager</td><td>The picked image's URL</td><td><code>&lt;img src="{{ photo_m }}" alt=""&gt;</code>. <code>photo</code> is the image as picked; <code>photo_s</code>, <code>photo_m</code>, <code>photo_l</code> and <code>photo_xl</code> are its sizes (see <a href="templates.html#image-sizes">Image sizes</a>).</td></tr>
+        <tr><td><code>icon</code></td><td>A picker that opens the Media Manager's icons</td><td>The icon's class list, inline SVG, label and name</td><td><code>&lt;i class="{{ card-icon }}" aria-hidden="true"&gt;&lt;/i&gt;</code>, plus <code>card-icon_svg</code>, <code>card-icon_label</code> and <code>card-icon_name</code></td></tr>
+        <tr><td><code>color</code></td><td>A color picker beside a box for the hex code</td><td>A hex color, such as <code>#1a73e8</code></td><td><code>&lt;h2 style="color: {{ brand }}"&gt;</code>, plus <code>brand_rgb</code> and <code>brand_rgb_values</code>, or <code>data-arc-style-background="brand"</code></td></tr>
+        <tr><td><code>infocard</code></td><td>Repeating cards, each an icon or image, a headline and a short text</td><td>A list of rows</td><td>A loop: <code>data-arc-loop="info-cards"</code>, with <code>{{ headline }}</code> in each row</td></tr>
+        <tr><td><code>gallery</code></td><td>Repeating photos or YouTube videos with captions; <strong>Add photos</strong> picks several at once</td><td>A list of rows</td><td>A loop: <code>data-arc-loop="gallery"</code>, with <code>{{ caption }}</code> in each row</td></tr>
+        <tr><td><code>labelvalue</code></td><td>Repeating label and value pairs side by side, under a section heading</td><td>A list of rows; the heading beside it, under the key plus <code>_heading</code></td><td><code>{{ details_heading }}</code>, then a loop: <code>data-arc-loop="details"</code>, with <code>{{ label }}</code> and <code>{{ value }}</code></td></tr>
+        <tr><td><code>maplocation</code></td><td>Repeating places, each a name and an address found on a map with a pin you can drag, under a section heading</td><td>A list of rows with the address and its coordinates; the heading under the key plus <code>_heading</code></td><td><code>{{ locations_heading }}</code>, then a loop: <code>data-arc-loop="locations"</code>, with <code>&lt;iframe data-arc-bind="map_embed"&gt;</code> in each row</td></tr>
       </tbody>
     </table>
-    <p>How each type renders in a template (bindings, loops, image sizes) is on the <a href="templates.html">Templates</a> page.</p>
+    <p>The four repeating types (<code>infocard</code>, <code>gallery</code>, <code>labelvalue</code>, <code>maplocation</code>) render only on detail pages, not inside the <code>items</code> loop of a list or card block. Every key their rows carry is listed under <a href="templates.html#custom-field-bindings">Custom field bindings</a>.</p>
+
+    <h3 id="options-from-another-content-type">Options from another content type</h3>
+    <p>A <code>dropdown</code>, <code>radio</code> or <code>checkbox</code> field with <strong>Use data from another collection</strong> on offers the entries of another content type. Know how it behaves before you rely on it:</p>
+    <ul>
+      <li>It stores the chosen entry's id, so <code>{{ key }}</code> prints the id, not the title.</li>
+      <li>The id, the display field and the fields ticked under <strong>Additional Fields to Save</strong> are copied onto the entry. On a detail page the copy is <code>ref_</code> plus the full key: <code>{{ ref_events-speaker.title }}</code>, <code>ref_events-speaker.urlSlug</code>, <code>ref_events-speaker.coverImage</code>. For a checkbox the copy is a list, which <code>{{ }}</code> cannot print.</li>
+      <li>Only <code>id</code>, <code>title</code>, <code>urlSlug</code> and <code>coverImage</code> work as the display field or as copied fields. The other type's custom fields are offered too, but they copy as empty, and as the display field they label each option with its id.</li>
+      <li>The copy is taken when the editor picks the entry and is not updated afterwards, although the form says the fields are kept in sync. After the other entry changes, pick it again and publish.</li>
+      <li>The options include drafts that were never published, so an entry can point at a page that does not exist.</li>
+    </ul>
+
+    <h3>Field settings</h3>
+    <ul>
+      <li><strong>Required</strong> is checked only when you press <strong>Publish</strong>, on the default language. <strong>Save as draft</strong>, the editor's own saving and <strong>Preview</strong> accept an empty field.</li>
+      <li><strong>Type</strong> can be changed after the type is saved, but values already stored are not converted. A text value under a field changed to <code>number</code> or <code>image</code> stays the same text, so check the entries that have one.</li>
+      <li><strong>Deleting a field</strong> takes it out of the editor, but its values stay in each entry's <code>customFields</code>, and a template that names the key still shows them.</li>
+      <li><strong>The key</strong> is locked once the type is saved, because entries refer to it.</li>
+    </ul>
+    <p>In a second language the editor translates only prose: <code>text</code> and <code>richtext</code> fields, the headline and text of an <code>infocard</code>, a <code>gallery</code> caption, the heading, labels and values of a <code>labelvalue</code>, and the heading, names and addresses of a <code>maplocation</code>. Every other field, including options, dates, images, icons and the rows' order and pictures, is shared by all languages and edited on the default language's tab.</p>
 
     <h2>Use it</h2>
 

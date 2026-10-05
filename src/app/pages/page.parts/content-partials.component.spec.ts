@@ -97,6 +97,14 @@ describe('ContentPartialsComponent', () => {
         expect(component).toBeTruthy();
     });
 
+    it('loads the newest items, up to the 50 a card block can show, not the store\'s first ten', () => {
+        fixture.detectChanges();
+        expect(mockContentsStore.getAll).toHaveBeenCalledWith(
+            expect.objectContaining({ orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 50 }),
+            'articles',
+        );
+    });
+
     describe('Input Bindings', () => {
         it('should have default contentType of "articles"', () => {
             fixture.detectChanges();

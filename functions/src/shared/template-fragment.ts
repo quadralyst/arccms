@@ -14,7 +14,13 @@
  */
 export function isTemplateFragment(html: string | null | undefined): boolean {
     if (!html || !html.trim()) return false;
-    const head = html.slice(0, 2000).toLowerCase();
+    // Only real tags count: a comment, a <style> or a <script> that mentions
+    // <head> or <body> (such as "moves into the page's <head>") is text.
+    const head = html
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<(style|script)\b[\s\S]*?<\/\1>/gi, '')
+        .slice(0, 2000)
+        .toLowerCase();
     if (/<!doctype\s/i.test(head)) return false;
     if (/<html[\s>]/.test(head) || /<head[\s>]/.test(head) || /<body[\s>]/.test(head)) return false;
     if (html.includes('<arc-not-found') || html.includes('<arc-root')) return false;

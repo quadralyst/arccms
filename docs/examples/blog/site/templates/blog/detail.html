@@ -1,0 +1,37 @@
+<!-- One blog post, /blog/{slug}. A fragment: publishing wraps it in a page
+     with the post's SEO title, description and structured data. -->
+<arc-header></arc-header>
+
+<article class="post">
+    <img class="cover" data-arc-if="hero-image" src="{{ hero-image_l }}" alt="{{ title }}">
+    <h1>{{ title }}</h1>
+    <p class="meta">
+        {{ publishedOn }}
+        <span data-arc-if="authorName">· <span data-arc-t="by_author">by {{ authorName }}</span></span>
+        · <span data-arc-t="min_read">{{ readTime }} min read</span>
+    </p>
+    <!-- The body is HTML: [innerHTML], never {{ content }}, which would show the tags. -->
+    <div class="content" [innerHTML]="content"></div>
+
+    <aside class="related" data-arc-if="related-links">
+        <strong data-arc-t="read_next">Read next</strong>
+        <ul data-arc-loop="related-links">
+            <li><a href="{{ value }}">{{ label }}</a></li>
+        </ul>
+    </aside>
+
+    <p><a href="{{ langPrefix }}/blog" data-arc-t="back_to_blog">Back to the blog</a></p>
+</article>
+
+<arc-footer></arc-footer>
+
+<style>
+    /* Posts only: publishing moves this into the page's <head>. */
+    .post { max-width: 720px; margin: 0 auto; padding: 2rem; }
+    .post .cover { width: 100%; border-radius: 10px; }
+    .post h1 { font-size: 2.5rem; margin: 1.5rem 0 .5rem; }
+    .post .meta { color: var(--muted); }
+    .post .content { font-size: 1.15rem; line-height: 1.7; }
+    .related { margin-top: 3rem; padding: 1.25rem; background: #fff; border-radius: 10px; }
+    .related ul { margin: .5rem 0 0; padding-left: 1.25rem; }
+</style>

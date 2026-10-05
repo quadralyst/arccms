@@ -161,7 +161,7 @@ function buildTemplateData(
         // field with the same key would otherwise turn it into a string.
         // Both are empty when the item has no author, so data-arc-if hides
         // the box.
-        ...authorTemplateData(author),
+        ...authorTemplateData(author, typeof content.authorName === 'string' ? content.authorName : ''),
         // Cited sources (D-D11): a loop for templates, a flag for data-arc-if.
         references: cleanReferences(content.references),
         hasReferences: cleanReferences(content.references).length > 0,

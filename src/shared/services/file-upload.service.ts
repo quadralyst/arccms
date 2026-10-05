@@ -240,7 +240,10 @@ export class FileUploadService {
      * photo is landscape or portrait.
      *
      * A size the image is too small to fill is not upscaled: it reuses the
-     * next size up, so a 500px photo stores S and M and points L and XL at M.
+     * encoding of the next size down, but is still stored under its own name,
+     * so `{{ key_l }}` always names a file that exists (templates derive every
+     * size from one URL, image-sizes.ts). A 500px photo with a 1200 maximum
+     * stores one 500px image as -m, -l and -xl, and a 300px one as -s.
      * Progress covers the whole set. GIFs skip all of this — re-encoding
      * would drop the animation — and are stored once, as they are.
      */
@@ -299,29 +302,22 @@ export class FileUploadService {
         const baseName = filename.slice(0, -extension.length);
 
         // Upload largest first, so a failure part-way leaves the useful files.
+        // Every size gets its own file, even when it reuses another's encoding.
         const order: ImageSize[] = ['xl', 'l', 'm', 's'];
-        const uploaded = new Map<string, ImageVariant>();
-        const totalBytes = [...encoded.values()].reduce((sum, item) => sum + item.blob.size, 0);
+        const blobFor = (size: ImageSize) => encoded.get(`${dimensions[size].width}x${dimensions[size].height}`)!.blob;
+        const totalBytes = order.reduce((sum, size) => sum + blobFor(size).size, 0);
         let doneBytes = 0;
+        const variants = {} as Record<ImageSize, ImageVariant>;
 
         for (const size of order) {
             const { width, height } = dimensions[size];
-            const dimKey = `${width}x${height}`;
-            if (uploaded.has(dimKey)) continue;
-
-            const { blob } = encoded.get(dimKey)!;
+            const blob = blobFor(size);
             const path = withStoragePrefix(`mediaImages/${baseName}-${size}${extension}`);
             const url = await this.uploadBlob(path, blob, outputMimeType, (pct) => {
                 progressCallback(totalBytes ? ((doneBytes + (blob.size * pct) / 100) / totalBytes) * 100 : pct);
             });
             doneBytes += blob.size;
-            uploaded.set(dimKey, { url, path, width, height });
-        }
-
-        const variants = {} as Record<ImageSize, ImageVariant>;
-        for (const size of IMAGE_SIZES) {
-            const { width, height } = dimensions[size];
-            variants[size] = uploaded.get(`${width}x${height}`)!;
+            variants[size] = { url, path, width, height };
         }
 
         return {

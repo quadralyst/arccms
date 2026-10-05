@@ -13,6 +13,8 @@ const URLS: [string, string][] = [
     ['an Unsplash photo', UNSPLASH],
     ['an external image', 'https://example.com/pic.jpg'],
     ['a sized upload without a token', `${BUCKET}mediaImages%2Fx-s.webp?alt=media`],
+    ['a sized upload in an upload folder', `${BUCKET}arccms%2FmediaImages%2Fteam-photo-a1b2c3-m.webp?alt=media&token=abc`],
+    ['a legacy upload in an upload folder', `${BUCKET}arccms%2FmediaImages%2Fteam-photo.jpg?alt=media&token=abc`],
 ];
 
 describe('imageSizeLimits', () => {
@@ -51,6 +53,18 @@ describe('imageSizeUrls', () => {
             l: `${BUCKET}mediaImages%2Fteam-photo-a1b2c3-l.webp?alt=media`,
             xl: `${BUCKET}mediaImages%2Fteam-photo-a1b2c3-xl.webp?alt=media`,
         });
+    });
+
+    it('finds the sizes of an upload in the install\'s upload folder (storagePrefix)', () => {
+        const url = `${BUCKET}arccms%2FmediaImages%2Fteam-photo-a1b2c3-xl.webp?alt=media&token=abc`;
+        expect(imageSizeUrls(url)).toEqual({
+            s: `${BUCKET}arccms%2FmediaImages%2Fteam-photo-a1b2c3-s.webp?alt=media`,
+            m: `${BUCKET}arccms%2FmediaImages%2Fteam-photo-a1b2c3-m.webp?alt=media`,
+            l: `${BUCKET}arccms%2FmediaImages%2Fteam-photo-a1b2c3-l.webp?alt=media`,
+            xl: `${BUCKET}arccms%2FmediaImages%2Fteam-photo-a1b2c3-xl.webp?alt=media`,
+        });
+        // Another folder that merely contains the word is not media.
+        expect(imageSizeUrls(`${BUCKET}avatars%2Fu1%2Favatar-1.webp?alt=media`)).toBeNull();
     });
 
     it('does not mistake a name ending in -s for a size', () => {

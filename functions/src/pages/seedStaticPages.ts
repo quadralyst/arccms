@@ -1,3 +1,4 @@
+import { requireAdmin } from '../search/auth.js';
 import { onCall } from 'firebase-functions/v2/https';
 import { db } from '../init.js';
 import { clearSettingsCache, getPartials, getSiteConfig } from '../shared/site-settings.js';
@@ -240,9 +241,11 @@ export async function runSeed(): Promise<SeedResult> {
 
 /**
  * Callable function to deploy ALL existing published content as static HTML.
- * Can also be run from CLI via: npm run seed:dev / npm run seed:prod
+ * Can also be run from CLI via: npm run seed:dev / npm run seed:prod, which
+ * calls runSeed directly with the person's own credentials.
  *
- * TODO: Add authentication check (require admin role) before production use.
+ * Admins only: a republish rebuilds and releases every page, so an open
+ * callable would let anyone run up the install's costs.
  */
 export const seedStaticPages = onCall(
     {
@@ -251,7 +254,8 @@ export const seedStaticPages = onCall(
         cors: true,
         enforceAppCheck: false,
     },
-    async (_request): Promise<SeedResult> => {
+    async (request): Promise<SeedResult> => {
+        await requireAdmin(request);
         return runSeed();
     },
 );

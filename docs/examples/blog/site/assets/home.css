@@ -1,0 +1,9 @@
+/* The home page only: linked from home.html as /site/home.css. */
+.hero { padding: 5rem 2rem; text-align: center; }
+.hero h1 { font-size: 3rem; margin: 0 0 1rem; }
+.hero p { color: var(--muted); font-size: 1.25rem; }
+.signup { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
+.signup input { padding: .75rem 1rem; border: 1px solid #e4d5c5; border-radius: 6px; min-width: 260px; }
+.signup button { padding: .75rem 1.25rem; border: 0; border-radius: 6px; background: var(--brand); color: #fff; }
+/* Arc CMS adds the terms notice just before the button: give it its own line, under the form. */
+.signup .arc-legal-notice { flex-basis: 100%; order: 3; text-align: center; }

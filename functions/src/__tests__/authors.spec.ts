@@ -61,6 +61,8 @@ describe('authors (specs/discoverability-spec.md, D2)', () => {
 
     it('authorTemplateData gives an object for bindings and a flat name', () => {
         expect(authorTemplateData(null)).toEqual({ author: {}, authorName: '' });
+        // A deleted author: the name stored on the item stays, as plain text.
+        expect(authorTemplateData(null, 'Asha Rao')).toEqual({ author: {}, authorName: 'Asha Rao' });
         const data = authorTemplateData({ id: 'a1', name: 'Jane', slug: 'jane', bio: 'B', photoUrl: 'P', jobTitle: 'J', url: 'U', sameAs: [] });
         expect(data.authorName).toBe('Jane');
         expect(data.author).toEqual({ name: 'Jane', bio: 'B', photoUrl: 'P', jobTitle: 'J', url: 'U' });
