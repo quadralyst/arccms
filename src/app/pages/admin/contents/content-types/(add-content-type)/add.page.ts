@@ -1,4 +1,5 @@
 import { RouteMeta } from '@analogjs/router';
+import type { EntryOrder } from '../../../../../core/utils/display-order';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -87,6 +88,8 @@ export default class AddContentTypeComponent extends BaseComponent {
         singularName: new FormControl(''),
         description: new FormControl(''),
         hasPublicUrl: new FormControl(true),
+        // SS2: newest first, or the order an admin arranges.
+        entryOrder: new FormControl<EntryOrder>('newest', { nonNullable: true }),
         slug: new FormControl('', [Validators.required, Validators.pattern(/^[a-z0-9-]+$/)]),
         templateFolder: new FormControl('default'),
         icon: new FormControl('fa-solid fa-folder'),
@@ -441,6 +444,7 @@ export default class AddContentTypeComponent extends BaseComponent {
             icon: formValue.icon || 'fa-solid fa-folder',
             order: formValue.order || 0,
             hasPublicUrl: formValue.hasPublicUrl !== false,
+            entryOrder: formValue.entryOrder === 'manual' ? 'manual' : 'newest',
             schema: this.schemaForSave(),
             templateFolder: formValue.templateFolder || 'default',
             fields: (formValue.fields || []).map((field: any, index: number) => {

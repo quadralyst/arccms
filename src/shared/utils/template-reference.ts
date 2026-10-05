@@ -69,7 +69,7 @@ export const DETAIL_LOOPS: TemplateAttr[] = [
 
 /** list.html, outside the items loop. */
 export const LIST_FIELDS: TemplateAttr[] = [
-    bind('items', 'Entries', 'data-arc-loop="items"', 'Newest first, up to 100; data-limit="N" caps it'),
+    bind('items', 'Entries', 'data-arc-loop="items"', 'In the type\'s entry order, up to 100; data-limit="N" caps it'),
     bind('contentType', 'Type name'),
     bind('contentTypeSlug', 'Type slug'),
     bind('contentTypeDescription', 'Type description'),
@@ -79,7 +79,7 @@ export const LIST_FIELDS: TemplateAttr[] = [
 
 /** partials.html, outside the items loop. */
 export const PARTIALS_FIELDS: TemplateAttr[] = [
-    bind('items', 'Cards', 'data-arc-loop="items"', 'Count from the count attribute'),
+    bind('items', 'Cards', 'data-arc-loop="items"', 'In the type\'s entry order; count from the count attribute'),
     bind('sectionTitle', 'Section title', '{{ sectionTitle }}', 'section-title attribute, else "Latest {type}"'),
     bind('listUrl', 'List page link', '<a data-arc-if="listUrl" href="{{ listUrl }}">', 'Empty for a type without public pages'),
     bind('hasItems', 'Has entries', 'data-arc-if="hasItems"'),

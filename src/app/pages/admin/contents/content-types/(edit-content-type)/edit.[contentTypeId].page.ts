@@ -1,4 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
+import { entryOrderOf, type EntryOrder } from '../../../../../core/utils/display-order';
+import { EntryOrderService } from '../../entry-order/entry-order.service';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -46,6 +48,9 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     @Output() close = new EventEmitter();
     contentTypesStore = inject(ContentTypesStore);
     templateFolderService = inject(TemplateFolderService);
+    private entryOrder = inject(EntryOrderService);
+    /** The entry order the form loaded, to tell whether a save changed it (SS2). */
+    private loadedEntryOrder: EntryOrder = 'newest';
     private localization = inject(LocalizationService);
     private searchService = inject(SearchService);
     action = input('action');
@@ -113,6 +118,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             fieldLabelTranslations: currentItem.fieldLabelTranslations || {},
             description: currentItem.description || '',
             hasPublicUrl: currentItem.hasPublicUrl !== false,
+            entryOrder: this.loadedEntryOrder = entryOrderOf(currentItem),
             searchFields: currentItem.searchFields || [],
             schemaType: currentItem.schema?.type || 'Article',
             schemaFields: { ...(currentItem.schema?.fields || {}) },
@@ -188,6 +194,8 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         fieldLabelTranslations: new FormControl<Record<string, Record<string, string>>>({}),
         description: new FormControl(''),
         hasPublicUrl: new FormControl(true),
+        // SS2: newest first, or the order an admin arranges.
+        entryOrder: new FormControl<EntryOrder>('newest', { nonNullable: true }),
         // Prefixed custom field keys to index for search (S-D15).
         searchFields: new FormControl<string[]>([]),
         // Structured data (D-D12): the schema.org type and its property → field map.
@@ -460,6 +468,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             icon: formValue.icon || 'fa-solid fa-folder',
             order: formValue.order || 0,
             hasPublicUrl: formValue.hasPublicUrl !== false,
+            entryOrder: formValue.entryOrder === 'manual' ? 'manual' : 'newest',
             searchFields: (formValue.searchFields || []).filter(key =>
                 this.searchableFields().some(field => field.key === key)),
             schema: this.schemaForSave(),
@@ -472,12 +481,14 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         };
 
         const previous = (this.currentItem() as ContentType | null)?.searchFields || [];
+        const orderChanged = this.loadedEntryOrder !== updatedContentType.entryOrder;
         const searchFieldsChanged =
             JSON.stringify([...previous].sort()) !== JSON.stringify([...(updatedContentType.searchFields || [])].sort());
 
         this.contentTypesStore.update(this.id, updatedContentType).subscribe({
             next: () => {
                 if (searchFieldsChanged) this.reindexSearch(slug);
+                if (orderChanged) void this.applyEntryOrder(slug, updatedContentType.entryOrder === 'manual');
                 this.notify.success('admin.contents.types.updated');
                 this.editForm.reset();
                 this.close.emit();
@@ -487,6 +498,21 @@ export default class EditContentTypeComponent extends BaseComponent implements O
                 console.error('Error updating content type:', error);
             },
         });
+    }
+
+    /**
+     * A type switched to its own order keeps the order it had (its entries are
+     * numbered newest first); either way its pages are republished in the new
+     * order (specs/site-sections-spec.md, SS2).
+     */
+    private async applyEntryOrder(slug: string, manual: boolean): Promise<void> {
+        try {
+            if (manual) await this.entryOrder.numberInCurrentOrder(slug);
+            await this.entryOrder.republish(slug);
+        } catch (error) {
+            console.error('Could not apply the entry order:', error);
+            this.notify.error('admin.contents.types.entry_order_failed');
+        }
     }
 
     public toggleSlugEdit(): void {

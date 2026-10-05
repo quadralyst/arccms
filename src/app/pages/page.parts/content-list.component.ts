@@ -1,4 +1,5 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
@@ -170,6 +171,9 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     /** Translations for the listed items, keyed by document id. */
     private translations = signal<Record<string, IContentTranslation>>({});
 
+    /** The type whose entries were all read, for its own order (SS2). */
+    private readAllFor = '';
+
     filteredContents = computed(() => {
         const contentType = this.currentContentType();
         if (!contentType) return [];
@@ -186,13 +190,10 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
                 lang ? mergeTranslation(content, translations[content.id] ?? null) : content
             );
 
-        // Sort by publishedOn descending (newest first).
-        // Handles Firestore Timestamps ({seconds, nanoseconds}), Date objects, and ISO strings.
-        return items.sort((a, b) => {
-            const dateA = this.toTimestamp(a.publishedOn);
-            const dateB = this.toTimestamp(b.publishedOn);
-            return dateB - dateA;
-        });
+        // In the type's entry order (newest first, or the order an admin
+        // arranged), as when published (core/utils/display-order.ts).
+        return sortForDisplay(items as unknown as Record<string, any>[], entryOrderOf(contentType))
+            .slice(0, 100) as unknown as IContents[];
     });
 
     constructor() {
@@ -204,6 +205,18 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         if (!isPlatformBrowser(this.platformId)) {
             this.hydrated.set(true);
         }
+
+        // A type in its own order lists its arranged entries, whatever their
+        // age: read them all, not only the newest 100 (SS2).
+        effect(() => {
+            const type = this.currentContentType();
+            if (!type || this.readAllFor === type.slug || entryOrderOf(type) !== 'manual') return;
+            this.readAllFor = type.slug;
+            untracked(() => this.contentsStore.getAll(
+                { orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 0 } as QueryParams,
+                type.slug,
+            ));
+        });
 
         // Load the listed items' translations once the store has filled — ids
         // are not known before then. Reads only the store and the language, so
@@ -512,14 +525,6 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             this.document.head.appendChild(link);
         }
         link.setAttribute('href', url);
-    }
-
-    /** Convert Firestore Timestamp, Date, or ISO string to epoch ms for sorting */
-    private toTimestamp(date: any): number {
-        if (!date) return 0;
-        if (date.seconds) return date.seconds * 1000;
-        const d = new Date(date);
-        return isNaN(d.getTime()) ? 0 : d.getTime();
     }
 
     getGradient(contentId: string): string {

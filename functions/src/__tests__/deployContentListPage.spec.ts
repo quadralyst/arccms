@@ -227,7 +227,8 @@ describe('deployContentListPage', () => {
                 path.resolve(__dirname, '../pages/deployContentListPage.ts'),
                 'utf-8',
             );
-            expect(fileContent).toContain('.limit(100)');
+            // In the type's entry order (SS2); published-entries.spec.ts covers the reading.
+            expect(fileContent).toContain('readPublishedInDisplayOrder(contentTypeSlug, contentType, 100)');
         });
     });
 

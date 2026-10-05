@@ -1,5 +1,6 @@
 import { IBaseModel } from '../../../../../shared/models/base-model';
 import type { ContentTypeSchema } from '../../../../../shared/constants/schema-types';
+import type { EntryOrder } from '../../../../core/utils/display-order';
 
 export type ContentTypeFieldType = 'text' | 'number' | 'richtext' | 'date' | 'datetime' | 'image' | 'icon' | 'boolean' | 'dropdown' | 'checkbox' | 'radio' | 'infocard' | 'gallery' | 'labelvalue' | 'maplocation' | 'color';
 
@@ -49,6 +50,12 @@ export interface ContentType extends IBaseModel {
      */
     searchFields?: string[];
     hasPublicUrl?: boolean; // When false, no static HTML pages are generated for this content type
+    /**
+     * How entries are shown on the list page and in home page cards: newest
+     * first (the default, also when missing), or the order an admin arranged
+     * (each entry's `sortOrder`). See core/utils/display-order.ts.
+     */
+    entryOrder?: EntryOrder;
     /**
      * Which schema.org type this content publishes as, and which custom
      * fields fill its properties (specs/discoverability-spec.md, D-D12), e.g.

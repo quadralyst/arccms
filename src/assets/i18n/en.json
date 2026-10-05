@@ -904,6 +904,10 @@
           "template_hint": "Select a template for displaying this content type's list and detail pages",
           "card_template": "Card template",
           "card_template_hint": "Used for this type's cards on the home page.",
+          "entry_order": "Entry order",
+          "entry_order_newest": "Newest first",
+          "entry_order_manual": "Your own order",
+          "entry_order_hint": "Drag entries into place with Arrange on the entry list. The list page and home page cards follow it.",
           "custom_fields": "Custom fields",
           "custom_field_labels": "Custom field labels",
           "no_custom_fields": "This content type has no custom fields yet.",
@@ -950,6 +954,7 @@
         "create_failed": "Error creating content type",
         "updated": "Content type updated successfully",
         "update_failed": "Error updating content type",
+        "entry_order_failed": "Saved, but the entries could not be put in the new order. Try Arrange on the entry list.",
         "slug_exists": "Slug \"{{ slug }}\" already exists.",
         "republish_site": "Republish website",
         "republish_site_hint": "Publish every page, the home page and the sitemap again, from the live website's templates",
@@ -1069,7 +1074,8 @@
         "unpublish_failed": "Failed to unpublish content.",
         "view_save_failed": "Failed to save view preferences.",
         "add_item": "Add {{ type }}",
-        "manage_subtitle": "Manage your {{ type }}"
+        "manage_subtitle": "Manage your {{ type }}",
+        "arrange": "Arrange"
       },
       "authors": {
         "page_title": "Authors",
@@ -1153,6 +1159,22 @@
         "message": "Your site files differ from the live site, and publishing uses the live ones. Deploy the website first.",
         "missing": "The live site has no site files yet, so publishing cannot work. Deploy the website first.",
         "files": "Different files: {{files}}"
+      },
+      "arrange": {
+        "title": "Arrange {{ type }}",
+        "hint": "Drag entries into the order your site should show them, or use the arrows. Drafts keep their place for when you publish them.",
+        "loading": "Loading entries...",
+        "empty": "There are no entries to arrange yet.",
+        "too_many": "The list page shows the first 100 entries in this order.",
+        "drag": "Drag to move",
+        "untitled": "(no title)",
+        "draft": "Draft",
+        "move_up": "Move \"{{ title }}\" up",
+        "move_down": "Move \"{{ title }}\" down",
+        "saving": "Saving...",
+        "saved": "Order saved. Your pages are being updated.",
+        "save_failed": "Could not save the order. Please try again.",
+        "load_failed": "Could not load the entries."
       }
     },
     "users": {

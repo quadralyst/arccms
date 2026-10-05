@@ -91,6 +91,20 @@ export type TranslationKey =
     | 'admin.audience.tags.tag'
     | 'admin.audience.tags.title'
     | 'admin.audience.tags.view_contacts'
+    | 'admin.contents.arrange.draft'
+    | 'admin.contents.arrange.drag'
+    | 'admin.contents.arrange.empty'
+    | 'admin.contents.arrange.hint'
+    | 'admin.contents.arrange.load_failed'
+    | 'admin.contents.arrange.loading'
+    | 'admin.contents.arrange.move_down'
+    | 'admin.contents.arrange.move_up'
+    | 'admin.contents.arrange.save_failed'
+    | 'admin.contents.arrange.saved'
+    | 'admin.contents.arrange.saving'
+    | 'admin.contents.arrange.title'
+    | 'admin.contents.arrange.too_many'
+    | 'admin.contents.arrange.untitled'
     | 'admin.contents.authors.bio'
     | 'admin.contents.authors.bio_placeholder'
     | 'admin.contents.authors.clear_default'
@@ -251,6 +265,7 @@ export type TranslationKey =
     | 'admin.contents.editor.url_slug'
     | 'admin.contents.editor.version_restored'
     | 'admin.contents.list.add_item'
+    | 'admin.contents.list.arrange'
     | 'admin.contents.list.bulk_import'
     | 'admin.contents.list.col_title'
     | 'admin.contents.list.columns'
@@ -284,6 +299,7 @@ export type TranslationKey =
     | 'admin.contents.types.deleted'
     | 'admin.contents.types.empty_description'
     | 'admin.contents.types.empty_title'
+    | 'admin.contents.types.entry_order_failed'
     | 'admin.contents.types.field_count'
     | 'admin.contents.types.fix_slug'
     | 'admin.contents.types.form.add_field'
@@ -302,6 +318,10 @@ export type TranslationKey =
     | 'admin.contents.types.form.display_field_hint'
     | 'admin.contents.types.form.duplicate_fields'
     | 'admin.contents.types.form.edit_title'
+    | 'admin.contents.types.form.entry_order'
+    | 'admin.contents.types.form.entry_order_hint'
+    | 'admin.contents.types.form.entry_order_manual'
+    | 'admin.contents.types.form.entry_order_newest'
     | 'admin.contents.types.form.field_key'
     | 'admin.contents.types.form.field_key_auto_hint'
     | 'admin.contents.types.form.field_key_locked_hint'
@@ -1572,6 +1592,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.audience.tags.tag',
     'admin.audience.tags.title',
     'admin.audience.tags.view_contacts',
+    'admin.contents.arrange.draft',
+    'admin.contents.arrange.drag',
+    'admin.contents.arrange.empty',
+    'admin.contents.arrange.hint',
+    'admin.contents.arrange.load_failed',
+    'admin.contents.arrange.loading',
+    'admin.contents.arrange.move_down',
+    'admin.contents.arrange.move_up',
+    'admin.contents.arrange.save_failed',
+    'admin.contents.arrange.saved',
+    'admin.contents.arrange.saving',
+    'admin.contents.arrange.title',
+    'admin.contents.arrange.too_many',
+    'admin.contents.arrange.untitled',
     'admin.contents.authors.bio',
     'admin.contents.authors.bio_placeholder',
     'admin.contents.authors.clear_default',
@@ -1732,6 +1766,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.url_slug',
     'admin.contents.editor.version_restored',
     'admin.contents.list.add_item',
+    'admin.contents.list.arrange',
     'admin.contents.list.bulk_import',
     'admin.contents.list.col_title',
     'admin.contents.list.columns',
@@ -1765,6 +1800,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.deleted',
     'admin.contents.types.empty_description',
     'admin.contents.types.empty_title',
+    'admin.contents.types.entry_order_failed',
     'admin.contents.types.field_count',
     'admin.contents.types.fix_slug',
     'admin.contents.types.form.add_field',
@@ -1783,6 +1819,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.form.display_field_hint',
     'admin.contents.types.form.duplicate_fields',
     'admin.contents.types.form.edit_title',
+    'admin.contents.types.form.entry_order',
+    'admin.contents.types.form.entry_order_hint',
+    'admin.contents.types.form.entry_order_manual',
+    'admin.contents.types.form.entry_order_newest',
     'admin.contents.types.form.field_key',
     'admin.contents.types.form.field_key_auto_hint',
     'admin.contents.types.form.field_key_locked_hint',

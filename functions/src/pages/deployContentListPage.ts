@@ -9,6 +9,7 @@ import {
     mergeTranslation,
 } from '../shared/content-translation.js';
 import { cardData } from '../shared/content-cards.js';
+import { readPublishedInDisplayOrder } from './published-entries.js';
 import { contentTypeDescription, contentTypeName } from '../shared/content-type-names.js';
 import { buildBreadcrumbList, buildCollectionPage } from '../shared/structured-data.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
@@ -79,14 +80,9 @@ export async function generateAndDeployContentListPage(
     }
     const contentType = contentTypeQuery.docs[0].data();
 
-    // 2. Read published content, ordered by publishedOn desc (capped at 100)
+    // 2. Read published content in the type's entry order (capped at 100)
     const collectionName = getPublishedCollectionName(contentTypeSlug);
-    const contentsSnap = await db
-        .collection(collectionName)
-        .orderBy('publishedOn', 'desc')
-        .limit(100)
-        .get();
-    const contents = contentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const contents = await readPublishedInDisplayOrder(contentTypeSlug, contentType, 100);
 
     // 3. Load partials + site config + misc settings + languages
     const [partials, siteConfig, miscSettings, localization, about] = await Promise.all([

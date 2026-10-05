@@ -1,4 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, Injector, Input, input, OnInit, PLATFORM_ID, signal, TransferState, makeStateKey, untracked, ViewEncapsulation } from '@angular/core';
@@ -82,6 +83,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     /** Each shown entry's translation into the page's language, by id. */
     private translations = signal<Record<string, IContentTranslation>>({});
     private translationsFor = '';
+    /** The type whose entries were all read, for its own order (SS2). */
+    private readAllFor = '';
     /** The template's scripts run once, after its first render, as on a published page. */
     private scriptsRun = false;
     /** The template as loaded, so it can be hydrated again. */
@@ -157,21 +160,29 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             // A translated entry shows its translation, as on a published home page.
             .map((content: IContents): IContents => (lang ? mergeTranslation(content, translations[content.id] ?? null) : content));
 
-        // Sort by publishedOn descending (newest first) and limit.
-        // Handles Firestore Timestamps ({seconds, nanoseconds}), Date objects, and ISO strings.
-        const sorted = items.sort((a, b) => {
-            const dateA = this.toTimestamp(a.publishedOn);
-            const dateB = this.toTimestamp(b.publishedOn);
-            return dateB - dateA;
-        });
-
-        return sorted.slice(0, this.count());
+        // In the type's entry order (newest first, or the order an admin
+        // arranged), as when published (core/utils/display-order.ts), then cut.
+        const order = entryOrderOf(this.currentContentType());
+        return sortForDisplay(items as unknown as Record<string, any>[], order)
+            .slice(0, this.count()) as unknown as IContents[];
     });
 
     constructor() {
         super();
         // Image size bindings fit the configured maximum, as when published.
         void this.mediaSettings.load();
+
+        // A type in its own order shows its arranged entries, whatever their
+        // age: read them all, not only the newest 50 (SS2).
+        effect(() => {
+            const type = this.currentContentType();
+            if (!type || this.readAllFor === type.slug || entryOrderOf(type) !== 'manual') return;
+            this.readAllFor = type.slug;
+            untracked(() => this.contentsStore.getAll(
+                { orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 0 } as QueryParams,
+                type.slug,
+            ));
+        });
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
@@ -341,14 +352,6 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             // The cards stay in the default language.
             console.error('Error loading card translations:', error);
         }
-    }
-
-    /** Convert Firestore Timestamp, Date, or ISO string to epoch ms for sorting */
-    private toTimestamp(date: any): number {
-        if (!date) return 0;
-        if (date.seconds) return date.seconds * 1000;
-        const d = new Date(date);
-        return isNaN(d.getTime()) ? 0 : d.getTime();
     }
 
     getGradient(contentId: string): string {

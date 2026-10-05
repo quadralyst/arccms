@@ -128,6 +128,22 @@
             }
         </div>
 
+        <!-- SS2: newest first, or the order an admin arranges with Arrange on the entry list. -->
+        <div class="form-group mb-3" data-testid="entry-order">
+            <label class="form-label d-block">{{ 'admin.contents.types.form.entry_order' | transloco }}</label>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" formControlName="entryOrder" value="newest" id="entryOrderNewest">
+                <label class="form-check-label" for="entryOrderNewest">{{ 'admin.contents.types.form.entry_order_newest' | transloco }}</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" formControlName="entryOrder" value="manual" id="entryOrderManual">
+                <label class="form-check-label" for="entryOrderManual">{{ 'admin.contents.types.form.entry_order_manual' | transloco }}</label>
+            </div>
+            @if (editForm.get('entryOrder')?.value === 'manual') {
+            <small class="text-muted d-block">{{ 'admin.contents.types.form.entry_order_hint' | transloco }}</small>
+            }
+        </div>
+
         @if (editForm.get('hasPublicUrl')?.value !== false) {
         <div class="mb-4 form-group">
             <label for="slug" class="form-label">{{ 'admin.contents.types.form.slug' | transloco }} <span class="required">*</span></label>

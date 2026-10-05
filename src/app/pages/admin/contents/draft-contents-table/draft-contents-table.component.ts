@@ -43,6 +43,8 @@ import {
   TableColumn,
 } from '../../../../../shared/components/global-table/global-table.component';
 import { BulkImportDialogComponent } from '../bulk-import/bulk-import-dialog.component';
+import { ArrangeEntriesDialogComponent } from '../entry-order/arrange-entries-dialog.component';
+import { entryOrderOf } from '../../../../core/utils/display-order';
 import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 
 import { PreviewContentComponent } from './preview-content/preview-content.component';
@@ -162,6 +164,9 @@ export class DraftContentsTableComponent
     if (!this.contentTypeSlug) return null;
     return this.contentTypesStore.items().find(ct => ct.slug === this.contentTypeSlug) || null;
   });
+
+  /** The type is kept in its own order (SS2): the list offers Arrange. */
+  isOwnOrder = computed(() => entryOrderOf(this.currentContentType()) === 'manual');
 
   // Check if the content type slug is valid
   isValidSlug = computed(() => {
@@ -834,6 +839,16 @@ export class DraftContentsTableComponent
           },
         });
       }
+    });
+  }
+
+  /** Puts the type's entries in its own order (specs/site-sections-spec.md, SS2). */
+  public openArrange() {
+    if (!this.contentTypeSlug) return;
+    this.dialogService.open(ArrangeEntriesDialogComponent, {
+      width: '640px',
+      maxWidth: '95vw',
+      data: { slug: this.contentTypeSlug, typeName: this.getContentTypePluralName() },
     });
   }
 

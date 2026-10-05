@@ -129,6 +129,7 @@ vi.mock('firebase-admin/firestore', () => ({
     },
     FieldValue: {
         increment: vi.fn((n: number) => ({ _increment: n })),
+        delete: vi.fn(() => ({ _delete: true })),
         serverTimestamp: vi.fn(() => ({ _serverTimestamp: true })),
     },
 }));
@@ -393,6 +394,68 @@ describe('processPublishQueue', () => {
             const event = createEvent('home', '', '');
             await handler(event);
             expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+    });
+
+    // SS2 (specs/site-sections-spec.md): entries put in a new order.
+    describe('order action: a content type\'s entries in a new order', () => {
+        const ref = (id: string) => ({ id });
+        function wireOrder(type: Record<string, unknown> | null) {
+            const drafts = [
+                { id: 'a', data: () => ({ sortOrder: 1 }) },
+                { id: 'b', data: () => ({ sortOrder: 2 }) },
+                { id: 'c', data: () => ({}) },
+            ];
+            const published = [
+                { id: 'a', ref: ref('a'), data: () => ({ sortOrder: 2 }) },   // moved
+                { id: 'b', ref: ref('b'), data: () => ({ sortOrder: 2 }) },   // unchanged
+                { id: 'c', ref: ref('c'), data: () => ({ sortOrder: 3 }) },   // its number removed
+            ];
+            mockCollection.mockImplementation((name: string) => {
+                if (name === 'ContentTypes') {
+                    return { where: () => ({ limit: () => ({ get: async () => ({ empty: !type, docs: type ? [{ data: () => type }] : [] }) }) }) };
+                }
+                if (name === 'arc_services_drafts') return { get: async () => ({ docs: drafts }) };
+                if (name === 'arc_services') return { get: async () => ({ docs: published }) };
+                return { doc: mockDoc };
+            });
+            mockGenerateListPage.mockImplementation(async (_slug: string, batch: { add(p: string, c: string): void }) => batch.add('/services/index.html', 'list'));
+        }
+
+        it('copies only the changed numbers to the published entries, then rebuilds the list page in one release', async () => {
+            wireOrder({ slug: 'services', entryOrder: 'manual' });
+            const event = createEvent('order', 'services', '');
+            await handler(event);
+
+            expect(mockBatchUpdate).toHaveBeenCalledTimes(2);
+            expect(mockBatchUpdate).toHaveBeenCalledWith(ref('a'), { sortOrder: 1 });
+            const [cRef, cFields] = mockBatchUpdate.mock.calls.find(([r]) => r.id === 'c')!;
+            expect(cRef).toEqual(ref('c'));
+            expect(cFields.sortOrder).toEqual({ _delete: true }); // FieldValue.delete()
+            expect(mockGenerateListPage).toHaveBeenCalledWith('services', expect.anything());
+            expect(mockGenerateHome).not.toHaveBeenCalled();
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+            expect(mockDeployBatchToHosting.mock.calls[0][2]).toBe(''); // stamps no entry
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('rebuilds the home page, not a list page, for a type without public pages that the home page shows', async () => {
+            wireOrder({ slug: 'services', entryOrder: 'manual', hasPublicUrl: false });
+            mockHomeShowsType.mockResolvedValueOnce(true);
+            mockGenerateHome.mockImplementation(async (batch: { add(p: string, c: string): void }) => batch.add('/index.html', 'home'));
+            await handler(createEvent('order', 'services', ''));
+
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
+            expect(mockGenerateHome).toHaveBeenCalledTimes(1);
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+        });
+
+        it('needs a content type, but no document', async () => {
+            wireOrder({ slug: 'services' });
+            const event = createEvent('order', '', '');
+            await handler(event);
+            expect(mockBatchUpdate).not.toHaveBeenCalled();
             expect(event.data.ref.delete).toHaveBeenCalled();
         });
     });

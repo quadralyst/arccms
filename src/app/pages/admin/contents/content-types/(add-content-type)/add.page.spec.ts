@@ -329,6 +329,7 @@ describe('AddContentTypeComponent', () => {
                 icon: 'fa-solid fa-file',
                 order: 1,
                 hasPublicUrl: true,
+                entryOrder: 'newest',
                 schema: { type: 'Article', fields: {} },
                 templateFolder: 'default',
                 fields: [],

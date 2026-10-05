@@ -43,6 +43,12 @@
         <button mat-raised-button color="primary" (click)="openContent('')">
             <mat-icon>add</mat-icon> {{ 'admin.contents.list.add_item' | transloco: { type: getContentTypeSingularName() } }}
         </button>
+        @if (isOwnOrder()) {
+        <!-- SS2: the type is kept in its own order; put its entries in place. -->
+        <button mat-stroked-button class="ms-2" (click)="openArrange()" data-testid="arrange-button">
+            <mat-icon>swap_vert</mat-icon> {{ 'admin.contents.list.arrange' | transloco }}
+        </button>
+        }
         <button mat-stroked-button class="ms-2" (click)="openBulkImport()">
             <mat-icon>upload_file</mat-icon> {{ 'admin.contents.list.bulk_import' | transloco }}
         </button>

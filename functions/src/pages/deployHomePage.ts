@@ -20,6 +20,7 @@ import { buildSearchWidget } from '../search/widget.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
+import { readPublishedInDisplayOrder } from './published-entries.js';
 import { arcDatabaseId, arcFunctionsRegion, arcHostingSite } from '../arc-config.js';
 import { ARC_FUNCTION_GROUP } from '../function-names.js';
 
@@ -163,16 +164,16 @@ async function renderContentPartials(
         }
 
         const collectionName = getPublishedCollectionName(slug);
-        const itemsSnap = await db.collection(collectionName).orderBy('publishedOn', 'desc').limit(count).get();
+        // In the type's entry order: newest first, or the order an admin arranged (SS2).
+        const entries = await readPublishedInDisplayOrder(slug, type, count);
         const typeName = contentTypeName(type, lang);
-        const items = await Promise.all(itemsSnap.docs.map(async (doc) => {
-            const content = { id: doc.id, ...doc.data() } as Record<string, any>;
+        const items = await Promise.all(entries.map(async (content) => {
             let translation: ContentTranslation | undefined;
             if (lang !== defaultLang) {
-                const tr = await db.collection(collectionName).doc(doc.id).collection('translations').doc(lang).get();
+                const tr = await db.collection(collectionName).doc(content.id).collection('translations').doc(lang).get();
                 if (tr.exists) translation = { ...(tr.data() as ContentTranslation), lang };
             }
-            return cardData({ id: doc.id, ...mergeTranslation(content, translation) }, slug, typeName, lang, prefix, type.hasPublicUrl !== false);
+            return cardData({ ...mergeTranslation(content, translation), id: content.id }, slug, typeName, lang, prefix, type.hasPublicUrl !== false);
         }));
 
         const template = await loadSiteTemplate(($el.attr('template-folder') || '').trim() || type.templateFolder, 'partials');

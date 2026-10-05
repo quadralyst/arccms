@@ -560,6 +560,25 @@ describe('DraftContentsTableComponent', () => {
         });
     });
 
+    // SS2: a type kept in its own order offers Arrange.
+    describe('Arrange', () => {
+        it('is offered only for a type in its own order', () => {
+            component.contentTypeSlug = 'blog';
+            mockContentTypesStore.items.set([{ name: 'Blog', slug: 'blog' }]);
+            expect(component.isOwnOrder()).toBe(false);
+            mockContentTypesStore.items.set([{ name: 'Blog', slug: 'blog', entryOrder: 'manual' }]);
+            expect(component.isOwnOrder()).toBe(true);
+        });
+
+        it('opens the Arrange dialog for the type', () => {
+            component.contentTypeSlug = 'blog';
+            mockContentTypesStore.items.set([{ name: 'Blogs', slug: 'blog', entryOrder: 'manual' }]);
+            const open = vi.spyOn(component['dialogService'], 'open').mockReturnValue({} as never);
+            component.openArrange();
+            expect(open).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ data: expect.objectContaining({ slug: 'blog' }) }));
+        });
+    });
+
     describe('Open Content', () => {
         it('should navigate to add page for content type when no id and contentTypeSlug is set', () => {
             component.contentTypeSlug = 'articles';

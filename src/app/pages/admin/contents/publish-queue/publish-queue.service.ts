@@ -5,8 +5,11 @@ import { Firestore, collection, addDoc, query, where, getDocs, deleteDoc } from 
  * `redeploy` regenerates the static pages from what is already published,
  * without touching drafts — the repair after a `firebase deploy --only
  * hosting`, which drops every page this pipeline wrote.
+ *
+ * `order` is for a whole content type, with no document: its entries were put
+ * in a new order (specs/site-sections-spec.md, SS2).
  */
-export type PublishAction = 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all';
+export type PublishAction = 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'order';
 
 export interface PublishQueueItem {
     action: PublishAction;
@@ -72,9 +75,23 @@ export class PublishQueueService {
      * release rebuilding from a file list that does not yet contain the last.
      */
     async redeployAll(): Promise<void> {
+        await this.addSiteItem('redeploy-all', '');
+    }
+
+    /**
+     * The pages that show a content type's entries follow their new order, or
+     * the type's changed entry order (specs/site-sections-spec.md, SS2). Added
+     * directly, like redeployAll: it names no document, so enqueue's clean-up
+     * of stale items by document id does not apply.
+     */
+    async reorder(contentTypeSlug: string): Promise<void> {
+        await this.addSiteItem('order', contentTypeSlug);
+    }
+
+    private async addSiteItem(action: 'redeploy-all' | 'order', contentTypeSlug: string): Promise<void> {
         await addDoc(collection(this.firestore, '_publish_queue'), {
-            action: 'redeploy-all',
-            contentTypeSlug: '',
+            action,
+            contentTypeSlug,
             docId: '',
             timestamp: new Date(),
         });

@@ -11,12 +11,14 @@ import { IconPickerComponent } from '../../../../../../shared/components/icon-pi
 import { ToastService } from '../../../../../../shared/services/toast.service';
 import { SearchService } from '../../../../../core/services/search.service';
 import { ContentType } from '../content-types.model';
+import { EntryOrderService } from '../../entry-order/entry-order.service';
 
 describe('EditContentTypeComponent', () => {
     let component: EditContentTypeComponent;
     let fixture: ComponentFixture<EditContentTypeComponent>;
     let mockStore: any;
     const mockSearchService = { reindex: vi.fn().mockResolvedValue([]) };
+    const mockEntryOrder = { numberInCurrentOrder: vi.fn().mockResolvedValue(undefined), republish: vi.fn().mockResolvedValue(undefined) };
     let mockToastService: any;
     let mockRouter: any;
 
@@ -72,6 +74,7 @@ describe('EditContentTypeComponent', () => {
                 { provide: ToastService, useValue: mockToastService },
                 { provide: Router, useValue: mockRouter },
                 { provide: SearchService, useValue: mockSearchService },
+                { provide: EntryOrderService, useValue: mockEntryOrder },
                 {
                     provide: ActivatedRoute,
                     useValue: { snapshot: { params: { contentTypeId: 'test-id' } } },
@@ -342,6 +345,47 @@ describe('EditContentTypeComponent', () => {
             component.editForm.get('name')?.setValue('');
             component.onSubmit();
             expect(mockStore.update).not.toHaveBeenCalled();
+        });
+
+        // SS2: a type switched to its own order keeps its order; its pages follow.
+        describe('entry order', () => {
+            beforeEach(() => {
+                mockEntryOrder.numberInCurrentOrder.mockClear();
+                mockEntryOrder.republish.mockClear();
+            });
+
+            it('loads and saves the entry order', () => {
+                component['updateFormdata']({ ...mockContentType, entryOrder: 'manual' });
+                expect(component.editForm.get('entryOrder')?.value).toBe('manual');
+                component['updateFormdata'](mockContentType);
+                expect(component.editForm.get('entryOrder')?.value).toBe('newest');
+                component.editForm.patchValue({ entryOrder: 'manual' });
+                component.onSubmit();
+                expect(mockStore.update.mock.calls[0][1].entryOrder).toBe('manual');
+            });
+
+            it('numbers the entries in their current order and republishes when switched to its own order', async () => {
+                component.editForm.patchValue({ entryOrder: 'manual' });
+                const slug = component.editForm.get('slug')?.value;
+                component.onSubmit();
+                await vi.waitFor(() => expect(mockEntryOrder.republish).toHaveBeenCalledWith(slug));
+                expect(mockEntryOrder.numberInCurrentOrder).toHaveBeenCalledWith(slug);
+            });
+
+            it('only republishes when switched back to newest first', async () => {
+                component['updateFormdata']({ ...mockContentType, entryOrder: 'manual' });
+                component.editForm.patchValue({ entryOrder: 'newest' });
+                const slug = component.editForm.get('slug')?.value;
+                component.onSubmit();
+                await vi.waitFor(() => expect(mockEntryOrder.republish).toHaveBeenCalledWith(slug));
+                expect(mockEntryOrder.numberInCurrentOrder).not.toHaveBeenCalled();
+            });
+
+            it('does nothing to the entries when the order did not change', () => {
+                component.onSubmit();
+                expect(mockEntryOrder.republish).not.toHaveBeenCalled();
+                expect(mockEntryOrder.numberInCurrentOrder).not.toHaveBeenCalled();
+            });
         });
 
         it('should submit when form is valid', () => {

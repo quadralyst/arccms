@@ -83,6 +83,11 @@ function wireDb(): void {
             orderBy: () => ({ limit: () => ({ get: async () => ({ docs: [
                 { id: 'a1', data: () => ({ title: 'First post', urlSlug: 'first-post', publishedOn: { seconds: 1705334400 } }) },
             ] }) }) }),
+            // Every entry, for a type in its own order (SS2).
+            get: async () => ({ docs: [
+                { id: 's1', data: () => ({ title: 'Second', urlSlug: 's1', sortOrder: 2, publishedOn: { seconds: 1705334400 } }) },
+                { id: 's2', data: () => ({ title: 'First', urlSlug: 's2', sortOrder: 1, publishedOn: { seconds: 1705334000 } }) },
+            ] }),
             doc: () => ({ collection: () => ({ doc: () => ({ get: async () => ({ exists: true, data: () => ({ title: 'पहला लेख' }) }) }) }) }),
         };
     });
@@ -201,6 +206,15 @@ describe('deployHomePage', () => {
             expect($('a.card').text()).toBe('First post');
             expect($('a.card').attr('href')).toBe('');
             expect($('a.all').attr('href')).toBe('');
+        });
+
+        it('shows the cards of a type in its own order in that order', async () => {
+            mockGetSiteFile.mockImplementation(async (path: string) => (path === 'home.html'
+                ? HOME.replace('content-type="articles"', 'content-type="services"') : null));
+            types = { services: { slug: 'services', name: 'Services', templateFolder: '', entryOrder: 'manual' } };
+            await generateAndDeployHomePage();
+            const $ = loadHtml(released()['/index.html'], { xmlMode: false });
+            expect($('a.card').toArray().map((a) => $(a).text())).toEqual(['First', 'Second']);
         });
 
         it('removes a card block whose content type does not exist', async () => {
