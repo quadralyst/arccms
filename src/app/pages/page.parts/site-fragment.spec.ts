@@ -28,6 +28,14 @@ const HTML = `
         <arc-search></arc-search>
     </nav>`;
 
+@Component({ selector: 'arc-test-scripted', standalone: true, template: '' })
+class ScriptedHostComponent {
+    constructor() {
+        renderSiteFragment('<button id="menu">Menu</button><script>window.arcTestRuns = (window.arcTestRuns || 0) + 1;'
+            + 'document.getElementById("menu").dataset.bound = "yes";</script>', {});
+    }
+}
+
 @Component({ selector: 'arc-test-fragment', standalone: true, template: '' })
 class FragmentHostComponent {
     constructor() {
@@ -90,6 +98,21 @@ describe('renderSiteFragment', () => {
         // Sign-in exists once, so it keeps its address on a Hindi page.
         expect(signIn.getAttribute('href')).toBe('/signup');
         expect(el.querySelector('arc-search .stub-search')).toBeTruthy();
+    });
+
+    // B4: a header or footer script runs in the app, as on a published page.
+    it('runs its scripts, again on each redraw, against the elements drawn', () => {
+        (window as any).arcTestRuns = 0;
+        const fixture = TestBed.createComponent(ScriptedHostComponent);
+        fixture.detectChanges();
+        const el = fixture.nativeElement as HTMLElement;
+        expect((window as any).arcTestRuns).toBe(1);
+        expect((el.querySelector('#menu') as HTMLElement).dataset['bound']).toBe('yes');
+
+        strings.set({ x: 'y' });
+        fixture.detectChanges();
+        expect((window as any).arcTestRuns).toBe(2);
+        expect((el.querySelector('#menu') as HTMLElement).dataset['bound']).toBe('yes');
     });
 });
 

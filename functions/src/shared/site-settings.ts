@@ -1,6 +1,7 @@
 import { db } from '../init.js';
 import { arcHostingOrigin, arcHostingSite } from '../arc-config.js';
 import { clearSiteFilesCache, getSiteFile } from './site-files.js';
+import { DEFAULT_MAX_IMAGE_SIZE } from './image-sizes.js';
 
 export interface Partials {
     headerHtml: string;
@@ -15,6 +16,8 @@ export interface SiteConfig {
 
 export interface MiscSettings {
     showPoweredBy: boolean;
+    /** The longest side of the largest image size (Settings, Misc); image size bindings fit to it. */
+    mediaMaxSize: number;
 }
 
 /**
@@ -65,13 +68,10 @@ const DEFAULT_LOCALIZATION: LocalizationSettings = {
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-let partialsCache: { data: Partials; timestamp: number } | null = null;
 let siteConfigCache: { data: SiteConfig; timestamp: number } | null = null;
 let aboutConfigCache: { data: AboutConfig; timestamp: number } | null = null;
 let miscSettingsCache: { data: MiscSettings; timestamp: number } | null = null;
 let localizationCache: { data: LocalizationSettings; timestamp: number } | null = null;
-/** Per-language UI strings, keyed by language code. */
-const uiStringsCache = new Map<string, { data: Record<string, string>; timestamp: number }>();
 
 function isCacheValid(cache: { timestamp: number } | null): boolean {
     if (!cache) return false;
@@ -84,18 +84,11 @@ function isCacheValid(cache: { timestamp: number } | null): boolean {
  * public/_site/, scripts/arc-site.mjs). Empty strings when the live site has
  * none (hosting off, or not yet deployed with /_site/).
  *
- * Cached for 5 minutes per Cloud Function instance.
+ * Not cached here: getSiteFile keeps each file until a deploy changes it.
  */
 export async function getPartials(): Promise<Partials> {
-    if (isCacheValid(partialsCache)) {
-        return partialsCache!.data;
-    }
-
     const [header, footer] = await Promise.all([getSiteFile('header.html'), getSiteFile('footer.html')]);
-    const partials: Partials = { headerHtml: (header ?? '').trim(), footerHtml: (footer ?? '').trim() };
-
-    partialsCache = { data: partials, timestamp: Date.now() };
-    return partials;
+    return { headerHtml: (header ?? '').trim(), footerHtml: (footer ?? '').trim() };
 }
 
 /**
@@ -187,6 +180,7 @@ export async function getMiscSettings(): Promise<MiscSettings> {
 
     const settings: MiscSettings = {
         showPoweredBy: data?.showPoweredBy ?? true,
+        mediaMaxSize: Number(data?.mediaMaxSize) || DEFAULT_MAX_IMAGE_SIZE,
     };
 
     miscSettingsCache = { data: settings, timestamp: Date.now() };
@@ -279,13 +273,10 @@ export async function getLocalizationSettings(): Promise<LocalizationSettings> {
  * The default language has no file: its text is the English authored into the
  * templates, which doubles as the fallback for any missing key.
  *
- * Cached for 5 minutes per instance, like the partials.
+ * Not cached here, like the partials.
  */
 export async function getUiStrings(lang: string): Promise<Record<string, string>> {
     if (!lang) return {};
-
-    const cached = uiStringsCache.get(lang);
-    if (cached && isCacheValid(cached)) return cached.data;
 
     let strings: Record<string, string> = {};
 
@@ -305,7 +296,6 @@ export async function getUiStrings(lang: string): Promise<Record<string, string>
         }
     }
 
-    uiStringsCache.set(lang, { data: strings, timestamp: Date.now() });
     return strings;
 }
 
@@ -327,11 +317,9 @@ export function languagePathPrefix(settings: LocalizationSettings, code: string)
  * that need guaranteed fresh data (e.g., seed function).
  */
 export function clearSettingsCache(): void {
-    partialsCache = null;
     siteConfigCache = null;
     aboutConfigCache = null;
     miscSettingsCache = null;
     localizationCache = null;
-    uiStringsCache.clear();
     clearSiteFilesCache();
 }

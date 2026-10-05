@@ -826,6 +826,16 @@ describe('TemplateHydrationService', () => {
         });
     });
 
+    describe('time elements', () => {
+        it('show the date in the page\'s language, English without one', () => {
+            const html = '<time data-arc-bind="day"></time>';
+            expect(TemplateHydrationService.hydrateTemplate(html, { day: '2026-01-15' })).toContain('January 15, 2026');
+            const hindi = TemplateHydrationService.hydrateTemplate(html, { day: '2026-01-15', lang: 'hi' });
+            expect(hindi).toContain('जनवरी');
+            expect(hindi).toContain('datetime="2026-01-15"');
+        });
+    });
+
     describe('Image Size Flattening', () => {
         const BASE = 'https://firebasestorage.googleapis.com/v0/b/demo.appspot.com/o/mediaImages%2Fhero-abc123';
 
@@ -835,6 +845,21 @@ describe('TemplateHydrationService', () => {
 
             expect(result).toContain(`src="${BASE}-s.webp?alt=media"`);
             expect(result).toContain(`data-xl="${BASE}-xl.webp?alt=media"`);
+        });
+
+        // B5: Unsplash sizes follow the maximum set in Settings, Misc.
+        it('fits Unsplash sizes to the configured maximum', () => {
+            const photo = 'https://images.unsplash.com/photo-1?w=600';
+            try {
+                TemplateHydrationService.setMaxImageSize(2000);
+                const result = TemplateHydrationService.hydrateTemplate('<i>{{ coverImage_xl }}|{{ coverImage_s }}</i>', { coverImage: photo });
+                expect(result).toContain('w=2000');
+                expect(result).toContain('w=500');
+                TemplateHydrationService.setMaxImageSize('not a number');
+                expect(TemplateHydrationService.hydrateTemplate('<i>{{ coverImage_xl }}</i>', { coverImage: photo })).toContain('w=1200');
+            } finally {
+                TemplateHydrationService.setMaxImageSize(undefined);
+            }
         });
 
         it('keeps the stored URL itself as it is', () => {

@@ -120,7 +120,7 @@
         <tr><td>Free Images asks for setup</td><td>No Unsplash access key in <strong>Settings &gt; Integrations</strong>.</td></tr>
         <tr><td>Upload fails with a permission error</td><td>The account is not an admin, or the Storage rules are not deployed.</td></tr>
         <tr><td>A size binding such as <code>{{ coverImage_l }}</code> shows a broken image</td><td>The upload was smaller than that size's limit, so that size shares a larger size's file and the derived address has no file. Upload images at least as large as <strong>Max image size</strong>.</td></tr>
-        <tr><td>Size bindings are empty</td><td>They are derived only for uploads under <code>mediaImages/</code> at the bucket root, and for Unsplash photos. An install with an upload folder, or an image pasted from elsewhere, gets none: bind the stored URL.</td></tr>
+        <tr><td>Size bindings are empty</td><td>They are derived only for Media Manager uploads (under <code>mediaImages/</code>, in the install's upload folder if it has one) and for Unsplash photos. An image pasted from elsewhere gets none: bind the stored URL.</td></tr>
         <tr><td>Changing Max image size did nothing to old images</td><td>Settings apply to new uploads only.</td></tr>
       </tbody>
     </table>

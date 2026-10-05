@@ -31,6 +31,19 @@ import { arcHostingSite } from '../arc-config.js';
 
 // ─── Exported Functions ─────────────────────────────────────────────────────
 
+/** What list.html binds outside the items loop. Pure; the admin's Template Reference is checked against it. */
+export function listPageData(contentType: Record<string, any>, lang: string, prefix: string): Record<string, any> {
+    const typeDescription = contentTypeDescription(contentType, lang);
+    return {
+        contentType: contentTypeName(contentType, lang),
+        contentTypeSlug: contentType.slug,
+        contentTypeDescription: typeDescription,
+        description: typeDescription,
+        lang,
+        langPrefix: prefix,
+    };
+}
+
 /**
  * Generates and deploys a content list/index page as static HTML.
  *
@@ -83,6 +96,8 @@ export async function generateAndDeployContentListPage(
         getLocalizationSettings(),
         getAboutConfig(),
     ]);
+    // Image size bindings fit the configured maximum (Settings, Misc).
+    TemplateHydrationService.setMaxImageSize(miscSettings.mediaMaxSize);
 
     // The stylesheets every language's page links, versioned (site-files.ts).
     const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);
@@ -142,14 +157,7 @@ export async function generateAndDeployContentListPage(
 
         const typeName = contentTypeName(contentType, lang);
         const typeDescription = contentTypeDescription(contentType, lang);
-        const templateData = {
-            contentType: typeName,
-            contentTypeSlug: contentType.slug,
-            contentTypeDescription: typeDescription,
-            description: typeDescription,
-            lang,
-            langPrefix: prefix,
-        };
+        const templateData = listPageData(contentType, lang, prefix);
 
         // Items are never filtered by translation status — an untranslated item
         // falls back to its default-language card. A half-empty list page reads

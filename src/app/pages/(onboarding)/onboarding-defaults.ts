@@ -33,8 +33,8 @@ export const DEFAULT_SITE_CSS_URLS = [
  * item already has.** Title, URL slug, cover image, body, summary/excerpt and
  * the published date are built into the content document and already have
  * their own controls in the editor — the list of them is in
- * `ContentTypeViewPage.builtInContentFields`, which is what the admin UI shows
- * authors as available template placeholders.
+ * `DETAIL_FIELDS` in `src/shared/utils/template-reference.ts`, which the admin's
+ * Template Reference shows authors as available template placeholders.
  *
  * The seeded types used to declare `title`, `urlSlug`, `coverImage`, `body`,
  * `excerpt` and `publishDate` as custom fields, and the damage was not

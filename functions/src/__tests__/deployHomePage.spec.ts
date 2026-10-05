@@ -36,7 +36,8 @@ vi.mock('../pages/deployToHosting', async (importOriginal) => ({
 }));
 
 import {
-    addLegalNotices, generateAndDeployHomePage, homeContentTypes, homeFilePath, homeShowsType, homeUrl, setupState,
+    addLegalNotices, arcSiteScript, generateAndDeployHomePage, homeContentTypes, homeFilePath, homeShowsType, homeUrl,
+    partialPageData, setupState,
 } from '../pages/deployHomePage.js';
 import { loadHtml } from '../shared/lazy-cheerio.js';
 import { clearPublicContentTypesCache } from '../shared/public-content-types.js';
@@ -259,6 +260,23 @@ describe('deployHomePage', () => {
             addLegalNotices($, {}, null);
             expect($('form').children().eq(1).is('[data-legal-notice]')).toBe(true);
             expect($('[data-legal-notice] a').length).toBe(0);
+        });
+    });
+
+    // B2: a translated home page's signup panels and card headings.
+    describe('translated parts', () => {
+        it('gives arc-site.js the page\'s signup strings, and nothing on a page without them', () => {
+            const tag = arcSiteScript('/assets/js/arc-site.js', '', { signup_on_list: 'आप "सूची" में हैं!', read_more: 'लेख पढ़ें' });
+            const $ = loadHtml(tag);
+            expect(JSON.parse($('script').attr('data-strings')!)).toEqual({ signup_on_list: 'आप "सूची" में हैं!' });
+            expect(arcSiteScript('/assets/js/arc-site.js')).not.toContain('data-strings');
+        });
+
+        it('titles a card block from latest_of_type, else in English', () => {
+            const type = { slug: 'articles', name: 'Articles', nameTranslations: { hi: { name: 'लेख' } } };
+            expect(partialPageData(type, 'hi', '/hi', '', 2, { latest_of_type: 'नवीनतम {{ contentType }}' }).sectionTitle).toBe('नवीनतम लेख');
+            expect(partialPageData(type, 'en', '', '', 2).sectionTitle).toBe('Latest Articles');
+            expect(partialPageData(type, 'hi', '/hi', 'Fresh', 2, { latest_of_type: 'x' }).sectionTitle).toBe('Fresh');
         });
     });
 });

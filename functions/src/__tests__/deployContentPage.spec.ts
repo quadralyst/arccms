@@ -719,6 +719,19 @@ describe('deployContentPage', () => {
             expect(mockGetUiStrings).not.toHaveBeenCalledWith('en');
         });
 
+        // B2: {{ readingTime }} follows the page's min_read string.
+        it('writes the reading time in the page\'s language', async () => {
+            mockLoadSiteTemplate.mockResolvedValue('<article><span class="rt">{{ readingTime }}</span></article>');
+            mockGetUiStrings.mockImplementation(async (lang: string) =>
+                lang === 'hi' ? { min_read: '{{ readTime }} मिनट का पठन' } : {});
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html')).toMatch(/<span class="rt">\d+ मिनट का पठन<\/span>/);
+            expect(htmlFor('/articles/test-article.html')).toMatch(/<span class="rt">\d+ min read<\/span>/);
+        });
+
         it('should keep English chrome when a key is untranslated', async () => {
             mockLoadSiteTemplate.mockResolvedValue('<article><span data-arc-t="read_more">Read Article</span></article>');
             mockGetUiStrings.mockResolvedValue({ other_key: 'x' });

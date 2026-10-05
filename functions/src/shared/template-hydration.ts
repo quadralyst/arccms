@@ -3,7 +3,7 @@ import { loadHtml } from './lazy-cheerio.js';
 import { interpolate, parseParams } from './interpolate.js';
 import { youTubeVideo } from './youtube.js';
 import { parseHexColor } from './color.js';
-import { imageSizeUrls, IMAGE_SIZES } from './image-sizes.js';
+import { DEFAULT_MAX_IMAGE_SIZE, imageSizeUrls, IMAGE_SIZES } from './image-sizes.js';
 import { renderLocation } from './geo.js';
 
 /**
@@ -19,6 +19,18 @@ import { renderLocation } from './geo.js';
 type TemplateContext = Record<string, any>;
 
 export class TemplateHydrationService {
+  /**
+   * The longest side of the largest image size (Settings, Misc), which the
+   * Unsplash size bindings are fitted to. The default until setMaxImageSize.
+   */
+  private static maxImageSize = DEFAULT_MAX_IMAGE_SIZE;
+
+  /** Sets the image maximum the size bindings use; an unusable value means the default. */
+  static setMaxImageSize(maxSize: unknown): void {
+    const max = Number(maxSize);
+    this.maxImageSize = Number.isFinite(max) && max >= 1 ? max : DEFAULT_MAX_IMAGE_SIZE;
+  }
+
   /**
    * Resolve a nested key path (e.g. 'share.twitter') from an object
    */
@@ -155,7 +167,7 @@ export class TemplateHydrationService {
 
     for (const [key, value] of Object.entries(data)) {
       if (typeof value !== 'string' || !value) continue;
-      const sizes = imageSizeUrls(value);
+      const sizes = imageSizeUrls(value, this.maxImageSize);
       if (!sizes) continue;
 
       if (result === data) result = { ...data };
@@ -405,7 +417,7 @@ export class TemplateHydrationService {
         } else if ($el.is('time')) {
           // For time elements, set datetime attribute and text
           $el.attr('datetime', value);
-          $el.text(TemplateHydrationService.formatDate(value));
+          $el.text(TemplateHydrationService.formatDate(value, data['lang']));
         } else {
           // For other elements, replace inner HTML/text
           // Check if value contains HTML tags
@@ -681,7 +693,8 @@ export class TemplateHydrationService {
    * Format date for display
    * Handles both Date objects and ISO strings
    */
-  private static formatDate(dateValue: any): string {
+  /** "January 5, 2026" in the page's language (`lang` in the data); English without one. */
+  private static formatDate(dateValue: any, lang?: unknown): string {
     try {
       const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
 
@@ -689,12 +702,13 @@ export class TemplateHydrationService {
         return String(dateValue);
       }
 
-      // Format as "Month Day, Year"
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
+      const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+      try {
+        return date.toLocaleDateString(typeof lang === 'string' && lang ? lang : 'en-US', options);
+      } catch {
+        // An unknown language code must not break the page.
+        return date.toLocaleDateString('en-US', options);
+      }
     } catch {
       return String(dateValue);
     }

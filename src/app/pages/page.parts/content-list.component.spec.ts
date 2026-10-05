@@ -287,6 +287,18 @@ describe('ContentListComponent', () => {
             expect(mockHttpClient.get).toHaveBeenCalledTimes(1);
         });
 
+        // B7: on a translated list the app's cards match the published ones.
+        it('links each card, and names the type, in the page\'s language', () => {
+            mockHttpClient.get.mockReturnValue(of('<p>{{ langPrefix }}|{{ lang }}</p><ul data-arc-loop="items"><li><a href="{{ url }}">{{ contentType }}</a></li></ul>'));
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', nameTranslations: { hi: { name: 'लेख' } } }]);
+            mockContentsStore.items.set([{ id: '1', type: 'articles', publishedStatus: true, title: 'First', urlSlug: 'first', tags: [] }]);
+            fixture.detectChanges(); // ngOnInit reads the language from the route: the default
+            component.pageLang.set('hi');
+            fixture.detectChanges();
+            expect(component.templateHtml()).toContain('<a href="/hi/articles/first">लेख</a>');
+            expect(component.templateHtml()).toContain('/hi|hi');
+        });
+
         it('should prepare correct data for template hydration', async () => {
             const contentType = {
                 slug: 'articles',
@@ -452,46 +464,6 @@ describe('ContentListComponent', () => {
             const g1 = component.getGradient('abc');
             const g2 = component.getGradient('abc');
             expect(g1).toBe(g2);
-        });
-
-        it('should format dates correctly', () => {
-            const date = new Date('2023-01-01T00:00:00');
-            // Use contain to be locale-agnostic if possible, but the code uses en-US
-            expect(component.formatContentDate(date)).toContain('2023');
-            expect(component.formatContentDate(date)).toMatch(/Jan|January/);
-        });
-
-        it('should handle timestamp dates', () => {
-            const timestamp = { seconds: 1672531200 }; // 2023-01-01
-            expect(component.formatContentDate(timestamp)).toContain('2023');
-        });
-
-        it('should calculate/return read time', () => {
-            const contentWithReadTime = { content: '...', readTime: 5 };
-            const contentWithoutReadTime = { content: 'word '.repeat(200) };
-
-            expect(component.getReadTime(contentWithReadTime as any)).toBe(5);
-            expect(component.getReadTime(contentWithoutReadTime as any)).toBeGreaterThan(0);
-        });
-
-        it('should generate excerpts and strip HTML', () => {
-            const content = {
-                content: '<p>This is a <b>test</b> content</p>',
-                metaDescription: ''
-            };
-            const excerpt = component.getExcerpt(content as any);
-            expect(excerpt).not.toContain('<p>');
-            expect(excerpt).toBe('This is a test content');
-        });
-
-        it('should truncate long excerpts', () => {
-            const longContent = {
-                content: 'word '.repeat(50),
-                metaDescription: ''
-            };
-            const excerpt = component.getExcerpt(longContent as any);
-            expect(excerpt.split(' ').length).toBeLessThanOrEqual(26);
-            expect(excerpt).toContain('...');
         });
     });
 

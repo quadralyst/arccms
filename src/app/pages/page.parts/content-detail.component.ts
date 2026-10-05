@@ -24,6 +24,8 @@ import { PageSpinnerComponent } from './page-spinner.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
+import { interpolate } from '../../core/i18n/interpolate';
+import { MediaSettingsService } from '../../core/services/media-settings.service';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
@@ -156,6 +158,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private injector = inject(Injector);
     private localization = inject(LocalizationService);
     private uiStrings = inject(UiStringsService);
+    private mediaSettings = inject(MediaSettingsService);
     private auth = inject(Auth);
     private gaTracking = inject(GaTrackingService);
     private trackedContent = false;
@@ -292,6 +295,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
     constructor() {
         super();
+        // Image size bindings fit the configured maximum, as when published.
+        void this.mediaSettings.load();
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
@@ -361,6 +366,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             this.author();
             this.related();
             this.uiStrings.strings();
+            this.mediaSettings.maxSize();
             untracked(() => {
                 if (!this.lastTemplate) return;
                 const { html, contentType, content } = this.lastTemplate;
@@ -538,14 +544,16 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         };
     }
 
+    /** "January 5, 2026" in the page's language, as on a published page. */
     formatContentDate(date: any): string {
         if (!date) return '';
         const dateObj = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-        return dateObj.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
+        const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+        try {
+            return dateObj.toLocaleDateString(this.pageLang() || 'en-US', options);
+        } catch {
+            return dateObj.toLocaleDateString('en-US', options);
+        }
     }
 
     getReadTime(): number {
@@ -830,9 +838,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // Prepare data for template hydration.
         // Field aliases ensure custom templates using different naming conventions
         // (e.g. {{ date }} instead of {{ publishedOn }}) populate correctly.
+        const typeName = contentTypeName(contentType, this.pageLang());
         const templateData: any = {
-            contentType: contentType.name,
-            cat: contentType.name,             // alias: {{ cat }} → content type name
+            contentType: typeName,             // in the page's language, as when published
+            cat: typeName,                     // alias: {{ cat }} → content type name
             contentTypeSlug: contentType.slug,
             ...content, // Spread content fields (title, content, tags, etc.)
             publishedOn: this.formatContentDate(content.publishedOn),
@@ -840,8 +849,14 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             // Mirrors deployContentPage.ts: shown only for a real revision (D-D3).
             updatedOn: this.updatedOnDisplay(),
             updatedOnDisplay: this.updatedOnDisplay(),
+            // The page's language and URL prefix, as when published.
+            lang: this.pageLang() || this.localization.defaultLanguage(),
+            langPrefix: this.pageLang() ? `/${this.pageLang()}` : '',
             readTime: this.getReadTime(),
-            readingTime: `${this.getReadTime()} min read`,        // alias: {{ readingTime }}
+            // "5 min read" in the page's language, from its min_read string, as when published.
+            readingTime: this.uiStrings.strings()['min_read']
+                ? interpolate(this.uiStrings.strings()['min_read'], { readTime: this.getReadTime() })
+                : `${this.getReadTime()} min read`,
             ...((content as any).customFields || {}),
             // After custom fields, mirroring deployContentPage.ts (D2, D-D11).
             ...this.authorTemplateData(),

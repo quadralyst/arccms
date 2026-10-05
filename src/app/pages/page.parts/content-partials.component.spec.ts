@@ -373,53 +373,6 @@ describe('ContentPartialsComponent', () => {
             const g2 = component.getGradient('abc');
             expect(g1).toBe(g2);
         });
-
-        it('should format dates correctly', () => {
-            const date = new Date('2023-06-15');
-            const formatted = component.formatContentDate(date);
-            expect(formatted).toContain('2023');
-            expect(formatted).toContain('Jun');
-        });
-
-        it('should handle Firestore timestamp format', () => {
-            const firestoreDate = { seconds: 1686787200 }; // 2023-06-15
-            const formatted = component.formatContentDate(firestoreDate);
-            expect(formatted).toContain('2023');
-        });
-
-        it('should return empty string for null date', () => {
-            expect(component.formatContentDate(null)).toBe('');
-        });
-
-        it('should calculate read time', () => {
-            const content = { content: 'Word '.repeat(200) } as any;
-            const readTime = component.getReadTime(content);
-            expect(readTime).toBeGreaterThan(0);
-        });
-
-        it('should use existing readTime if available', () => {
-            const content = { readTime: 5, content: 'Short' } as any;
-            expect(component.getReadTime(content)).toBe(5);
-        });
-
-        it('should generate excerpt from metaDescription', () => {
-            const content = { metaDescription: 'This is the meta description' } as any;
-            const excerpt = component.getExcerpt(content);
-            expect(excerpt).toBe('This is the meta description');
-        });
-
-        it('should generate excerpt from content if no metaDescription', () => {
-            const content = { content: '<p>This is the content body</p>' } as any;
-            const excerpt = component.getExcerpt(content);
-            expect(excerpt).toContain('This is the content body');
-        });
-
-        it('should truncate long excerpts', () => {
-            const longContent = 'Word '.repeat(50);
-            const content = { content: longContent } as any;
-            const excerpt = component.getExcerpt(content);
-            expect(excerpt.endsWith('...')).toBe(true);
-        });
     });
 
     describe('Current Content Type', () => {

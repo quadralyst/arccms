@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockAboutGet = vi.fn();
 const mockSiteGet = vi.fn();
 const mockLocalizationGet = vi.fn();
+const mockMiscGet = vi.fn();
 
 vi.mock('../init', () => ({
     db: {
@@ -11,6 +12,7 @@ vi.mock('../init', () => ({
             if (path === 'Settings/about') return { get: mockAboutGet };
             if (path === 'Settings/site') return { get: mockSiteGet };
             if (path === 'Settings/localization') return { get: mockLocalizationGet };
+            if (path === 'Settings/misc') return { get: mockMiscGet };
             return { get: vi.fn() };
         }),
     },
@@ -24,6 +26,7 @@ import {
     getPartials,
     getSiteConfig,
     getAboutConfig,
+    getMiscSettings,
     clearSettingsCache,
     getLocalizationSettings,
     getExtraLanguages,
@@ -81,15 +84,29 @@ describe('site-settings', () => {
             }
         });
 
-        it('caches for five minutes and reads again after clearSettingsCache', async () => {
+        it('reads the files once, and again after clearSettingsCache', async () => {
             respond({ '/_site/header.html': '<nav/>', '/_site/footer.html': '<footer/>' });
+            const fileReads = () => mockFetch.mock.calls.filter(([url]) => !String(url).endsWith('/site.json')).length;
             await getPartials();
             await getPartials();
-            expect(mockFetch).toHaveBeenCalledTimes(2);
+            expect(fileReads()).toBe(2);
 
             clearSettingsCache();
             await getPartials();
-            expect(mockFetch).toHaveBeenCalledTimes(4);
+            expect(fileReads()).toBe(4);
+        });
+    });
+
+    // ─── getMiscSettings ───────────────────────────────────────────────────
+
+    describe('getMiscSettings', () => {
+        it('reads the image maximum, with 1200 when it is not set', async () => {
+            mockMiscGet.mockResolvedValueOnce({ data: () => ({ showPoweredBy: false, mediaMaxSize: 2000 }) });
+            expect(await getMiscSettings()).toEqual({ showPoweredBy: false, mediaMaxSize: 2000 });
+
+            clearSettingsCache();
+            mockMiscGet.mockResolvedValueOnce({ data: () => undefined });
+            expect(await getMiscSettings()).toEqual({ showPoweredBy: true, mediaMaxSize: 1200 });
         });
     });
 

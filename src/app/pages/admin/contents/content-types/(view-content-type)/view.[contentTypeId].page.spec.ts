@@ -234,90 +234,34 @@ describe('ViewContentTypeComponent', () => {
         });
     });
 
-    describe('Template Reference Data', () => {
-        it('should define built-in content fields', () => {
-            expect(component.builtInContentFields.length).toBeGreaterThan(0);
-            const keys = component.builtInContentFields.map(f => f.key);
-            expect(keys).toContain('title');
-            expect(keys).toContain('url');
-            expect(keys).toContain('coverImage');
-            expect(keys).toContain('content');
-            expect(keys).toContain('publishedOn');
-            expect(keys).toContain('readTime');
-            expect(keys).toContain('excerpt');
+    describe('Template Reference', () => {
+        it('shows nothing until a type is loaded', () => {
+            expect(component.referenceSections).toEqual([]);
         });
 
-        it('should define loop attributes', () => {
-            expect(component.loopAttributes.length).toBeGreaterThan(0);
-            const keys = component.loopAttributes.map(a => a.key);
-            expect(keys).toContain('items');
-            expect(keys).toContain('tags');
-        });
-
-        it('should define page-level fields', () => {
-            expect(component.pageFields.length).toBeGreaterThan(0);
-            const keys = component.pageFields.map(f => f.key);
-            expect(keys).toContain('contentType');
-            expect(keys).toContain('contentTypeSlug');
-        });
-
-        it('should define detail-only fields', () => {
-            expect(component.detailOnlyFields.length).toBeGreaterThan(0);
-            const keys = component.detailOnlyFields.map(f => f.key);
-            expect(keys).toContain('share.facebook');
-            expect(keys).toContain('previousContent.title');
-            expect(keys).toContain('nextContent.url');
-        });
-
-        it('should define tag loop fields', () => {
-            expect(component.tagLoopFields).toEqual([
-                { key: 'name', label: 'Tag name', syntax: '{{ name }}' },
-                { key: 'color', label: 'Tag color', syntax: '{{ color }}' },
+        it('shows the type\'s fields first, then each page\'s bindings', () => {
+            component.id = mockContentType.id!;
+            const sections = component.referenceSections;
+            expect(sections.map(s => s.id)).toEqual(['custom', 'detail', 'detail-loops', 'list', 'partials', 'items', 'directives']);
+            expect(sections[0].rows).toEqual([
+                { key: 'title', label: 'Title', syntax: '{{ title }}', note: 'text' },
+                { key: 'content', label: 'Content', syntax: 'data-arc-bind="content"', note: 'HTML; {{ }} would print the tags' },
             ]);
         });
 
-        it('should define directives', () => {
-            expect(component.directives.length).toBeGreaterThan(0);
-            const keys = component.directives.map(d => d.key);
-            expect(keys).toContain('data-arc-bind');
-            expect(keys).toContain('data-arc-if');
-            expect(keys).toContain('innerHTML');
-        });
-
-        it('should include syntax in the correct format for each field', () => {
-            for (const field of component.builtInContentFields) {
-                expect(field.syntax).toBeTruthy();
-                expect(field.label).toBeTruthy();
-                expect(field.key).toBeTruthy();
-            }
-        });
-
-        it('should return custom field entries from content type fields', () => {
-            component.id = mockContentType.id!;
-            const entries = component.customFieldEntries;
-            expect(entries).toHaveLength(2);
-            expect(entries[0]).toEqual({
-                key: 'title',
-                label: 'Title',
-                syntax: '{{ title }}',
-                note: 'text',
-            });
-            expect(entries[1]).toEqual({
-                key: 'content',
-                label: 'Content',
-                syntax: '{{ content }}',
-                note: 'richtext',
-            });
-        });
-
-        it('should return empty custom field entries when no content type loaded', () => {
-            expect(component.customFieldEntries).toEqual([]);
-        });
-
-        it('should return empty custom field entries when fields are undefined', () => {
+        it('leaves out the fields section for a type with no fields', () => {
             mockStore.get.mockReturnValue({ ...mockContentType, fields: undefined });
             component.id = 'test-id';
-            expect(component.customFieldEntries).toEqual([]);
+            expect(component.referenceSections[0].id).toBe('detail');
+        });
+
+        it('renders every section with copyable bindings', () => {
+            fixture.componentRef.setInput('id', mockContentType.id!);
+            fixture.detectChanges();
+            const el: HTMLElement = fixture.nativeElement;
+            expect(el.querySelectorAll('.template-ref .attr-subsection').length).toBe(7);
+            expect(el.textContent).toContain('data-arc-loop="items"');
+            expect(el.textContent).not.toContain('isFeatured');
         });
     });
 });

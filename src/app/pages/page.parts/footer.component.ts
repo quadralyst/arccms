@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { footer } from 'virtual:arc-site';
+import { LanguageSwitcherComponent } from './language-switcher.component';
+import { PublicSearchComponent } from './public-search.component';
 import { renderSiteFragment } from './site-fragment';
 import { useSiteStyles } from '../../core/site/site-styles';
 
@@ -19,6 +21,9 @@ export class FooterComponent {
     constructor() {
         // The website's stylesheets, on while the header or footer is shown (site-styles.ts).
         useSiteStyles(['main', 'site']);
-        renderSiteFragment(footer, {});
+        renderSiteFragment(footer, {
+            'arc-search': PublicSearchComponent,
+            'arc-language-switcher': LanguageSwitcherComponent,
+        });
     }
 }
