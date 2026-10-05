@@ -11,7 +11,7 @@ const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
 import {
-    MissingTemplateFolderError, clearSiteFilesCache, getSiteFile, getSiteManifest, loadSiteTemplate, pageStylesheets,
+    MissingTemplateFolderError, clearSiteFilesCache, getSiteFile, getSiteManifest, loadDetailTemplate, loadSiteTemplate, pageStylesheets,
     siteStylesheets, versionedUrl,
 } from '../shared/site-files.js';
 import { DEFAULT_TEMPLATES } from '../site-defaults.gen.js';
@@ -203,6 +203,65 @@ describe('site-files', () => {
         it('builds with the default when hosting is off, since nothing is deployed', async () => {
             process.env.ARC_HOSTING_SITE = 'none';
             expect(await loadSiteTemplate('events', 'detail')).toBe(DEFAULT_TEMPLATES.detail);
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+    });
+
+    // SS8 (specs/site-sections-spec.md): an entry's own detail layout.
+    describe('loadDetailTemplate', () => {
+        const WITH_LAYOUTS = { ...MANIFEST, layouts: { articles: { wide: 'app' } } };
+        let site: Record<string, string>;
+        beforeEach(() => {
+            vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+            site = {
+                '/_site/site.json': JSON.stringify(WITH_LAYOUTS),
+                '/_site/templates/default/detail.html': '<div>live default detail</div>',
+                '/_site/templates/articles/detail.html': '<div>articles detail</div>',
+                '/_site/templates/articles/detail-wide.html': '<div>articles wide</div>',
+            };
+            liveSite(site);
+        });
+
+        it('reads the layout the entry chose', async () => {
+            expect(await loadDetailTemplate('articles', 'wide')).toBe('<div>articles wide</div>');
+        });
+
+        it('reads the folder\'s detail.html without a layout', async () => {
+            expect(await loadDetailTemplate('articles', '')).toBe('<div>articles detail</div>');
+            expect(await loadDetailTemplate('articles', undefined)).toBe('<div>articles detail</div>');
+            expect(reads('/_site/templates/articles/detail-wide.html')).toBe(0);
+        });
+
+        it('falls back to detail.html for a layout the live site does not have, after reading the manifest again', async () => {
+            expect(await loadDetailTemplate('articles', 'narrow')).toBe('<div>articles detail</div>');
+            expect(reads('/_site/site.json')).toBe(2);
+            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("Layout 'narrow'"));
+        });
+
+        it('falls back on a live site built before layouts', async () => {
+            site['/_site/site.json'] = JSON.stringify(MANIFEST);
+            expect(await loadDetailTemplate('articles', 'wide')).toBe('<div>articles detail</div>');
+        });
+
+        it('falls back when the layout file is not a template', async () => {
+            site['/_site/templates/articles/detail-wide.html'] = '<!doctype html><html><body>page</body></html>';
+            expect(await loadDetailTemplate('articles', 'wide')).toBe('<div>articles detail</div>');
+        });
+
+        it('finds a layout deployed a moment ago', async () => {
+            site['/_site/site.json'] = JSON.stringify(MANIFEST);
+            await loadDetailTemplate('articles', ''); // the old manifest is now cached
+            site['/_site/site.json'] = JSON.stringify(WITH_LAYOUTS);
+            expect(await loadDetailTemplate('articles', 'wide')).toBe('<div>articles wide</div>');
+        });
+
+        it('still refuses a folder the live site does not have', async () => {
+            await expect(loadDetailTemplate('events', 'wide')).rejects.toThrow(MissingTemplateFolderError);
+        });
+
+        it('uses the built-in default when hosting is off', async () => {
+            process.env.ARC_HOSTING_SITE = 'none';
+            expect(await loadDetailTemplate('articles', 'wide')).toBe(DEFAULT_TEMPLATES.detail);
             expect(mockFetch).not.toHaveBeenCalled();
         });
     });

@@ -46,6 +46,19 @@
       <span class="text-muted">Default</span>
       }
     </div>
+    @if(layoutsOf(currentItem.templateFolder); as layouts) {
+    @if(layouts.length) {
+    <!-- SS8: other detail pages an entry can choose with Layout in the editor. -->
+    <div class="detail-row" data-testid="template-layouts">
+      <label>Layouts:</label>
+      <span>
+        @for (layout of layouts; track layout.name; let last = $last) {
+        {{ layout.label }} <span class="template-path">detail-{{ layout.name }}.html</span>@if (!last) {, }
+        }
+      </span>
+    </div>
+    }
+    }
 
     <hr />
 

@@ -1,5 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { StandardPagesService } from '../standard-pages/standard-pages.service';
+import { standardPagesFields } from '../standard-pages/standard-pages';
+import { isOn } from '../../../../core/features/features';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Component, inject, signal, ViewChild, TemplateRef, computed } from '@angular/core';
 import { MatSidenavModule, MatDrawer } from '@angular/material/sidenav';
@@ -65,8 +67,16 @@ export default class ContentTypeComponent {
   private publishQueue = inject(PublishQueueService);
   private standardPages = inject(StandardPagesService);
 
-  /** The site has the standard pages' type (SS6); until it does, the page offers to add it. */
-  hasStandardPages = computed(() => this.contentTypesStore.items().some((type) => type.standard === 'pages'));
+  /**
+   * The site has the standard pages' type (SS6) with every standard field (SS8:
+   * Info boxes); until it does, the page offers Add standard pages.
+   */
+  hasStandardPages = computed(() => {
+    const type = this.contentTypesStore.items().find((t) => t.standard === 'pages');
+    if (!type) return false;
+    const have = new Set((type.fields ?? []).map((field) => field.key));
+    return standardPagesFields(isOn('contact')).every((field) => have.has(field.key));
+  });
   addingStandardPages = signal(false);
 
   /**
@@ -81,7 +91,13 @@ export default class ContentTypeComponent {
         this.notify.error('admin.contents.types.standard_pages_taken');
         return;
       }
-      this.notify.success('admin.contents.types.standard_pages_added', { count: result.createdPages.length });
+      if (result.createdPages.length) {
+        this.notify.success('admin.contents.types.standard_pages_added', { count: result.createdPages.length });
+      } else if (result.addedFields.length) {
+        this.notify.success('admin.contents.types.standard_pages_fields_added', { fields: result.addedFields.join(', ') });
+      } else {
+        this.notify.success('admin.contents.types.standard_pages_complete');
+      }
       await this.router.navigate(['/admin/contents/info']);
     } catch (error) {
       console.error('Could not add the standard pages:', error);

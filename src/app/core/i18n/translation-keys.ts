@@ -202,6 +202,9 @@ export type TranslationKey =
     | 'admin.contents.editor.editing_draft'
     | 'admin.contents.editor.expand'
     | 'admin.contents.editor.history'
+    | 'admin.contents.editor.layout'
+    | 'admin.contents.editor.layout_hint'
+    | 'admin.contents.editor.layout_standard'
     | 'admin.contents.editor.loading_options'
     | 'admin.contents.editor.manage_authors'
     | 'admin.contents.editor.map.address'
@@ -387,7 +390,9 @@ export type TranslationKey =
     | 'admin.contents.types.slug_exists'
     | 'admin.contents.types.standard_pages'
     | 'admin.contents.types.standard_pages_added'
+    | 'admin.contents.types.standard_pages_complete'
     | 'admin.contents.types.standard_pages_failed'
+    | 'admin.contents.types.standard_pages_fields_added'
     | 'admin.contents.types.standard_pages_hint'
     | 'admin.contents.types.standard_pages_taken'
     | 'admin.contents.types.update_failed'
@@ -1730,6 +1735,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.editing_draft',
     'admin.contents.editor.expand',
     'admin.contents.editor.history',
+    'admin.contents.editor.layout',
+    'admin.contents.editor.layout_hint',
+    'admin.contents.editor.layout_standard',
     'admin.contents.editor.loading_options',
     'admin.contents.editor.manage_authors',
     'admin.contents.editor.map.address',
@@ -1915,7 +1923,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.slug_exists',
     'admin.contents.types.standard_pages',
     'admin.contents.types.standard_pages_added',
+    'admin.contents.types.standard_pages_complete',
     'admin.contents.types.standard_pages_failed',
+    'admin.contents.types.standard_pages_fields_added',
     'admin.contents.types.standard_pages_hint',
     'admin.contents.types.standard_pages_taken',
     'admin.contents.types.update_failed',

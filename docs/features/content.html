@@ -58,7 +58,7 @@
         <tr><td>Name, singular name, description</td><td>Shown in the admin and on the public list page (heading and subtitle). Each can be translated per language.</td></tr>
         <tr><td>Slug</td><td>The URL segment and the collection names. Changing it later hides every existing entry, which stays in the old collections.</td></tr>
         <tr><td>Icon</td><td>The Font Awesome icon beside the type in the admin menu</td></tr>
-        <tr><td>Content Template</td><td>The template folder whose <code>partials.html</code>, <code>list.html</code> and <code>detail.html</code> render this type (see <a href="templates.html">Templates</a>). With public pages off it is labelled <strong>Card template</strong>, and only its <code>partials.html</code> is used, for the type's cards on the home page.</td></tr>
+        <tr><td>Content Template</td><td>The template folder whose <code>partials.html</code>, <code>list.html</code> and <code>detail.html</code> render this type (see <a href="templates.html">Templates</a>), plus any layouts an entry can pick (<a href="templates.html#layouts">Layouts</a>). With public pages off it is labelled <strong>Card template</strong>, and only its <code>partials.html</code> is used, for the type's cards on the home page.</td></tr>
         <tr><td>Generate public pages</td><td>Off: entries are stored and published in Firestore, but no entry gets a page of its own: no HTML page, list page, sitemap entry, feed or search entry. The type can still show as cards on the home page, through its card template, with no links on them (see <a href="../website/home-page.html">Build your home page</a>). Use it for parts of a page that editors change, such as services, a hero or testimonials, and for data that only your app's own pages read. The slug is hidden while it is off.</td></tr>
         <tr><td>Entry order</td><td><strong>Newest first</strong> (the default) or <strong>Your own order</strong>, which admins set by dragging. The list page and the home page cards follow it; the sitemap, feeds and <code>llms.txt</code> stay newest first. See <a href="#your-own-order">Put entries in your own order</a>.</td></tr>
         <tr><td>Searchable custom fields</td><td>Plain text custom fields that search also indexes (see <a href="search.html">Search</a>). Shown when you edit the type.</td></tr>
@@ -122,7 +122,7 @@
     <h3>Write and publish an entry</h3>
     <ol class="steps">
       <li><p>Open <strong>Content &gt; {your type}</strong> and choose <strong>Add {type}</strong>, such as <strong>Add Article</strong>.</p></li>
-      <li><p>Write the title and body in the rich editor (TipTap: headings, lists, tables, task lists, links, images from the media library, YouTube embeds, text color and alignment). Fill in the cover image, summary, tags, author, SEO fields and custom fields.</p></li>
+      <li><p>Write the title and body in the rich editor (TipTap: headings, lists, tables, task lists, links, images from the media library, YouTube embeds, text color and alignment). Fill in the cover image, summary, tags, author, SEO fields and custom fields. When the type's template folder has layouts, <strong>Layout</strong> picks the one this entry uses (see <a href="templates.html#layouts">Layouts</a>).</p></li>
       <li><p>The editor saves the draft as you work. Use <strong>Preview</strong> to see the draft rendered on the site. Drag the dotted grip in the gap between the writing area and the settings panel to make the panel wider or narrower; the editor remembers the width for each content type on this computer, and a double-click puts it back.</p></li>
       <li><p>Choose <strong>Publish</strong>. The editor shows the deploy status of this publish (<strong>Deploying to hosting...</strong>, then <strong>Deployed to hosting</strong> or <strong>Deploy failed</strong>, with the reason when you point at it) and offers a retry if the release failed. A page whose template folder is not on the live site yet fails with "Template folder 'x' is not on the live site. Deploy the website, then publish again." In <code>npm run dev</code>, <strong>Live site differs</strong> beside <strong>Publish</strong> means your site files are not the live ones yet, so the page would be built from the old ones: deploy the website first.</p></li>
     </ol>
@@ -155,7 +155,7 @@
       <thead><tr><th>Page</th><th>Address</th><th>Starts with</th></tr></thead>
       <tbody>
         <tr><td>About</td><td><code>/info/about</code></td><td>Who you are, what you do, why</td></tr>
-        <tr><td>Contact</td><td><code>/info/contact</code></td><td>A line on how you reply; <strong>Show contact details</strong> and <strong>Show contact form</strong> on</td></tr>
+        <tr><td>Contact</td><td><code>/info/contact</code></td><td>The Contact layout (below); a line on how to reach you; an Opening hours info box; <strong>Show contact details</strong> and <strong>Show contact form</strong> on</td></tr>
         <tr><td>Frequently asked questions</td><td><code>/info/faq</code></td><td>Three FAQ rows</td></tr>
         <tr><td>Privacy Policy</td><td><code>/info/privacy-policy</code></td><td>An outline of the usual sections, with your name, email and address from Settings, About</td></tr>
         <tr><td>Terms</td><td><code>/info/terms</code></td><td>An outline of the usual sections</td></tr>
@@ -163,9 +163,16 @@
       </tbody>
     </table>
     <p>Every prompt to fill in starts with <code>[Replace:</code>, and the editor asks before publishing a page that still has one. The outlines are not legal advice: have the policies checked for where you work.</p>
-    <p>The Pages type has four fields that each page turns on as it needs: <strong>Locations</strong> (a map), <strong>FAQ</strong>, <strong>Show contact details</strong> (the email, phone, address and social links from Settings, About) and <strong>Show contact form</strong> (only with the <code>contact</code> feature on, see <a href="contact.html">Contact form</a>). The <code>info</code> template folder shows each section only when it is set.</p>
+    <p>The Pages type has five fields that each page turns on as it needs: <strong>Locations</strong> (a map), <strong>FAQ</strong>, <strong>Show contact details</strong> (the email, phone, address and social links from Settings, About), <strong>Show contact form</strong> (only with the <code>contact</code> feature on, see <a href="contact.html">Contact form</a>) and <strong>Info boxes</strong> (an Info Cards field for the Contact layout's own boxes, such as opening hours). The <code>info</code> template folder shows each section only when it is set.</p>
+    <p>The Contact page starts in the <strong>Contact</strong> layout (<code>info/detail-contact.html</code>, see <a href="templates.html#layouts">Layouts</a>), in three rows:</p>
+    <ol>
+      <li>The title and the body, full width.</li>
+      <li>For each place in <strong>Locations</strong>: the map on the left, its name, address and directions on the right.</li>
+      <li>On the left, boxes: the email and phone from Settings, About (with <strong>Show contact details</strong> on), the social links, then the page's <strong>Info boxes</strong>. On the right, the contact form.</li>
+    </ol>
+    <p>A row with nothing to show is left out, and on a phone everything stacks in one column. The other pages use the standard <code>info/detail.html</code>; any of them can switch to the Contact layout, and Contact back to Standard, with <strong>Layout</strong> in the editor.</p>
     <p>Once published, the pages are linked from the default footer in their arranged order, and the signup terms notice, the contact form's privacy line and the cookie banner link to <code>/info/terms</code>, <code>/info/privacy-policy</code> and <code>/info/cookie-policy</code>. Publishing or unpublishing a page, changing its title or arranging the pages republishes the whole site, so every footer agrees.</p>
-    <p>An install from before the standard pages existed adds them with <strong>Add standard pages</strong> on <strong>Content &gt; Content types</strong>. It only adds what is missing, so it is safe to use again, and it adds nothing when a type of your own already uses the slug <code>info</code>. Delete a page you do not need, or leave it unpublished.</p>
+    <p>An install from before the standard pages existed adds them with <strong>Add standard pages</strong> on <strong>Content &gt; Content types</strong>. It only adds what is missing, so it is safe to use again, and it adds nothing when a type of your own already uses the slug <code>info</code>. On a Pages type made by an earlier version it also adds the standard fields the type lacks (Info boxes), after your own fields; the button shows until the type has them. It never changes a page that exists, so an existing Contact page keeps its look until you pick <strong>Layout: Contact</strong> in the editor. Delete a page you do not need, or leave it unpublished.</p>
 
     <h3>How publishing works</h3>
     <ol class="steps">

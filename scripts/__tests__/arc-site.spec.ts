@@ -47,6 +47,8 @@ describe('servedPath', () => {
         ['sign-in.html', '_site/sign-in.html'],
         ['templates/recipes/detail.html', '_site/templates/recipes/detail.html'],
         ['templates/recipes/partials.html', '_site/templates/recipes/partials.html'],
+        ['templates/info/detail-contact.html', '_site/templates/info/detail-contact.html'],
+        ['templates/info/detail-wide_hero-2.html', '_site/templates/info/detail-wide_hero-2.html'],
         ['pages/terms.html', '_site/pages/terms.html'],
         ['strings/hi.json', '_site/strings/hi.json'],
         ['site.css', 'assets/css/site.css'],
@@ -60,6 +62,9 @@ describe('servedPath', () => {
 
     it.each([
         'templates/recipes/card.html',
+        'templates/recipes/detail-.html',
+        'templates/recipes/detail-Contact.html',
+        'templates/recipes/list-contact.html',
         'templates/recipes/styles.css',
         'templates/detail.html',
         'pages/nested/terms.html',
@@ -152,12 +157,29 @@ describe('siteContents', () => {
             default: { detail: 'core', list: 'core', partials: 'core' },
             recipes: { detail: 'app' },
         });
+        expect(manifest.layouts).toEqual({});
         expect(manifest.pages).toEqual({ 'privacy-policy': 'core', terms: 'app' });
         expect(manifest.strings).toEqual(['hi']);
         expect(Object.keys(manifest.files)).toEqual(expect.arrayContaining(['_site/header.html', 'assets/css/site.css']));
         expect(Object.keys(manifest.files)).not.toContain('favicon.ico');
         // Both site stylesheets, for their ?v= links.
         expect(Object.keys(manifest.files)).toEqual(expect.arrayContaining(['assets/css/site.css']));
+    });
+
+    // SS8 (specs/site-sections-spec.md): another detail page an entry can choose.
+    it('lists layouts by folder, the app\'s over core\'s, and a folder holding only layouts', () => {
+        core('_site/templates/info/detail.html', '<div>info</div>');
+        core('_site/templates/info/detail-contact.html', '<div>core contact</div>');
+        app('templates/info/detail-contact.html', '<div>app contact</div>');
+        app('templates/info/detail-team.html', '<div>team</div>');
+        app('templates/landing/detail-wide.html', '<div>wide</div>');
+        const { manifest } = siteContents(root);
+
+        expect(manifest.layouts).toEqual({ info: { contact: 'app', team: 'app' }, landing: { wide: 'app' } });
+        expect(manifest.templates['info']).toEqual({ detail: 'core' });
+        expect(manifest.templates['landing']).toEqual({});
+        expect(readSiteFile(root, '_site/templates/info/detail-contact.html')).toBe('<div>app contact</div>');
+        expect(manifest.files['_site/templates/info/detail-team.html']).toMatch(/^[0-9a-f]{16}$/);
     });
 
     it('gives a file a new hash when its content changes, and only then', () => {

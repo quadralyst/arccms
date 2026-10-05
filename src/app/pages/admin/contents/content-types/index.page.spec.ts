@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { headerTestProviders } from '../../../../../test/header-test-providers';
 import ContentTypesPage from './index.page';
+import { standardPagesFields } from '../standard-pages/standard-pages';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
@@ -85,18 +86,32 @@ describe('ContentTypesPage', () => {
     describe('Add standard pages', () => {
         const button = () => (fixture.nativeElement as HTMLElement).querySelector('[data-testid="add-standard-pages"]');
 
-        it('is offered until the site has the Pages type', () => {
+        it('is offered until the site has the Pages type with every standard field', () => {
             mockStore.items.set([]);
             fixture.detectChanges();
             expect(button()).not.toBeNull();
-            mockStore.items.set([{ slug: 'info', name: 'Pages', standard: 'pages' }] as never);
+            mockStore.items.set([{ slug: 'info', name: 'Pages', standard: 'pages', fields: standardPagesFields(true) }] as never);
             fixture.detectChanges();
             expect(button()).toBeNull();
+            // SS8: a Pages type from before Info boxes is offered the update.
+            const older = standardPagesFields(true).filter((f) => f.key !== 'info-info-boxes');
+            mockStore.items.set([{ slug: 'info', name: 'Pages', standard: 'pages', fields: older }] as never);
+            fixture.detectChanges();
+            expect(button()).not.toBeNull();
             mockStore.items.set([]);
         });
 
+        it('says when it only added fields, or when everything was there', async () => {
+            mockStandardPages.ensure.mockResolvedValue({ createdType: false, createdPages: [], addedFields: ['Info boxes'], foreignType: false });
+            await component.addStandardPages();
+            expect(mockNotify.success).toHaveBeenCalledWith('admin.contents.types.standard_pages_fields_added', { fields: 'Info boxes' });
+            mockStandardPages.ensure.mockResolvedValue({ createdType: false, createdPages: [], addedFields: [], foreignType: false });
+            await component.addStandardPages();
+            expect(mockNotify.success).toHaveBeenCalledWith('admin.contents.types.standard_pages_complete');
+        });
+
         it('adds them, says how many, and opens them', async () => {
-            mockStandardPages.ensure.mockResolvedValue({ createdType: true, createdPages: ['about', 'contact'], foreignType: false });
+            mockStandardPages.ensure.mockResolvedValue({ createdType: true, createdPages: ['about', 'contact'], addedFields: [], foreignType: false });
             await component.addStandardPages();
             expect(mockNotify.success).toHaveBeenCalledWith('admin.contents.types.standard_pages_added', { count: 2 });
             expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/contents/info']);
@@ -104,7 +119,7 @@ describe('ContentTypesPage', () => {
         });
 
         it('says so when another type already uses /info, and adds nothing', async () => {
-            mockStandardPages.ensure.mockResolvedValue({ createdType: false, createdPages: [], foreignType: true });
+            mockStandardPages.ensure.mockResolvedValue({ createdType: false, createdPages: [], addedFields: [], foreignType: true });
             await component.addStandardPages();
             expect(mockNotify.error).toHaveBeenCalledWith('admin.contents.types.standard_pages_taken');
             expect(mockRouter.navigate).not.toHaveBeenCalledWith(['/admin/contents/info']);

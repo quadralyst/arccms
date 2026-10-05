@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **FAQ custom field.** Repeating questions and answers, with FAQPage structured data on the page.
 - **Contact form** (feature `contact`, on by default). `<form data-arc-contact-form>` on any published page, spam checks, a **Messages** inbox and an alert to admins (`admin_contact_message`). New functions `submitContactMessage` and `onContactMessageCreated`, a `ContactMessages` collection with its rules and index.
 - **Standard pages.** A built-in **Pages** type at `/info` with About, Contact, FAQ, Privacy Policy, Terms and Cookie Policy as drafts, created by the setup wizard or **Add standard pages**. A new `info` template folder shows a map, questions, contact details and the contact form per page. Structured data type **Web page**.
+- **Page layouts.** A template folder may hold layouts, `detail-{name}.html`, and an entry picks one with **Layout** in the editor (shown only when its folder has one); list and card templates are unchanged. A layout the live site lacks falls back to `detail.html`. Core ships a Contact layout for the standard pages (intro, map beside the address, contact boxes beside the form), a new **Info boxes** field on Pages, and a new Contact page starts with both.
 
 ### Changed
 
@@ -43,7 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 2. Check your own templates and pages for the old marketing classes (`.hero`, `.feature-card`, `.cta-primary`, `.section-headline` and the like) and for sections that relied on the `main.css` padding. `arc:own-site` brings the old styles back for a migrated home page only; elsewhere, copy the rules you use from `docs/examples/arc-cms-home.css` into `src/custom/site/site.css`.
 3. Run `npm run arc:configure` once, so `arc-install.ts` names your hosting site.
 4. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`).
-5. On an install set up before the standard pages, open **Content types** and choose **Add standard pages**. If your own footer listed the old Documentation, GitHub or Community links from Arc CMS's footer, they are gone from the default one; keep your own footer as it is.
+5. On an install set up before the standard pages, or before page layouts, open **Content types** and choose **Add standard pages** (it adds the pages and the Info boxes field that are missing). Then pick **Layout: Contact** on your Contact page if you want the new layout. If your own footer listed the old Documentation, GitHub or Community links from Arc CMS's footer, they are gone from the default one; keep your own footer as it is.
 
 ---
 

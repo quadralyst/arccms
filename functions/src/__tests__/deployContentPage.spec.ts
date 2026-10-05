@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const {
     mockFetch,
     mockLoadSiteTemplate,
+    mockLoadDetailTemplate,
     mockDeployFileToHosting,
     mockDeployBatchToHosting,
     mockRemoveFileFromHosting,
@@ -25,6 +26,7 @@ const {
 } = vi.hoisted(() => ({
     mockFetch: vi.fn(),
     mockLoadSiteTemplate: vi.fn(),
+    mockLoadDetailTemplate: vi.fn(),
     mockDeployFileToHosting: vi.fn(),
     mockDeployBatchToHosting: vi.fn(),
     mockRemoveFileFromHosting: vi.fn(),
@@ -61,6 +63,7 @@ vi.mock('../init', () => ({
 vi.mock('../shared/site-files', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../shared/site-files.js')>()),
     loadSiteTemplate: mockLoadSiteTemplate,
+    loadDetailTemplate: mockLoadDetailTemplate,
 }));
 
 vi.mock('../pages/deployToHosting', async (importOriginal) => {
@@ -225,8 +228,10 @@ function restoreMockImplementations() {
         };
     });
 
-    // The type's detail template, as the live site serves it.
+    // The type's detail template, as the live site serves it. An entry's layout
+    // (SS8) is chosen in site-files.ts; here it is the folder's detail file.
     mockLoadSiteTemplate.mockResolvedValue(MOCK_TEMPLATE_HTML);
+    mockLoadDetailTemplate.mockImplementation((folder: string) => mockLoadSiteTemplate(folder, 'detail'));
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -262,9 +267,21 @@ describe('deployContentPage', () => {
         it('asks for the type\'s detail template', async () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
+            expect(mockLoadDetailTemplate).toHaveBeenCalledWith(MOCK_CONTENT_TYPE.templateFolder, undefined);
             expect(mockLoadSiteTemplate).toHaveBeenCalledWith(MOCK_CONTENT_TYPE.templateFolder, 'detail');
             const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Test Article');
+        });
+
+        it('asks for the layout the entry chose (SS8)', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, layout: 'contact' }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(mockLoadDetailTemplate).toHaveBeenCalledWith(MOCK_CONTENT_TYPE.templateFolder, 'contact');
         });
 
         it('reads no template from Firestore', async () => {

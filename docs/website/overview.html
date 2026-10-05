@@ -96,7 +96,7 @@
       <thead><tr><th>File in <code class="new">src/custom/site/</code></th><th>Served at</th></tr></thead>
       <tbody>
         <tr><td><code>home.html</code>, <code>home.{lang}.html</code>, <code>header.html</code>, <code>footer.html</code>, <code>sign-in.html</code></td><td><code>/_site/</code>, under the same name</td></tr>
-        <tr><td><code>templates/{folder}/partials.html</code>, <code>list.html</code>, <code>detail.html</code></td><td><code>/_site/templates/{folder}/</code></td></tr>
+        <tr><td><code>templates/{folder}/partials.html</code>, <code>list.html</code>, <code>detail.html</code>, <code>detail-{name}.html</code></td><td><code>/_site/templates/{folder}/</code></td></tr>
         <tr><td><code>pages/{name}.html</code></td><td><code>/_site/pages/</code>, and published at <code>/p/{name}</code></td></tr>
         <tr><td><code>strings/{lang}.json</code></td><td><code>/_site/strings/</code></td></tr>
         <tr><td><code>site.css</code></td><td><code>/assets/css/site.css</code></td></tr>
@@ -104,7 +104,7 @@
         <tr><td><code>favicon.ico</code>, <code>403.html</code>, <code>404.html</code></td><td>The root: <code>/favicon.ico</code>, <code>/403.html</code>, <code>/404.html</code></td></tr>
       </tbody>
     </table>
-    <p>Folder and page names use lowercase letters, digits, <code>-</code> and <code>_</code>, and start with a letter or digit, such as <code>case-studies</code> or <code>terms</code>. A language is its code, such as <code>hi</code> or <code>pt-br</code>. A template folder holds only those three files. Anything else, such as <code>robots.txt</code>, <code>pages/About.html</code> or <code>templates/articles/card.html</code>, is not served: <code>npm run dev</code> and <code>npm run build</code> name each such file in a warning. A <code>README.md</code> is allowed and stays quiet.</p>
+    <p>Folder and page names use lowercase letters, digits, <code>-</code> and <code>_</code>, and start with a letter or digit, such as <code>case-studies</code> or <code>terms</code>. A language is its code, such as <code>hi</code> or <code>pt-br</code>. A template folder holds only those three files, plus layouts named <code>detail-{name}.html</code> (see <a href="../features/templates.html#layouts">Layouts</a>). Anything else, such as <code>robots.txt</code>, <code>pages/About.html</code> or <code>templates/articles/card.html</code>, is not served: <code>npm run dev</code> and <code>npm run build</code> name each such file in a warning. A <code>README.md</code> is allowed and stays quiet.</p>
     <p>Run the site locally with <code>npm run dev</code> while you build; it reads and writes your real Firebase project (see <a href="../getting-started/run-locally.html">Run it locally</a>). A change to any of these files shows in <code>npm run dev</code> at once: the page reloads by itself for the header, footer and sign-in panel; reload it yourself for the rest. A strings file that is not valid JSON stops <code>npm run dev</code> and <code>npm run build</code> with a message; while <code>npm run dev</code> runs, it keeps the last good copy.</p>
     <p>On the live site, publishing an item puts its page there straight away. A change to a file reaches the live site only when you deploy the website with <code>npm run deploy</code>, which then publishes every page again so they all use the new files (see <a href="../operations/deploy.html">Deploy</a>).</p>
 

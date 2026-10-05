@@ -10,7 +10,7 @@ import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
-import { DEFAULT_TEMPLATE_FOLDER, siteTemplateUrl, templateFolderFor } from '../../core/site/site';
+import { DEFAULT_TEMPLATE_FOLDER, siteLayoutUrl, siteTemplateUrl, templateFolderFor } from '../../core/site/site';
 import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
@@ -422,8 +422,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                  }
             }
 
-            // Only load template when we have content type, content, not loading, and haven't loaded yet
-            if (contentType && content && !isLoading && !this.templateHtml()) {
+            // Load the template once there is content, and again when the item
+            // needs another one: a preview's draft can arrive after the published
+            // copy with a different layout (SS8).
+            if (contentType && content && !isLoading
+                && (!this.templateHtml() || this.templateUrlFor(contentType, content) !== this.loadedTemplateUrl)) {
                 this.loadCustomTemplate(contentType, content);
             }
         });
@@ -760,15 +763,16 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     }
 
     /**
-     * Loads the type's detail template, its folder's or the default
-     * (siteTemplateUrl), and hydrates it. A folder file that turns out not to be
-     * a template falls back to the default's once.
+     * Loads the item's detail template, its layout's (SS8), its folder's or the
+     * default (siteLayoutUrl), and hydrates it. A layout file that turns out not
+     * to be a template falls back to the folder's detail.html once, and a folder
+     * file to the default's.
      */
     private loadCustomTemplate(contentType: ContentType, content: IContents): void {
         const folder = templateFolderFor(contentType.templateFolder);
-        const url = this.rejectedTemplateFolder === folder
-            ? siteTemplateUrl(DEFAULT_TEMPLATE_FOLDER, 'detail')
-            : siteTemplateUrl(folder, 'detail');
+        const folderUrl = siteTemplateUrl(folder, 'detail');
+        const layoutUrl = siteLayoutUrl(folder, content.layout);
+        const url = this.templateUrlFor(contentType, content);
 
         // One request per template at a time; the effect can re-run several
         // times before the first response lands.
@@ -783,6 +787,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             const cachedHtml = this.transferState.get(stateKey, '');
             this.transferState.remove(stateKey);
             if (isTemplateFragment(cachedHtml)) {
+                this.loadedTemplateUrl = url;
                 this.hydrateAndSetTemplate(cachedHtml, contentType, content);
                 return;
             }
@@ -791,21 +796,29 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         this.pendingTemplateUrl = url;
         this.http.get(url, { responseType: 'text' }).subscribe({
             next: (templateHtml) => {
+                // A newer request (another layout) has replaced this one.
+                if (this.pendingTemplateUrl !== url) return;
                 this.pendingTemplateUrl = null;
                 // A missing file answers with the app shell (HTTP 200, the 404
                 // page); that is not a template.
                 if (!isTemplateFragment(templateHtml)) {
                     console.warn(`[ContentDetailComponent] ${url} is not a template fragment.`);
+                    if (url !== folderUrl && url === layoutUrl) {
+                        this.rejectedLayoutUrl = url;
+                        this.loadCustomTemplate(contentType, content);
+                        return;
+                    }
                     if (folder !== DEFAULT_TEMPLATE_FOLDER && this.rejectedTemplateFolder !== folder) {
                         this.rejectedTemplateFolder = folder;
                         this.loadCustomTemplate(contentType, content);
                     }
                     return;
                 }
+                this.loadedTemplateUrl = url;
                 this.hydrateAndSetTemplate(templateHtml, contentType, content);
             },
             error: (error) => {
-                this.pendingTemplateUrl = null;
+                if (this.pendingTemplateUrl === url) this.pendingTemplateUrl = null;
                 console.warn(`[ContentDetailComponent] Failed to load ${url}:`, error.message);
             }
         });
@@ -816,8 +829,23 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
      */
     /** A template folder whose file turned out not to be a template; the default is used instead. */
     private rejectedTemplateFolder: string | null = null;
+    /** A layout file that turned out not to be a template; the folder's detail.html is used instead. */
+    private rejectedLayoutUrl: string | null = null;
     /** The template whose request is in flight. */
     private pendingTemplateUrl: string | null = null;
+    /** The template on screen, to tell when the item needs another. */
+    private loadedTemplateUrl: string | null = null;
+
+    /**
+     * The template this item renders with: its layout's, else its folder's
+     * detail.html, else the default's, skipping a file that was not a template.
+     */
+    private templateUrlFor(contentType: ContentType, content: IContents): string {
+        const folder = templateFolderFor(contentType.templateFolder);
+        if (this.rejectedTemplateFolder === folder) return siteTemplateUrl(DEFAULT_TEMPLATE_FOLDER, 'detail');
+        const layoutUrl = siteLayoutUrl(folder, content.layout);
+        return this.rejectedLayoutUrl === layoutUrl ? siteTemplateUrl(folder, 'detail') : layoutUrl;
+    }
 
     /** The last custom template as loaded, so it can be re-hydrated when the author arrives. */
     private lastTemplate: { html: string; contentType: ContentType; content: IContents } | null = null;

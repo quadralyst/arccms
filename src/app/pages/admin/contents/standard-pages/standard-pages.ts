@@ -28,7 +28,14 @@ export interface OwnerDetails {
 
 const key = (name: string) => `${STANDARD_PAGES_SLUG}-${name}`;
 
-/** The Pages type's fields. The contact form switch only with the contact form feature. */
+/** The layout a new Contact page starts with: info/detail-contact.html (SS8). */
+export const CONTACT_LAYOUT = 'contact';
+
+/**
+ * The Pages type's fields. The contact form switch only with the contact form
+ * feature. Info boxes (SS8) are the Contact layout's own boxes, such as opening
+ * hours; other pages leave the field empty and show nothing.
+ */
 export function standardPagesFields(withContactForm: boolean): ContentTypeField[] {
     const fields: ContentTypeField[] = [
         { key: key('locations'), label: 'Locations', type: 'maplocation', required: false, order: 0 },
@@ -36,6 +43,7 @@ export function standardPagesFields(withContactForm: boolean): ContentTypeField[
         { key: key('show-contact-details'), label: 'Show contact details', type: 'boolean', required: false, order: 2 },
     ];
     if (withContactForm) fields.push({ key: key('show-contact-form'), label: 'Show contact form', type: 'boolean', required: false, order: 3 });
+    fields.push({ key: key('info-boxes'), label: 'Info boxes', type: 'infocard', required: false, order: fields.length });
     return fields;
 }
 
@@ -59,12 +67,14 @@ export function standardPagesType(withContactForm: boolean): StandardPagesType {
     };
 }
 
-/** One page to create: its address, title, body and custom fields. */
+/** One page to create: its address, title, body, custom fields and layout. */
 export interface StandardPage {
     urlSlug: string;
     title: string;
     content: string;
     customFields: Record<string, unknown>;
+    /** A layout of the info folder (`detail-{layout}.html`); none for detail.html. */
+    layout?: string;
 }
 
 const esc = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -104,11 +114,18 @@ export function standardPages(owner: OwnerDetails, withContactForm: boolean): St
         {
             urlSlug: 'contact',
             title: 'Contact',
-            content: prompt('a line on how and when you reply, such as "We answer within one working day."'),
+            content: prompt('a line or two on how to reach you and when you reply, such as "Write to us, call or visit. We answer within one working day."'),
             customFields: {
                 [key('show-contact-details')]: true,
                 ...(withContactForm ? { [key('show-contact-form')]: true } : {}),
+                [key('info-boxes')]: [{
+                    ...newRepeaterRow(REPEATER_SCHEMAS['infocard'], 0),
+                    icon: { set: 'fa', name: 'clock', style: 'regular', classes: 'fa-regular fa-clock', label: 'Clock' },
+                    headline: 'Opening hours',
+                    info: `${REPLACE_MARKER} your opening hours, such as Monday to Friday, 9am to 6pm]`,
+                }],
             },
+            layout: CONTACT_LAYOUT,
         },
         {
             urlSlug: 'faq',

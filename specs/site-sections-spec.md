@@ -1,6 +1,6 @@
 # Editable Site Sections: Build Spec
 
-**Status:** SS1 to SS7 built 2026-10-05 on `feat/site-sections`; SS8 (page layouts, section 12) added the same day and being built. SS1 to SS7, functions and hosting deployed to the xlm dev project and browser-checked phase by phase; not merged into `dev`. Screenshots are not taken yet (SS7 updated the text only). Where the build differs from this spec, section 11 says so. Spec written 2026-10-05 against `dev` at 17d7ae1.
+**Status:** SS1 to SS8 built 2026-10-05 on `feat/site-sections` (SS8, page layouts, is section 12). SS1 to SS7 functions and hosting deployed to the xlm dev project and browser-checked phase by phase; not merged into `dev`. Screenshots are not taken yet (SS7 updated the text only). Where the build differs from this spec, section 11 says so. Spec written 2026-10-05 against `dev` at 17d7ae1.
 **Branch:** `feat/site-sections`, to be cut from `dev`, in a worktree (`../arccms-site-sections`) so the main checkout's dev server keeps running.
 **Codes:** phases are SS1 to SS7 and decisions SS-D1 onwards. (The website docs backlog in `specs/website-docs-review.md` already uses B1 to B7.)
 
@@ -444,6 +444,9 @@ SS1, SS2, SS3, SS4, SS5, SS6, SS7. SS1 and SS2 share the card block and the queu
 | SS6 | Footer links to the standard pages. | The default footer is now the `pages` loop plus `© {year} {name}`; the Documentation, GitHub and Community links are gone. Publishing or unpublishing a standard page, changing any of their titles, or arranging them queues `redeploy-all`, so every footer agrees. |
 | SS6 | (not in spec) | `main.css` footer rules are scoped to the site footer (`body > footer`, `arc-footer > footer`, `.arc-cms-template > footer`, `footer.site-footer`), after the old global `footer` rule stretched the Feedback dialog's footer. |
 | SS7 | Example files: services and hero `partials.html`, a footer. | Also a `questions/partials.html` (a home page FAQ block from a data-only type) and a `home.html` fragment. `functions/src/__tests__/docsSectionsExamples.spec.ts` fills every example as publishing does. |
+| SS8 | Row 3's boxes: email, phone, address and social from About. | Email, phone and social only: the address is row 2's, from **Locations**, so it is not printed twice. |
+| SS8 | (not in spec) | The app's detail page loads its template again when the item needs another one: a preview's draft arrives after the published copy, and its layout may differ. Before, the first template stayed. |
+| SS8 | Add standard pages shows until the Pages type exists. | It shows until the Pages type has every standard field, so an install from before SS8 can add Info boxes. It also says when it only added fields, or when everything was there. |
 | All | Screenshots per phase. | Not taken yet. |
 
 ---
@@ -462,7 +465,7 @@ Added 2026-10-05 after SS7, from wanting a Contact page laid out differently fro
 | SS-D38 | Where the choice is stored | `layout` on the draft (`''` or missing for Standard), copied to the published copy like every draft field. |
 | SS-D39 | A layout the live site does not have | **Falls back to the folder's `detail.html`**, with a warning in the function log, instead of failing the publish: the page stays correct, only plainer, and the next website deploy plus publish brings the layout. The app's preview falls back the same way. |
 | SS-D40 | Fields for one layout | **No per-layout fields** (later, if editors find unused fields confusing). A layout uses (1) the site's details through `data-arc-site` (address, phone, email, social, typed once in Settings, About) and (2) the type's ordinary fields, such as an Info Cards field that only the pages using that layout fill in. An empty field shows nothing on the other pages. |
-| SS-D41 | The Contact layout | Core ships `info/detail-contact.html`. Row 1: the title and the body, full width. Row 2: for each place in **Locations**, the map on the left and its name, address and directions on the right. Row 3: on the left, **How to reach us** (email, phone and social links from About, then the page's **Info boxes**); on the right, the contact form. Rows whose data is missing are left out. One column on a phone. |
+| SS-D41 | The Contact layout | Core ships `info/detail-contact.html`. Row 1: the title and the body, full width. Row 2: for each place in **Locations**, the map on the left and its name, address and directions on the right. Row 3: on the left, boxes (email, phone and social links from About with **Show contact details** on, then the page's **Info boxes**); on the right, the contact form. Rows whose data is missing are left out. One column on a phone. |
 | SS-D42 | Info boxes | A new field on the Pages type, **Info boxes** (`info-info-boxes`, an Info Cards field), for the Contact layout's extra boxes such as opening hours. A new Contact page starts with one: **Opening hours**, with a `[Replace:` prompt. |
 | SS-D43 | Existing installs | **Add standard pages** also adds any standard field the Pages type lacks (append only, never changing or removing a field), so an install from before gets Info boxes. An existing Contact page is never changed: the admin picks **Layout: Contact** in the editor. New Contact pages start with it. |
 

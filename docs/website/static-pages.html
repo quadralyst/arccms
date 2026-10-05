@@ -22,7 +22,7 @@
       <li><p>Publish the pages you want. The editor asks before publishing a page that still has a <code>[Replace:</code> prompt. Delete a page you do not need, or leave it unpublished.</p></li>
       <li><p>To change their order in the footer, choose <strong>Arrange</strong> on the Pages list and drag them into place.</p></li>
     </ol>
-    <p>Each page turns on what it needs with four fields:</p>
+    <p>Each page turns on what it needs with five fields:</p>
     <table>
       <thead><tr><th>Field</th><th>Shows</th><th>On by default for</th></tr></thead>
       <tbody>
@@ -30,8 +30,18 @@
         <tr><td><strong>FAQ</strong></td><td>Questions and answers, with FAQPage structured data</td><td>Frequently asked questions</td></tr>
         <tr><td><strong>Show contact details</strong></td><td>Your email, phone, address and social links from Settings, <strong>About</strong>; only those that are filled in</td><td>Contact</td></tr>
         <tr><td><strong>Show contact form</strong></td><td>A contact form whose messages land in <strong>Messages</strong> (see <a href="../features/contact.html">Contact form</a>). Only with the <code>contact</code> feature on.</td><td>Contact</td></tr>
+        <tr><td><strong>Info boxes</strong></td><td>Boxes of your own, each an icon or image, a headline and a short text, such as opening hours. Shown by the Contact layout.</td><td>Contact, with an Opening hours box to fill in</td></tr>
       </tbody>
     </table>
+
+    <h3 id="the-contact-page">The Contact page</h3>
+    <p>The Contact page has a layout of its own, chosen with <strong>Layout: Contact</strong> in the editor's Basic tab. It is laid out in three rows:</p>
+    <ol>
+      <li>The title and your text, full width.</li>
+      <li>Each place under <strong>Locations</strong>: the map on the left, the place's name, address and a directions link on the right. Add your office there; the map comes from the address you pick.</li>
+      <li>On the left, boxes for your email and phone from Settings, <strong>About</strong>, your social links, and your <strong>Info boxes</strong>. On the right, the contact form.</li>
+    </ol>
+    <p>Rows and boxes with nothing to show are left out, and on a phone everything stacks. A Contact page created before the layout existed keeps the standard look until you pick <strong>Layout: Contact</strong>; on such an install, choose <strong>Add standard pages</strong> on <strong>Content types</strong> first to add the Info boxes field. To change the layout itself, put your own <code class="new">src/custom/site/templates/info/detail-contact.html</code> in place (see <a href="../features/templates.html#layouts">Layouts</a>).</p>
     <p>Once published, the pages are linked for you:</p>
     <ul>
       <li>The default footer lists every published standard page, in their arranged order and in the page's language, above a copyright line with the year and your site name. Your own footer can do the same with <code>data-arc-site-loop="pages"</code> (see <a href="templates.html">Design templates</a>).</li>

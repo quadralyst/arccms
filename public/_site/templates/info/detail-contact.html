@@ -1,0 +1,121 @@
+<!--
+  The Contact layout of the standard pages (specs/site-sections-spec.md, SS8): a
+  page whose Layout is Contact uses this file instead of info/detail.html.
+
+  Three rows, each left out when it has nothing to show:
+    1. the title and the body, full width
+    2. for each place in Locations (info-locations): the map on the left, its
+       name, address and directions on the right
+    3. on the left, boxes: the email and phone from Settings, About (with "Show
+       contact details" on), the social links, then the page's Info boxes
+       (info-info-boxes); on the right, the contact form ("Show contact form",
+       and the contact form feature)
+
+  Two columns where there is room, one on a phone. Replace it with
+  src/custom/site/templates/info/detail-contact.html, or restyle the
+  .arc-contact classes in your site.css.
+-->
+<div class="arc-cms-template">
+    <arc-header></arc-header>
+
+    <article class="arc-page arc-contact">
+        <div class="container">
+            <header class="arc-contact-intro">
+                <h1 class="arc-page-title">{{ title }}</h1>
+                <div class="arc-page-body" [innerHTML]="content"></div>
+            </header>
+
+            <section class="arc-contact-places" data-arc-if="locations">
+                <h2 class="arc-page-heading" data-arc-if="locations_heading" data-arc-bind="locations_heading">Find us</h2>
+                <div data-arc-loop="locations">
+                    <div class="arc-contact-place">
+                        <div class="arc-contact-map" data-arc-if="map_embed">
+                            <iframe data-arc-bind="map_embed" loading="lazy" title="Map"></iframe>
+                        </div>
+                        <div class="arc-contact-address">
+                            <h3 data-arc-bind="label">Location name</h3>
+                            <p data-arc-bind="address">Street, City</p>
+                            <a data-arc-if="map_directions" data-arc-bind="map_directions" target="_blank" rel="noopener"
+                                data-arc-t="get_directions">Get directions</a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="arc-contact-reach">
+                <div class="arc-contact-boxes">
+                    <div class="arc-contact-site" data-arc-if="show-contact-details">
+                        <div class="arc-contact-box" data-arc-site-if="email">
+                            <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+                            <h3 data-arc-t="contact_email">Email</h3>
+                            <p><a data-arc-site="email"></a></p>
+                        </div>
+                        <div class="arc-contact-box" data-arc-site-if="phone">
+                            <i class="fa-solid fa-phone" aria-hidden="true"></i>
+                            <h3 data-arc-t="contact_phone">Phone</h3>
+                            <p><a data-arc-site="phone"></a></p>
+                        </div>
+                        <div class="arc-contact-box" data-arc-site-if="social">
+                            <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+                            <h3 data-arc-t="contact_social">Follow us</h3>
+                            <ul class="arc-contact-social" data-arc-site-loop="social">
+                                <li><a href="{{ url }}" target="_blank" rel="noopener" aria-label="{{ label }}"><i class="{{ icon }}" aria-hidden="true"></i></a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="arc-contact-own" data-arc-loop="info-boxes">
+                        <div class="arc-contact-box">
+                            <img data-arc-if="image" data-arc-bind="image" alt="">
+                            <i data-arc-if="icon" class="{{ icon }}" aria-hidden="true"></i>
+                            <h3 data-arc-bind="headline">Headline</h3>
+                            <p data-arc-bind="info">Info</p>
+                        </div>
+                    </div>
+                </div>
+
+                <section class="arc-contact-form" data-arc-if="show-contact-form">
+                    <h2 class="arc-page-heading" data-arc-t="contact_write">Write to us</h2>
+                    <form data-arc-contact-form class="arc-page-contact-form">
+                        <label><span data-arc-t="contact_name">Your name</span><input name="name" autocomplete="name"></label>
+                        <label><span data-arc-t="contact_email">Email</span><input name="email" type="email" required autocomplete="email"></label>
+                        <label><span data-arc-t="contact_message">Message</span><textarea name="message" rows="6" required></textarea></label>
+                        <button type="submit" data-arc-t="contact_send">Send</button>
+                    </form>
+                </section>
+            </div>
+        </div>
+    </article>
+
+    <arc-footer></arc-footer>
+</div>
+
+<style>
+.arc-contact { padding: 3rem 0 4rem; }
+.arc-contact .container { max-width: 1100px; display: flex; flex-direction: column; gap: 3rem; }
+.arc-contact .arc-page-title { font-size: 2.25rem; font-weight: 700; margin: 0 0 1rem; }
+.arc-contact .arc-page-body { line-height: 1.7; max-width: 760px; }
+.arc-contact .arc-page-heading { font-size: 1.25rem; font-weight: 600; margin: 0 0 1rem; }
+
+/* Row 2: map left, address right; stacked when narrow or without a map. */
+.arc-contact-places > div { display: flex; flex-direction: column; gap: 1.5rem; }
+.arc-contact-place { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem 2rem; align-items: center; }
+.arc-contact-map iframe { display: block; width: 100%; height: 320px; border: 0; border-radius: 12px; }
+.arc-contact-address h3 { font-size: 1.15rem; font-weight: 600; margin: 0 0 0.5rem; }
+.arc-contact-address p { margin: 0 0 0.75rem; line-height: 1.6; }
+
+/* Row 3: boxes left, form right; one column when narrow or without a form. */
+.arc-contact-reach { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem 3rem; align-items: start; }
+.arc-contact-boxes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+.arc-contact-site, .arc-contact-own { display: contents; }
+.arc-contact-box { border: 1px solid #e8e8ed; border-radius: 12px; padding: 1.25rem; }
+.arc-contact-box > i { font-size: 1.25rem; color: #0066cc; margin-bottom: 0.5rem; display: block; }
+.arc-contact-box > img { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; margin-bottom: 0.5rem; }
+.arc-contact-box h3 { font-size: 1rem; font-weight: 600; margin: 0 0 0.25rem; }
+.arc-contact-box p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.arc-contact-social { display: flex; flex-wrap: wrap; gap: 0.75rem; list-style: none; padding: 0; margin: 0.25rem 0 0; font-size: 1.25rem; }
+
+.arc-page-contact-form { display: flex; flex-direction: column; gap: 0.75rem; }
+.arc-page-contact-form label { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 500; }
+.arc-page-contact-form input, .arc-page-contact-form textarea { padding: 0.6rem 0.75rem; border: 1px solid #d2d2d7; border-radius: 8px; font: inherit; font-weight: 400; }
+.arc-page-contact-form button { align-self: flex-start; padding: 0.6rem 1.5rem; border: 0; border-radius: 8px; background: #0066cc; color: #fff; font-weight: 600; cursor: pointer; }
+</style>

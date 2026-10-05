@@ -20,6 +20,8 @@ export interface SiteManifest {
     home: Record<string, SiteFileFrom>;
     /** Each template folder's files, and where each comes from. */
     templates: Record<string, Partial<Record<TemplateFile, SiteFileFrom>>>;
+    /** Each folder's layouts (`detail-{name}.html`) by name; missing on a site built before them. */
+    layouts?: Record<string, Record<string, SiteFileFrom>>;
     /** Static pages by name. */
     pages: Record<string, SiteFileFrom>;
     /** Languages with a strings file. */
@@ -56,6 +58,30 @@ export function siteTemplateUrl(folder: string | null | undefined, file: Templat
     const chosen = templateFolderFor(folder);
     const from = current.templates[chosen]?.[file] ? chosen : DEFAULT_TEMPLATE_FOLDER;
     return `/_site/templates/${from}/${file}.html`;
+}
+
+/**
+ * The layouts a content type's folder offers: other detail pages, written
+ * `detail-{name}.html`, that an entry can choose instead of `detail.html`
+ * (specs/site-sections-spec.md, SS8). None for most folders.
+ */
+export function siteLayouts(folder: string | null | undefined): string[] {
+    return Object.keys(current.layouts?.[templateFolderFor(folder)] ?? {}).sort();
+}
+
+/** Where an entry's detail template is served: its layout when the folder has it, else the folder's detail.html. */
+export function siteLayoutUrl(folder: string | null | undefined, layout: string | null | undefined): string {
+    const chosen = templateFolderFor(folder);
+    const name = (layout || '').trim();
+    return name && current.layouts?.[chosen]?.[name]
+        ? `/_site/templates/${chosen}/detail-${name}.html`
+        : siteTemplateUrl(folder, 'detail');
+}
+
+/** A layout's name as the editor shows it: `wide-hero` is "Wide hero". */
+export function layoutLabel(name: string): string {
+    const words = name.replace(/[-_]+/g, ' ').trim();
+    return words ? words.charAt(0).toUpperCase() + words.slice(1) : name;
 }
 
 /** Where a static page's source is served. */

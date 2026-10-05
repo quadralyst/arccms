@@ -196,6 +196,65 @@ describe('ContentDetailComponent', () => {
             expect(mockHttpClient.get).toHaveBeenCalledWith('/_site/templates/default/detail.html', expect.anything());
         });
 
+        // SS8 (specs/site-sections-spec.md): an item's own layout in its type's folder.
+        it('loads the layout the item chose', () => {
+            const built = siteManifest();
+            setSiteManifestForTesting({
+                ...built,
+                templates: { ...built.templates, pages: { detail: 'app' } },
+                layouts: { pages: { contact: 'app' } },
+            });
+            mockContentsStore.items.set([{ id: '1', title: 'Contact', urlSlug: 'my-article', type: 'articles', publishedStatus: true, layout: 'contact' }]);
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'pages' }]);
+            fixture.detectChanges();
+
+            expect(mockHttpClient.get).toHaveBeenCalledWith('/_site/templates/pages/detail-contact.html', expect.anything());
+        });
+
+        it('switches to the draft\'s layout when a preview\'s draft arrives after the published copy', () => {
+            const built = siteManifest();
+            setSiteManifestForTesting({
+                ...built,
+                templates: { ...built.templates, pages: { detail: 'app' } },
+                layouts: { pages: { contact: 'app' } },
+            });
+            mockHttpClient.get.mockImplementation((url: string) => of(`<div class="${url.includes('detail-contact') ? 'contact' : 'standard'}">{{ title }}</div>`));
+            mockContentsStore.items.set([{ id: '1', title: 'Contact', urlSlug: 'my-article', type: 'articles', publishedStatus: true }]);
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'pages' }]);
+            fixture.detectChanges();
+            expect(component.templateHtml()).toContain('standard');
+
+            component.isPreview.set(true);
+            component.draftContent.set({ id: '1', title: 'Contact', urlSlug: 'my-article', type: 'articles', layout: 'contact', createdAt: new Date() } as any);
+            fixture.detectChanges();
+
+            expect(mockHttpClient.get.mock.calls.map((c: unknown[]) => c[0])).toEqual([
+                '/_site/templates/pages/detail.html',
+                '/_site/templates/pages/detail-contact.html',
+            ]);
+            expect(component.templateHtml()).toContain('contact');
+        });
+
+        it('uses the folder\'s detail.html for a layout the site does not have, and once a layout file is not a template', () => {
+            const built = siteManifest();
+            setSiteManifestForTesting({
+                ...built,
+                templates: { ...built.templates, pages: { detail: 'app' } },
+                layouts: { pages: { contact: 'app' } },
+            });
+            mockHttpClient.get.mockImplementation((url: string) =>
+                of(url.includes('detail-contact') ? '<!doctype html><html><arc-root></arc-root></html>' : '<div>{{ title }}</div>'));
+            mockContentsStore.items.set([{ id: '1', title: 'Contact', urlSlug: 'my-article', type: 'articles', publishedStatus: true, layout: 'contact' }]);
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'pages' }]);
+            fixture.detectChanges();
+
+            expect(mockHttpClient.get.mock.calls.map((c: unknown[]) => c[0])).toEqual([
+                '/_site/templates/pages/detail-contact.html',
+                '/_site/templates/pages/detail.html',
+            ]);
+            expect(component.templateHtml()).toContain('Contact');
+        });
+
         it('falls back to the default once when a folder file is not a template', () => {
             withFolder('broken');
             mockHttpClient.get.mockImplementation((url: string) =>

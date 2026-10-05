@@ -33,7 +33,7 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { getSiteManifest, loadSiteTemplate, pageStylesheets } from '../shared/site-files.js';
+import { getSiteManifest, loadDetailTemplate, pageStylesheets } from '../shared/site-files.js';
 import { siteInfoFor } from '../shared/site-info-source.js';
 import { liveSiteScript, withLiveParts } from '../shared/live-parts.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
@@ -320,8 +320,9 @@ export async function generateAndDeployContentDetailPage(
     // 4. Load the detail template from the live site (site-files.ts). The same
     //    template renders every language; only the data differs. A folder the
     //    live site does not have throws MissingTemplateFolderError, which the
-    //    publish queue records on the item for the editor to show.
-    const templateHtml = await loadSiteTemplate(contentType.templateFolder, 'detail');
+    //    publish queue records on the item for the editor to show. An entry
+    //    with a layout uses its own detail file in that folder (SS8).
+    const templateHtml = await loadDetailTemplate(contentType.templateFolder, content.layout);
 
     // 5. Work out which languages this item is published in: the default
     //    language always, plus every enabled language that has a translation.

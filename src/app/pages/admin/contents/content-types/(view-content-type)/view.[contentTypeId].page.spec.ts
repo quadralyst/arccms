@@ -141,6 +141,15 @@ describe('ViewContentTypeComponent', () => {
         });
     });
 
+    // SS8 (specs/site-sections-spec.md): the folder's layouts, for the Layouts row.
+    describe('Layouts', () => {
+        it('lists the layouts of the type\'s folder, and none for a folder without', () => {
+            expect(component.layoutsOf('info')).toEqual([{ name: 'contact', label: 'Contact' }]);
+            expect(component.layoutsOf('articles')).toEqual([]);
+            expect(component.layoutsOf('')).toEqual([]);
+        });
+    });
+
     describe('Data Display', () => {
         beforeEach(() => {
             component.id = mockContentType.id!;

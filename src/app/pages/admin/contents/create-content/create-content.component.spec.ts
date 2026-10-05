@@ -21,6 +21,7 @@ import { LocalizationService } from '../../../../core/services/localization.serv
 import { AuthState } from '../../../(auth)/auth.store';
 import { AuthorsService } from '../../(authors)/authors.service';
 import { SearchService } from '../../../../core/services/search.service';
+import { setSiteManifestForTesting, siteManifest } from '../../../../core/site/site';
 
 describe('CreateContentComponent', () => {
     let component: CreateContentComponent;
@@ -465,6 +466,47 @@ describe('CreateContentComponent', () => {
             component.removeTagFromCross('onlyTag');
 
             expect(component.publishForm.value.tags).toEqual([]);
+        });
+    });
+
+    // SS8 (specs/site-sections-spec.md): an entry's own layout, offered only
+    // when its type's template folder has one.
+    describe('Layout', () => {
+        const select = () => fixture.nativeElement.querySelector('[data-testid="layout-select"]') as HTMLSelectElement | null;
+        function withType(templateFolder: string, layouts?: Record<string, Record<string, 'core' | 'app'>>): void {
+            const built = siteManifest();
+            setSiteManifestForTesting({ ...built, templates: { ...built.templates, [templateFolder]: { detail: 'app' } }, layouts });
+            mockContentTypesStore.items.set([{ name: 'Pages', slug: 'pagesx', templateFolder }]);
+            component.contentTypeSlug = 'pagesx';
+            fixture.detectChanges();
+        }
+        afterEach(() => setSiteManifestForTesting());
+
+        it('is not offered for a type whose folder has no layouts', () => {
+            withType('plain', {});
+            expect(component.layoutOptions()).toEqual([]);
+            expect(select()).toBeNull();
+        });
+
+        it('offers Standard and each layout of the folder, named for people', () => {
+            withType('pagesx-folder', { 'pagesx-folder': { contact: 'core', 'wide-hero': 'app' } });
+            expect(component.layoutOptions()).toEqual([{ name: 'contact', label: 'Contact' }, { name: 'wide-hero', label: 'Wide hero' }]);
+            expect(Array.from(select()!.options).map((o) => [o.value, o.textContent?.trim()])).toEqual([
+                ['', 'Standard'], ['contact', 'Contact'], ['wide-hero', 'Wide hero'],
+            ]);
+        });
+
+        it('saves the chosen layout with the draft, and Standard as empty', () => {
+            withType('pagesx-folder', { 'pagesx-folder': { contact: 'core' } });
+            component.pageTitle = 'Contact';
+            component.publishForm.get('layout')?.setValue('contact');
+            component.saveAsDraft();
+            expect(mockDraftContentsStore.add.mock.calls[0][0]).toMatchObject({ layout: 'contact' });
+
+            component.contentId = 'contact';
+            component.publishForm.get('layout')?.setValue('');
+            component.saveAsDraft();
+            expect(mockDraftContentsStore.update.mock.calls[0][1]).toMatchObject({ layout: '' });
         });
     });
 

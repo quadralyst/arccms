@@ -15,7 +15,7 @@ export const routeMeta: RouteMeta = {
     providers: [],
 };
 
-import { siteManifest } from '../../../../../core/site/site';
+import { layoutLabel, siteLayouts, siteManifest } from '../../../../../core/site/site';
 @Component({
     selector: 'arc-view-content-type',
     standalone: true,
@@ -63,6 +63,11 @@ export class ViewContentTypeComponent extends BaseComponent {
         const own = Object.values(files).includes('app');
         return { path: own ? `src/custom/site/templates/${folder}` : `public/_site/templates/${folder}`, missing: false };
     }
+    /** The layouts the type's folder offers (SS8), for the Layouts row; none for most types. */
+    layoutsOf(folder: string | null | undefined): { name: string; label: string }[] {
+        return siteLayouts(folder).map((name) => ({ name, label: layoutLabel(name) }));
+    }
+
     copyToClipboard(syntax: string, key: string) {
         navigator.clipboard.writeText(syntax).then(() => {
             this.copiedKey = key;

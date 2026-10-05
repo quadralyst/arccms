@@ -21,15 +21,17 @@
         <tr><td><code>list.html</code></td><td>The list of the type, <code>/{type}</code></td></tr>
         <tr><td><code>detail.html</code></td><td>One item, <code>/{type}/{item}</code></td></tr>
         <tr><td><code>partials.html</code></td><td>Cards of the type on the home page, such as the latest articles</td></tr>
+        <tr><td><code>detail-{name}.html</code></td><td>Optional: another layout for one item, such as <code>detail-contact.html</code>, which an editor picks with <strong>Layout</strong> (see <a href="../features/templates.html#layouts">Layouts</a>)</td></tr>
       </tbody>
     </table>
-    <p>Arc CMS ships three folders of them in <code>public/_site/templates/</code>:</p>
+    <p>Arc CMS ships four folders of them in <code>public/_site/templates/</code>:</p>
     <table>
       <thead><tr><th>Folder</th><th>Use it as</th></tr></thead>
       <tbody>
         <tr><td><code>public/_site/templates/default/</code></td><td>The layout of any content type without a folder of its own, so every type renders even if you write no template. It already shows sources, related items, the author box and the common repeating fields.</td></tr>
         <tr><td><code>public/_site/templates/articles/</code></td><td>A blog layout</td></tr>
         <tr><td><code>public/_site/templates/manuals/</code></td><td>A documentation layout</td></tr>
+        <tr><td><code>public/_site/templates/info/</code></td><td>The standard pages (About, Contact, the policies), with a Contact layout, <code>detail-contact.html</code> (see <a href="static-pages.html">Write static pages</a>)</td></tr>
       </tbody>
     </table>
     <p>These are core files: read and copy them, never edit them.</p>

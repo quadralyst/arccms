@@ -967,6 +967,8 @@
         "standard_pages": "Add standard pages",
         "standard_pages_hint": "Adds About, Contact, FAQ, Privacy Policy, Terms and Cookie Policy as drafts, ready to fill in.",
         "standard_pages_added": "Added {{ count }} pages as drafts. Replace the outline text, then publish each one.",
+        "standard_pages_fields_added": "Your standard pages are all there. Added the new fields to Pages: {{ fields }}.",
+        "standard_pages_complete": "Your standard pages are all there already.",
         "standard_pages_taken": "A content type already uses the address /info, so the standard pages were not added.",
         "standard_pages_failed": "Could not add the standard pages. Please try again."
       },
@@ -1056,6 +1058,9 @@
         "author_none": "No author",
         "author_hint": "Shown on the page byline and sent to search engines as the author. Manage authors under Content.",
         "manage_authors": "Manage authors",
+        "layout": "Layout",
+        "layout_standard": "Standard",
+        "layout_hint": "How this page is laid out. Standard is the layout every page of this type has.",
         "references": "Sources",
         "references_hint": "Pages this piece draws on. Shown as a Sources list at the end and told to search engines as citations, which is a credibility signal for both Google and AI assistants.",
         "reference_title_placeholder": "Title (optional)",
