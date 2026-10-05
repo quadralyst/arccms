@@ -8,6 +8,8 @@ import { HeaderComponent } from '../page.parts/header.component';
 import { FooterComponent } from '../page.parts/footer.component';
 import { siteManifest, sitePageUrl } from '../../core/site/site';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { applySiteInfoToHtml } from '../../core/site/apply-site-info-dom';
 
 @Component({
     selector: 'app-public-page-renderer',
@@ -46,6 +48,7 @@ export class PublicPageRendererComponent implements OnInit {
     private titleService = inject(Title);
     private metaService = inject(Meta);
     private gaTracking = inject(GaTrackingService);
+    private siteIdentity = inject(SiteIdentityService);
     private cdr = inject(ChangeDetectorRef);
 
     sanitizedContent: SafeHtml = '';
@@ -78,9 +81,11 @@ export class PublicPageRendererComponent implements OnInit {
                     })
                 );
             })
-        ).subscribe(htmlContent => {
+        ).subscribe(async htmlContent => {
             if (htmlContent) {
-                this.processHtml(htmlContent);
+                // The site's own details for data-arc-site (SS3), read only when the page asks.
+                const about = htmlContent.includes('data-arc-site') ? await this.siteIdentity.load() : null;
+                this.processHtml(applySiteInfoToHtml(htmlContent, about));
                 this.cdr.detectChanges();
             } else {
                 this.router.navigate(['/404']);

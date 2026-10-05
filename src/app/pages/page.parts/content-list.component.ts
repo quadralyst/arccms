@@ -1,4 +1,5 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
@@ -111,6 +112,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     private localization = inject(LocalizationService);
     private uiStrings = inject(UiStringsService);
     private mediaSettings = inject(MediaSettingsService);
+    private siteIdentity = inject(SiteIdentityService);
     tagsStore = inject(TagsStore);
     private gaTracking = inject(GaTrackingService);
     private trackedContentTypes = new Set<string>();
@@ -200,6 +202,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         super();
         // Image size bindings fit the configured maximum, as when published.
         void this.mediaSettings.load();
+        // The site's own details for data-arc-site (SS3); the template redraws when they arrive.
+        void this.siteIdentity.load();
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
@@ -265,6 +269,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             const contents = this.filteredContents();
             this.uiStrings.strings();
             this.mediaSettings.maxSize();
+            this.siteIdentity.identity();
             untracked(() => {
                 if (!this.lastTemplate) return;
                 this.hydrateAndSetTemplate(this.lastTemplate.html, this.lastTemplate.contentType, contents, false);
@@ -442,7 +447,9 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
         // First process loops with list data
         // See ContentDetailComponent — chrome before loops and bindings.
-        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings());
+        // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
+        const localizedTemplate = TemplateHydrationService.applySiteInfo(
+            TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), this.siteIdentity.identity());
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
 
         // Then hydrate with page-level data

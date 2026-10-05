@@ -13,7 +13,7 @@ import { entryOrderOf, sortForDisplay } from '../shared/display-order.js';
  */
 export async function readPublishedInDisplayOrder(
     slug: string,
-    type: { entryOrder?: unknown } | null | undefined,
+    type: Record<string, unknown> | null | undefined,
     limit: number,
 ): Promise<Record<string, any>[]> {
     const collection = db.collection(getPublishedCollectionName(slug));

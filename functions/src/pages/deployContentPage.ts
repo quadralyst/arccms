@@ -384,7 +384,9 @@ export async function generateAndDeployContentDetailPage(
         // Applied before hydration so a translated value may carry its own
         // interpolation — "Back to {{ contentType }}" — and before loops so a
         // repeated item template is translated once rather than per item.
-        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, pageStrings);
+        // Then the site's own details (SS3), before hydration can touch a social row's {{ url }}.
+        const localizedTemplate = TemplateHydrationService.applySiteInfo(
+            TemplateHydrationService.applyStrings(templateHtml, pageStrings), about);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, {
             // Repeating custom fields (Info Cards) become named loops, so a
@@ -409,7 +411,7 @@ export async function generateAndDeployContentDetailPage(
         const contentTypes = await publicContentTypeSlugs();
         const chrome = (html: string) =>
             prefixAnchorHrefs(
-                TemplateHydrationService.applyStrings(html, pageStrings),
+                TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, pageStrings), about),
                 langPrefix(lang, defaultLang),
                 contentTypes,
             );

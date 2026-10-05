@@ -17,6 +17,9 @@ import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service'
 import { LocalizationService } from '../core/services/localization.service';
 import { UiStringsService } from '../core/services/ui-strings.service';
 import { applyStringsToElement } from '../core/i18n/apply-strings-dom';
+import { applySiteInfoToElement } from '../core/site/apply-site-info-dom';
+import { SiteIdentityService } from '../core/services/site-identity.service';
+import type { IAboutSettings } from './admin/(settings)/about/about-settings.model';
 import { withLangPrefix } from '../core/utils/language-links';
 import { PublicContentTypesService } from '../core/site/public-content-types';
 import { siteManifest } from '../core/site/site';
@@ -84,6 +87,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
     private uiStrings = inject(UiStringsService);
     private onboarding = inject(OnboardingSetupService);
     private contentTypes = inject(PublicContentTypesService);
+    private siteIdentity = inject(SiteIdentityService);
 
     /** Nodes this page added to <head> and <body>, removed when it goes. */
     private added: Element[] = [];
@@ -109,8 +113,10 @@ export default class HomeComponent implements OnInit, OnDestroy {
     }
 
     private async load(lang: string): Promise<void> {
-        const [settings, strings, types] = await Promise.all([
+        const [settings, strings, types, about] = await Promise.all([
             this.localization.load(), this.uiStrings.use(lang), lang ? this.contentTypes.load() : Promise.resolve(new Set<string>()),
+            // The site's own details for data-arc-site (SS3).
+            this.siteIdentity.load(),
         ]);
         // The home page exists in every enabled language (home.{lang}.html, or
         // home.html translated), so the switcher offers them all.
@@ -118,11 +124,12 @@ export default class HomeComponent implements OnInit, OnDestroy {
 
         const ownFile = !!lang && !!siteManifest().home[lang];
         const html = await firstValueFrom(this.http.get(ownFile ? `/_site/home.${lang}.html` : '/_site/home.html', { responseType: 'text' }));
-        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types);
+        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types, about);
     }
 
-    private render(page: Document, lang: string, strings: Record<string, string>, types: ReadonlySet<string>): void {
+    private render(page: Document, lang: string, strings: Record<string, string>, types: ReadonlySet<string>, about: IAboutSettings): void {
         applyStringsToElement(page.documentElement, strings);
+        applySiteInfoToElement(page.documentElement, about);
 
         // Head: title, description, language, the page's own stylesheets.
         if (page.title.trim()) this.title.setTitle(page.title.trim());

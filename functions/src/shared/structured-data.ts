@@ -24,6 +24,8 @@ export interface OrganizationInput {
     description?: string;
     sameAs?: string[];
     contactEmail?: string;
+    /** Public phone, as typed (SS3). */
+    phone?: string;
     address?: string;
     /** A personal site publishes as a Person rather than an Organization. */
     organizationType?: 'Organization' | 'Person';
@@ -127,6 +129,7 @@ export function buildOrganization(input: OrganizationInput): JsonLd | null {
     }
     setIf(node, 'description', clean(input.description));
     setIf(node, 'email', clean(input.contactEmail));
+    setIf(node, 'telephone', clean(input.phone));
     const sameAs = urls(input.sameAs);
     if (sameAs.length) node['sameAs'] = sameAs;
     const address = clean(input.address);

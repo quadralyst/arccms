@@ -714,6 +714,9 @@ export type TranslationKey =
     | 'admin.settings.about.organization_type'
     | 'admin.settings.about.organization_type_org'
     | 'admin.settings.about.organization_type_person'
+    | 'admin.settings.about.phone'
+    | 'admin.settings.about.phone_hint'
+    | 'admin.settings.about.phone_placeholder'
     | 'admin.settings.about.production_url'
     | 'admin.settings.about.production_url_hint'
     | 'admin.settings.about.production_url_placeholder'
@@ -2215,6 +2218,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.about.organization_type',
     'admin.settings.about.organization_type_org',
     'admin.settings.about.organization_type_person',
+    'admin.settings.about.phone',
+    'admin.settings.about.phone_hint',
+    'admin.settings.about.phone_placeholder',
     'admin.settings.about.production_url',
     'admin.settings.about.production_url_hint',
     'admin.settings.about.production_url_placeholder',

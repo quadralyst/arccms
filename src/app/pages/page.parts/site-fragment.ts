@@ -9,6 +9,8 @@
  *
  * - `data-arc-t` text and attributes in the page's language
  *   (applyStringsToElement, the same rules as the publish functions);
+ * - the site's own details from Settings, About, such as `data-arc-site="phone"`
+ *   (applySiteInfoToElement; specs/site-sections-spec.md, SS3);
  * - links to the site's files with their version (`/site/logo.svg?v=...`), as on
  *   a published page (core/site/site-urls.ts);
  * - links to pages that exist in every language pointed at the page's language
@@ -27,6 +29,8 @@ import {
 } from '@angular/core';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { applyStringsToElement } from '../../core/i18n/apply-strings-dom';
+import { applySiteInfoToElement } from '../../core/site/apply-site-info-dom';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { withLangPrefix } from '../../core/utils/language-links';
 import { PublicContentTypesService } from '../../core/site/public-content-types';
 import { siteManifest } from '../../core/site/site';
@@ -40,6 +44,7 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
     const uiStrings = inject(UiStringsService);
     const contentTypes = inject(PublicContentTypesService);
+    const siteIdentity = inject(SiteIdentityService);
     const appRef = inject(ApplicationRef);
     const environmentInjector = inject(EnvironmentInjector);
     const elementInjector = inject(Injector);
@@ -71,6 +76,7 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
         unmount();
         host.innerHTML = versionSiteUrls(html, siteManifest().files);
         applyStringsToElement(host, strings);
+        applySiteInfoToElement(host, siteIdentity.identity());
         const prefix = lang ? `/${lang}` : '';
         if (prefix) {
             host.querySelectorAll('a[href]').forEach((anchor) => {
@@ -87,14 +93,17 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
         runScripts();
     };
 
-    // Rendered at once, then again whenever the page's language, its strings or
-    // the public content types (which links take the language) arrive or change.
-    let shown = { lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs() };
+    // Rendered at once, then again whenever the page's language, its strings,
+    // the public content types (which links take the language) or the site's
+    // details arrive or change. The details are read only when the fragment
+    // asks for them.
+    if (html.includes('data-arc-site')) void siteIdentity.load();
+    let shown = { lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs(), identity: siteIdentity.identity() };
     render(shown.lang, shown.strings, shown.types);
     if (shown.lang) void contentTypes.load();
     effect(() => {
-        const next = { lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs() };
-        if (next.lang === shown.lang && next.strings === shown.strings && next.types === shown.types) return;
+        const next = { lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs(), identity: siteIdentity.identity() };
+        if (next.lang === shown.lang && next.strings === shown.strings && next.types === shown.types && next.identity === shown.identity) return;
         shown = next;
         if (next.lang) void contentTypes.load();
         untracked(() => render(next.lang, next.strings, next.types));

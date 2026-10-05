@@ -118,6 +118,10 @@ export const DIRECTIVES: TemplateAttr[] = [
     bind('data-limit', 'Cap a loop', 'data-limit="6"', 'On the loop element'),
     bind('data-arc-style-background', 'Background color', 'data-arc-style-background="key"'),
     bind('data-arc-t', 'Translate fixed text', 'data-arc-t="read_more"', 'From strings/{lang}.json'),
+    // The site's own details from Settings, About (SS3): in templates, the header, footer and static pages.
+    bind('data-arc-site', 'Site detail', '<a data-arc-site="phone"></a>', 'name, description, email, phone, address or logo; links become mailto: and tel:'),
+    bind('data-arc-site-if', 'Show when the site has it', 'data-arc-site-if="phone"', 'Also social'),
+    bind('data-arc-site-loop', 'Social links', 'data-arc-site-loop="social"', 'Rows: {{ url }}, {{ label }}, {{ platform }}, {{ icon }}'),
 ];
 
 /**

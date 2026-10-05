@@ -133,8 +133,14 @@ describe('site-settings', () => {
                 description: '',
                 sameAs: [],
                 contactEmail: '',
+                phone: '',
                 organizationType: 'Organization',
             });
+        });
+
+        it('reads the public phone (SS3)', async () => {
+            mockAboutGet.mockResolvedValueOnce({ data: () => ({ name: 'My Site', phone: '+91 98765 43210' }) });
+            expect((await getAboutConfig()).phone).toBe('+91 98765 43210');
         });
 
         it('should return empty identity when document does not exist', async () => {
@@ -152,6 +158,7 @@ describe('site-settings', () => {
                 description: '',
                 sameAs: [],
                 contactEmail: '',
+                phone: '',
                 organizationType: 'Organization',
             });
         });

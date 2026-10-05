@@ -297,6 +297,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         super();
         // Image size bindings fit the configured maximum, as when published.
         void this.mediaSettings.load();
+        // The site's own details for data-arc-site (SS3); the template redraws when they arrive.
+        void this.siteIdentity.load();
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
@@ -367,6 +369,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             this.related();
             this.uiStrings.strings();
             this.mediaSettings.maxSize();
+            this.siteIdentity.identity();
             untracked(() => {
                 if (!this.lastTemplate) return;
                 const { html, contentType, content } = this.lastTemplate;
@@ -888,6 +891,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // value may carry its own {{ }} and a repeated item template is
         // translated once. Mirrors the publish pipeline's order.
         hydratedHtml = TemplateHydrationService.applyStrings(hydratedHtml, this.uiStrings.strings());
+        // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
+        hydratedHtml = TemplateHydrationService.applySiteInfo(hydratedHtml, this.siteIdentity.identity());
 
         // Always processing loops to ensure cleanup of placeholders if empty
         hydratedHtml = TemplateHydrationService.processLoops(hydratedHtml, {

@@ -169,7 +169,9 @@ export async function generateAndDeployContentListPage(
         // interpolation — "Back to {{ contentType }}" — and before loops so a
         // repeated item template is translated once rather than per item.
         const uiStrings = lang === defaultLang ? {} : await getUiStrings(lang);
-        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, uiStrings);
+        // Then the site's own details (SS3), before hydration can touch a social row's {{ url }}.
+        const localizedTemplate = TemplateHydrationService.applySiteInfo(
+            TemplateHydrationService.applyStrings(templateHtml, uiStrings), about);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
@@ -180,7 +182,7 @@ export async function generateAndDeployContentListPage(
         // it the page reads in Hindi and its chrome navigates to English.
         const contentTypes = await publicContentTypeSlugs();
         const chrome = (html: string) =>
-            prefixAnchorHrefs(TemplateHydrationService.applyStrings(html, uiStrings), prefix, contentTypes);
+            prefixAnchorHrefs(TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, uiStrings), about), prefix, contentTypes);
 
         hydratedHtml = replaceArcComponents(
             hydratedHtml,

@@ -2,6 +2,7 @@ import type * as cheerio from 'cheerio';
 import { db } from '../init.js';
 import {
     getAboutConfig, getLocalizationSettings, getMiscSettings, getPartials, getSiteConfig, getUiStrings,
+    type AboutConfig,
 } from '../shared/site-settings.js';
 import { getSiteFile, getSiteManifest, loadSiteTemplate, pageStylesheets, versionedUrl, type SiteManifest } from '../shared/site-files.js';
 import { langPrefix, mergeTranslation, type ContentTranslation } from '../shared/content-translation.js';
@@ -148,6 +149,7 @@ async function renderContentPartials(
     lang: string,
     defaultLang: string,
     strings: Record<string, string>,
+    about: AboutConfig | null = null,
 ): Promise<void> {
     const prefix = langPrefix(lang, defaultLang);
     for (const element of $('arc-content-partials').toArray()) {
@@ -177,7 +179,7 @@ async function renderContentPartials(
         }));
 
         const template = await loadSiteTemplate(($el.attr('template-folder') || '').trim() || type.templateFolder, 'partials');
-        let html = TemplateHydrationService.applyStrings(template, strings);
+        let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(template, strings), about);
         html = TemplateHydrationService.processLoops(html, { items });
         html = TemplateHydrationService.hydrateTemplate(html, partialPageData({ ...type, slug }, lang, prefix, $el.attr('section-title') || '', items.length, strings));
         $el.replaceWith(html);
@@ -277,13 +279,14 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         const prefix = langPrefix(lang, defaultLang);
         const strings = lang === defaultLang ? {} : await getUiStrings(lang);
 
-        // Body: words, cards, chrome, links, notices.
-        let html = TemplateHydrationService.applyStrings(source.html, strings);
+        // Body: words, the site's details (SS3), cards, chrome, links, notices.
+        let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(source.html, strings), about);
         const $body = loadHtml(html, { xmlMode: false });
-        await renderContentPartials($body, lang, defaultLang, strings);
+        await renderContentPartials($body, lang, defaultLang, strings, about);
         addLegalNotices($body, strings, manifest);
         html = $body.html();
-        const chrome = (part: string) => prefixAnchorHrefs(TemplateHydrationService.applyStrings(part, strings), prefix, contentTypes);
+        const chrome = (part: string) => prefixAnchorHrefs(
+            TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(part, strings), about), prefix, contentTypes);
         html = replaceArcComponents(
             html,
             chrome(partials.headerHtml),

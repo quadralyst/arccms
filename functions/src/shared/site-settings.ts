@@ -38,6 +38,8 @@ export interface AboutConfig {
     sameAs: string[];
     /** Public contact address; leave empty to publish none. */
     contactEmail: string;
+    /** Public phone, as typed; printed by data-arc-site="phone" and published as telephone (SS3). */
+    phone: string;
     /** A personal site publishes as a Person rather than an Organization. */
     organizationType: 'Organization' | 'Person';
 }
@@ -112,6 +114,7 @@ export async function getAboutConfig(): Promise<AboutConfig> {
         description: data?.description || '',
         sameAs: Array.isArray(data?.sameAs) ? data.sameAs.filter((u: unknown) => typeof u === 'string') : [],
         contactEmail: data?.contactEmail || '',
+        phone: typeof data?.phone === 'string' ? data.phone : '',
         organizationType: data?.organizationType === 'Person' ? 'Person' : 'Organization',
     };
 

@@ -2,12 +2,14 @@
  * renderSiteFragment: the header and footer are the site's plain HTML, rendered
  * the way publishing renders them (specs/own-website-spec.md, W-D12).
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { renderSiteFragment } from './site-fragment';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { PublicContentTypesService } from '../../core/site/public-content-types';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { DEFAULT_ABOUT_SETTINGS, IAboutSettings } from '../admin/(settings)/about/about-settings.model';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -36,6 +38,14 @@ class ScriptedHostComponent {
     }
 }
 
+@Component({ selector: 'arc-test-site-info', standalone: true, template: '' })
+class SiteInfoHostComponent {
+    constructor() {
+        renderSiteFragment('<footer><a class="tel" data-arc-site="phone">phone</a>'
+            + '<ul data-arc-site-loop="social"><li><a href="{{ url }}">{{ label }}</a></li></ul></footer>', {});
+    }
+}
+
 @Component({ selector: 'arc-test-fragment', standalone: true, template: '' })
 class FragmentHostComponent {
     constructor() {
@@ -44,6 +54,8 @@ class FragmentHostComponent {
 }
 
 describe('renderSiteFragment', () => {
+    let identity: ReturnType<typeof signal<IAboutSettings>>;
+    const loadIdentity = vi.fn();
     let activeLang: ReturnType<typeof signal<string>>;
     let strings: ReturnType<typeof signal<Record<string, string>>>;
     let types: ReturnType<typeof signal<ReadonlySet<string>>>;
@@ -52,8 +64,11 @@ describe('renderSiteFragment', () => {
         activeLang = signal('');
         strings = signal<Record<string, string>>({});
         types = signal<ReadonlySet<string>>(new Set());
+        identity = signal<IAboutSettings>(DEFAULT_ABOUT_SETTINGS);
+        loadIdentity.mockReset();
         TestBed.configureTestingModule({
             providers: [
+                { provide: SiteIdentityService, useValue: { identity, load: loadIdentity } },
                 { provide: UiStringsService, useValue: { activeLang, strings } },
                 {
                     provide: PublicContentTypesService,
@@ -98,6 +113,23 @@ describe('renderSiteFragment', () => {
         // Sign-in exists once, so it keeps its address on a Hindi page.
         expect(signIn.getAttribute('href')).toBe('/signup');
         expect(el.querySelector('arc-search .stub-search')).toBeTruthy();
+    });
+
+    // SS3: the site's own details from Settings, About, once they arrive.
+    it('fills the site\'s details when they arrive, and reads them only for a fragment that asks', () => {
+        const fixture = TestBed.createComponent(SiteInfoHostComponent);
+        fixture.detectChanges();
+        const el = fixture.nativeElement as HTMLElement;
+        expect(loadIdentity).toHaveBeenCalledTimes(1);
+        expect(el.querySelector('a.tel')).toBeNull(); // no phone yet
+
+        identity.set({ ...DEFAULT_ABOUT_SETTINGS, phone: '+91 98765 43210', sameAs: ['https://github.com/kumar'] });
+        fixture.detectChanges();
+        expect(el.querySelector('a.tel')!.getAttribute('href')).toBe('tel:+919876543210');
+        expect(el.querySelector('ul li a')!.textContent).toBe('GitHub');
+
+        render(); // a fragment without data-arc-site
+        expect(loadIdentity).toHaveBeenCalledTimes(1);
     });
 
     // B4: a header or footer script runs in the app, as on a published page.

@@ -1,4 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
@@ -68,6 +69,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     private uiStrings = inject(UiStringsService);
     private localization = inject(LocalizationService);
     private mediaSettings = inject(MediaSettingsService);
+    private siteIdentity = inject(SiteIdentityService);
     contentsStore = inject(ContentsStore);
 
     // Inputs - support both property binding and attribute binding
@@ -171,6 +173,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         super();
         // Image size bindings fit the configured maximum, as when published.
         void this.mediaSettings.load();
+        // The site's own details for data-arc-site (SS3); the template redraws when they arrive.
+        void this.siteIdentity.load();
 
         // A type in its own order shows its arranged entries, whatever their
         // age: read them all, not only the newest 50 (SS2).
@@ -224,6 +228,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             const contents = this.filteredContents();
             this.uiStrings.strings();
             this.mediaSettings.maxSize();
+            this.siteIdentity.identity();
             if (this.lastTemplate && contentType) {
                 this.hydrateAndSetTemplate(this.lastTemplate, contentType, contents);
             }
@@ -316,7 +321,9 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
 
         // Chrome in the page's language first, then loops, then page-level data:
         // the same order as the list and detail pages.
-        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings());
+        // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
+        const localizedTemplate = TemplateHydrationService.applySiteInfo(
+            TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), this.siteIdentity.identity());
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 

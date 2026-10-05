@@ -1,5 +1,6 @@
 import { loadHtml } from '../shared/lazy-cheerio.js';
-import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings } from '../shared/site-settings.js';
+import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getAboutConfig } from '../shared/site-settings.js';
+import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { replaceArcComponents, POWERED_BY_HTML } from '../shared/html-document.js';
 import { buildSearchWidget } from '../search/widget.js';
 import { deployFileToHosting, type HostingBatch } from './deployToHosting.js';
@@ -39,17 +40,19 @@ export async function generateAndDeployStaticPage(
     }
 
     // 2. Load partials + site config + misc settings
-    const [partials, siteConfig, miscSettings, localization] = await Promise.all([
-        getPartials(), getSiteConfig(), getMiscSettings(), getLocalizationSettings(),
+    const [partials, siteConfig, miscSettings, localization, about] = await Promise.all([
+        getPartials(), getSiteConfig(), getMiscSettings(), getLocalizationSettings(), getAboutConfig(),
     ]);
+    // The site's own details (SS3) in the page, its header and its footer.
+    const withSiteInfo = (html: string) => TemplateHydrationService.applySiteInfo(html, about);
 
     // 3. Replace arc components. Static pages exist in the default language
     //    only, so the search widget is built for that language.
     const defaultLang = localization.defaultLanguage;
     let processedHtml = replaceArcComponents(
-        rawHtml,
-        partials.headerHtml,
-        partials.footerHtml,
+        withSiteInfo(rawHtml),
+        withSiteInfo(partials.headerHtml),
+        withSiteInfo(partials.footerHtml),
         '',
         // The project, not the hosting site: the widget calls the project's
         // functions, and an install's own site is named differently.

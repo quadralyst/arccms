@@ -217,6 +217,15 @@ describe('deployHomePage', () => {
             expect($('a.card').toArray().map((a) => $(a).text())).toEqual(['First', 'Second']);
         });
 
+        it('fills the site\'s own details from Settings, About (SS3)', async () => {
+            mockGetSiteFile.mockImplementation(async (path: string) => (path === 'home.html'
+                ? HOME.replace('<h1 data-arc-t="home_heading">Hello</h1>', '<p class="who" data-arc-site="name">x</p><p class="mail" data-arc-site-if="email">mail</p>') : null));
+            await generateAndDeployHomePage();
+            const $ = loadHtml(released()['/index.html'], { xmlMode: false });
+            expect($('p.who').text()).toBe('Deepakam');
+            expect($('p.mail').length).toBe(0); // no contact email in About
+        });
+
         it('removes a card block whose content type does not exist', async () => {
             types = {};
             await generateAndDeployHomePage();

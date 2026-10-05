@@ -45,6 +45,11 @@ describe('buildOrganization', () => {
         expect(node['email']).toBe('hi@x.com');
     });
 
+    it('publishes the phone as telephone, and none without one (SS3)', () => {
+        expect(buildOrganization({ name: 'Acme', url: 'https://x.com', phone: ' +91 98765 43210 ' })!['telephone']).toBe('+91 98765 43210');
+        expect(buildOrganization({ name: 'Acme', url: 'https://x.com', phone: '' })!).not.toHaveProperty('telephone');
+    });
+
     it('publishes a personal site as a Person with a plain image', () => {
         const node = buildOrganization({
             name: 'Jane',
