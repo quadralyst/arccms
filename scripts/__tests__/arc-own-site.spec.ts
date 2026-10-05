@@ -14,6 +14,9 @@ import {
     convertAngular, headOf, headOfComponent, main, ownStrings, placeFor, planMigration, rewriteUrls, wrapDocument, writeMigration,
 } from '../arc-own-site.mjs';
 
+/** Real git merges in a scratch repo: slow when the whole suite runs in parallel. */
+const SLOW = 30_000;
+
 describe('arc:own-site pieces', () => {
     it('knows where each old file goes', () => {
         expect(placeFor('public/index.html', false)).toMatchObject({ kind: 'home', to: 'src/custom/site/home.html', lang: '' });
@@ -220,7 +223,7 @@ describe('arc:own-site end to end', () => {
 
         // The core edit with no place to go is reported.
         expect(plan.report.map((r: { path: string }) => r.path)).toContain('public/assets/js/arc-search.js');
-    });
+    }, SLOW);
 
     it('works after the merge too, from the app\'s last commit in the old layout', () => {
         mergeUpstream();
@@ -235,7 +238,7 @@ describe('arc:own-site end to end', () => {
         writeMigration(plan, app);
         expect(read('src/custom/site/header.html')).toBe('<nav>Deepakam</nav>\n');
         expect(main([], () => {}, app)).toBe(0);
-    });
+    }, SLOW);
 
     it('has nothing to do for an app that never edited the site', () => {
         sh(app, 'reset', '-q', '--hard', 'HEAD~1');
