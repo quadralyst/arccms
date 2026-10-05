@@ -86,14 +86,14 @@ describe('ContentTypesPage', () => {
     describe('Add standard pages', () => {
         const button = () => (fixture.nativeElement as HTMLElement).querySelector('[data-testid="add-standard-pages"]');
 
-        it('is offered until the site has the Pages type with every standard field', () => {
+        it('is offered until the site has the Info Pages type with every standard field', () => {
             mockStore.items.set([]);
             fixture.detectChanges();
             expect(button()).not.toBeNull();
             mockStore.items.set([{ slug: 'info', name: 'Pages', standard: 'pages', fields: standardPagesFields(true) }] as never);
             fixture.detectChanges();
             expect(button()).toBeNull();
-            // SS8: a Pages type from before Info boxes is offered the update.
+            // SS8: an Info Pages type from before Info boxes is offered the update.
             const older = standardPagesFields(true).filter((f) => f.key !== 'info-info-boxes');
             mockStore.items.set([{ slug: 'info', name: 'Pages', standard: 'pages', fields: older }] as never);
             fixture.detectChanges();

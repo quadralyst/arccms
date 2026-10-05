@@ -5,10 +5,10 @@ import { describe, it, expect } from 'vitest';
 import { hasReplacePrompt, standardPages, standardPagesFields, standardPagesType } from './standard-pages';
 
 describe('standard pages', () => {
-    it('is a Pages type at /info, in its own order, published as web pages, marked as Arc CMS\'s', () => {
+    it('is an Info Pages type at /info, in its own order, published as web pages, marked as Arc CMS\'s', () => {
         const type = standardPagesType(true);
         expect(type).toMatchObject({
-            name: 'Pages', slug: 'info', templateFolder: 'info', hasPublicUrl: true,
+            name: 'Info Pages', singularName: 'Info Page', slug: 'info', templateFolder: 'info', hasPublicUrl: true,
             entryOrder: 'manual', standard: 'pages', schema: { type: 'WebPage', fields: {} },
         });
     });

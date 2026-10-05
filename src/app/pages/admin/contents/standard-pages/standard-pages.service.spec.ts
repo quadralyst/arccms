@@ -50,7 +50,7 @@ describe('StandardPagesService', () => {
         service = TestBed.inject(StandardPagesService);
     });
 
-    it('creates the Pages type and six drafts in footer order on a site without them', async () => {
+    it('creates the Info Pages type and six drafts in footer order on a site without them', async () => {
         const result = await service.ensure();
         expect(result).toEqual({ createdType: true, createdPages: ['about', 'contact', 'faq', 'privacy-policy', 'terms', 'cookie-policy'], addedFields: [], foreignType: false });
         const [type, ...pages] = written();
@@ -66,7 +66,7 @@ describe('StandardPagesService', () => {
         expect(mockUpdateDoc).not.toHaveBeenCalled();
     });
 
-    it('adds only the missing pages to an existing Pages type, after the ones there', async () => {
+    it('adds only the missing pages to an existing Info Pages type, after the ones there', async () => {
         state.type = { slug: 'info', standard: 'pages', fields: standardPagesFields(true) };
         state.drafts = ['about', 'contact', 'faq', 'privacy-policy', 'terms'];
         const result = await service.ensure();
@@ -83,8 +83,8 @@ describe('StandardPagesService', () => {
         expect(mockUpdateDoc).not.toHaveBeenCalled();
     });
 
-    // SS8: a Pages type from before Info boxes gets the field, after its own, once.
-    it('adds the standard fields an older Pages type lacks, keeping every field it has', async () => {
+    // SS8: an Info Pages type from before Info boxes gets the field, after its own, once.
+    it('adds the standard fields an older Info Pages type lacks, keeping every field it has', async () => {
         const older = standardPagesFields(true).filter((f) => f.key !== 'info-info-boxes');
         const own = { key: 'info-hours', label: 'Hours', type: 'text', required: false, order: 7 };
         state.type = { slug: 'info', standard: 'pages', fields: [...older, own] };

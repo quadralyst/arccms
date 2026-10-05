@@ -32,7 +32,7 @@ const key = (name: string) => `${STANDARD_PAGES_SLUG}-${name}`;
 export const CONTACT_LAYOUT = 'contact';
 
 /**
- * The Pages type's fields. The contact form switch only with the contact form
+ * The Info Pages type's fields. The contact form switch only with the contact form
  * feature. Info boxes (SS8) are the Contact layout's own boxes, such as opening
  * hours; other pages leave the field empty and show nothing.
  */
@@ -51,8 +51,8 @@ export type StandardPagesType = Omit<ContentType, 'id' | 'createdAt' | 'modified
 
 export function standardPagesType(withContactForm: boolean): StandardPagesType {
     return {
-        name: 'Pages',
-        singularName: 'Page',
+        name: 'Info Pages',
+        singularName: 'Info Page',
         slug: STANDARD_PAGES_SLUG,
         description: 'About, contact, questions and the policies every site needs.',
         icon: 'fas fa-file-lines',

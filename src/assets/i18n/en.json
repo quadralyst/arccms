@@ -967,7 +967,7 @@
         "standard_pages": "Add standard pages",
         "standard_pages_hint": "Adds About, Contact, FAQ, Privacy Policy, Terms and Cookie Policy as drafts, ready to fill in.",
         "standard_pages_added": "Added {{ count }} pages as drafts. Replace the outline text, then publish each one.",
-        "standard_pages_fields_added": "Your standard pages are all there. Added the new fields to Pages: {{ fields }}.",
+        "standard_pages_fields_added": "Your standard pages are all there. Added the new fields to Info Pages: {{ fields }}.",
         "standard_pages_complete": "Your standard pages are all there already.",
         "standard_pages_taken": "A content type already uses the address /info, so the standard pages were not added.",
         "standard_pages_failed": "Could not add the standard pages. Please try again."

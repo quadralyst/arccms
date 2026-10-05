@@ -80,7 +80,7 @@ export default class ContentTypeComponent {
   addingStandardPages = signal(false);
 
   /**
-   * Adds the Pages type and its six draft pages (specs/site-sections-spec.md,
+   * Adds the Info Pages type and its six draft pages (specs/site-sections-spec.md,
    * SS6), then opens them. Adds only what is missing.
    */
   async addStandardPages(): Promise<void> {

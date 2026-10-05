@@ -447,6 +447,7 @@ SS1, SS2, SS3, SS4, SS5, SS6, SS7. SS1 and SS2 share the card block and the queu
 | SS8 | Row 3's boxes: email, phone, address and social from About. | Email, phone and social only: the address is row 2's, from **Locations**, so it is not printed twice. |
 | SS8 | (not in spec) | The app's detail page loads its template again when the item needs another one: a preview's draft arrives after the published copy, and its layout may differ. Before, the first template stayed. |
 | SS8 | Add standard pages shows until the Pages type exists. | It shows until the Pages type has every standard field, so an install from before SS8 can add Info boxes. It also says when it only added fields, or when everything was there. |
+| SS6 | The type is called Pages (Page). | Renamed **Info Pages** (Info Page) on 2026-10-06, so the admin menu says what it holds. An existing install keeps its own name; rename it under Content types. |
 | All | Screenshots per phase. | Not taken yet. |
 
 ---

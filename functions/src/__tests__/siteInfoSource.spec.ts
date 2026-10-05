@@ -58,7 +58,7 @@ describe('standard pages for the footer', () => {
         expect(await standardPageLinks('hi', 'en')).toEqual([{ title: 'हमारे बारे में', url: '/info/about' }, { title: 'Terms', url: '/info/terms' }]);
     });
 
-    it('lists none without the Pages type, or with its public pages off', async () => {
+    it('lists none without the Info Pages type, or with its public pages off', async () => {
         state.type = null;
         expect(await standardPageLinks('en', 'en')).toEqual([]);
         clearSiteInfoCache();

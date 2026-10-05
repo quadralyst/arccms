@@ -5,12 +5,12 @@ import type { ContentTypeField } from '../content-types/content-types.model';
 import { STANDARD_PAGES_SLUG, standardPages, standardPagesFields, standardPagesType, type OwnerDetails } from './standard-pages';
 
 export interface StandardPagesResult {
-    /** The Pages type was created now. */
+    /** The Info Pages type was created now. */
     createdType: boolean;
     /** The pages created now, by URL slug. */
     createdPages: string[];
     /**
-     * Fields added now to a Pages type made by an earlier version, by label
+     * Fields added now to an Info Pages type made by an earlier version, by label
      * (SS8: Info boxes). Existing fields are never changed.
      */
     addedFields: string[];
@@ -22,7 +22,7 @@ export interface StandardPagesResult {
 }
 
 /**
- * Creates the standard pages (specs/site-sections-spec.md, SS6): the Pages type
+ * Creates the standard pages (specs/site-sections-spec.md, SS6): the Info Pages type
  * when it is missing, and each page that is missing, as a draft. Never changes
  * what exists, so it is safe to run again: the setup wizard runs it, and so does
  * Add standard pages on the content types page for an install from before.
