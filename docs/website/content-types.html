@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Define content types | Arc CMS docs</title>
   <meta name="description" content="Create each content type in the admin area, choose its fields and template, and publish the first item.">
-  <meta name="docs:sources" content="src/app/pages/admin/contents/content-types, src/app/pages/admin/contents/create-content, src/app/pages/admin/contents/[slug], src/app/pages/admin/contents/bulk-import, src/app/pages/(onboarding)/onboarding-defaults.ts, functions/src/publishQueue">
+  <meta name="docs:sources" content="src/app/pages/admin/contents/content-types, src/app/pages/admin/contents/create-content, src/app/pages/admin/contents/[slug], src/app/pages/admin/contents/bulk-import, src/shared/models/repeater.model.ts, src/app/pages/(onboarding)/onboarding-defaults.ts, functions/src/publishQueue">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/content-types.html">
@@ -17,15 +17,15 @@
     <ol class="steps">
       <li><p>In the admin menu open <strong>Content</strong>, then <strong>Content types</strong>, and press <strong>Add Content Type</strong>. (Articles is already there from the first-run wizard; edit it rather than adding a second one.)</p></li>
       <li><p>Fill in <strong>Content Type Name (Plural)</strong> and <strong>Singular Name</strong>, for example Case Studies and Case Study. The plural heads the list page and the admin menu; the singular labels buttons such as Add Case Study.</p></li>
-      <li><p>Check the <strong>Content Type Slug</strong>. It is filled in from the name and becomes the URL: <code>case-studies</code> gives <code>/case-studies</code>. Lowercase letters, numbers and hyphens only.</p></li>
       <li><p>Add a <strong>Description</strong> (shown under the list page heading) and pick an <strong>Icon (Font Awesome)</strong> for the admin menu.</p></li>
-      <li><p>Leave <strong>Generate public pages</strong> on, unless the items are only shown inside other pages.</p></li>
-      <li><p>Pick a <strong>Content Template</strong>. Start with <strong>Default Template</strong>; you can switch to your own folder after <a href="templates.html">Design templates</a>.</p></li>
-      <li><p>Under <strong>Custom fields</strong>, press <strong>Add Field</strong> for each extra field in your plan: give it a <strong>Name</strong>, a <strong>Type</strong> and, if it must be filled in, tick <strong>Required</strong>.</p></li>
+      <li><p>Leave <strong>Generate public pages</strong> on, unless only your app's own pages read the items. With it off, the type shows nowhere on the published site, not even as cards in a card block, and the next two settings are hidden.</p></li>
+      <li><p>Check the <strong>Content Type Slug</strong>. It is filled in from the name and becomes the URL: <code>case-studies</code> gives <code>/case-studies</code>. Lowercase letters, numbers and hyphens only.</p></li>
+      <li><p>Check the <strong>Content Template</strong>. A template folder with the same name as the slug is picked for you; otherwise it is <strong>Default Template</strong>. You can switch to your own folder after <a href="templates.html">Design templates</a>.</p></li>
+      <li><p>Under <strong>Custom fields</strong>, press <strong>Add Field</strong> for each extra field in your plan: give it a <strong>Name</strong>, a <strong>Type</strong> and, if it must be filled in before publishing, tick <strong>Required</strong>.</p></li>
       <li><p>Press <strong>Save Content Type</strong>. The type appears in the admin menu under Content.</p></li>
     </ol>
     <p><strong>Structured data</strong> (see <a href="seo.html">Get found by search engines and AI</a>) is at the bottom of the form when you add a type and when you edit it: choose a type such as Product or Event and map its properties to the custom fields you have added. When you edit a saved type, the form also has <strong>Searchable custom fields</strong> (see <a href="search.html">Add search</a>).</p>
-    <div class="warn"><p>Changing the slug of a type that already has published items breaks every existing link to them. Settle the slug before you publish.</p></div>
+    <div class="warn"><p>Settle the slug before you write items. Items are stored under the slug (<code>arc_{slug}</code>), so changing it later hides every existing item of the type, in the admin area and on the site.</p></div>
 
     <h2>Choose field types</h2>
     <table>
@@ -33,24 +33,32 @@
       <tbody>
         <tr><td><code>text</code>, <code>number</code></td><td>A short text or a number, such as a subtitle or a price</td></tr>
         <tr><td><code>richtext</code></td><td>Formatted text with its own editor</td></tr>
-        <tr><td><code>date</code>, <code>datetime</code></td><td>A date, or a date and time, such as an event start</td></tr>
+        <tr><td><code>date</code>, <code>datetime</code></td><td>A day, such as a deadline, or a day and a time, such as an event start</td></tr>
         <tr><td><code>image</code>, <code>icon</code>, <code>color</code></td><td>An image from the media library, an icon, a color</td></tr>
         <tr><td><code>boolean</code></td><td>A yes or no</td></tr>
         <tr><td><code>dropdown</code>, <code>radio</code>, <code>checkbox</code></td><td>A choice from options you list, separated by commas, or from the items of another content type (<strong>Use data from another collection</strong>)</td></tr>
         <tr><td><code>infocard</code></td><td>Repeating cards, each an icon or image with a headline and a paragraph</td></tr>
         <tr><td><code>gallery</code></td><td>Repeating photos and YouTube videos with captions</td></tr>
         <tr><td><code>labelvalue</code></td><td>Repeating label and value pairs, such as an at-a-glance box</td></tr>
-        <tr><td><code>maplocation</code></td><td>Repeating places with an address and a map pin</td></tr>
+        <tr><td><code>maplocation</code></td><td>Repeating places, each with a name, an address and a map pin, under an optional heading</td></tr>
       </tbody>
     </table>
-    <p>Each field gets a key from its name, shown under the name as you type. Templates use that key, and it is fixed once the type is saved, so name fields carefully. Do not add fields for what every item already has (title, URL slug, cover image, body, summary, dates, tags, author).</p>
+    <p>What each type stores and how a template shows it, with an example per type, is in the <a href="../features/content.html#field-types-reference">field types reference</a>.</p>
+    <p>Each field gets a key from its name, shown under the name as you type. Templates use that key, and it is fixed once the type is saved: renaming the field later changes only its label, so name fields carefully. Do not add fields for what every item already has (title, URL slug, cover image, body, summary, dates, tags, author, read time).</p>
+    <p>A few rules worth knowing before you add fields:</p>
+    <ul>
+      <li><strong>Required</strong> is checked when you press Publish. Drafts and previews save with the field empty.</li>
+      <li>You can change a field's <strong>Type</strong> after saving, but values already written are not converted, so check the items that have one.</li>
+      <li>Deleting a field takes it out of the editor, but the values stay stored on each item, and a template that names the key still shows them.</li>
+      <li>In a second language, only text, rich text and the words in repeating fields (headlines, captions, labels, addresses) are translated. Every other field is shared by all languages.</li>
+    </ul>
     <div class="note"><p>The default template already shows three repeating fields, with no template work, when they are named exactly Gallery (a <code>gallery</code> field), Details (a <code>labelvalue</code> field) or Locations (a <code>maplocation</code> field). Any other repeating field needs a template that loops over it.</p></div>
 
     <h2>Write and publish an item</h2>
     <ol class="steps">
       <li><p>Open the type in the admin menu under Content, and press <strong>Add</strong> followed by the singular name.</p></li>
       <li><p>Write the title and the body. The editor has headings, lists, tables, images, links and code, plus ready-made blocks (FAQ, Key takeaways, How-to steps, Definition) from the toolbar's grid icon.</p></li>
-      <li><p>In the <strong>Basic</strong> tab, fill in the <strong>Summary</strong> (used in lists and as the default SEO description), check the <strong>URL Slug</strong>, and pick a <strong>Cover Image</strong>, <strong>Tags</strong>, an <strong>Author</strong> and the custom fields.</p></li>
+      <li><p>In the <strong>Basic</strong> tab, fill in the <strong>Summary</strong>, check the <strong>URL Slug</strong>, and pick a <strong>Cover Image</strong>, <strong>Tags</strong>, an <strong>Author</strong> and the custom fields. The summary also fills the SEO meta description until you edit that yourself. List cards show the meta description, or the first 25 words of the body when there is none.</p></li>
       <li><p>Press <strong>Preview</strong>. It saves a draft and opens the page in a new tab, rendered with the type's template.</p></li>
       <li><p>Press <strong>Publish</strong>. The page is written to the live site, and the list page, sitemap and feeds are updated.</p></li>
     </ol>

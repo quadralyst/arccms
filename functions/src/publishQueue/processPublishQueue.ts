@@ -7,6 +7,7 @@ import { generateAndDeployHomePage, homeShowsType } from '../pages/deployHomePag
 import { generateAndDeployContentDetailPage, removeContentPage } from '../pages/deployContentPage.js';
 import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
+import { generateAndDeployStaticPage, staticPageSlugs } from '../pages/deployStaticPage.js';
 import { generateAndDeploySitemap } from '../pages/generateSitemap.js';
 import { generateAndDeployRssFeeds } from '../pages/generateRssFeed.js';
 import { generateAndDeployRobotsTxt } from '../pages/generateRobotsTxt.js';
@@ -286,6 +287,15 @@ export const processPublishQueue = onDocumentCreated({
                 await generateAndDeployHomePage(batch);
             } catch (homeErr) {
                 console.error('Home page rebuild failed during redeploy-all:', homeErr);
+            }
+            // So are the static pages (privacy policy, terms): they show the
+            // header, footer and site styles too.
+            for (const slug of await staticPageSlugs().catch(() => [] as string[])) {
+                try {
+                    await generateAndDeployStaticPage(slug, batch);
+                } catch (pageErr) {
+                    console.error(`Static page ${slug} rebuild failed during redeploy-all:`, pageErr);
+                }
             }
             // Sitemap, feeds, robots/llms and IndexNow are the seo feature's.
             if (isFeatureOn('seo')) {

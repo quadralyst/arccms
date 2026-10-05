@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Launch checklist | Arc CMS docs</title>
   <meta name="description" content="Everything to check before your Arc CMS website goes live: accounts, email, forms, legal pages, search engines, analytics, rules and the domain.">
-  <meta name="docs:sources" content="src/app/pages/admin/(settings), src/app/pages/admin/users, src/app/pages/admin/(email-brand), src/shared/constants/legal-notice.ts, public/_site, functions/src/pages/deployHomePage.ts, functions/src/email-core/handleUnsubscribe.ts, functions/src/email-core/handleEmailPreferences.ts, functions/src/pages/generateSitemap.ts, functions/src/pages/generateRobotsTxt.ts, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, index.html, src/app/app.config.ts, functions/src/shared/html-document.ts, firestore.rules, storage.rules">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings), src/app/pages/admin/users, src/app/pages/admin/(email-brand), src/shared/constants/legal-notice.ts, public/_site, functions/src/pages/deployHomePage.ts, functions/src/email-core/handleUnsubscribe.ts, functions/src/email-core/handleEmailPreferences.ts, functions/src/pages/generateSitemap.ts, functions/src/pages/generateRobotsTxt.ts, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, index.html, src/app/app.config.ts, functions/src/shared/html-document.ts, firestore.rules, storage.rules, src/app/pages/page.parts/site-usage-banner.component.ts, functions/src/publishQueue/processPublishQueue.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/launch-checklist.html">
@@ -50,7 +50,7 @@
         <tr><td>[ ] The privacy and cookie policies are yours, not the shipped Arc CMS text.</td><td><code class="new">src/custom/site/pages/privacy-policy.html</code>, <code class="new">src/custom/site/pages/cookie-policy.html</code>; <a href="static-pages.html">Write static pages</a></td></tr>
         <tr><td>[ ] The sign-in page shows your name, logo and colours, not Arc CMS's.</td><td>Settings, <strong>About</strong>; <code class="new">src/custom/site/sign-in.html</code>, <code class="new">src/custom/site/site.css</code>; <a href="sign-in-page.html">Brand the sign-in page</a></td></tr>
         <tr><td>[ ] About and Contact exist as published content items.</td><td>A content type; <a href="static-pages.html#other-fixed-pages-use-a-content-type">Other fixed pages</a></td></tr>
-        <tr><td>[ ] The cookie banner has your wording and links to your cookie policy.</td><td>Settings, <strong>Site Usage</strong></td></tr>
+        <tr><td>[ ] The cookie banner has your wording and links to your cookie policy. It shows only on pages the app draws (sign-in, form pages, search, the member area), not on published pages.</td><td>Settings, <strong>Site Usage</strong></td></tr>
         <tr><td>[ ] You have chosen whether to show "Powered by Arc CMS" on pages and emails.</td><td>Settings, <strong>Miscellaneous</strong>, <strong>Branding</strong></td></tr>
       </tbody>
     </table>
@@ -72,7 +72,7 @@
     <table>
       <thead><tr><th>Check</th><th>Where</th></tr></thead>
       <tbody>
-        <tr><td>[ ] Your Firebase web configuration has your own Google Analytics measurement id, so visits to the pages the app draws (the home page, form pages, search) are counted. Published content pages and static pages carry no tracking code.</td><td><a href="../features/analytics.html">Analytics</a>; <a href="../getting-started/configure.html">Configure a project</a></td></tr>
+        <tr><td>[ ] Your Firebase web configuration has your own Google Analytics measurement id, so visits to the pages the app draws (sign-in, form pages, search, the member area) are counted. Published pages (the home page, content pages and static pages) carry no analytics tag, so their visits are not counted.</td><td><a href="../features/analytics.html">Analytics</a>; <a href="../getting-started/configure.html">Configure a project</a></td></tr>
         <tr><td>[ ] Google Analytics is connected, so the admin dashboard shows traffic.</td><td>Settings, <strong>Analytics</strong>; <a href="../features/analytics.html">Analytics</a></td></tr>
       </tbody>
     </table>
@@ -82,10 +82,10 @@
       <thead><tr><th>Check</th><th>Where</th></tr></thead>
       <tbody>
         <tr><td>[ ] Your feature choice is final before the full deploy.</td><td><code>src/custom/features.ts</code>; <a href="choose-features.html">Choose your website's features</a></td></tr>
-        <tr><td>[ ] Everything is deployed to the production project: functions, database rules and indexes, storage rules, and the website.</td><td><code>npm run deploy</code>, then Everything; <a href="../operations/deploy.html">Deploy</a></td></tr>
+        <tr><td>[ ] Everything is deployed to the production project: functions, database rules and indexes, storage rules, and the website. The guided deploy then publishes every page again by itself.</td><td><code>npm run deploy</code>, then Everything; <a href="../operations/deploy.html">Deploy</a></td></tr>
         <tr><td>[ ] The security rules on the project are the ones in the repository.</td><td><a href="../operations/security-rules.html">Security rules</a></td></tr>
         <tr><td>[ ] Your domain is connected to the project's Firebase Hosting site. Arc CMS has no command for this: add the domain in the Firebase console, under Hosting.</td><td>Firebase console</td></tr>
-        <tr><td>[ ] After the domain works, the Production URL is set to it and the website is deployed once more, so every page, the sitemap and the feeds use the domain.</td><td>Settings, About; <code>npm run deploy</code>, then Website</td></tr>
+        <tr><td>[ ] After the domain works, the Production URL is set to it and every page is published again, so every page, the sitemap and the feeds use the domain.</td><td>Settings, About; then <strong>Content</strong>, <strong>Content types</strong>, <strong>Republish website</strong> (or <code>npm run deploy</code>, then Website)</td></tr>
       </tbody>
     </table>
 

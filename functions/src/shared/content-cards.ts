@@ -40,7 +40,7 @@ export function cardData(
         (localized.tags || []).map((t: string) => ({ name: t, color: '#6b7280' }));
     // Pre-rendered tag pills: nested loops are not supported.
     const tagsHtml = tagsData.slice(0, 3).map((tag: { name: string; color: string }) =>
-        `<span class="tag-pill arc-skeleton" style="background-color: ${tag.color}; color: #333;">${tag.name}</span>`,
+        `<span class="tag-pill" style="background-color: ${tag.color}; color: #333;">${tag.name}</span>`,
     ).join('');
 
     return {
@@ -61,6 +61,9 @@ export function cardData(
         tagsDisplay: (localized.tags || []).slice(0, 3).join(', '),
         contentType: typeName,
         cat: typeName,
+        // Lets a custom field answer to its short key in a card, as on the
+        // detail page (TemplateHydrationService.aliasCustomFields).
+        contentTypeSlug: typeSlug,
         ...((localized.customFields as Record<string, any>) || {}),
     };
 }

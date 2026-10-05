@@ -1,0 +1,21 @@
+<!-- The blog list page, /blog. A fragment: publishing wraps it in a page with
+     the type's name as the title and its description. -->
+<arc-header></arc-header>
+
+<section class="posts">
+    <h1>{{ contentType }}</h1>
+    <p class="intro">{{ contentTypeDescription }}</p>
+    <div class="post-grid" data-arc-loop="items">
+        <article class="card">
+            <img data-arc-if="hero-image" src="{{ hero-image_m }}" alt="">
+            <div class="body">
+                <h3><a href="{{ url }}">{{ title }}</a></h3>
+                <p class="meta">{{ publishedOn }} · <span data-arc-t="min_read">{{ readTime }} min read</span></p>
+                <p>{{ excerpt }}</p>
+            </div>
+        </article>
+    </div>
+</section>
+
+<arc-footer></arc-footer>
+<script src="/site/main.js" defer></script>

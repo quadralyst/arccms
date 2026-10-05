@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { onTestFinished, describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ─── Hoisted mocks ──────────────────────────────────────────────────────────
 const {
@@ -249,6 +249,25 @@ describe('deployStaticPage', () => {
             expect(mockDeployFileToHosting).toHaveBeenCalled();
             const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
             expect(deployedHtml).toContain('Privacy Policy');
+        });
+
+        it('builds the search box for the project, not the hosting site, when the two differ', async () => {
+            process.env.GCLOUD_PROJECT = 'acme';
+            process.env.ARC_HOSTING_SITE = 'acme-arccms';
+            onTestFinished(() => { delete process.env.ARC_HOSTING_SITE; });
+            mockFetch.mockResolvedValue({ ok: true, text: async () => '<html><body><arc-search></arc-search>Policy</body></html>' });
+            await generateAndDeployStaticPage('privacy-policy');
+            const html: string = mockDeployFileToHosting.mock.calls[0][2];
+            // The callable lives at https://{region}-{project}.cloudfunctions.net (search/widget.ts).
+            expect(html).toMatch(/https:\/\/[a-z0-9-]+-acme\.cloudfunctions\.net\//);
+            expect(html).not.toContain('-acme-arccms.cloudfunctions.net');
+        });
+
+        it('joins a site-wide release instead of releasing alone when given a batch', async () => {
+            const added: string[] = [];
+            await generateAndDeployStaticPage('privacy-policy', { add: (path: string) => added.push(path) } as never);
+            expect(added).toEqual(['/pages/privacy-policy/index.html']);
+            expect(mockDeployFileToHosting).not.toHaveBeenCalled();
         });
 
         it('should use GCLOUD_PROJECT as siteId', async () => {

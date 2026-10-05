@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Get found by search engines and AI | Arc CMS docs</title>
   <meta name="description" content="Fill in the settings search engines and AI assistants read, choose structured data per content type, and write pages the Checks tab scores well.">
-  <meta name="docs:sources" content="src/app/pages/admin/(settings)/about, src/app/pages/admin/(settings)/discoverability, src/shared/utils/discoverability-checklist.ts, src/shared/constants/schema-types.ts, src/shared/components/tiptap-editor/service/arc-block-extension.ts, functions/src/pages, functions/src/publishQueue/processPublishQueue.ts">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings)/about, src/app/pages/admin/(settings)/discoverability, src/shared/utils/discoverability-checklist.ts, src/shared/constants/schema-types.ts, src/shared/components/tiptap-editor/service/arc-block-extension.ts, functions/src/pages, functions/src/publishQueue/processPublishQueue.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, functions/src/pages/deployStaticPage.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/seo.html">
@@ -20,7 +20,7 @@
       <li><p>Open <strong>Settings</strong>, then <strong>Discoverability</strong>. Every AI crawler is allowed by default. Block the <strong>Training bots</strong> if you do not want your pages used to train models; leave the <strong>Search and answer bots</strong> allowed, or assistants cannot cite you. Leave <strong>Publish /llms.txt and /llms-full.txt</strong> and <strong>Notify search engines on publish (IndexNow)</strong> on.</p></li>
       <li><p>Press <strong>Save and apply to site</strong>.</p></li>
     </ol>
-    <div class="trap"><p>Canonical links and the sitemap are built from the <strong>Production URL</strong>. Left empty, they point at the Firebase Hosting address, and search engines index that instead of your domain. Set it before launch, then deploy the website so every page, the home page included, is written again.</p></div>
+    <div class="trap"><p>Canonical links and the sitemap are built from the <strong>Production URL</strong>. Left empty, they point at the Firebase Hosting address, and search engines index that instead of your domain. Set it before launch. Saving it republishes the home page; to write every other page again, use <strong>Republish website</strong> (<strong>Content</strong>, <strong>Content types</strong>) or deploy the website with <code>npm run deploy</code>.</p></div>
 
     <h2>Say what each content type is</h2>
     <p>Pages publish as an Article by default, which fits most writing. For a type that is something else, edit it under <strong>Content types</strong> and use the <strong>Structured data</strong> section: choose Product, Service, Event, Person, Recipe or How-to guide (or Blog post, News article), then map each property to one of your custom fields. Unmapped properties are left out.</p>
@@ -33,8 +33,8 @@
         <tr><td><code>/robots.txt</code>, with your crawler choices and the sitemap address</td><td>Every publish, and <strong>Save and apply to site</strong></td></tr>
         <tr><td><code>/llms.txt</code> and <code>/llms-full.txt</code></td><td>The same, unless switched off</td></tr>
         <tr><td>A Markdown copy of each item at its URL plus <code>.md</code></td><td>When the item is published</td></tr>
-        <tr><td>Structured data (organization, page type, author, breadcrumbs, FAQ and other blocks)</td><td>In every published page</td></tr>
-        <tr><td>Your home page's head tags: canonical address, language links, Open Graph and Twitter tags, the site's structured data (see <a href="home-page.html">Build your home page</a>)</td><td>Every website deploy, and when content it shows changes</td></tr>
+        <tr><td>Structured data (organization, page type, author, breadcrumbs, FAQ and other blocks)</td><td>In every published content page. Static pages (<code>/p/…</code>) carry none: only the head tags you write in them.</td></tr>
+        <tr><td>Your home page's head tags: canonical address, language links, Open Graph and Twitter tags, the site's structured data (see <a href="home-page.html">Build your home page</a>)</td><td>Every website deploy, <strong>Republish website</strong>, when content it shows changes, and when you save a setting it uses</td></tr>
       </tbody>
     </table>
     <p>Check them from outside with Google Search Console and Bing Webmaster Tools; the Discoverability screen links to both.</p>
@@ -47,7 +47,7 @@
         <tr><td>Opening paragraph is a direct answer (15 to 70 words)</td><td>High</td></tr>
         <tr><td>At least one heading is a question</td><td>High</td></tr>
         <tr><td>Has an FAQ or Key takeaways block</td><td>High</td></tr>
-        <tr><td>Title under 70 characters</td><td>Medium</td></tr>
+        <tr><td>Title of 70 characters or fewer</td><td>Medium</td></tr>
         <tr><td>Meta description 50 to 160 characters</td><td>Medium</td></tr>
         <tr><td>Has a list or a table</td><td>Medium</td></tr>
         <tr><td>Links to at least 3 pages on this site</td><td>Medium</td></tr>

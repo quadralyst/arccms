@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Write static pages | Arc CMS docs</title>
   <meta name="description" content="Write your privacy and cookie policy pages as HTML files in your site folder, publish them with the website, and choose a content type for other fixed pages.">
-  <meta name="docs:sources" content="public/_site/pages, scripts/arc-site.mjs, src/shared/constants/legal-notice.ts, src/app/pages/public-page-renderer, functions/src/pages/deployStaticPage.ts, functions/src/pages/seedStaticPages.ts, functions/src/pages/generateSitemap.ts, firebase.json, src/app/pages/admin/(settings)/site-usage">
+  <meta name="docs:sources" content="public/_site/pages, scripts/arc-site.mjs, src/shared/constants/legal-notice.ts, src/app/pages/public-page-renderer, functions/src/pages/deployStaticPage.ts, functions/src/pages/seedStaticPages.ts, functions/src/pages/generateSitemap.ts, firebase.json, src/app/pages/admin/(settings)/site-usage, src/app/pages/page.parts/site-usage-banner.component.ts, functions/src/publishQueue/processPublishQueue.ts, scripts/arc-deploy-menu.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/static-pages.html">
@@ -19,14 +19,15 @@
       <li><p>Replace the <code>&lt;title&gt;</code>, the <code>&lt;meta name="description"&gt;</code> and the body text with yours. Keep the page a whole HTML document.</p></li>
       <li><p>Keep <code>&lt;arc-header&gt;&lt;/arc-header&gt;</code> at the top of <code>&lt;body&gt;</code> and <code>&lt;arc-footer&gt;&lt;/arc-footer&gt;</code> at the end: they become the site header and footer. Use the site's classes (Bootstrap is loaded) rather than your own stylesheet.</p></li>
       <li><p>Check them locally: with <code>npm run dev</code> running, open <code>/p/privacy-policy</code> and <code>/p/cookie-policy</code>.</p></li>
-      <li><p>Deploy the website (see <a href="../operations/deploy.html">Deploy</a>). The website deploy publishes both pages with your header, footer, styles and search box filled in, and lists them in the sitemap.</p></li>
+      <li><p>Deploy the website with <code>npm run deploy</code>, choosing <strong>Website</strong> or <strong>Everything</strong> (see <a href="../operations/deploy.html">Deploy</a>). After the deploy it publishes both pages with your header, footer, styles and search box filled in, and lists them in the sitemap.</p></li>
     </ol>
-    <p>On the live site <code>/p/{name}</code> redirects to <code>/pages/{name}</code>, so either address works in your links. The cookie banner (Settings, <strong>Site Usage</strong>) links to <code>/p/cookie-policy</code> unless you change it.</p>
+    <p>Link to a static page as <code>/p/{name}</code>. On the live site that address redirects to the published page at <code>/pages/{name}</code>; in <code>npm run dev</code> only <code>/p/{name}</code> exists.</p>
+    <p>The cookie banner (Settings, <strong>Site Usage</strong>) links to <code>/p/cookie-policy</code> unless you change it. The banner shows only on pages the app draws, such as sign-in, the form pages and search. Published pages (the home page, content pages and static pages) do not show it.</p>
     <p>The terms notice on every signup form links to your pages by name: <code class="new">src/custom/site/pages/terms.html</code> becomes the link on "Terms of Service" and <code class="new">src/custom/site/pages/privacy-policy.html</code> the link on "Privacy Policy". Until you supply a page, its words show as plain text; Arc CMS's sample policy is never linked.</p>
 
     <h2>Other fixed pages: use a content type</h2>
     <p>For About, Contact and similar pages, create a content type, for example Company with the slug <code>company</code>, and write each page as an item. You get the editor, drafts, SEO fields, the sitemap, search and translations, and the page is live the moment you publish it: <code>/company/about</code>.</p>
-    <p>A page you add, such as <code class="new">src/custom/site/pages/terms.html</code>, is published the same way at <code>/p/terms</code> on the next website deploy, and listed in the sitemap. Keep such pages for text that rarely changes and needs no editor; anything editors update belongs in a content type.</p>
+    <p>A page you add, such as <code class="new">src/custom/site/pages/terms.html</code>, is published the same way at <code>/p/terms</code> on the next website deploy, and listed in the sitemap. <strong>Republish website</strong> (<strong>Content</strong>, <strong>Content types</strong>) also rebuilds every static page, for example after you change the header. Keep such pages for text that rarely changes and needs no editor; anything editors update belongs in a content type.</p>
     <div class="note"><p>Static pages exist in the default language only. A page you need in several languages belongs in a content type.</p></div>
 
     <h2>Next</h2>

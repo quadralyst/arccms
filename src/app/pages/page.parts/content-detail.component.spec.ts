@@ -148,6 +148,11 @@ describe('ContentDetailComponent', () => {
     afterEach(() => setSiteManifestForTesting());
 
     it('should create', () => {
+        // Its own item by URL slug, not the store's first ten (which hid older items).
+        expect(mockContentsStore.getAll).toHaveBeenCalledWith(
+            expect.objectContaining({ whereConditions: [{ field: 'urlSlug', operator: '==', value: 'my-article' }], limitCount: 1 }),
+            'articles',
+        );
         expect(component).toBeTruthy();
     });
 
@@ -847,14 +852,12 @@ describe('ContentDetailComponent', () => {
             expect(node.author).toEqual({ '@type': 'Person', name: 'Old Name' });
         });
 
-        it('gives custom templates author bindings only when there is a name', () => {
+        it('gives custom templates the author box only with a profile, and the stored name as plain text without one', () => {
             showDraft({ title: 'A', urlSlug: 'a', type: 'articles' });
             expect((component as any).authorTemplateData()).toEqual({ author: {}, authorName: '' });
+            // No profile (a deleted author): the byline keeps the name, the box stays empty, as when published.
             showDraft({ title: 'A', urlSlug: 'a', type: 'articles', authorName: 'Jane Doe' });
-            expect((component as any).authorTemplateData()).toEqual({
-                author: { name: 'Jane Doe', bio: '', photoUrl: '', jobTitle: '', url: '' },
-                authorName: 'Jane Doe',
-            });
+            expect((component as any).authorTemplateData()).toEqual({ author: {}, authorName: 'Jane Doe' });
         });
     });
 

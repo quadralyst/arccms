@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Move your site into src/custom/site | Arc CMS docs</title>
   <meta name="description" content="A site built on an older Arc CMS edited its home page, header, footer and templates in public/. One command moves them into the app's own folder and puts Arc CMS's files back.">
-  <meta name="docs:sources" content="scripts/arc-own-site.mjs, scripts/check-core.mjs, scripts/arc-site.mjs, package.json">
+  <meta name="docs:sources" content="scripts/arc-own-site.mjs, scripts/check-core.mjs, scripts/arc-site.mjs, package.json, scripts/arc-deploy-menu.mjs, functions/scripts/call-seed.cjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/move-your-site.html">
@@ -44,9 +44,9 @@
       <li><p><strong>Check and commit:</strong></p>
         <pre><code>npm run check:core</code></pre>
         <p>No file in <code>public/</code> should be listed now. Finish the merge commit.</p></li>
-      <li><p><strong>Deploy everything, then republish</strong>, so the published pages are built from the new files:</p>
+      <li><p><strong>Deploy everything</strong>, so the published pages are built from the new files. Run the guided deploy and choose <strong>Everything</strong>:</p>
         <pre><code>npm run deploy</code></pre>
-        <pre><code>npm run seed:prod</code></pre></li>
+        <p>After the website deploy it publishes every page again by itself. If you deploy the website with options instead (<code>npm run deploy -- --only hosting</code>), it keeps the published pages but does not publish them again: run <code>npm run seed:dev</code> afterwards for the <code>default</code> project, or <code>npm run seed:prod</code>, which always publishes to the <code>production</code> project.</p></li>
     </ol>
 
     <h2>Your home page</h2>
@@ -55,7 +55,7 @@
       <li><code>[contentType]="'articles'"</code> becomes <code>content-type="articles"</code>, and the same for other fixed values;</li>
       <li><code>ngSrc</code> becomes <code>src</code>, and <code>assets/…</code> becomes <code>/assets/…</code>, so images also load at <code>/hi/</code>;</li>
       <li>it gets a <code>&lt;head&gt;</code> with the title and description it had: from <code>index.html</code>, or for another language from its old home component;</li>
-      <li>the old <code>main.css</code> it was styled with comes along as <code class="new">src/custom/site/assets/home.css</code>, linked from the page. Arc CMS's own <code>main.css</code> now styles only the body, header and footer.</li>
+      <li>if you never edited <code>main.css</code>, the old <code>main.css</code> it was styled with comes along as <code class="new">src/custom/site/assets/home.css</code>, linked from the page. If you did edit it, your whole <code>main.css</code> becomes <code class="new">src/custom/site/site.css</code> instead, which every page loads, and there is no <code>home.css</code>. Arc CMS's own <code>main.css</code> now styles only the body, header and footer.</li>
     </ul>
     <p>Angular syntax with no plain HTML version, such as <code>{{ … }}</code>, <code>(click)</code> or <code>@if</code>, is left in place and listed with its line number. Replace it with plain HTML, a <code>data-arc-t</code> text or your own script.</p>
 

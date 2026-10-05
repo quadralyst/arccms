@@ -572,8 +572,15 @@
                                 placeholder="Enter {{ field.label | lowercase }}">
                             }
 
-                            <!-- Date input -->
-                            @else if (field.type === 'date' || field.type === 'datetime') {
+                            <!-- Date: a day only (YYYY-MM-DD) -->
+                            @else if (field.type === 'date') {
+                            <input type="date" class="form-control form-control-sm"
+                                [value]="customDateValue(customFieldValues[field.key])"
+                                (input)="onCustomFieldChange(field.key, $any($event.target).value)">
+                            }
+
+                            <!-- Date and time (YYYY-MM-DDTHH:mm) -->
+                            @else if (field.type === 'datetime') {
                             <input type="datetime-local" class="form-control form-control-sm"
                                 [value]="customFieldValues[field.key] || ''"
                                 (input)="onCustomFieldChange(field.key, $any($event.target).value)">

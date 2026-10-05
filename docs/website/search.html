@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Add search | Arc CMS docs</title>
   <meta name="description" content="Give your website a search box and a results page, choose which fields are searched, and rebuild the index.">
-  <meta name="docs:sources" content="src/app/pages/admin/(settings)/search, src/app/pages/search.page.ts, src/app/pages/page.parts/public-search.component.ts, functions/src/search, public/_site/header.html, src/app/pages/admin/(search)">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings)/search, src/app/pages/search.page.ts, src/app/pages/page.parts/public-search.component.ts, functions/src/search, public/_site/header.html, src/app/pages/admin/(search), functions/src/search/sources/content-fields.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/search.html">
@@ -15,10 +15,10 @@
 
     <h2>Place the search box</h2>
     <p>The box is the <code>&lt;arc-search&gt;&lt;/arc-search&gt;</code> element in the site header, <code class="new">src/custom/site/header.html</code> (Arc CMS's sample, <code>public/_site/header.html</code>, until you write yours). Keep it where it should appear in your header, or remove it if you want no box. On published pages it becomes a plain form that works without JavaScript, with suggestions as you type; either way, it leads to <code>/search</code> (or <code>/{lang}/search</code> on a translated page).</p>
-    <p>The placeholder and messages come from the same <code>strings.json</code> files as other template text (see <a href="languages.html">Publish in more than one language</a>).</p>
+    <p>On a translated page, the placeholder and messages come from that language's strings file, <code class="new">src/custom/site/strings/{lang}.json</code>, like other template text (see <a href="languages.html#write-a-strings-file">Write a strings file</a>).</p>
 
     <h2>Choose what is searched</h2>
-    <p>Titles and summaries of every published item are always searched. To add a custom field:</p>
+    <p>The title, the summary and the author's name of every published item are always searched. The body is not. To add a custom field:</p>
     <ol class="steps">
       <li><p>Open <strong>Content</strong>, <strong>Content types</strong>, and edit the type.</p></li>
       <li><p>Under <strong>Searchable custom fields</strong>, tick the plain text fields that should count, such as a subtitle or a location. Only <code>text</code> fields can be ticked.</p></li>

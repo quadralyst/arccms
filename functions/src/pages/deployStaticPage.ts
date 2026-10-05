@@ -2,7 +2,7 @@ import { loadHtml } from '../shared/lazy-cheerio.js';
 import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings } from '../shared/site-settings.js';
 import { replaceArcComponents, POWERED_BY_HTML } from '../shared/html-document.js';
 import { buildSearchWidget } from '../search/widget.js';
-import { deployFileToHosting } from './deployToHosting.js';
+import { deployFileToHosting, type HostingBatch } from './deployToHosting.js';
 import { arcHostingSite } from '../arc-config.js';
 import { getSiteFile, getSiteManifest, LEGACY_STATIC_PAGES, pageStylesheets } from '../shared/site-files.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
@@ -23,6 +23,8 @@ import { versionSiteUrls } from '../shared/site-urls.js';
  */
 export async function generateAndDeployStaticPage(
     pageSlug: string,
+    /** Add the page to this release instead of releasing it alone (a site-wide republish). */
+    batch?: HostingBatch,
 ): Promise<void> {
     const siteId = arcHostingSite();
     if (!siteId) {
@@ -49,7 +51,9 @@ export async function generateAndDeployStaticPage(
         partials.headerHtml,
         partials.footerHtml,
         '',
-        buildSearchWidget({ projectId: siteId, lang: defaultLang, defaultLang }),
+        // The project, not the hosting site: the widget calls the project's
+        // functions, and an install's own site is named differently.
+        buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang: defaultLang, defaultLang }),
     );
 
     // 4. Post-process: inject CSS, meta tags, and powered-by footer
@@ -86,6 +90,10 @@ export async function generateAndDeployStaticPage(
 
     // 7. Deploy to /pages/{pageSlug}/index.html
     const filePath = `/pages/${pageSlug}/index.html`;
+    if (batch) {
+        batch.add(filePath, processedHtml);
+        return;
+    }
     await deployFileToHosting(siteId, filePath, processedHtml, 'static_pages', pageSlug);
 }
 

@@ -1,4 +1,5 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -282,8 +283,12 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             orderByField: { field: 'slug', direction: 'asc' },
             limitCount: 1,
         });
-        // Load published contents from the per-type collection
-        this.contentsStore.getAll(undefined, slug || undefined);
+        // The newest 100, as on the published list page (deployContentListPage.ts).
+        // The store's default was a first page of ten in no useful order.
+        this.contentsStore.getAll(
+            { orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 100 } as QueryParams,
+            slug || undefined,
+        );
     }
 
     /**
@@ -414,7 +419,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
             // Pre-render tags HTML for colored pills (since nested loops aren't supported)
             const tagsHtml = tagsData.slice(0, 3).map((tag: { name: string; color: string }) =>
-                `<span class="tag-pill arc-skeleton" style="background-color: ${tag.color}; color: #333;">${tag.name}</span>`
+                `<span class="tag-pill" style="background-color: ${tag.color}; color: #333;">${tag.name}</span>`
             ).join('');
 
 
@@ -428,12 +433,16 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
                 content: content.content || '',
                 publishedOn: this.formatContentDate(content.publishedOn),
                 readTime: this.getReadTime(content),
-                author: (content as any).author || '',
+                // The same names as a published card (functions/src/shared/content-cards.ts).
+                authorName: (content as any).authorName || '',
+                author: (content as any).authorName || (content as any).author || '',
                 tags: tagsData,
                 tagsHtml: tagsHtml, // Pre-rendered HTML for colored pills
                 tagsDisplay: (content.tags || []).slice(0, 3).join(', '), // Fallback text
                 contentType: contentType.name, // Add content type name for cards
                 cat: contentType.name, // Backward compatibility alias
+                // Lets a custom field answer to its short key, as on the detail page.
+                contentTypeSlug: contentType.slug,
                 ...((content as any).customFields || {}), // Include any custom fields
             };
         });

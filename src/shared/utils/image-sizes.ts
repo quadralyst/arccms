@@ -72,12 +72,13 @@ export function fitLongestSide(width: number, height: number, limit: number): { 
 /**
  * A Firebase Storage download URL of a sized upload:
  *   …/o/mediaImages%2Fphoto-a1b2c3-m.webp?alt=media&token=…
+ *   …/o/arccms%2FmediaImages%2Fphoto-a1b2c3-m.webp?…  (an install's upload folder, storagePrefix)
  * Group 1 is everything up to the size suffix, 2 the suffix, 3 the extension.
  */
-const STORAGE_VARIANT = /^(.*\/o\/mediaImages%2F[^?#]*?)-(s|m|l|xl)(\.[a-z0-9]+)(?:\?[^#]*)?$/i;
+const STORAGE_VARIANT = /^(.*\/o\/(?:[^?#\/]*?%2F)?mediaImages%2F[^?#]*?)-(s|m|l|xl)(\.[a-z0-9]+)(?:\?[^#]*)?$/i;
 
-/** A media upload from before sizes existed — one file, no suffix. */
-const STORAGE_LEGACY = /^.*\/o\/mediaImages%2F[^?#]+(?:\?[^#]*)?$/i;
+/** A media upload from before sizes existed (one file, no suffix), with or without an upload folder. */
+const STORAGE_LEGACY = /^.*\/o\/(?:[^?#\/]*?%2F)?mediaImages%2F[^?#]+(?:\?[^#]*)?$/i;
 
 /** An Unsplash photo URL; imgix's `w=` parameter resizes it on the fly. */
 const UNSPLASH = /^https:\/\/images\.unsplash\.com\//i;

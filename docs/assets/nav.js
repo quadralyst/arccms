@@ -17,7 +17,8 @@ window.ARC_DOCS_NAV = [
       { path: "getting-started/first-admin.html", title: "Create the first admin" },
       { path: "getting-started/folder-tour.html", title: "A tour of the folders" },
       { path: "getting-started/first-deploy.html", title: "Deploy for the first time" },
-      { path: "getting-started/upgrading.html", title: "Upgrade Arc CMS" }
+      { path: "getting-started/upgrading.html", title: "Upgrade Arc CMS" },
+      { path: "website/move-your-site.html", title: "Move your site into src/custom/site" }
     ]
   },
   {
@@ -33,11 +34,11 @@ window.ARC_DOCS_NAV = [
     title: "Build a website",
     pages: [
       { path: "website/overview.html", title: "Build a website" },
+      { path: "website/convert-a-site.html", title: "Turn an HTML site into an Arc CMS site" },
       { path: "website/plan-content.html", title: "Plan your content" },
       { path: "website/content-types.html", title: "Define content types" },
       { path: "website/templates.html", title: "Design templates" },
       { path: "website/home-page.html", title: "Build your home page" },
-      { path: "website/move-your-site.html", title: "Move your site into src/custom/site" },
       { path: "website/static-pages.html", title: "Write static pages" },
       { path: "website/sign-in-page.html", title: "Brand the sign-in page" },
       { path: "website/media.html", title: "Manage media" },

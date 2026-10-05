@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Publish in more than one language | Arc CMS docs</title>
   <meta name="description" content="Add languages to your website, translate content types, items and template text, and publish each language under its own URL prefix.">
-  <meta name="docs:sources" content="src/app/pages/admin/(settings)/localization, public/_site/strings, scripts/arc-site.mjs, functions/src/pages/deployHomePage.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents/draft-content-store/content-translation.model.ts, src/app/pages/page.parts/language-switcher.component.ts, src/app/pages/index.page.ts">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings)/localization, public/_site/strings, scripts/arc-site.mjs, functions/src/pages/deployHomePage.ts, functions/src/shared/content-translation.ts, src/app/pages/admin/contents/draft-content-store/content-translation.model.ts, src/app/pages/page.parts/language-switcher.component.ts, src/app/pages/index.page.ts, src/app/core/i18n/apply-strings-dom.ts, functions/src/shared/template-hydration.ts, functions/src/shared/site-settings.ts, scripts/arc-deploy-menu.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/languages.html">
@@ -27,7 +27,25 @@
       <li><p><strong>Items.</strong> In the editor, switch to a language tab and translate. Empty fields fall back to the default language. The URL, cover image, tags and dates are shared by all languages, and <strong>Save as draft</strong> and <strong>Publish</strong> apply to every language at once.</p></li>
       <li><p><strong>Fixed template text</strong>, such as "Read more": mark it in your templates, header and footer with <code>data-arc-t="read_more"</code>, leaving the default wording inside, and add the key to that language's strings file in your site folder, for example <code class="new">src/custom/site/strings/hi.json</code>. Your keys are merged over Arc CMS's (<code>public/_site/strings/hi.json</code>), so write only the keys you add or reword. A missing key shows the default wording.</p></li>
     </ol>
-    <p>The <code>&lt;arc-language-switcher&gt;</code> element in the site header becomes links to the page's other languages, and disappears on a single-language site. Deploy the website after changing templates or <code>strings.json</code>, so pages are written again with the new text.</p>
+    <p>The <code>&lt;arc-language-switcher&gt;</code> element in the site header becomes links to the page's other languages, and disappears on a single-language site.</p>
+    <p>After changing templates or a strings file, deploy the website with <code>npm run deploy</code>, choosing <strong>Website</strong> or <strong>Everything</strong>. The deploy publishes every page again afterwards, so they pick up the new text. Publishing reads the strings from the live site, so publishing an item or using <strong>Republish website</strong> before the deploy still uses the old text.</p>
+
+    <h2>Write a strings file</h2>
+    <p>A strings file is one JSON object of <code>"key": "text"</code> pairs, one file per language, named after the language code: <code class="new">src/custom/site/strings/hi.json</code>, <code class="new">src/custom/site/strings/fr.json</code>. In your HTML, mark each text with its key and leave the default wording inside:</p>
+    <pre><code>&lt;a href="/articles"&gt;&lt;i class="fas fa-book"&gt;&lt;/i&gt; &lt;span data-arc-t="nav_articles"&gt;Articles&lt;/span&gt;&lt;/a&gt;
+&lt;input type="search" placeholder="Search" data-arc-t-attr="placeholder:search_placeholder"&gt;</code></pre>
+    <pre><code>{
+  "nav_articles": "लेख",
+  "search_placeholder": "खोजें"
+}</code></pre>
+    <ul>
+      <li><code>data-arc-t</code> replaces all of the element's content with the text. Keep icons and other markup outside the marked element, as above.</li>
+      <li><code>data-arc-t-attr="placeholder:key"</code> translates an attribute. Name several as <code>placeholder:key1,title:key2</code>.</li>
+      <li>Arc CMS ships a strings file for Hindi only (<code>public/_site/strings/hi.json</code>). For Hindi, your file is merged over it key by key, so write only the keys you add or reword. For any other language, your file is the whole list.</li>
+      <li>A file for the default language is not used: the default wording is what is written in the HTML.</li>
+      <li>A missing key, or one whose text is empty, shows the default wording.</li>
+      <li>A file that is not valid JSON stops <code>npm run dev</code> and <code>npm run build</code> with a message naming it.</li>
+    </ul>
 
     <h2>What stays in one language</h2>
     <ul>

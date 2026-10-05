@@ -42,6 +42,9 @@ vi.mock('firebase-functions/v2/https', () => ({
     onCall: vi.fn((_opts: any, handler: any) => handler),
 }));
 
+const { mockRequireAdmin } = vi.hoisted(() => ({ mockRequireAdmin: vi.fn() }));
+vi.mock('../search/auth', () => ({ requireAdmin: (...args: unknown[]) => mockRequireAdmin(...args) }));
+
 vi.mock('../shared/site-settings', () => ({
     clearSettingsCache: mockClearSettingsCache,
     getPartials: mockGetPartials,
@@ -134,6 +137,15 @@ describe('seedStaticPages', () => {
 
         it('should export runSeed for direct CLI usage', () => {
             expect(typeof runSeed).toBe('function');
+        });
+
+        it('lets only an admin run the callable: a republish releases every page', async () => {
+            const { seedStaticPages } = await import('../pages/seedStaticPages.js');
+            const denied = Object.assign(new Error('Admin access required.'), { code: 'permission-denied' });
+            mockRequireAdmin.mockRejectedValueOnce(denied);
+            await expect((seedStaticPages as unknown as (r: unknown) => Promise<unknown>)({ auth: { uid: 'visitor', token: {} } })).rejects.toBe(denied);
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+            expect(mockRequireAdmin).toHaveBeenCalledWith({ auth: { uid: 'visitor', token: {} } });
         });
     });
 

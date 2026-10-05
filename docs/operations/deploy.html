@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Deploy | Arc CMS docs</title>
   <meta name="description" content="Deploy Arc CMS to a Firebase project with npm run deploy: the guided questions, the flags for scripts and CI, deleted functions, the callable check and the static pages.">
-  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-hosting-release.mjs, functions/src/shared/site-files.ts, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-built-functions.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, firebase.json, package.json">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-hosting-release.mjs, functions/src/shared/site-files.ts, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-built-functions.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, firebase.json, package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/deploy.html">
@@ -39,11 +39,11 @@
       <thead><tr><th>Choice</th><th>Firebase targets</th><th>Notes</th></tr></thead>
       <tbody>
         <tr><td>Only the functions changed since the last deploy</td><td>One <code>functions:arccms:arccms.&lt;name&gt;</code> per function</td><td>Offered after a functions deploy from this checkout. How it is worked out: <a href="targeted-deploys.html#how-the-guided-deploy-finds-the-changed-functions">Deploy only what changed</a></td></tr>
-        <tr><td>Everything</td><td><code>functions:arccms</code>, <code>firestore</code>, <code>storage</code>, <code>hosting</code></td><td>Storage and the website only where they apply (below)</td></tr>
+        <tr><td>Everything</td><td><code>functions:arccms</code>, <code>firestore</code>, <code>storage</code>, <code>hosting</code></td><td>Storage and the website only where they apply (below). With the website, it builds the site first and publishes every page again after</td></tr>
         <tr><td>All functions</td><td><code>functions:arccms</code></td><td>Deletes functions the build no longer has, after asking (see <a href="#functions-that-are-deleted">Functions that are deleted</a>)</td></tr>
         <tr><td>Database rules and indexes</td><td><code>firestore</code></td><td>The rules and indexes are combined with the app's own first (see <a href="security-rules.html">Security rules</a>)</td></tr>
         <tr><td>Storage rules</td><td><code>storage</code></td><td>Not offered when Arc CMS shares the default bucket with another app</td></tr>
-        <tr><td>Website</td><td><code>hosting</code></td><td>Builds the site, deploys it, then publishes the static pages again</td></tr>
+        <tr><td>Website</td><td><code>hosting</code></td><td>Builds the site, deploys it keeping the published pages, then publishes every page again</td></tr>
       </tbody>
     </table>
     <p>The website is offered only for the <code>default</code> and <code>production</code> aliases, the two with a website build: <code>default</code> builds with the development environment (<code>src/environments/environment.ts</code>), <code>production</code> with <code>src/environments/environment.prod.ts</code>. It is not offered when the project has no website (set up with <code>--site=none</code>).</p>
@@ -139,14 +139,26 @@ npm run deploy:prod</code></pre>
       </tbody>
     </table>
 
-    <h3>Publish the static pages</h3>
-    <p>Published content is served as static files that Cloud Functions write to Hosting one page at a time; none of them is in the build. <code>npm run deploy</code> keeps them: it uploads the build to a preview channel named <code>arc-deploy</code> first, then releases one live version holding the build and every published page, so visitors and search engines never see a page drop out. Every other part (functions, rules, indexes) goes through <code>firebase deploy</code> as before.</p>
-    <p>After a website deploy, the pages are still published again, so they pick up a changed template, header or footer: the guided deploy and <code>deploy:dev</code>/<code>deploy:prod</code> do it for you. To do it by hand:</p>
+    <h3 id="publish-the-static-pages">Publish the pages again</h3>
+    <p>Published pages are static files that Cloud Functions write to Hosting; none of them is in the build. Every website deploy through <code>npm run deploy</code> keeps them: it uploads the build to a preview channel named <code>arc-deploy</code> first, then releases one live version holding the build and every published page, so visitors and search engines never see a page drop out. Every other part (functions, rules, indexes) goes through <code>firebase deploy</code> as before.</p>
+    <p>Kept pages still show the old templates, header and footer, so after a website deploy every page is published again from the new files. Who does that:</p>
+    <table>
+      <thead><tr><th>What you run or do</th><th>What is published again</th></tr></thead>
+      <tbody>
+        <tr><td>The guided <code>npm run deploy</code>, choosing <strong>Website</strong> or <strong>Everything</strong></td><td>Every page, by itself, once the deploy succeeds</td></tr>
+        <tr><td><code>npm run deploy:dev</code>, <code>npm run deploy:prod</code></td><td>Every page, by itself</td></tr>
+        <tr><td><code>npm run deploy -- --only hosting</code> (build the site first with <code>npm run build</code>)</td><td>Nothing. The published pages are kept, but run <code>npm run seed:dev</code> or <code>npm run seed:prod</code> afterwards</td></tr>
+        <tr><td>Publishing or unpublishing a content item</td><td>That item's pages in every language, its type's list page, the home page when it shows that type, the sitemap and the feeds</td></tr>
+        <tr><td><strong>Republish website</strong> (Content, Content types)</td><td>Every content page and list page, the home page, the static pages, the sitemap and the feeds, in one release</td></tr>
+        <tr><td>Saving Settings, <strong>About</strong>, the site address, the languages or the powered-by setting</td><td>The home page</td></tr>
+      </tbody>
+    </table>
+    <p>To publish every page again from a terminal:</p>
     <pre><code>npm run seed:dev
 npm run seed:prod</code></pre>
-    <p><code>seed:dev</code> publishes to the <code>default</code> alias, <code>seed:prod</code> to <code>production</code>. It republishes the home page in every language, every published content page and list page, every static page the site has, <code>robots.txt</code>, <code>llms.txt</code>, the sitemap and the RSS feeds. It uses your Firebase CLI login (run <code>firebase login</code> first) and does nothing for a project with no website.</p>
+    <p><code>seed:dev</code> publishes to the <code>default</code> alias, <code>seed:prod</code> always to <code>production</code>. It republishes the home page in every language, every published content page and list page, every static page the site has, <code>robots.txt</code>, <code>llms.txt</code>, the sitemap and the RSS feeds. It runs on your machine with your Firebase CLI login (run <code>firebase login</code> first), not through a Cloud Function, and does nothing for a project with no website. The <code>seedStaticPages</code> callable does the same from the browser, for admins only.</p>
 
-    <div class="note"><p>Publishing reads the templates, header, footer and static pages from the live website (<code>/_site/</code>), so the website deploy comes first and the republish after it, as the guided deploy does. A change to the publish functions that reads site files at a new place needs the functions and the website deployed together, then the republish.</p></div>
+    <div class="note"><p>Publishing reads the templates, header, footer, strings and static pages from the live website (<code>/_site/</code>), so the website deploy comes first and the republish after it, as the guided deploy does. Publishing or <strong>Republish website</strong> before the deploy still uses the old files. A change to the publish functions that reads site files at a new place needs the functions and the website deployed together, then the republish.</p></div>
 
     <div class="trap"><p>Deploy the website with <code>npm run deploy</code>, never with <code>firebase deploy --only hosting</code>. The plain command releases only the build, so every published page drops out until the republish, and it ignores this install's own config: on a project with two installs it goes to the wrong site.</p></div>
 

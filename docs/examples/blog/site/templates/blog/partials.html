@@ -1,0 +1,15 @@
+<!-- Cards for <arc-content-partials content-type="blog">: the home page's
+     latest posts. A fragment: no <html>, <head> or <body>. -->
+<section class="posts" data-arc-if="hasItems">
+    <h2>{{ sectionTitle }}</h2>
+    <div class="post-grid" data-arc-loop="items">
+        <article class="card">
+            <img data-arc-if="hero-image" src="{{ hero-image_m }}" alt="">
+            <div class="body">
+                <h3><a href="{{ url }}">{{ title }}</a></h3>
+                <p class="meta">{{ publishedOn }}</p>
+            </div>
+        </article>
+    </div>
+    <p><a href="{{ listUrl }}" data-arc-t="all_posts">All posts</a></p>
+</section>

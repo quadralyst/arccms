@@ -254,6 +254,15 @@ describe('CreateContentComponent', () => {
         });
     });
 
+    describe('date custom fields', () => {
+        it('show the day of a stored date, old date-and-time values included, without a time zone shift', async () => {
+            const { customDateValue } = await import('./create-content.component');
+            expect(customDateValue('2026-10-05')).toBe('2026-10-05');
+            expect(customDateValue('2026-10-05T23:30')).toBe('2026-10-05');
+            expect(customDateValue('')).toBe('');
+        });
+    });
+
     describe('Slug Generation', () => {
         it('should create slug from title', () => {
             component.pageTitle = 'Test Article Title';
@@ -275,6 +284,23 @@ describe('CreateContentComponent', () => {
             component.createSlag();
 
             expect(mockDraftContentsStore.checkExistingSlugUrl).not.toHaveBeenCalled();
+        });
+
+        it('numbers a taken slug without spaces: guide, guide-2, guide-3', async () => {
+            mockDraftContentsStore.checkExistingSlugUrl.mockImplementation(async (slug: string) =>
+                ({ exists: slug === 'guide' || slug === 'guide-2', slug }));
+            component.pageTitle = 'Guide';
+            component.createSlag();
+            for (let i = 0; i < 5; i++) await Promise.resolve();
+            expect(mockDraftContentsStore.checkExistingSlugUrl.mock.calls.map((c: unknown[]) => c[0])).toEqual(['guide', 'guide-2', 'guide-3']);
+            expect(component.publishForm.get('urlSlug')?.value).toBe('guide-3');
+        });
+
+        it('cleans a typed slug: no spaces or capitals', () => {
+            component.publishForm.patchValue({ urlSlug: '  My Pricing Guide ' });
+            component.saveSlug();
+            expect(component.publishForm.get('urlSlug')?.value).toBe('my-pricing-guide');
+            expect(mockDraftContentsStore.checkExistingSlugUrl).toHaveBeenCalledWith('my-pricing-guide', expect.anything());
         });
 
         it('should set SEO title when creating slug', () => {

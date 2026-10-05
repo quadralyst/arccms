@@ -916,7 +916,7 @@ describe('deployContentPage', () => {
             expect(html).toContain('<b>Jane Doe</b><i>Founder</i>');
         });
 
-        it('hides the byline and omits Article.author when the author is unknown', async () => {
+        it('keeps a deleted author\'s name as plain text: the byline stays, the box and Article.author go', async () => {
             mockCollectionDocGet.mockResolvedValue({
                 exists: true, id: 'doc123',
                 data: () => ({ ...MOCK_CONTENT, authorId: 'gone', authorName: 'Old Name' }),
@@ -928,7 +928,7 @@ describe('deployContentPage', () => {
 
             expect(nodeOfType('Article')).not.toHaveProperty('author');
             const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            expect(html).not.toContain('By ');
+            expect(html).toContain('By Old Name');
             expect(html).not.toContain('box');
         });
 
