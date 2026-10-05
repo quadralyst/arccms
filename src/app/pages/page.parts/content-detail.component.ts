@@ -1,4 +1,5 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { attachLiveParts } from '../../core/site/live-parts';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, ViewEncapsulation, effect, TransferState, makeStateKey } from '@angular/core';
@@ -506,10 +507,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     }
 
     ngOnDestroy(): void {
+        this.liveScript?.remove();
         // The next page may have no variants at all.
         this.localization.languageVariants.set(null);
         // Nor the same structured data: the home page writes its own site nodes.
-        for (const id of ['arc-ld-organization', 'arc-ld-website', 'arc-ld-breadcrumbs', 'arc-ld-article']) {
+        for (const id of ['arc-ld-organization', 'arc-ld-website', 'arc-ld-breadcrumbs', 'arc-ld-article', 'arc-ld-faq']) {
             setJsonLd(this.document, id, null);
         }
         for (let i = 0; i < MAX_BLOCK_NODES; i++) setJsonLd(this.document, `arc-ld-block-${i}`, null);
@@ -924,6 +926,17 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         if (runScripts && isPlatformBrowser(this.platformId)) {
             setTimeout(() => this.runTemplateScripts(), 0);
         }
+        // Forms on the page work as when published (SS5), after every draw.
+        if (isPlatformBrowser(this.platformId)) setTimeout(() => this.refreshLiveParts(), 0);
+    }
+
+    /** The live parts' script for this draw's forms; removed and added again on each draw. */
+    private liveScript: HTMLScriptElement | null = null;
+
+    private refreshLiveParts(): void {
+        this.liveScript?.remove();
+        const host = this.document.querySelector('arc-content-detail');
+        this.liveScript = host ? attachLiveParts(host, this.document) : null;
     }
 
     /**

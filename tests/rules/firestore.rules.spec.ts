@@ -299,6 +299,34 @@ describe('data under a users record (docs/app/account-contract.html)', () => {
     });
 });
 
+// SS5 (specs/site-sections-spec.md): only the function writes contact messages.
+describe('contact messages', () => {
+    const message = { name: 'Asha', email: 'asha@example.com', message: 'Hello', status: 'new', createdAt: serverTimestamp() };
+    beforeEach(() => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'ContactMessages', 'm1'), message)));
+
+    it('cannot be written from a browser, signed in or not, admin or not', async () => {
+        await assertFails(setDoc(doc(anon(), 'ContactMessages', 'm2'), message));
+        await assertFails(addDoc(collection(alice(), 'ContactMessages'), message));
+        await assertFails(setDoc(doc(admin(), 'ContactMessages', 'm2'), message));
+    });
+
+    it('is read, deleted and marked done or spam by admins only', async () => {
+        await assertFails(getDoc(doc(anon(), 'ContactMessages', 'm1')));
+        await assertFails(getDoc(doc(alice(), 'ContactMessages', 'm1')));
+        await assertFails(getDoc(doc(editor(), 'ContactMessages', 'm1')));
+        await assertSucceeds(getDoc(doc(admin(), 'ContactMessages', 'm1')));
+        await assertSucceeds(updateDoc(doc(admin(), 'ContactMessages', 'm1'), { status: 'done' }));
+        await assertSucceeds(updateDoc(doc(admin(), 'ContactMessages', 'm1'), { status: 'spam' }));
+        await assertFails(updateDoc(doc(alice(), 'ContactMessages', 'm1'), { status: 'done' }));
+        await assertSucceeds(deleteDoc(doc(admin(), 'ContactMessages', 'm1')));
+    });
+
+    it('lets an admin change the status only, to a known one', async () => {
+        await assertFails(updateDoc(doc(admin(), 'ContactMessages', 'm1'), { message: 'Edited' }));
+        await assertFails(updateDoc(doc(admin(), 'ContactMessages', 'm1'), { status: 'archived' }));
+    });
+});
+
 describe('feedback (docs/features/feedback.html)', () => {
     const sender = () => env.authenticatedContext(ALICE, { arccms_uid: 'alice-doc' }).firestore();
     const noRecord = () => env.authenticatedContext(ALICE).firestore();

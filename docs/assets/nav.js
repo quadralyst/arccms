@@ -95,6 +95,7 @@ window.ARC_DOCS_NAV = [
       { path: "features/entitlements.html", title: "Premium entitlements" },
       { path: "features/users-and-roles.html", title: "Users and roles" },
       { path: "features/pwa.html", title: "Installable app (PWA)" },
+      { path: "features/contact.html", title: "Contact form" },
       { path: "features/feedback.html", title: "Feedback button" },
       { path: "features/notifications.html", title: "Notifications" },
       { path: "features/analytics.html", title: "Analytics" },

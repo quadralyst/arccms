@@ -395,6 +395,21 @@ export const routes: Routes = [
       },
     ],
   },
+  // Admin Messages: what people sent with the site's contact form (specs/site-sections-spec.md, SS5).
+  {
+    path: 'admin/messages',
+    loadComponent: () =>
+      import('./pages/admin.page').then((m) => m.default),
+    canActivate: [roleGuard],
+    data: { allowedRoles: ['admin'] },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin/(messages)/messages.page').then((m) => m.default),
+      },
+    ],
+  },
   // Admin SMS Logs Route (Email + SMS menu): every text message, like Email Logs.
   {
     path: 'admin/sms-logs',

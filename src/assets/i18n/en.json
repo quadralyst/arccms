@@ -181,7 +181,8 @@
       "logout_success": "Logout successful.",
       "authors": "Authors",
       "sms_logs": "SMS Logs",
-      "feedback": "Feedback"
+      "feedback": "Feedback",
+      "messages": "Messages"
     },
     "settings": {
       "localization": {
@@ -1612,6 +1613,25 @@
       "delete_confirm": "Delete this feedback, with its screenshot and voice note?",
       "installed_app": "installed app",
       "load_more": "Load more"
+    },
+    "messages": {
+      "title": "Messages",
+      "subtitle": "What people sent with the contact form on your site.",
+      "filter": "Show",
+      "tab_new": "New",
+      "tab_done": "Done",
+      "tab_spam": "Possible spam",
+      "spam_hint": "Messages with many links land here and send no alert. Move a real one back with Not spam.",
+      "empty_new": "No new messages.",
+      "empty": "Nothing here.",
+      "empty_hint": "Messages arrive here when someone uses the contact form on your site.",
+      "sent_from": "Sent from",
+      "reply": "Reply",
+      "mark_done": "Mark done",
+      "mark_new": "Move to new",
+      "not_spam": "Not spam",
+      "load_more": "Load more",
+      "delete_confirm": "Delete this message? This cannot be undone."
     }
   },
   "user": {

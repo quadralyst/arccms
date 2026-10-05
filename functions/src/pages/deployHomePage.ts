@@ -22,8 +22,12 @@ import { isFeatureOn } from '../feature-flags.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { readPublishedInDisplayOrder } from './published-entries.js';
-import { arcDatabaseId, arcFunctionsRegion, arcHostingSite } from '../arc-config.js';
-import { ARC_FUNCTION_GROUP } from '../function-names.js';
+import { arcSiteScript, prepareLiveParts, setupState } from '../shared/live-parts.js';
+
+import { arcHostingSite } from '../arc-config.js';
+
+// The live parts moved to shared/live-parts.ts (SS5); re-exported for existing callers.
+export { addLegalNotices, arcSiteScript, setupState, type SetupState } from '../shared/live-parts.js';
 
 /**
  * The home page, published like content (specs/own-website-spec.md, W4).
@@ -78,40 +82,8 @@ export async function homeSource(
     return html ? { html, ownFile: lang === defaultLang } : null;
 }
 
-/** The terms notice's words; translated through `strings/{lang}.json`. */
-const LEGAL_DEFAULTS = {
-    legal_notice: 'By signing up, you agree to our {terms} and {privacy}, and to receive emails from us.',
-    legal_terms: 'Terms of Service',
-    legal_privacy: 'Privacy Policy',
-};
-
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const escapeAttr = (s: string) => escapeHtml(s).replace(/"/g, '&quot;');
-
-/**
- * The terms notice on every signup form that does not carry one
- * ([data-legal-notice]), above its submit button: the same notice the app adds
- * to its forms (src/shared/constants/legal-notice.ts). Its links go to the app's
- * own terms and privacy pages, and only when the app has them.
- */
-export function addLegalNotices($: cheerio.CheerioAPI, strings: Record<string, string>, manifest: SiteManifest | null): void {
-    const t = (key: keyof typeof LEGAL_DEFAULTS) => (strings[key]?.trim() ? strings[key] : LEGAL_DEFAULTS[key]);
-    const link = (label: string, page: string) => (manifest?.pages[page] === 'app'
-        ? `<a href="/p/${page}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${escapeHtml(label)}</a>`
-        : escapeHtml(label));
-    const sentence = escapeHtml(t('legal_notice'))
-        .replace('{terms}', link(t('legal_terms'), 'terms'))
-        .replace('{privacy}', link(t('legal_privacy'), 'privacy-policy'));
-    const notice = `<p class="arc-legal-notice" data-legal-notice style="font-size:0.8rem;opacity:0.75;margin:0.5rem 0;line-height:1.4">${sentence}</p>`;
-
-    $('form[data-waitlist-form]').each((_, form) => {
-        const $form = $(form);
-        if ($form.find('[data-legal-notice]').length) return;
-        const submit = $form.find('button[type="submit"], input[type="submit"], button:not([type])').first();
-        if (submit.length) submit.before(notice);
-        else $form.append(notice);
-    });
-}
 
 /**
  * What partials.html binds outside the items loop. The default heading is the
@@ -186,47 +158,6 @@ async function renderContentPartials(
     }
 }
 
-/**
- * The <script> for arc-site.js (public/assets/js/arc-site.js), with what it needs
- * to reach the functions and the public Firestore documents, and the signup
- * panels' text in the page's language (the `signup_*` keys of its strings).
- */
-export function arcSiteScript(src: string, setup: SetupState = '', strings: Record<string, string> = {}): string {
-    const project = process.env.GCLOUD_PROJECT || '';
-    const signup = Object.fromEntries(Object.entries(strings).filter(([key, value]) => key.startsWith('signup_') && typeof value === 'string'));
-    const attrs = [
-        `src="${escapeAttr(src)}"`,
-        `data-functions="${escapeAttr(`https://${arcFunctionsRegion()}-${project}.cloudfunctions.net`)}"`,
-        `data-group="${ARC_FUNCTION_GROUP}"`,
-        `data-project="${escapeAttr(project)}"`,
-        `data-database="${escapeAttr(arcDatabaseId())}"`,
-        ...(setup ? [`data-setup="${setup}"`] : []),
-        ...(Object.keys(signup).length ? [`data-strings="${escapeAttr(JSON.stringify(signup))}"`] : []),
-        'defer',
-    ];
-    return `<script ${attrs.join(' ')}></script>`;
-}
-
-/** Whether the setup wizard was still to do when the page was published. */
-export type SetupState = '' | 'first-run' | 'in-progress';
-
-/**
- * The setup wizard's state, decided as the app decides it (onboarding-setup.service.ts):
- * `Settings/onboarding_status` when it exists, otherwise an empty `email_lookup` means
- * a fresh install. A published page that was built during setup asks arc-site.js to
- * check again and send the owner to /onboarding; one built after setup costs nothing.
- */
-export async function setupState(): Promise<SetupState> {
-    try {
-        const status = await db.collection('Settings').doc('onboarding_status').get();
-        if (status.exists) return status.data()?.['completed'] === true ? '' : 'in-progress';
-        const lookup = await db.collection('email_lookup').limit(1).get();
-        return lookup.empty ? 'first-run' : '';
-    } catch {
-        return '';
-    }
-}
-
 function setMetaIfMissing($: cheerio.CheerioAPI, attr: 'name' | 'property', key: string, content: string): void {
     if (!content || $(`meta[${attr}="${key}"]`).length) return;
     $('head').append(`<meta ${attr}="${key}" content="${escapeAttr(content)}">\n`);
@@ -283,7 +214,8 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(source.html, strings), about);
         const $body = loadHtml(html, { xmlMode: false });
         await renderContentPartials($body, lang, defaultLang, strings, about);
-        addLegalNotices($body, strings, manifest);
+        // Signup and contact forms: their notices, and contact forms only with the feature (SS5).
+        prepareLiveParts($body, strings, manifest);
         html = $body.html();
         const chrome = (part: string) => prefixAnchorHrefs(
             TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(part, strings), about), prefix, contentTypes);

@@ -19,6 +19,7 @@ export const FEATURE_IDS = [
     'payments',
     'data',
     'pwa',
+    'contact',
 ] as const;
 
 export type FeatureId = (typeof FEATURE_IDS)[number];

@@ -433,6 +433,17 @@ service cloud.firestore {
       allow create: if isValidNewFeedback(feedbackId);
     }
 
+    // Messages from the site's contact form (specs/site-sections-spec.md, SS5).
+    // Only submitContactMessage writes them (Admin SDK), after its spam checks;
+    // admins read them, change their status and delete them. Nothing else.
+    match /ContactMessages/{messageId} {
+      allow read, delete: if isAdmin();
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+                    && request.resource.data.status in ['new', 'done', 'spam'];
+      allow create: if false;
+    }
+
     // A file in the sender's own folder for this feedback, compared part by
     // part: `[upload folder/]users/{their record}/feedback/{id}/{name}`. Never a
     // pattern built from the ids, since the sender picks the feedback id and an

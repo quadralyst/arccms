@@ -330,6 +330,14 @@ describe('deployContentPage', () => {
             expect(deployDocId).toBe('doc123');
         });
 
+        // SS5: forms work on content pages too.
+        it('adds arc-site.js, the live parts\' script, to the page', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            const releasedBatch = mockDeployBatchToHosting.mock.calls[0][1];
+            const page = releasedBatch.files.find((f: any) => f.path === '/articles/test-article.html');
+            expect(page.content).toMatch(/<script src="\/assets\/js\/arc-site\.js[^"]*" data-functions=/);
+        });
+
         it('should pass correct collectionName and docId to deployFileToHosting', async () => {
             await generateAndDeployContentDetailPage('blog-posts', 'abc456');
 

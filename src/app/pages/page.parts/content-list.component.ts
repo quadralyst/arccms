@@ -1,4 +1,5 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { attachLiveParts } from '../../core/site/live-parts';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
 import { QueryParams } from '../../../shared/models/queries.model';
@@ -334,6 +335,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     }
 
     ngOnDestroy(): void {
+        this.liveScript?.remove();
         // The next page may have no variants at all.
         this.localization.languageVariants.set(null);
     }
@@ -461,6 +463,17 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         if (runScripts && isPlatformBrowser(this.platformId)) {
             setTimeout(() => this.runTemplateScripts(), 100);
         }
+        // Forms on the page work as when published (SS5), after every draw.
+        if (isPlatformBrowser(this.platformId)) setTimeout(() => this.refreshLiveParts(), 100);
+    }
+
+    /** The live parts' script for this draw's forms; removed and added again on each draw. */
+    private liveScript: HTMLScriptElement | null = null;
+
+    private refreshLiveParts(): void {
+        this.liveScript?.remove();
+        const host = this.document.querySelector('arc-content-list');
+        this.liveScript = host ? attachLiveParts(host, this.document) : null;
     }
 
     /**

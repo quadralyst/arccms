@@ -310,6 +310,16 @@
       </tbody>
     </table>
 
+    <h2>Contact form</h2>
+    <p>Deployed with the <code>contact</code> feature.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>submitContactMessage</code></td><td>Callable, public</td><td>A contact form on a published page (arc-site.js)</td><td>Checks the message (honeypot, time on the page, five an hour per sender address and per email, field lengths) and stores it in <code>ContactMessages</code>; one with many links is kept as possible spam.</td></tr>
+        <tr><td><code>onContactMessageCreated</code></td><td>Firestore trigger: <code>ContactMessages/{id}</code> created</td><td>A stored contact message</td><td>Notifies the admins (<code>admin_contact_message</code>), up to 10 alerts an hour; possible spam raises none.</td></tr>
+      </tbody>
+    </table>
+
     <h2>Analytics</h2>
     <p>Owned by <a href="../features/analytics.html">Analytics</a>. Always deployed.</p>
     <table>

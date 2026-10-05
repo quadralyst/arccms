@@ -24,10 +24,7 @@ import { withLangPrefix } from '../core/utils/language-links';
 import { PublicContentTypesService } from '../core/site/public-content-types';
 import { siteManifest } from '../core/site/site';
 import { useSiteStyles } from '../core/site/site-styles';
-import { arcConfig } from '../core/config/arc-config';
-import { ARC_FUNCTION_GROUP } from '../core/config/arc-functions';
-import { buildLegalNoticeElement, legalNoticeLang } from '../../shared/constants/legal-notice';
-import { environment } from '../../environments/environment';
+import { arcSiteScriptElement, prepareLiveParts } from '../core/site/live-parts';
 
 export const routeMeta: RouteMeta = {
     title: 'Home',
@@ -151,7 +148,8 @@ export default class HomeComponent implements OnInit, OnDestroy {
             this.host.querySelectorAll('a[href]').forEach((a) => a.setAttribute('href', withLangPrefix(a.getAttribute('href') || '', `/${lang}`, types)));
         }
         this.mountElements();
-        this.addLegalNotices();
+        // Signup and contact forms: their notices, contact forms only with the feature (SS5).
+        prepareLiveParts(this.host, this.document);
 
         // The page's scripts, in order, as the published page runs them.
         for (const old of scripts) {
@@ -162,31 +160,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
         }
         // The live parts (forms, counts, install, signed-in hint) by the same script
         // the published page runs, so what you try here is what visitors get.
-        this.add(this.document.body, this.arcSiteScript());
-    }
-
-    /** The terms notice above each signup form's button, as publishing adds it. */
-    private addLegalNotices(): void {
-        for (const form of Array.from(this.host.querySelectorAll<HTMLFormElement>('form[data-waitlist-form]'))) {
-            if (form.querySelector('[data-legal-notice]')) continue;
-            const notice = buildLegalNoticeElement(this.document, legalNoticeLang(this.document.documentElement.lang));
-            const submit = form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
-            if (submit?.parentNode) submit.parentNode.insertBefore(notice, submit);
-            else form.appendChild(notice);
-        }
-    }
-
-    /** arc-site.js with what the published page gives it (arcSiteScript in functions/src/pages/deployHomePage.ts). */
-    private arcSiteScript(): HTMLScriptElement {
-        const projectId = environment.firebaseConfig?.projectId ?? '';
-        const version = siteManifest().files['assets/js/arc-site.js'];
-        const script = this.document.createElement('script');
-        script.src = `/assets/js/arc-site.js${version ? `?v=${version}` : ''}`;
-        script.setAttribute('data-functions', `https://${arcConfig.functionsRegion}-${projectId}.cloudfunctions.net`);
-        script.setAttribute('data-group', ARC_FUNCTION_GROUP);
-        script.setAttribute('data-project', projectId);
-        script.setAttribute('data-database', arcConfig.databaseId);
-        return script;
+        this.add(this.document.body, arcSiteScriptElement(this.document));
     }
 
     private mountElements(): void {

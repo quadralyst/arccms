@@ -136,6 +136,11 @@ describe('deployStaticPage', () => {
             expect(deployedHtml).not.toContain('data-arc-site');
         });
 
+        it('adds arc-site.js, so a contact or signup form works here (SS5)', async () => {
+            await generateAndDeployStaticPage('privacy-policy');
+            expect(mockDeployFileToHosting.mock.calls[0][2]).toContain('/assets/js/arc-site.js');
+        });
+
         it('should inject site CSS link tags into <head>', async () => {
             await generateAndDeployStaticPage('privacy-policy');
 

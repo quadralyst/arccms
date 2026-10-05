@@ -7,6 +7,7 @@ import { deployFileToHosting, type HostingBatch } from './deployToHosting.js';
 import { arcHostingSite } from '../arc-config.js';
 import { getSiteFile, getSiteManifest, LEGACY_STATIC_PAGES, pageStylesheets } from '../shared/site-files.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
+import { liveSiteScript, prepareLiveParts } from '../shared/live-parts.js';
 
 /**
  * Generates and deploys a processed static page (e.g., privacy-policy, terms).
@@ -59,9 +60,14 @@ export async function generateAndDeployStaticPage(
         buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang: defaultLang, defaultLang }),
     );
 
-    // 4. Post-process: inject CSS, meta tags, and powered-by footer
+    // 4. Post-process: live parts, CSS, meta tags, and powered-by footer
     {
+        const manifest = await getSiteManifest();
         const $ = loadHtml(processedHtml, { xmlMode: false });
+
+        // The live parts (SS5): signup and contact forms work here as on the home page.
+        prepareLiveParts($, {}, manifest);
+        $('body').append(`\n${await liveSiteScript(manifest)}`);
 
         // Inject site CSS <link> tags into <head>, versioned, the site's site.css last
         const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);

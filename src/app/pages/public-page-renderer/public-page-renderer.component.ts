@@ -1,5 +1,5 @@
-import { ChangeDetectorRef, Component, inject, OnInit, ViewEncapsulation } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit, PLATFORM_ID, ViewEncapsulation } from '@angular/core';
+import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, Meta, SafeHtml, Title } from '@angular/platform-browser';
@@ -10,6 +10,7 @@ import { siteManifest, sitePageUrl } from '../../core/site/site';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { applySiteInfoToHtml } from '../../core/site/apply-site-info-dom';
+import { attachLiveParts } from '../../core/site/live-parts';
 
 @Component({
     selector: 'app-public-page-renderer',
@@ -40,7 +41,7 @@ import { applySiteInfoToHtml } from '../../core/site/apply-site-info-dom';
   `],
     encapsulation: ViewEncapsulation.None
 })
-export class PublicPageRendererComponent implements OnInit {
+export class PublicPageRendererComponent implements OnInit, OnDestroy {
     private http = inject(HttpClient);
     private route = inject(ActivatedRoute);
     private router = inject(Router);
@@ -50,10 +51,18 @@ export class PublicPageRendererComponent implements OnInit {
     private gaTracking = inject(GaTrackingService);
     private siteIdentity = inject(SiteIdentityService);
     private cdr = inject(ChangeDetectorRef);
+    private document = inject(DOCUMENT);
+    private platformId = inject(PLATFORM_ID);
+    /** The live parts' script for the page's forms (SS5). */
+    private liveScript: HTMLScriptElement | null = null;
 
     sanitizedContent: SafeHtml = '';
     hasHeader = false;
     hasFooter = false;
+
+    ngOnDestroy(): void {
+        this.liveScript?.remove();
+    }
 
     ngOnInit() {
         this.route.params.pipe(
@@ -87,6 +96,12 @@ export class PublicPageRendererComponent implements OnInit {
                 const about = htmlContent.includes('data-arc-site') ? await this.siteIdentity.load() : null;
                 this.processHtml(applySiteInfoToHtml(htmlContent, about));
                 this.cdr.detectChanges();
+                // Signup and contact forms on the page work as when published (SS5).
+                if (isPlatformBrowser(this.platformId)) {
+                    this.liveScript?.remove();
+                    const content = this.document.querySelector('.public-page-content');
+                    this.liveScript = content ? attachLiveParts(content, this.document) : null;
+                }
             } else {
                 this.router.navigate(['/404']);
             }

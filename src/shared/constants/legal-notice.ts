@@ -93,3 +93,39 @@ export function buildLegalNoticeElement(doc: Document, lang: LegalNoticeLang, no
     }
     return p;
 }
+
+/**
+ * The privacy line under a contact form (specs/site-sections-spec.md, SS5), as
+ * publishing writes it (functions/src/shared/live-parts.ts, contact_notice): "We
+ * use your details only to reply." and the privacy page's link when the site
+ * has one.
+ */
+export const CONTACT_NOTICE = {
+    en: 'We use your details only to reply. {privacy}',
+    hi: 'हम आपकी जानकारी सिर्फ़ जवाब देने के लिए इस्तेमाल करते हैं। {privacy}',
+} as const;
+
+export function buildContactNoticeElement(doc: Document, lang: LegalNoticeLang, notice = LEGAL_NOTICE): HTMLElement {
+    const p = doc.createElement('p');
+    p.className = 'arc-contact-notice';
+    p.setAttribute('data-contact-notice', '');
+    p.style.cssText = 'font-size: 0.8rem; opacity: 0.75; margin: 0.5rem 0; line-height: 1.4;';
+    const privacy = (notice.text[lang] ?? notice.text.en).privacy;
+    for (const piece of (CONTACT_NOTICE[lang] ?? CONTACT_NOTICE.en).split(/(\{privacy\})/).filter(Boolean)) {
+        if (piece !== '{privacy}') {
+            p.appendChild(doc.createTextNode(piece));
+        } else if (notice.privacyUrl) {
+            const a = doc.createElement('a');
+            a.href = notice.privacyUrl;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.style.color = 'inherit';
+            a.style.textDecoration = 'underline';
+            a.textContent = privacy;
+            p.appendChild(a);
+        } else {
+            p.appendChild(doc.createTextNode(privacy));
+        }
+    }
+    return p;
+}

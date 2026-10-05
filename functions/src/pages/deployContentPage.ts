@@ -34,6 +34,7 @@ import {
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { getSiteManifest, loadSiteTemplate, pageStylesheets } from '../shared/site-files.js';
+import { liveSiteScript, withLiveParts } from '../shared/live-parts.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { publicContentTypeSlugs } from '../shared/public-content-types.js';
@@ -468,7 +469,11 @@ export async function generateAndDeployContentDetailPage(
         };
 
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
-        const fullHtml = buildHtmlDocument(body, meta, '', '', styles, scripts, poweredBy);
+        // The live parts (SS5): signup and contact forms work here as on the home page.
+        const manifest = await getSiteManifest();
+        const liveBody = withLiveParts(body, pageStrings, manifest);
+        const liveScripts = [scripts, await liveSiteScript(manifest, pageStrings)].filter(Boolean).join('\n');
+        const fullHtml = buildHtmlDocument(liveBody, meta, '', '', styles, liveScripts, poweredBy);
 
         // Links to the site's files carry their version (shared/site-urls.ts).
         target.add(detailFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug), versionSiteUrls(fullHtml, (await getSiteManifest())?.files));

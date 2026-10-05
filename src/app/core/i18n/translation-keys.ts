@@ -585,6 +585,23 @@ export type TranslationKey =
     | 'admin.media.supports'
     | 'admin.media.upload_new'
     | 'admin.media.uploaded'
+    | 'admin.messages.delete_confirm'
+    | 'admin.messages.empty'
+    | 'admin.messages.empty_hint'
+    | 'admin.messages.empty_new'
+    | 'admin.messages.filter'
+    | 'admin.messages.load_more'
+    | 'admin.messages.mark_done'
+    | 'admin.messages.mark_new'
+    | 'admin.messages.not_spam'
+    | 'admin.messages.reply'
+    | 'admin.messages.sent_from'
+    | 'admin.messages.spam_hint'
+    | 'admin.messages.subtitle'
+    | 'admin.messages.tab_done'
+    | 'admin.messages.tab_new'
+    | 'admin.messages.tab_spam'
+    | 'admin.messages.title'
     | 'admin.nav.about'
     | 'admin.nav.announcements'
     | 'admin.nav.app_users'
@@ -615,6 +632,7 @@ export type TranslationKey =
     | 'admin.nav.logout_confirm'
     | 'admin.nav.logout_success'
     | 'admin.nav.media_manager'
+    | 'admin.nav.messages'
     | 'admin.nav.products'
     | 'admin.nav.profile'
     | 'admin.nav.settings'
@@ -2089,6 +2107,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.supports',
     'admin.media.upload_new',
     'admin.media.uploaded',
+    'admin.messages.delete_confirm',
+    'admin.messages.empty',
+    'admin.messages.empty_hint',
+    'admin.messages.empty_new',
+    'admin.messages.filter',
+    'admin.messages.load_more',
+    'admin.messages.mark_done',
+    'admin.messages.mark_new',
+    'admin.messages.not_spam',
+    'admin.messages.reply',
+    'admin.messages.sent_from',
+    'admin.messages.spam_hint',
+    'admin.messages.subtitle',
+    'admin.messages.tab_done',
+    'admin.messages.tab_new',
+    'admin.messages.tab_spam',
+    'admin.messages.title',
     'admin.nav.about',
     'admin.nav.announcements',
     'admin.nav.app_users',
@@ -2119,6 +2154,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.logout_confirm',
     'admin.nav.logout_success',
     'admin.nav.media_manager',
+    'admin.nav.messages',
     'admin.nav.products',
     'admin.nav.profile',
     'admin.nav.settings',

@@ -13,6 +13,11 @@
  *   position and referral link. The terms notice is added by the publish pipeline,
  *   and by the app's preview of the home page (src/app/pages/index.page.ts), which
  *   runs this same script.
+ * - Contact forms, <form data-arc-contact-form> with inputs named name, email,
+ *   phone, subject and message (email and message required): sent to
+ *   submitContactMessage, then replaced by a thank-you. A hidden honeypot input
+ *   and the time since the page loaded go with it, for the server's spam checks
+ *   (specs/site-sections-spec.md, SS5). The privacy line is added by publishing.
  * - Live counts, <span data-waitlist-count="form-id">: confirmed sign-ups.
  * - Referral codes from ?ref=, kept for the next sign-up (as the app does).
  * - Signup metadata: the same fields and visitor history as the app's forms
@@ -638,6 +643,87 @@
         Array.prototype.forEach.call(document.querySelectorAll('[data-arc-signed-out]'), function (el) { el.hidden = signedIn; });
     }
 
+    // ─── Contact forms ─────────────────────────────────────────────────────
+
+    var CONTACT_FIELDS = ['name', 'email', 'phone', 'subject', 'message'];
+    var EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    /** A line under the form for what went wrong, created on first use. */
+    function contactStatus(form, message) {
+        var el = form.querySelector('[data-contact-status]');
+        if (!el) {
+            el = document.createElement('p');
+            el.setAttribute('data-contact-status', '');
+            el.setAttribute('role', 'alert');
+            el.className = 'arc-contact-error';
+            el.style.cssText = 'color:#b42318;font-size:0.9rem;margin:0.5rem 0;';
+            form.appendChild(el);
+        }
+        el.textContent = message;
+    }
+
+    function bindContactForm(form) {
+        if (form.hasAttribute('data-arc-bound')) return;
+        form.setAttribute('data-arc-bound', '');
+        // People never see or fill this; a bot filling every input does.
+        var trap = document.createElement('input');
+        trap.type = 'text';
+        trap.name = 'website';
+        trap.tabIndex = -1;
+        trap.autocomplete = 'off';
+        trap.setAttribute('aria-hidden', 'true');
+        trap.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;opacity:0;';
+        form.appendChild(trap);
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            sendContact(form);
+        });
+    }
+
+    function sendContact(form) {
+        var data = {
+            page: location.pathname,
+            lang: document.documentElement.lang || '',
+            elapsedMs: Date.now() - visit.loadedAt,
+            website: form.elements.namedItem('website') ? form.elements.namedItem('website').value : '',
+        };
+        CONTACT_FIELDS.forEach(function (name) {
+            var input = form.elements.namedItem(name);
+            if (input && typeof input.value === 'string') data[name] = input.value.trim();
+        });
+        if (!data.email || !EMAIL_PATTERN.test(data.email)) {
+            contactStatus(form, t('contact_invalid_email', 'Please enter a valid email address.'));
+            if (form.elements.namedItem('email')) form.elements.namedItem('email').focus();
+            return;
+        }
+        if (!data.message) {
+            contactStatus(form, t('contact_no_message', 'Please write a message.'));
+            if (form.elements.namedItem('message')) form.elements.namedItem('message').focus();
+            return;
+        }
+
+        var button = form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
+        var label = button ? (button.tagName === 'INPUT' ? button.value : button.textContent) : '';
+        var setButton = function (text, busy) {
+            if (!button) return;
+            button.disabled = busy;
+            if (button.tagName === 'INPUT') button.value = text; else button.textContent = text;
+        };
+        setButton(t('contact_sending', 'Sending...'), true);
+
+        call('submitContactMessage', data).then(function () {
+            render(form, '<p class="arc-contact-sent" role="status" style="margin:0;">'
+                + escapeHtml(t('contact_sent', 'Thank you. Your message is on its way, and we will reply soon.')) + '</p>');
+        }).catch(function (error) {
+            setButton(label, false);
+            contactStatus(form, error.code === 'RESOURCE_EXHAUSTED'
+                ? t('contact_too_many', 'You have sent several messages already. Please try again in an hour.')
+                : error.code === 'INVALID_ARGUMENT'
+                    ? t('contact_invalid', 'Please check your email address and message, then send again.')
+                    : t('contact_error', 'Your message could not be sent. Please try again.'));
+        });
+    }
+
     // ─── Setup ─────────────────────────────────────────────────────────────
 
     /**
@@ -668,6 +754,8 @@
             startTracking();
             Array.prototype.forEach.call(forms, bindForm);
         }
+        var contactForms = document.querySelectorAll('form[data-arc-contact-form]');
+        if (config.functions) Array.prototype.forEach.call(contactForms, bindContactForm);
         if (config.project) updateCounts();
     }
 
