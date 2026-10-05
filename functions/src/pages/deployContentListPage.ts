@@ -9,6 +9,7 @@ import {
     mergeTranslation,
 } from '../shared/content-translation.js';
 import { cardData } from '../shared/content-cards.js';
+import { readPublishedInDisplayOrder } from './published-entries.js';
 import { contentTypeDescription, contentTypeName } from '../shared/content-type-names.js';
 import { buildBreadcrumbList, buildCollectionPage } from '../shared/structured-data.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
@@ -22,6 +23,8 @@ import {
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { getSiteManifest, loadSiteTemplate, pageStylesheets } from '../shared/site-files.js';
+import { siteInfoFor } from '../shared/site-info-source.js';
+import { liveSiteScript, withLiveParts } from '../shared/live-parts.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { publicContentTypeSlugs } from '../shared/public-content-types.js';
@@ -79,14 +82,9 @@ export async function generateAndDeployContentListPage(
     }
     const contentType = contentTypeQuery.docs[0].data();
 
-    // 2. Read published content, ordered by publishedOn desc (capped at 100)
+    // 2. Read published content in the type's entry order (capped at 100)
     const collectionName = getPublishedCollectionName(contentTypeSlug);
-    const contentsSnap = await db
-        .collection(collectionName)
-        .orderBy('publishedOn', 'desc')
-        .limit(100)
-        .get();
-    const contents = contentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const contents = await readPublishedInDisplayOrder(contentTypeSlug, contentType, 100);
 
     // 3. Load partials + site config + misc settings + languages
     const [partials, siteConfig, miscSettings, localization, about] = await Promise.all([
@@ -173,7 +171,11 @@ export async function generateAndDeployContentListPage(
         // interpolation — "Back to {{ contentType }}" — and before loops so a
         // repeated item template is translated once rather than per item.
         const uiStrings = lang === defaultLang ? {} : await getUiStrings(lang);
-        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, uiStrings);
+        // Then the site's own details (SS3) and its standard pages (SS6), before
+        // hydration can touch a loop row's {{ url }}.
+        const siteInfo = await siteInfoFor(lang, defaultLang);
+        const localizedTemplate = TemplateHydrationService.applySiteInfo(
+            TemplateHydrationService.applyStrings(templateHtml, uiStrings), siteInfo);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
@@ -184,7 +186,7 @@ export async function generateAndDeployContentListPage(
         // it the page reads in Hindi and its chrome navigates to English.
         const contentTypes = await publicContentTypeSlugs();
         const chrome = (html: string) =>
-            prefixAnchorHrefs(TemplateHydrationService.applyStrings(html, uiStrings), prefix, contentTypes);
+            prefixAnchorHrefs(TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, uiStrings), siteInfo), prefix, contentTypes);
 
         hydratedHtml = replaceArcComponents(
             hydratedHtml,
@@ -236,7 +238,11 @@ export async function generateAndDeployContentListPage(
         };
 
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
-        const fullHtml = buildHtmlDocument(body, meta, '', '', styles, scripts, poweredBy);
+        // The live parts (SS5): signup and contact forms work here as on the home page.
+        const manifest = await getSiteManifest();
+        const liveBody = withLiveParts(body, uiStrings, manifest, siteInfo.pages);
+        const liveScripts = [scripts, await liveSiteScript(manifest, uiStrings)].filter(Boolean).join('\n');
+        const fullHtml = buildHtmlDocument(liveBody, meta, '', '', styles, liveScripts, poweredBy);
 
         // Links to the site's files carry their version (shared/site-urls.ts).
         target.add(listFilePath(lang, defaultLang, contentTypeSlug), versionSiteUrls(fullHtml, (await getSiteManifest())?.files));

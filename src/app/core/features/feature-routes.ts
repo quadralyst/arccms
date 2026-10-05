@@ -41,6 +41,7 @@ export const FEATURE_URLS: Record<FeatureId, readonly string[]> = {
         'admin/export-files/**', 'admin/import-files/**',
     ],
     pwa: [],
+    contact: ['admin/messages/**'],
 };
 
 /**

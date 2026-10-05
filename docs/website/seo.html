@@ -16,14 +16,14 @@
     <h2>Fill in who you are</h2>
     <ol class="steps">
       <li><p>Open <strong>Settings</strong>, then <strong>About</strong>. Set <strong>Site Name</strong> and <strong>Production URL</strong>, the address people will use, such as <code>https://www.example.com</code>.</p></li>
-      <li><p>Under <strong>Identity for search engines and AI assistants</strong>, choose the <strong>Publisher type</strong>, and fill in <strong>Logo URL</strong> (absolute, at least 112 by 112 pixels), a one or two sentence <strong>Description</strong>, and your <strong>Profiles elsewhere (sameAs)</strong>, one per line. These go on every page as schema.org data. Press <strong>Save Settings</strong>.</p></li>
+      <li><p>Under <strong>Identity for search engines and AI assistants</strong>, choose the <strong>Publisher type</strong>, and fill in <strong>Logo URL</strong> (absolute, at least 112 by 112 pixels), a one or two sentence <strong>Description</strong>, your <strong>Social and profile links</strong> (one per line), and the public contact email and phone if you want them shown. These go on every page as schema.org data, and your site can print them too (see <a href="editable-sections.html">Let editors change your home page</a>). Press <strong>Save Settings</strong>.</p></li>
       <li><p>Open <strong>Settings</strong>, then <strong>Discoverability</strong>. Every AI crawler is allowed by default. Block the <strong>Training bots</strong> if you do not want your pages used to train models; leave the <strong>Search and answer bots</strong> allowed, or assistants cannot cite you. Leave <strong>Publish /llms.txt and /llms-full.txt</strong> and <strong>Notify search engines on publish (IndexNow)</strong> on.</p></li>
       <li><p>Press <strong>Save and apply to site</strong>.</p></li>
     </ol>
     <div class="trap"><p>Canonical links and the sitemap are built from the <strong>Production URL</strong>. Left empty, they point at the Firebase Hosting address, and search engines index that instead of your domain. Set it before launch. Saving it republishes the home page; to write every other page again, use <strong>Republish website</strong> (<strong>Content</strong>, <strong>Content types</strong>) or deploy the website with <code>npm run deploy</code>.</p></div>
 
     <h2>Say what each content type is</h2>
-    <p>Pages publish as an Article by default, which fits most writing. For a type that is something else, edit it under <strong>Content types</strong> and use the <strong>Structured data</strong> section: choose Product, Service, Event, Person, Recipe or How-to guide (or Blog post, News article), then map each property to one of your custom fields. Unmapped properties are left out.</p>
+    <p>Pages publish as an Article by default, which fits most writing. For a type that is something else, edit it under <strong>Content types</strong> and use the <strong>Structured data</strong> section: choose Product, Service, Event, Person, Recipe or How-to guide (or Blog post, News article, or Web page for a page that is not an article, as the standard pages use), then map each property to one of your custom fields. Unmapped properties are left out.</p>
 
     <h2>What is written for you</h2>
     <table>
@@ -33,7 +33,7 @@
         <tr><td><code>/robots.txt</code>, with your crawler choices and the sitemap address</td><td>Every publish, and <strong>Save and apply to site</strong></td></tr>
         <tr><td><code>/llms.txt</code> and <code>/llms-full.txt</code></td><td>The same, unless switched off</td></tr>
         <tr><td>A Markdown copy of each item at its URL plus <code>.md</code></td><td>When the item is published</td></tr>
-        <tr><td>Structured data (organization, page type, author, breadcrumbs, FAQ and other blocks)</td><td>In every published content page. Static pages (<code>/p/…</code>) carry none: only the head tags you write in them.</td></tr>
+        <tr><td>Structured data (organization, page type, author, breadcrumbs, FAQ and other blocks, and the rows of an FAQ field)</td><td>In every published content page. Static pages (<code>/p/…</code>) carry none: only the head tags you write in them.</td></tr>
         <tr><td>Your home page's head tags: canonical address, language links, Open Graph and Twitter tags, the site's structured data (see <a href="home-page.html">Build your home page</a>)</td><td>Every website deploy, <strong>Republish website</strong>, when content it shows changes, and when you save a setting it uses</td></tr>
       </tbody>
     </table>

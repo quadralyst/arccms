@@ -181,7 +181,8 @@
       "logout_success": "Logout successful.",
       "authors": "Authors",
       "sms_logs": "SMS Logs",
-      "feedback": "Feedback"
+      "feedback": "Feedback",
+      "messages": "Messages"
     },
     "settings": {
       "localization": {
@@ -289,7 +290,7 @@
         "production_url_hint": "The public base URL of your site. Used for canonical links, sitemaps, and SEO.",
         "production_url_placeholder": "e.g. https://www.example.com",
         "address": "Address",
-        "address_hint": "Physical address shown in the footer of outgoing emails (required by anti-spam laws).",
+        "address_hint": "Physical address shown in the footer of outgoing emails (required by anti-spam laws), and on your site where a page asks for it.",
         "identity_heading": "Identity for search engines and AI assistants",
         "identity_intro": "These details are published on every page as structured data (schema.org), so Google and AI assistants can tell who publishes this site.",
         "organization_type": "Publisher type",
@@ -301,11 +302,14 @@
         "description": "Description",
         "description_hint": "One or two sentences on what this site or organisation is.",
         "description_placeholder": "e.g. Acme builds accounting software for small businesses in India.",
-        "same_as": "Profiles elsewhere (sameAs)",
-        "same_as_hint": "One URL per line: social accounts, Wikipedia, Crunchbase, GitHub, LinkedIn. They tell search engines these profiles are the same entity.",
+        "same_as": "Social and profile links",
+        "same_as_hint": "One URL per line: social accounts, LinkedIn, GitHub, Wikipedia. Shown as social links where your site asks for them, and listed for search engines as the same organisation.",
         "same_as_placeholder": "https://www.linkedin.com/company/acme\nhttps://x.com/acme",
         "contact_email": "Public contact email",
-        "contact_email_hint": "Optional. Published in the structured data; leave empty to publish none.",
+        "contact_email_hint": "Optional. Shown on your site where a page asks for it, and published in the structured data. Leave empty to publish none.",
+        "phone": "Public phone",
+        "phone_placeholder": "e.g. +91 98765 43210",
+        "phone_hint": "Optional. Shown on your site where a page asks for it, and published in the structured data.",
         "address_placeholder": "e.g. 123 Main St, City, Country",
         "intro": "Configure your site's identity. These values are used in SEO meta tags, canonical URLs, and email footers."
       },
@@ -898,10 +902,16 @@
           "icon": "Icon (Font Awesome)",
           "icon_search_placeholder": "Search icons... (e.g., folder, file, image)",
           "public_pages": "Generate public pages",
-          "public_pages_off": "Content of this type will not have standalone web pages.",
+          "public_pages_off": "Content of this type will not have standalone web pages. It can still show as cards on your home page.",
           "template": "Content Template",
           "template_loading": "Loading templates...",
           "template_hint": "Select a template for displaying this content type's list and detail pages",
+          "card_template": "Card template",
+          "card_template_hint": "Used for this type's cards on the home page.",
+          "entry_order": "Entry order",
+          "entry_order_newest": "Newest first",
+          "entry_order_manual": "Your own order",
+          "entry_order_hint": "Drag entries into place with Arrange on the entry list. The list page and home page cards follow it.",
           "custom_fields": "Custom fields",
           "custom_field_labels": "Custom field labels",
           "no_custom_fields": "This content type has no custom fields yet.",
@@ -948,11 +958,19 @@
         "create_failed": "Error creating content type",
         "updated": "Content type updated successfully",
         "update_failed": "Error updating content type",
+        "entry_order_failed": "Saved, but the entries could not be put in the new order. Try Arrange on the entry list.",
         "slug_exists": "Slug \"{{ slug }}\" already exists.",
         "republish_site": "Republish website",
         "republish_site_hint": "Publish every page, the home page and the sitemap again, from the live website's templates",
         "republish_started": "Republishing the website. It takes a minute or two.",
-        "republish_failed": "Could not start republishing the website."
+        "republish_failed": "Could not start republishing the website.",
+        "standard_pages": "Add standard pages",
+        "standard_pages_hint": "Adds About, Contact, FAQ, Privacy Policy, Terms and Cookie Policy as drafts, ready to fill in.",
+        "standard_pages_added": "Added {{ count }} pages as drafts. Replace the outline text, then publish each one.",
+        "standard_pages_fields_added": "Your standard pages are all there. Added the new fields to Info Pages: {{ fields }}.",
+        "standard_pages_complete": "Your standard pages are all there already.",
+        "standard_pages_taken": "A content type already uses the address /info, so the standard pages were not added.",
+        "standard_pages_failed": "Could not add the standard pages. Please try again."
       },
       "editor": {
         "preview": "Preview",
@@ -1040,11 +1058,15 @@
         "author_none": "No author",
         "author_hint": "Shown on the page byline and sent to search engines as the author. Manage authors under Content.",
         "manage_authors": "Manage authors",
+        "layout": "Layout",
+        "layout_standard": "Standard",
+        "layout_hint": "How this page is laid out. Standard is the layout every page of this type has.",
         "references": "Sources",
         "references_hint": "Pages this piece draws on. Shown as a Sources list at the end and told to search engines as citations, which is a credibility signal for both Google and AI assistants.",
         "reference_title_placeholder": "Title (optional)",
         "add_reference": "Add source",
-        "tab_checks": "Checks"
+        "tab_checks": "Checks",
+        "replace_prompt_confirm": "This page still has text to replace (it starts with \"[Replace:\"). Publish anyway?"
       },
       "list": {
         "type_not_found": "Content Type Not Found",
@@ -1067,7 +1089,8 @@
         "unpublish_failed": "Failed to unpublish content.",
         "view_save_failed": "Failed to save view preferences.",
         "add_item": "Add {{ type }}",
-        "manage_subtitle": "Manage your {{ type }}"
+        "manage_subtitle": "Manage your {{ type }}",
+        "arrange": "Arrange"
       },
       "authors": {
         "page_title": "Authors",
@@ -1151,6 +1174,22 @@
         "message": "Your site files differ from the live site, and publishing uses the live ones. Deploy the website first.",
         "missing": "The live site has no site files yet, so publishing cannot work. Deploy the website first.",
         "files": "Different files: {{files}}"
+      },
+      "arrange": {
+        "title": "Arrange {{ type }}",
+        "hint": "Drag entries into the order your site should show them, or use the arrows. Drafts keep their place for when you publish them.",
+        "loading": "Loading entries...",
+        "empty": "There are no entries to arrange yet.",
+        "too_many": "The list page shows the first 100 entries in this order.",
+        "drag": "Drag to move",
+        "untitled": "(no title)",
+        "draft": "Draft",
+        "move_up": "Move \"{{ title }}\" up",
+        "move_down": "Move \"{{ title }}\" down",
+        "saving": "Saving...",
+        "saved": "Order saved. Your pages are being updated.",
+        "save_failed": "Could not save the order. Please try again.",
+        "load_failed": "Could not load the entries."
       }
     },
     "users": {
@@ -1585,6 +1624,25 @@
       "delete_confirm": "Delete this feedback, with its screenshot and voice note?",
       "installed_app": "installed app",
       "load_more": "Load more"
+    },
+    "messages": {
+      "title": "Messages",
+      "subtitle": "What people sent with the contact form on your site.",
+      "filter": "Show",
+      "tab_new": "New",
+      "tab_done": "Done",
+      "tab_spam": "Possible spam",
+      "spam_hint": "Messages with many links land here and send no alert. Move a real one back with Not spam.",
+      "empty_new": "No new messages.",
+      "empty": "Nothing here.",
+      "empty_hint": "Messages arrive here when someone uses the contact form on your site.",
+      "sent_from": "Sent from",
+      "reply": "Reply",
+      "mark_done": "Mark done",
+      "mark_new": "Move to new",
+      "not_spam": "Not spam",
+      "load_more": "Load more",
+      "delete_confirm": "Delete this message? This cannot be undone."
     }
   },
   "user": {

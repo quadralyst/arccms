@@ -1,4 +1,5 @@
 import { parseHexColor } from '../../../../../shared/utils/color';
+import { hasReplacePrompt } from '../standard-pages/standard-pages';
 import { nextUrlSlug, toUrlSlug } from '../../../../../shared/utils/url-slug';
 import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
@@ -59,6 +60,7 @@ import {
   isTranslationEmpty,
 } from '../draft-content-store/content-translation.model';
 import { isOn } from '../../../../core/features/features';
+import { layoutLabel, siteLayouts } from '../../../../core/site/site';
 
 /**
  * The subset of editor state that varies by language. Everything else on a
@@ -338,6 +340,14 @@ export class CreateContentComponent extends BaseComponent {
     const contentTypes = this.contentTypeStore.items();
     return contentTypes.find((ct: ContentType) => ct.slug === slug) || null;
   });
+
+  /**
+   * The layouts this type's template folder offers (specs/site-sections-spec.md,
+   * SS8): other detail pages an entry can choose. Empty for most types, and then
+   * the Layout picker is not shown.
+   */
+  layoutOptions = computed(() => siteLayouts(this.currentContentType()?.templateFolder)
+    .map((name) => ({ name, label: layoutLabel(name) })));
 
   // Get current content type fields
   get currentFields(): ContentTypeField[] {
@@ -1474,6 +1484,7 @@ export class CreateContentComponent extends BaseComponent {
       coverImage:
         contentData?.coverImage !== '' ? contentData?.coverImage : null,
       authorId: contentData?.authorId || '',
+      layout: contentData?.layout || '',
     });
 
     this.seoForm.patchValue({
@@ -1543,6 +1554,7 @@ export class CreateContentComponent extends BaseComponent {
       tags: [[]],
       coverImage: [null],
       authorId: [''],
+      layout: [''],
     });
 
     // Sync summary changes to metaDescription
@@ -2143,6 +2155,13 @@ export class CreateContentComponent extends BaseComponent {
 
     // Check for duplicate URL slug (excluding current item if editing)
     if (urlSlug && !this.validateSlugUniqueness(urlSlug)) {
+      return;
+    }
+
+    // Outline text still to replace, as the standard pages start with (SS6):
+    // ask before it goes live. A warning, not a block.
+    if (hasReplacePrompt(this.buildDraftFormValues())
+      && !window.confirm(this.transloco.translate('admin.contents.editor.replace_prompt_confirm'))) {
       return;
     }
 

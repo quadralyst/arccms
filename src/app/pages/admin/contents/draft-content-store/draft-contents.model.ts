@@ -45,6 +45,8 @@ export interface IDraftContents extends IBaseModel {
      */
     authorId?: string | null;
     authorName?: string;
+    /** The detail layout chosen in the editor; empty for the folder's detail.html (specs/site-sections-spec.md, SS8). */
+    layout?: string;
     /**
      * Sources the author cited (specs/discoverability-spec.md, D-D11):
      * rendered as a "Sources" list and emitted as Article.citation.

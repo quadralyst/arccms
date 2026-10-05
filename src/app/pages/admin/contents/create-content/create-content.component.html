@@ -477,6 +477,26 @@
                             <small class="text-muted">{{ 'admin.contents.editor.author_hint' | transloco }}</small>
                         </div>
 
+                        <!-- Layout (specs/site-sections-spec.md, SS8): only when the type's folder has layouts -->
+                        @if (layoutOptions().length) {
+                        <div class="form-group">
+                            <label class="form-label" for="layoutSelect">
+                                {{ 'admin.contents.editor.layout' | transloco }}
+                                @if(isTranslating()){
+                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                }
+                            </label>
+                            <select id="layoutSelect" class="form-select form-select-sm" formControlName="layout"
+                                (change)="triggerAutoSave()" [attr.disabled]="isTranslating() ? '' : null" data-testid="layout-select">
+                                <option value="">{{ 'admin.contents.editor.layout_standard' | transloco }}</option>
+                                @for (option of layoutOptions(); track option.name) {
+                                <option [value]="option.name">{{ option.label }}</option>
+                                }
+                            </select>
+                            <small class="text-muted">{{ 'admin.contents.editor.layout_hint' | transloco }}</small>
+                        </div>
+                        }
+
                         <!-- Tags with Autocomplete -->
                         <div class="form-group">
                             <label class="form-label">{{ 'admin.contents.editor.tags' | transloco }}</label>

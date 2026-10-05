@@ -134,4 +134,20 @@ describe('buildMappedNode', () => {
         expect(minutesToDuration(120)).toBe('PT2H');
         expect(minutesToDuration(undefined)).toBeUndefined();
     });
+
+    // SS6: a plain page, such as a policy, publishes as a WebPage.
+    it('builds a WebPage with no author or article date, published by the site\'s owner', () => {
+        const node = buildMappedNode({
+            schema: { type: 'WebPage', fields: {} },
+            customFields: {},
+            ownerName: 'Kumar',
+            publisherId: 'https://x.com/#organization',
+            howTo: null,
+            article: { url: 'https://x.com/info/terms', headline: 'Terms', description: 'Our terms.', dateModified: '2026-10-05', datePublished: '2026-10-01', author: { name: 'Asha' } } as never,
+        })!;
+        expect(node).toMatchObject({ '@type': 'WebPage', '@id': 'https://x.com/info/terms', url: 'https://x.com/info/terms', name: 'Terms', dateModified: '2026-10-05', publisher: { '@id': 'https://x.com/#organization' } });
+        expect(node).not.toHaveProperty('author');
+        expect(node).not.toHaveProperty('datePublished');
+        expect(node).not.toHaveProperty('mainEntityOfPage');
+    });
 });

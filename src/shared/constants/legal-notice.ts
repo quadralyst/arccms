@@ -43,6 +43,20 @@ export const LEGAL_NOTICE = {
 
 export type LegalNoticeLang = keyof typeof LEGAL_NOTICE.text;
 
+/** A notice's links: the terms and privacy pages, '' for none. */
+export type LegalNotice = Omit<typeof LEGAL_NOTICE, 'termsUrl' | 'privacyUrl'> & { termsUrl: string; privacyUrl: string };
+
+/**
+ * The notice linking the published standard pages (/info/terms,
+ * /info/privacy-policy; specs/site-sections-spec.md, SS6) when the site has
+ * them, else the app's static pages as before. Publishing does the same
+ * (noticePageUrl in functions/src/shared/live-parts.ts).
+ */
+export function legalNoticeWithPages(pages: readonly { url: string }[], notice: LegalNotice = LEGAL_NOTICE): LegalNotice {
+    const find = (page: string) => pages.find((p) => p.url.split('/').pop() === page)?.url;
+    return { ...notice, termsUrl: find('terms') || notice.termsUrl, privacyUrl: find('privacy-policy') || notice.privacyUrl };
+}
+
 /** One run of the notice: plain text, or a label with a link when its URL is set. */
 export interface LegalNoticePart {
     text: string;
@@ -56,7 +70,7 @@ export function legalNoticeLang(pageLang: string | null | undefined): LegalNotic
 }
 
 /** The notice split into runs, in the given language. */
-export function legalNoticeParts(lang: LegalNoticeLang = 'en', notice = LEGAL_NOTICE): LegalNoticePart[] {
+export function legalNoticeParts(lang: LegalNoticeLang = 'en', notice: LegalNotice = LEGAL_NOTICE): LegalNoticePart[] {
     const t = notice.text[lang] ?? notice.text.en;
     const links: Record<string, LegalNoticePart> = {
         terms: { text: t.terms, ...(notice.termsUrl ? { href: notice.termsUrl } : {}) },
@@ -72,7 +86,7 @@ export function legalNoticeParts(lang: LegalNoticeLang = 'en', notice = LEGAL_NO
  * The notice as a DOM element, for forms the app does not render itself (the
  * landing-page signup forms). Built with DOM calls, not innerHTML.
  */
-export function buildLegalNoticeElement(doc: Document, lang: LegalNoticeLang, notice = LEGAL_NOTICE): HTMLElement {
+export function buildLegalNoticeElement(doc: Document, lang: LegalNoticeLang, notice: LegalNotice = LEGAL_NOTICE): HTMLElement {
     const p = doc.createElement('p');
     p.className = 'arc-legal-notice';
     p.setAttribute('data-legal-notice', '');
@@ -89,6 +103,42 @@ export function buildLegalNoticeElement(doc: Document, lang: LegalNoticeLang, no
             p.appendChild(a);
         } else {
             p.appendChild(doc.createTextNode(part.text));
+        }
+    }
+    return p;
+}
+
+/**
+ * The privacy line under a contact form (specs/site-sections-spec.md, SS5), as
+ * publishing writes it (functions/src/shared/live-parts.ts, contact_notice): "We
+ * use your details only to reply." and the privacy page's link when the site
+ * has one.
+ */
+export const CONTACT_NOTICE = {
+    en: 'We use your details only to reply. {privacy}',
+    hi: 'हम आपकी जानकारी सिर्फ़ जवाब देने के लिए इस्तेमाल करते हैं। {privacy}',
+} as const;
+
+export function buildContactNoticeElement(doc: Document, lang: LegalNoticeLang, notice: LegalNotice = LEGAL_NOTICE): HTMLElement {
+    const p = doc.createElement('p');
+    p.className = 'arc-contact-notice';
+    p.setAttribute('data-contact-notice', '');
+    p.style.cssText = 'font-size: 0.8rem; opacity: 0.75; margin: 0.5rem 0; line-height: 1.4;';
+    const privacy = (notice.text[lang] ?? notice.text.en).privacy;
+    for (const piece of (CONTACT_NOTICE[lang] ?? CONTACT_NOTICE.en).split(/(\{privacy\})/).filter(Boolean)) {
+        if (piece !== '{privacy}') {
+            p.appendChild(doc.createTextNode(piece));
+        } else if (notice.privacyUrl) {
+            const a = doc.createElement('a');
+            a.href = notice.privacyUrl;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.style.color = 'inherit';
+            a.style.textDecoration = 'underline';
+            a.textContent = privacy;
+            p.appendChild(a);
+        } else {
+            p.appendChild(doc.createTextNode(privacy));
         }
     }
     return p;

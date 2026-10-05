@@ -1,4 +1,7 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { SitePagesService } from '../../core/site/site-pages.service';
+import { siteInfoOf } from '../../core/site/site-info-source';
+import { attachLiveParts } from '../../core/site/live-parts';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, ViewEncapsulation, effect, TransferState, makeStateKey } from '@angular/core';
@@ -7,7 +10,7 @@ import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
-import { DEFAULT_TEMPLATE_FOLDER, siteTemplateUrl, templateFolderFor } from '../../core/site/site';
+import { DEFAULT_TEMPLATE_FOLDER, siteLayoutUrl, siteTemplateUrl, templateFolderFor } from '../../core/site/site';
 import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
@@ -45,6 +48,8 @@ import {
     organizationId,
     resolveContentDates,
     setJsonLd,
+    buildFaqPage,
+    faqItems,
 } from '../../../shared/utils/structured-data';
 import {
     IContentTranslation,
@@ -133,6 +138,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private titleService = inject(Title);
     private metaService = inject(Meta);
     private siteIdentity = inject(SiteIdentityService);
+    private sitePages = inject(SitePagesService);
     private authorProfiles = inject(AuthorProfileService);
 
     /** The credited author, once loaded (D2). Null when the item has none. */
@@ -297,6 +303,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         super();
         // Image size bindings fit the configured maximum, as when published.
         void this.mediaSettings.load();
+        // The site's own details for data-arc-site (SS3) and its standard pages (SS6);
+        // the template redraws when they arrive.
+        void this.siteIdentity.load();
+        void this.sitePages.load(this.uiStrings.activeLang());
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
@@ -367,6 +377,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             this.related();
             this.uiStrings.strings();
             this.mediaSettings.maxSize();
+            this.siteIdentity.identity();
+            this.sitePages.pages();
             untracked(() => {
                 if (!this.lastTemplate) return;
                 const { html, contentType, content } = this.lastTemplate;
@@ -410,8 +422,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                  }
             }
 
-            // Only load template when we have content type, content, not loading, and haven't loaded yet
-            if (contentType && content && !isLoading && !this.templateHtml()) {
+            // Load the template once there is content, and again when the item
+            // needs another one: a preview's draft can arrive after the published
+            // copy with a different layout (SS8).
+            if (contentType && content && !isLoading
+                && (!this.templateHtml() || this.templateUrlFor(contentType, content) !== this.loadedTemplateUrl)) {
                 this.loadCustomTemplate(contentType, content);
             }
         });
@@ -501,10 +516,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     }
 
     ngOnDestroy(): void {
+        this.liveScript?.remove();
         // The next page may have no variants at all.
         this.localization.languageVariants.set(null);
         // Nor the same structured data: the home page writes its own site nodes.
-        for (const id of ['arc-ld-organization', 'arc-ld-website', 'arc-ld-breadcrumbs', 'arc-ld-article']) {
+        for (const id of ['arc-ld-organization', 'arc-ld-website', 'arc-ld-breadcrumbs', 'arc-ld-article', 'arc-ld-faq']) {
             setJsonLd(this.document, id, null);
         }
         for (let i = 0; i < MAX_BLOCK_NODES; i++) setJsonLd(this.document, `arc-ld-block-${i}`, null);
@@ -644,6 +660,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                 description: identity.description,
                 sameAs: identity.sameAs,
                 contactEmail: identity.contactEmail,
+                phone: identity.phone,
                 address: identity.address,
                 organizationType: identity.organizationType,
             });
@@ -708,6 +725,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             setJsonLd(this.document, 'arc-ld-website', webSite);
             setJsonLd(this.document, 'arc-ld-breadcrumbs', breadcrumbs);
             setJsonLd(this.document, 'arc-ld-article', article);
+            // The page's questions and answers from its FAQ field (SS4). Mirrors deployContentPage.ts.
+            setJsonLd(this.document, 'arc-ld-faq', buildFaqPage(
+                faqItems(contentType?.fields, (content as any).customFields as Record<string, unknown>), pageUrl));
             // Block-derived nodes (D-D10): one script per node, cleared first
             // so a page with fewer blocks than the last one leaves none behind.
             const blockNodes = blockJsonLd(blocks, pageUrl).filter(
@@ -743,15 +763,16 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     }
 
     /**
-     * Loads the type's detail template, its folder's or the default
-     * (siteTemplateUrl), and hydrates it. A folder file that turns out not to be
-     * a template falls back to the default's once.
+     * Loads the item's detail template, its layout's (SS8), its folder's or the
+     * default (siteLayoutUrl), and hydrates it. A layout file that turns out not
+     * to be a template falls back to the folder's detail.html once, and a folder
+     * file to the default's.
      */
     private loadCustomTemplate(contentType: ContentType, content: IContents): void {
         const folder = templateFolderFor(contentType.templateFolder);
-        const url = this.rejectedTemplateFolder === folder
-            ? siteTemplateUrl(DEFAULT_TEMPLATE_FOLDER, 'detail')
-            : siteTemplateUrl(folder, 'detail');
+        const folderUrl = siteTemplateUrl(folder, 'detail');
+        const layoutUrl = siteLayoutUrl(folder, content.layout);
+        const url = this.templateUrlFor(contentType, content);
 
         // One request per template at a time; the effect can re-run several
         // times before the first response lands.
@@ -766,6 +787,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             const cachedHtml = this.transferState.get(stateKey, '');
             this.transferState.remove(stateKey);
             if (isTemplateFragment(cachedHtml)) {
+                this.loadedTemplateUrl = url;
                 this.hydrateAndSetTemplate(cachedHtml, contentType, content);
                 return;
             }
@@ -774,21 +796,29 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         this.pendingTemplateUrl = url;
         this.http.get(url, { responseType: 'text' }).subscribe({
             next: (templateHtml) => {
+                // A newer request (another layout) has replaced this one.
+                if (this.pendingTemplateUrl !== url) return;
                 this.pendingTemplateUrl = null;
                 // A missing file answers with the app shell (HTTP 200, the 404
                 // page); that is not a template.
                 if (!isTemplateFragment(templateHtml)) {
                     console.warn(`[ContentDetailComponent] ${url} is not a template fragment.`);
+                    if (url !== folderUrl && url === layoutUrl) {
+                        this.rejectedLayoutUrl = url;
+                        this.loadCustomTemplate(contentType, content);
+                        return;
+                    }
                     if (folder !== DEFAULT_TEMPLATE_FOLDER && this.rejectedTemplateFolder !== folder) {
                         this.rejectedTemplateFolder = folder;
                         this.loadCustomTemplate(contentType, content);
                     }
                     return;
                 }
+                this.loadedTemplateUrl = url;
                 this.hydrateAndSetTemplate(templateHtml, contentType, content);
             },
             error: (error) => {
-                this.pendingTemplateUrl = null;
+                if (this.pendingTemplateUrl === url) this.pendingTemplateUrl = null;
                 console.warn(`[ContentDetailComponent] Failed to load ${url}:`, error.message);
             }
         });
@@ -799,8 +829,23 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
      */
     /** A template folder whose file turned out not to be a template; the default is used instead. */
     private rejectedTemplateFolder: string | null = null;
+    /** A layout file that turned out not to be a template; the folder's detail.html is used instead. */
+    private rejectedLayoutUrl: string | null = null;
     /** The template whose request is in flight. */
     private pendingTemplateUrl: string | null = null;
+    /** The template on screen, to tell when the item needs another. */
+    private loadedTemplateUrl: string | null = null;
+
+    /**
+     * The template this item renders with: its layout's, else its folder's
+     * detail.html, else the default's, skipping a file that was not a template.
+     */
+    private templateUrlFor(contentType: ContentType, content: IContents): string {
+        const folder = templateFolderFor(contentType.templateFolder);
+        if (this.rejectedTemplateFolder === folder) return siteTemplateUrl(DEFAULT_TEMPLATE_FOLDER, 'detail');
+        const layoutUrl = siteLayoutUrl(folder, content.layout);
+        return this.rejectedLayoutUrl === layoutUrl ? siteTemplateUrl(folder, 'detail') : layoutUrl;
+    }
 
     /** The last custom template as loaded, so it can be re-hydrated when the author arrives. */
     private lastTemplate: { html: string; contentType: ContentType; content: IContents } | null = null;
@@ -888,6 +933,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // value may carry its own {{ }} and a repeated item template is
         // translated once. Mirrors the publish pipeline's order.
         hydratedHtml = TemplateHydrationService.applyStrings(hydratedHtml, this.uiStrings.strings());
+        // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
+        hydratedHtml = TemplateHydrationService.applySiteInfo(hydratedHtml, siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
 
         // Always processing loops to ensure cleanup of placeholders if empty
         hydratedHtml = TemplateHydrationService.processLoops(hydratedHtml, {
@@ -913,6 +960,17 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         if (runScripts && isPlatformBrowser(this.platformId)) {
             setTimeout(() => this.runTemplateScripts(), 0);
         }
+        // Forms on the page work as when published (SS5), after every draw.
+        if (isPlatformBrowser(this.platformId)) setTimeout(() => this.refreshLiveParts(), 0);
+    }
+
+    /** The live parts' script for this draw's forms; removed and added again on each draw. */
+    private liveScript: HTMLScriptElement | null = null;
+
+    private refreshLiveParts(): void {
+        this.liveScript?.remove();
+        const host = this.document.querySelector('arc-content-detail');
+        this.liveScript = host ? attachLiveParts(host, this.document, this.sitePages.pages()) : null;
     }
 
     /**

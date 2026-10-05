@@ -34,12 +34,16 @@ describe('arc-config (functions)', () => {
     });
 
     it('reads process.env at call time, not at import', () => {
-        const before = process.env.GCLOUD_PROJECT;
+        // Both variables arcHostingSite reads, so another test file's leftovers
+        // in a shared worker (ARC_HOSTING_SITE=none) cannot decide this one.
+        const before = { project: process.env.GCLOUD_PROJECT, site: process.env.ARC_HOSTING_SITE };
+        delete process.env.ARC_HOSTING_SITE;
         process.env.GCLOUD_PROJECT = 'changed-later';
         try {
             expect(arcHostingSite()).toBe('changed-later');
         } finally {
-            process.env.GCLOUD_PROJECT = before;
+            if (before.project === undefined) delete process.env.GCLOUD_PROJECT; else process.env.GCLOUD_PROJECT = before.project;
+            if (before.site !== undefined) process.env.ARC_HOSTING_SITE = before.site;
         }
     });
 

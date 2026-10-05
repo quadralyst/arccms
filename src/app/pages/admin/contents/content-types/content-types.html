@@ -20,6 +20,13 @@
                 <div class="content-area">
                     <arc-page-header [title]="'admin.contents.types.page_title' | transloco"
                         [subtitle]="'admin.contents.types.page_subtitle' | transloco">
+                        @if (!hasStandardPages()) {
+                        <!-- SS6: About, Contact, FAQ and the policies, as drafts at /info. -->
+                        <button mat-stroked-button (click)="addStandardPages()" [disabled]="addingStandardPages()"
+                            [title]="'admin.contents.types.standard_pages_hint' | transloco" data-testid="add-standard-pages">
+                            <mat-icon>library_add</mat-icon> {{ 'admin.contents.types.standard_pages' | transloco }}
+                        </button>
+                        }
                         <button mat-stroked-button (click)="republishSite()" [disabled]="republishing()"
                             [title]="'admin.contents.types.republish_site_hint' | transloco">
                             <mat-icon>publish</mat-icon> {{ 'admin.contents.types.republish_site' | transloco }}

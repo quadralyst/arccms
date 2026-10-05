@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Templates | Arc CMS docs</title>
   <meta name="description" content="How content pages are rendered from plain HTML templates: folders, how a template is chosen, the data-arc attributes, every binding, partials, header, footer and styles.">
-  <meta name="docs:sources" content="public/_site/templates, public/_site/header.html, public/_site/footer.html, public/assets/css/main.css, public/assets/css/site.css, scripts/arc-site.mjs, scripts/vite-arc-site.ts, src/app/core/site/site.ts, src/app/pages/page.parts/site-fragment.ts, functions/src/shared/template-hydration.ts, functions/src/shared/html-document.ts, functions/src/shared/template-fragment.ts, functions/src/shared/image-sizes.ts, functions/src/shared/site-settings.ts, functions/src/shared/site-files.ts, functions/src/shared/authors.ts, functions/src/shared/content-cards.ts, functions/src/shared/interpolate.ts, functions/src/pages/deployContentPage.ts, functions/src/pages/deployContentListPage.ts, functions/src/pages/deployHomePage.ts, src/app/core/services/template-hydration.service.ts, src/app/core/services/template-folder.service.ts, src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/page.parts/footer.component.ts, src/app/pages/index.page.ts, src/shared/utils/image-sizes.ts, functions/src/shared/site-urls.ts, src/app/core/site/site-urls.ts, src/app/core/site/site-files.interceptor.ts">
+  <meta name="docs:sources" content="public/_site/templates, public/_site/header.html, public/_site/footer.html, public/assets/css/main.css, public/assets/css/site.css, scripts/arc-site.mjs, scripts/vite-arc-site.ts, src/app/core/site/site.ts, src/app/pages/page.parts/site-fragment.ts, functions/src/shared/template-hydration.ts, functions/src/shared/html-document.ts, functions/src/shared/template-fragment.ts, functions/src/shared/image-sizes.ts, functions/src/shared/site-settings.ts, functions/src/shared/site-files.ts, functions/src/shared/authors.ts, functions/src/shared/content-cards.ts, functions/src/shared/interpolate.ts, functions/src/pages/deployContentPage.ts, functions/src/pages/deployContentListPage.ts, functions/src/pages/deployHomePage.ts, src/app/core/services/template-hydration.service.ts, src/app/core/services/template-folder.service.ts, src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/page.parts/footer.component.ts, src/app/pages/index.page.ts, src/shared/utils/image-sizes.ts, functions/src/shared/site-urls.ts, src/app/core/site/site-urls.ts, src/app/core/site/site-files.interceptor.ts, src/shared/utils/site-info.ts, functions/src/shared/site-info.ts, functions/src/shared/site-info-source.ts, src/app/core/site/apply-site-info-dom.ts, src/app/core/site/site-info-source.ts, src/app/core/site/site-pages.service.ts, public/_site/templates/info, src/app/pages/admin/contents/create-content">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/templates.html">
@@ -15,17 +15,18 @@
     <p>For the step-by-step path of designing a site's templates, see <a href="../website/templates.html">Design templates</a>. This page is the reference: the tables below are the full list of what a template can use.</p>
 
     <h2>What it is</h2>
-    <p>Each content type with public pages points at a <strong>template folder</strong>:</p>
+    <p>Each content type points at a <strong>template folder</strong>. A type without public pages uses only the folder's <code>partials.html</code>, for its cards on the home page.</p>
     <table>
       <thead><tr><th>File</th><th>Renders</th><th>Required</th></tr></thead>
       <tbody>
         <tr><td><code>list.html</code></td><td>The type's list page, <code>/{type}</code></td><td>No</td></tr>
         <tr><td><code>detail.html</code></td><td>One entry, <code>/{type}/{slug}</code></td><td>No</td></tr>
         <tr><td><code>partials.html</code></td><td>A block of cards embedded in the home page (see <a href="#partials">Partials</a>)</td><td>No</td></tr>
+        <tr><td><code>detail-{name}.html</code></td><td>Another layout for one entry, such as <code>detail-contact.html</code>, chosen in the editor (see <a href="#layouts">Layouts</a>)</td><td>No</td></tr>
       </tbody>
     </table>
     <p>A file a folder lacks is taken from the <code>default</code> folder, so a folder can hold just the one file it changes.</p>
-    <p>Arc CMS ships three folders in <code>public/_site/templates/</code>: <code>default</code> (used by any type without a folder of its own, so every type renders), <code>articles</code> and <code>manuals</code>. An app's folders go in <code class="new">src/custom/site/templates/</code>. A folder name uses lowercase letters, digits, hyphens and underscores, and starts with a letter or digit (<code>case-studies</code>, <code>blog_2</code>); a folder named otherwise is not served, and <code>npm run dev</code> warns about it. The build puts both sets together and serves them at <code>/_site/templates/{folder}/{file}.html</code>; a file in the app's folder at the same path as one of Arc CMS's replaces it. The folders offered in the admin are every folder the site has, listed by the build in <code>/_site/site.json</code> (see <a href="../app/custom-space.html">Use the custom space</a>).</p>
+    <p>Arc CMS ships three folders in <code>public/_site/templates/</code>: <code>default</code> (used by any type without a folder of its own, so every type renders), <code>articles</code>, <code>manuals</code> and <code>info</code> (the standard pages, see <a href="content.html#standard-pages">Standard pages</a>, with a Contact layout). An app's folders go in <code class="new">src/custom/site/templates/</code>. A folder name uses lowercase letters, digits, hyphens and underscores, and starts with a letter or digit (<code>case-studies</code>, <code>blog_2</code>); a folder named otherwise is not served, and <code>npm run dev</code> warns about it. The build puts both sets together and serves them at <code>/_site/templates/{folder}/{file}.html</code>; a file in the app's folder at the same path as one of Arc CMS's replaces it. The folders offered in the admin are every folder the site has, listed by the build in <code>/_site/site.json</code> (see <a href="../app/custom-space.html">Use the custom space</a>).</p>
     <p>The same template is filled in two places, and both use the same attributes:</p>
     <table>
       <thead><tr><th>Renderer</th><th>When</th><th>Where the template comes from</th></tr></thead>
@@ -71,7 +72,29 @@
         <tr><td><code>class="arc-skeleton"</code></td><td>A loading look in the app. The class is removed from an element once it is filled; see <a href="#syntax-details">Syntax details</a>.</td></tr>
       </tbody>
     </table>
-    <p>A template is filled in this order: UI strings (<code>data-arc-t</code>) first, then loops, then the page's own bindings. So a translated string may itself hold a placeholder such as <code>{{ contentType }}</code>, and a loop's row is translated once, before it is repeated. UI string keys and translations are covered in <a href="languages.html">Languages</a>.</p>
+    <p>A template is filled in this order: UI strings (<code>data-arc-t</code>) first, then site info (<code>data-arc-site</code>, below), then loops, then the page's own bindings. So a translated string may itself hold a placeholder such as <code>{{ contentType }}</code>, and a loop's row is translated once, before it is repeated. UI string keys and translations are covered in <a href="languages.html">Languages</a>.</p>
+
+    <h3 id="site-info">Site info</h3>
+    <p>The site's own details, typed once in <strong>Settings</strong>, <strong>About</strong>, print on any page with <code>data-arc-site</code>: in the header, the footer, the home page, every template (list, detail and partials) and static pages, both on published pages and in the app. A change in About republishes every page that uses them.</p>
+    <table>
+      <thead><tr><th>Syntax</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>data-arc-site="name"</code></td><td>The site name. <code>description</code> is the About description.</td></tr>
+        <tr><td><code>data-arc-site="email"</code></td><td>The public contact email. On an <code>&lt;a&gt;</code> it also sets <code>href</code> to <code>mailto:</code>.</td></tr>
+        <tr><td><code>data-arc-site="phone"</code></td><td>The public phone, as typed. On an <code>&lt;a&gt;</code> it also sets <code>href</code> to <code>tel:</code> with only the digits and a leading <code>+</code>.</td></tr>
+        <tr><td><code>data-arc-site="address"</code></td><td>The address, its line breaks kept</td></tr>
+        <tr><td><code>data-arc-site="logo"</code></td><td>On an <code>&lt;img&gt;</code>: the logo as <code>src</code>, and the site name as <code>alt</code> when you wrote none</td></tr>
+        <tr><td><code>data-arc-site="year"</code></td><td>The current year, for a copyright line. Always has a value.</td></tr>
+        <tr><td><code>data-arc-site-if="key"</code></td><td>Keeps the element only when the site has that value, so a label or an icon goes with it. Besides the keys above it takes <code>social</code> (any social link), <code>pages</code> (any published standard page) and <code>contact</code> (any email, phone, address or social link, for a "How to reach us" block).</td></tr>
+        <tr><td><code>data-arc-site-loop="social"</code></td><td>Repeats the container's first child once per social link, in the order they were typed. Each row has <code>{{ url }}</code>, <code>{{ platform }}</code> (<code>instagram</code>, <code>x</code>, <code>linkedin</code>; <code>link</code> for a site it does not know), <code>{{ label }}</code> (Instagram; the host name for an unknown site) and <code>{{ icon }}</code> (Font Awesome classes).</td></tr>
+        <tr><td><code>data-arc-site-loop="pages"</code></td><td>Repeats the first child once per published standard page (About, Contact, the policies), in their arranged order. Each row has <code>{{ url }}</code> and <code>{{ title }}</code>, titled in the page's language.</td></tr>
+      </tbody>
+    </table>
+    <p>An element bound to a value the site does not have is removed. The social links are the <strong>Social and profile links</strong> of About, one URL per line; the platform is read from each address. Known sites are Facebook, Instagram, X, LinkedIn, YouTube, GitHub, TikTok, Pinterest, Threads, WhatsApp, Telegram and Medium.</p>
+    <pre><code>&lt;p data-arc-site-if="phone"&gt;&lt;i class="fa-solid fa-phone"&gt;&lt;/i&gt; &lt;a data-arc-site="phone"&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;ul data-arc-site-loop="social"&gt;
+    &lt;li&gt;&lt;a href="{{ url }}" aria-label="{{ label }}"&gt;&lt;i class="{{ icon }}"&gt;&lt;/i&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</code></pre>
 
     <h3 id="syntax-details">Syntax details</h3>
     <table>
@@ -159,12 +182,12 @@
         <tr><td><code>lang</code>, <code>langPrefix</code></td><td>Text</td><td>hi, /hi</td><td>The page's language and its URL prefix</td></tr>
       </tbody>
     </table>
-    <p id="card-bindings">Inside <code>data-arc-loop="items"</code>, one row per published entry, newest first, at most the 100 newest. A list's rows and a partial's cards have the same bindings:</p>
+    <p id="card-bindings">Inside <code>data-arc-loop="items"</code>, one row per published entry, newest first or in the type's own order (see <a href="content.html#your-own-order">Put entries in your own order</a>), at most 100. A list's rows and a partial's cards have the same bindings:</p>
     <table>
       <thead><tr><th>Binding</th><th>Type</th><th>Example</th><th>Notes</th></tr></thead>
       <tbody>
         <tr><td><code>title</code>, <code>urlSlug</code>, <code>id</code></td><td>Text</td><td>My first post</td><td>The entry's title, slug and document id</td></tr>
-        <tr><td><code>url</code></td><td>Text</td><td>/articles/my-post, /hi/articles/my-post</td><td>Its address, in the page's language</td></tr>
+        <tr><td><code>url</code></td><td>Text</td><td>/articles/my-post, /hi/articles/my-post</td><td>Its address, in the page's language. Empty for a type without public pages, so guard a link with <code>data-arc-if="url"</code>.</td></tr>
         <tr><td><code>coverImage</code></td><td>URL</td><td>https://…/cover.jpg</td><td>Plus its sizes (see <a href="#image-sizes">Image sizes</a>)</td></tr>
         <tr><td><code>excerpt</code></td><td>Text</td><td>Ten tips for a calmer…</td><td>The meta description, or else the body, cut to its first 25 words with "..."</td></tr>
         <tr><td><code>content</code></td><td>HTML</td><td>&lt;p&gt;…&lt;/p&gt;</td><td>The full body</td></tr>
@@ -194,10 +217,11 @@
         <tr><td><code>infocard</code> (loop)</td><td>Rows: <code>headline</code>, <code>info</code>, <code>icon</code> or <code>image</code>, <code>icon_svg</code>, <code>position</code></td></tr>
         <tr><td><code>gallery</code> (loop)</td><td>Rows: <code>image</code> or <code>video</code> (with <code>video_id</code>, <code>video_embed</code>, <code>video_thumb</code>), <code>caption</code></td></tr>
         <tr><td><code>labelvalue</code> (loop)</td><td>Rows: <code>label</code>, <code>value</code>. The heading is <code>x_heading</code>, outside the loop.</td></tr>
+        <tr><td><code>faq</code> (loop)</td><td>Rows: <code>question</code>, <code>answer</code> (plain text), <code>answer_html</code> (the answer with blank lines as paragraphs and web addresses as links; bind with <code>data-arc-bind="answer_html"</code>). The heading is <code>x_heading</code>.</td></tr>
         <tr><td><code>maplocation</code> (loop)</td><td>Rows: <code>label</code>, <code>address</code>, <code>lat</code>, <code>lng</code>, <code>map_embed</code> (OpenStreetMap iframe URL), <code>map_directions</code>, <code>map_view</code>. The heading is <code>x_heading</code>.</td></tr>
       </tbody>
     </table>
-    <p>Repeating fields render only on detail pages, not inside the <code>items</code> loop of a list or partial. The default detail template already loops fields with the keys <code>gallery</code>, <code>details</code> and <code>locations</code>, so fields with those keys render with no template work. It also loops <code>info_cards</code>, but a new field's key is made from its name with hyphens in place of spaces and underscores, so a new field cannot get that key: use a loop of your own, as below.</p>
+    <p>Repeating fields render only on detail pages, not inside the <code>items</code> loop of a list or partial. The default detail template already loops fields with the keys <code>gallery</code>, <code>details</code>, <code>faq</code> and <code>locations</code>, so fields with those keys render with no template work. It also loops <code>info_cards</code>, but a new field's key is made from its name with hyphens in place of spaces and underscores, so a new field cannot get that key: use a loop of your own, as below.</p>
     <pre><code>&lt;section class="info-cards" data-arc-loop="info-cards"&gt;
     &lt;article class="info-card"&gt;
         &lt;img data-arc-if="image" data-arc-bind="image" alt=""&gt;
@@ -206,6 +230,17 @@
         &lt;p data-arc-bind="info"&gt;Text&lt;/p&gt;
     &lt;/article&gt;
 &lt;/section&gt;</code></pre>
+
+    <h3 id="layouts">Layouts</h3>
+    <p>Every entry of a type uses the folder's <code>detail.html</code>. For a page that needs its own look, such as a Contact page laid out differently from About, add a <strong>layout</strong>: another detail file in the same folder, named <code>detail-{name}.html</code>.</p>
+    <ol class="steps">
+      <li><p>Put the file in the type's folder, such as <code class="new">src/custom/site/templates/info/detail-contact.html</code>. The name after <code>detail-</code> uses lowercase letters, digits, <code>-</code> and <code>_</code>. It is a template like <code>detail.html</code>, with the same bindings.</p></li>
+      <li><p>In the editor, open the entry. The Basic tab now shows <strong>Layout</strong>: <strong>Standard</strong> (the folder's <code>detail.html</code>) and one option per layout, named from the file (<code>detail-wide-hero.html</code> is Wide hero). The picker shows only for a type whose folder has a layout, so most editors never see it.</p></li>
+      <li><p>Pick the layout and publish. The choice is shared by every language of the entry.</p></li>
+    </ol>
+    <p>A layout replaces only the entry's detail page: the folder's <code>list.html</code> and <code>partials.html</code> are unchanged. An app adds or replaces a layout file by file, like the other files, so <code class="new">src/custom/site/templates/info/detail-contact.html</code> replaces Arc CMS's Contact layout and leaves its <code>detail.html</code> in place. The content type's view page lists the folder's layouts beside the template row.</p>
+    <p>A layout cannot have fields of its own: fields belong to the type. Use the site's details through <a href="#site-info">site info</a>, and the type's ordinary fields, such as an Info Cards field that only the pages using that layout fill in; on the other pages it stays empty and shows nothing.</p>
+    <p>When the live site does not have the chosen layout yet, publishing uses the folder's <code>detail.html</code> instead and notes it in the function log, so the page stays online in its standard look. Deploy the website, then publish the page again. The app's preview falls back the same way.</p>
 
     <h3 id="image-sizes">Image sizes</h3>
     <p>Every upload is stored at four sizes (see <a href="media.html">Media</a>). Any image binding has one sibling per size, so a template can use a size the editor did not pick:</p>
@@ -220,7 +255,7 @@
     <table>
       <thead><tr><th>Attribute</th><th>On a published page</th><th>In the app</th></tr></thead>
       <tbody>
-        <tr><td><code>content-type</code></td><td>The type's slug. Required: with no type, an unknown one, or a type whose public pages are off, the element is removed.</td><td><code>articles</code> when left out</td></tr>
+        <tr><td><code>content-type</code></td><td>The type's slug. Required: with no type or an unknown one, the element is removed. A type without public pages works: its cards have no links.</td><td><code>articles</code> when left out</td></tr>
         <tr><td><code>count</code></td><td>How many cards, a whole number from 1 to 50 (a larger number gives 50). Default <code>4</code>, also for <code>0</code> or text that is not a number.</td><td>Default <code>4</code>, from the 50 newest entries</td></tr>
         <tr><td><code>section-title</code></td><td>The heading, bound as <code>sectionTitle</code>. Default "Latest {type name}", or the page's <code>latest_of_type</code> string, such as <code>"नवीनतम {{ contentType }}"</code>.</td><td>The same</td></tr>
         <tr><td><code>template-folder</code></td><td>Another folder's <code>partials.html</code>. Default: the type's folder, else the default folder. A folder the live site does not have stops the home page's publish.</td><td>The same. A file that is not a template shows nothing.</td></tr>
@@ -231,19 +266,19 @@
       <thead><tr><th>Binding</th><th>Type</th><th>Example</th><th>Notes</th></tr></thead>
       <tbody>
         <tr><td><code>sectionTitle</code></td><td>Text</td><td>Latest Articles</td><td>The <code>section-title</code> attribute, or its default</td></tr>
-        <tr><td><code>listUrl</code></td><td>Text</td><td>/articles, /hi/articles</td><td>The type's list page, in the page's language</td></tr>
+        <tr><td><code>listUrl</code></td><td>Text</td><td>/articles, /hi/articles</td><td>The type's list page, in the page's language. Empty for a type without public pages, so guard a View all link with <code>data-arc-if="listUrl"</code>.</td></tr>
         <tr><td><code>hasItems</code></td><td>Flag</td><td>true</td><td><code>data-arc-if="hasItems"</code> hides the block when the type has nothing published</td></tr>
         <tr><td><code>contentType</code>, <code>contentTypeSlug</code>, <code>contentTypeDescription</code></td><td>Text</td><td>Articles</td><td>As on a list page</td></tr>
         <tr><td><code>lang</code>, <code>langPrefix</code></td><td>Text</td><td>hi, /hi</td><td>The page's language and its URL prefix</td></tr>
       </tbody>
     </table>
-    <p>Inside <code>data-arc-loop="items"</code>, each card has the <a href="#card-bindings">list item bindings</a>, newest first. A card shows its translation on a translated home page, in the app too. A type without a <code>partials.html</code> of its own uses the default folder's cards. A partial's <code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> stay where they are in the home page; in the app they run once, after the cards are first drawn. The element works on the home page only; publishing removes it from content pages.</p>
+    <p>Inside <code>data-arc-loop="items"</code>, each card has the <a href="#card-bindings">list item bindings</a>, in the type's order. The default <code>partials.html</code> makes the whole card a link only when it has a <code>url</code>. A card shows its translation on a translated home page, in the app too. A type without a <code>partials.html</code> of its own uses the default folder's cards. A partial's <code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> stay where they are in the home page; in the app they run once, after the cards are first drawn. The element works on the home page only; publishing removes it from content pages.</p>
 
     <h3>Header, footer and styles</h3>
     <table>
       <thead><tr><th>What</th><th>Edit</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td>Header and footer</td><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code> (else Arc CMS's <code>public/_site/header.html</code>, <code>public/_site/footer.html</code>)</td><td>Plain HTML: no <code>{{ }}</code> or other bindings, only <code>data-arc-t</code>. The app renders them as they are, filling <code>data-arc-t</code> and the language of links; both turn <code>&lt;arc-search&gt;</code> and <code>&lt;arc-language-switcher&gt;</code> into the search box and the language links. Their scripts run in the app too, each time they are drawn (again when the page's language arrives), so a script binds to the elements it finds; a script file is loaded once. Publishing reads the same files from the live Hosting site at <code>/_site/</code>.</td></tr>
+        <tr><td>Header and footer</td><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code> (else Arc CMS's <code>public/_site/header.html</code>, <code>public/_site/footer.html</code>)</td><td>Plain HTML: no <code>{{ }}</code> or other bindings, only <code>data-arc-t</code> and <a href="#site-info">site info</a> (<code>data-arc-site</code>). The default footer lists the published standard pages (<code>data-arc-site-loop="pages"</code>) and a copyright line with the year and site name; its rules in <code>main.css</code> apply only to the site footer (<code>footer.site-footer</code>, or a <code>&lt;footer&gt;</code> directly in <code>&lt;body&gt;</code>, <code>&lt;arc-footer&gt;</code> or a template), never to a footer inside a card or dialog. The app renders them as they are, filling <code>data-arc-t</code>, site info and the language of links; both turn <code>&lt;arc-search&gt;</code> and <code>&lt;arc-language-switcher&gt;</code> into the search box and the language links. Their scripts run in the app too, each time they are drawn (again when the page's language arrives), so a script binds to the elements it finds; a script file is loaded once. Publishing reads the same files from the live Hosting site at <code>/_site/</code>.</td></tr>
         <tr><td>Site stylesheets</td><td><code class="new">src/custom/site/site.css</code>, served as <code>/assets/css/site.css</code></td><td>Loaded on the website's pages and the sign-in page, never in the admin or member area. Published pages link every URL in <code>cssUrls</code> of <code>Settings/site</code> (by default Bootstrap 5, Font Awesome 6.5.1 and <code>/assets/css/main.css</code>, Arc CMS's own styles, a core file), then <code>/assets/css/site.css</code>, both stylesheets with a version that changes with the file. There is no admin screen for the list; change it in the Firestore console. The app always loads Bootstrap and Font Awesome, whatever the list says.</td></tr>
         <tr><td>The site's own files</td><td><code class="new">src/custom/site/assets/</code>, served at <code>/site/</code></td><td>Every one is listed with a hash in <code>/_site/site.json</code>. Published pages and the app's preview add it to links (<code>versionSiteUrls</code> in <code>functions/src/shared/site-urls.ts</code> and <code>src/app/core/site/site-urls.ts</code>: <code>src</code>, <code>href</code>, <code>poster</code>, <code>srcset</code>), and the build adds it to <code>url()</code> in the app's stylesheets (<code>scripts/arc-site.mjs</code>), so a changed file is never served from a year-long browser cache.</td></tr>
         <tr><td>A template's own styles and scripts</td><td><code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> in the template</td><td>On a published list or detail page, every <code>&lt;style&gt;</code> moves into the head and every <code>&lt;script&gt;</code> to the end of the body. The app runs a list or detail template's scripts once it has drawn it; it never runs a partial's.</td></tr>
@@ -263,8 +298,9 @@
       <tbody>
         <tr><td><code class="new">src/custom/site/templates/</code>, <code>public/_site/templates/</code></td><td>The app's template folders and Arc CMS's, deployed with Hosting at <code>/_site/templates/</code></td></tr>
         <tr><td><code class="new">src/custom/site/header.html</code>, <code class="new">footer.html</code></td><td>Header and footer, deployed at <code>/_site/header.html</code> and <code>/_site/footer.html</code></td></tr>
-        <tr><td><code>/_site/site.json</code></td><td>Written by the build: the template folders and the files in each, with a hash of every file</td></tr>
+        <tr><td><code>/_site/site.json</code></td><td>Written by the build: the template folders and the files in each, each folder's layouts (<code>layouts</code>), with a hash of every file</td></tr>
         <tr><td><code>ContentTypes/{id}</code>, field <code>templateFolder</code></td><td>Which folder a type uses (empty or <code>default</code> means the default folder)</td></tr>
+        <tr><td>An entry's <code>layout</code></td><td>The layout an entry uses, by name (<code>contact</code> for <code>detail-contact.html</code>); empty for <code>detail.html</code></td></tr>
         <tr><td><code>Settings/site</code></td><td>The stylesheet list <code>cssUrls</code></td></tr>
       </tbody>
     </table>
@@ -277,12 +313,15 @@
     <table>
       <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
       <tbody>
-        <tr><td>The folder is not in the <strong>Content Template</strong> list</td><td>The folder must sit directly in <code class="new">src/custom/site/templates/</code>, have a name of lowercase letters, digits, hyphens and underscores that starts with a letter or digit, and hold at least one of <code>partials.html</code>, <code>list.html</code>, <code>detail.html</code>. Restart <code>npm run dev</code> if it was running, or rebuild.</td></tr>
+        <tr><td>The folder is not in the <strong>Content Template</strong> list</td><td>The folder must sit directly in <code class="new">src/custom/site/templates/</code>, have a name of lowercase letters, digits, hyphens and underscores that starts with a letter or digit, and hold at least one of <code>partials.html</code>, <code>list.html</code>, <code>detail.html</code> or a <code>detail-{name}.html</code> layout. Restart <code>npm run dev</code> if it was running, or rebuild.</td></tr>
         <tr><td>Publishing fails with "Template folder 'x' is not on the live site. Deploy the website, then publish again."</td><td>The type names a folder the live site does not have yet, or its file there is not a template (a whole HTML document). The editor shows the message on the item. Deploy the website, then publish again.</td></tr>
         <tr><td>The app logs "is not a template fragment"</td><td>A file of the folder is a whole HTML document, or missing (a missing file answers with the app's own page, which is rejected). For a list or detail file the app shows the default template instead; a partial shows nothing; a default folder file of your own leaves the page loading. Make the file a fragment.</td></tr>
         <tr><td>A binding renders empty</td><td>Check the key against the tables on this page. The admin's <strong>Template Reference</strong> on a content type's view page lists the same bindings by page, and the type's own fields with the snippet each needs. A binding that works on a detail page may not exist in a card (<code>summary</code>, <code>author.name</code>), and repeating fields render on detail pages only. A value is also empty on a page built before the field was filled: publish again.</td></tr>
         <tr><td>Placeholder text such as "Caption" shows on the page</td><td>An element with <code>data-arc-bind</code> whose value is missing keeps the text you wrote (in the app it shows as a grey shimmer). Loops do the opposite: they keep only the first child as the row and drop the rest. Use <code>{{ }}</code>, which prints nothing when the value is missing, or guard optional parts with <code>data-arc-if</code>.</td></tr>
         <tr><td>Changes show locally but not on the live site</td><td>Deploy Hosting, then rebuild the pages (<code>npm run seed:dev</code> or <code>npm run seed:prod</code>).</td></tr>
+        <tr><td>A <code>data-arc-site</code> element is missing from the page</td><td>The value is empty in <strong>Settings</strong>, <strong>About</strong>, so the element was removed. Fill it in; the pages that use it are republished.</td></tr>
+        <tr><td>A page shows the standard layout, not the one chosen</td><td>The live site does not have that layout file yet (the function log says "Layout 'x' of template folder 'y' is not on the live site"). Deploy the website, then publish the page again. In <code>npm run dev</code>, check the file's name: <code>detail-</code>, then lowercase letters, digits, <code>-</code> or <code>_</code>.</td></tr>
+        <tr><td>The editor has no Layout picker</td><td>The type's folder has no <code>detail-{name}.html</code>, or the app was not restarted after adding one. Restart <code>npm run dev</code>.</td></tr>
         <tr><td>Icons show as empty boxes</td><td>Font Awesome is not in <code>cssUrls</code>. Add it back, or bind the <code>_svg</code> form.</td></tr>
       </tbody>
     </table>

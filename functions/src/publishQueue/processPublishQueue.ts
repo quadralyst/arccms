@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { db } from '../init.js';
 import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
@@ -24,10 +24,61 @@ import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument, arcHostingSite } from '../arc-config.js';
 
 interface QueueItem {
-    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home';
+    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home' | 'order';
     contentTypeSlug: string;
     docId: string;
     timestamp: Timestamp;
+}
+
+/**
+ * What a standard page shows in the site's footer: whether it is published, and
+ * its title in every language. A change to it changes every page.
+ */
+export async function footerSignature(publishedRef: DocumentReference): Promise<string> {
+    const snap = await publishedRef.get();
+    if (!snap.exists) return '';
+    const translations = await publishedRef.collection('translations').get();
+    const titles = translations.docs.map((doc) => `${doc.id}:${doc.data()?.['title'] ?? ''}`).sort();
+    return JSON.stringify([snap.data()?.['title'] ?? '', titles]);
+}
+
+/** Queues a whole-site republish. */
+async function queueRedeployAll(reason: string): Promise<void> {
+    console.log(`Republishing the whole site: ${reason}`);
+    await db.collection('_publish_queue').add({ action: 'redeploy-all', contentTypeSlug: '', docId: '', timestamp: Timestamp.now() });
+}
+
+/**
+ * Copies each draft's `sortOrder` to its published copy (removing it where the
+ * draft has none), then rebuilds the pages that show the type's entries: its
+ * list page when it has public pages, and the home page when it shows the type.
+ * Only `sortOrder` is written, so a draft's unpublished edits stay unpublished.
+ */
+export async function applyEntryOrder(slug: string, batch: HostingBatch): Promise<void> {
+    const [drafts, published, typeSnap] = await Promise.all([
+        db.collection(getDraftCollectionName(slug)).get(),
+        db.collection(getPublishedCollectionName(slug)).get(),
+        db.collection('ContentTypes').where('slug', '==', slug).limit(1).get(),
+    ]);
+    const draftOrder = new Map(drafts.docs.map((doc) => [doc.id, doc.data().sortOrder]));
+
+    const writes = published.docs.filter((doc) => doc.data().sortOrder !== draftOrder.get(doc.id));
+    for (let i = 0; i < writes.length; i += 400) {
+        const chunk = db.batch();
+        for (const doc of writes.slice(i, i + 400)) {
+            const value = draftOrder.get(doc.id);
+            chunk.update(doc.ref, { sortOrder: typeof value === 'number' ? value : FieldValue.delete() });
+        }
+        await chunk.commit();
+    }
+
+    const typeData = typeSnap.empty ? null : typeSnap.docs[0].data();
+    const hasPublicUrl = typeData?.hasPublicUrl !== false;
+    if (hasPublicUrl) await generateAndDeployContentListPage(slug, batch);
+    if (await homeShowsType(slug).catch(() => false)) await generateAndDeployHomePage(batch);
+    // The footer lists the standard pages in this order (SS6).
+    if (typeData?.standard === 'pages' && writes.length) await queueRedeployAll(`standard pages put in a new order`);
+    console.log(`Entry order applied to ${slug}: ${writes.length} published entr${writes.length === 1 ? 'y' : 'ies'} changed`);
 }
 
 /**
@@ -248,9 +299,11 @@ export const processPublishQueue = onDocumentCreated({
     const { action, contentTypeSlug, docId } = queueData;
     const queueDocRef = event.data?.ref;
 
-    // 'redeploy-all' and 'home' are site-wide, so they name no content type and no document.
+    // 'redeploy-all' and 'home' are site-wide, so they name no content type and no
+    // document; 'order' is about a whole content type, so it names no document.
     const siteWide = action === 'redeploy-all' || action === 'home';
-    if (!action || (!siteWide && (!contentTypeSlug || !docId))) {
+    const typeWide = action === 'order';
+    if (!action || (!siteWide && (!contentTypeSlug || (!typeWide && !docId)))) {
         console.error('Invalid queue item — missing required fields:', queueData);
         if (queueDocRef) await queueDocRef.delete();
         return;
@@ -322,6 +375,19 @@ export const processPublishQueue = onDocumentCreated({
         return;
     }
 
+    // A content type's entries were put in a new order (the Arrange dialog), or its
+    // entry order changed: the pages that show them follow (specs/site-sections-spec.md, SS2).
+    if (action === 'order') {
+        try {
+            await applyEntryOrder(contentTypeSlug, batch);
+            if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '');
+        } catch (error) {
+            console.error(`Entry order update failed for ${contentTypeSlug}:`, error);
+        }
+        if (queueDocRef) await queueDocRef.delete();
+        return;
+    }
+
     const publishedCollection = getPublishedCollectionName(contentTypeSlug);
     const draftCollection = getDraftCollectionName(contentTypeSlug);
     const publishedRef = db.collection(publishedCollection).doc(docId);
@@ -331,6 +397,11 @@ export const processPublishQueue = onDocumentCreated({
         .where('slug', '==', contentTypeSlug).limit(1).get();
     const contentTypeData = contentTypeSnap.empty ? null : contentTypeSnap.docs[0].data();
     const hasPublicUrl = contentTypeData?.hasPublicUrl !== false;
+    // A standard page (SS6) is linked from every page's footer, and the terms
+    // notice and cookie banner link to some of them: note what the footer shows
+    // of it now, to republish the site if that changes.
+    const isStandardPage = contentTypeData?.standard === 'pages';
+    const footerBefore = isStandardPage ? await footerSignature(publishedRef) : '';
 
     try {
         switch (action) {
@@ -517,8 +588,9 @@ export const processPublishQueue = onDocumentCreated({
                 console.warn(`Unknown action: ${action}`);
         }
 
-        // The home page shows cards of some types: republish it with them.
-        if (hasPublicUrl && (await homeShowsType(contentTypeSlug).catch(() => false))) {
+        // The home page shows cards of some types, public pages or not: republish
+        // it with them.
+        if (await homeShowsType(contentTypeSlug).catch(() => false)) {
             try {
                 await generateAndDeployHomePage(batch);
             } catch (homeErr) {
@@ -573,6 +645,13 @@ export const processPublishQueue = onDocumentCreated({
     }
 
     if (pageError) await recordPageFailure(publishedCollection, docId, pageError);
+
+    // The footer of every page lists the standard pages: when this one went live,
+    // came down or changed its title, every page is republished, in a queue item
+    // of its own so its release cannot race this one.
+    if (isStandardPage && (await footerSignature(publishedRef)) !== footerBefore) {
+        await queueRedeployAll(`standard page ${docId} changed in the footer`);
+    }
 
     // Always clean up the queue document
     if (queueDocRef) {

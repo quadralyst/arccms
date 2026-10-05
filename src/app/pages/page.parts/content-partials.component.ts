@@ -1,4 +1,8 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { SitePagesService } from '../../core/site/site-pages.service';
+import { siteInfoOf } from '../../core/site/site-info-source';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, Injector, Input, input, OnInit, PLATFORM_ID, signal, TransferState, makeStateKey, untracked, ViewEncapsulation } from '@angular/core';
@@ -67,6 +71,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     private uiStrings = inject(UiStringsService);
     private localization = inject(LocalizationService);
     private mediaSettings = inject(MediaSettingsService);
+    private siteIdentity = inject(SiteIdentityService);
+    private sitePages = inject(SitePagesService);
     contentsStore = inject(ContentsStore);
 
     // Inputs - support both property binding and attribute binding
@@ -82,6 +88,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     /** Each shown entry's translation into the page's language, by id. */
     private translations = signal<Record<string, IContentTranslation>>({});
     private translationsFor = '';
+    /** The type whose entries were all read, for its own order (SS2). */
+    private readAllFor = '';
     /** The template's scripts run once, after its first render, as on a published page. */
     private scriptsRun = false;
     /** The template as loaded, so it can be hydrated again. */
@@ -157,21 +165,33 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             // A translated entry shows its translation, as on a published home page.
             .map((content: IContents): IContents => (lang ? mergeTranslation(content, translations[content.id] ?? null) : content));
 
-        // Sort by publishedOn descending (newest first) and limit.
-        // Handles Firestore Timestamps ({seconds, nanoseconds}), Date objects, and ISO strings.
-        const sorted = items.sort((a, b) => {
-            const dateA = this.toTimestamp(a.publishedOn);
-            const dateB = this.toTimestamp(b.publishedOn);
-            return dateB - dateA;
-        });
-
-        return sorted.slice(0, this.count());
+        // In the type's entry order (newest first, or the order an admin
+        // arranged), as when published (core/utils/display-order.ts), then cut.
+        const order = entryOrderOf(this.currentContentType());
+        return sortForDisplay(items as unknown as Record<string, any>[], order)
+            .slice(0, this.count()) as unknown as IContents[];
     });
 
     constructor() {
         super();
         // Image size bindings fit the configured maximum, as when published.
         void this.mediaSettings.load();
+        // The site's own details for data-arc-site (SS3) and its standard pages (SS6);
+        // the template redraws when they arrive.
+        void this.siteIdentity.load();
+        void this.sitePages.load(this.uiStrings.activeLang());
+
+        // A type in its own order shows its arranged entries, whatever their
+        // age: read them all, not only the newest 50 (SS2).
+        effect(() => {
+            const type = this.currentContentType();
+            if (!type || this.readAllFor === type.slug || entryOrderOf(type) !== 'manual') return;
+            this.readAllFor = type.slug;
+            untracked(() => this.contentsStore.getAll(
+                { orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 0 } as QueryParams,
+                type.slug,
+            ));
+        });
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
@@ -213,6 +233,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             const contents = this.filteredContents();
             this.uiStrings.strings();
             this.mediaSettings.maxSize();
+            this.siteIdentity.identity();
+            this.sitePages.pages();
             if (this.lastTemplate && contentType) {
                 this.hydrateAndSetTemplate(this.lastTemplate, contentType, contents);
             }
@@ -284,12 +306,14 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         this.lastTemplate = templateHtml;
         // Prepare data for template hydration
         const lang = this.pageLang();
+        // A type without public pages still shows cards, with nothing to link to.
+        const hasPublicPages = contentType.hasPublicUrl !== false;
         const templateData = {
             contentType: contentTypeName(contentType, lang),
             contentTypeSlug: contentType.slug,
             contentTypeDescription: contentTypeDescription(contentType, lang),
             sectionTitle: this.displayTitle(),
-            listUrl: this.listUrl(),
+            listUrl: hasPublicPages ? this.listUrl() : '',
             hasItems: contents.length > 0,
             // The page's language and URL prefix, as when published.
             lang: lang || this.localization.defaultLanguage(),
@@ -299,11 +323,13 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         // The same cards as a published card block (core/utils/content-cards.ts).
         const typeName = contentTypeName(contentType, lang);
         const listData = contents.map(content =>
-            cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', this.langPrefix()));
+            cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', this.langPrefix(), hasPublicPages));
 
         // Chrome in the page's language first, then loops, then page-level data:
         // the same order as the list and detail pages.
-        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings());
+        // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
+        const localizedTemplate = TemplateHydrationService.applySiteInfo(
+            TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
@@ -339,14 +365,6 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
             // The cards stay in the default language.
             console.error('Error loading card translations:', error);
         }
-    }
-
-    /** Convert Firestore Timestamp, Date, or ISO string to epoch ms for sorting */
-    private toTimestamp(date: any): number {
-        if (!date) return 0;
-        if (date.seconds) return date.seconds * 1000;
-        const d = new Date(date);
-        return isNaN(d.getTime()) ? 0 : d.getTime();
     }
 
     getGradient(contentId: string): string {

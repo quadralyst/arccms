@@ -5,17 +5,23 @@
   Used for any content type without a partials.html of its own. Bindings: the
   section's sectionTitle, contentType, listUrl and hasItems, plus an `items`
   loop of cards (url, title, excerpt, coverImage, publishedOn, readTime).
+
+  A type without public pages has no pages to link to: url and listUrl are
+  empty, so the card's link and "View All" are left out and the card is plain.
+  The link covers the whole card (.content-partial-link) rather than wrapping it,
+  so the card itself stays when there is no link.
 -->
 <section class="content-partials-section" data-arc-if="hasItems">
     <div class="container">
         <div class="content-partials-header">
             <h2 class="content-partials-title">{{ sectionTitle }}</h2>
-            <a href="{{ listUrl }}" class="content-partials-view-all">
+            <a href="{{ listUrl }}" class="content-partials-view-all" data-arc-if="listUrl">
                 <span data-arc-t="view_all">View All</span> <i class="fas fa-arrow-right"></i>
             </a>
         </div>
         <div class="content-partials-grid" data-arc-loop="items">
-            <a href="{{ url }}" class="content-partial-card">
+            <article class="content-partial-card">
+                <a href="{{ url }}" class="content-partial-link" aria-label="{{ title }}" data-arc-if="url"></a>
                 <div class="content-partial-image">
                     <img src="{{ coverImage }}" alt="{{ title }}" class="content-partial-img" data-arc-if="coverImage">
                 </div>
@@ -27,9 +33,9 @@
                     </div>
                     <h3 class="content-partial-title">{{ title }}</h3>
                     <p class="content-partial-excerpt">{{ excerpt }}</p>
-                    <span class="content-partial-read-more"><span data-arc-t="read_more">Read Article</span> <i class="fas fa-arrow-right"></i></span>
+                    <span class="content-partial-read-more" data-arc-if="url"><span data-arc-t="read_more">Read Article</span> <i class="fas fa-arrow-right"></i></span>
                 </div>
-            </a>
+            </article>
         </div>
     </div>
 </section>
@@ -93,6 +99,7 @@
 }
 
 .content-partial-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     background: #ffffff;
@@ -103,6 +110,18 @@
     text-decoration: none;
     color: inherit;
     height: 100%;
+}
+
+.content-partial-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+}
+
+.content-partial-link:focus-visible {
+    outline: 2px solid #0066cc;
+    outline-offset: 2px;
 }
 
 .content-partial-card:hover {

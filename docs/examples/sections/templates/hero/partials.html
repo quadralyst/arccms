@@ -1,0 +1,14 @@
+<!-- The hero for <arc-content-partials content-type="hero" count="1">: a Hero
+     type with Generate public pages off and one entry. The entry's title is
+     the heading and its cover image the picture. Its fields: Subtitle (text),
+     Button text (text) and Button link (text). -->
+<section class="hero" data-arc-if="hasItems">
+    <div data-arc-loop="items">
+        <div class="hero-inner">
+            <img data-arc-if="coverImage" src="{{ coverImage_l }}" alt="">
+            <h1>{{ title }}</h1>
+            <p class="hero-subtitle">{{ subtitle }}</p>
+            <a data-arc-if="button-link" class="hero-button" href="{{ button-link }}">{{ button-text }}</a>
+        </div>
+    </div>
+</section>

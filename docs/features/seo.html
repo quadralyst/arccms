@@ -19,7 +19,7 @@
       <thead><tr><th>Part</th><th>What it gives</th></tr></thead>
       <tbody>
         <tr><td>Head tags</td><td>Title, meta description, canonical URL, Open Graph and Twitter card tags, and <code>hreflang</code> links when the page exists in more than one language.</td></tr>
-        <tr><td>Structured data</td><td>schema.org JSON-LD: the site owner (Organization or Person), the WebSite with a search action, a breadcrumb trail, and the page itself as an Article or the type its content type is mapped to. FAQ, How-to and Definition blocks in the body become their own nodes.</td></tr>
+        <tr><td>Structured data</td><td>schema.org JSON-LD: the site owner (Organization or Person), the WebSite with a search action, a breadcrumb trail, and the page itself as an Article or the type its content type is mapped to. FAQ, How-to and Definition blocks in the body become their own nodes, and so do the rows of an FAQ custom field.</td></tr>
         <tr><td>Authors and sources</td><td>A byline with the author's box, a Sources list at the end, both sent to search engines as the author and citations.</td></tr>
         <tr><td>Markdown twins</td><td>The same page as Markdown, at the same address with <code>.md</code> (<code>/articles/my-post.md</code>), linked from the HTML head. AI tools read it at a fraction of the tokens.</td></tr>
         <tr><td>Related items</td><td>Up to four related pages at the end of each page, chosen from the search index by title and tags. Needs <a href="search.html">Search</a>.</td></tr>
@@ -49,9 +49,9 @@
 
     <h2>Set it up</h2>
     <ol class="steps">
-      <li><p><strong>Say who owns the site.</strong> In Admin, Settings, About, fill in the site name, the production URL, whether the site is an organization or a person, the logo, a description, profile links and a contact email. They become the Organization or Person node on every page, and the production URL is the base of every absolute link in the files above. Empty fields are left out, never guessed.</p></li>
+      <li><p><strong>Say who owns the site.</strong> In Admin, Settings, About, fill in the site name, the production URL, whether the site is an organization or a person, the logo, a description, the <strong>Social and profile links</strong> (one URL per line), a contact email and a public phone. They become the Organization or Person node on every page (the phone as <code>telephone</code>, the links as <code>sameAs</code>), and the same details can be printed on the site itself (see <a href="templates.html#site-info">Site info</a>), and the production URL is the base of every absolute link in the files above. Empty fields are left out, never guessed.</p></li>
       <li><p><strong>Add authors.</strong> Content, Authors. Mark one as the default and new content gets that author. See <a href="authors-and-tags.html">Authors and tags</a>.</p></li>
-      <li><p><strong>Map content types (optional).</strong> Add or edit a content type and choose its <strong>Structured data</strong> type: Article (the default), Blog post, News article, Product, Service, Event, Person, Recipe or How-to guide. Map the type's properties to your custom fields; anything unmapped is left out.</p></li>
+      <li><p><strong>Map content types (optional).</strong> Add or edit a content type and choose its <strong>Structured data</strong> type: Article (the default), Blog post, News article, Web page, Product, Service, Event, Person, Recipe or How-to guide. Web page suits pages that are not articles, such as About or a policy; the standard pages use it. Map the type's properties to your custom fields; anything unmapped is left out.</p></li>
       <li><p><strong>Choose the crawler policy.</strong> Admin, Settings, Discoverability. Every crawler is allowed until you switch it off. Choose whether to publish <code>/llms.txt</code> and <code>/llms-full.txt</code> and whether to use IndexNow (both on by default). Press <strong>Save and apply to site</strong> to write the files now, or <strong>Save</strong> to let the next publish write them.</p></li>
       <li><p><strong>Verify from the outside.</strong> Arc CMS keeps no crawler log, so register the site in Google Search Console and Bing Webmaster Tools (which also shows IndexNow submissions).</p></li>
     </ol>
@@ -78,6 +78,7 @@
         <tr><td>Checks tab</td><td>The score, each check, and pages on this site the body does not link to yet, each with <strong>Insert link</strong>.</td></tr>
       </tbody>
     </table>
+    <p>A content type with an <strong>FAQ</strong> custom field (see <a href="content.html#field-types-reference">Field types reference</a>) adds a FAQPage node from the rows of its first FAQ field that have both a question and an answer. Since 2023 Google shows FAQ results only for some government and health sites, so do not expect them in search; the node is still valid, and AI assistants read it.</p>
 
     <h3>What the Checks tab scores</h3>
     <p>High checks weigh 3, medium 2, low 1. The score is the weight passed out of the weight checked. It reads the default language.</p>

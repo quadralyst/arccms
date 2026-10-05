@@ -40,27 +40,49 @@ body {
   color: #06c;
 }
 
-/* Footer */
-footer {
+/* The site footer only: the footer of a page, wherever <arc-footer> put it, and
+   never a footer inside a panel or dialog (the Feedback panel's buttons are one). */
+body > footer,
+arc-footer > footer,
+.arc-cms-template > footer,
+footer.site-footer {
   background: #1d1d1f;
   color: #f5f5f7;
   text-align: center;
-  padding: 3rem 0;
+  padding: 2rem 0;
 }
 
-footer a {
+body > footer a,
+arc-footer > footer a,
+.arc-cms-template > footer a,
+footer.site-footer a {
   color: #f5f5f7;
   text-decoration: none;
   transition: color 0.3s;
 }
 
-footer a:hover {
+body > footer a:hover,
+arc-footer > footer a:hover,
+.arc-cms-template > footer a:hover,
+footer.site-footer a:hover {
   color: #06c;
 }
 
-.footer-coming-soon {
-  font-size: 0.8rem;
+/* The default footer's links to the standard pages (SS6). */
+.footer-pages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.5rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.footer-copyright {
+  margin: 0;
   color: #86868b;
+  font-size: 0.9rem;
 }
 
 .heart-icon {

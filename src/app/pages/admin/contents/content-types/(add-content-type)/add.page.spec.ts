@@ -145,6 +145,19 @@ describe('AddContentTypeComponent', () => {
             expect(component.templateFolders().some((f) => f.name === 'default')).toBe(false);
         });
 
+        // SS1: a type without public pages still picks a folder, for its home page cards.
+        it('stays offered as a card template when public pages are off', () => {
+            const root: HTMLElement = fixture.nativeElement;
+            const label = () => root.querySelector('[data-testid="template-picker"] label')?.textContent?.trim();
+            fixture.detectChanges();
+            expect(label()).toBe('Content Template');
+            // A click, as an admin switches it: the form redraws on the event.
+            (root.querySelector('#hasPublicUrlToggle') as HTMLInputElement).click();
+            fixture.detectChanges();
+            expect(component.addForm.get('hasPublicUrl')!.value).toBe(false);
+            expect(label()).toBe('Card template');
+        });
+
         it('picks the folder named after the type, until the admin picks one', () => {
             const folder = component.addForm.get('templateFolder')!;
             component.addForm.get('slug')!.setValue('articles');
@@ -316,6 +329,7 @@ describe('AddContentTypeComponent', () => {
                 icon: 'fa-solid fa-file',
                 order: 1,
                 hasPublicUrl: true,
+                entryOrder: 'newest',
                 schema: { type: 'Article', fields: {} },
                 templateFolder: 'default',
                 fields: [],
@@ -469,8 +483,12 @@ describe('AddContentTypeComponent', () => {
             expect(component.fieldTypes).toContain('radio');
         });
 
-        it('should have 16 field types total', () => {
-            expect(component.fieldTypes.length).toBe(16);
+        it('should have 17 field types total', () => {
+            expect(component.fieldTypes.length).toBe(17);
+        });
+
+        it('should include the faq type (SS4)', () => {
+            expect(component.fieldTypes).toContain('faq');
         });
 
         it('should include the color type', () => {

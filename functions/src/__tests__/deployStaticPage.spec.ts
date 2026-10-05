@@ -17,12 +17,16 @@ const {
 
 vi.stubGlobal('fetch', mockFetch);
 
+// The site's details and standard pages for data-arc-site (SS3, SS6), read in site-info-source.ts.
+vi.mock('../shared/site-info-source', () => ({ siteInfoFor: async () => ({ name: 'Kumar Studio', phone: '+91 98765 43210', contactEmail: 'hi@kumar.example', sameAs: [], year: 2026, pages: [] }) }));
 vi.mock('../shared/site-settings', () => ({
     getPartials: mockGetPartials,
     getSiteConfig: mockGetSiteConfig,
     getMiscSettings: mockGetMiscSettings,
     // The search widget is built for the default language (S5).
     getLocalizationSettings: vi.fn().mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: [] }),
+    // The site's own details for data-arc-site (SS3).
+    getAboutConfig: vi.fn().mockResolvedValue({ name: 'Kumar Studio', phone: '+91 98765 43210', contactEmail: 'hi@kumar.example', sameAs: [] }),
 }));
 
 vi.mock('../pages/deployToHosting', () => ({
@@ -119,6 +123,24 @@ describe('deployStaticPage', () => {
             const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
             expect(deployedHtml).toContain('Site Footer');
             expect(deployedHtml).not.toContain('<arc-footer>');
+        });
+
+        it('fills the site\'s details in the page and its footer (SS3)', async () => {
+            mockGetPartials.mockResolvedValue({
+                ...MOCK_PARTIALS,
+                footerHtml: '<footer>Site Footer <a data-arc-site="phone">phone</a><span data-arc-site="address">no address</span></footer>',
+            });
+            await generateAndDeployStaticPage('privacy-policy');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
+            expect(deployedHtml).toContain('<a href="tel:+919876543210">+91 98765 43210</a>');
+            expect(deployedHtml).not.toContain('no address');
+            expect(deployedHtml).not.toContain('data-arc-site');
+        });
+
+        it('adds arc-site.js, so a contact or signup form works here (SS5)', async () => {
+            await generateAndDeployStaticPage('privacy-policy');
+            expect(mockDeployFileToHosting.mock.calls[0][2]).toContain('/assets/js/arc-site.js');
         });
 
         it('should inject site CSS link tags into <head>', async () => {

@@ -181,6 +181,27 @@ describe('default detail template', () => {
         expect(html).not.toContain('>Location name<');
     });
 
+    // SS4: an FAQ field keyed `faq` shows as questions that open.
+    it('renders an FAQ field as questions with HTML answers, in order', () => {
+        const html = render({
+            events_faq_heading: 'Good to know',
+            events_faq: [
+                { id: 'b', position: 1, question: 'Parking?', answer: 'Free.' },
+                { id: 'a', position: 0, question: 'Tickets?', answer: 'At the door.\n\nSee https://x.example/t' },
+            ],
+        });
+        expect(html).toContain('Good to know');
+        expect(markup(html).match(/class="arc-faq-item"/g)).toHaveLength(2);
+        expect(html.indexOf('Tickets?')).toBeLessThan(html.indexOf('Parking?'));
+        expect(html).toContain('<p>At the door.</p><p>See <a href="https://x.example/t">https://x.example/t</a></p>');
+    });
+
+    it('drops the whole FAQ block for a type without the field', () => {
+        const html = markup(render({}));
+        expect(html).not.toContain('class="arc-faq');
+        expect(html).not.toContain('>Question<');
+    });
+
     it('renders exactly one row per item', () => {
         const html = markup(render({ events_info_cards: INFO_CARDS, events_gallery: GALLERY }));
 

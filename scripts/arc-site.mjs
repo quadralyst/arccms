@@ -48,11 +48,17 @@ export const TEMPLATE_FILES = ['partials', 'list', 'detail'];
 const LANG = '[a-z]{2,3}(?:-[a-z0-9]{2,8})?';
 const NAME = '[a-z0-9][a-z0-9_-]*';
 
+/**
+ * A layout: another detail page in a template folder, `detail-{name}.html`, that
+ * an entry can choose instead of `detail.html` (specs/site-sections-spec.md, SS8).
+ */
+export const LAYOUT_FILE = new RegExp(`^detail-(${NAME})$`);
+
 /** App file (relative to src/custom/site, `/`-separated) to served path, in order. */
 const APP_RULES = [
     [new RegExp(`^home(\\.${LANG})?\\.html$`), (p) => `_site/${p}`],
     [/^(header|footer|sign-in)\.html$/, (p) => `_site/${p}`],
-    [new RegExp(`^templates/${NAME}/(${TEMPLATE_FILES.join('|')})\\.html$`), (p) => `_site/${p}`],
+    [new RegExp(`^templates/${NAME}/(${TEMPLATE_FILES.join('|')}|detail-${NAME})\\.html$`), (p) => `_site/${p}`],
     [new RegExp(`^pages/${NAME}\\.html$`), (p) => `_site/${p}`],
     [new RegExp(`^strings/${LANG}\\.json$`), (p) => `_site/${p}`],
     [/^site\.css$/, () => 'assets/css/site.css'],
@@ -189,6 +195,7 @@ function normalisePath(path) {
  *
  *   home       languages with a home page file: { default: 'app', hi: 'app' }
  *   templates  each folder's files and where each comes from: { articles: { detail: 'app', list: 'core' } }
+ *   layouts    each folder's layouts (detail-{name}.html) and where each comes from: { info: { contact: 'core' } }
  *   pages      static pages: { 'privacy-policy': 'core', terms: 'app' }
  *   strings    languages with a strings file
  *   files      a hash of every /_site file, every /site file (the app's own
@@ -196,12 +203,15 @@ function normalisePath(path) {
  *              site are the same, and to version links (shared/site-urls.ts)
  */
 export function buildManifest(contents) {
-    const manifest = { version: 1, home: {}, templates: {}, pages: {}, strings: [], files: {} };
+    const manifest = { version: 1, home: {}, templates: {}, layouts: {}, pages: {}, strings: [], files: {} };
     for (const [path, entry] of [...contents].sort(([a], [b]) => a.localeCompare(b))) {
         let m;
         if ((m = /^_site\/home(?:\.([^.]+))?\.html$/.exec(path))) manifest.home[m[1] ?? 'default'] = entry.from;
         else if ((m = /^_site\/templates\/([^/]+)\/([^/]+)\.html$/.exec(path)) && TEMPLATE_FILES.includes(m[2])) {
             (manifest.templates[m[1]] ??= {})[m[2]] = entry.from;
+        } else if ((m = /^_site\/templates\/([^/]+)\/([^/]+)\.html$/.exec(path)) && LAYOUT_FILE.test(m[2])) {
+            manifest.templates[m[1]] ??= {};
+            (manifest.layouts[m[1]] ??= {})[LAYOUT_FILE.exec(m[2])[1]] = entry.from;
         } else if ((m = /^_site\/pages\/([^/]+)\.html$/.exec(path))) manifest.pages[m[1]] = entry.from;
         else if ((m = /^_site\/strings\/([^/]+)\.json$/.exec(path))) manifest.strings.push(m[1]);
         if (path.startsWith('_site/') || path.startsWith('site/') || VERSIONED.includes(path)) manifest.files[path] = hash(contentOf(entry));

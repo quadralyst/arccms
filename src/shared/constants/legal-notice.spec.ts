@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { buildLegalNoticeElement, LEGAL_NOTICE, legalNoticeLang, legalNoticeParts, legalNoticeUrls } from './legal-notice';
+import { buildContactNoticeElement, buildLegalNoticeElement, LEGAL_NOTICE, legalNoticeLang, legalNoticeParts, legalNoticeUrls, legalNoticeWithPages } from './legal-notice';
 import { setSiteManifestForTesting, siteManifest } from '../../app/core/site/site';
 
 // Arc CMS on its own: no terms or privacy page of the app's (an app's src/custom/site/ may have them).
@@ -49,5 +49,15 @@ describe('legal notice', () => {
         expect(el.hasAttribute('data-legal-notice')).toBe(true);
         expect(el.textContent).toContain('Privacy Policy');
         expect(el.querySelector('a')).toBeNull();
+    });
+
+    // SS6: the published standard pages first.
+    it('links the published standard pages over the app\'s static ones', () => {
+        const notice = legalNoticeWithPages([{ url: '/info/privacy-policy' }], { ...LEGAL_NOTICE, termsUrl: '/p/terms', privacyUrl: '' });
+        expect(notice.termsUrl).toBe('/p/terms');
+        expect(notice.privacyUrl).toBe('/info/privacy-policy');
+        const p = buildContactNoticeElement(document, 'en', notice);
+        expect(p.querySelector('a')!.getAttribute('href')).toBe('/info/privacy-policy');
+        expect(p.textContent).toBe('We use your details only to reply. Privacy Policy');
     });
 });

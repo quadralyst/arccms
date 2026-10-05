@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, DOCUMENT, computed, inject, input } from '@angular/core';
-import { legalNoticeLang, legalNoticeParts } from '../../constants/legal-notice';
+import { legalNoticeLang, legalNoticeParts, legalNoticeWithPages } from '../../constants/legal-notice';
+import { SitePagesService } from '../../../app/core/site/site-pages.service';
 
 /**
  * The signup notice (terms, privacy, marketing email) for the app's own signup
@@ -26,6 +27,12 @@ export class LegalNoticeComponent {
     private document = inject(DOCUMENT);
     /** Page language; defaults to the document's `lang`. */
     readonly lang = input<string | undefined>(undefined);
+    /** The published standard pages, so the links go to /info/terms when there is one (SS6). */
+    private sitePages = inject(SitePagesService);
     readonly parts = computed(() =>
-        legalNoticeParts(legalNoticeLang(this.lang() ?? this.document.documentElement.lang)));
+        legalNoticeParts(legalNoticeLang(this.lang() ?? this.document.documentElement.lang), legalNoticeWithPages(this.sitePages.pages())));
+
+    constructor() {
+        void this.sitePages.load();
+    }
 }

@@ -32,7 +32,8 @@ function mockFetch(): void {
                 const result = callables[name] ? callables[name](data) : {};
                 return { ok: true, status: 200, json: async () => ({ result }) };
             } catch (error) {
-                return { ok: false, status: 400, json: async () => ({ error: { message: (error as Error).message, status: 'INVALID_ARGUMENT' } }) };
+                const status = (error as { status?: string }).status || 'INVALID_ARGUMENT';
+                return { ok: false, status: 400, json: async () => ({ error: { message: (error as Error).message, status } }) };
             }
         }
         if (url.startsWith(FIRESTORE)) {
@@ -220,6 +221,76 @@ describe('signup forms', () => {
         expect(form.querySelector('.waitlist-error-text')!.textContent).toBe('This email cannot join.');
         (form.querySelector('.waitlist-retry-btn') as HTMLButtonElement).click();
         expect(form.querySelector('[name="email"]')).toBeTruthy();
+    });
+});
+
+// SS5 (specs/site-sections-spec.md): contact forms on any published page.
+describe('contact forms', () => {
+    const CONTACT = '<form data-arc-contact-form><input name="name"><input name="email"><textarea name="message"></textarea>'
+        + '<p data-contact-notice>We use your details only to reply.</p><button type="submit">Send</button></form>';
+
+    function fill(values: Record<string, string>): HTMLFormElement {
+        const form = document.querySelector('form') as HTMLFormElement;
+        for (const [name, value] of Object.entries(values)) {
+            (form.querySelector(`[name="${name}"]`) as HTMLInputElement).value = value;
+        }
+        return form;
+    }
+
+    async function send(form: HTMLFormElement): Promise<void> {
+        form.dispatchEvent(new Event('submit', { cancelable: true }));
+        await flush();
+    }
+
+    it('sends the known fields with the page, the language, the time on the page and the honeypot, then thanks the sender', async () => {
+        document.documentElement.lang = 'en';
+        page(CONTACT);
+        const form = fill({ name: ' Asha ', email: 'asha@example.com', message: 'Do you deliver to Pune?' });
+        await send(form);
+
+        expect(calls).toHaveLength(1);
+        expect(calls[0].name).toBe('submitContactMessage');
+        expect(calls[0].data).toMatchObject({ name: 'Asha', email: 'asha@example.com', message: 'Do you deliver to Pune?', page: '/', lang: 'en', website: '' });
+        expect(typeof calls[0].data['elapsedMs']).toBe('number');
+        expect(form.querySelector('.arc-contact-sent')!.textContent).toContain('Thank you');
+    });
+
+    it('adds a hidden honeypot input people never fill', () => {
+        page(CONTACT);
+        const trap = document.querySelector('input[name="website"]') as HTMLInputElement;
+        expect(trap).not.toBeNull();
+        expect(trap.tabIndex).toBe(-1);
+        expect(trap.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('asks for a valid email and a message before sending anything', async () => {
+        page(CONTACT);
+        let form = fill({ email: 'not an email', message: 'Hi' });
+        await send(form);
+        expect(calls).toHaveLength(0);
+        expect(form.querySelector('[data-contact-status]')!.textContent).toBe('Please enter a valid email address.');
+
+        form = fill({ email: 'asha@example.com', message: '   ' });
+        await send(form);
+        expect(calls).toHaveLength(0);
+        expect(form.querySelector('[data-contact-status]')!.textContent).toBe('Please write a message.');
+    });
+
+    it('says when the sender has sent too many, and keeps the form to try later', async () => {
+        callables['submitContactMessage'] = () => { throw Object.assign(new Error('Too many'), { status: 'RESOURCE_EXHAUSTED' }); };
+        page(CONTACT);
+        const form = fill({ email: 'asha@example.com', message: 'Hello' });
+        await send(form);
+        expect(form.querySelector('[data-contact-status]')!.textContent).toContain('try again in an hour');
+        expect((form.querySelector('button') as HTMLButtonElement).disabled).toBe(false);
+        expect((form.querySelector('button') as HTMLButtonElement).textContent).toBe('Send');
+    });
+
+    it('speaks the page\'s language from the strings publishing put on the script', async () => {
+        page(CONTACT, '', '', ` data-strings="${JSON.stringify({ contact_sent: 'धन्यवाद' }).replace(/"/g, '&quot;')}"`);
+        const form = fill({ email: 'asha@example.com', message: 'नमस्ते' });
+        await send(form);
+        expect(form.textContent).toContain('धन्यवाद');
     });
 });
 

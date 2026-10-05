@@ -1,4 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
+import { SitePagesService } from '../core/site/site-pages.service';
+import { siteInfoOf } from '../core/site/site-info-source';
+import type { SitePageLink } from '../../shared/utils/site-info';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
@@ -17,14 +20,14 @@ import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service'
 import { LocalizationService } from '../core/services/localization.service';
 import { UiStringsService } from '../core/services/ui-strings.service';
 import { applyStringsToElement } from '../core/i18n/apply-strings-dom';
+import { applySiteInfoToElement } from '../core/site/apply-site-info-dom';
+import { SiteIdentityService } from '../core/services/site-identity.service';
+import type { IAboutSettings } from './admin/(settings)/about/about-settings.model';
 import { withLangPrefix } from '../core/utils/language-links';
 import { PublicContentTypesService } from '../core/site/public-content-types';
 import { siteManifest } from '../core/site/site';
 import { useSiteStyles } from '../core/site/site-styles';
-import { arcConfig } from '../core/config/arc-config';
-import { ARC_FUNCTION_GROUP } from '../core/config/arc-functions';
-import { buildLegalNoticeElement, legalNoticeLang } from '../../shared/constants/legal-notice';
-import { environment } from '../../environments/environment';
+import { arcSiteScriptElement, prepareLiveParts } from '../core/site/live-parts';
 
 export const routeMeta: RouteMeta = {
     title: 'Home',
@@ -84,6 +87,10 @@ export default class HomeComponent implements OnInit, OnDestroy {
     private uiStrings = inject(UiStringsService);
     private onboarding = inject(OnboardingSetupService);
     private contentTypes = inject(PublicContentTypesService);
+    private siteIdentity = inject(SiteIdentityService);
+    private sitePages = inject(SitePagesService);
+    /** The published standard pages of the page being shown (SS6). */
+    private pages: SitePageLink[] = [];
 
     /** Nodes this page added to <head> and <body>, removed when it goes. */
     private added: Element[] = [];
@@ -109,20 +116,29 @@ export default class HomeComponent implements OnInit, OnDestroy {
     }
 
     private async load(lang: string): Promise<void> {
-        const [settings, strings, types] = await Promise.all([
+        const [settings, strings, types, about] = await Promise.all([
             this.localization.load(), this.uiStrings.use(lang), lang ? this.contentTypes.load() : Promise.resolve(new Set<string>()),
+            // The site's own details for data-arc-site (SS3).
+            this.siteIdentity.load(),
         ]);
+        // The published standard pages, for the footer and the notice links (SS6).
+        const pages = await this.sitePages.load(lang);
         // The home page exists in every enabled language (home.{lang}.html, or
         // home.html translated), so the switcher offers them all.
         this.localization.languageVariants.set(settings.enabledLanguages.map((l) => l.code));
 
         const ownFile = !!lang && !!siteManifest().home[lang];
         const html = await firstValueFrom(this.http.get(ownFile ? `/_site/home.${lang}.html` : '/_site/home.html', { responseType: 'text' }));
-        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types);
+        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types, about, pages);
     }
 
-    private render(page: Document, lang: string, strings: Record<string, string>, types: ReadonlySet<string>): void {
+    private render(
+        page: Document, lang: string, strings: Record<string, string>, types: ReadonlySet<string>,
+        about: IAboutSettings, pages: SitePageLink[],
+    ): void {
         applyStringsToElement(page.documentElement, strings);
+        applySiteInfoToElement(page.documentElement, siteInfoOf(about, pages));
+        this.pages = pages;
 
         // Head: title, description, language, the page's own stylesheets.
         if (page.title.trim()) this.title.setTitle(page.title.trim());
@@ -144,7 +160,8 @@ export default class HomeComponent implements OnInit, OnDestroy {
             this.host.querySelectorAll('a[href]').forEach((a) => a.setAttribute('href', withLangPrefix(a.getAttribute('href') || '', `/${lang}`, types)));
         }
         this.mountElements();
-        this.addLegalNotices();
+        // Signup and contact forms: their notices, contact forms only with the feature (SS5).
+        prepareLiveParts(this.host, this.document, this.pages);
 
         // The page's scripts, in order, as the published page runs them.
         for (const old of scripts) {
@@ -155,31 +172,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
         }
         // The live parts (forms, counts, install, signed-in hint) by the same script
         // the published page runs, so what you try here is what visitors get.
-        this.add(this.document.body, this.arcSiteScript());
-    }
-
-    /** The terms notice above each signup form's button, as publishing adds it. */
-    private addLegalNotices(): void {
-        for (const form of Array.from(this.host.querySelectorAll<HTMLFormElement>('form[data-waitlist-form]'))) {
-            if (form.querySelector('[data-legal-notice]')) continue;
-            const notice = buildLegalNoticeElement(this.document, legalNoticeLang(this.document.documentElement.lang));
-            const submit = form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
-            if (submit?.parentNode) submit.parentNode.insertBefore(notice, submit);
-            else form.appendChild(notice);
-        }
-    }
-
-    /** arc-site.js with what the published page gives it (arcSiteScript in functions/src/pages/deployHomePage.ts). */
-    private arcSiteScript(): HTMLScriptElement {
-        const projectId = environment.firebaseConfig?.projectId ?? '';
-        const version = siteManifest().files['assets/js/arc-site.js'];
-        const script = this.document.createElement('script');
-        script.src = `/assets/js/arc-site.js${version ? `?v=${version}` : ''}`;
-        script.setAttribute('data-functions', `https://${arcConfig.functionsRegion}-${projectId}.cloudfunctions.net`);
-        script.setAttribute('data-group', ARC_FUNCTION_GROUP);
-        script.setAttribute('data-project', projectId);
-        script.setAttribute('data-database', arcConfig.databaseId);
-        return script;
+        this.add(this.document.body, arcSiteScriptElement(this.document));
     }
 
     private mountElements(): void {

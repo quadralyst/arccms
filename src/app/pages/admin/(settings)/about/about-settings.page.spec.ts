@@ -136,6 +136,7 @@ describe('AboutSettingsPage', () => {
             expect(el.querySelector('#description')).toBeTruthy();
             expect(el.querySelector('#sameAs')).toBeTruthy();
             expect(el.querySelector('#contactEmail')).toBeTruthy();
+            expect(el.querySelector('#phone')).toBeTruthy(); // SS3
         });
 
         it('parses the sameAs textarea into a URL list, dropping junk lines', () => {
@@ -158,12 +159,14 @@ describe('AboutSettingsPage', () => {
             component.updateField('logoUrl', 'https://test.com/logo.png');
             component.updateField('description', 'A test site.');
             component.updateField('contactEmail', 'hi@test.com');
+            component.updateField('phone', '+91 98765 43210');
             component.updateSameAs('https://x.com/test');
             await component.saveSettings();
             expect(mockService.save).toHaveBeenCalledWith(expect.objectContaining({
                 logoUrl: 'https://test.com/logo.png',
                 description: 'A test site.',
                 contactEmail: 'hi@test.com',
+                phone: '+91 98765 43210',
                 sameAs: ['https://x.com/test'],
                 organizationType: 'Organization',
             }));

@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Build your home page | Arc CMS docs</title>
   <meta name="description" content="Write your site's home page as one HTML file with your own styles, scripts and animation, with live cards, signup forms and an install button, published as a fast static page in every language.">
-  <meta name="docs:sources" content="public/_site/home.html, functions/src/pages/deployHomePage.ts, src/app/pages/index.page.ts, public/assets/js/arc-site.js, src/app/core/site/signed-in-hint.ts, src/app/core/site/site-drift.ts, scripts/vite-arc-site.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, functions/src/pages/seedStaticPages.ts, src/app/pages/admin/contents/content-types/index.page.ts, scripts/arc-site.mjs, scripts/arc-deploy-menu.mjs">
+  <meta name="docs:sources" content="public/_site/home.html, functions/src/pages/deployHomePage.ts, src/app/pages/index.page.ts, public/assets/js/arc-site.js, src/app/core/site/signed-in-hint.ts, src/app/core/site/site-drift.ts, scripts/vite-arc-site.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, functions/src/pages/seedStaticPages.ts, src/app/pages/admin/contents/content-types/index.page.ts, scripts/arc-site.mjs, scripts/arc-deploy-menu.mjs, functions/src/shared/live-parts.ts, src/app/core/site/live-parts.ts, src/app/core/site/apply-site-info-dom.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/home-page.html">
   <main>
     <h1>Build your home page</h1>
-    <p class="lead">Your home page is one HTML file, <code class="new">src/custom/site/home.html</code>: a whole page with your own styles, scripts and animation. Arc CMS fills in the live parts (your header and footer, the latest articles, signup forms) and publishes it as a fast static page in every language, with everything search engines and AI assistants read.</p>
+    <p class="lead">Your home page is one HTML file, <code class="new">src/custom/site/home.html</code>: a whole page with your own styles, scripts and animation. Arc CMS fills in the live parts (your header and footer, cards from your content, your contact details, signup and contact forms) and publishes it as a fast static page in every language, with everything search engines and AI assistants read.</p>
 
     <h2>Until you write one</h2>
     <p>Arc CMS's own home page (<code>public/_site/home.html</code>) is a placeholder: "This site is not set up yet". It tells search engines not to list it. Your file replaces it.</p>
@@ -53,9 +53,11 @@
       <thead><tr><th>Write</th><th>Becomes</th></tr></thead>
       <tbody>
         <tr><td><code>&lt;arc-header&gt;&lt;/arc-header&gt;</code>, <code>&lt;arc-footer&gt;&lt;/arc-footer&gt;</code></td><td>Your site header and footer (see <a href="templates.html">Design templates</a>)</td></tr>
-        <tr><td><code>&lt;arc-content-partials content-type="articles"&gt;</code></td><td>Cards of the latest items of that type, laid out by its <code>partials.html</code>. <code>count</code> (default 4), <code>section-title</code> (default "Latest" and the type's name, or the page's <code>latest_of_type</code> string) and <code>template-folder</code> (another folder's cards) are optional. The page is republished when that type's content is published or unpublished.</td></tr>
+        <tr><td><code>&lt;arc-content-partials content-type="articles"&gt;</code></td><td>Cards of that type's items, newest first or in the type's own order, laid out by its <code>partials.html</code>. <code>count</code> (default 4), <code>section-title</code> (default "Latest" and the type's name, or the page's <code>latest_of_type</code> string) and <code>template-folder</code> (another folder's cards) are optional. A type without public pages works too, for services, a hero or testimonials that editors change: its cards have no links (see <a href="editable-sections.html">Let editors change your home page</a>). The page is republished when that type's content is published, unpublished or arranged.</td></tr>
         <tr><td><code>&lt;arc-search&gt;</code>, <code>&lt;arc-language-switcher&gt;</code></td><td>The search box and the language links, outside the header too</td></tr>
         <tr><td><code>&lt;form data-waitlist-form data-waitlist-id="…"&gt;</code></td><td>A signup form: the emailed code, then the person's place and referral link (see <a href="forms.html">Collect sign-ups</a>). The terms notice is added above its button.</td></tr>
+        <tr><td><code>&lt;form data-arc-contact-form&gt;</code></td><td>A contact form whose messages land in <strong>Messages</strong> in the admin (see <a href="../features/contact.html">Contact form</a>). A privacy line is added above its button.</td></tr>
+        <tr><td><code>data-arc-site="phone"</code>, <code>data-arc-site-loop="social"</code></td><td>The site's name, email, phone, address, logo, social links and the year, from Settings, <strong>About</strong> (see <a href="../features/templates.html#site-info">Site info</a>). Works here, in the header and footer, templates and static pages.</td></tr>
         <tr><td><code>&lt;span data-waitlist-count="…"&gt;&lt;/span&gt;</code></td><td>The number of confirmed sign-ups on that form</td></tr>
         <tr><td><code>&lt;button data-arc-install hidden&gt;</code></td><td>Shown when the browser offers installing your app; a click asks. Needs the installable app on (see <a href="../app/pwa.html">Make it installable</a>). In your script, <code>window.arcSite.install()</code> and <code>window.arcSite.canInstall</code> do the same.</td></tr>
         <tr><td><code>data-arc-signed-in</code>, <code>data-arc-signed-out</code></td><td>Elements shown to people signed in to the app on this browser, or to everyone else. Give the signed-in one <code>hidden</code> so it starts hidden.</td></tr>
@@ -72,7 +74,7 @@
     <h2>What Arc CMS adds when it publishes</h2>
     <p>These are always set for the page's language, and replace any your page has: <code>&lt;html lang&gt;</code> (with <code>dir="rtl"</code> for a right-to-left language), the canonical address, <code>og:url</code>, <code>og:locale</code> and the links to the other languages (<code>hreflang</code>).</p>
     <p>These are added only where your page has none: a title and description (from Settings, <strong>About</strong>), the other Open Graph and Twitter tags (the logo from <strong>About</strong> as the image), <code>&lt;meta name="robots" content="index, follow"&gt;</code>, and the app manifest when the installable app is on. Your own title, description and social tags are kept.</p>
-    <p>Arc CMS also adds the site's structured data (Organization and WebSite) and the small script that runs the live parts (<code>/assets/js/arc-site.js</code>). The home page is listed in the sitemap in every language.</p>
+    <p>Arc CMS also adds the site's structured data (Organization and WebSite) and the small script that runs the live parts (<code>/assets/js/arc-site.js</code>), which every published page carries, so a form works on any of them. The home page is listed in the sitemap in every language.</p>
     <p>While the setup wizard is not finished, that script sends visitors to <code>/onboarding</code>, as the app does: everyone on a fresh install, and only people signed in once someone has started the setup. Add <code>?debug</code> to the address to stay on the page.</p>
 
     <h2>More than one language</h2>
@@ -85,12 +87,12 @@
     <p>Links to pages that exist in every language point at the page's language: the home page (<code>/</code> becomes <code>/hi</code>), search and your content types (<code>/articles</code> becomes <code>/hi/articles</code>). Everything else exists once and keeps its address: sign-in, the member area, your app's own pages (<code>/learn</code>), static pages (<code>/p/…</code>) and files (<code>/site/…</code>, <code>/assets/…</code>).</p>
 
     <h2>Put it live</h2>
-    <p>Deploy the website with <code>npm run deploy</code> and choose <strong>Website</strong> or <strong>Everything</strong> (see <a href="../operations/deploy.html">Deploy</a>). The deploy keeps the pages already published, then publishes every page again, the home page included. After that, the home page is published again by itself when content it shows is published or unpublished, and when you save a setting it uses: <strong>About</strong>, the site address, the languages, or the powered-by setting.</p>
+    <p>Deploy the website with <code>npm run deploy</code> and choose <strong>Website</strong> or <strong>Everything</strong> (see <a href="../operations/deploy.html">Deploy</a>). The deploy keeps the pages already published, then publishes every page again, the home page included. After that, the home page is published again by itself when content it shows is published, unpublished or arranged, and when you save a setting it uses: <strong>About</strong>, the site address, the languages, or the powered-by setting. When your header, footer, templates or static pages print About's details with <code>data-arc-site</code>, saving About publishes the whole site again.</p>
     <p>To publish the whole site again yourself, open <strong>Content</strong>, <strong>Content types</strong> and choose <strong>Republish website</strong>. It rebuilds every content page and list page, the home page, the static pages, the sitemap and the feeds, in one release, from the files on the live site.</p>
     <div class="trap"><p>The live site serves the published page. A change to <code>home.html</code> shows in <code>npm run dev</code> at once, but reaches the live site only after a website deploy. Publishing reads the live site's files, not yours: while your site files differ from the live ones, the content editor and <strong>Content types</strong> say <strong>Live site differs</strong> (only in <code>npm run dev</code>; hover for the files).</p></div>
 
     <h2>Next</h2>
-    <p>Write the pages that are not content: <a href="static-pages.html">Write static pages</a>.</p>
+    <p>Let editors change the services, hero, questions and contact details without touching HTML: <a href="editable-sections.html">Let editors change your home page</a>.</p>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

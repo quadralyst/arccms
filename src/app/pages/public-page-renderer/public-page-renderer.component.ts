@@ -1,5 +1,7 @@
-import { ChangeDetectorRef, Component, inject, OnInit, ViewEncapsulation } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit, PLATFORM_ID, ViewEncapsulation } from '@angular/core';
+import { SitePagesService } from '../../core/site/site-pages.service';
+import { siteInfoOf } from '../../core/site/site-info-source';
+import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, Meta, SafeHtml, Title } from '@angular/platform-browser';
@@ -8,6 +10,9 @@ import { HeaderComponent } from '../page.parts/header.component';
 import { FooterComponent } from '../page.parts/footer.component';
 import { siteManifest, sitePageUrl } from '../../core/site/site';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { applySiteInfoToHtml } from '../../core/site/apply-site-info-dom';
+import { attachLiveParts } from '../../core/site/live-parts';
 
 @Component({
     selector: 'app-public-page-renderer',
@@ -38,7 +43,7 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
   `],
     encapsulation: ViewEncapsulation.None
 })
-export class PublicPageRendererComponent implements OnInit {
+export class PublicPageRendererComponent implements OnInit, OnDestroy {
     private http = inject(HttpClient);
     private route = inject(ActivatedRoute);
     private router = inject(Router);
@@ -46,11 +51,21 @@ export class PublicPageRendererComponent implements OnInit {
     private titleService = inject(Title);
     private metaService = inject(Meta);
     private gaTracking = inject(GaTrackingService);
+    private siteIdentity = inject(SiteIdentityService);
+    private sitePages = inject(SitePagesService);
     private cdr = inject(ChangeDetectorRef);
+    private document = inject(DOCUMENT);
+    private platformId = inject(PLATFORM_ID);
+    /** The live parts' script for the page's forms (SS5). */
+    private liveScript: HTMLScriptElement | null = null;
 
     sanitizedContent: SafeHtml = '';
     hasHeader = false;
     hasFooter = false;
+
+    ngOnDestroy(): void {
+        this.liveScript?.remove();
+    }
 
     ngOnInit() {
         this.route.params.pipe(
@@ -78,10 +93,23 @@ export class PublicPageRendererComponent implements OnInit {
                     })
                 );
             })
-        ).subscribe(htmlContent => {
+        ).subscribe(async htmlContent => {
             if (htmlContent) {
-                this.processHtml(htmlContent);
+                // The site's own details for data-arc-site (SS3), read only when the page asks.
+                // Read only for a page that asks: the site's details (SS3), and the
+                // standard pages (SS6) for its forms' notice links and site loops.
+                const usesSiteInfo = htmlContent.includes('data-arc-site');
+                const hasForms = htmlContent.includes('data-arc-contact-form') || htmlContent.includes('data-waitlist-form');
+                const pages = usesSiteInfo || hasForms ? await this.sitePages.load() : [];
+                const about = usesSiteInfo ? await this.siteIdentity.load() : null;
+                this.processHtml(applySiteInfoToHtml(htmlContent, siteInfoOf(about, pages)));
                 this.cdr.detectChanges();
+                // Signup and contact forms on the page work as when published (SS5).
+                if (isPlatformBrowser(this.platformId)) {
+                    this.liveScript?.remove();
+                    const content = this.document.querySelector('.public-page-content');
+                    this.liveScript = content ? attachLiveParts(content, this.document, pages) : null;
+                }
             } else {
                 this.router.navigate(['/404']);
             }

@@ -1,6 +1,6 @@
 # Editable Site Sections: Build Spec
 
-**Status:** Spec only, not built. Written 2026-10-05; standard pages and the contact form added and every decision settled the same day. Checked against `dev` at 17d7ae1 (after the website docs backlog, 824ce0b).
+**Status:** SS1 to SS8 built 2026-10-05 on `feat/site-sections` (SS8, page layouts, is section 12). SS1 to SS7 functions and hosting deployed to the xlm dev project and browser-checked phase by phase; not merged into `dev`. Screenshots are not taken yet (SS7 updated the text only). Where the build differs from this spec, section 11 says so. Spec written 2026-10-05 against `dev` at 17d7ae1.
 **Branch:** `feat/site-sections`, to be cut from `dev`, in a worktree (`../arccms-site-sections`) so the main checkout's dev server keeps running.
 **Codes:** phases are SS1 to SS7 and decisions SS-D1 onwards. (The website docs backlog in `specs/website-docs-review.md` already uses B1 to B7.)
 
@@ -15,6 +15,7 @@
 | **SS5** Contact form | A new switchable feature, `contact`: `<form data-arc-contact-form>` on any published page, a public function with spam checks, a **Messages** inbox in the admin, and a bell and email alert to admins. Includes running the live parts script (`arc-site.js`) on every published page, not only the home page. |
 | **SS6** Standard pages | A built-in **Pages** content type at `/info/...` with About, Contact, FAQ, Privacy Policy, Terms and Cookie Policy as drafts. One template whose sections (map, FAQ, contact details, contact form) turn on per page. The signup terms notice and the cookie banner link to these pages once published. |
 | **SS7** Docs walkthrough and changelog | One docs page that builds a services block, a hero, an FAQ and a contact footer from a mockup; the example files; the changelog. |
+| **SS8** Page layouts | One entry can use its own detail layout: a template folder may hold `detail-{name}.html` files, and the editor offers **Layout** when it does. Core ships a Contact layout (intro, map beside the address, contact boxes beside the form) and the Contact page starts with it. Added after SS7, see section 12. |
 
 **Out of scope:** an admin menu manager for header and footer navigation (its own spec, later); cards on pages other than the home page (templates and static pages); repeating fields (Info Cards, FAQ) inside the card block's items loop; sort orders other than newest first and your own (oldest first, A to Z); per-language contact details; pages at the site root (`/about` rather than `/info/about`), a later feature if clients ask; file uploads and custom fields on the contact form; adding contact form senders to the audience; rich text FAQ answers; per-page `AboutPage` and `ContactPage` structured data; merging the app and functions copies of the template filler.
 
@@ -420,9 +421,74 @@ One deploy per phase, after its tests pass. Targeted functions only (`functions:
 | SS4 | `processPublishQueue`, `seedStaticPages` | |
 | SS5 | `processPublishQueue`, `seedStaticPages`, `submitContactMessage`, `onContactMessageCreated` | Firestore rules and indexes |
 | SS6 | `processPublishQueue`, `seedStaticPages` | |
+| SS8 | `processPublishQueue`, `seedStaticPages` | Hosting (the new `info/detail-contact.html`) |
 
 Hosting is the user's own deploy (the `info` template folder and the new `arc-site.js` need one before the browser checks). Browser checks at localhost:5173 after each functions deploy.
 
 ## 10. Order of work
 
 SS1, SS2, SS3, SS4, SS5, SS6, SS7. SS1 and SS2 share the card block and the queue; SS6 needs SS2 to SS5, so the Contact and FAQ pages are complete when they are created. Each phase: build, tests, docs, full suite (`npm run test`, plus `npm run test:rules` for SS5), report, one deploy, browser check.
+
+---
+
+## 11. As built: where the build differs
+
+| Phase | Spec | Built |
+|---|---|---|
+| SS2 | A new entry goes last (SS-D6). | Same result by a different route: a new entry gets no `sortOrder`, and display order puts numbered entries first (by `sortOrder`, ties newest first), then unnumbered ones oldest first. **Arrange** numbers everything it saves. The Arrange dialog warns above 200 entries that the list page shows the first 100. |
+| SS5 | Rate limits in `_contact_limits/{hash}`. | No new collection: `submitContactMessage` reuses `consumeRateLimit` and `callerKey` from `functions/src/auth/accounts.ts`, so the counters live in `_rate_limits` (keys `contact-ip-*`, `contact-email-*`). Bot traffic (the `website` honeypot, or under 3 seconds on the page) is answered as sent and dropped. |
+| SS5 | One alert per message. | Alerts are capped at 10 an hour (`contact-alerts` in `_rate_limits`); beyond that, messages are saved without an alert. |
+| SS5 | A docs page named `contact-form.html`. | `docs/features/contact.html`, named after the feature id like the other feature pages. |
+| SS6 | Five standard pages. | Six: a Frequently asked questions page (`/info/faq`, with three FAQ rows) joins About, Contact, Privacy Policy, Terms and Cookie Policy. |
+| SS3, SS6 | `data-arc-site` keys name, description, email, phone, address, logo; `-if` and `-loop` for social. | Also `year` (always set, for the copyright line), `-if="pages"` and `-loop="pages"` (the published standard pages, titled in the page's language), and `-if="contact"` (any email, phone, address or social link). |
+| SS6 | Footer links to the standard pages. | The default footer is now the `pages` loop plus `© {year} {name}`; the Documentation, GitHub and Community links are gone. Publishing or unpublishing a standard page, changing any of their titles, or arranging them queues `redeploy-all`, so every footer agrees. |
+| SS6 | (not in spec) | `main.css` footer rules are scoped to the site footer (`body > footer`, `arc-footer > footer`, `.arc-cms-template > footer`, `footer.site-footer`), after the old global `footer` rule stretched the Feedback dialog's footer. |
+| SS7 | Example files: services and hero `partials.html`, a footer. | Also a `questions/partials.html` (a home page FAQ block from a data-only type) and a `home.html` fragment. `functions/src/__tests__/docsSectionsExamples.spec.ts` fills every example as publishing does. |
+| SS8 | Row 3's boxes: email, phone, address and social from About. | Email, phone and social only: the address is row 2's, from **Locations**, so it is not printed twice. |
+| SS8 | (not in spec) | The app's detail page loads its template again when the item needs another one: a preview's draft arrives after the published copy, and its layout may differ. Before, the first template stayed. |
+| SS8 | Add standard pages shows until the Pages type exists. | It shows until the Pages type has every standard field, so an install from before SS8 can add Info boxes. It also says when it only added fields, or when everything was there. |
+| SS6 | The type is called Pages (Page). | Renamed **Info Pages** (Info Page) on 2026-10-06, so the admin menu says what it holds. An existing install keeps its own name; rename it under Content types. |
+| All | Screenshots per phase. | Not taken yet. |
+
+---
+
+## 12. SS8: Page layouts
+
+Added 2026-10-05 after SS7, from wanting a Contact page laid out differently from About or the policies. Today a template belongs to a content type, so every entry of a type looks the same; the only way to give one page its own look is CSS on a slug class.
+
+### Decisions
+
+| # | Decision | Choice |
+|---|----------|--------|
+| SS-D35 | How one entry gets its own layout | **A Layout picker on the entry**, not a file named after the slug. A slug rename never drops a layout, and the editor shows which layout a page uses. |
+| SS-D36 | Where layouts live | **In the type's own template folder**, as `detail-{name}.html` beside `detail.html` (`name`: lowercase letters, digits, `-` and `_`, starting with a letter or digit). A layout replaces only the detail page; the folder's `list.html` and `partials.html` are unchanged. An app adds or replaces a layout in `src/custom/site/templates/{folder}/`, file by file, like the other three files. |
+| SS-D37 | When the picker shows | **Only when the type's folder has at least one layout.** Options: **Standard** (`detail.html`, the default) and one per layout, labelled from its name (`contact` is Contact, `wide-hero` is Wide hero). Most sites never see it. The value is shared by every language. |
+| SS-D38 | Where the choice is stored | `layout` on the draft (`''` or missing for Standard), copied to the published copy like every draft field. |
+| SS-D39 | A layout the live site does not have | **Falls back to the folder's `detail.html`**, with a warning in the function log, instead of failing the publish: the page stays correct, only plainer, and the next website deploy plus publish brings the layout. The app's preview falls back the same way. |
+| SS-D40 | Fields for one layout | **No per-layout fields** (later, if editors find unused fields confusing). A layout uses (1) the site's details through `data-arc-site` (address, phone, email, social, typed once in Settings, About) and (2) the type's ordinary fields, such as an Info Cards field that only the pages using that layout fill in. An empty field shows nothing on the other pages. |
+| SS-D41 | The Contact layout | Core ships `info/detail-contact.html`. Row 1: the title and the body, full width. Row 2: for each place in **Locations**, the map on the left and its name, address and directions on the right. Row 3: on the left, boxes (email, phone and social links from About with **Show contact details** on, then the page's **Info boxes**); on the right, the contact form. Rows whose data is missing are left out. One column on a phone. |
+| SS-D42 | Info boxes | A new field on the Pages type, **Info boxes** (`info-info-boxes`, an Info Cards field), for the Contact layout's extra boxes such as opening hours. A new Contact page starts with one: **Opening hours**, with a `[Replace:` prompt. |
+| SS-D43 | Existing installs | **Add standard pages** also adds any standard field the Pages type lacks (append only, never changing or removing a field), so an install from before gets Info boxes. An existing Contact page is never changed: the admin picks **Layout: Contact** in the editor. New Contact pages start with it. |
+
+### Build
+
+- `scripts/arc-site.mjs`: serve `templates/{folder}/detail-{name}.html`; `buildManifest` lists layouts in a new `layouts` key: `{ info: { contact: 'core' } }` (a folder holding only layouts is still listed under `templates`). Mirrors: `SiteManifest` in `src/app/core/site/site.ts` and `functions/src/shared/site-files.ts`, both reading a missing `layouts` as none.
+- Functions: `loadDetailTemplate(folder, layout)` in `site-files.ts`: the layout's file when the manifest lists it (rereading the manifest once when it does not, as for folders) and it is a template; otherwise `loadSiteTemplate(folder, 'detail')`. `deployContentPage` uses it with the entry's `layout`.
+- App: `siteLayoutUrl(folder, layout)` in `site.ts`, used by `content-detail.component.ts` (published pages and the preview); a layout file that is not a template falls back to the folder's `detail.html`.
+- Editor: `layout` in the publish form, a **Layout** select in the Basic tab (shown per SS-D37, disabled on a translation tab like Author), saved with the draft.
+- Standard pages: the Info boxes field; Contact created with `layout: 'contact'` and the Opening hours box; `ensure()` adds missing standard fields and reports them.
+- Template Reference (content type view page): lists the folder's layouts beside its files.
+
+### Tests
+
+- Build: a `detail-x.html` is served and listed under `layouts`; other names (`card.html`, `detail-.html`, `detail-X.html`) are still not served.
+- Functions: the layout file when listed; `detail.html` when not listed, not a template, or no layout chosen; `deployContentPage` renders with the entry's layout.
+- App: `siteLayoutUrl` with and without the layout in the manifest; the detail page requests the layout's file.
+- Editor: no picker without layouts; with layouts, the options and the saved `layout`; Standard saves `''`.
+- Standard pages: the field list, Contact's layout and box, `ensure()` adding a missing field once and leaving others alone.
+- The Contact layout filled as publishing does: the three rows, each row left out without its data, the form gone with `contact` off.
+
+### Docs
+
+`docs/features/templates.html` (layouts: the files, the picker, the fallback), `docs/features/content.html` (Layout in the editor, the Contact layout and Info boxes in Standard pages), `docs/website/templates.html`, `docs/website/static-pages.html` (the Contact page), `docs/website/overview.html` (which files a template folder may hold), `docs/reference/data-model.html` (`layout`), `CHANGELOG.md`. No screenshots yet.
+

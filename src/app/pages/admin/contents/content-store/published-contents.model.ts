@@ -35,6 +35,12 @@ export interface IContents extends IBaseModel {
     authorId?: string | null;
     authorName?: string;
     /**
+     * The detail layout this item uses: `detail-{layout}.html` in its type's
+     * template folder; empty or missing for the folder's `detail.html`
+     * (specs/site-sections-spec.md, SS8). Shared by every language.
+     */
+    layout?: string;
+    /**
      * Sources the author cited (specs/discoverability-spec.md, D-D11):
      * rendered as a "Sources" list and emitted as Article.citation.
      */

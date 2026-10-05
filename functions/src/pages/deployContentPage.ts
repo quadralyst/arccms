@@ -13,7 +13,7 @@ import {
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
 import { contentTypeName } from '../shared/content-type-names.js';
-import { buildBreadcrumbList, countWords } from '../shared/structured-data.js';
+import { buildBreadcrumbList, buildFaqPage, countWords, faqItems } from '../shared/structured-data.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
 import { resolveContentDates } from '../shared/content-dates.js';
 import { AuthorProfile, authorTemplateData, authorToPerson, getAuthor } from '../shared/authors.js';
@@ -33,7 +33,9 @@ import {
     POWERED_BY_HTML,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { getSiteManifest, loadSiteTemplate, pageStylesheets } from '../shared/site-files.js';
+import { getSiteManifest, loadDetailTemplate, pageStylesheets } from '../shared/site-files.js';
+import { siteInfoFor } from '../shared/site-info-source.js';
+import { liveSiteScript, withLiveParts } from '../shared/live-parts.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { publicContentTypeSlugs } from '../shared/public-content-types.js';
@@ -242,7 +244,10 @@ export function buildDetailJsonLd(input: {
         node => !(article?.['@type'] === 'HowTo' && node['@type'] === 'HowTo'),
     );
 
-    return [site.organization, site.webSite, breadcrumbs, article, ...blockNodes].filter(
+    // The page's questions and answers from its FAQ field (specs/site-sections-spec.md, SS4).
+    const faq = buildFaqPage(faqItems(contentType.fields, content.customFields), input.pageUrl);
+
+    return [site.organization, site.webSite, breadcrumbs, article, faq, ...blockNodes].filter(
         (node): node is Record<string, unknown> => !!node,
     );
 }
@@ -315,8 +320,9 @@ export async function generateAndDeployContentDetailPage(
     // 4. Load the detail template from the live site (site-files.ts). The same
     //    template renders every language; only the data differs. A folder the
     //    live site does not have throws MissingTemplateFolderError, which the
-    //    publish queue records on the item for the editor to show.
-    const templateHtml = await loadSiteTemplate(contentType.templateFolder, 'detail');
+    //    publish queue records on the item for the editor to show. An entry
+    //    with a layout uses its own detail file in that folder (SS8).
+    const templateHtml = await loadDetailTemplate(contentType.templateFolder, content.layout);
 
     // 5. Work out which languages this item is published in: the default
     //    language always, plus every enabled language that has a translation.
@@ -384,7 +390,11 @@ export async function generateAndDeployContentDetailPage(
         // Applied before hydration so a translated value may carry its own
         // interpolation — "Back to {{ contentType }}" — and before loops so a
         // repeated item template is translated once rather than per item.
-        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, pageStrings);
+        // Then the site's own details (SS3) and its standard pages (SS6), before
+        // hydration can touch a loop row's {{ url }}.
+        const siteInfo = await siteInfoFor(lang, defaultLang);
+        const localizedTemplate = TemplateHydrationService.applySiteInfo(
+            TemplateHydrationService.applyStrings(templateHtml, pageStrings), siteInfo);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, {
             // Repeating custom fields (Info Cards) become named loops, so a
@@ -409,7 +419,7 @@ export async function generateAndDeployContentDetailPage(
         const contentTypes = await publicContentTypeSlugs();
         const chrome = (html: string) =>
             prefixAnchorHrefs(
-                TemplateHydrationService.applyStrings(html, pageStrings),
+                TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, pageStrings), siteInfo),
                 langPrefix(lang, defaultLang),
                 contentTypes,
             );
@@ -463,7 +473,11 @@ export async function generateAndDeployContentDetailPage(
         };
 
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
-        const fullHtml = buildHtmlDocument(body, meta, '', '', styles, scripts, poweredBy);
+        // The live parts (SS5): signup and contact forms work here as on the home page.
+        const manifest = await getSiteManifest();
+        const liveBody = withLiveParts(body, pageStrings, manifest, siteInfo.pages);
+        const liveScripts = [scripts, await liveSiteScript(manifest, pageStrings)].filter(Boolean).join('\n');
+        const fullHtml = buildHtmlDocument(liveBody, meta, '', '', styles, liveScripts, poweredBy);
 
         // Links to the site's files carry their version (shared/site-urls.ts).
         target.add(detailFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug), versionSiteUrls(fullHtml, (await getSiteManifest())?.files));

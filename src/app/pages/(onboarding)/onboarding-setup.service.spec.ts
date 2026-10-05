@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { StandardPagesService } from '../admin/contents/standard-pages/standard-pages.service';
 import { Firestore } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
@@ -47,6 +48,8 @@ vi.mock('@angular/fire/functions', async () => {
     };
 });
 
+const mockStandardPages = { ensure: vi.fn().mockResolvedValue({ createdType: true, createdPages: [], foreignType: false }) };
+
 describe('OnboardingSetupService', () => {
     let service: OnboardingSetupService;
     const mockFirestore = {};
@@ -70,6 +73,7 @@ describe('OnboardingSetupService', () => {
                 { provide: Functions, useValue: {} },
                 { provide: AuthService, useValue: mockAuthService },
                 { provide: Auth, useValue: mockAuth },
+                { provide: StandardPagesService, useValue: mockStandardPages },
             ],
         });
 
@@ -382,6 +386,16 @@ describe('OnboardingSetupService', () => {
     });
 
     describe('completeSetup', () => {
+        // SS6: the standard pages as drafts, best-effort.
+        it('creates the standard pages, and finishes setup even when that fails', async () => {
+            await service.completeSetup();
+            expect(mockStandardPages.ensure).toHaveBeenCalledTimes(1);
+
+            vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+            mockStandardPages.ensure.mockRejectedValueOnce(new Error('denied'));
+            await expect(service.completeSetup()).resolves.toEqual({ waitlistCreated: true });
+        });
+
         it('should create content types, waitlist, and mark onboarding complete', async () => {
             const result = await service.completeSetup();
 

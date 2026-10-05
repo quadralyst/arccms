@@ -23,6 +23,8 @@ export interface SiteManifest {
     version: number;
     home: Record<string, 'core' | 'app'>;
     templates: Record<string, Partial<Record<TemplateFile, 'core' | 'app'>>>;
+    /** Each folder's layouts (`detail-{name}.html`) by name; missing on a site built before them. */
+    layouts?: Record<string, Record<string, 'core' | 'app'>>;
     pages: Record<string, 'core' | 'app'>;
     strings: string[];
     files: Record<string, string>;
@@ -155,6 +157,30 @@ export async function loadSiteTemplate(folder: string | null | undefined, file: 
         throw new MissingTemplateFolderError(wanted, !!manifest);
     }
     return DEFAULT_TEMPLATES[file];
+}
+
+/**
+ * An entry's detail template (specs/site-sections-spec.md, SS8): its layout,
+ * `detail-{layout}.html` in the type's folder, when the live site has that
+ * layout and it is a template; otherwise the folder's `detail.html`, as
+ * loadSiteTemplate chooses it. A layout missing from the live site is not an
+ * error: the page is published in the folder's standard layout until the
+ * website is deployed and the page published again.
+ */
+export async function loadDetailTemplate(folder: string | null | undefined, layout: string | null | undefined): Promise<string> {
+    const wanted = folder && folder !== DEFAULT_TEMPLATE_FOLDER ? folder : DEFAULT_TEMPLATE_FOLDER;
+    const name = typeof layout === 'string' ? layout.trim() : '';
+    if (name && arcHostingSite()) {
+        let manifest = await getSiteManifest();
+        // A layout the cached manifest lacks may have been deployed since it was read.
+        if (!manifest?.layouts?.[wanted]?.[name]) manifest = await getSiteManifest(true);
+        if (manifest?.layouts?.[wanted]?.[name]) {
+            const text = await getSiteFile(`templates/${wanted}/detail-${name}.html`);
+            if (text && isTemplateFragment(text)) return text;
+        }
+        console.warn(`Layout '${name}' of template folder '${wanted}' is not on the live site; using the folder's detail.html.`);
+    }
+    return loadSiteTemplate(folder, 'detail');
 }
 
 /**

@@ -1,0 +1,27 @@
+<!--
+  The standard pages' list page, /info (specs/site-sections-spec.md, SS6): a
+  plain index of the published pages, in their arranged order.
+-->
+<div class="arc-cms-template">
+    <arc-header></arc-header>
+
+    <section class="arc-page">
+        <div class="container">
+            <h1 class="arc-page-title">{{ contentType }}</h1>
+            <ul class="arc-page-index" data-arc-loop="items">
+                <li><a href="{{ url }}">{{ title }}</a></li>
+            </ul>
+        </div>
+    </section>
+
+    <arc-footer></arc-footer>
+</div>
+
+<style>
+.arc-page { padding: 3rem 0 4rem; }
+.arc-page .container { max-width: 760px; }
+.arc-page-title { font-size: 2.25rem; font-weight: 700; margin: 0 0 1.5rem; }
+.arc-page-index { list-style: none; padding: 0; margin: 0; }
+.arc-page-index li { border-bottom: 1px solid #e8e8ed; }
+.arc-page-index a { display: block; padding: 0.875rem 0; font-size: 1.1rem; text-decoration: none; }
+</style>

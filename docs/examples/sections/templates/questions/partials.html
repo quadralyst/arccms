@@ -1,0 +1,13 @@
+<!-- Questions for <arc-content-partials content-type="questions">: a Questions
+     type with Generate public pages off and Your own order, one entry per
+     question. The title is the question and the body is the answer. -->
+<section class="questions" data-arc-if="hasItems">
+    <h2>{{ sectionTitle }}</h2>
+    <div data-arc-loop="items">
+        <details class="question">
+            <summary>{{ title }}</summary>
+            <div class="answer" data-arc-bind="content"></div>
+        </details>
+    </div>
+    <p><a href="/info/faq" data-arc-t="more_questions">More questions</a></p>
+</section>

@@ -125,6 +125,24 @@ describe('Template Reference', () => {
             expect(render(field, value)).toContain(expected);
         });
 
+        // SS4: the FAQ field's loop, with the answer as paragraphs and links.
+        it('renders an FAQ field\'s rows in order, the answer as HTML', () => {
+            const field = { key: 'events-faq', label: 'FAQ', type: 'faq' };
+            const snippet = customFieldReference(field, 'events');
+            expect(snippet.syntax).toBe('data-arc-loop="faq"');
+            expect(snippet.note).toContain('{{ faq_heading }}');
+            const entry = { ...ENTRY, customFields: { 'events-faq': [
+                { id: 'b', position: 1, question: 'Parking?', answer: 'Free after 6.' },
+                { id: 'a', position: 0, question: 'Tickets?', answer: 'At the door.\n\nOr online: https://x.example/t' },
+            ] } };
+            const looped = TemplateHydrationService.processLoops(
+                `<div ${snippet.syntax}><details><summary>{{ question }}</summary><div data-arc-bind="answer_html"></div></details></div>`,
+                TemplateHydrationService.arrayLoopData(entry.customFields as Record<string, any>, ['tags', 'items'], 'events'));
+            const html = TemplateHydrationService.hydrateTemplate(looped, detailData(entry));
+            expect(html.indexOf('Tickets?')).toBeLessThan(html.indexOf('Parking?'));
+            expect(html).toContain('<p>At the door.</p><p>Or online: <a href="https://x.example/t">https://x.example/t</a></p>');
+        });
+
         it('renders a field from another content type by its copied title', () => {
             const field = { key: 'events-speaker', label: 'Speaker', type: 'dropdown', useCollectionRef: true };
             const entry = { ...ENTRY, customFields: { 'events-speaker': 's1' }, 'ref_events-speaker': { id: 's1', title: 'Dr Mehta' } };

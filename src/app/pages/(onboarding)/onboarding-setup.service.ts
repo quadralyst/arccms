@@ -18,6 +18,7 @@ import { AuthService } from '../(auth)/auth.service';
 import { arcCallable } from '../../core/config/arc-functions';
 import { arcConfig } from '../../core/config/arc-config';
 import { isOn } from '../../core/features/features';
+import { StandardPagesService } from '../admin/contents/standard-pages/standard-pages.service';
 
 /**
  * Where an install sits relative to the onboarding wizard.
@@ -51,6 +52,7 @@ export class OnboardingSetupService {
     adminOnlySignIn = arcConfig.adminOnlySignIn;
     private functions = inject(Functions);
     private authService = inject(AuthService);
+    private standardPages = inject(StandardPagesService);
     private auth = inject(Auth, { optional: true });
 
     /**
@@ -244,6 +246,16 @@ export class OnboardingSetupService {
     async completeSetup(): Promise<{ waitlistCreated: boolean }> {
         // Seed only what this app has (specs/feature-flags-spec.md).
         if (isOn('content')) await this.createDefaultContentTypes();
+
+        // The standard pages (About, Contact, policies) as drafts (SS6). Best-effort,
+        // like the waitlist: Add standard pages on Content types does the same later.
+        if (isOn('content')) {
+            try {
+                await this.standardPages.ensure();
+            } catch (err) {
+                console.warn('Standard pages could not be created (non-fatal):', err);
+            }
+        }
 
         let waitlistCreated = true;
         try {

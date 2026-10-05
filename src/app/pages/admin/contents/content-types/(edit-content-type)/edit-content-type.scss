@@ -221,9 +221,14 @@ hr {
   background-color: #fef2f2;
 }
 
-.form-check-input {
+/* The switch's track size, for on/off switches only: radios stay circles and
+   checkboxes rounded squares at Bootstrap's own size. */
+.form-switch .form-check-input {
   width: 2.5em;
   height: 1.25em;
+}
+
+.form-check-input {
   cursor: pointer;
 }
 

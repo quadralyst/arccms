@@ -219,6 +219,14 @@ export default class NavbarComponent extends BaseComponent {
             allowRoles: [this.constantVariables.ADMIN],
         },
         {
+            icon: 'fa-solid fa-envelope',
+            label: 'Messages',
+            labelKey: 'admin.nav.messages',
+            route: '/admin/messages',
+            allowRoles: [this.constantVariables.ADMIN],
+            feature: 'contact',
+        },
+        {
             icon: 'fa-solid fa-box-open',
             label: 'Products',
             labelKey: 'admin.nav.products',

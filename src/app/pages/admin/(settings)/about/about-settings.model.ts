@@ -23,6 +23,8 @@ export interface IAboutSettings {
     sameAs: string[];
     /** Public contact email; empty publishes none. */
     contactEmail: string;
+    /** Public phone, as typed; printed by data-arc-site="phone" and published as telephone (SS3). */
+    phone: string;
     /** A personal site publishes as a Person rather than an Organization. */
     organizationType: OrganizationType;
 }
@@ -35,6 +37,7 @@ export const DEFAULT_ABOUT_SETTINGS: IAboutSettings = {
     description: '',
     sameAs: [],
     contactEmail: '',
+    phone: '',
     organizationType: 'Organization',
 };
 

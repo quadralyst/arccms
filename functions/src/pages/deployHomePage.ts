@@ -20,8 +20,15 @@ import { buildSearchWidget } from '../search/widget.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
-import { arcDatabaseId, arcFunctionsRegion, arcHostingSite } from '../arc-config.js';
-import { ARC_FUNCTION_GROUP } from '../function-names.js';
+import { readPublishedInDisplayOrder } from './published-entries.js';
+import { siteInfoFor } from '../shared/site-info-source.js';
+import type { SiteInfoSource } from '../shared/site-info.js';
+import { arcSiteScript, prepareLiveParts, setupState } from '../shared/live-parts.js';
+
+import { arcHostingSite } from '../arc-config.js';
+
+// The live parts moved to shared/live-parts.ts (SS5); re-exported for existing callers.
+export { addLegalNotices, arcSiteScript, setupState, type SetupState } from '../shared/live-parts.js';
 
 /**
  * The home page, published like content (specs/own-website-spec.md, W4).
@@ -76,45 +83,14 @@ export async function homeSource(
     return html ? { html, ownFile: lang === defaultLang } : null;
 }
 
-/** The terms notice's words; translated through `strings/{lang}.json`. */
-const LEGAL_DEFAULTS = {
-    legal_notice: 'By signing up, you agree to our {terms} and {privacy}, and to receive emails from us.',
-    legal_terms: 'Terms of Service',
-    legal_privacy: 'Privacy Policy',
-};
-
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const escapeAttr = (s: string) => escapeHtml(s).replace(/"/g, '&quot;');
 
 /**
- * The terms notice on every signup form that does not carry one
- * ([data-legal-notice]), above its submit button: the same notice the app adds
- * to its forms (src/shared/constants/legal-notice.ts). Its links go to the app's
- * own terms and privacy pages, and only when the app has them.
- */
-export function addLegalNotices($: cheerio.CheerioAPI, strings: Record<string, string>, manifest: SiteManifest | null): void {
-    const t = (key: keyof typeof LEGAL_DEFAULTS) => (strings[key]?.trim() ? strings[key] : LEGAL_DEFAULTS[key]);
-    const link = (label: string, page: string) => (manifest?.pages[page] === 'app'
-        ? `<a href="/p/${page}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${escapeHtml(label)}</a>`
-        : escapeHtml(label));
-    const sentence = escapeHtml(t('legal_notice'))
-        .replace('{terms}', link(t('legal_terms'), 'terms'))
-        .replace('{privacy}', link(t('legal_privacy'), 'privacy-policy'));
-    const notice = `<p class="arc-legal-notice" data-legal-notice style="font-size:0.8rem;opacity:0.75;margin:0.5rem 0;line-height:1.4">${sentence}</p>`;
-
-    $('form[data-waitlist-form]').each((_, form) => {
-        const $form = $(form);
-        if ($form.find('[data-legal-notice]').length) return;
-        const submit = $form.find('button[type="submit"], input[type="submit"], button:not([type])').first();
-        if (submit.length) submit.before(notice);
-        else $form.append(notice);
-    });
-}
-
-/**
  * What partials.html binds outside the items loop. The default heading is the
- * page's `latest_of_type` string, else "Latest {type}". Pure; the admin's
- * Template Reference is checked against it.
+ * page's `latest_of_type` string, else "Latest {type}". A type without public
+ * pages has no list page, so `listUrl` is empty. Pure; the admin's Template
+ * Reference is checked against it.
  */
 export function partialPageData(
     type: Record<string, any>, lang: string, prefix: string, sectionTitle: string, itemCount: number,
@@ -127,7 +103,7 @@ export function partialPageData(
         contentTypeSlug: type.slug,
         contentTypeDescription: contentTypeDescription(type, lang),
         sectionTitle: sectionTitle.trim() || latest,
-        listUrl: `${prefix}/${type.slug}`,
+        listUrl: type.hasPublicUrl === false ? '' : `${prefix}/${type.slug}`,
         hasItems: itemCount > 0,
         lang,
         langPrefix: prefix,
@@ -137,13 +113,16 @@ export function partialPageData(
 /**
  * Replaces each <arc-content-partials content-type="…" count="…" section-title="…"
  * template-folder="…"> with cards of that type, laid out by its partials.html,
- * as the app's content-partials component draws them.
+ * as the app's content-partials component draws them. A type without public
+ * pages shows its cards too, without links (specs/site-sections-spec.md, SS1);
+ * only a type that does not exist is removed.
  */
 async function renderContentPartials(
     $: cheerio.CheerioAPI,
     lang: string,
     defaultLang: string,
     strings: Record<string, string>,
+    about: SiteInfoSource | null = null,
 ): Promise<void> {
     const prefix = langPrefix(lang, defaultLang);
     for (const element of $('arc-content-partials').toArray()) {
@@ -154,70 +133,29 @@ async function renderContentPartials(
             ? await db.collection('ContentTypes').where('slug', '==', slug).limit(1).get()
             : null;
         const type = typeSnap && !typeSnap.empty ? typeSnap.docs[0].data() : null;
-        if (!type || type.hasPublicUrl === false) {
+        if (!type) {
             $el.remove();
             continue;
         }
 
         const collectionName = getPublishedCollectionName(slug);
-        const itemsSnap = await db.collection(collectionName).orderBy('publishedOn', 'desc').limit(count).get();
+        // In the type's entry order: newest first, or the order an admin arranged (SS2).
+        const entries = await readPublishedInDisplayOrder(slug, type, count);
         const typeName = contentTypeName(type, lang);
-        const items = await Promise.all(itemsSnap.docs.map(async (doc) => {
-            const content = { id: doc.id, ...doc.data() } as Record<string, any>;
+        const items = await Promise.all(entries.map(async (content) => {
             let translation: ContentTranslation | undefined;
             if (lang !== defaultLang) {
-                const tr = await db.collection(collectionName).doc(doc.id).collection('translations').doc(lang).get();
+                const tr = await db.collection(collectionName).doc(content.id).collection('translations').doc(lang).get();
                 if (tr.exists) translation = { ...(tr.data() as ContentTranslation), lang };
             }
-            return cardData({ id: doc.id, ...mergeTranslation(content, translation) }, slug, typeName, lang, prefix);
+            return cardData({ ...mergeTranslation(content, translation), id: content.id }, slug, typeName, lang, prefix, type.hasPublicUrl !== false);
         }));
 
         const template = await loadSiteTemplate(($el.attr('template-folder') || '').trim() || type.templateFolder, 'partials');
-        let html = TemplateHydrationService.applyStrings(template, strings);
+        let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(template, strings), about);
         html = TemplateHydrationService.processLoops(html, { items });
         html = TemplateHydrationService.hydrateTemplate(html, partialPageData({ ...type, slug }, lang, prefix, $el.attr('section-title') || '', items.length, strings));
         $el.replaceWith(html);
-    }
-}
-
-/**
- * The <script> for arc-site.js (public/assets/js/arc-site.js), with what it needs
- * to reach the functions and the public Firestore documents, and the signup
- * panels' text in the page's language (the `signup_*` keys of its strings).
- */
-export function arcSiteScript(src: string, setup: SetupState = '', strings: Record<string, string> = {}): string {
-    const project = process.env.GCLOUD_PROJECT || '';
-    const signup = Object.fromEntries(Object.entries(strings).filter(([key, value]) => key.startsWith('signup_') && typeof value === 'string'));
-    const attrs = [
-        `src="${escapeAttr(src)}"`,
-        `data-functions="${escapeAttr(`https://${arcFunctionsRegion()}-${project}.cloudfunctions.net`)}"`,
-        `data-group="${ARC_FUNCTION_GROUP}"`,
-        `data-project="${escapeAttr(project)}"`,
-        `data-database="${escapeAttr(arcDatabaseId())}"`,
-        ...(setup ? [`data-setup="${setup}"`] : []),
-        ...(Object.keys(signup).length ? [`data-strings="${escapeAttr(JSON.stringify(signup))}"`] : []),
-        'defer',
-    ];
-    return `<script ${attrs.join(' ')}></script>`;
-}
-
-/** Whether the setup wizard was still to do when the page was published. */
-export type SetupState = '' | 'first-run' | 'in-progress';
-
-/**
- * The setup wizard's state, decided as the app decides it (onboarding-setup.service.ts):
- * `Settings/onboarding_status` when it exists, otherwise an empty `email_lookup` means
- * a fresh install. A published page that was built during setup asks arc-site.js to
- * check again and send the owner to /onboarding; one built after setup costs nothing.
- */
-export async function setupState(): Promise<SetupState> {
-    try {
-        const status = await db.collection('Settings').doc('onboarding_status').get();
-        if (status.exists) return status.data()?.['completed'] === true ? '' : 'in-progress';
-        const lookup = await db.collection('email_lookup').limit(1).get();
-        return lookup.empty ? 'first-run' : '';
-    } catch {
-        return '';
     }
 }
 
@@ -273,13 +211,16 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         const prefix = langPrefix(lang, defaultLang);
         const strings = lang === defaultLang ? {} : await getUiStrings(lang);
 
-        // Body: words, cards, chrome, links, notices.
-        let html = TemplateHydrationService.applyStrings(source.html, strings);
+        // Body: words, the site's details (SS3) and standard pages (SS6), cards, chrome, links, notices.
+        const siteInfo = await siteInfoFor(lang, defaultLang);
+        let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(source.html, strings), siteInfo);
         const $body = loadHtml(html, { xmlMode: false });
-        await renderContentPartials($body, lang, defaultLang, strings);
-        addLegalNotices($body, strings, manifest);
+        await renderContentPartials($body, lang, defaultLang, strings, siteInfo);
+        // Signup and contact forms: their notices, and contact forms only with the feature (SS5).
+        prepareLiveParts($body, strings, manifest, siteInfo.pages);
         html = $body.html();
-        const chrome = (part: string) => prefixAnchorHrefs(TemplateHydrationService.applyStrings(part, strings), prefix, contentTypes);
+        const chrome = (part: string) => prefixAnchorHrefs(
+            TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(part, strings), siteInfo), prefix, contentTypes);
         html = replaceArcComponents(
             html,
             chrome(partials.headerHtml),

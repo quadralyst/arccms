@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const {
     mockFetch,
     mockLoadSiteTemplate,
+    mockLoadDetailTemplate,
     mockDeployFileToHosting,
     mockDeployBatchToHosting,
     mockRemoveFileFromHosting,
@@ -25,6 +26,7 @@ const {
 } = vi.hoisted(() => ({
     mockFetch: vi.fn(),
     mockLoadSiteTemplate: vi.fn(),
+    mockLoadDetailTemplate: vi.fn(),
     mockDeployFileToHosting: vi.fn(),
     mockDeployBatchToHosting: vi.fn(),
     mockRemoveFileFromHosting: vi.fn(),
@@ -61,6 +63,7 @@ vi.mock('../init', () => ({
 vi.mock('../shared/site-files', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../shared/site-files.js')>()),
     loadSiteTemplate: mockLoadSiteTemplate,
+    loadDetailTemplate: mockLoadDetailTemplate,
 }));
 
 vi.mock('../pages/deployToHosting', async (importOriginal) => {
@@ -85,6 +88,8 @@ vi.mock('../shared/related-content', async (importOriginal) => {
     return { ...actual, findRelated: mockFindRelated };
 });
 
+// The site's details and standard pages for data-arc-site (SS3, SS6), read in site-info-source.ts.
+vi.mock('../shared/site-info-source', () => ({ siteInfoFor: async () => ({ name: 'Test Site', sameAs: [], year: 2026, pages: [] }) }));
 vi.mock('../shared/site-settings', () => ({
     getPartials: mockGetPartials,
     getSiteConfig: mockGetSiteConfig,
@@ -97,6 +102,7 @@ vi.mock('../shared/site-settings', () => ({
 // Let template-hydration and html-document run unmocked (real logic)
 
 import {
+    buildDetailJsonLd,
     generateAndDeployContentDetailPage,
     removeContentPage,
 } from '../pages/deployContentPage.js';
@@ -222,8 +228,10 @@ function restoreMockImplementations() {
         };
     });
 
-    // The type's detail template, as the live site serves it.
+    // The type's detail template, as the live site serves it. An entry's layout
+    // (SS8) is chosen in site-files.ts; here it is the folder's detail file.
     mockLoadSiteTemplate.mockResolvedValue(MOCK_TEMPLATE_HTML);
+    mockLoadDetailTemplate.mockImplementation((folder: string) => mockLoadSiteTemplate(folder, 'detail'));
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -259,9 +267,21 @@ describe('deployContentPage', () => {
         it('asks for the type\'s detail template', async () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
+            expect(mockLoadDetailTemplate).toHaveBeenCalledWith(MOCK_CONTENT_TYPE.templateFolder, undefined);
             expect(mockLoadSiteTemplate).toHaveBeenCalledWith(MOCK_CONTENT_TYPE.templateFolder, 'detail');
             const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
             expect(deployedHtml).toContain('Test Article');
+        });
+
+        it('asks for the layout the entry chose (SS8)', async () => {
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, layout: 'contact' }),
+            });
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(mockLoadDetailTemplate).toHaveBeenCalledWith(MOCK_CONTENT_TYPE.templateFolder, 'contact');
         });
 
         it('reads no template from Firestore', async () => {
@@ -327,6 +347,14 @@ describe('deployContentPage', () => {
             expect(releasedBatch.files.map((f: any) => f.path)).toContain('/articles/test-article.html');
             expect(collection).toBe('arc_articles');
             expect(deployDocId).toBe('doc123');
+        });
+
+        // SS5: forms work on content pages too.
+        it('adds arc-site.js, the live parts\' script, to the page', async () => {
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+            const releasedBatch = mockDeployBatchToHosting.mock.calls[0][1];
+            const page = releasedBatch.files.find((f: any) => f.path === '/articles/test-article.html');
+            expect(page.content).toMatch(/<script src="\/assets\/js\/arc-site\.js[^"]*" data-functions=/);
         });
 
         it('should pass correct collectionName and docId to deployFileToHosting', async () => {
@@ -450,6 +478,30 @@ describe('deployContentPage', () => {
     });
 
     // --- removeContentPage ---
+
+    // SS4: a page with FAQ rows also describes them as FAQPage.
+    describe('FAQ structured data', () => {
+        const input = (customFields: Record<string, unknown>) => ({
+            content: { title: 'Help', urlSlug: 'faq', customFields },
+            contentType: { slug: 'info', name: 'Info', fields: [{ key: 'info-faq', type: 'faq', label: 'FAQ' }] },
+            siteConfig: { siteName: 'Kumar', baseUrl: 'https://kumar.example' },
+            about: { name: 'Kumar' },
+            lang: 'en',
+            defaultLang: 'en',
+            pageTitle: 'Help',
+            pageUrl: 'https://kumar.example/info/faq',
+        });
+
+        it('adds FAQPage from the page\'s rows, in the page\'s language', () => {
+            const nodes = buildDetailJsonLd(input({ 'info-faq': [{ id: 'r1', position: 0, question: 'वितरण?', answer: 'दो दिन।' }] }));
+            const faq = nodes.find((node) => node['@type'] === 'FAQPage') as Record<string, any>;
+            expect(faq['mainEntity'][0]).toEqual({ '@type': 'Question', name: 'वितरण?', acceptedAnswer: { '@type': 'Answer', text: 'दो दिन।' } });
+        });
+
+        it('adds none for a page without rows', () => {
+            expect(buildDetailJsonLd(input({})).some((node) => node['@type'] === 'FAQPage')).toBe(false);
+        });
+    });
 
     describe('removeContentPage', () => {
         it('should call removeFileFromHosting with correct path', async () => {

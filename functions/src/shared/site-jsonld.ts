@@ -52,6 +52,7 @@ export function buildSiteNodes(input: SiteNodesInput): SiteNodes {
         description: about.description,
         sameAs: about.sameAs,
         contactEmail: about.contactEmail,
+        phone: about.phone,
         address: about.address,
         organizationType: about.organizationType,
     });

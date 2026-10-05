@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Collect sign-ups | Arc CMS docs</title>
-  <meta name="description" content="Set up a signup form, put it on your home page, edit the emails it sends, turn on referrals, and find the people who signed up.">
-  <meta name="docs:sources" content="src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/app/pages/index.page.ts, public/assets/js/arc-site.js, functions/src/pages/deployHomePage.ts, functions/src/waitlists, functions/src/email-core/contactSync.ts, src/shared/constants/waitlist-form.ts, src/shared/constants/legal-notice.ts, functions/src/email-core/defaultTemplates.ts, src/shared/components/side-navbar/side-navbar.component.ts">
+  <meta name="description" content="Set up a signup form, put it on a page of your site, edit the emails it sends, turn on referrals, and find the people who signed up.">
+  <meta name="docs:sources" content="src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/app/pages/index.page.ts, public/assets/js/arc-site.js, functions/src/pages/deployHomePage.ts, functions/src/waitlists, functions/src/email-core/contactSync.ts, src/shared/constants/waitlist-form.ts, src/shared/constants/legal-notice.ts, functions/src/shared/live-parts.ts, src/app/core/site/live-parts.ts, functions/src/email-core/defaultTemplates.ts, src/shared/components/side-navbar/side-navbar.component.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/forms.html">
@@ -20,14 +20,14 @@
     <p>The first-run wizard already created a form named Waitlist, with the slug <code>waitlist-form</code>. Use it, or add one per campaign:</p>
     <ol class="steps">
       <li><p>Open <strong>Signup Forms</strong> in the admin menu. The page it opens is titled <strong>Waitlists</strong>: press <strong>Add Waitlist</strong> (or <strong>Edit</strong> on an existing form).</p></li>
-      <li><p>Fill in the <strong>Name</strong>; the <strong>Slug</strong> is filled in from it, such as <code>product-launch</code>. The slug you create the form with becomes its id for good: in URLs and in your page's markup. Editing the slug later does not change the id, and a form on your home page that uses the new slug fails. Choose it once and keep it.</p></li>
+      <li><p>Fill in the <strong>Name</strong>; the <strong>Slug</strong> is filled in from it, such as <code>product-launch</code>. The slug you create the form with becomes its id for good: in URLs and in your page's markup. Editing the slug later does not change the id, and a form on your site that uses the new slug fails. Choose it once and keep it.</p></li>
       <li><p>Under <strong>Feeds lists</strong>, tick any lists everyone who signs up should also join (the form always has its own list). Once the form has tags of its own (its <strong>Tags</strong> item in the menu), <strong>Edit</strong> also offers a <strong>Default Tag</strong> for every new sign-up.</p></li>
       <li><p><strong>Gamification (referrals &amp; leaderboard)</strong> is on, so people move up by inviting others. Turn it off for a plain signup form.</p></li>
       <li><p>Leave it <strong>Active</strong>. When you close it, the message you set is shown over the form. Press <strong>Create</strong>.</p></li>
     </ol>
 
     <h2>3. Put the form on a page</h2>
-    <p>Add the form to your home page, <code class="new">src/custom/site/home.html</code> (see <a href="home-page.html">Build your home page</a>). Any form with <code>data-waitlist-form</code> and an email field works, styled however you like:</p>
+    <p>Add the form to your home page, <code class="new">src/custom/site/home.html</code> (see <a href="home-page.html">Build your home page</a>), or to any other page of your site: a template or a static page. Any form with <code>data-waitlist-form</code> and an email field works, styled however you like:</p>
     <pre><code>&lt;form data-waitlist-form data-waitlist-id="product-launch"&gt;
   &lt;input type="text" name="name" placeholder="Your name"&gt;
   &lt;input type="email" name="email" required placeholder="Your email"&gt;
@@ -48,16 +48,16 @@
         <tr><td><code>data-legal-notice</code></td><td>Your own terms notice, on any element inside the form (below).</td></tr>
       </tbody>
     </table>
-    <p>Arc CMS takes over the submit: it asks for the emailed code, then shows the person's place in the queue and their referral link. On the home page this panel always shows both; the <strong>Gamification</strong> switch applies to the form's own page. While email is not set up (step 1), there is no code step: the person is signed up at once. On a translated page the panels use the <code>signup_*</code> keys of that language's strings file (see <a href="languages.html">Publish in more than one language</a>); a missing key, and any error message from the server, shows in English.</p>
+    <p>Arc CMS takes over the submit: it asks for the emailed code, then shows the person's place in the queue and their referral link. On your site's pages this panel always shows both; the <strong>Gamification</strong> switch applies to the form's own page. While email is not set up (step 1), there is no code step: the person is signed up at once. On a translated page the panels use the <code>signup_*</code> keys of that language's strings file (see <a href="languages.html">Publish in more than one language</a>); a missing key, and any error message from the server, shows in English.</p>
     <p>A visitor who arrives through a referral link (<code>?ref=</code> in the address) keeps that code in their browser for 30 days, so the referrer is credited even if they sign up on a later visit.</p>
 
     <h3>The terms notice</h3>
-    <p>Arc CMS adds a terms notice above the form's button: "By signing up, you agree to our Terms of Service and Privacy Policy, and to receive emails from us." The two names link to your terms and privacy pages once you write them (see <a href="static-pages.html">Write static pages</a>). On a translated page it uses the <code>legal_notice</code>, <code>legal_terms</code> and <code>legal_privacy</code> keys of that language's strings file (see <a href="languages.html">Publish in more than one language</a>).</p>
+    <p>Arc CMS adds a terms notice above the form's button: "By signing up, you agree to our Terms of Service and Privacy Policy, and to receive emails from us." The two names link to your terms and privacy pages once you publish them: the standard pages <code>/info/terms</code> and <code>/info/privacy-policy</code>, or your own hand-written pages (see <a href="static-pages.html">Write static pages</a>). Until then the names show as plain text. On a translated page it uses the <code>legal_notice</code>, <code>legal_terms</code> and <code>legal_privacy</code> keys of that language's strings file (see <a href="languages.html">Publish in more than one language</a>).</p>
     <p>To write your own, put an element with <code>data-legal-notice</code> inside the form. Arc CMS then adds nothing:</p>
-    <pre><code>&lt;p data-legal-notice&gt;By joining you accept our &lt;a href="/p/terms"&gt;terms&lt;/a&gt;.&lt;/p&gt;</code></pre>
-    <p>The full markup reference is in <a href="../features/forms.html#put-a-form-on-the-home-page">Signup forms</a>.</p>
+    <pre><code>&lt;p data-legal-notice&gt;By joining you accept our &lt;a href="/info/terms"&gt;terms&lt;/a&gt;.&lt;/p&gt;</code></pre>
+    <p>The full markup reference is in <a href="../features/forms.html#put-a-form-on-a-page">Signup forms</a>.</p>
     <p><strong>Alternative:</strong> link to the ready-made form page at <code>/waitlist/{form-slug}</code>, for example from a button in an article or an email.</p>
-    <div class="trap"><p>A <code>data-waitlist-form</code> form only works on the home page (and translated home pages). Pasted into a content item, a template or a static page, Arc CMS does not handle it, and nobody is signed up. Link to <code>/waitlist/{form-slug}</code> from those pages instead.</p></div>
+    <div class="trap"><p>A <code>data-waitlist-form</code> form works on every page built from your site files: the home page, your templates and your hand-written static pages, in every language. An item's body cannot hold one, because the editor keeps text, not forms: put the form in the type's template, or link to <code>/waitlist/{form-slug}</code>. A page published before you added the form needs publishing again.</p></div>
 
     <h2>4. Edit the emails</h2>
     <p>Each form has its own group in the admin menu, under its name. Open <strong>Email Templates</strong> there and edit the <strong>OTP Verification</strong> email (the code) and the <strong>Welcome Email</strong>. <strong>Insert Placeholder</strong> adds merge tags such as <code>##NAME##</code>, <code>##OTP##</code> or <code>##REFERRAL_LINK##</code> (see <a href="../reference/email-tags.html">Email merge tags</a>). These two emails are edited as they are and do not use the Brand Kit: put your logo and postal address in them yourself, and keep the unsubscribe link in the welcome email.</p>

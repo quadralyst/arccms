@@ -1,4 +1,9 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { SitePagesService } from '../../core/site/site-pages.service';
+import { siteInfoOf } from '../../core/site/site-info-source';
+import { attachLiveParts } from '../../core/site/live-parts';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, Injector, OnDestroy, OnInit, PLATFORM_ID, signal, untracked, TransferState, makeStateKey, ViewEncapsulation } from '@angular/core';
@@ -110,6 +115,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     private localization = inject(LocalizationService);
     private uiStrings = inject(UiStringsService);
     private mediaSettings = inject(MediaSettingsService);
+    private siteIdentity = inject(SiteIdentityService);
+    private sitePages = inject(SitePagesService);
     tagsStore = inject(TagsStore);
     private gaTracking = inject(GaTrackingService);
     private trackedContentTypes = new Set<string>();
@@ -170,6 +177,9 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     /** Translations for the listed items, keyed by document id. */
     private translations = signal<Record<string, IContentTranslation>>({});
 
+    /** The type whose entries were all read, for its own order (SS2). */
+    private readAllFor = '';
+
     filteredContents = computed(() => {
         const contentType = this.currentContentType();
         if (!contentType) return [];
@@ -186,24 +196,37 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
                 lang ? mergeTranslation(content, translations[content.id] ?? null) : content
             );
 
-        // Sort by publishedOn descending (newest first).
-        // Handles Firestore Timestamps ({seconds, nanoseconds}), Date objects, and ISO strings.
-        return items.sort((a, b) => {
-            const dateA = this.toTimestamp(a.publishedOn);
-            const dateB = this.toTimestamp(b.publishedOn);
-            return dateB - dateA;
-        });
+        // In the type's entry order (newest first, or the order an admin
+        // arranged), as when published (core/utils/display-order.ts).
+        return sortForDisplay(items as unknown as Record<string, any>[], entryOrderOf(contentType))
+            .slice(0, 100) as unknown as IContents[];
     });
 
     constructor() {
         super();
         // Image size bindings fit the configured maximum, as when published.
         void this.mediaSettings.load();
+        // The site's own details for data-arc-site (SS3) and its standard pages (SS6);
+        // the template redraws when they arrive.
+        void this.siteIdentity.load();
+        void this.sitePages.load(this.uiStrings.activeLang());
 
         // On the server, mark as hydrated immediately so SSR renders content
         if (!isPlatformBrowser(this.platformId)) {
             this.hydrated.set(true);
         }
+
+        // A type in its own order lists its arranged entries, whatever their
+        // age: read them all, not only the newest 100 (SS2).
+        effect(() => {
+            const type = this.currentContentType();
+            if (!type || this.readAllFor === type.slug || entryOrderOf(type) !== 'manual') return;
+            this.readAllFor = type.slug;
+            untracked(() => this.contentsStore.getAll(
+                { orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 0 } as QueryParams,
+                type.slug,
+            ));
+        });
 
         // Load the listed items' translations once the store has filled — ids
         // are not known before then. Reads only the store and the language, so
@@ -252,6 +275,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             const contents = this.filteredContents();
             this.uiStrings.strings();
             this.mediaSettings.maxSize();
+            this.siteIdentity.identity();
+            this.sitePages.pages();
             untracked(() => {
                 if (!this.lastTemplate) return;
                 this.hydrateAndSetTemplate(this.lastTemplate.html, this.lastTemplate.contentType, contents, false);
@@ -316,6 +341,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     }
 
     ngOnDestroy(): void {
+        this.liveScript?.remove();
         // The next page may have no variants at all.
         this.localization.languageVariants.set(null);
     }
@@ -429,7 +455,9 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
         // First process loops with list data
         // See ContentDetailComponent — chrome before loops and bindings.
-        const localizedTemplate = TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings());
+        // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
+        const localizedTemplate = TemplateHydrationService.applySiteInfo(
+            TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
 
         // Then hydrate with page-level data
@@ -441,6 +469,17 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         if (runScripts && isPlatformBrowser(this.platformId)) {
             setTimeout(() => this.runTemplateScripts(), 100);
         }
+        // Forms on the page work as when published (SS5), after every draw.
+        if (isPlatformBrowser(this.platformId)) setTimeout(() => this.refreshLiveParts(), 100);
+    }
+
+    /** The live parts' script for this draw's forms; removed and added again on each draw. */
+    private liveScript: HTMLScriptElement | null = null;
+
+    private refreshLiveParts(): void {
+        this.liveScript?.remove();
+        const host = this.document.querySelector('arc-content-list');
+        this.liveScript = host ? attachLiveParts(host, this.document, this.sitePages.pages()) : null;
     }
 
     /**
@@ -512,14 +551,6 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
             this.document.head.appendChild(link);
         }
         link.setAttribute('href', url);
-    }
-
-    /** Convert Firestore Timestamp, Date, or ISO string to epoch ms for sorting */
-    private toTimestamp(date: any): number {
-        if (!date) return 0;
-        if (date.seconds) return date.seconds * 1000;
-        const d = new Date(date);
-        return isNaN(d.getTime()) ? 0 : d.getTime();
     }
 
     getGradient(contentId: string): string {

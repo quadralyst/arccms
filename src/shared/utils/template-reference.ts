@@ -69,7 +69,7 @@ export const DETAIL_LOOPS: TemplateAttr[] = [
 
 /** list.html, outside the items loop. */
 export const LIST_FIELDS: TemplateAttr[] = [
-    bind('items', 'Entries', 'data-arc-loop="items"', 'Newest first, up to 100; data-limit="N" caps it'),
+    bind('items', 'Entries', 'data-arc-loop="items"', 'In the type\'s entry order, up to 100; data-limit="N" caps it'),
     bind('contentType', 'Type name'),
     bind('contentTypeSlug', 'Type slug'),
     bind('contentTypeDescription', 'Type description'),
@@ -79,9 +79,9 @@ export const LIST_FIELDS: TemplateAttr[] = [
 
 /** partials.html, outside the items loop. */
 export const PARTIALS_FIELDS: TemplateAttr[] = [
-    bind('items', 'Cards', 'data-arc-loop="items"', 'Count from the count attribute'),
+    bind('items', 'Cards', 'data-arc-loop="items"', 'In the type\'s entry order; count from the count attribute'),
     bind('sectionTitle', 'Section title', '{{ sectionTitle }}', 'section-title attribute, else "Latest {type}"'),
-    bind('listUrl', 'List page link', 'href="{{ listUrl }}"'),
+    bind('listUrl', 'List page link', '<a data-arc-if="listUrl" href="{{ listUrl }}">', 'Empty for a type without public pages'),
     bind('hasItems', 'Has entries', 'data-arc-if="hasItems"'),
     bind('contentType', 'Type name'),
     bind('contentTypeSlug', 'Type slug'),
@@ -93,7 +93,7 @@ export const PARTIALS_FIELDS: TemplateAttr[] = [
 /** Each row of the items loop, in lists and partials alike. */
 export const ITEM_FIELDS: TemplateAttr[] = [
     bind('title', 'Title'),
-    bind('url', 'Link', 'href="{{ url }}"', 'In the page\'s language'),
+    bind('url', 'Link', '<a data-arc-if="url" href="{{ url }}">', 'In the page\'s language; empty for a type without public pages'),
     bind('coverImage', 'Cover image', '<img data-arc-bind="coverImage" alt="">', 'Sizes: coverImage_s, _m, _l, _xl'),
     bind('excerpt', 'Excerpt', '{{ excerpt }}', 'Meta description or body, first 25 words'),
     bind('publishedOn', 'Published date', '{{ publishedOn }}', 'Short date'),
@@ -118,6 +118,10 @@ export const DIRECTIVES: TemplateAttr[] = [
     bind('data-limit', 'Cap a loop', 'data-limit="6"', 'On the loop element'),
     bind('data-arc-style-background', 'Background color', 'data-arc-style-background="key"'),
     bind('data-arc-t', 'Translate fixed text', 'data-arc-t="read_more"', 'From strings/{lang}.json'),
+    // The site's own details from Settings, About (SS3): in templates, the header, footer and static pages.
+    bind('data-arc-site', 'Site detail', '<a data-arc-site="phone"></a>', 'name, description, email, phone, address or logo; links become mailto: and tel:'),
+    bind('data-arc-site-if', 'Show when the site has it', 'data-arc-site-if="phone"', 'Also social'),
+    bind('data-arc-site-loop', 'Social links', 'data-arc-site-loop="social"', 'Rows: {{ url }}, {{ label }}, {{ platform }}, {{ icon }}'),
 ];
 
 /**
@@ -139,6 +143,7 @@ const LOOP_ROWS: Record<string, string> = {
     gallery: 'Rows: {{ image }} or {{ video_embed }}, {{ caption }}',
     labelvalue: 'Rows: {{ label }}, {{ value }}',
     maplocation: 'Rows: {{ label }}, {{ address }}, map_embed for an iframe',
+    faq: 'Rows: {{ question }}, {{ answer }}; data-arc-bind="answer_html" for paragraphs and links',
 };
 
 /** How to bind one custom field, by its type. */
@@ -171,6 +176,7 @@ export function customFieldReference(field: TemplateRefField, typeSlug: string):
             return row(`{{ ${k} }}`, 'Ticked options joined with commas');
         case 'labelvalue':
         case 'maplocation':
+        case 'faq':
             return row(`data-arc-loop="${k}"`, `${detailOnly}. Heading: {{ ${k}_heading }}. ${LOOP_ROWS[field.type]}`);
         case 'infocard':
         case 'gallery':

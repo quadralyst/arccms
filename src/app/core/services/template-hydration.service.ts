@@ -5,6 +5,8 @@ import { youTubeVideo } from '../../../shared/utils/youtube';
 import { parseHexColor } from '../../../shared/utils/color';
 import { DEFAULT_MAX_IMAGE_SIZE, imageSizeUrls, IMAGE_SIZES } from '../../../shared/utils/image-sizes';
 import { renderLocation } from '../../../shared/utils/geo';
+import { plainTextHtml } from '../../../shared/utils/plain-text';
+import { addressHtml, hasSiteInfo, mailHref, siteInfoValue, SiteInfoSource, siteLoopRows, telHref } from '../../../shared/utils/site-info';
 
 /**
  * Template Hydration Service
@@ -100,6 +102,16 @@ export class TemplateHydrationService {
       map_directions: rendered.directions,
       map_view: rendered.view,
     };
+  }
+
+  /**
+   * An FAQ row's answer as HTML (specs/site-sections-spec.md, SS4): `answer_html`
+   * beside the plain `answer`, with paragraphs and links. Rows are recognised by
+   * having both a question and an answer, the FAQ field's two sub-fields.
+   */
+  private static flattenAnswers(data: TemplateContext): TemplateContext {
+    if (!data || typeof data['question'] !== 'string' || typeof data['answer'] !== 'string') return data;
+    return { ...data, answer_html: plainTextHtml(data['answer']) };
   }
 
   /**
@@ -295,6 +307,8 @@ export class TemplateHydrationService {
     data = this.flattenImageSizes(data);
     // Coordinates gain their map embed and directions link. See flattenLocations.
     data = this.flattenLocations(data);
+    // An FAQ answer gains its HTML. See flattenAnswers.
+    data = this.flattenAnswers(data);
 
 
     // 1. Process Angular-style Interpolation {{ variable }}
@@ -442,6 +456,70 @@ export class TemplateHydrationService {
         const existingStyle = $el.attr('style') || '';
         $el.attr('style', `${existingStyle} background-color: ${colorValue}; color: #333;`.trim());
         $el.removeAttr('data-arc-style-background');
+      }
+    });
+
+    return $.html();
+  }
+
+  /**
+   * Prints the site's own details from Settings, About (specs/site-sections-spec.md, SS3):
+   *
+   *   <a data-arc-site="phone">…</a>            → the phone, with href="tel:…" on a link
+   *   <p data-arc-site-if="address">…</p>       → kept only when the site has an address
+   *   <ul data-arc-site-loop="social"><li>…</li></ul> → the first child once per social link,
+   *                                               with {{ url }}, {{ platform }}, {{ label }}, {{ icon }}
+   *   <ul data-arc-site-loop="pages"><li>…</li></ul>  → once per published standard page (SS6),
+   *                                               with {{ url }} and {{ title }}
+   *
+   * An element bound to a value the site does not have is removed. Runs before
+   * hydrateTemplate, so a page's own {{ url }} cannot reach the social rows.
+   * Mirrored in functions/src/shared/template-hydration.ts and, for live DOM,
+   * src/app/core/site/apply-site-info-dom.ts; site-info.spec.ts checks they agree.
+   */
+  static applySiteInfo(htmlContent: string, source: SiteInfoSource | null | undefined): string {
+    // Untouched unless the page asks: no reparse for the pages that do not.
+    if (!htmlContent || !htmlContent.includes('data-arc-site')) return htmlContent;
+    const $ = cheerio.load(htmlContent, { xmlMode: false });
+
+    $('[data-arc-site-if]').each((_, element) => {
+      const $el = $(element);
+      if (hasSiteInfo(source, $el.attr('data-arc-site-if') || '')) $el.removeAttr('data-arc-site-if');
+      else $el.remove();
+    });
+
+    $('[data-arc-site-loop]').each((_, element) => {
+      const $el = $(element);
+      const name = $el.attr('data-arc-site-loop');
+      const row = $el.children().first();
+      const rowHtml = row.length ? $.html(row) : '';
+      $el.empty().removeAttr('data-arc-site-loop');
+      if (rowHtml) $el.append(siteLoopRows(rowHtml, name, source));
+    });
+
+    $('[data-arc-site]').each((_, element) => {
+      const $el = $(element);
+      const key = $el.attr('data-arc-site') || '';
+      const value = siteInfoValue(source, key);
+      if (!value) {
+        $el.remove();
+        return;
+      }
+      $el.removeAttr('data-arc-site');
+      const tag = ((element as { tagName?: string }).tagName || '').toLowerCase();
+      if (key === 'logo') {
+        if (tag === 'img') {
+          $el.attr('src', value);
+          if (!$el.attr('alt')) $el.attr('alt', siteInfoValue(source, 'name'));
+        }
+        return;
+      }
+      if (key === 'address') $el.html(addressHtml(value));
+      else $el.text(value);
+      if (tag === 'a' && key === 'email') $el.attr('href', mailHref(value));
+      if (tag === 'a' && key === 'phone') {
+        const href = telHref(value);
+        if (href) $el.attr('href', href);
       }
     });
 

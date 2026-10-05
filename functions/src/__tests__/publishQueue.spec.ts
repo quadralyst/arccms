@@ -92,14 +92,16 @@ vi.mock('../pages/generateSitemap', () => ({
     }),
 }));
 
-const { mockGenerateHome, mockGenerateStaticPage } = vi.hoisted(() => ({ mockGenerateHome: vi.fn(), mockGenerateStaticPage: vi.fn() }));
+const { mockGenerateHome, mockGenerateStaticPage, mockHomeShowsType } = vi.hoisted(() => ({
+    mockGenerateHome: vi.fn(), mockGenerateStaticPage: vi.fn(), mockHomeShowsType: vi.fn(async () => false),
+}));
 vi.mock('../pages/deployStaticPage', () => ({
     staticPageSlugs: async () => ['privacy-policy', 'terms'],
     generateAndDeployStaticPage: (...args: unknown[]) => mockGenerateStaticPage(...args),
 }));
 vi.mock('../pages/deployHomePage', () => ({
     // The home page shows no content types unless a test says so.
-    homeShowsType: async () => false,
+    homeShowsType: (...args: unknown[]) => mockHomeShowsType(...(args as [])),
     generateAndDeployHomePage: (...args: unknown[]) => mockGenerateHome(...args),
 }));
 
@@ -127,6 +129,7 @@ vi.mock('firebase-admin/firestore', () => ({
     },
     FieldValue: {
         increment: vi.fn((n: number) => ({ _increment: n })),
+        delete: vi.fn(() => ({ _delete: true })),
         serverTimestamp: vi.fn(() => ({ _serverTimestamp: true })),
     },
 }));
@@ -395,6 +398,111 @@ describe('processPublishQueue', () => {
         });
     });
 
+    // SS2 (specs/site-sections-spec.md): entries put in a new order.
+    // SS6: every page's footer lists the standard pages.
+    describe('standard pages in the footer', () => {
+        const queueAdd = vi.fn();
+        function wire(type: Record<string, unknown>) {
+            buildChain(type);
+            const base = mockCollection.getMockImplementation()!;
+            mockCollection.mockImplementation((name: string) => (name === '_publish_queue' ? { add: queueAdd } : base(name)));
+            queueAdd.mockResolvedValue(undefined);
+        }
+        const published = (title: string) => ({ exists: true, data: () => ({ title, urlSlug: 'about', content: '<p>x</p>' }) });
+        const redeployQueued = () => queueAdd.mock.calls.some(([item]) => item.action === 'redeploy-all');
+
+        beforeEach(() => queueAdd.mockReset());
+
+        it('republishes the whole site when a standard page goes live', async () => {
+            wire({ hasPublicUrl: true, standard: 'pages' });
+            mockGet.mockResolvedValueOnce({ exists: false, data: () => undefined }).mockResolvedValue(published('About'));
+            await handler(createEvent('publish', 'info', 'about'));
+            expect(redeployQueued()).toBe(true);
+        });
+
+        it('republishes it when a standard page\'s title changes', async () => {
+            wire({ hasPublicUrl: true, standard: 'pages' });
+            mockGet.mockResolvedValueOnce(published('About')).mockResolvedValue(published('About us'));
+            await handler(createEvent('update', 'info', 'about'));
+            expect(redeployQueued()).toBe(true);
+        });
+
+        it('leaves the rest of the site alone for an edit the footer does not show', async () => {
+            wire({ hasPublicUrl: true, standard: 'pages' });
+            mockGet.mockResolvedValue(published('About'));
+            await handler(createEvent('update', 'info', 'about'));
+            expect(redeployQueued()).toBe(false);
+        });
+
+        it('never for other content types', async () => {
+            wire({ hasPublicUrl: true });
+            mockGet.mockResolvedValueOnce({ exists: false, data: () => undefined }).mockResolvedValue(published('Post'));
+            await handler(createEvent('publish', 'articles', 'p1'));
+            expect(redeployQueued()).toBe(false);
+        });
+    });
+
+    describe('order action: a content type\'s entries in a new order', () => {
+        const ref = (id: string) => ({ id });
+        function wireOrder(type: Record<string, unknown> | null) {
+            const drafts = [
+                { id: 'a', data: () => ({ sortOrder: 1 }) },
+                { id: 'b', data: () => ({ sortOrder: 2 }) },
+                { id: 'c', data: () => ({}) },
+            ];
+            const published = [
+                { id: 'a', ref: ref('a'), data: () => ({ sortOrder: 2 }) },   // moved
+                { id: 'b', ref: ref('b'), data: () => ({ sortOrder: 2 }) },   // unchanged
+                { id: 'c', ref: ref('c'), data: () => ({ sortOrder: 3 }) },   // its number removed
+            ];
+            mockCollection.mockImplementation((name: string) => {
+                if (name === 'ContentTypes') {
+                    return { where: () => ({ limit: () => ({ get: async () => ({ empty: !type, docs: type ? [{ data: () => type }] : [] }) }) }) };
+                }
+                if (name === 'arc_services_drafts') return { get: async () => ({ docs: drafts }) };
+                if (name === 'arc_services') return { get: async () => ({ docs: published }) };
+                return { doc: mockDoc };
+            });
+            mockGenerateListPage.mockImplementation(async (_slug: string, batch: { add(p: string, c: string): void }) => batch.add('/services/index.html', 'list'));
+        }
+
+        it('copies only the changed numbers to the published entries, then rebuilds the list page in one release', async () => {
+            wireOrder({ slug: 'services', entryOrder: 'manual' });
+            const event = createEvent('order', 'services', '');
+            await handler(event);
+
+            expect(mockBatchUpdate).toHaveBeenCalledTimes(2);
+            expect(mockBatchUpdate).toHaveBeenCalledWith(ref('a'), { sortOrder: 1 });
+            const [cRef, cFields] = mockBatchUpdate.mock.calls.find(([r]) => r.id === 'c')!;
+            expect(cRef).toEqual(ref('c'));
+            expect(cFields.sortOrder).toEqual({ _delete: true }); // FieldValue.delete()
+            expect(mockGenerateListPage).toHaveBeenCalledWith('services', expect.anything());
+            expect(mockGenerateHome).not.toHaveBeenCalled();
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+            expect(mockDeployBatchToHosting.mock.calls[0][2]).toBe(''); // stamps no entry
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+
+        it('rebuilds the home page, not a list page, for a type without public pages that the home page shows', async () => {
+            wireOrder({ slug: 'services', entryOrder: 'manual', hasPublicUrl: false });
+            mockHomeShowsType.mockResolvedValueOnce(true);
+            mockGenerateHome.mockImplementation(async (batch: { add(p: string, c: string): void }) => batch.add('/index.html', 'home'));
+            await handler(createEvent('order', 'services', ''));
+
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
+            expect(mockGenerateHome).toHaveBeenCalledTimes(1);
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+        });
+
+        it('needs a content type, but no document', async () => {
+            wireOrder({ slug: 'services' });
+            const event = createEvent('order', '', '');
+            await handler(event);
+            expect(mockBatchUpdate).not.toHaveBeenCalled();
+            expect(event.data.ref.delete).toHaveBeenCalled();
+        });
+    });
+
     describe('redeploy-all action — repairing the whole site in one release', () => {
         beforeEach(() => {
             mockCollection.mockImplementation((name: string) => {
@@ -651,6 +759,29 @@ describe('processPublishQueue', () => {
 
             expect(mockGenerateDetailPage).not.toHaveBeenCalled();
             expect(mockGenerateListPage).not.toHaveBeenCalled();
+        });
+
+        // SS1 (specs/site-sections-spec.md): the home page can show cards of a
+        // type without public pages, so publishing one republishes it.
+        it('republishes the home page for a type without public pages when the home page shows it', async () => {
+            buildChain({ hasPublicUrl: false });
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Design', urlSlug: 'design' }) });
+            mockHomeShowsType.mockResolvedValueOnce(true);
+
+            await handler(createEvent('publish', 'services', 'doc1'));
+
+            expect(mockGenerateHome).toHaveBeenCalledTimes(1);
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+            expect(mockGenerateListPage).not.toHaveBeenCalled();
+        });
+
+        it('leaves the home page alone for a type it does not show', async () => {
+            buildChain({ hasPublicUrl: false });
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Design', urlSlug: 'design' }) });
+
+            await handler(createEvent('publish', 'services', 'doc1'));
+
+            expect(mockGenerateHome).not.toHaveBeenCalled();
         });
 
         it('should deploy static HTML when ContentType.hasPublicUrl is undefined (backward compat)', async () => {

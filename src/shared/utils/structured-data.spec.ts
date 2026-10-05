@@ -2,15 +2,32 @@ import { describe, it, expect } from 'vitest';
 import {
     buildArticle,
     buildBreadcrumbList,
+    buildFaqPage,
     buildOrganization,
     buildWebSite,
+    faqItems,
     organizationId,
     resolveContentDates,
     serializeJsonLd,
     setJsonLd,
 } from './structured-data';
+import * as server from '../../../functions/src/shared/structured-data';
 
 describe('structured-data (client mirror)', () => {
+    // SS3 and SS4: the phone and FAQPage match what publishing writes.
+    it('publishes the phone and the FAQ rows as the server does', () => {
+        const org = { name: 'Acme', url: 'https://x.com', phone: '+91 98765 43210' };
+        expect(buildOrganization(org)!['telephone']).toBe('+91 98765 43210');
+        expect(buildOrganization(org)).toEqual(server.buildOrganization(org));
+
+        const fields = [{ key: 'info-faq', type: 'faq' }];
+        const custom = { 'info-faq': [{ id: 'a', position: 0, question: 'Hours?', answer: '9 to 5.' }, { id: 'b', position: 1, question: 'Empty', answer: ' ' }] };
+        expect(faqItems(fields, custom)).toEqual([{ question: 'Hours?', answer: '9 to 5.' }]);
+        expect(buildFaqPage(faqItems(fields, custom), 'https://x.com/info/faq'))
+            .toEqual(server.buildFaqPage(server.faqItems(fields, custom), 'https://x.com/info/faq'));
+        expect(buildFaqPage([], 'https://x.com/p')).toBeNull();
+    });
+
     it('builds an Organization with the same @id scheme as the server', () => {
         const node = buildOrganization({ name: 'Acme', url: 'https://x.com/', logoUrl: 'https://x.com/l.png' })!;
         expect(node['@id']).toBe('https://x.com/#organization');

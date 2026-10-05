@@ -18,6 +18,7 @@ export const FEATURE_IDS = [
     'payments',
     'data',
     'pwa',
+    'contact',
 ] as const;
 
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -43,6 +44,8 @@ export const FEATURE_INFO: Record<FeatureId, FeatureInfo> = {
     data: { label: 'Data import and export', defaultOn: true, needs: [] },
     // A plain website should get no service worker, so the PWA waits to be asked for.
     pwa: { label: 'Installable app', defaultOn: false, needs: [] },
+    // A contact form on the site and its Messages inbox (specs/site-sections-spec.md, SS5).
+    contact: { label: 'Contact form', defaultOn: true, needs: [] },
 };
 
 /** What `src/custom/features.ts` exports. Empty: every feature on except the PWA. */

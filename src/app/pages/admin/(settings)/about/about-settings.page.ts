@@ -138,6 +138,19 @@ import { AboutSettingsService } from './about-settings.service';
                 <small class="text-muted">{{ 'admin.settings.about.contact_email_hint' | transloco }}</small>
             </div>
 
+            <div class="form-group mb-3">
+                <label class="form-label" for="phone">{{ 'admin.settings.about.phone' | transloco }}</label>
+                <input
+                    type="tel"
+                    class="form-control"
+                    id="phone"
+                    [placeholder]="'admin.settings.about.phone_placeholder' | transloco"
+                    [value]="settings().phone"
+                    (input)="updateField('phone', $any($event.target).value)"
+                />
+                <small class="text-muted">{{ 'admin.settings.about.phone_hint' | transloco }}</small>
+            </div>
+
             <div class="mt-4">
                 <button
                     class="btn btn-primary"

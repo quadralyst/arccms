@@ -91,6 +91,20 @@ export type TranslationKey =
     | 'admin.audience.tags.tag'
     | 'admin.audience.tags.title'
     | 'admin.audience.tags.view_contacts'
+    | 'admin.contents.arrange.draft'
+    | 'admin.contents.arrange.drag'
+    | 'admin.contents.arrange.empty'
+    | 'admin.contents.arrange.hint'
+    | 'admin.contents.arrange.load_failed'
+    | 'admin.contents.arrange.loading'
+    | 'admin.contents.arrange.move_down'
+    | 'admin.contents.arrange.move_up'
+    | 'admin.contents.arrange.save_failed'
+    | 'admin.contents.arrange.saved'
+    | 'admin.contents.arrange.saving'
+    | 'admin.contents.arrange.title'
+    | 'admin.contents.arrange.too_many'
+    | 'admin.contents.arrange.untitled'
     | 'admin.contents.authors.bio'
     | 'admin.contents.authors.bio_placeholder'
     | 'admin.contents.authors.clear_default'
@@ -188,6 +202,9 @@ export type TranslationKey =
     | 'admin.contents.editor.editing_draft'
     | 'admin.contents.editor.expand'
     | 'admin.contents.editor.history'
+    | 'admin.contents.editor.layout'
+    | 'admin.contents.editor.layout_hint'
+    | 'admin.contents.editor.layout_standard'
     | 'admin.contents.editor.loading_options'
     | 'admin.contents.editor.manage_authors'
     | 'admin.contents.editor.map.address'
@@ -218,6 +235,7 @@ export type TranslationKey =
     | 'admin.contents.editor.repeater.video'
     | 'admin.contents.editor.repeater.video_invalid'
     | 'admin.contents.editor.repeater.video_url'
+    | 'admin.contents.editor.replace_prompt_confirm'
     | 'admin.contents.editor.required_marker'
     | 'admin.contents.editor.resize_sidebar'
     | 'admin.contents.editor.restore_version'
@@ -251,6 +269,7 @@ export type TranslationKey =
     | 'admin.contents.editor.url_slug'
     | 'admin.contents.editor.version_restored'
     | 'admin.contents.list.add_item'
+    | 'admin.contents.list.arrange'
     | 'admin.contents.list.bulk_import'
     | 'admin.contents.list.col_title'
     | 'admin.contents.list.columns'
@@ -284,10 +303,13 @@ export type TranslationKey =
     | 'admin.contents.types.deleted'
     | 'admin.contents.types.empty_description'
     | 'admin.contents.types.empty_title'
+    | 'admin.contents.types.entry_order_failed'
     | 'admin.contents.types.field_count'
     | 'admin.contents.types.fix_slug'
     | 'admin.contents.types.form.add_field'
     | 'admin.contents.types.form.add_title'
+    | 'admin.contents.types.form.card_template'
+    | 'admin.contents.types.form.card_template_hint'
     | 'admin.contents.types.form.custom_field_labels'
     | 'admin.contents.types.form.custom_fields'
     | 'admin.contents.types.form.default_badge'
@@ -300,6 +322,10 @@ export type TranslationKey =
     | 'admin.contents.types.form.display_field_hint'
     | 'admin.contents.types.form.duplicate_fields'
     | 'admin.contents.types.form.edit_title'
+    | 'admin.contents.types.form.entry_order'
+    | 'admin.contents.types.form.entry_order_hint'
+    | 'admin.contents.types.form.entry_order_manual'
+    | 'admin.contents.types.form.entry_order_newest'
     | 'admin.contents.types.form.field_key'
     | 'admin.contents.types.form.field_key_auto_hint'
     | 'admin.contents.types.form.field_key_locked_hint'
@@ -362,6 +388,13 @@ export type TranslationKey =
     | 'admin.contents.types.republish_site_hint'
     | 'admin.contents.types.republish_started'
     | 'admin.contents.types.slug_exists'
+    | 'admin.contents.types.standard_pages'
+    | 'admin.contents.types.standard_pages_added'
+    | 'admin.contents.types.standard_pages_complete'
+    | 'admin.contents.types.standard_pages_failed'
+    | 'admin.contents.types.standard_pages_fields_added'
+    | 'admin.contents.types.standard_pages_hint'
+    | 'admin.contents.types.standard_pages_taken'
     | 'admin.contents.types.update_failed'
     | 'admin.contents.types.updated'
     | 'admin.dashboard.active'
@@ -563,6 +596,23 @@ export type TranslationKey =
     | 'admin.media.supports'
     | 'admin.media.upload_new'
     | 'admin.media.uploaded'
+    | 'admin.messages.delete_confirm'
+    | 'admin.messages.empty'
+    | 'admin.messages.empty_hint'
+    | 'admin.messages.empty_new'
+    | 'admin.messages.filter'
+    | 'admin.messages.load_more'
+    | 'admin.messages.mark_done'
+    | 'admin.messages.mark_new'
+    | 'admin.messages.not_spam'
+    | 'admin.messages.reply'
+    | 'admin.messages.sent_from'
+    | 'admin.messages.spam_hint'
+    | 'admin.messages.subtitle'
+    | 'admin.messages.tab_done'
+    | 'admin.messages.tab_new'
+    | 'admin.messages.tab_spam'
+    | 'admin.messages.title'
     | 'admin.nav.about'
     | 'admin.nav.announcements'
     | 'admin.nav.app_users'
@@ -593,6 +643,7 @@ export type TranslationKey =
     | 'admin.nav.logout_confirm'
     | 'admin.nav.logout_success'
     | 'admin.nav.media_manager'
+    | 'admin.nav.messages'
     | 'admin.nav.products'
     | 'admin.nav.profile'
     | 'admin.nav.settings'
@@ -692,6 +743,9 @@ export type TranslationKey =
     | 'admin.settings.about.organization_type'
     | 'admin.settings.about.organization_type_org'
     | 'admin.settings.about.organization_type_person'
+    | 'admin.settings.about.phone'
+    | 'admin.settings.about.phone_hint'
+    | 'admin.settings.about.phone_placeholder'
     | 'admin.settings.about.production_url'
     | 'admin.settings.about.production_url_hint'
     | 'admin.settings.about.production_url_placeholder'
@@ -1570,6 +1624,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.audience.tags.tag',
     'admin.audience.tags.title',
     'admin.audience.tags.view_contacts',
+    'admin.contents.arrange.draft',
+    'admin.contents.arrange.drag',
+    'admin.contents.arrange.empty',
+    'admin.contents.arrange.hint',
+    'admin.contents.arrange.load_failed',
+    'admin.contents.arrange.loading',
+    'admin.contents.arrange.move_down',
+    'admin.contents.arrange.move_up',
+    'admin.contents.arrange.save_failed',
+    'admin.contents.arrange.saved',
+    'admin.contents.arrange.saving',
+    'admin.contents.arrange.title',
+    'admin.contents.arrange.too_many',
+    'admin.contents.arrange.untitled',
     'admin.contents.authors.bio',
     'admin.contents.authors.bio_placeholder',
     'admin.contents.authors.clear_default',
@@ -1667,6 +1735,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.editing_draft',
     'admin.contents.editor.expand',
     'admin.contents.editor.history',
+    'admin.contents.editor.layout',
+    'admin.contents.editor.layout_hint',
+    'admin.contents.editor.layout_standard',
     'admin.contents.editor.loading_options',
     'admin.contents.editor.manage_authors',
     'admin.contents.editor.map.address',
@@ -1697,6 +1768,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.repeater.video',
     'admin.contents.editor.repeater.video_invalid',
     'admin.contents.editor.repeater.video_url',
+    'admin.contents.editor.replace_prompt_confirm',
     'admin.contents.editor.required_marker',
     'admin.contents.editor.resize_sidebar',
     'admin.contents.editor.restore_version',
@@ -1730,6 +1802,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.url_slug',
     'admin.contents.editor.version_restored',
     'admin.contents.list.add_item',
+    'admin.contents.list.arrange',
     'admin.contents.list.bulk_import',
     'admin.contents.list.col_title',
     'admin.contents.list.columns',
@@ -1763,10 +1836,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.deleted',
     'admin.contents.types.empty_description',
     'admin.contents.types.empty_title',
+    'admin.contents.types.entry_order_failed',
     'admin.contents.types.field_count',
     'admin.contents.types.fix_slug',
     'admin.contents.types.form.add_field',
     'admin.contents.types.form.add_title',
+    'admin.contents.types.form.card_template',
+    'admin.contents.types.form.card_template_hint',
     'admin.contents.types.form.custom_field_labels',
     'admin.contents.types.form.custom_fields',
     'admin.contents.types.form.default_badge',
@@ -1779,6 +1855,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.form.display_field_hint',
     'admin.contents.types.form.duplicate_fields',
     'admin.contents.types.form.edit_title',
+    'admin.contents.types.form.entry_order',
+    'admin.contents.types.form.entry_order_hint',
+    'admin.contents.types.form.entry_order_manual',
+    'admin.contents.types.form.entry_order_newest',
     'admin.contents.types.form.field_key',
     'admin.contents.types.form.field_key_auto_hint',
     'admin.contents.types.form.field_key_locked_hint',
@@ -1841,6 +1921,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.republish_site_hint',
     'admin.contents.types.republish_started',
     'admin.contents.types.slug_exists',
+    'admin.contents.types.standard_pages',
+    'admin.contents.types.standard_pages_added',
+    'admin.contents.types.standard_pages_complete',
+    'admin.contents.types.standard_pages_failed',
+    'admin.contents.types.standard_pages_fields_added',
+    'admin.contents.types.standard_pages_hint',
+    'admin.contents.types.standard_pages_taken',
     'admin.contents.types.update_failed',
     'admin.contents.types.updated',
     'admin.dashboard.active',
@@ -2042,6 +2129,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.supports',
     'admin.media.upload_new',
     'admin.media.uploaded',
+    'admin.messages.delete_confirm',
+    'admin.messages.empty',
+    'admin.messages.empty_hint',
+    'admin.messages.empty_new',
+    'admin.messages.filter',
+    'admin.messages.load_more',
+    'admin.messages.mark_done',
+    'admin.messages.mark_new',
+    'admin.messages.not_spam',
+    'admin.messages.reply',
+    'admin.messages.sent_from',
+    'admin.messages.spam_hint',
+    'admin.messages.subtitle',
+    'admin.messages.tab_done',
+    'admin.messages.tab_new',
+    'admin.messages.tab_spam',
+    'admin.messages.title',
     'admin.nav.about',
     'admin.nav.announcements',
     'admin.nav.app_users',
@@ -2072,6 +2176,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.logout_confirm',
     'admin.nav.logout_success',
     'admin.nav.media_manager',
+    'admin.nav.messages',
     'admin.nav.products',
     'admin.nav.profile',
     'admin.nav.settings',
@@ -2171,6 +2276,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.about.organization_type',
     'admin.settings.about.organization_type_org',
     'admin.settings.about.organization_type_person',
+    'admin.settings.about.phone',
+    'admin.settings.about.phone_hint',
+    'admin.settings.about.phone_placeholder',
     'admin.settings.about.production_url',
     'admin.settings.about.production_url_hint',
     'admin.settings.about.production_url_placeholder',
