@@ -2,7 +2,7 @@
  * The home page is republished when a setting it shows changes
  * (functions/src/publishQueue/onSiteSettingsWritten.ts).
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockAdd } = vi.hoisted(() => ({ mockAdd: vi.fn() }));
 vi.mock('../init', () => ({ db: { collection: () => ({ add: mockAdd }) } }));
@@ -23,6 +23,9 @@ const event = (settingId: string, before: unknown, after: unknown) => ({
 });
 
 describe('onSiteSettingsWritten', () => {
+    // Leave no hosting setting behind for the next test file in this worker.
+    afterEach(() => { delete process.env.ARC_HOSTING_SITE; });
+
     beforeEach(() => {
         vi.clearAllMocks();
         process.env.ARC_HOSTING_SITE = 'acme-arccms';

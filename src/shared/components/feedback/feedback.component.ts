@@ -190,7 +190,8 @@ export function clock(seconds: number): string {
         .fb-note { font-size: 0.85rem; margin: 0; }
         .fb-thanks { margin: 0.5rem 0 0.75rem; font-size: 0.95rem; }
         .fb-thanks i { color: #198754; margin-right: 0.375rem; }
-        .fb-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+        /* Its own look, whatever a site stylesheet does to footer elements. */
+        .fb-actions { display: flex; justify-content: flex-end; gap: 0.5rem; background: none; color: inherit; padding: 0; text-align: right; }
     `],
 })
 export class FeedbackComponent {
