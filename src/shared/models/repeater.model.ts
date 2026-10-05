@@ -271,6 +271,39 @@ export const REPEATER_SCHEMAS: Record<string, RepeaterSchema> = {
             },
         ],
     },
+    // Questions and answers (specs/site-sections-spec.md, SS4). The answer is
+    // plain text; templates bind answer_html for paragraphs and links.
+    faq: {
+        rowLabel: 'Question',
+        hint: 'Each row is one question and its answer. Drag rows to change the order. Leave a blank line between paragraphs; web addresses become links.',
+        heading: {
+            key: 'heading',
+            label: 'Section heading',
+            placeholder: 'Frequently asked questions',
+            translatable: true,
+        },
+        subFields: [
+            {
+                type: 'text',
+                key: 'question',
+                label: 'Question',
+                required: true,
+                placeholder: 'What do people ask?',
+                translatable: true,
+                maxLength: 200,
+            },
+            {
+                type: 'textarea',
+                key: 'answer',
+                label: 'Answer',
+                required: true,
+                rows: 4,
+                placeholder: 'The answer, in plain words.',
+                translatable: true,
+                maxLength: 2000,
+            },
+        ],
+    },
 };
 
 /** Every row key a location sub-field owns, `key` (the address) first. */

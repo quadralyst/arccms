@@ -165,6 +165,21 @@ describe('repeater model', () => {
         });
     });
 
+    // SS4 (specs/site-sections-spec.md).
+    describe('faq schema', () => {
+        const FAQ = REPEATER_SCHEMAS['faq'];
+
+        it('is a repeating type of a question and a longer answer, both required and translatable', () => {
+            expect(isRepeaterType('faq')).toBe(true);
+            expect(FAQ.subFields.map((sub) => [sub.key, sub.type, sub.required, sub.translatable])).toEqual([
+                ['question', 'text', true, true],
+                ['answer', 'textarea', true, true],
+            ]);
+            expect(FAQ.heading?.translatable).toBe(true);
+            expect(repeaterHeadingKey('info-faq', FAQ)).toBe('info-faq_heading');
+        });
+    });
+
     describe('maplocation schema', () => {
         it('recognises maplocation as a repeating type', () => {
             expect(isRepeaterType('maplocation')).toBe(true);

@@ -5,6 +5,7 @@ import { youTubeVideo } from '../../../shared/utils/youtube';
 import { parseHexColor } from '../../../shared/utils/color';
 import { DEFAULT_MAX_IMAGE_SIZE, imageSizeUrls, IMAGE_SIZES } from '../../../shared/utils/image-sizes';
 import { renderLocation } from '../../../shared/utils/geo';
+import { plainTextHtml } from '../../../shared/utils/plain-text';
 import { addressHtml, fillSocialRow, hasSiteInfo, mailHref, siteInfoValue, SiteInfoSource, socialLinks, telHref } from '../../../shared/utils/site-info';
 
 /**
@@ -101,6 +102,16 @@ export class TemplateHydrationService {
       map_directions: rendered.directions,
       map_view: rendered.view,
     };
+  }
+
+  /**
+   * An FAQ row's answer as HTML (specs/site-sections-spec.md, SS4): `answer_html`
+   * beside the plain `answer`, with paragraphs and links. Rows are recognised by
+   * having both a question and an answer, the FAQ field's two sub-fields.
+   */
+  private static flattenAnswers(data: TemplateContext): TemplateContext {
+    if (!data || typeof data['question'] !== 'string' || typeof data['answer'] !== 'string') return data;
+    return { ...data, answer_html: plainTextHtml(data['answer']) };
   }
 
   /**
@@ -296,6 +307,8 @@ export class TemplateHydrationService {
     data = this.flattenImageSizes(data);
     // Coordinates gain their map embed and directions link. See flattenLocations.
     data = this.flattenLocations(data);
+    // An FAQ answer gains its HTML. See flattenAnswers.
+    data = this.flattenAnswers(data);
 
 
     // 1. Process Angular-style Interpolation {{ variable }}

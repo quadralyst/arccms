@@ -58,7 +58,8 @@
                   `info_cards` fills the first block; one with a Gallery keyed
                   `gallery` fills the second; one with a Label + Value field
                   keyed `details` fills the facts list; one with a Map Location
-                  field keyed `locations` fills the map cards. A type with
+                  field keyed `locations` fills the map cards; one with an FAQ
+                  field keyed `faq` fills the questions. A type with
                   none of them gets nothing: an empty loop clears its
                   container, so the placeholder rows below never reach a
                   published page.
@@ -114,6 +115,17 @@
                             <a data-arc-if="map_directions" data-arc-bind="map_directions"
                                target="_blank" rel="noopener">Get directions</a>
                         </article>
+                    </div>
+                </section>
+
+                <section class="arc-faq" data-arc-if="faq">
+                    <h3 class="arc-faq-heading" data-arc-if="faq_heading"
+                        data-arc-bind="faq_heading">Frequently asked questions</h3>
+                    <div class="arc-faq-list" data-arc-loop="faq">
+                        <details class="arc-faq-item">
+                            <summary data-arc-bind="question">Question</summary>
+                            <div class="arc-faq-answer" data-arc-bind="answer_html">Answer</div>
+                        </details>
                     </div>
                 </section>
 
@@ -836,6 +848,44 @@
 .arc-locations {
     max-width: 720px;
     margin: 3rem auto 0;
+}
+
+/* Questions and answers (specs/site-sections-spec.md, SS4): a native
+   disclosure per question, so it opens without any script. */
+.arc-faq {
+    max-width: 720px;
+    margin: 3rem auto 0;
+}
+
+.arc-faq-heading {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0 0 0.75rem;
+}
+
+.arc-faq-item {
+    border-bottom: 1px solid #e8e8ed;
+    padding: 0.875rem 0;
+}
+
+.arc-faq-item summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #1d1d1f;
+}
+
+.arc-faq-answer {
+    margin-top: 0.5rem;
+    color: #424245;
+}
+
+.arc-faq-answer p {
+    margin: 0 0 0.5rem;
+}
+
+.arc-faq-answer p:last-child {
+    margin-bottom: 0;
 }
 
 .arc-locations:empty,

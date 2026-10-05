@@ -143,6 +143,7 @@ const LOOP_ROWS: Record<string, string> = {
     gallery: 'Rows: {{ image }} or {{ video_embed }}, {{ caption }}',
     labelvalue: 'Rows: {{ label }}, {{ value }}',
     maplocation: 'Rows: {{ label }}, {{ address }}, map_embed for an iframe',
+    faq: 'Rows: {{ question }}, {{ answer }}; data-arc-bind="answer_html" for paragraphs and links',
 };
 
 /** How to bind one custom field, by its type. */
@@ -175,6 +176,7 @@ export function customFieldReference(field: TemplateRefField, typeSlug: string):
             return row(`{{ ${k} }}`, 'Ticked options joined with commas');
         case 'labelvalue':
         case 'maplocation':
+        case 'faq':
             return row(`data-arc-loop="${k}"`, `${detailOnly}. Heading: {{ ${k}_heading }}. ${LOOP_ROWS[field.type]}`);
         case 'infocard':
         case 'gallery':

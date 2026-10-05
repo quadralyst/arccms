@@ -13,7 +13,7 @@ import {
 } from '../shared/content-translation.js';
 import { calculateReadingTime } from '../shared/reading-time.js';
 import { contentTypeName } from '../shared/content-type-names.js';
-import { buildBreadcrumbList, countWords } from '../shared/structured-data.js';
+import { buildBreadcrumbList, buildFaqPage, countWords, faqItems } from '../shared/structured-data.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
 import { resolveContentDates } from '../shared/content-dates.js';
 import { AuthorProfile, authorTemplateData, authorToPerson, getAuthor } from '../shared/authors.js';
@@ -242,7 +242,10 @@ export function buildDetailJsonLd(input: {
         node => !(article?.['@type'] === 'HowTo' && node['@type'] === 'HowTo'),
     );
 
-    return [site.organization, site.webSite, breadcrumbs, article, ...blockNodes].filter(
+    // The page's questions and answers from its FAQ field (specs/site-sections-spec.md, SS4).
+    const faq = buildFaqPage(faqItems(contentType.fields, content.customFields), input.pageUrl);
+
+    return [site.organization, site.webSite, breadcrumbs, article, faq, ...blockNodes].filter(
         (node): node is Record<string, unknown> => !!node,
     );
 }

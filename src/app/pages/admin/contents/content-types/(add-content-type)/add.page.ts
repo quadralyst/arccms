@@ -80,6 +80,7 @@ export default class AddContentTypeComponent extends BaseComponent {
         'gallery',
         'labelvalue',
         'maplocation',
+        'faq',
         'color'
     ];
 

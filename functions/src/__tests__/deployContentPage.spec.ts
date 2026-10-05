@@ -97,6 +97,7 @@ vi.mock('../shared/site-settings', () => ({
 // Let template-hydration and html-document run unmocked (real logic)
 
 import {
+    buildDetailJsonLd,
     generateAndDeployContentDetailPage,
     removeContentPage,
 } from '../pages/deployContentPage.js';
@@ -450,6 +451,30 @@ describe('deployContentPage', () => {
     });
 
     // --- removeContentPage ---
+
+    // SS4: a page with FAQ rows also describes them as FAQPage.
+    describe('FAQ structured data', () => {
+        const input = (customFields: Record<string, unknown>) => ({
+            content: { title: 'Help', urlSlug: 'faq', customFields },
+            contentType: { slug: 'info', name: 'Info', fields: [{ key: 'info-faq', type: 'faq', label: 'FAQ' }] },
+            siteConfig: { siteName: 'Kumar', baseUrl: 'https://kumar.example' },
+            about: { name: 'Kumar' },
+            lang: 'en',
+            defaultLang: 'en',
+            pageTitle: 'Help',
+            pageUrl: 'https://kumar.example/info/faq',
+        });
+
+        it('adds FAQPage from the page\'s rows, in the page\'s language', () => {
+            const nodes = buildDetailJsonLd(input({ 'info-faq': [{ id: 'r1', position: 0, question: 'वितरण?', answer: 'दो दिन।' }] }));
+            const faq = nodes.find((node) => node['@type'] === 'FAQPage') as Record<string, any>;
+            expect(faq['mainEntity'][0]).toEqual({ '@type': 'Question', name: 'वितरण?', acceptedAnswer: { '@type': 'Answer', text: 'दो दिन।' } });
+        });
+
+        it('adds none for a page without rows', () => {
+            expect(buildDetailJsonLd(input({})).some((node) => node['@type'] === 'FAQPage')).toBe(false);
+        });
+    });
 
     describe('removeContentPage', () => {
         it('should call removeFileFromHosting with correct path', async () => {

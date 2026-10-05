@@ -438,6 +438,7 @@ describe('translatable repeating fields', () => {
         expect(translatableRepeaterKeys(field('infocard'))).toEqual(['id', 'headline', 'info']);
         expect(translatableRepeaterKeys(field('gallery'))).toEqual(['id', 'caption']);
         expect(translatableRepeaterKeys(field('labelvalue'))).toEqual(['id', 'label', 'value']);
+        expect(translatableRepeaterKeys(field('faq'))).toEqual(['id', 'question', 'answer']);
     });
 
     it('includes the id, which is what anchors a translation to its row', () => {

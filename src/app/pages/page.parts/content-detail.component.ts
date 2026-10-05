@@ -45,6 +45,8 @@ import {
     organizationId,
     resolveContentDates,
     setJsonLd,
+    buildFaqPage,
+    faqItems,
 } from '../../../shared/utils/structured-data';
 import {
     IContentTranslation,
@@ -647,6 +649,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                 description: identity.description,
                 sameAs: identity.sameAs,
                 contactEmail: identity.contactEmail,
+                phone: identity.phone,
                 address: identity.address,
                 organizationType: identity.organizationType,
             });
@@ -711,6 +714,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             setJsonLd(this.document, 'arc-ld-website', webSite);
             setJsonLd(this.document, 'arc-ld-breadcrumbs', breadcrumbs);
             setJsonLd(this.document, 'arc-ld-article', article);
+            // The page's questions and answers from its FAQ field (SS4). Mirrors deployContentPage.ts.
+            setJsonLd(this.document, 'arc-ld-faq', buildFaqPage(
+                faqItems(contentType?.fields, (content as any).customFields as Record<string, unknown>), pageUrl));
             // Block-derived nodes (D-D10): one script per node, cleared first
             // so a page with fewer blocks than the last one leaves none behind.
             const blockNodes = blockJsonLd(blocks, pageUrl).filter(

@@ -2,7 +2,7 @@ import { IBaseModel } from '../../../../../shared/models/base-model';
 import type { ContentTypeSchema } from '../../../../../shared/constants/schema-types';
 import type { EntryOrder } from '../../../../core/utils/display-order';
 
-export type ContentTypeFieldType = 'text' | 'number' | 'richtext' | 'date' | 'datetime' | 'image' | 'icon' | 'boolean' | 'dropdown' | 'checkbox' | 'radio' | 'infocard' | 'gallery' | 'labelvalue' | 'maplocation' | 'color';
+export type ContentTypeFieldType = 'text' | 'number' | 'richtext' | 'date' | 'datetime' | 'image' | 'icon' | 'boolean' | 'dropdown' | 'checkbox' | 'radio' | 'infocard' | 'gallery' | 'labelvalue' | 'maplocation' | 'faq' | 'color';
 
 export interface CollectionReferenceConfig {
     collectionSlug: string;         // slug of the referenced content type (e.g., "authors")

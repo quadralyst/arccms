@@ -3,10 +3,12 @@ import {
     buildArticle,
     buildBreadcrumbList,
     buildCollectionPage,
+    buildFaqPage,
     buildOrganization,
     buildPerson,
     buildWebSite,
     countWords,
+    faqItems,
     organizationId,
     renderJsonLdScripts,
     serializeJsonLd,
@@ -43,6 +45,27 @@ describe('buildOrganization', () => {
         expect(node['sameAs']).toEqual(['https://twitter.com/acme']);
         expect(node['address']).toEqual({ '@type': 'PostalAddress', description: '12 High St, Pune' });
         expect(node['email']).toBe('hi@x.com');
+    });
+
+    it('publishes a page\'s FAQ rows as FAQPage, in order, complete rows only (SS4)', () => {
+        const fields = [{ key: 'pages-intro', type: 'text' }, { key: 'pages-faq', type: 'faq' }];
+        const items = faqItems(fields, { 'pages-faq': [
+            { id: 'b', position: 1, question: 'Refunds?', answer: 'Within 30 days.' },
+            { id: 'a', position: 0, question: ' Delivery? ', answer: ' Two days. ' },
+            { id: 'c', position: 2, question: 'Half a row', answer: '' },
+        ] });
+        expect(items).toEqual([{ question: 'Delivery?', answer: 'Two days.' }, { question: 'Refunds?', answer: 'Within 30 days.' }]);
+        expect(buildFaqPage(items, 'https://x.com/info/faq')).toEqual({
+            '@context': 'https://schema.org',
+            '@type': 'FAQPage',
+            '@id': 'https://x.com/info/faq#faq',
+            mainEntity: [
+                { '@type': 'Question', name: 'Delivery?', acceptedAnswer: { '@type': 'Answer', text: 'Two days.' } },
+                { '@type': 'Question', name: 'Refunds?', acceptedAnswer: { '@type': 'Answer', text: 'Within 30 days.' } },
+            ],
+        });
+        expect(buildFaqPage(faqItems(fields, {}), 'https://x.com/p')).toBeNull();
+        expect(faqItems(undefined, { x: [] })).toEqual([]);
     });
 
     it('publishes the phone as telephone, and none without one (SS3)', () => {

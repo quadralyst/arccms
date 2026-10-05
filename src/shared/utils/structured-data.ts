@@ -18,6 +18,8 @@ export interface OrganizationInput {
     description?: string;
     sameAs?: string[];
     contactEmail?: string;
+    /** Public phone, as typed (SS3). */
+    phone?: string;
     address?: string;
     organizationType?: 'Organization' | 'Person';
 }
@@ -88,6 +90,7 @@ export function buildOrganization(input: OrganizationInput): JsonLd | null {
     }
     setIf(node, 'description', clean(input.description));
     setIf(node, 'email', clean(input.contactEmail));
+    setIf(node, 'telephone', clean(input.phone));
     const sameAs = urls(input.sameAs);
     if (sameAs.length) node['sameAs'] = sameAs;
     const address = clean(input.address);
@@ -243,6 +246,50 @@ export function setJsonLd(doc: Document, id: string, node: JsonLd | null): void 
     script.setAttribute('type', 'application/ld+json');
     script.textContent = serializeJsonLd(node);
     if (!existing) doc.head.appendChild(script);
+}
+
+/** One question and its answer, as FAQPage publishes them. */
+export interface FaqItem {
+    question: string;
+    answer: string;
+}
+
+/**
+ * The page's questions and answers: the rows of the content type's first FAQ
+ * field, in their order, each with both a question and an answer
+ * (specs/site-sections-spec.md, SS4). Pass the page's language's custom fields.
+ */
+export function faqItems(
+    fields: { key?: string; type?: string }[] | undefined,
+    customFields: Record<string, unknown> | undefined,
+): FaqItem[] {
+    const field = (fields || []).find((f) => f.type === 'faq' && f.key);
+    const rows = field ? customFields?.[field.key!] : undefined;
+    if (!Array.isArray(rows)) return [];
+    return [...rows]
+        .filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
+        .sort((a, b) => (Number(a['position']) || 0) - (Number(b['position']) || 0))
+        .map((row) => ({ question: clean(row['question']), answer: clean(row['answer']) }))
+        .filter((item) => item.question && item.answer);
+}
+
+/**
+ * FAQPage for a page's questions and answers, or null without any. Google shows
+ * FAQ results only for some government and health sites; the node is still
+ * valid, and AI assistants read it.
+ */
+export function buildFaqPage(items: FaqItem[], pageUrl: string): JsonLd | null {
+    if (!items.length) return null;
+    return {
+        '@context': SCHEMA_CONTEXT,
+        '@type': 'FAQPage',
+        '@id': `${pageUrl}#faq`,
+        mainEntity: items.map((item) => ({
+            '@type': 'Question',
+            name: item.question,
+            acceptedAnswer: { '@type': 'Answer', text: item.answer },
+        })),
+    };
 }
 
 // ─── helpers ────────────────────────────────────────────────────────────────
