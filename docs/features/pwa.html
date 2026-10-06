@@ -90,6 +90,7 @@
     <ul>
       <li><strong>Show the install card on your own page:</strong> import <code>InstallPromptComponent</code> from <code>src/shared/components/install-prompt/install-prompt.component.ts</code> and put <code>&lt;arc-install-prompt /&gt;</code> in the template.</li>
       <li><strong>Know whether the app runs installed:</strong> <code>PwaService</code> (<code>src/app/core/pwa/pwa.service.ts</code>) has <code>installed()</code>, <code>showInstall()</code>, <code>installMode()</code> and <code>updateReady()</code>.</li>
+      <li><strong>Show the update yourself:</strong> an app that lives on full-screen pages can show "a new version is ready" where it suits, with <code>updateReady()</code>, <code>checkForUpdate()</code> and <code>applyUpdate()</code>, and a route flag that keeps Arc CMS's bar away. See <a href="../app/pwa.html#show-the-update-yourself">Make it installable</a>.</li>
     </ul>
 
     <h2>What it stores</h2>

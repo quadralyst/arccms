@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { PwaService } from '../../../app/core/pwa/pwa.service';
+import { PwaUpdateRouteService } from '../../../app/core/pwa/pwa-update-route';
 
 /**
  * "A new version is ready" after a deploy (docs/features/pwa.html). It never reloads by
  * itself, so nobody is cut off mid-way: the person chooses when to update.
- * Placed once, in the app root.
+ * Placed once, in the app root. It stays out of the way on pages where the app shows the
+ * update itself (`data: { pwaUpdate: 'app' }`, docs/app/pwa.html).
  */
 @Component({
     selector: 'arc-pwa-update-bar',
@@ -13,12 +15,12 @@ import { PwaService } from '../../../app/core/pwa/pwa.service';
     imports: [TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
-        @if (pwa.updateReady()) {
+        @if (pwa.updateReady() && !pwa.updateBarClosed() && !route.appOwns()) {
             <div class="update-bar" role="status">
                 <span>{{ 'common.pwa.update_ready' | transloco }}</span>
-                <button type="button" class="btn btn-light btn-sm" (click)="pwa.update()">{{ 'common.pwa.update' | transloco }}</button>
+                <button type="button" class="btn btn-light btn-sm" (click)="pwa.applyUpdate()">{{ 'common.pwa.update' | transloco }}</button>
                 <button type="button" class="btn-close btn-close-white" [attr.aria-label]="'common.actions.close' | transloco"
-                    (click)="pwa.updateReady.set(false)"></button>
+                    (click)="pwa.dismissUpdate()"></button>
             </div>
         }
     `,
@@ -44,4 +46,5 @@ import { PwaService } from '../../../app/core/pwa/pwa.service';
 })
 export class PwaUpdateBarComponent {
     readonly pwa = inject(PwaService);
+    readonly route = inject(PwaUpdateRouteService);
 }

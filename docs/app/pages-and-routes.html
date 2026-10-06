@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Add pages and routes | Arc CMS docs</title>
   <meta name="description" content="Add your app's public, member and admin pages with CUSTOM_ROUTES and page files, protect them with guards, and avoid the admin page trap.">
-  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, src/app/core/layout/full-screen.service.ts, src/app/app.ts, src/styles.css, vite.config.ts, firebase.json">
+  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, src/app/core/layout/full-screen.service.ts, src/app/core/pwa/pwa-update-route.ts, src/app/app.ts, src/styles.css, vite.config.ts, firebase.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/pages-and-routes.html">
@@ -149,7 +149,7 @@ export const routeMeta: RouteMeta = {
       <thead><tr><th>Part</th><th>On a full-screen page</th></tr></thead>
       <tbody>
         <tr><td>Message banner, powered-by footer, feedback button</td><td>Not shown</td></tr>
-        <tr><td>Site usage banner, update bar</td><td>Held: they appear when the person reaches a normal page, so consent and updates still happen, just not over the screen</td></tr>
+        <tr><td>Site usage banner, update bar</td><td>Held: they appear when the person reaches a normal page, so consent and updates still happen, just not over the screen. An app that has only full-screen pages shows the update itself: see <a href="pwa.html#show-the-update-yourself">Make it installable</a>, which adds <code>pwaUpdate: 'app'</code> to the route's <code>data</code></td></tr>
         <tr><td>Layout</td><td>The page is exactly one screen tall (<code>100dvh</code>), with no page margin, padding or scroll, and no pull-to-refresh bounce. The page scrolls inside itself if it needs to.</td></tr>
       </tbody>
     </table>

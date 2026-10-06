@@ -64,6 +64,44 @@
       <li><p><strong>After a change:</strong> build and deploy again, then reopen the installed app. It offers the new version with an Update button instead of reloading by itself.</p></li>
     </ol>
 
+    <h2 id="show-the-update-yourself">Show the update yourself</h2>
+    <p>By default Arc CMS shows its own "A new version is ready" bar, and holds it back on <a href="pages-and-routes.html#full-screen-pages">full-screen pages</a> until a normal page opens. An app that lives entirely on full-screen pages (a kiosk, a till) would never see it. Such an app shows the update where it suits, such as a lock screen, and Arc CMS stays out of the way.</p>
+    <ol class="steps">
+      <li><p><strong>Tell Arc CMS the page owns the update.</strong> Add <code>pwaUpdate: 'app'</code> to the route's <code>data</code>. Every page below that route inherits it, and Arc CMS's own bar is not shown there at all. <code>'app'</code> is the only value; any other is ignored.</p>
+        <pre><code>{ path: 'lock', loadComponent: () =&gt; import('./lock.component').then((m) =&gt; m.default),
+  data: { fullScreen: true, pwaUpdate: 'app' } }</code></pre></li>
+      <li><p><strong>Use <code>PwaService</code></strong> (<code>src/app/core/pwa/pwa.service.ts</code>) in that page:</p>
+        <table>
+          <thead><tr><th>Member</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>updateReady()</code></td><td>A read-only signal, true while a new version is waiting. Always false when the <code>pwa</code> feature is off.</td></tr>
+            <tr><td><code>checkForUpdate()</code></td><td>Looks for a new version now, instead of waiting for the hourly check. It resolves once the browser has looked, and does nothing when the feature is off, offline, or before the service worker has registered.</td></tr>
+            <tr><td><code>applyUpdate()</code></td><td>Switches to the waiting version and reloads the page. It does nothing when no update is waiting.</td></tr>
+          </tbody>
+        </table>
+      </li>
+    </ol>
+    <pre><code>import { Component, inject } from '@angular/core';
+import { PwaService } from '../app/core/pwa/pwa.service'; // from src/custom/lock.component.ts
+
+@Component({
+    selector: 'app-lock',
+    template: `
+        @if (pwa.updateReady()) {
+            &lt;button type="button" (click)="pwa.applyUpdate()"&gt;Update now&lt;/button&gt;
+        }
+    `,
+})
+export default class LockComponent {
+    readonly pwa = inject(PwaService);
+
+    constructor() {
+        void this.pwa.checkForUpdate(); // the lock screen is a quiet moment to look
+    }
+}</code></pre>
+    <div class="trap"><p>Arc CMS never calls <code>applyUpdate()</code> itself, on any page, so a page is never reloaded in the middle of a task. Call it only when the person is at a safe point. On a page without the flag, nothing changes: the bar shows as before.</p></div>
+    <div class="trap"><p>Do not leave an update waiting for long. A deploy replaces the old version's code files on the server, so a page of the old version that has not opened a route yet cannot load that route until the update is applied (in a test it failed with "Failed to fetch dynamically imported module"). Offer the update at the next quiet moment, such as the lock screen.</p></div>
+
     <h2>iPhone and iPad</h2>
     <ul>
       <li>Only Safari can install. The install card shows the two steps (tap Share, then "Add to Home Screen"); in another browser it asks the person to open the page in Safari, with a Copy link button.</li>
