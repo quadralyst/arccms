@@ -39,6 +39,8 @@ const fb = vi.hoisted(() => {
 });
 
 vi.mock('../init.js', () => ({ owner: fb.owner, db: fb.db }));
+// The claims lease has its own spec (claimLock.spec.ts); here it simply runs the work.
+vi.mock('../users/claimLock.js', () => ({ withClaimLock: (_uid: string, work: () => Promise<unknown>) => work() }));
 
 import * as kit from '../app-kit/index.js';
 import { createAppAccount, deleteAppAccount, issueSignInToken, mergeAppClaims, revokeSessions } from '../app-kit/index.js';

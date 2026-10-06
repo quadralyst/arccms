@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Roles and claims | Arc CMS docs</title>
   <meta name="description" content="The roles in Arc CMS, the arccms_role and arccms_uid claims that carry them, what each role can reach, and why nobody can promote themselves.">
-  <meta name="docs:sources" content="firestore.rules, storage.rules, functions/src/users/claims.ts, functions/src/users/syncUserRole.ts, functions/src/users/accountCallables.ts, functions/src/users/adminCreateUser.ts, functions/src/search/auth.ts, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, src/app/core/home/home.ts, src/app/pages/(auth)/sign-in.service.ts">
+  <meta name="docs:sources" content="firestore.rules, storage.rules, functions/src/users/claims.ts, functions/src/users/claimLock.ts, functions/src/users/syncUserRole.ts, functions/src/users/accountCallables.ts, functions/src/users/adminCreateUser.ts, functions/src/search/auth.ts, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, src/app/core/home/home.ts, src/app/pages/(auth)/sign-in.service.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="concepts/roles-and-claims.html">
@@ -33,7 +33,7 @@
         <tr><td><code>arccms_uid</code></td><td>The id of the person's <code>users</code> record, which is not their Auth uid</td><td><code>ownsUserRecord(userDocId)</code> in the rules; your app, from the ID token</td></tr>
       </tbody>
     </table>
-    <p>Arc CMS never reads or writes a plain <code>role</code> claim, and always merges its claims into the account's existing ones. So an app sharing the sign-in pool can use <code>role</code> for its own roles without giving anyone Arc CMS access, and claims it sets survive. Each claims write is read back and redone if another write replaced it in between, so Arc CMS's claims and an app's never lose each other when both go through Arc CMS (an app sets its own with <code>mergeAppClaims()</code>, see <a href="../app/app-accounts.html#your-own-claims">App accounts</a>). Do not name an app claim <code>arccms_</code> anything. How an app reads the claims is in <a href="../app/account-contract.html">Follow the account contract</a>.</p>
+    <p>Arc CMS never reads or writes a plain <code>role</code> claim, and always merges its claims into the account's existing ones. So an app sharing the sign-in pool can use <code>role</code> for its own roles without giving anyone Arc CMS access, and claims it sets survive. Claims writes on one account take turns: each holds a short lease while it reads, writes and reads back, so Arc CMS's claims and an app's keep each other when both go through Arc CMS (an app sets its own with <code>mergeAppClaims()</code>; <a href="../app/app-accounts.html#your-own-claims">App accounts</a> says exactly what is guaranteed). Do not name an app claim <code>arccms_</code> anything. How an app reads the claims is in <a href="../app/account-contract.html">Follow the account contract</a>.</p>
 
     <h2>How a role is granted and changed</h2>
     <ul>

@@ -421,6 +421,11 @@ service cloud.firestore {
     match /_rate_limits/{key} {
       allow read, write: if false;
     }
+    // The lease that makes claims writes on one account run one at a time
+    // (functions/src/users/claimLock.ts). Only functions touch it.
+    match /_claim_locks/{uid} {
+      allow read, write: if false;
+    }
 
     // A phone number or email moved from one account to another. Admin read;
     // written only by the functions that move them.

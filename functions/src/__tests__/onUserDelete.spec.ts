@@ -44,6 +44,8 @@ const { mockRevoke, mockDeleteUser, mockGetUser, mockSetClaims, mockDocDelete, m
     };
 });
 
+// The claims lease has its own spec (claimLock.spec.ts); here it simply runs the work.
+vi.mock('../users/claimLock.js', () => ({ withClaimLock: (_uid: string, work: () => Promise<unknown>) => work() }));
 vi.mock('../init', () => ({
     owner: { deleteUser: mockDeleteUser, getUser: mockGetUser, setCustomUserClaims: mockSetClaims, revokeRefreshTokens: mockRevoke },
     db: { collection: mockCollection, recursiveDelete: mockRecursiveDelete },

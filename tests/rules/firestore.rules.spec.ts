@@ -300,6 +300,16 @@ describe('data under a users record (docs/app/account-contract.html)', () => {
 });
 
 // SS5 (specs/site-sections-spec.md): only the function writes contact messages.
+describe('claims leases (functions/src/users/claimLock.ts)', () => {
+    it('keeps _claim_locks closed to everyone, admins included', async () => {
+        await assertFails(getDoc(doc(anon(), '_claim_locks', 'x')));
+        await assertFails(getDoc(doc(alice(), '_claim_locks', ALICE)));
+        await assertFails(getDoc(doc(admin(), '_claim_locks', 'x')));
+        await assertFails(setDoc(doc(alice(), '_claim_locks', ALICE), { token: 't', expiresAt: 0 }));
+        await assertFails(setDoc(doc(admin(), '_claim_locks', 'x'), { token: 't', expiresAt: 0 }));
+    });
+});
+
 describe('contact messages', () => {
     const message = { name: 'Asha', email: 'asha@example.com', message: 'Hello', status: 'new', createdAt: serverTimestamp() };
     beforeEach(() => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'ContactMessages', 'm1'), message)));
