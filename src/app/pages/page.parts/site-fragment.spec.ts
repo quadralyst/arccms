@@ -46,6 +46,16 @@ class SiteInfoHostComponent {
     }
 }
 
+/** The language a fragment follows instead of the page's, as the sign-in panel does. */
+const ownLanguage = signal('');
+
+@Component({ selector: 'arc-test-own-language', standalone: true, template: '' })
+class OwnLanguageHostComponent {
+    constructor() {
+        renderSiteFragment(HTML, {}, { language: () => ownLanguage() });
+    }
+}
+
 @Component({ selector: 'arc-test-fragment', standalone: true, template: '' })
 class FragmentHostComponent {
     constructor() {
@@ -69,7 +79,10 @@ describe('renderSiteFragment', () => {
         TestBed.configureTestingModule({
             providers: [
                 { provide: SiteIdentityService, useValue: { identity, load: loadIdentity } },
-                { provide: UiStringsService, useValue: { activeLang, strings } },
+                {
+                    provide: UiStringsService,
+                    useValue: { activeLang, strings, load: async (lang: string) => (lang === 'de' ? { nav_articles: 'Artikel' } : {}) },
+                },
                 {
                     provide: PublicContentTypesService,
                     // Like the service: the list arrives once, whatever the number of calls.
@@ -113,6 +126,32 @@ describe('renderSiteFragment', () => {
         // Sign-in exists once, so it keeps its address on a Hindi page.
         expect(signIn.getAttribute('href')).toBe('/signup');
         expect(el.querySelector('arc-search .stub-search')).toBeTruthy();
+    });
+
+    it('follows a language of its own instead of the page\'s, and keeps its links\' addresses', async () => {
+        ownLanguage.set('');
+        const fixture = TestBed.createComponent(OwnLanguageHostComponent);
+        fixture.detectChanges();
+        const el = fixture.nativeElement as HTMLElement;
+
+        // The page turning Hindi does not reach it.
+        activeLang.set('hi');
+        strings.set({ nav_articles: 'लेख' });
+        fixture.detectChanges();
+        expect(el.querySelector('a')!.textContent).toBe('Articles');
+
+        ownLanguage.set('de');
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        expect(el.querySelector('a')!.textContent).toBe('Artikel');
+        expect(el.querySelector('a')!.getAttribute('href')).toBe('/articles');
+
+        ownLanguage.set('');
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        expect(el.querySelector('a')!.textContent).toBe('Articles');
     });
 
     // SS3: the site's own details from Settings, About, once they arrive.

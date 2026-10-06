@@ -51,6 +51,17 @@ describe('UiStringsService', () => {
         expect(service.translate('read_more', 'Read Article')).toBe('Read Article');
     });
 
+    it('loads a language for a part of the page without making it the page\'s language', async () => {
+        expect(await service.load('hi')).toEqual({ read_more: 'लेख पढ़ें' });
+        expect(service.activeLang()).toBe('');
+        expect(service.strings()).toEqual({});
+
+        // Cached: the page switching to it later needs no second request.
+        await service.use('hi');
+        expect(get).toHaveBeenCalledTimes(1);
+        expect(await service.load('')).toEqual({});
+    });
+
     it('clears strings for the default language', async () => {
         await service.use('hi');
         await service.use('');

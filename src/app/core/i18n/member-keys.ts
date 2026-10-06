@@ -39,6 +39,8 @@ export const MEMBER_SCREEN_FILES = [
     'src/app/pages/not-found.page.ts',
     'src/app/pages/admin/unauthorized.page.ts',
     'src/app/pages/page.parts/site-usage-banner.component.ts',
+    // The language picker on the sign-in page
+    'src/shared/components/member-language-picker/member-language-picker.component.ts',
 ] as const;
 
 export function isMemberKey(key: string): boolean {

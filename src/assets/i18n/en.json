@@ -2009,6 +2009,9 @@
       "learn_more": "Learn more",
       "reject_all": "Reject All",
       "accept_all": "Accept All"
+    },
+    "language": {
+      "choose": "Choose a language"
     }
   }
 }

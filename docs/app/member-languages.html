@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Member languages | Arc CMS docs</title>
   <meta name="description" content="Show your members a language Arc CMS does not ship, such as German, while the admin keeps Arc CMS's own languages: declare it, translate it, check it.">
-  <meta name="docs:sources" content="src/custom/languages.ts, src/app/core/i18n/member-languages.ts, src/app/core/i18n/member-language.service.ts, src/app/core/i18n/member-keys.ts, src/app/core/i18n/translation.loader.ts, src/app/core/i18n/admin-locale.provider.ts, scripts/i18n-member.mjs, scripts/i18n-pseudo.mjs, src/test/member-language-parity.spec.ts, src/test/pseudo-language.ts">
+  <meta name="docs:sources" content="src/custom/languages.ts, src/app/core/i18n/member-languages.ts, src/app/core/i18n/member-language.service.ts, src/app/core/i18n/member-keys.ts, src/app/core/i18n/translation.loader.ts, src/app/core/i18n/admin-locale.provider.ts, scripts/i18n-member.mjs, scripts/i18n-pseudo.mjs, src/test/member-language-parity.spec.ts, src/test/pseudo-language.ts, src/shared/components/member-language-picker, src/app/pages/page.parts/sign-in-panel.component.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/member-languages.html">
@@ -38,7 +38,7 @@ export const MEMBER_LANGUAGES: readonly MemberLanguage[] = [
   "user": { "nav": { "dashboard": "Übersicht" } },
   "custom": { "till": { "open": "Kasse öffnen" } }
 }</code></pre>
-    <p>With only these three keys, <code>npm run i18n:member -- --lang=de</code> lists the rest, and the parity test fails naming them until <code>partial: true</code> is set. A German-speaking member then sees "Weiter" on the sign-in button, "Übersicht" in the member menu and "Kasse öffnen" on your screen, and English for every key not yet written. A language picker of your own switches it:</p>
+    <p>With only these three keys, <code>npm run i18n:member -- --lang=de</code> lists the rest, and the parity test fails naming them until <code>partial: true</code> is set. A German-speaking member then sees "Weiter" on the sign-in button, "Übersicht" in the member menu and "Kasse öffnen" on your screen, and English for every key not yet written. The sign-in page has a language picker as soon as you declare a language (below). Elsewhere, put Arc CMS's picker on a page of yours, or call <code>setMemberLanguage</code> from a picker of your own:</p>
     <pre><code>import { setMemberLanguage } from '../../app/core/i18n/member-language.service';
 
 // In your component, for a button such as &lt;button (click)="german()"&gt;Deutsch&lt;/button&gt;
@@ -48,11 +48,19 @@ german(): void {
 
     <h2>Which language a member sees</h2>
     <ul>
-      <li><strong>Their choice on this device.</strong> Set it from your app's own picker or settings: <code>setMemberLanguage('de')</code>, from <code>src/app/core/i18n/member-language.service.ts</code>, or <code>use()</code> on <code>MemberLanguageService</code>. It is kept on the device, so a shared device shows it on the sign-in screen too.</li>
+      <li><strong>Their choice on this device.</strong> The sign-in page shows a picker at its top right, listing English and your languages, each in its own name. Put the same picker on your own pages with <code>&lt;arc-member-language-picker&gt;</code> (<code>src/shared/components/member-language-picker/member-language-picker.component.ts</code>), or set the language from your own picker or settings: <code>setMemberLanguage('de')</code>, from <code>src/app/core/i18n/member-language.service.ts</code>, or <code>use()</code> on <code>MemberLanguageService</code>. It is kept on the device, so a shared device shows it on the sign-in screen too.</li>
       <li><strong>On a first visit,</strong> the browser's language, when you declared it (<code>de-AT</code> finds <code>de</code>); otherwise English.</li>
       <li><strong>In the admin area</strong> (<code>/admin</code>), the admin's own language, always. Pages outside it use the member language.</li>
     </ul>
-    <p>The language picker in the page header is the admin's: once you declare member languages it shows only in the admin area, since the admin's choice does not change member pages. Members choose through a picker of your own (below).</p>
+    <p>The language picker in the page header is the admin's: once you declare member languages it shows only in the admin area, since the admin's choice does not change member pages. Members choose on the sign-in page, or through the member picker on your own pages.</p>
+
+    <h2 id="sign-in-page">The sign-in page</h2>
+    <p>With member languages declared, the sign-in page shows the member picker, and both halves of the page follow it: the form through your translation files, and the brand panel beside it through the site's strings file for that language. For German, give your panel's <code>data-arc-t</code> keys in <code class="new">src/custom/site/strings/de.json</code>; Arc CMS's own panel uses <code>sign_in_title</code> and <code>sign_in_body</code>:</p>
+    <pre><code>{
+  "sign_in_title": "Willkommen",
+  "sign_in_body": "Melden Sie sich an oder erstellen Sie Ihr Konto, um fortzufahren."
+}</code></pre>
+    <p>Without that file the panel keeps the text as written. Hindi needs no file: Arc CMS ships one. With no member languages declared, there is no picker and the panel follows the page's language, as before.</p>
     <p>With no languages declared, nothing changes: member screens follow the admin language as they always did.</p>
 
     <h2>Dates and numbers</h2>
@@ -78,7 +86,6 @@ german(): void {
       <li><strong>What an admin writes</strong>, such as the cookie banner's message: it is the site's own content.</li>
       <li><strong>The browser tab's title</strong> on most pages.</li>
       <li><strong>The "Powered by Arc CMS" line</strong>, which an admin can turn off in Settings.</li>
-      <li><strong>The sign-in page's brand panel</strong> beside the form: it is your site's HTML (see <a href="../website/sign-in-page.html">Brand the sign-in page</a>) and follows the site's language.</li>
     </ul>
   </main>
   <script src="../assets/nav.js"></script>

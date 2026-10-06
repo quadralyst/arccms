@@ -231,3 +231,13 @@ which is the site's HTML in the site's language. Making the panel follow the mem
 is a possible follow-up. Not checked in the browser: the cookie banner (off on this project;
 covered by the render test) and the unauthorized fallback (only when `/403.html` fails).
 
+
+**A1e, sign-in language picker, built 2026-10-06** on `feat/sign-in-language` (Gunjan's
+request after the browser check). With member languages declared, the sign-in page shows
+`<arc-member-language-picker>` (English and the app's languages, each in its own name) at the
+top right of the form column, above the site's name on a phone. Choosing one switches the
+form at once and is remembered on the device. The brand panel follows the same choice: the
+fragment renderer takes an optional `language`, and the panel reads the site strings file
+for it (`/_site/strings/{lang}.json`, through a new non-activating `UiStringsService.load()`),
+with English as written. With no member languages declared, nothing changes: no picker, and
+the panel follows the page's language. The picker is reusable on an app's own pages.
