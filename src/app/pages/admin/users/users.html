@@ -41,6 +41,13 @@
                         </button>
                     </arc-page-header>
 
+                    <mat-button-toggle-group class="mb-3" [value]="accountKind()" (change)="setAccountKind($event.value)"
+                        [attr.aria-label]="'admin.users.kind_filter' | transloco">
+                        @for (kind of accountKinds; track kind) {
+                        <mat-button-toggle [value]="kind">{{ 'admin.users.kind_' + kind | transloco }}</mat-button-toggle>
+                        }
+                    </mat-button-toggle-group>
+
                     <!-- <div class="card mb-4 mt-3">
                         <div class="card-body p-0"> -->
                     <app-global-table [data]="userStore.items()" [columns]="tableColumns"

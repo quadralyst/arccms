@@ -14,6 +14,7 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 
 import UsersComponent from './index.page';
 import { UserStore } from './user.store';
+import { UserService } from './user.service';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { ConstantVariables } from '../../../../shared/constants';
 import { AuthService } from '../../(auth)/auth.service';
@@ -37,12 +38,18 @@ describe('UsersComponent', () => {
             },
         ]),
         isLoading: signal(false),
+        error: signal(''),
         totalRecords: signal(1),
         getAll: vi.fn(),
         delete: vi.fn().mockReturnValue(of({})),
         update: vi.fn().mockReturnValue(of({})),
         currentItem: signal(null),
         getById: vi.fn(),
+    };
+
+    const mockUserService = {
+        countByKind: vi.fn(),
+        fillAccountSources: vi.fn(),
     };
 
     const mockToastService = {
@@ -98,6 +105,7 @@ describe('UsersComponent', () => {
                 }
             })
             .overrideProvider(UserStore, { useValue: mockUserStore })
+            .overrideProvider(UserService, { useValue: mockUserService })
             .overrideProvider(AuthService, { useValue: mockAuthService })
             .overrideProvider(AuthState, { useValue: mockAuthStore })
             .overrideProvider(ToastService, { useValue: mockToastService })
@@ -120,6 +128,76 @@ describe('UsersComponent', () => {
             expect(email.transformFn!({ by: 'phone', email: '' })).toBe('');
             expect(email.transformFn!({ by: 'admin', email: 'a@b.co' })).toBe('a@b.co');
             expect(email.classFn!({ by: 'admin', email: 'a@b.co' })).toBe('');
+        });
+    });
+
+    describe('All, People, App accounts (docs/features/users-and-roles.html)', () => {
+        const lastConditions = () => mockUserStore.getAll.mock.calls.at(-1)![0].whereConditions;
+
+        beforeEach(() => {
+            mockUserStore.getAll.mockClear();
+            mockUserService.countByKind.mockReset().mockResolvedValue({ all: 5, people: 3, app: 2 });
+            mockUserService.fillAccountSources.mockReset().mockResolvedValue({ filled: 0, total: 5 });
+        });
+
+        it('shows everyone by default, with no condition on how the account was made', () => {
+            component.ngOnInit();
+            expect(component.accountKind()).toBe('all');
+            expect(lastConditions()).toEqual([]);
+            expect(component.hasActiveFilters()).toBe(false);
+        });
+
+        it('lists only people, or only app accounts, from the first page', () => {
+            component.currentPage.set(3);
+            component.setAccountKind('people');
+            expect(lastConditions()).toEqual([{ field: 'by', operator: '!=', value: 'app' }]);
+            expect(component.currentPage()).toBe(0);
+            expect(component.hasActiveFilters()).toBe(true);
+
+            component.setAccountKind('app');
+            expect(lastConditions()).toEqual([{ field: 'by', operator: '==', value: 'app' }]);
+
+            component.setAccountKind('all');
+            expect(lastConditions()).toEqual([]);
+        });
+
+        it('narrows the detached accounts the same way', () => {
+            component.toggleDetached();
+            component.setAccountKind('app');
+            expect(lastConditions()).toEqual([
+                { field: 'status', operator: '==', value: 'Detached' },
+                { field: 'by', operator: '==', value: 'app' },
+            ]);
+        });
+
+        it('offers the three choices, All first', () => {
+            fixture.detectChanges();
+            const labels = [...fixture.nativeElement.querySelectorAll('mat-button-toggle')].map((el: HTMLElement) => el.textContent!.trim());
+            expect(labels).toEqual(['All', 'People', 'App accounts']);
+        });
+
+        it('gives older records a by, once, when People would miss some, and lists again', async () => {
+            mockUserService.countByKind.mockResolvedValue({ all: 7, people: 3, app: 2 });
+            mockUserService.fillAccountSources.mockResolvedValue({ filled: 2, total: 7 });
+            component.setAccountKind('people');
+            await vi.waitFor(() => expect(mockUserService.fillAccountSources).toHaveBeenCalledTimes(1));
+            // Listed again once the records have their by.
+            await vi.waitFor(() => expect(mockUserStore.getAll.mock.calls.length).toBeGreaterThanOrEqual(2));
+            expect(lastConditions()).toEqual([{ field: 'by', operator: '!=', value: 'app' }]);
+
+            component.setAccountKind('all');
+            component.setAccountKind('people');
+            await Promise.resolve();
+            expect(mockUserService.countByKind).toHaveBeenCalledTimes(1);
+        });
+
+        it('leaves the records alone when the counts add up, and never checks for All or App accounts', async () => {
+            component.setAccountKind('app');
+            component.setAccountKind('all');
+            expect(mockUserService.countByKind).not.toHaveBeenCalled();
+            component.setAccountKind('people');
+            await vi.waitFor(() => expect(mockUserService.countByKind).toHaveBeenCalledTimes(1));
+            expect(mockUserService.fillAccountSources).not.toHaveBeenCalled();
         });
     });
 

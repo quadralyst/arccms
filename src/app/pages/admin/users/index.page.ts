@@ -11,6 +11,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, ViewChild, TemplateRef } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
@@ -27,7 +28,8 @@ import { ToastService } from '../../../../shared/services/toast.service';
 import AddUserComponent from './(add-user)/add.page';
 import EditUserComponent from './(edit-user)/edit.[userId].page';
 import ViewUserComponent from './(view-user)/view.[userId].page';
-import { IUser, isAppAccount } from './user.model';
+import { ACCOUNT_KINDS, AccountKind, accountKindConditions, IUser, isAppAccount } from './user.model';
+import { UserService } from './user.service';
 import { injectT } from '../../../core/i18n/inject-t';
 import { UserStore } from './user.store';
 import { roleGuard } from '../../../guards/role.guard';
@@ -50,6 +52,7 @@ export const routeMeta: RouteMeta = {
         MatSidenavModule,
         MatIconModule,
         MatButtonModule,
+        MatButtonToggleModule,
         MatPaginatorModule,
         MatDialogModule,
         AddUserComponent,
@@ -69,6 +72,7 @@ export default class UsersComponent {
     @ViewChild('drawer') drawer!: MatDrawer;
 
     userStore = inject(UserStore);
+    private userService = inject(UserService);
     private t = injectT();
     private authStore = inject(AuthState);
     private authService = inject(AuthService);
@@ -90,6 +94,11 @@ export default class UsersComponent {
     sortOrder = signal<'asc' | 'desc'>('desc');
     /** Only accounts whose last email or number moved to another account (kept, cannot sign in). */
     showDetached = signal(false);
+    /** Everyone (the default), only people, or only app accounts (`by: 'app'`). */
+    accountKind = signal<AccountKind>('all');
+    readonly accountKinds = ACCOUNT_KINDS;
+    /** Whether older records were checked for a missing `by` in this visit (checkOlderAccounts). */
+    private olderAccountsChecked = false;
 
     // Role from route params
     role: string | null | undefined;
@@ -166,6 +175,8 @@ export default class UsersComponent {
         if (this.showDetached()) {
             whereConditions.push({ field: 'status', operator: '==', value: 'Detached' });
         }
+
+        whereConditions.push(...accountKindConditions(this.accountKind()));
 
         // Add role filter if set
         if (this.role) {
@@ -260,13 +271,39 @@ export default class UsersComponent {
         this.fetchData();
     }
 
+    setAccountKind(kind: AccountKind): void {
+        if (!this.accountKinds.includes(kind) || kind === this.accountKind()) return;
+        this.accountKind.set(kind);
+        this.currentPage.set(0);
+        this.fetchData();
+        if (kind === 'people') void this.checkOlderAccounts();
+    }
+
+    /**
+     * Records made before Arc CMS recorded how an account was made have no `by`, and
+     * Firestore leaves them out of the People query. When the counts show some, give
+     * them one on the server (fillAccountSources), once per visit, and list again.
+     */
+    async checkOlderAccounts(): Promise<void> {
+        if (this.olderAccountsChecked) return;
+        this.olderAccountsChecked = true;
+        try {
+            const counts = await this.userService.countByKind();
+            if (counts.all <= counts.people + counts.app) return;
+            const { filled } = await this.userService.fillAccountSources();
+            if (filled && this.accountKind() === 'people') this.fetchData();
+        } catch (error) {
+            console.warn('Could not check older accounts for the People filter:', error);
+        }
+    }
+
     clearFilters(): void {
         this.filters.set({});
         this.fetchData();
     }
 
     hasActiveFilters(): boolean {
-        return this.showDetached() || Object.values(this.filters()).some((v) => v && v.trim());
+        return this.showDetached() || this.accountKind() !== 'all' || Object.values(this.filters()).some((v) => v && v.trim());
     }
 
     // Record count helpers

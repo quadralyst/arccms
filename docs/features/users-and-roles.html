@@ -43,6 +43,7 @@
       <li><strong>Add an admin:</strong> open <code>/admin/users/admin</code>, which lists the admins, and press <strong>Add Admin</strong>. People added from <code>/admin/users</code> get the <code>user</code> role. The admin screens do not change the role of someone who already has a record.</li>
       <li><strong>View</strong> opens the record in a side panel, and <strong>Edit</strong> changes the person's name there. A person who has no email can be saved without one; an email typed in is still checked. People change their own email or phone number on their profile, with a code (see <a href="sign-in.html#profile-sign-in-methods">Sign-in methods</a>).</li>
       <li><strong>Block</strong> sets <code>isActive</code> to <code>false</code>. The person's Arc CMS claims are removed and every session is ended within the hour, and they cannot sign in until an admin presses <strong>Unblock</strong>, which puts the claims back.</li>
+      <li><strong>All</strong>, <strong>People</strong> and <strong>App accounts</strong>, above the list, narrow it to everyone (the default), to the people, or to the accounts an app made (<code>by: 'app'</code>). They work with <strong>Detached accounts</strong> and with the role pages such as <code>/admin/users/admin</code>.</li>
       <li><strong>Detached accounts</strong> shows records whose only email or phone number moved to another account (see <a href="sign-in.html#moving-an-email-or-number-to-another-account">Sign-in methods</a>). They are kept and cannot sign in; an admin can delete them.</li>
       <li><strong>Delete</strong> removes the record, and the server then removes everything listed below.</li>
     </ul>
@@ -93,6 +94,7 @@
         <tr><td><code>refreshMyClaims</code></td><td>Callable: puts the claims back on the caller's token at sign-in.</td></tr>
         <tr><td><code>claimFirstAdmin</code></td><td>Callable: the setup wizard's first admin, once.</td></tr>
         <tr><td><code>syncAllUserRoles</code></td><td>Callable, admins: re-applies every account's claims from its record.</td></tr>
+        <tr><td><code>fillAccountSources</code></td><td>Callable, admins: gives every record with no <code>by</code> the value <code>unknown</code>, so <strong>People</strong> finds it. The users page calls it by itself, once, the first time it lists people and finds such records.</td></tr>
         <tr><td><code>onUserRoleChange</code></td><td>On every record write: applies the default role to a sign-up, and keeps the claims in step with the role and the block.</td></tr>
         <tr><td><code>onUserCreated</code>, <code>onUserCreateWelcomeEmail</code></td><td>On a new record: the email lookup, the admin alert (not for an app account) and <code>user.signed_up</code> event, and the welcome email.</td></tr>
         <tr><td><code>onUserDeleted</code></td><td>On a deleted record: the cleanup above.</td></tr>
@@ -120,6 +122,8 @@
       <tbody>
         <tr><td>A new admin still sees "unauthorized"</td><td>Their token has the old claims. Signing out and in again refreshes it.</td></tr>
         <tr><td>Claims look wrong on many accounts</td><td>Each person's claims are set again from their record the next time they open the site signed in. To re-apply every account at once, call the <code>syncAllUserRoles</code> callable while signed in as an admin; there is no button for it.</td></tr>
+        <tr><td><strong>People</strong> leaves out someone who is in <strong>All</strong></td><td>Their record has no <code>by</code>: it was made before Arc CMS recorded how an account was made, and Firestore leaves such a record out. The page fixes this itself with <code>fillAccountSources</code>; if it stays, deploy the functions and choose People again.</td></tr>
+        <tr><td>People or App accounts shows nothing, and the browser console asks for an index</td><td>The indexes for these filters are in <code>firestore.indexes.json</code>: deploy them (<code>firebase deploy --only firestore:indexes</code>) and wait for them to build. Sorting by another column than Joined needs an index of its own, as it does with Detached accounts.</td></tr>
         <tr><td>"For your security, sign in again, then delete your account."</td><td>The last sign-in is more than 10 minutes old. Press Sign in again, then delete.</td></tr>
         <tr><td>An admin has no Delete account section</td><td>Admins cannot delete themselves. Another admin deletes them under Users.</td></tr>
         <tr><td>Deleted a user, but their sign-in still exists</td><td>The record was marked <code>host</code> or <code>shared</code>: the sign-in belongs to another app and is kept, without Arc CMS claims.</td></tr>

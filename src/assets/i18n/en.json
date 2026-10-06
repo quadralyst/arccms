@@ -1216,7 +1216,11 @@
       "show_detached": "Detached accounts",
       "show_all": "All users",
       "detached_hint": "Accounts whose only email or phone number was moved to another account. They are kept and cannot sign in.",
-      "app_account": "App account"
+      "app_account": "App account",
+      "kind_filter": "Show",
+      "kind_all": "All",
+      "kind_people": "People",
+      "kind_app": "App accounts"
     },
     "audience": {
       "contacts": {

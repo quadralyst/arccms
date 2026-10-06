@@ -63,5 +63,24 @@ export const COMPONENT_NAME: string = 'Users';
  * (`by: 'app'`, docs/app/app-accounts.html).
  */
 export function isAppAccount(user: { by?: unknown } | null | undefined): boolean {
-    return user?.by === 'app';
+    return user?.by === APP_ACCOUNT_SOURCE;
+}
+
+/** The `by` an app account has. */
+export const APP_ACCOUNT_SOURCE = 'app';
+
+/** Which accounts the users list shows: everyone, only people, or only app accounts. */
+export type AccountKind = 'all' | 'people' | 'app';
+
+export const ACCOUNT_KINDS: readonly AccountKind[] = ['all', 'people', 'app'];
+
+/**
+ * The query conditions for a kind of account. People are the records whose `by` is
+ * anything but `app`. Firestore leaves out a record with no `by` at all, so older
+ * records are given one first (fillAccountSources, UsersComponent.checkOlderAccounts).
+ */
+export function accountKindConditions(kind: AccountKind): Array<{ field: string; operator: '==' | '!='; value: string }> {
+    if (kind === 'people') return [{ field: 'by', operator: '!=', value: APP_ACCOUNT_SOURCE }];
+    if (kind === 'app') return [{ field: 'by', operator: '==', value: APP_ACCOUNT_SOURCE }];
+    return [];
 }
