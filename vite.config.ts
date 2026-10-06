@@ -14,6 +14,7 @@ import { oneBuildAtATime } from './scripts/vite-build-order';
 import { arcSite } from './scripts/vite-arc-site';
 import { environmentFor, environmentSwap } from './scripts/arc-environment.mjs';
 import { routeCode } from './scripts/vite-route-code';
+import { pwaWorkbox } from './scripts/pwa-workbox';
 
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
@@ -23,10 +24,9 @@ const features = resolveFeatures(CUSTOM_FEATURES);
 // on when the features ask for it.
 const pwa = resolvePwaConfig(CUSTOM_PWA, features.has('pwa'));
 const pwaIcon = PWA_ICON_CANDIDATES.find((path) => existsSync(resolve(path))) ?? DEFAULT_PWA_ICON;
-// Which screens' code the service worker stores ahead (src/custom/pwa.ts routeCode,
-// specs/app-route-code-spec.md). 'visited', the default, keeps the settings below as they were.
+// Which code files the service worker stores up front (src/custom/pwa.ts routeCode,
+// specs/app-route-code-spec.md): with 'visited', the default, what every page starts with.
 const storedCode = routeCode(pwa.routeCode);
-const storesRouteCode = pwa.enabled && pwa.routeCode !== 'visited';
 
 // The Firebase project this build talks to (specs/app-project-settings-spec.md): with
 // ARC_PROJECT=<alias or id>, that project's web settings; without it, the environment
@@ -161,7 +161,7 @@ export default defineConfig(({ mode }) => {
       // Browser build only: Analog also builds the server bundle with these plugins,
       // and the PWA plugin skips the service worker when it last saw a server build.
       appleLinks(),
-      ...(storesRouteCode ? [storedCode.recorder] : []),
+      ...(pwa.enabled ? [storedCode.recorder] : []),
       ...clientOnly(VitePWA({
         disable: !pwa.enabled,
         // Never swap versions under someone: the update bar asks first (PwaService).
@@ -191,71 +191,11 @@ export default defineConfig(({ mode }) => {
           // The icon lives outside public/; write the generated icons to the site root.
           integration: { publicDir: resolve(dirname(pwaIcon)), outDir: resolve('dist/client') },
         },
-        workbox: {
-          // Up front, only the files every page needs; the rest is stored the
-          // first time it loads (below), which spares mobile data. With routeCode
-          // 'app' or 'all', also the code of those screens, chosen from the build's
-          // own chunk graph.
-          globPatterns: storesRouteCode ? ['**/*.{css,woff2}', 'assets/**/*.js'] : ['**/*.{css,woff2}', 'assets/index-*.js'],
-          ...(storesRouteCode ? { manifestTransforms: [storedCode.transform] } : {}),
-          globIgnores: ['**/*.map'],
-          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-          // The SPA shell (copied to __shell.html after the build): what opens offline.
-          // Versioned by index.html (the same file), which names every hashed
-          // code file: a build that changes nothing leaves the service worker
-          // as it is, so people are asked to update only when something changed.
-          templatedURLs: { '/__shell.html': ['index.html'] },
-          navigateFallback: null,
-          cleanupOutdatedCaches: true,
-          runtimeCaching: [
-            {
-              // Pages: always the network first, so published content is never
-              // stale; offline, the last copy, else the shell.
-              urlPattern: ({ request, url }) => request.mode === 'navigate' && !url.pathname.startsWith('/__/'),
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'arc-pages',
-                networkTimeoutSeconds: 4,
-                expiration: { maxEntries: 50 },
-                precacheFallback: { fallbackURL: '/__shell.html' },
-              },
-            },
-            {
-              // Built code and styles: the name carries a hash of the content
-              // (index-C0k4xnXa.js), so a stored copy is always right.
-              urlPattern: ({ url, sameOrigin }) => sameOrigin && /-[\w-]{8}\.(?:js|css|woff2?)$/.test(url.pathname),
-              handler: 'CacheFirst',
-              options: { cacheName: 'arc-code', expiration: { maxEntries: 300, maxAgeSeconds: 30 * 24 * 60 * 60 } },
-            },
-            {
-              // Files from public/ keep their name across builds: use the stored
-              // copy, and fetch the new one for next time.
-              urlPattern: ({ url, sameOrigin }) => sameOrigin && /\.(?:js|css|woff2?)$/.test(url.pathname),
-              handler: 'StaleWhileRevalidate',
-              options: { cacheName: 'arc-files', expiration: { maxEntries: 60 } },
-            },
-            {
-              // Images, but never a person's own files (`users/...` in Storage: a
-              // feedback screenshot, a private upload), which would stay on a shared
-              // device after sign-out; and only real answers (200), since an opaque
-              // cross-site answer takes megabytes of the device's quota (review F).
-              urlPattern: ({ request, url }) => request.destination === 'image'
-                && !(url.hostname === 'firebasestorage.googleapis.com'
-                  && /\/o\/([^/]+\/)?users\//.test(decodeURIComponent(url.pathname))),
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'arc-images',
-                cacheableResponse: { statuses: [200] },
-                expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 },
-              },
-            },
-            {
-              urlPattern: ({ url }) => /^(fonts\.(googleapis|gstatic)\.com|cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)$/.test(url.hostname),
-              handler: 'CacheFirst',
-              options: { cacheName: 'arc-cdn', expiration: { maxEntries: 60, maxAgeSeconds: 365 * 24 * 60 * 60 } },
-            },
-          ],
-        },
+        // What the service worker stores and how it answers (scripts/pwa-workbox.ts).
+        workbox: pwaWorkbox({
+          transform: storedCode.transform,
+          navigationTimeoutSeconds: pwa.navigationTimeoutSeconds,
+        }),
       })),
       // Only the browser bundle is built (ssr is off below). If server rendering is
       // ever turned back on, the browser and server bundles are built one after the

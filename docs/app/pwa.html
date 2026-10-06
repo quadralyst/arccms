@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Make it installable | Arc CMS docs</title>
   <meta name="description" content="Turn your app into an installable web app: switch on the pwa feature, name it, give it an icon, test it, and know the way to the app stores.">
-  <meta name="docs:sources" content="src/custom/pwa.ts, src/custom/features.ts, src/app/core/pwa, src/shared/components/install-prompt, vite.config.ts, functions/src/pwa">
+  <meta name="docs:sources" content="src/custom/pwa.ts, src/custom/features.ts, src/app/core/pwa, src/shared/components/install-prompt, vite.config.ts, scripts/pwa-workbox.ts, functions/src/pwa">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/pwa.html">
@@ -118,6 +118,13 @@ export default class LockComponent {
       </tbody>
     </table>
     <p>The build prints what it stores ("PWA: 110 code files, 3.8 MB stored ...") and warns above 15 MB. Your own pages add to the sizes above. Data is a separate matter: to show data offline too, turn on the offline cache (see <a href="offline.html">Keep working offline</a>).</p>
+
+    <h3 id="start-offline-after-an-update">Start offline after an update</h3>
+    <p>The service worker keeps a copy of each page opened, for offline starts. After an update, the copies made by the old version point at code files the update removed, so they would open blank. Arc CMS checks a stored page before it opens it: if a code file it starts with is no longer on the device, the new version's app opens instead, at the same address. Published pages, which use no app code, open from their stored copy as before. A screen whose code was never stored is the case below.</p>
+    <p>A page waits 4 seconds for the network before it uses a stored copy. On a network without internet, such as a kiosk on a closed Wi-Fi, every start waits that long. Lower it in <code>src/custom/pwa.ts</code>, from 1 to 30 seconds:</p>
+    <pre><code>export const CUSTOM_PWA: Partial&lt;PwaConfig&gt; = {
+    navigationTimeoutSeconds: 2,
+};</code></pre>
 
     <h3>When a screen's code is missing anyway</h3>
     <p>Without the PWA, or with a screen that was not stored, a tab left open across a deploy can still meet a missing code file. Arc CMS then loads the address the person asked for afresh, so the tap opens that screen in the new version. If that fails as well within 10 seconds, a short message with a <strong>Reload</strong> button shows instead of trying again. On a page with <code>data: { pwaUpdate: 'app' }</code>, Arc CMS never reloads: <code>StaleCodeService</code> (<code>src/app/core/version/stale-code.service.ts</code>) sets <code>stale()</code>, and your page decides when to call <code>reload()</code>, as it does for updates.</p>

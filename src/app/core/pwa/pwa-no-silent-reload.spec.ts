@@ -20,7 +20,13 @@ describe('no silent reloads', () => {
     it('asks first: the service worker waits for the person (prompt mode, no skipWaiting)', () => {
         const config = readFileSync(join(ROOT, 'vite.config.ts'), 'utf8');
         expect(config).toMatch(/registerType:\s*'prompt'/);
-        for (const word of ['skipWaiting', 'clientsClaim', 'autoUpdate']) expect(config, word).not.toContain(word);
+        // The service worker's own settings live in scripts/pwa-workbox.ts.
+        const workbox = readFileSync(join(ROOT, 'scripts/pwa-workbox.ts'), 'utf8');
+        expect(config).toContain('workbox: pwaWorkbox({');
+        for (const word of ['skipWaiting', 'clientsClaim', 'autoUpdate']) {
+            expect(config, word).not.toContain(word);
+            expect(workbox, word).not.toContain(word);
+        }
     });
 
     it('applies an update only from the update bar: no other core file calls applyUpdate() or the update() alias', () => {

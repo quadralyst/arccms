@@ -27,9 +27,12 @@ export function isAdminPage(facade: string | null): boolean {
     return path.includes('/src/app/pages/admin/') || path.endsWith('/src/app/pages/admin.page.ts');
 }
 
-/** The code files to store ahead for a mode; `visited` stores none beyond today's. */
+/**
+ * The code files to store ahead for a mode. `visited` stores what every page starts with:
+ * the main bundle and what it imports statically, so the app shell can always start
+ * offline (specs/app-pwa-offline-start-spec.md).
+ */
 export function routeCodeFiles(chunks: readonly CodeChunk[], mode: RouteCodeMode): Set<string> {
-    if (mode === 'visited') return new Set();
     if (mode === 'all') return new Set(chunks.map((c) => c.file));
     const byFile = new Map(chunks.map((c) => [c.file, c]));
     const keep = new Set<string>();
@@ -41,6 +44,7 @@ export function routeCodeFiles(chunks: readonly CodeChunk[], mode: RouteCodeMode
         if (!chunk) continue;
         keep.add(file);
         queue.push(...chunk.imports);
+        if (mode === 'visited') continue;
         for (const lazy of chunk.dynamicImports) {
             if (!isAdminPage(byFile.get(lazy)?.facade ?? null)) queue.push(lazy);
         }
